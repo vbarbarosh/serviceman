@@ -29,13 +29,13 @@ in step 2.
 ```
 sudo apt install -y git tmux
 git clone https://github.com/vbarbarosh/ai-box ~/ai-box
-sudo ~/ai-box/bin/configure
+~/ai-box/bin/configure
 ```
 
 `bin/configure` installs podman and what rootless podman needs, loads `fuse` and `tun`, and
-grants your user the subuids; under `sudo` it grants them to you, not to root. Running it
-again changes nothing and says what is already there. `~/ai-box/bin/missings` lists what is
-still missing without changing anything.
+grants your user the subuids. Run it as yourself, not under `sudo`: it asks for your password
+once, and only when something is missing. Running it again changes nothing and says what is
+already there. `~/ai-box/bin/self-check` lists what is still missing without changing anything.
 
 ## 2. Build the image
 
