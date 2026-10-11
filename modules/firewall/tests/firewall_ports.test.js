@@ -67,6 +67,13 @@ test('while the firewall is off, a port says nothing stands in its way, and what
     assert.deepStrictEqual(firewall_ports(items, PUBLIC, {installed: false, rules: []}).map(v => v.verdict.text), ['no ufw on this machine', 'no ufw on this machine']);
     // A machine with no public address: every address reaches a network, not the internet
     assert.deepStrictEqual(firewall_ports(items, ['192.168.1.5'], off).map(v => v.reach.exposure), ['network', 'network']);
+    // mDNS, WS-Discovery and a broadcast listener: groups of the network around, not the internet
+    const groups = [socket('udp', '224.0.0.251', 5353, 'chrome'), socket('udp', '192.168.1.5', 3702, 'wsdd'), socket('udp', '239.255.255.250', 3702, 'wsdd'), socket('udp', 'ff02::c', 3702, 'wsdd'), socket('udp', '255.255.255.255', 67, 'dhcpd')];
+    assert.deepStrictEqual(firewall_ports(groups, PUBLIC, off).map(v => [v.port, v.reach.exposure, v.reach.text]), [
+        [67, 'network', 'a broadcast'],
+        [3702, 'network', 'a private network'],
+        [5353, 'network', 'a multicast group'],
+    ]);
 });
 
 function socket(proto, address, port, name)

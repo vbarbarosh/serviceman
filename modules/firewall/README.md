@@ -69,7 +69,7 @@ addresses and the firewall:
   exposed of its addresses; the most exposed come first.
 - **How far its address reaches:** the internet (a public address, or every address of a
   machine that has a public one), a network (private, link-local, the tailnet's
-  `100.64.0.0/10`), or this machine only (loopback).
+  `100.64.0.0/10`, a multicast group or a broadcast), or this machine only (loopback).
 - **What the firewall does:** the first rule for the port (its protocol or both, the port in
   its list or range, a rule for every port, ssh by name for 22) that holds for everyone decides,
   as ufw goes by the first match; rules for one source are said beside it; with none, the

@@ -118,6 +118,10 @@ function port_reach(address, addresses)
     if ((kind === 'private') || (kind === 'link')) {
         return {exposure: 'network', text: ((kind === 'link') ? 'the link-local network' : 'a private network')};
     }
+    // A group's datagrams are sent on the network around; routers do not carry them in from the internet
+    if ((kind === 'multicast') || (kind === 'broadcast')) {
+        return {exposure: 'network', text: ((kind === 'multicast') ? 'a multicast group' : 'a broadcast')};
+    }
     if ((addresses === null) || (addresses.length === 0)) {
         return {exposure: 'open', text: 'every address'};
     }
@@ -126,7 +130,8 @@ function port_reach(address, addresses)
 }
 
 // What kind of address a socket is bound to, from the text ss prints: every address, this
-// machine alone, a tailnet, a private or link-local network, or the internet
+// machine alone, a tailnet, a private or link-local network, a multicast group or a broadcast,
+// or the internet
 function ip_kind(text)
 {
     let address = String(text).toLowerCase().replace(/%.*$/, '');
@@ -155,6 +160,12 @@ function ip_kind(text)
         if ((a === 169) && (b === 254)) {
             return 'link';
         }
+        if ((a >= 224) && (a <= 239)) {
+            return 'multicast';
+        }
+        if (address === '255.255.255.255') {
+            return 'broadcast';
+        }
         return 'public';
     }
     if (address.startsWith('fd7a:115c:a1e0:')) {
@@ -165,6 +176,9 @@ function ip_kind(text)
     }
     if (/^fe[89ab]/.test(address)) {
         return 'link';
+    }
+    if (address.startsWith('ff')) {
+        return 'multicast';
     }
     return 'public';
 }
