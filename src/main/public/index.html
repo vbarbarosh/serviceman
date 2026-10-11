@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>serviceman</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>&#9673;</text></svg>">
+<link rel="stylesheet" href="/vendor/xterm.css">
+<link rel="stylesheet" href="/serviceman.css">
+<link rel="stylesheet" href="/modules/docker/docker.css">
+<link rel="stylesheet" href="/modules/file_manager/file_manager.css">
+<link rel="stylesheet" href="/modules/terminal/terminal.css">
+<link rel="stylesheet" href="/modules/firewall/firewall.css">
+<link rel="stylesheet" href="/modules/volumes/volumes.css">
+<script>
+document.documentElement.dataset.theme = (localStorage.getItem('serviceman.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+// The chosen skin goes on before the first paint, after serviceman.css so it overrides it
+(function () {
+    const skin = localStorage.getItem('serviceman.skin');
+    if ((skin === null) || (skin === '')) {
+        return;
+    }
+    const link = document.createElement('link');
+    link.id = 'skin-css';
+    link.rel = 'stylesheet';
+    link.href = `/skins/${encodeURIComponent(skin)}/skin.css`;
+    document.head.appendChild(link);
+}());
+</script>
+<script type="importmap">
+{
+    "imports": {
+        "codemirror": "/vendor/codemirror.mjs",
+        "docker/": "/modules/docker/",
+        "file_manager/": "/modules/file_manager/",
+        "firewall/": "/modules/firewall/",
+        "terminal/": "/modules/terminal/",
+        "volumes/": "/modules/volumes/",
+        "vue": "/vendor/vue.esm-browser.prod.js",
+        "xterm": "/vendor/xterm.mjs",
+        "xterm-addon-fit": "/vendor/addon-fit.mjs"
+    }
+}
+</script>
+<script src="/vendor/ace/ace.js" defer></script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/serviceman.js"></script>
+</body>
+</html>

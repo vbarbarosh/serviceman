@@ -1,0 +1,166 @@
+/* The Volumes module's own rules. The host page gives the colours (--panel, --line, --muted,
+   --fg, --accent) and the classes the module shares with it: card, list-head, list-acts,
+   list-table, wide-scroll, dot, muted, bad, primary, link. */
+
+.vol {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-top: 1.5rem;
+}
+
+.vol > p {
+    margin: 0;
+}
+
+.vol h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+/* The head wraps before its buttons break in two, on a phone */
+.vol .list-head {
+    flex-wrap: wrap;
+}
+
+.vol .list-acts button {
+    white-space: nowrap;
+}
+
+/* A long name or folder ends in an ellipsis inside its column; the whole of it is the title */
+.vol-cut {
+    display: inline-block;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    white-space: nowrap;
+}
+
+.vol-numbers {
+    font-variant-numeric: tabular-nums;
+}
+
+.vol-state {
+    display: inline-flex;
+    gap: .45rem;
+    align-items: center;
+}
+
+.vol .dot {
+    display: inline-block;
+}
+
+/* A cell's second line: what the state waits for, what the file takes on the disk */
+.vol-line {
+    display: block;
+}
+
+.vol-acts {
+    text-align: right;
+}
+
+.vol-acts button + button {
+    margin-left: .4rem;
+}
+
+/* A row's form or refusal, under it, across the table */
+table.list-table tr.vol-sub td {
+    white-space: normal;
+}
+
+.vol-grow,
+.vol-said {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+}
+
+.vol-grow input {
+    width: 7rem;
+}
+
+.vol-grow input.vol-pass {
+    width: 16rem;
+    max-width: 100%;
+}
+
+.vol-said .bad,
+.vol-said .muted {
+    flex: 1;
+    overflow-wrap: anywhere;
+}
+
+.vol-users,
+.vol-notes {
+    margin: .4rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.vol-users li,
+.vol-notes li {
+    overflow-wrap: anywhere;
+}
+
+.vol-notes li + li {
+    margin-top: .25rem;
+}
+
+.vol-notes b,
+.vol-users code {
+    margin-right: .45rem;
+}
+
+/* New volume: the host's form grid, in a card above the list */
+.vol-new {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+    padding: 1rem 1.1rem;
+}
+
+.vol-new p {
+    margin: .3rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.vol-new .vol-again {
+    margin-top: .4rem;
+}
+
+.vol-new-said {
+    overflow-wrap: anywhere;
+}
+
+.vol-new-acts {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+}
+
+/* On a phone each label goes above its field */
+@media (max-width: 560px) {
+    .vol-new .grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .3rem;
+    }
+
+    .vol-new .grid > label {
+        padding-top: .5rem;
+    }
+}
+
+/* A deleted row's line above the list: Undo while it waits, then what was kept */
+.vol-undo {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    padding: .7rem .9rem;
+}
+
+.vol-undo-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}

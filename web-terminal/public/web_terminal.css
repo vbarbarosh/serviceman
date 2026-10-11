@@ -1,0 +1,116 @@
+/* The colours of serviceman's own pages, light and dark */
+:root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #e2e6ea;
+    --accent: #2f6fed;
+    --hover: #eef2f7;
+    --bad: #c0392b;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #101216;
+    --panel: #171a1f;
+    --fg: #e8eaed;
+    --muted: #939aa4;
+    --line: #272b33;
+    --accent: #6ea0ff;
+    --hover: #1e222a;
+    --bad: #ff7b6b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.4 system-ui, sans-serif;
+}
+
+/* The terminal is the page: its title row, the note, then all the height there is */
+#page {
+    height: 100%;
+    padding: .75rem 1rem;
+}
+
+#page > p {
+    margin: .25rem 0 0;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+header nav {
+    display: flex;
+    flex: 1;
+    gap: .6rem;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+header nav a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+header nav a.now {
+    color: var(--fg);
+    font-weight: 600;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.bad {
+    color: var(--bad);
+}
+
+button {
+    font: inherit;
+    color: var(--fg);
+    cursor: pointer;
+}
+
+button.link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+}
+
+button.theme {
+    padding: .2rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    transition: background-color .15s;
+}
+
+button.theme:hover {
+    background: var(--hover);
+}

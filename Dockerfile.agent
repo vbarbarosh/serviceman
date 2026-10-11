@@ -1,0 +1,24 @@
+# The serviceman agent as an image: one file, node, and a docker client for the containers
+# it will be asked to run.
+#
+#     docker build -f Dockerfile.agent -t serviceman-agent .
+#     docker run -d --name serviceman-agent --restart always --network host \
+#         -v /var/run/docker.sock:/var/run/docker.sock \
+#         -v /:/host:ro -e SERVICEMAN_DIR=/host \
+#         -e SERVICEMAN_URL=https://serviceman.example.com \
+#         -e SERVICEMAN_TOKEN=<secret> \
+#         serviceman-agent
+#
+# --network host puts the agent on the loopback where docker publishes the ports, which is
+# where it reaches the containers it starts.
+
+FROM node:24-alpine AS build
+WORKDIR /src
+COPY package.json ./package.json
+COPY src ./src
+RUN node src/agent/bin/build /serviceman-agent.js
+
+FROM node:24-alpine
+RUN apk add --no-cache docker-cli
+COPY --from=build /serviceman-agent.js /usr/local/bin/serviceman-agent.js
+ENTRYPOINT ["node", "/usr/local/bin/serviceman-agent.js"]

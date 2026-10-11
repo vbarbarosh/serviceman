@@ -1,0 +1,449 @@
+/* The File Manager's own rules. The host page gives the colours (--bg, --panel, --fg,
+   --muted, --line, --hover, --accent) and its usual classes: card, chip, primary, danger,
+   muted, bad, list-tools, list-table, meter. */
+
+/* The parts one under another, each keeping its own height */
+.fm {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+}
+
+.fm > * {
+    flex: none;
+}
+
+.fm > p {
+    margin: 0;
+}
+
+/* The file manager: the way here, one bar of actions, the list, and what is on its way */
+.fm-path {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    padding: .3rem;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--panel);
+}
+
+button.fm-icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+}
+
+button.fm-icon:hover {
+    color: var(--fg);
+}
+
+.fm-crumbs {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: .15rem;
+    align-items: center;
+    min-width: 0;
+    min-height: 2rem;
+    overflow-x: auto;
+    border-right: 0;
+    background: none;
+    white-space: nowrap;
+    cursor: text;
+}
+
+button.fm-crumb {
+    flex: none;
+    padding: .15rem .4rem;
+    border-color: transparent;
+    background: none;
+    color: var(--accent);
+}
+
+button.fm-crumb:hover {
+    background: var(--hover);
+}
+
+button.fm-crumb.on,
+span.fm-crumb {
+    color: var(--fg);
+    font-weight: 600;
+}
+
+span.fm-crumb {
+    padding: .15rem .4rem;
+}
+
+input.fm-typed {
+    flex: 1;
+    min-width: 0;
+    padding: .3rem .5rem;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+    font: .9rem ui-monospace, SFMono-Regular, Menlo, monospace;
+    outline: 0;
+}
+
+.fm-bar {
+    min-height: 2.6rem;
+    padding: .3rem .5rem;
+    border-radius: 9px;
+}
+
+.fm-bar.picked {
+    background: var(--hover);
+}
+
+.fm-bar input:not([type="search"]) {
+    width: 18rem;
+    padding: .3rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.fm-bar input:not([type="search"]):focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.fm-bar .bad {
+    white-space: normal;
+}
+
+p.fm-note {
+    margin: 0;
+}
+
+.fm-list {
+    position: relative;
+    overflow: auto;
+}
+
+.fm-list.over {
+    border-color: var(--accent);
+}
+
+.fm-table th.fm-pick,
+.fm-table td.fm-pick {
+    width: 2.4rem;
+    padding-right: 0;
+}
+
+.fm-table th.size,
+.fm-table td.size {
+    width: 8rem;
+    text-align: right;
+}
+
+.fm-table th.mtime,
+.fm-table td.mtime {
+    width: 10rem;
+}
+
+button.fm-sort {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+button.fm-sort:hover,
+button.fm-sort.on {
+    background: none;
+    color: var(--fg);
+}
+
+.fm-table tr.chosen td {
+    background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.fm-table td.name b {
+    font-weight: 600;
+}
+
+.fm-table svg.fm-dir {
+    color: var(--accent);
+}
+
+.fm-table svg.fm-file {
+    color: var(--muted);
+}
+
+.fm-table td.fm-empty {
+    padding: 2rem .9rem;
+    text-align: center;
+    white-space: normal;
+}
+
+.fm-drop {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--panel) 85%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+    pointer-events: none;
+}
+
+p.fm-foot {
+    margin: 0;
+    font-size: .9rem;
+}
+
+.fm-copies {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 16rem 26rem;
+    gap: .4rem .8rem;
+    padding: .7rem .9rem;
+}
+
+.fm-copies > .list-head {
+    grid-column: 1 / -1;
+}
+
+/* One grid for the whole card, so the names take the room left and the bars line up */
+.fm-copy {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    font-size: .9rem;
+}
+
+.fm-copy code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fm-copy .meter {
+    max-width: none;
+    margin: 0;
+}
+
+.fm-copy > span:not(.meter):only-of-type {
+    grid-column: 2 / 4;
+}
+
+/* The figures change every second and a retry says more: one line in a fixed column, cut
+   short with the whole text on hover, so no bar moves and no row grows */
+.fm-copy > span:not(.meter),
+.fm-copy-acts > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.fm-copy > .fm-copy-acts {
+    display: flex;
+    gap: .35rem;
+    align-items: baseline;
+}
+
+/* Cancel stays at the column's end, wherever the text before it stops */
+.fm-copy-acts > span {
+    flex: 1 1 auto;
+}
+
+.fm-copy-acts > button {
+    flex: none;
+}
+
+/* A service as a column of cards: a line that says how each part stands, a form in its place
+   when it is opened */
+.svc-sec {
+    padding: 0;
+}
+
+.svc-sec.open {
+    border-color: var(--accent);
+}
+
+.svc-sec.wrong {
+    border-color: var(--bad);
+}
+
+.svc-head {
+    display: flex;
+    gap: .9rem;
+    align-items: baseline;
+    padding: .75rem 1rem;
+}
+
+.svc-head > b {
+    flex: none;
+    width: 10rem;
+}
+
+.svc-head .list-right {
+    align-self: center;
+    flex: none;
+}
+
+.svc-sum {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem .9rem;
+    min-width: 0;
+    color: var(--muted);
+}
+
+.svc-sum > span {
+    overflow-wrap: anywhere;
+}
+
+.svc-warn {
+    color: var(--busy);
+}
+
+.form .svc-body {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    padding: .25rem 1rem 1rem;
+}
+
+.svc-body .line > input:not(.short):not(.tiny) {
+    flex: 1;
+}
+
+.svc-foot {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: .7rem 1rem;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    border-radius: 0 0 10px 10px;
+}
+
+.svc-create {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: .7rem 0;
+    background: var(--bg);
+}
+
+.svc-json pre {
+    margin: .5rem 0 0;
+}
+
+.svc-status {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: 1rem;
+}
+
+.svc-status p,
+.svc-status pre {
+    margin: 0;
+}
+
+.svc-status dl {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    margin: 0;
+}
+
+.svc-status .meter {
+    max-width: none;
+    margin: 0;
+}
+
+.svc-host + .svc-host::before,
+.svc-copy + .svc-copy::before {
+    content: " · ";
+    color: var(--muted);
+}
+
+.svc-copy .dot {
+    display: inline-block;
+    margin-right: .3rem;
+}
+
+.pill.starting {
+    background: color-mix(in srgb, var(--busy) 16%, transparent);
+    color: var(--busy);
+}
+
+@media (max-width: 40rem) {
+    .svc-head {
+        flex-wrap: wrap;
+    }
+
+    .svc-head > b {
+        width: auto;
+    }
+
+    .form .svc-body,
+    .svc-status dl {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* On a phone the name has a line of its own, the bar and figures under it */
+    .fm-copies {
+        grid-template-columns: 5rem minmax(0, 1fr);
+    }
+
+    .fm-copy > code,
+    .fm-copy > span:not(.meter):only-of-type {
+        grid-column: 1 / -1;
+    }
+}
+
+/* The file manager's editor: the file in place of the list, as tall as the page allows */
+.fm > .fm-editor {
+    flex: 1 1 auto;
+    min-height: 20rem;
+    overflow: hidden;
+}
+
+.fm-editor .cm-editor {
+    height: 100%;
+    border-radius: 10px;
+}
+
+.fm-editor-msg {
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.fm-editor-msg p {
+    margin: .3rem 0;
+}
+
+.fm-dirty {
+    color: var(--busy);
+    font-size: .9rem;
+}
+
+.fm-bar select {
+    padding: .25rem .4rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}

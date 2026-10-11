@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal</title>
+<link rel="stylesheet" href="/_/vendor/xterm.css">
+<link rel="stylesheet" href="/_/terminal/terminal.css">
+<link rel="stylesheet" href="/_/app/web_terminal.css">
+<script>
+try {
+    document.documentElement.dataset.theme = (localStorage.getItem('web-terminal.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+}
+catch {
+    document.documentElement.dataset.theme = 'light';
+}
+</script>
+<script type="importmap">
+{
+    "imports": {
+        "terminal/": "/_/terminal/",
+        "vue": "/_/vendor/vue.esm-browser.prod.js",
+        "xterm": "/_/vendor/xterm.mjs",
+        "xterm-addon-fit": "/_/vendor/addon-fit.mjs"
+    }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/_/app/web_terminal.js"></script>
+</body>
+</html>

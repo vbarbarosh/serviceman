@@ -1,0 +1,86 @@
+# Standalone edge collector. It handles both the grouped format documented in
+# logs.md and stdout/stderr from every local Docker container using json-file.
+extensions:
+  docker_observer:
+    endpoint: unix:///var/run/docker.sock
+    include_all_containers: true
+
+receivers:
+  file_log/grouped_text:
+    include:
+      - /var/log-input/*.log
+    start_at: beginning
+    include_file_name: true
+    include_file_path: true
+    operators:
+      - id: parse_grouped_line
+        type: regex_parser
+        regex: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<group_uid>[^\]]+)\]\[(?P<subject>[^\]]+)\](?: (?P<description>.*))?$'
+        on_error: send_quiet
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: strptime
+          layout: '%Y/%m/%d %H:%M:%S'
+          # logs.md has no timezone. Change this if the producer writes local time.
+          location: UTC
+      - id: parse_spawn_parent
+        type: regex_parser
+        parse_from: attributes.description
+        if: 'attributes.subject == "spawn"'
+        regex: '^parent=(?P<parent_group_uid>[^\s]+)(?:\s.*)?$'
+        on_error: send_quiet
+
+  # docker_observer creates one of these receivers for each running container.
+  # port == 0 selects its single port-less endpoint, avoiding duplicates for
+  # containers that publish several ports. The observability stack is excluded
+  # to avoid collecting its own output.
+  receiver_creator/docker:
+    watch_observers: [docker_observer]
+    receivers:
+      file_log/docker:
+        rule: 'type == "container" && port == 0 && name != "clickstack-playground-log-agent-1" && name != "clickstack-playground-clickstack-1" && name != "clickstack-playground-log-ui-1"'
+        config:
+          include:
+            - '/var/lib/docker/containers/`container_id`/`container_id`-json.log'
+          start_at: end
+          include_file_name: false
+          include_file_path: true
+          operators:
+            - id: parse_docker_json
+              type: container
+              format: docker
+              add_metadata_from_filepath: false
+        resource_attributes:
+          service.name: '`name`'
+          container.id: '`container_id`'
+          container.name: '`name`'
+          container.image.name: '`image`'
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+  resource/grouped_text:
+    attributes:
+      - key: service.name
+        value: grouped-text-log
+        action: upsert
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp_http/clickstack:
+    endpoint: http://clickstack:4318
+
+service:
+  extensions: [docker_observer]
+  pipelines:
+    logs/grouped_text:
+      receivers: [file_log/grouped_text]
+      processors: [memory_limiter, resource/grouped_text, batch]
+      exporters: [otlp_http/clickstack]
+    logs/docker:
+      receivers: [receiver_creator/docker]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/clickstack]

@@ -1,0 +1,51 @@
+<clickhouse>
+    <!-- Passwordless user for the local nginx proxy only. It can read the log
+         table but cannot insert, mutate, manage users, or change settings. -->
+    <profiles>
+        <log_ui_readonly>
+            <readonly>1</readonly>
+            <max_execution_time>30</max_execution_time>
+            <max_threads>4</max_threads>
+        </log_ui_readonly>
+    </profiles>
+
+    <users>
+        <log_ui>
+            <password></password>
+            <networks>
+                <ip>10.0.0.0/8</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>192.168.0.0/16</ip>
+            </networks>
+            <profile>log_ui_readonly</profile>
+            <quota>default</quota>
+            <access_management>0</access_management>
+            <grants>
+                <query>GRANT SELECT ON default.otel_logs</query>
+                <!-- The disk the viewer reports: sizes of every table and the room left, no data -->
+                <query>GRANT SHOW TABLES ON *.*</query>
+                <query>GRANT SELECT(database, table, active, rows, bytes_on_disk, data_uncompressed_bytes, disk_name) ON system.parts</query>
+                <query>GRANT SELECT(name, free_space, total_space) ON system.disks</query>
+            </grants>
+        </log_ui>
+        <!-- The lines endpoint: it inserts into the log table, and turns on the setting that
+             stores a batch sent twice once. ClickStack's materialized views run as whoever
+             inserts: they read otel_logs and write their rollup tables, so those grants are
+             the insert's too. -->
+        <lines>
+            <password></password>
+            <networks>
+                <ip>10.0.0.0/8</ip>
+                <ip>172.16.0.0/12</ip>
+                <ip>192.168.0.0/16</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <access_management>0</access_management>
+            <grants>
+                <query>GRANT INSERT, SELECT, ALTER MODIFY SETTING ON default.otel_logs</query>
+                <query>GRANT INSERT ON default.*</query>
+            </grants>
+        </lines>
+    </users>
+</clickhouse>

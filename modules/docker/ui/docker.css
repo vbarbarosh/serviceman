@@ -1,0 +1,246 @@
+/* The Docker module's own rules. The host page gives the colours (--panel, --line, --muted)
+   and the classes the module shares with it: card, list-head, list-acts, list-table, dot,
+   muted, bad, primary, danger. */
+
+/* The parts one under another, each keeping its own height */
+.dk {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+}
+
+.dk > * {
+    flex: none;
+}
+
+.dk > p {
+    margin: 0;
+}
+
+.dk-group {
+    padding: 0;
+    overflow-x: auto;
+}
+
+.dk-group-head {
+    padding: .6rem .9rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.dk-group-head .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-table {
+    width: 100%;
+}
+
+.dk-table td {
+    vertical-align: middle;
+}
+
+.dk-name {
+    white-space: nowrap;
+}
+
+.dk-name .dot {
+    display: inline-block;
+    margin-right: .45rem;
+    vertical-align: middle;
+}
+
+.dk-name b + .muted {
+    margin-left: .45rem;
+}
+
+/* A long image name is cut, and whole in its title; the status and ports wrap before the row
+   grows past its card */
+.dk-image span {
+    display: inline-block;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+table.list-table td.dk-ports,
+table.list-table td.dk-status {
+    white-space: normal;
+}
+
+.dk-acts {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dk-acts button + button {
+    margin-left: .35rem;
+}
+
+.dk-acts .bad {
+    margin-right: .45rem;
+}
+
+.dk-run {
+    padding: 0;
+    overflow: hidden;
+}
+
+.dk-run .list-head {
+    padding: .6rem .9rem;
+}
+
+.dk-output {
+    max-height: 22rem;
+    margin: 0;
+    padding: .6rem .9rem;
+    border-top: 1px solid var(--line);
+    overflow: auto;
+    font-size: .8rem;
+    white-space: pre-wrap;
+}
+
+/* An opened container: the way back, its name, and which of its two views is shown */
+/* One line whatever the names: the way back keeps its words, a long name and where it is seen
+   are cut, whole in their tooltips */
+.dk-open-head {
+    flex-wrap: nowrap;
+}
+
+.dk-open-head > button {
+    flex: none;
+    white-space: nowrap;
+}
+
+.dk-open-head > b,
+.dk-open-head > .muted {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-open-head > .list-acts {
+    flex: none;
+}
+
+/* The File Manager and the Terminal sit flush under the bar, not padded as pages of their own */
+.dk > .fm,
+.dk > .terminal {
+    padding: 0;
+}
+
+/* The Terminal lays itself out in the height it is given; here that is most of a screen */
+.dk-terminal {
+    height: 34rem;
+}
+
+.dk-tabs .chip .muted {
+    margin-left: .25rem;
+}
+
+.dk-empty {
+    margin: 0;
+    padding: .8rem .9rem;
+}
+
+/* How far a long action is: the bar, and the numbers beside it */
+.dk-progress {
+    display: flex;
+    gap: .8rem;
+    align-items: center;
+    padding: 0 .9rem .7rem;
+}
+
+.dk-progress .meter {
+    flex: 1 1 auto;
+    max-width: none;
+    margin: 0;
+}
+
+/* A long action under way: a ring that turns beside its title */
+.dk-spin {
+    flex: none;
+    width: .9rem;
+    height: .9rem;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: dk-spin .8s linear infinite;
+}
+
+@keyframes dk-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* A long name — a registry path, a list of containers — cut, whole in its tooltip, so a row
+   keeps its buttons in view */
+.dk-cut {
+    display: inline-block;
+    max-width: 26rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    white-space: nowrap;
+}
+
+/* The images, volumes and networks lists fit their card whatever the names: every column but
+   the first has its width, the first takes what is left, and what does not fit is cut */
+table.dk-fixed {
+    table-layout: fixed;
+}
+
+table.dk-fixed td,
+table.dk-fixed th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+table.dk-fixed .dk-cut {
+    max-width: 100%;
+}
+
+table.dk-fixed td.dk-acts {
+    overflow: visible;
+    white-space: normal;
+}
+
+.dk-w-id {
+    width: 7.5rem;
+}
+
+.dk-w-size {
+    width: 5.5rem;
+}
+
+.dk-w-age {
+    width: 6.5rem;
+}
+
+.dk-w-users {
+    width: 11rem;
+}
+
+.dk-w-acts {
+    width: 12rem;
+}
+
+.dk-w-project {
+    width: 10rem;
+}
+
+.dk-w-driver {
+    width: 5.5rem;
+}
+
+.dk-w-subnet {
+    width: 9rem;
+}
+
+.dk-w-net-acts {
+    width: 8rem;
+}

@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+
+const agent_bundle = require('../bundler/agent_bundle');
+const cli = require('@vbarbarosh/node-helpers/src/cli');
+const fs = require('fs');
+const path = require('path');
+
+const VERSION_PATH = path.resolve(__dirname, '..', 'version.json');
+
+const USAGE = `version [patch|minor|record]
+
+Every change to the agent raises its version, kept in src/agent/version.json with the
+fingerprint of the sources it was given for; tests/agent_version.test.js fails while they differ.
+
+  (none)    says the version, and whether the agent changed since it was given
+  patch     a fix: 1.4.2 → 1.4.3
+  minor     something new, or a change in what the agent answers: 1.4.2 → 1.5.0
+  record    keeps the version as it is and records the fingerprint: only after the author
+            raised the major version by hand in version.json
+
+A major version is the author's alone. When it is unclear whether a change is a patch or a
+minor one, ask.
+`;
+
+cli(main);
+
+function main()
+{
+    const part = process.argv[2];
+    const current = JSON.parse(fs.readFileSync(VERSION_PATH, 'utf8'));
+    const sources = agent_bundle.sources_hash();
+    if (part === undefined) {
+        const changed = (current.sources !== sources);
+        console.log(`serviceman-agent ${current.version}${changed ? ' — the agent changed since: bin/agent-version patch or minor' : ''}`);
+        return;
+    }
+    if (part === 'record') {
+        fs.writeFileSync(VERSION_PATH, `${JSON.stringify({version: current.version, sources}, null, 4)}\n`);
+        console.log(`serviceman-agent ${current.version}, fingerprint recorded`);
+        return;
+    }
+    if ((part !== 'patch') && (part !== 'minor')) {
+        console.error(USAGE);
+        process.exitCode = 1;
+        return;
+    }
+    const [major, minor, patch] = current.version.split('.').map(v => parseInt(v, 10));
+    const version = ((part === 'minor') ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`);
+    fs.writeFileSync(VERSION_PATH, `${JSON.stringify({version, sources}, null, 4)}\n`);
+    console.log(`serviceman-agent ${current.version} → ${version}`);
+}

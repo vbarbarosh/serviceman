@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+
+// An apt-get stand-in for the tests: `update` is quick, `upgrade` prints a line a moment and
+// keeps going, so a test can watch one arrive and then stop it where it stands.
+const cli = require('@vbarbarosh/node-helpers/src/cli');
+
+const args = process.argv.slice(2);
+
+cli(main);
+
+function main()
+{
+    // What an upgrade would install, without installing it — the way the agent counts what is
+    // waiting once a run has changed it
+    if (args.includes('-s')) {
+        process.stdout.write('Reading package lists... Done\n');
+        process.stdout.write('Inst demo-one [1.0] (1.1 Ubuntu:22.04/jammy-updates [amd64])\n');
+        process.stdout.write('Inst demo-two [2.0] (2.1 Ubuntu:22.04/jammy-security [amd64])\n');
+        return;
+    }
+
+    if (args[0] === 'update') {
+        process.stdout.write('Hit:1 http://example.test noble InRelease\nReading package lists... Done\n');
+        return;
+    }
+
+    let printed = 0;
+    console.log('Reading package lists... Done');
+    const timer = setInterval(function () {
+        printed++;
+        console.log(`Unpacking demo-package-${printed} ...`);
+        if (printed >= 200) {
+            clearInterval(timer);
+        }
+    }, 100);
+
+    // The way apt goes when a person presses ctrl-c: it stops where it stands and says so
+    process.on('SIGINT', function () {
+        clearInterval(timer);
+        console.log('E: Aborted.');
+        process.exit(130);
+    });
+}

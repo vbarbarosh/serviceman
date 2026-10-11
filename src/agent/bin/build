@@ -1,0 +1,40 @@
+#!/usr/bin/env node
+
+const agent_bundle = require('../bundler/agent_bundle');
+const cli = require('@vbarbarosh/node-helpers/src/cli');
+const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
+const fs = require('fs');
+const path = require('path');
+
+// The committed artifact at the repo root, wherever this is run from
+const DEFAULT_PATH = path.resolve(__dirname, '..', '..', '..', 'serviceman-agent.js');
+
+const USAGE = `build [file]
+
+Writes the agent as one file that runs anywhere node runs. Copy it to a machine that should
+carry services, and run it there:
+
+    node serviceman-agent.js --url https://serviceman.example.com --token <secret>
+
+  file    where to write it (default: serviceman-agent.js at the repo root, - for stdout)
+`;
+
+cli(main);
+
+function main()
+{
+    const argv = process.argv.slice(2);
+    if (argv.includes('--help')) {
+        console.log(USAGE);
+        return;
+    }
+    const text = agent_bundle();
+    if (argv[0] === '-') {
+        process.stdout.write(text);
+        return;
+    }
+    const out = path.resolve((argv[0] === undefined) ? DEFAULT_PATH : argv[0]);
+    fs.writeFileSync(out, text);
+    fs.chmodSync(out, 0o755);
+    console.log(`${out}: ${format_bytes(text.length)}, node and nothing else`);
+}

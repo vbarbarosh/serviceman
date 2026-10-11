@@ -1,0 +1,147 @@
+/* Ledger: the classic structure on warm paper — IBM Plex, dotted leaders in the rail, ruled
+   fact rows, small-caps labels. Falls back to the system faces when the fonts cannot load. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root[data-theme="light"] {
+    --bg: #f6f4ef;
+    --panel: #fffdf8;
+    --fg: #201d18;
+    --muted: #79726a;
+    --line: #e5dfd2;
+    --accent: #9c4f2a;
+    --hover: #efeadf;
+    --run: #337a53;
+    --idle: #a09a90;
+    --busy: #b07c1e;
+    --bad: #a63a2b;
+}
+
+:root[data-theme="dark"] {
+    --bg: #151310;
+    --panel: #1b1915;
+    --fg: #e9e4da;
+    --muted: #97907f;
+    --line: #2a271f;
+    --accent: #d98e5f;
+    --hover: #232019;
+    --run: #57b287;
+    --idle: #6f695e;
+    --busy: #cfa04a;
+    --bad: #e07a63;
+}
+
+body {
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+code,
+pre,
+#log .lines,
+#log header input,
+pre.tail {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+button {
+    border-radius: 6px;
+}
+
+header .brand {
+    border-radius: 0;
+    font-weight: 600;
+}
+
+nav .row {
+    padding: .45rem .9rem;
+}
+
+/* The rail reads as a ledger: name, a dotted leader, the figure at the right edge */
+nav .row .name {
+    display: flex;
+    align-items: baseline;
+}
+
+nav .row .name:not(:last-child)::after {
+    content: "";
+    flex: 1;
+    margin: 0 .1rem 0 .6rem;
+    border-bottom: 1px dotted var(--line);
+    transform: translateY(-4px);
+}
+
+nav .row > .muted {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .78rem;
+}
+
+nav .dot {
+    width: .5rem;
+    height: .5rem;
+}
+
+.rail-head {
+    letter-spacing: .12em;
+    font-size: .68rem;
+}
+
+section > article {
+    padding: 1.5rem 1.5rem;
+}
+
+h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+/* The name under the title, in the file's own voice — the name alone, never a sentence that
+   happens to stand in the same place */
+#detail h1 + p.muted code {
+    font-size: .78rem;
+}
+
+/* The facts as ruled rows: a rule above the first, one under each, labels in small caps */
+#detail dl {
+    grid-template-columns: 11rem 1fr;
+    gap: 0 1.5rem;
+    max-width: 48rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--line);
+}
+
+#detail dt {
+    padding: .55rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    line-height: 2.1;
+}
+
+#detail dd {
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.actions {
+    margin-top: 1.5rem;
+}
+
+/* Form labels read like the ledger's own dt column */
+.grid label {
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    line-height: 2.4;
+}
+
+/* What goes in a box is config text, and the ledger writes values in the file's own voice */
+.form input,
+.form textarea {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .85rem;
+}
+
+/* The tab bar keeps the article's left edge */
+.tabbar {
+    padding: 0 1.5rem;
+}

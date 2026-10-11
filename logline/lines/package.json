@@ -1,0 +1,15 @@
+{
+    "name": "logline-lines",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "Logline's one door: machines POST their lines here, with a token bound to their address",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "test": "node --test 'src/**/*.test.js' 'tests/**/*.test.js'"
+    },
+    "dependencies": {
+        "@vbarbarosh/node-helpers": "^3.78.0"
+    }
+}

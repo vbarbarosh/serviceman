@@ -1,0 +1,96 @@
+name: clickstack-playground
+
+services:
+  clickstack:
+    # Local mode disables ClickStack user registration/authentication.
+    image: clickhouse/clickstack-local:${CLICKSTACK_VERSION:-latest}
+    restart: unless-stopped
+#    ports:
+#      # Bind to localhost: this playground is not hardened for public access.
+#      - "127.0.0.1:8080:8080" # ClickStack / HyperDX UI
+#      - "127.0.0.1:4317:4317" # OTLP over gRPC
+#      - "127.0.0.1:4318:4318" # OTLP over HTTP
+#      - "127.0.0.1:8123:8123" # ClickHouse HTTP API and Play UI
+    volumes:
+      - clickstack_app_data:/data/db
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      # Passwordless, read-only user restricted to private Docker networks.
+      - ./config/clickhouse.xml:/etc/clickhouse-server/users.d/log-ui.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping | grep -q Ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 30s
+
+  # Focused local log viewer: AND-substring filters, histogram, live polling,
+  # and a virtualized infinite list. nginx also proxies browser queries to
+  # ClickHouse on the private Compose network to avoid CORS configuration.
+  log-ui:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      clickstack:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - ./log-ui/index.html:/usr/share/nginx/html/index.html:ro
+      - ./log-ui/styles.css:/usr/share/nginx/html/styles.css:ro
+      - ./log-ui/app.js:/usr/share/nginx/html/app.js:ro
+      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # The one door machines send their lines to: POST /lines, with a token bound to the address
+  # it was issued for. Published on this machine's tailnet address only, with nothing in front
+  # of it, so every caller arrives with its own address and its token can be checked against it.
+  # Until .env says TAILSCALE_IP it listens on this machine alone, and until it says ADMIN_TOKEN
+  # and ADMIN_IPS it issues no tokens; the rest of the stack runs either way.
+  lines:
+    build: ./lines
+    restart: unless-stopped
+    depends_on:
+      clickstack:
+        condition: service_healthy
+    ports:
+      - "${TAILSCALE_IP:-127.0.0.1}:3000:3000"
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      ADMIN_IPS: ${ADMIN_IPS:-}
+      CLICKHOUSE: http://lines:@clickstack:8123
+    volumes:
+      - lines_data:/app/data
+
+  # ClickStack Local does not load the OpAMP custom configuration used by the
+  # authenticated all-in-one image. This edge agent tails our files and sends
+  # standard OTLP logs to ClickStack's bundled collector.
+  log-agent:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    restart: unless-stopped
+    # Docker's container log directory is normally readable only by root.
+    user: "0:0"
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    depends_on:
+      clickstack:
+        condition: service_healthy
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ./log-input:/var/log-input:ro
+      # Linux Docker Engine JSON logs and discovery metadata. Override these
+      # host paths in .env when Docker uses Snap, rootless mode, or data-root.
+      - ${DOCKER_ROOT_DIR:-/var/lib/docker}/containers:/var/lib/docker/containers:ro
+      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
+
+# Stop and delete the container, network, and all persisted data:
+# docker compose down -v
+volumes:
+  lines_data:
+  clickstack_app_data:
+  clickhouse_data:
+  clickhouse_logs:

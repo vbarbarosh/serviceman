@@ -1,0 +1,375 @@
+#!/usr/bin/env node
+
+// A docker stand-in for the tests: every container is a small node http server
+const child_process = require('child_process');
+const cli = require('@vbarbarosh/node-helpers/src/cli');
+const fs = require('fs');
+const net = require('net');
+const path = require('path');
+
+cli(main);
+
+async function main()
+{
+    const argv = process.argv.slice(2);
+    const command = argv[0];
+    remember(argv);
+    if (command === 'version') {
+        // The agent asks what docker is on its machine before anything else
+        console.log('28.0.0-fake');
+        return;
+    }
+    if (command === 'inspect') {
+        inspect(argv);
+        return;
+    }
+    if (command === 'run') {
+        await run(argv);
+        return;
+    }
+    if (command === 'start') {
+        await start(argv);
+        return;
+    }
+    if (command === 'stop') {
+        stop(argv);
+        return;
+    }
+    if (command === 'port') {
+        port(argv);
+        return;
+    }
+    if (command === 'rm') {
+        remove(argv);
+        return;
+    }
+    if ((command === 'image') && (argv[1] === 'inspect')) {
+        image_inspect(argv);
+        return;
+    }
+    if (command === 'pull') {
+        pull(argv);
+        return;
+    }
+    if (command === 'logs') {
+        logs(argv);
+        return;
+    }
+    if (command === 'compose') {
+        // What a compose step would print, which here is only which step it was
+        console.log(`compose ${argv[argv.length - 1]}`);
+        return;
+    }
+    process.stderr.write(`fake docker: unknown command ${command}\n`);
+    process.exit(1);
+}
+
+// Every command this stand-in was asked to run, so a test can say what serviceman asked docker
+// to do and not only what came of it
+function remember(argv)
+{
+    state_change(function (state) {
+        state.commands = ((state.commands === undefined) ? [] : state.commands);
+        state.commands.push(argv.join(' '));
+    });
+}
+
+function state_read()
+{
+    try {
+        return JSON.parse(fs.readFileSync(process.env.SERVICEMAN_TEST_STATE, 'utf8'));
+    }
+    catch {
+        return {containers: {}, commands: []};
+    }
+}
+
+// serviceman runs several of these at once — a pull here, an inspect there — and each of them
+// is a whole read of this file and a whole write of it back. Two that overlap lose one of the
+// two changes, which showed up as an image being pulled twice and a test failing now and then.
+// The write is taken behind a lock, so the read that decides it is the read it is based on.
+function state_write(state)
+{
+    fs.writeFileSync(process.env.SERVICEMAN_TEST_STATE, JSON.stringify(state, null, 4));
+}
+
+// One change to the file, from the state as it is at this moment
+function state_change(change)
+{
+    const lock = `${process.env.SERVICEMAN_TEST_STATE}.lock`;
+    const waited = new Int32Array(new SharedArrayBuffer(4));
+    for (;;) {
+        try {
+            fs.mkdirSync(lock);
+            break;
+        }
+        catch {
+            Atomics.wait(waited, 0, 0, 5);
+        }
+    }
+    try {
+        const state = state_read();
+        change(state);
+        state_write(state);
+    }
+    finally {
+        fs.rmdirSync(lock);
+    }
+}
+
+// Every demo/* image is already here and says it listens on 8080. Anything else has to be
+// pulled first, which is what a pre-pull does.
+function image_inspect(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    if ((name.startsWith('demo/') === false) && ((state.pulled || []).includes(name) === false)) {
+        process.stderr.write(`Error: No such image: ${name}\n`);
+        process.exit(1);
+    }
+    // What the image is, rather than what it exposes. A pull of a tag that moves brings back a
+    // different one of these, which is how anything can tell that it did.
+    if (argv.includes('--format') && argv[argv.indexOf('--format') + 1].includes('.Id')) {
+        process.stdout.write(`${image_id(state, name)}\n`);
+        return;
+    }
+    process.stdout.write('{"8080/tcp":{}}\n');
+}
+
+function image_id(state, name)
+{
+    const said = ((state.image_ids === undefined) ? {} : state.image_ids);
+    return ((said[name] === undefined) ? 'sha256:1' : said[name]);
+}
+
+function pull(argv)
+{
+    const name = argv[argv.length - 1];
+    // An image named `moved` is a tag somebody pushes over: every pull of it brings a
+    // different image, the way `:latest` does
+    state_change(function (state) {
+        state.image_ids = ((state.image_ids === undefined) ? {} : state.image_ids);
+        const was = parseInt((state.image_ids[name] || 'sha256:0').split(':')[1], 10);
+        state.image_ids[name] = `sha256:${(name.includes('moved') ? was + 1 : Math.max(was, 1))}`;
+    });
+    // A download that takes a while, and says so line by line as a real one does. An image
+    // named slow is how a test watches a start that is waiting on the network.
+    if (name.includes('slow')) {
+        // Exactly as docker behaves: the byte counts are drawn only for a terminal, with a
+        // carriage return and no newline, and through a pipe there is nothing but statuses
+        const screen = (process.stdout.isTTY === true);
+        say_now(`latest: Pulling from ${name}`);
+        say_now('a1b2c3d4e5f6: Pulling fs layer');
+        say_now('0f1e2d3c4b5a: Already exists');
+        sleep_ms(200);
+        if (screen) {
+            draw('a1b2c3d4e5f6: Downloading [=====>                                             ]  25MB/230MB');
+            sleep_ms(200);
+            draw('a1b2c3d4e5f6: Downloading [=========================>                         ]  115MB/230MB');
+            sleep_ms(200);
+        }
+        say_now('a1b2c3d4e5f6: Download complete');
+        if (screen) {
+            draw('a1b2c3d4e5f6: Extracting  [==================================================>]  230MB/230MB');
+        }
+        say_now('a1b2c3d4e5f6: Pull complete');
+    }
+    state_change(function (state) {
+        state.pulled = (state.pulled || []).concat([name]);
+    });
+    process.stdout.write(`Status: Downloaded newer image for ${name}\n`);
+}
+
+// Straight down the file descriptor: a write to a pipe through process.stdout may be held
+// until the event loop turns, and this stand-in is busy pretending to download
+function say_now(text)
+{
+    require('fs').writeSync(1, `${text}\n`);
+}
+
+// A progress meter draws over its own line: cursor to the start, no newline
+function draw(text)
+{
+    require('fs').writeSync(1, `\u001b[2K${text}\r`);
+}
+
+function sleep_ms(ms)
+{
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+        // A stand-in for a network, and the only place a busy wait is the simplest thing
+    }
+}
+
+// What a real container would have written; missing containers err like real docker
+function logs(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    const found = state.containers[name];
+    if (found === undefined) {
+        process.stderr.write(`Error response from daemon: No such container: ${name}\n`);
+        process.exit(1);
+    }
+    process.stdout.write(`the inside of ${name} says hello\nrequests were served\n`);
+}
+
+function inspect(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    const found = state.containers[name];
+    if (found === undefined) {
+        process.stderr.write(`Error: No such object: ${name}\n`);
+        process.exit(1);
+    }
+    process.stdout.write(`${found.running}|${found.image}|${found.label}|${found.spec}|${found.image_id || 'sha256:1'}\n`);
+}
+
+async function run(argv)
+{
+    const options = options_from_argv(argv);
+    const host_port = await pick_free_port();
+    state_change(function (state) {
+        state.containers[options.name] = {
+            image: options.image,
+            // The image the name stood for when the container was made, which a later pull of
+            // the same name does not change
+            image_id: image_id(state, options.image),
+            label: options.label,
+            spec: options.spec,
+            port: options.port,
+            volumes: options.volumes,
+            host_port,
+            running: false,
+            pid: null,
+        };
+    });
+    await start(['start', options.name]);
+    process.stdout.write(`${options.name}\n`);
+}
+
+async function start(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    const found = state.containers[name];
+    if (found === undefined) {
+        process.stderr.write(`Error: No such container: ${name}\n`);
+        process.exit(1);
+    }
+    const upstream = path.join(__dirname, '..', 'fixtures', 'upstream.js');
+    const child = child_process.spawn(process.execPath, [upstream, String(found.host_port), name], {detached: true, stdio: 'ignore'});
+    child.unref();
+    state_change(function (now) {
+        now.containers[name].running = true;
+        now.containers[name].pid = child.pid;
+    });
+}
+
+function stop(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    const found = state.containers[name];
+    if (found === undefined) {
+        process.stderr.write(`Error: No such container: ${name}\n`);
+        process.exit(1);
+    }
+    kill_pid(found.pid);
+    state_change(function (now) {
+        now.containers[name].running = false;
+        now.containers[name].pid = null;
+    });
+    process.stdout.write(`${name}\n`);
+}
+
+function port(argv)
+{
+    const name = argv[1];
+    const state = state_read();
+    const found = state.containers[name];
+    if ((found === undefined) || (found.running === false)) {
+        process.stderr.write(`Error: No such container: ${name}\n`);
+        process.exit(1);
+    }
+    process.stdout.write(`127.0.0.1:${found.host_port}\n`);
+}
+
+function remove(argv)
+{
+    const name = argv[argv.length - 1];
+    const state = state_read();
+    const found = state.containers[name];
+    if (found !== undefined) {
+        kill_pid(found.pid);
+        state_change(function (now) {
+            delete now.containers[name];
+        });
+    }
+    process.stdout.write(`${name}\n`);
+}
+
+function kill_pid(pid)
+{
+    if ((pid === null) || (pid === undefined)) {
+        return;
+    }
+    try {
+        process.kill(pid, 'SIGKILL');
+    }
+    catch {
+        // already gone
+    }
+}
+
+function options_from_argv(argv)
+{
+    const out = {name: null, label: null, spec: null, port: null, image: null, volumes: []};
+    for (let i = 1; i < argv.length; i++) {
+        if (argv[i] === '--name') {
+            out.name = argv[++i];
+            continue;
+        }
+        if (argv[i] === '--label') {
+            const label = String(argv[++i]).split('=');
+            if (label[0] === 'serviceman.spec') {
+                out.spec = label[1];
+                continue;
+            }
+            out.label = label[1];
+            continue;
+        }
+        if (argv[i] === '--publish') {
+            out.port = parseInt(String(argv[++i]).split(':').pop(), 10);
+            continue;
+        }
+        if ((argv[i] === '--env') || (argv[i] === '--network')) {
+            i++;
+            continue;
+        }
+        if (argv[i] === '--volume') {
+            out.volumes.push(argv[++i]);
+            continue;
+        }
+        if (argv[i].startsWith('-')) {
+            continue;
+        }
+        out.image = argv[i];
+        break;
+    }
+    return out;
+}
+
+function pick_free_port()
+{
+    return new Promise(function (resolve) {
+        const server = net.createServer();
+        server.listen(0, '127.0.0.1', function () {
+            const found = server.address().port;
+            server.close(function () {
+                resolve(found);
+            });
+        });
+    });
+}

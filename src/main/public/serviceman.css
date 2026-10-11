@@ -1,0 +1,2531 @@
+/* The same colours src/page_tokens.js serves to the index, the waiting page and the error page.
+   A static stylesheet cannot require that module, so the values are written twice and have to
+   agree; nothing else about the two files does. */
+:root[data-theme="light"] {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #e2e6ea;
+    --accent: #2f6fed;
+    --hover: #eef2f7;
+    --run: #1e9e63;
+    --idle: #9aa1ab;
+    --busy: #d38b12;
+    --bad: #c0392b;
+}
+
+:root[data-theme="dark"] {
+    --bg: #101216;
+    --panel: #171a1f;
+    --fg: #e8eaed;
+    --muted: #939aa4;
+    --line: #272b33;
+    --accent: #6ea0ff;
+    --hover: #1e222a;
+    --run: #46c98b;
+    --idle: #6b727c;
+    --busy: #e0a336;
+    --bad: #ff7b6b;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+#app {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr;
+}
+
+/* What went wrong on the page, above everything: the one line that says why nothing moves. It
+   takes a row of its own, and the app keeps the rest of the height rather than sliding under it. */
+body:has(#trouble) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+body:has(#trouble) #app {
+    height: auto;
+    min-height: 0;
+}
+
+#trouble {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    padding: .5rem 1rem;
+    background: var(--bad);
+    color: #fff;
+    font-size: .9rem;
+}
+
+#trouble span {
+    flex: 1;
+    overflow-wrap: anywhere;
+}
+
+#trouble button {
+    color: inherit;
+    background: none;
+    border-color: currentColor;
+}
+
+header {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    padding: .6rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+/* The name is the way home: a button that looks like the word it always was */
+header .brand {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: bold;
+    letter-spacing: .02em;
+    cursor: pointer;
+}
+
+header .muted {
+    flex: 1;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 17rem 1fr;
+    min-height: 0;
+}
+
+nav {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+}
+
+nav .row {
+    flex: none;
+}
+
+/* Empty space between the services and the two rows that stay at the foot of the rail */
+.rail-gap {
+    flex: 1;
+    min-height: 1rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.row.foot .name {
+    flex: 1;
+}
+
+.row.foot svg {
+    flex: none;
+    color: var(--muted);
+}
+
+section {
+    display: grid;
+    grid-template-rows: 1fr;
+    min-height: 0;
+}
+
+article {
+    overflow: auto;
+    padding: 1rem 1.25rem;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+button {
+    padding: .3rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+button:hover {
+    background: var(--hover);
+    border-color: var(--accent);
+}
+
+button:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+button:disabled:hover {
+    background: var(--panel);
+    border-color: var(--line);
+}
+
+#theme {
+    display: flex;
+    padding: .35rem;
+}
+
+/* The skin picker in the header: the button says which skin this is, the menu shows each
+   skin as a small cover so the choice is made by eye */
+#skin-pick {
+    position: relative;
+}
+
+#skin-pick > button {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    font-size: .85rem;
+}
+
+.skin-back {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    border: 0;
+    border-radius: 0;
+    background: none;
+}
+
+.skin-back:hover {
+    background: none;
+    border: 0;
+}
+
+.skin-menu {
+    position: absolute;
+    top: calc(100% + .4rem);
+    right: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: repeat(2, 11rem);
+    gap: .5rem;
+    padding: .5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+}
+
+.skin-card {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    padding: .45rem;
+    /* Nothing on a card is text to select or a picture to pick up: a quick second click on it
+       would otherwise select the label or start a drag of the cover */
+    user-select: none;
+    -webkit-user-drag: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    text-align: left;
+    font-size: .85rem;
+}
+
+.skin-card.on {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.skin-card img {
+    display: block;
+    width: 100%;
+    border-radius: 5px;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    border: 1px solid var(--line);
+}
+
+/* One service as one page: the tab bar is the page's header, so it stays put while the tab's
+   own article scrolls under it */
+/* A table wider than the pane scrolls inside itself; the page never slides sideways */
+.wide-scroll {
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+table.grid-table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+table.grid-table th,
+table.grid-table td {
+    padding: .35rem .8rem .35rem 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    white-space: nowrap;
+}
+
+table.grid-table th {
+    color: var(--muted);
+    font-weight: normal;
+    font-size: .8rem;
+}
+
+table.grid-table th.tick,
+table.grid-table td.tick {
+    text-align: center;
+    padding-right: 1.2rem;
+}
+
+/* The process tree: the first column is indented by how deep the process sits, and the caret
+   turns where a branch is open. A command line is as long as somebody made it, so the column
+   ends in an ellipsis and the whole of it is the row's title. */
+table.procs {
+    width: 100%;
+    table-layout: fixed;
+}
+
+table.procs td.tree {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+table.procs tr.folds {
+    cursor: pointer;
+}
+
+table.procs tbody tr:hover td {
+    background: var(--panel);
+}
+
+table.procs .caret {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: .3rem;
+    vertical-align: -2px;
+    color: var(--muted);
+    transition: transform .12s ease;
+}
+
+table.procs .caret.open {
+    transform: rotate(90deg);
+}
+
+/* The doors of the machines: what a person types is the wide column, and the rest are as
+   narrow as what they hold */
+table.doors,
+table.rules {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Two words to press, and a space between them */
+table.rules .link + .link {
+    margin-left: .8rem;
+}
+
+/* A rule that is set aside: still written down, and plainly not answering */
+table.rules tr.off td {
+    color: var(--muted);
+}
+
+table.rules tr.off code {
+    text-decoration: line-through;
+}
+
+/* The line that writes a rule: the three parts of it side by side, and not one to a row the
+   way a form's own fields stand */
+.form .rule-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    margin-top: .75rem;
+}
+
+.form .rule-add select {
+    width: 11rem;
+}
+
+.form .rule-add input {
+    width: 16rem;
+}
+
+/* A name with its dot beside it, outside the rail: a dot has a size only as a flex item */
+.dot-name {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+/* A run that prints hundreds of lines gets a window of its own inside the page */
+#detail pre.tail {
+    max-height: 24rem;
+}
+
+/* A machine's screen, as wide as the pane and no wider */
+img.shot {
+    display: block;
+    max-width: 100%;
+    margin-top: .75rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+}
+
+/* Files on their way to a machine: the box they are chosen in, and dropped into */
+/* Every way that was tried, when none of them worked — the answer to "what does wayland
+   allow on this machine" */
+ul.tried {
+    margin: .5rem 0 0;
+    padding-left: 1.1rem;
+}
+
+#page {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    min-height: 0;
+}
+
+/* Where a page sits: its kind, the machine it runs on, then its own name */
+.crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    padding: .7rem 1.25rem 0;
+    background: var(--panel);
+}
+
+.crumbs b {
+    font-size: 1.05rem;
+}
+
+/* What is done to the whole page (Add service, Start, Clone) and the way out to Logline, at the
+   far end of the line with the name: not under the tabs, where it would read as the open tab's */
+.crumb-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+.crumb-acts svg {
+    vertical-align: -2px;
+    margin-right: .3rem;
+}
+
+.crumb-logs {
+    margin-left: auto;
+    font-size: .9rem;
+    white-space: nowrap;
+}
+
+.crumb-acts + .crumb-logs {
+    margin-left: .5rem;
+}
+
+a.tag {
+    text-decoration: none;
+}
+
+a.tag:hover {
+    text-decoration: underline;
+}
+
+.tabbar {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 0 1.25rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+/* A nav, but not the rail: the bare nav rule above would stack it and draw the rail's edge */
+.tabbar .tabs {
+    position: relative;
+    flex-direction: row;
+    flex-wrap: wrap;
+    /* Tabs that wrap to a second row sit right under the first, not a tab's height away */
+    gap: 0 1.4rem;
+    margin: 0;
+    overflow: visible;
+    border-right: 0;
+    background: none;
+}
+
+/* Not a pill: flat words on the bar's own rule; the underline is the tabink below */
+.tabbar button.tab {
+    padding: .6rem .1rem;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+}
+
+.tabbar button.tab:hover {
+    background: none;
+    border-color: transparent;
+    color: var(--fg);
+}
+
+.tabbar button.tab.on {
+    color: var(--fg);
+}
+
+/* One underline for the whole row, sliding to the open tab instead of appearing under it */
+.tabink {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    transition: transform .22s ease, width .22s ease;
+}
+
+.tabink.still {
+    transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tabink {
+        transition: none;
+    }
+}
+
+.tabbar svg {
+    vertical-align: -2px;
+    margin-right: .3rem;
+}
+
+.row {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    width: 100%;
+    padding: .5rem .75rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    text-align: left;
+}
+
+.row.on {
+    background: var(--hover);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.row .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* How far a download is, on the page of the service doing it */
+.meter {
+    max-width: 22rem;
+    height: 4px;
+    margin: .35rem 0;
+    border-radius: 4px;
+    background: var(--line);
+    overflow: hidden;
+}
+
+.meter i {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--accent);
+    transition: width .3s ease;
+}
+
+/* Resting is an empty ring, alive is a filled disc: the shape says it before the color does,
+   which no light theme can wash out */
+.dot {
+    flex: none;
+    width: .6rem;
+    height: .6rem;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--idle);
+    transition: background .2s ease, box-shadow .2s ease;
+}
+
+.dot.running {
+    background: var(--run);
+    box-shadow: none;
+}
+
+.dot.starting {
+    background: var(--busy);
+    box-shadow: none;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.dot.stopping {
+    background: var(--busy);
+    box-shadow: none;
+}
+
+.dot.failed {
+    background: var(--bad);
+    box-shadow: none;
+}
+
+.dot.lost {
+    background: var(--busy);
+    box-shadow: inset 0 0 0 2px var(--panel);
+}
+
+@keyframes pulse {
+    50% { opacity: .25; }
+}
+
+h1 {
+    margin: 0 0 .2rem;
+    font-size: 1.15rem;
+}
+
+h1 .dot {
+    display: inline-block;
+    margin-right: .45rem;
+    vertical-align: middle;
+}
+
+dl {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: .3rem 1rem;
+    margin: 1rem 0 0;
+}
+
+dt {
+    color: var(--muted);
+}
+
+dt svg {
+    vertical-align: -2px;
+    margin-right: .45rem;
+}
+
+dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.actions {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-top: 1rem;
+    min-height: 2rem;
+}
+
+a {
+    color: var(--accent);
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.bad {
+    color: var(--bad);
+    white-space: pre-wrap;
+}
+
+pre {
+    overflow: auto;
+    margin: 0;
+    padding: .75rem 1.25rem;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+#editor {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-height: 0;
+}
+
+#editor .ace {
+    min-height: 0;
+}
+
+#editor footer {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    padding: .6rem 1.25rem;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.form .grid {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: .6rem .9rem;
+    align-items: start;
+}
+
+.form .grid h2 {
+    grid-column: 1 / -1;
+    margin: 1.1rem 0 0;
+    font-size: .8rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.form .grid > label {
+    padding-top: .35rem;
+    color: var(--muted);
+}
+
+.form input,
+.form select,
+.form textarea {
+    width: 100%;
+    max-width: 34rem;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+    transition: border-color .12s ease;
+}
+
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form input.short {
+    width: 5.5rem;
+}
+
+.form .line {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-bottom: .5rem;
+}
+
+/* A picker in a row of controls is as wide as its longest option, so what follows it stays
+   beside it instead of wrapping to the next line */
+.form .line > select {
+    width: auto;
+}
+
+.form .line .step {
+    width: 2.5rem;
+    flex: none;
+    font-size: .85rem;
+}
+
+.form .check {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+    white-space: nowrap;
+    color: var(--muted);
+}
+
+.form .check input {
+    width: auto;
+}
+
+/* A checkbox whose sentence is longer than a line reads as a sentence: plain flow, so the
+   words wrap in order, at the width of the inputs around it */
+.form .check.wide {
+    display: block;
+    max-width: 34rem;
+    white-space: normal;
+}
+
+/* A copyable value in the form keeps to the width of the inputs around it */
+.form .snip {
+    max-width: 34rem;
+}
+
+.form .snip pre.tail {
+    margin: 0;
+}
+
+.form .grid p {
+    margin: .35rem 0 0;
+}
+
+/* The first question a new service is asked */
+.form .kinds {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .6rem;
+    max-width: 58rem;
+    margin: 0 0 1.25rem;
+}
+
+.form .kind {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    align-items: flex-start;
+    padding: .6rem .75rem;
+    border-radius: 10px;
+    text-align: left;
+}
+
+.form .kind.on {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.form .kind .muted {
+    font-size: .85rem;
+}
+
+/* A paragraph of its own in the grid speaks for both columns */
+.form .grid > p {
+    grid-column: 1 / -1;
+}
+
+.form input.wrong,
+.form select.wrong {
+    border-color: var(--bad);
+}
+
+.form p.bad {
+    margin: .35rem 0 0;
+    font-size: .9rem;
+}
+
+.form input.tiny {
+    width: 3.5rem;
+    text-align: center;
+}
+
+/* A run of controls that make one answer between them — a number and its unit */
+.form .dur {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.form .dur select {
+    width: auto;
+}
+
+/* Save stays put while a long form scrolls under it; the negative margins carry the bar out
+   to the edges of the pane, so nothing slides past it at the sides */
+/* Sticks to the very bottom of the pane: the pane's own padding is under the bar, not beside
+   it, so nothing shows below the buttons and the last card keeps its gap above them */
+.form .actions {
+    position: sticky;
+    bottom: -1rem;
+    z-index: 1;
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 1.25rem -1.25rem -1rem;
+    padding: .7rem 1.25rem;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+}
+
+button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--panel);
+}
+
+button.primary:hover {
+    filter: brightness(1.08);
+}
+
+button.primary:disabled:hover {
+    filter: none;
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+button.danger {
+    border-color: var(--bad);
+    color: var(--bad);
+}
+
+button.danger:hover {
+    background: var(--bad);
+    border-color: var(--bad);
+    color: var(--panel);
+}
+
+.row.add .name {
+    color: var(--muted);
+}
+
+.rail-head {
+    padding: .8rem .75rem .3rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .8rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.row-of {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+}
+
+button.link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    text-align: left;
+}
+
+button.link:hover {
+    background: none;
+    text-decoration: underline;
+}
+
+.tabs {
+    display: flex;
+    gap: .4rem;
+    margin: 0 0 .75rem;
+}
+
+button.tab {
+    border-radius: 999px;
+    color: var(--muted);
+}
+
+button.tab.on {
+    border-color: var(--accent);
+    color: var(--fg);
+}
+
+#detail input.wide {
+    width: 100%;
+    max-width: 34rem;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+    transition: border-color .12s ease;
+}
+
+#detail input.wide:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+code.tag {
+    margin-right: .35rem;
+}
+
+pre.tail {
+    margin: 0 0 1rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.snip {
+    position: relative;
+}
+
+.snip pre.tail {
+    padding-right: 6rem;
+}
+
+/* The command behind a pane, as an icon: the prompt and the check share one cell, so the
+   button keeps its size when it says it copied */
+button.command-copy {
+    display: inline-grid;
+    place-items: center;
+    align-self: stretch;
+    padding: 0 .5rem;
+}
+
+button.command-copy > svg {
+    grid-area: 1 / 1;
+}
+
+button.command-copy > .gone {
+    visibility: hidden;
+}
+
+button.command-copy.done {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.snip-copy {
+    position: absolute;
+    top: .45rem;
+    right: .45rem;
+    /* Copy, Copied and Ctrl+C swap inside one button, so it is as wide as the widest of them */
+    min-width: 5rem;
+    font-size: 12.5px;
+}
+
+.snip-away {
+    position: fixed;
+    top: 0;
+    left: 0;
+    opacity: 0;
+}
+
+/* The header's find box: a button that looks like the field it opens */
+#find {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    width: 26rem;
+    min-width: 0;
+    padding: .3rem .6rem;
+    background: var(--bg);
+    color: var(--muted);
+    text-align: left;
+}
+
+#find span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+kbd {
+    padding: 0 .35rem;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--muted);
+    font: .75rem ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.row.kind svg {
+    flex: none;
+    color: var(--muted);
+}
+
+.row.kind.on svg {
+    color: var(--accent);
+}
+
+.row.kind .bad {
+    font-size: .85rem;
+}
+
+.row.kind.open .name {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* The items of the open kind, one step in, with a guide line down their left */
+.rail-tree {
+    flex: none;
+    padding: .2rem 0;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(var(--line), var(--line)) no-repeat 1.2rem .4rem / 1px calc(100% - .8rem);
+}
+
+.rail-tree .row {
+    padding: .28rem .75rem .28rem 2.1rem;
+    border-bottom: 0;
+    font-size: .9rem;
+}
+
+.rail-tree .row code {
+    font-size: .85rem;
+}
+
+/* A kind's own page: title and count, its buttons, a filter with chips, then one table */
+article.list {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    padding: 1.25rem 1.5rem;
+}
+
+/* Each part keeps its own height: a card that scrolls sideways would otherwise be squeezed
+   under the next one when the page is taller than the window */
+article.list > * {
+    flex: none;
+}
+
+article.list > p {
+    margin: 0;
+}
+
+.list-head {
+    display: flex;
+    gap: .6rem;
+    align-items: baseline;
+}
+
+.list-head h1 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.list-acts {
+    display: flex;
+    gap: .5rem;
+    margin-left: auto;
+}
+
+.list-tools {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.list-tools input {
+    width: 20rem;
+    padding: .3rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.list-tools input:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.list-right {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+button.chip {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+    padding: .2rem .7rem;
+    border-radius: 999px;
+    font-size: .9rem;
+}
+
+/* A machine's terminals as a terminal app has them: flat tabs, the open one outlined, × on
+   each and + after them, on a line of their own above the terminal */
+.term-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem;
+    align-items: center;
+    margin: .4rem 0 .5rem;
+    padding-bottom: .4rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.term-tab {
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+}
+
+.term-tab.on {
+    border-color: var(--line);
+    background: var(--panel);
+}
+
+.term-tabs button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+}
+
+.term-tabs button:hover {
+    color: var(--fg);
+}
+
+.term-tab.on .term-tab-name {
+    color: var(--fg);
+}
+
+.term-tab-name {
+    padding: .25rem .2rem .25rem .7rem;
+}
+
+.term-tab-end,
+.term-tab-add {
+    display: flex;
+    padding: .35rem .45rem;
+}
+
+.term-tabs-right {
+    margin-left: auto;
+}
+
+button.chip.on {
+    border-color: var(--accent);
+    background: var(--hover);
+    color: var(--accent);
+}
+
+.seg {
+    display: inline-flex;
+}
+
+.seg button {
+    padding: .2rem .7rem;
+    border-radius: 0;
+    font-size: .9rem;
+}
+
+.seg button:first-child {
+    border-radius: 7px 0 0 7px;
+}
+
+.seg button:last-child {
+    margin-left: -1px;
+    border-radius: 0 7px 7px 0;
+}
+
+.seg button.on {
+    background: var(--hover);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+}
+
+table.list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table.list-table th {
+    padding: .55rem .9rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .75rem;
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+table.list-table td {
+    padding: .55rem .9rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+
+table.list-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+table.list-table tr.group td {
+    padding: .4rem .9rem;
+    background: var(--bg);
+    font-size: .9rem;
+}
+
+table.list-table tr.pick {
+    cursor: pointer;
+}
+
+table.list-table tr.pick:hover td {
+    background: var(--hover);
+}
+
+table.list-table tr.off code {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+table.list-table td.bad {
+    white-space: normal;
+}
+
+.tag {
+    display: inline-block;
+    padding: 0 .45rem;
+    border-radius: 5px;
+    background: var(--hover);
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+/* A count on a card that opens its list: the same chip, in the colour of a link */
+button.tag {
+    border: 0;
+    color: var(--accent);
+    line-height: inherit;
+}
+
+button.tag:hover {
+    background: var(--hover);
+    text-decoration: underline;
+}
+
+.pill {
+    display: inline-block;
+    white-space: nowrap;
+    padding: .05rem .55rem;
+    border-radius: 999px;
+    background: var(--hover);
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+.pill.running {
+    background: color-mix(in srgb, var(--run) 14%, transparent);
+    color: var(--run);
+}
+
+.pill.failed {
+    background: color-mix(in srgb, var(--bad) 14%, transparent);
+    color: var(--bad);
+}
+
+.alert {
+    margin: 0;
+    padding: .45rem .7rem;
+    border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+
+/* Remotes: one card per machine, two to a row while there is room */
+.machines {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+.machine {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    padding: 1rem 1.1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .12s ease;
+}
+
+.machine:hover {
+    border-color: var(--accent);
+}
+
+.machine.away {
+    background: color-mix(in srgb, var(--panel) 55%, var(--bg));
+}
+
+.machine p {
+    margin: 0;
+}
+
+.machine .pill {
+    margin-left: auto;
+}
+
+.machine .pill.agent-pill {
+    margin-left: 0;
+}
+
+/* A machine in the rail that runs an older agent than this host serves */
+.row .agent-behind {
+    flex: none;
+    color: var(--busy);
+}
+
+.bars {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr 11rem;
+    gap: .35rem .8rem;
+    align-items: center;
+    font-size: .9rem;
+}
+
+.bars .meter {
+    max-width: none;
+    margin: 0;
+}
+
+.carries {
+    flex-wrap: wrap;
+}
+
+/* Ctrl K: the box over the page, the hits under their kinds */
+.shade {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 10vh 1rem 1rem;
+    background: color-mix(in srgb, #000 40%, transparent);
+}
+
+.palette {
+    display: flex;
+    flex-direction: column;
+    width: 42rem;
+    max-width: 100%;
+    max-height: 75vh;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+    overflow: hidden;
+}
+
+.palette-q {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+}
+
+.palette-q input {
+    flex: 1;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-size: 1.05rem;
+    outline: 0;
+}
+
+.palette-kinds {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+    padding: .6rem 1rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.palette-hits {
+    overflow: auto;
+    padding-bottom: .4rem;
+}
+
+.palette-hits > p {
+    margin: 0;
+    padding: 1rem;
+}
+
+.palette-sec {
+    padding: .5rem 1rem .2rem;
+    color: var(--muted);
+    font-size: .75rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+button.palette-hit {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    width: 100%;
+    padding: .4rem 1rem;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+}
+
+button.palette-hit:hover {
+    background: none;
+}
+
+button.palette-hit.on {
+    background: var(--hover);
+}
+
+.palette-hit .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.palette-hit .tag {
+    margin-left: auto;
+}
+
+.palette-text {
+    white-space: nowrap;
+}
+
+.palette-text mark {
+    background: none;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.palette-foot {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: .55rem 1rem;
+    border-top: 1px solid var(--line);
+    font-size: .85rem;
+}
+
+/* A phone: the rail becomes a strip of kinds across the top, and the find box keeps its icon */
+@media (max-width: 40rem) {
+    main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    nav#rail {
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    nav#rail .row {
+        width: auto;
+        border-bottom: 0;
+        white-space: nowrap;
+    }
+
+    nav#rail .rail-gap,
+    nav#rail .rail-tree {
+        display: none;
+    }
+
+    #find {
+        width: auto;
+    }
+
+    #find span,
+    #find kbd,
+    #summary {
+        display: none;
+    }
+
+    article.list {
+        padding: 1rem;
+    }
+
+    .list-tools input {
+        width: 100%;
+    }
+
+    .machines {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .bars {
+        grid-template-columns: 4.5rem 1fr;
+    }
+
+    .bars > span:nth-child(3n) {
+        grid-column: 2;
+    }
+}
+
+/* A link that does what a button does, and looks like one */
+a.button {
+    display: inline-block;
+    padding: .3rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    text-decoration: none;
+}
+
+a.button:hover {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+/* A machine's disks: the share used as a bar, the numbers under it */
+.disk-use {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+}
+
+.disk-use .meter {
+    width: 5rem;
+    margin: 0;
+}
+
+.meter.filling i {
+    background: var(--busy);
+}
+
+.meter.full i {
+    background: var(--bad);
+}
+
+.disks-table td {
+    vertical-align: top;
+    white-space: normal;
+}
+
+.disks-table code,
+.disk-use {
+    white-space: nowrap;
+}
+
+.disks-table tr.muted td {
+    color: var(--muted);
+}
+
+.disk-lock {
+    margin-left: .4rem;
+}
+
+/* A machine's packages: one line each where the width allows, what it is last */
+.packages-table td {
+    vertical-align: top;
+}
+
+.packages-table td.package-summary {
+    min-width: 16rem;
+    white-space: normal;
+}
+
+.packages-table th.package-size,
+.packages-table td.package-size {
+    text-align: right;
+}
+
+.packages-table .tag {
+    margin-left: .3rem;
+}
+
+.package-next {
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.package-security {
+    color: var(--bad);
+}
+
+.packages-table .tag.bad {
+    color: var(--bad);
+}
+
+/* A machine's Logs tab: where its lines go, and a row of the numbers its sending moves */
+article.logline {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+article.logline > p {
+    margin: 0;
+}
+
+.logline-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: .75rem;
+}
+
+.logline-tile {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    padding: .8rem 1rem;
+}
+
+.logline-tile b {
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.logline-tile b.busy {
+    color: var(--busy);
+}
+
+.logline-tile b.bad {
+    color: var(--bad);
+}
+
+/* What Logline said can be a whole ClickHouse error: three lines here, all of it on hover and
+   in the sentence above */
+.logline-note {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+/* The folders read, a line each: the path breaks anywhere rather than a column of it */
+.logline-dirs {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    overflow-wrap: anywhere;
+}
+
+/* A folder and the service its lines are about, on one line */
+article.logline .form .line .dir-service {
+    max-width: 14rem;
+}
+
+/* Where Logline is: a small form inside its card, so its buttons stay in the card too */
+article.logline .form .actions {
+    position: static;
+    margin: .6rem 0 0;
+    padding: 0;
+    border-top: 0;
+    background: none;
+}
+
+/* A remote's overview: its state beside the title, the numbers that move as tiles, and what
+   it is as cards, with the raw state folded away at the end */
+article.ov-pane {
+    display: flex;
+    flex-direction: column;
+}
+
+.ov {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ov-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .8rem;
+    align-items: center;
+}
+
+.ov-head h1 {
+    margin: 0;
+}
+
+.ov-summary {
+    margin-top: -.6rem;
+    color: var(--muted);
+}
+
+.ov-summary .tag {
+    margin-left: .25rem;
+}
+
+.ov .alert {
+    margin: 0;
+}
+
+.ov-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    gap: .75rem;
+}
+
+.ov-tile {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-width: 0;
+    padding: .8rem 1rem;
+}
+
+.ov-label {
+    display: flex;
+    gap: .4rem;
+    align-items: center;
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.ov-tile b {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.ov-tile .meter {
+    max-width: none;
+    margin: .15rem 0;
+}
+
+.ov-tile small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The machine's history: the range to pick above, a chart a card, two side by side where they
+   fit. A chart keeps its height whatever it holds; its value is the last point, or the one under
+   the cursor, which runs through every chart at once. */
+.ov-charts {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+
+.ov-charts.loading .ov-chart-grid {
+    opacity: .6;
+}
+
+.ov-charts-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .8rem;
+    align-items: center;
+}
+
+.ov-charts-head > span:not(.seg) {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ov-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: .75rem;
+}
+
+.ov-chart {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    min-width: 0;
+    padding: .7rem 1rem .5rem;
+}
+
+.ov-chart-head {
+    display: flex;
+    gap: .4rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.ov-chart-head svg {
+    flex: none;
+    color: var(--muted);
+}
+
+.ov-chart-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ov-key::before {
+    content: "";
+    display: inline-block;
+    width: .55rem;
+    height: .55rem;
+    margin-right: .25rem;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.ov-key-1::before {
+    background: var(--run);
+}
+
+/* The top of the scale is said in a strip of its own above the lines: a line running at the
+   top, a cpu at 100%, is never under it */
+.ov-chart-plot {
+    position: relative;
+    box-sizing: content-box;
+    height: 5.5rem;
+    padding-top: 1.1rem;
+    border-bottom: 1px solid var(--line);
+    background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 25%);
+    background-clip: content-box;
+    background-origin: content-box;
+    background-size: 100% 100%;
+    cursor: crosshair;
+}
+
+.ov-chart-plot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.ov-chart-plot path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ov-chart-plot path.ov-line-1 {
+    stroke: var(--run);
+}
+
+.ov-chart-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: .75rem;
+    line-height: 1.3;
+    pointer-events: none;
+}
+
+.ov-chart-cursor {
+    position: absolute;
+    top: 1.1rem;
+    bottom: 0;
+    width: 1px;
+    background: var(--fg);
+    opacity: .5;
+    pointer-events: none;
+}
+
+.ov-chart-foot {
+    display: flex;
+    gap: .5rem;
+    justify-content: space-between;
+    font-size: .75rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ov-chart-at {
+    color: var(--fg);
+}
+
+.ov-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+    gap: .75rem;
+    align-items: start;
+}
+
+.ov-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: .8rem 1rem .9rem;
+}
+
+.ov-card-head {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    min-width: 0;
+    padding-bottom: .55rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.ov-card-head svg {
+    flex: none;
+    color: var(--muted);
+}
+
+.ov-card-aside {
+    overflow: hidden;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ov-go {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.ov-card dl {
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: .35rem .9rem;
+    margin: .6rem 0 0;
+}
+
+.ov-card dd {
+    overflow-wrap: anywhere;
+}
+
+/* A card listing things rather than naming facts: the name takes the room, its state the rest,
+   a light line under each row as in .grid-table, and no column gap so the line runs unbroken */
+.ov-card.ov-list dl {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+}
+
+.ov-card.ov-list dt,
+.ov-card.ov-list dd {
+    padding: .35rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.ov-card.ov-list dt {
+    overflow-wrap: anywhere;
+}
+
+.ov-card.ov-list dd {
+    padding-left: .9rem;
+}
+
+.ov-card.ov-list dt:nth-last-child(2),
+.ov-card.ov-list dd:last-child {
+    border-bottom: none;
+}
+
+.ov-details {
+    padding: .6rem 1rem;
+}
+
+.ov-details summary {
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.ov-details summary:hover {
+    color: var(--fg);
+}
+
+.ov-copy {
+    float: right;
+    margin: -.25rem 0;
+    padding: .15rem .6rem;
+    font-size: .85rem;
+}
+
+.ov-details pre {
+    margin: .6rem -1rem -.6rem;
+    border-radius: 0 0 10px 10px;
+}
+
+@media (max-width: 40rem) {
+    .ov-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.ov-note {
+    margin: .6rem 0 0;
+}
+
+.ov-card dl:empty {
+    display: none;
+}
+
+/* A remote's Configure tab: one card per thing it looks after, each saying where it stands
+   beside its title, with the one button that changes it */
+article.cfg {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* The pane scrolls; its cards keep their height rather than shrink into it */
+article.cfg > *,
+article.rf > *,
+article.logline > *,
+article.ov-pane > *,
+.ov > * {
+    flex: none;
+}
+
+article.cfg h1 + p {
+    margin: 0;
+}
+
+article.cfg > .alert {
+    margin: 0;
+}
+
+.cfg-card {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: .55rem 1rem 1rem;
+}
+
+.cfg-card p,
+.cfg-card pre.tail,
+.cfg-card ul.tried {
+    margin: 0;
+}
+
+/* The button is taller than the title: the room above the header equals the room under it,
+   so the button sits in the middle of the strip, not against its line */
+.cfg-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    min-height: 2.8rem;
+    padding-bottom: .55rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.cfg-icon {
+    display: inline-flex;
+    color: var(--muted);
+}
+
+.cfg-act {
+    margin-left: auto;
+}
+
+.cfg-card dl {
+    grid-template-columns: 9rem minmax(0, 1fr);
+    margin: 0;
+}
+
+.cfg-card pre.tail {
+    max-height: 22rem;
+}
+
+@media (max-width: 40rem) {
+    .cfg-card dl {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* A remote's settings: what it is called, what it proves itself with, and taking it away,
+   each in a card of its own; Save stays at the foot of the page */
+article.rf {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+article.rf h1 + p {
+    margin: 0;
+}
+
+.rf-card {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    padding: .8rem 1rem 1rem;
+}
+
+.rf-card p {
+    margin: 0;
+}
+
+.rf-card .grid p + p {
+    margin-top: .4rem;
+}
+
+.rf-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    padding-bottom: .55rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.rf-head svg {
+    color: var(--muted);
+}
+
+.rf-token {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.rf-danger {
+    border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
+}
+
+.rf-danger .rf-head svg {
+    color: var(--bad);
+}
+
+.rf-remove {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+}
+
+article.rf .actions {
+    margin-top: 0;
+}
+
+/* A machine's lists — processes, ports — share one bar: what reads again, what narrows the
+   list, how it is shown, and a line of totals under it */
+.list-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    min-height: 2rem;
+}
+
+.list-find {
+    width: 18rem;
+    max-width: 100%;
+    padding: .3rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.list-find:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.list-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem 1.2rem;
+    margin: .6rem 0 .2rem;
+    font-size: .9rem;
+}
+
+/* A share as a short bar beside its number */
+.load {
+    display: inline-flex;
+    gap: .45rem;
+    align-items: center;
+}
+
+.load .meter {
+    width: 2.8rem;
+    margin: 0;
+}
+
+table.procs tr.dim td {
+    color: var(--muted);
+}
+
+table.procs tr.dim .meter {
+    opacity: .5;
+}
+
+/* The Map: a column for each kind of thing, the lines between them drawn underneath. Pointing
+   at a node dims everything it is not joined to. */
+.map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem 1.2rem;
+    align-items: center;
+    margin: .4rem 0 1rem;
+}
+
+.map-legend span {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.map-key {
+    display: inline-block;
+    width: 1.6rem;
+    border-top: 2px solid var(--muted);
+}
+
+.map-key.may {
+    border-top-style: dashed;
+}
+
+.map-key.logs {
+    border-top-style: dotted;
+    border-top-color: var(--accent);
+}
+
+/* The columns share the width of the page, a long name ending in an ellipsis; only a page too
+   narrow for even that scrolls sideways */
+.map-board {
+    position: relative;
+    display: grid;
+    grid-auto-columns: minmax(9rem, 1fr);
+    grid-auto-flow: column;
+    gap: 3rem;
+    padding: .2rem 0 1rem;
+}
+
+.map-edges {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.map-edges path {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.4;
+    opacity: .55;
+    transition: opacity .12s ease, stroke .12s ease;
+}
+
+.map-edges path.may {
+    stroke-dasharray: 5 4;
+}
+
+.map-edges path.logs {
+    stroke: var(--accent);
+    stroke-dasharray: 2 4;
+}
+
+.map-board.focused .map-edges path {
+    opacity: .12;
+}
+
+.map-board.focused .map-edges path.lit {
+    stroke: var(--accent);
+    stroke-width: 2;
+    opacity: 1;
+}
+
+.map-column {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    min-width: 0;
+}
+
+.map-column-head {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.map-nodes {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: .45rem;
+    justify-content: center;
+}
+
+.map-node {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    padding: .4rem .65rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+    transition: opacity .12s ease, border-color .12s ease;
+}
+
+.map-node:hover,
+.map-node:focus-visible {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.map-node code,
+.map-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.map-label {
+    font-weight: 600;
+}
+
+/* The name wins the room: what is under it gives way first */
+.map-sub {
+    flex-shrink: 4;
+    min-width: 2.5rem;
+    margin-left: auto;
+    padding-left: .4rem;
+    overflow: hidden;
+    font-size: .8rem;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.map-node.host {
+    border-style: dashed;
+    cursor: default;
+}
+
+.map-node.map-logline {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.map-node .agent-behind {
+    flex: none;
+    color: var(--busy);
+}
+
+.map-board.focused .map-node {
+    opacity: .35;
+}
+
+.map-board.focused .map-node.lit {
+    opacity: 1;
+}
+
+.map-none {
+    margin: 0;
+}
+
+/* A service's public addresses: its door names, each with its switch */
+.svc-doors table.doors-of {
+    width: 100%;
+}
+
+.svc-doors table.doors-of tr.off td {
+    color: var(--muted);
+}
+
+.door-problem {
+    white-space: nowrap;
+}
+
+.door-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+}
+
+.door-add input,
+.door-add select {
+    padding: .3rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.door-add input {
+    width: 16rem;
+}
+
+/* Load tests: a list page, then the test looked at; its row is marked in the list */
+.load-tests .lt-head {
+    margin-top: .6rem;
+}
+
+.load-tests .list-head h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.load-tests .form .row-of {
+    flex-wrap: wrap;
+}
+
+/* The form sits in a card, so its buttons stay in it, as on the Logline page */
+.load-tests .form .actions {
+    position: static;
+    margin: .6rem 0 0;
+    padding: 0;
+    border-top: 0;
+    background: none;
+}
+
+.load-tests table.list-table td {
+    transition: background-color .2s ease;
+}
+
+.load-tests table.list-table tr.on td {
+    background: var(--hover);
+}
+
+.load-tests td.lt-act {
+    width: 1%;
+    text-align: right;
+}
+
+.lt-last {
+    display: inline-flex;
+    gap: .5rem;
+    align-items: center;
+}
+
+.lt-lines {
+    max-height: 16rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.load-tests tr.lt-noted td {
+    border-bottom: 0;
+}
+
+.load-tests tr.lt-log td {
+    padding-top: 0;
+    white-space: normal;
+}
+
+.load-tests tr.lt-log pre {
+    max-height: 28rem;
+}
+
+.load-tests tr.lt-notes td {
+    padding-top: 0;
+    white-space: normal;
+    font-size: .85rem;
+    overflow-wrap: anywhere;
+}

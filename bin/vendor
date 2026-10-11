@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# Copies the frontend libraries out of node_modules; public/ serves them with no build step
+mkdir -p src/main/public/vendor/ace
+cp node_modules/vue/dist/vue.esm-browser.prod.js src/main/public/vendor/
+cp node_modules/@xterm/xterm/lib/xterm.mjs src/main/public/vendor/
+cp node_modules/@xterm/xterm/css/xterm.css src/main/public/vendor/
+cp node_modules/@xterm/addon-fit/lib/addon-fit.mjs src/main/public/vendor/
+cp node_modules/ace-builds/src-min-noconflict/ace.js src/main/public/vendor/ace/
+cp node_modules/ace-builds/src-min-noconflict/mode-json.js src/main/public/vendor/ace/
+cp node_modules/ace-builds/src-min-noconflict/worker-json.js src/main/public/vendor/ace/
+cp node_modules/ace-builds/src-min-noconflict/theme-github_light_default.js src/main/public/vendor/ace/
+cp node_modules/ace-builds/src-min-noconflict/theme-github_dark.js src/main/public/vendor/ace/
+cp node_modules/ace-builds/src-min-noconflict/ext-searchbox.js src/main/public/vendor/ace/
+# CodeMirror comes as many small modules; the File Manager lists them, and they are bundled once into one file the page imports
+node_modules/.bin/esbuild modules/file_manager/vendor_src/codemirror.js --bundle --format=esm --minify --legal-comments=none --log-level=warning --outfile=src/main/public/vendor/codemirror.mjs
+echo "src/main/public/vendor is in place"

@@ -1,0 +1,331 @@
+/* The UFW module's own rules. The host page gives the colours (--panel, --line, --muted, --fg,
+   --accent) and the classes the module shares with it: card, list-head, list-acts, list-table,
+   dot, muted, bad, primary, link. */
+
+/* The parts one under another, each keeping its own height */
+.fw {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+}
+
+.fw > * {
+    flex: none;
+}
+
+.fw > p {
+    margin: 0;
+}
+
+/* The first read that failed: why, and the way to try again */
+.fw-first {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: center;
+}
+
+.fw-card,
+.fw-warn,
+.fw-undo,
+.fw-add {
+    padding: .7rem .9rem;
+}
+
+.fw-card {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.fw-card p {
+    margin: 0;
+}
+
+/* A long text keeps to its own column and is cut there; the whole of it is in its title */
+.fw-cut {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-head .fw-cut {
+    flex: 0 1 auto;
+}
+
+.fw-nowrap {
+    white-space: nowrap;
+}
+
+.fw-warn,
+.fw-undo {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+}
+
+.fw-warn > span,
+.fw-undo > span {
+    flex: 1;
+    min-width: 0;
+}
+
+.fw-warn b {
+    color: var(--bad, #c0392b);
+}
+
+.fw-rules {
+    padding: 0;
+    overflow-x: auto;
+}
+
+/* Narrower than this, the table scrolls inside its card rather than cutting every column to a
+   letter */
+.fw-table {
+    width: 100%;
+    min-width: 46rem;
+    table-layout: fixed;
+}
+
+.fw-table th:nth-child(1) {
+    width: 7rem;
+}
+
+.fw-table th:nth-child(2) {
+    width: 9rem;
+}
+
+.fw-table th:nth-child(3),
+.fw-table th:nth-child(4) {
+    width: 20%;
+}
+
+.fw-table th:nth-child(6) {
+    width: 5rem;
+}
+
+.fw-cut-cell {
+    overflow: hidden;
+}
+
+.fw-acts {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.fw-acts button.link {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.fw-pending td {
+    opacity: .55;
+}
+
+/* What a rule does, by its colour: let through, kept out, or let through slowly */
+.fw-action {
+    display: inline-block;
+    padding: .05rem .45rem;
+    border-radius: 5px;
+    font-size: .85rem;
+    border: 1px solid var(--line);
+}
+
+.fw-allow {
+    color: var(--run, #1e9e63);
+}
+
+.fw-deny,
+.fw-reject {
+    color: var(--bad, #c0392b);
+}
+
+.fw-limit {
+    color: var(--busy, #d38b12);
+}
+
+/* The row that adds a rule: its fields side by side, wrapping on a narrow page */
+.fw-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+}
+
+.fw-add input,
+.fw-add select {
+    padding: .35rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.fw-add input:focus,
+.fw-add select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.fw-port {
+    width: 10rem;
+}
+
+.fw-from {
+    width: 13rem;
+}
+
+.fw-comment {
+    flex: 1;
+    min-width: 10rem;
+}
+
+/* A section of the tab: the ports, then the rules */
+.fw-title {
+    display: flex;
+    gap: .6rem;
+    align-items: baseline;
+    margin: .4rem 0 0;
+    font-size: 1rem;
+}
+
+.fw-title span {
+    font-size: .85rem;
+    font-weight: normal;
+}
+
+/* How many ports reach how far, the firewall counted in */
+.fw-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: .75rem;
+}
+
+.fw-tile {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: .8rem 1rem;
+}
+
+.fw-tile b {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.fw-tile.hot {
+    border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+    background: color-mix(in srgb, var(--bad) 7%, var(--panel));
+}
+
+.fw-tile.hot b {
+    color: var(--bad);
+}
+
+.fw-tile.warm {
+    border-color: color-mix(in srgb, var(--busy) 45%, var(--line));
+}
+
+.fw-tile.warm b {
+    color: var(--busy);
+}
+
+.fw-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+}
+
+.fw-filter input {
+    width: 16rem;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.fw-filter input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* The ports table: port, reach, what the firewall does, who holds it, the action */
+.fw-ports th:nth-child(1) {
+    width: 7rem;
+}
+
+.fw-ports th:nth-child(2) {
+    width: 18rem;
+}
+
+.fw-ports th:nth-child(3) {
+    width: 30%;
+}
+
+.fw-ports th:nth-child(4) {
+    width: auto;
+}
+
+.fw-ports th:nth-child(5) {
+    width: 8rem;
+}
+
+.fw-port-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+/* A port others can reach is marked at its left edge, red for the internet and amber for a
+   network; one the firewall keeps out is not */
+.fw-ports tr.fw-open td:first-child {
+    box-shadow: inset 3px 0 0 var(--bad);
+}
+
+.fw-ports tr.fw-network td:first-child {
+    box-shadow: inset 3px 0 0 var(--busy);
+}
+
+.fw-ports tr.fw-shut td:first-child {
+    box-shadow: none;
+}
+
+.fw-ports tr.fw-open:not(.fw-shut) .fw-port-cell,
+.fw-ports tr.fw-network:not(.fw-shut) .fw-port-cell {
+    font-weight: 700;
+}
+
+.fw-ok {
+    color: var(--run, #1e9e63);
+}
+
+.fw-acts button:not(.link) {
+    font-size: inherit;
+}
+
+.fw-how {
+    font-size: .85rem;
+}
+
+.fw-how code {
+    display: block;
+    margin-top: .3rem;
+}
+
+.fw-ports tr.fw-local td {
+    color: var(--muted);
+}
+
+.fw-at {
+    margin: 0;
+}
+
+.fw-at code {
+    margin-right: .5rem;
+}

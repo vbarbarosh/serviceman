@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminals and files</title>
+<link rel="stylesheet" href="/xterm.css">
+<style>
+:root {
+    --bg: #ffffff;
+    --panel: #f4f5f7;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #dfe2e6;
+    --bad: #c2410c;
+    --accent: #2f6fed;
+    --ok: #15803d;
+}
+:root[data-theme="dark"] {
+    --bg: #171a1f;
+    --panel: #1f242c;
+    --fg: #e8eaed;
+    --muted: #939aa4;
+    --line: #2a3140;
+    --bad: #f0846a;
+    --accent: #6ea0ff;
+    --ok: #4ade80;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px system-ui, sans-serif;
+}
+header {
+    display: flex;
+    gap: .25rem;
+    align-items: center;
+    padding: .4rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+button {
+    display: flex;
+    align-items: center;
+    padding: .3rem .45rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+}
+button:hover {
+    color: var(--fg);
+}
+.tab {
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+}
+.tab.on {
+    border-color: var(--line);
+    background: var(--panel);
+}
+.tab.on .name {
+    color: var(--fg);
+}
+.tab .name {
+    padding-left: .7rem;
+}
+.machine {
+    margin-right: .6rem;
+    font-weight: 600;
+}
+.right {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+.bad {
+    color: var(--bad);
+}
+main {
+    display: grid;
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 0;
+}
+#left {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+#term {
+    flex: 1;
+    min-height: 0;
+    padding: .4rem .6rem;
+}
+#empty {
+    padding: 1rem;
+    color: var(--muted);
+}
+#files {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    border-left: 1px solid var(--line);
+}
+.bar {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    padding: .4rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+.bar input {
+    flex: 1;
+    min-width: 0;
+}
+input {
+    padding: .3rem .5rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.b {
+    border: 1px solid var(--line);
+    color: var(--fg);
+    white-space: nowrap;
+}
+.watch {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+.watch span {
+    overflow: hidden;
+    max-width: 16rem;
+    text-overflow: ellipsis;
+}
+.watch i {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+.watch.on i {
+    background: var(--ok);
+}
+.watch.bad i {
+    background: var(--bad);
+}
+#list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+#list.drop {
+    outline: 2px dashed var(--accent);
+    outline-offset: -4px;
+}
+.row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) 70px 120px auto;
+    gap: .5rem;
+    align-items: center;
+    padding: .15rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+.row:hover {
+    background: var(--panel);
+}
+.row .name {
+    overflow: hidden;
+    padding: .2rem 0;
+    color: var(--fg);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.row a.name {
+    text-decoration: none;
+}
+.row a.name:hover, .row button.name:hover {
+    color: var(--accent);
+}
+.row .size, .row .time {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: right;
+    white-space: nowrap;
+}
+.row .acts {
+    display: flex;
+}
+.row .acts a, .row .acts button {
+    padding: .2rem .35rem;
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: none;
+}
+.row .acts a:hover, .row .acts button:hover {
+    color: var(--fg);
+}
+.row input {
+    width: 100%;
+    box-sizing: border-box;
+}
+.icon {
+    color: var(--muted);
+}
+#list .none {
+    padding: 1rem .6rem;
+    color: var(--muted);
+}
+#log {
+    overflow: auto;
+    height: 30%;
+    min-height: 6rem;
+    padding: .3rem .6rem;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+#log div {
+    overflow-wrap: anywhere;
+}
+#log .request {
+    color: var(--accent);
+}
+#log .answer {
+    color: var(--muted);
+}
+#log .answer.bad {
+    color: var(--bad);
+}
+#log .event {
+    color: var(--ok);
+}
+.log-head {
+    display: flex;
+    align-items: center;
+    padding: .2rem .6rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+}
+.log-head button {
+    margin-left: auto;
+    padding: .1rem .3rem;
+    font-size: 12px;
+}
+@media (max-width: 900px) {
+    main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 45vh minmax(0, 1fr);
+    }
+    #files {
+        border-top: 1px solid var(--line);
+        border-left: none;
+    }
+    .row {
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+    }
+    .row .size, .row .time {
+        display: none;
+    }
+}
+#key {
+    display: flex;
+    gap: .6rem;
+    align-items: flex-start;
+    padding: .5rem .6rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+#key textarea {
+    flex: 1;
+    min-width: 0;
+    height: 4.2rem;
+    padding: .35rem .5rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    resize: vertical;
+}
+#key .said {
+    flex: 1;
+    min-width: 0;
+    align-self: center;
+    color: var(--muted);
+}
+#key .said b {
+    color: var(--fg);
+    font-weight: 600;
+}
+#key button {
+    border: 1px solid var(--line);
+    color: var(--fg);
+    white-space: nowrap;
+}
+#key [hidden] {
+    display: none;
+}
+</style>
+</head>
+<body>
+<header>
+    <span class="machine" id="machine"></span>
+    <span id="tabs" style="display: contents"></span>
+    <button type="button" id="add" title="A new terminal, kept running on the machine" aria-label="A new terminal">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <span class="right">
+        <span id="note" class="bad"></span>
+        <button type="button" id="theme" title="Light or dark"></button>
+    </span>
+</header>
+<div id="key">
+    <span class="said" id="key-said">Asking whether a key is kept…</span>
+    <textarea id="key-text" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…&#10;-----END OPENSSH PRIVATE KEY-----" spellcheck="false" autocomplete="off" aria-label="Private ssh key" hidden></textarea>
+    <button type="button" id="key-use" hidden>Use this key</button>
+    <button type="button" id="key-change" hidden>Change</button>
+    <button type="button" id="key-forget" hidden>Forget</button>
+</div>
+<main>
+    <section id="left">
+        <div id="term"></div>
+        <div id="empty" hidden>No terminals on this machine: + opens one, and it keeps running when the page closes.</div>
+    </section>
+    <section id="files">
+        <div class="bar">
+            <button type="button" id="up" title="The folder above" aria-label="The folder above">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+            <button type="button" id="home" title="The machine's starting folder" aria-label="The machine's starting folder">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>
+            </button>
+            <input id="path" spellcheck="false" autocomplete="off" aria-label="Folder: Enter opens it">
+            <span class="watch" id="watch"><i></i><span>not watched</span></span>
+        </div>
+        <div class="bar">
+            <input id="new-name" spellcheck="false" autocomplete="off" placeholder="a name" aria-label="Name of a new folder or file">
+            <button type="button" class="b" id="mkdir">New folder</button>
+            <button type="button" class="b" id="newfile">New file</button>
+            <button type="button" class="b" id="pick">Upload…</button>
+            <input type="file" id="upload" multiple hidden>
+        </div>
+        <div id="list"></div>
+        <div class="log-head">Requests, answers and events<button type="button" id="log-clear">Clear</button></div>
+        <div id="log"></div>
+    </section>
+</main>
+<script type="module">
+import fs_client from '/fs_client.mjs';
+
+import {FitAddon} from '/addon-fit.mjs';
+import {Terminal} from '/xterm.mjs';
+
+// The terminals of one machine, a tab each: + opens one, × ends it, and the one shown is in the
+// address, so a reload comes back to it. Each keeps running on the machine when this page closes.
+// The row under the header takes a private key: the server keeps it in its memory, never this
+// page, and every terminal + opens has it in its own ssh-agent before it shows.
+// Beside them, the machine's files through serviceman's files API (fs_client.mjs): the folder is
+// watched, and the list follows the watch's events; the buttons call the API, and the log under
+// the list shows each request, its answer and each event.
+const THEMES = {
+    dark: {background: '#171a1f', foreground: '#e8eaed', cursor: '#6ea0ff', selectionBackground: '#2a3140'},
+    light: {background: '#ffffff', foreground: '#1b1d21', cursor: '#2f6fed', selectionBackground: '#d7e3fb'},
+};
+const POLL_MS = 5000;
+const LOG_MAX = 300;
+const ICONS = {
+    dir: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6l2 2h10v11H3z"/></svg>',
+    file: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg>',
+    sun: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
+};
+const EMPTY_TEXT = 'No terminals on this machine: + opens one, and it keeps running when the page closes.';
+let key_kept = false;
+
+const params = new URLSearchParams(location.search);
+// The machine the address names, or the first serviceman knows
+const remote = params.get('remote') || (await (await fetch('/defaults')).json()).remote || 'laptop';
+// `ended` are the terminals ended here that the machine may still list for a moment
+const state = {items: [], ended: [], pick: params.get('name'), socket: null, term: null, fit: null};
+// The folder shown, its items by name as the watch keeps them, and the watch's off switch
+const files = fs_client({base: `/api/v1/remotes/${encodeURIComponent(remote)}/fs`, log: log_add});
+const folder = {path: params.get('dir'), home: null, items: new Map(), stop: null, moving: null};
+
+document.getElementById('machine').textContent = remote;
+document.getElementById('add').addEventListener('click', create);
+document.getElementById('key-use').addEventListener('click', () => key_send(document.getElementById('key-text').value));
+document.getElementById('key-change').addEventListener('click', () => key_draw({set: false, kind: null}));
+document.getElementById('key-forget').addEventListener('click', () => key_send(''));
+key_draw(await (await fetch('/key')).json());
+document.getElementById('theme').addEventListener('click', () => theme_set(theme_now() === 'dark' ? 'light' : 'dark'));
+theme_set(theme_saved());
+// Chrome on Wayland can hold a drag started on a link, and every click with it
+addEventListener('dragstart', v => v.preventDefault());
+files_start();
+addEventListener('resize', () => state.fit && state.fit.fit());
+const first = await load();
+if (first === null) {
+    // Nothing to open while serviceman cannot be asked: the note says why, and the next
+    // look that works opens the terminal as usual
+    await until_loaded();
+}
+// Nothing is made by opening the page: the terminal the address names when it runs, else the
+// oldest, else none, and + makes one
+if (names().includes(state.pick)) {
+    show(state.pick);
+}
+else if (state.items.length > 0) {
+    show(state.items[0].name);
+}
+else {
+    state.pick = null;
+    term_close();
+}
+setInterval(load, POLL_MS);
+
+async function until_loaded()
+{
+    while (await new Promise(v => setTimeout(v, POLL_MS)).then(load) === null) {
+        // asked again until serviceman answers
+    }
+}
+
+// Answers with what the machine itself lists, null when it could not be asked
+async function load()
+{
+    try {
+        const answer = await fetch(`/terminals?remote=${encodeURIComponent(remote)}`);
+        const body = await answer.json();
+        if (answer.ok === false) {
+            note(body.error);
+            return null;
+        }
+        note('');
+        // The one shown stays a tab before the machine lists it; one ended here stays gone
+        const shown = state.items.find(v => v.name === state.pick);
+        state.ended = state.ended.filter(v => body.items.some(vv => vv.name === v));
+        state.items = body.items.filter(v => state.ended.includes(v.name) === false);
+        if (shown !== undefined && names().includes(shown.name) === false) {
+            state.items.push(shown);
+        }
+        tabs_draw();
+        return body.items;
+    }
+    catch (error) {
+        note(error.message);
+        return null;
+    }
+}
+
+// The lowest number no terminal has. Its tab shows at once; the server makes it and puts the key
+// in, and the terminal opens when that is over.
+async function create()
+{
+    let n = 1;
+    while (names().includes(String(n))) {
+        n++;
+    }
+    const name = String(n);
+    state.items.push({name, created_at: Date.now()});
+    state.pick = name;
+    tabs_draw();
+    term_close();
+    const empty = document.getElementById('empty');
+    empty.hidden = false;
+    empty.textContent = `Making ${name} · Shell${key_kept ? ' and putting the key in…' : '…'}`;
+    const answer = await fetch(`/create?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`, {method: 'POST'});
+    const body = await answer.json();
+    empty.textContent = EMPTY_TEXT;
+    if (answer.ok === false) {
+        note(body.error);
+        gone(name);
+        return;
+    }
+    if (state.pick === name) {
+        show(name);
+    }
+}
+
+function key_draw(said)
+{
+    key_kept = said.set;
+    const text = document.getElementById('key-text');
+    document.getElementById('key-said').innerHTML = (said.set ? `<b>Key kept</b> (${said.kind}): every new terminal has it in its ssh-agent, for git pull and push` : '');
+    document.getElementById('key-said').hidden = (said.set === false);
+    text.hidden = said.set;
+    document.getElementById('key-use').hidden = said.set;
+    document.getElementById('key-change').hidden = (said.set === false);
+    document.getElementById('key-forget').hidden = (said.set === false);
+    if (said.set) {
+        text.value = '';
+    }
+    state.fit && state.fit.fit();
+}
+
+async function key_send(text)
+{
+    const answer = await fetch('/key', {method: 'POST', body: text});
+    const body = await answer.json();
+    if (answer.ok === false) {
+        note(body.error);
+        return;
+    }
+    note('');
+    key_draw(body);
+}
+
+function show(name)
+{
+    state.pick = name;
+    state.ended = state.ended.filter(v => v !== name);
+    address_set();
+    if (names().includes(name) === false) {
+        state.items.push({name, created_at: Date.now()});
+    }
+    tabs_draw();
+    term_open(name);
+}
+
+// The tab goes at once, and the one beside it is shown; the machine is told after
+async function end(name)
+{
+    gone(name);
+    const answer = await fetch(`/end?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`, {method: 'POST'});
+    if (answer.ok === false) {
+        note((await answer.json()).error);
+    }
+}
+
+function gone(name)
+{
+    const at = names().indexOf(name);
+    state.ended.push(name);
+    state.items = state.items.filter(v => v.name !== name);
+    if (state.pick !== name) {
+        tabs_draw();
+        return;
+    }
+    if (state.items.length === 0) {
+        state.pick = null;
+        term_close();
+        address_set();
+        tabs_draw();
+        return;
+    }
+    show(state.items[Math.min(at, state.items.length - 1)].name);
+}
+
+function term_open(name)
+{
+    term_close();
+    document.getElementById('empty').hidden = true;
+    const term = new Terminal({fontSize: 13, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', theme: THEMES[theme_now()], cursorBlink: true, scrollback: 10000});
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('term'));
+    fit.fit();
+    const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/term?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`);
+    socket.binaryType = 'arraybuffer';
+    socket.addEventListener('open', function () {
+        socket.send(JSON.stringify({type: 'resize', cols: term.cols, rows: term.rows}));
+        term.focus();
+    });
+    socket.addEventListener('message', function (event) {
+        if (typeof event.data === 'string') {
+            const message = JSON.parse(event.data);
+            if (message.type === 'note' && message.text.startsWith('serviceman does not answer')) {
+                note(message.text);
+            }
+            return;
+        }
+        term.write(new Uint8Array(event.data));
+    });
+    // Closed from the far end: `exit` typed, or ended in another tab. One that still runs was
+    // only cut off, and is joined again.
+    socket.addEventListener('close', async function () {
+        if (state.socket !== socket) {
+            return;
+        }
+        const listed = await load();
+        if (listed === null || listed.some(v => v.name === name)) {
+            setTimeout(() => state.pick === name && term_open(name), 1000);
+            return;
+        }
+        gone(name);
+    });
+    term.onData(v => send({type: 'input', data: v}));
+    term.onResize(v => send({type: 'resize', cols: v.cols, rows: v.rows}));
+    Object.assign(state, {socket, term, fit});
+
+    function send(message) {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
+        }
+    }
+}
+
+function term_close()
+{
+    if (state.socket !== null) {
+        const socket = state.socket;
+        state.socket = null;
+        socket.close();
+    }
+    if (state.term !== null) {
+        state.term.dispose();
+        state.term = null;
+        state.fit = null;
+    }
+    document.getElementById('empty').hidden = (state.pick !== null);
+}
+
+function tabs_draw()
+{
+    const box = document.getElementById('tabs');
+    box.replaceChildren();
+    const items = state.items.slice().sort((a, b) => a.created_at - b.created_at || a.name.localeCompare(b.name));
+    for (const item of items) {
+        const tab = document.createElement('span');
+        tab.className = (item.name === state.pick ? 'tab on' : 'tab');
+        const label = (/^\d+$/.test(item.name) ? `${item.name} · Shell` : item.name);
+        const name = document.createElement('button');
+        name.type = 'button';
+        name.className = 'name';
+        name.textContent = label;
+        name.addEventListener('click', () => show(item.name));
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.title = `End ${label}`;
+        close.setAttribute('aria-label', `End ${label}`);
+        close.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        close.addEventListener('click', () => end(item.name));
+        tab.append(name, close);
+        box.append(tab);
+    }
+}
+
+// The machine, the terminal shown and the folder shown, so a reload comes back to both
+function address_set()
+{
+    const query = new URLSearchParams({remote});
+    if (state.pick !== null) {
+        query.set('name', state.pick);
+    }
+    if (folder.path !== null) {
+        query.set('dir', folder.path);
+    }
+    history.replaceState(null, '', `?${query}`);
+}
+
+async function files_start()
+{
+    document.getElementById('path').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            folder_open(event.target.value.trim() || folder.home);
+        }
+    });
+    document.getElementById('up').addEventListener('click', () => folder_open(parent_of(folder.path)));
+    document.getElementById('home').addEventListener('click', () => folder_open(folder.home));
+    document.getElementById('mkdir').addEventListener('click', () => name_use(vv => files.mkdir(child_of(folder.path, vv))));
+    document.getElementById('newfile').addEventListener('click', () => name_use(vv => files.upload(folder.path, vv, '')));
+    document.getElementById('pick').addEventListener('click', () => document.getElementById('upload').click());
+    document.getElementById('upload').addEventListener('change', function (event) {
+        upload_all(Array.from(event.target.files));
+        event.target.value = '';
+    });
+    document.getElementById('log-clear').addEventListener('click', () => document.getElementById('log').replaceChildren());
+    const list = document.getElementById('list');
+    list.addEventListener('dragover', function (event) {
+        event.preventDefault();
+        list.classList.add('drop');
+    });
+    list.addEventListener('dragleave', () => list.classList.remove('drop'));
+    list.addEventListener('drop', function (event) {
+        event.preventDefault();
+        list.classList.remove('drop');
+        upload_all(Array.from(event.dataTransfer.files));
+    });
+    // The machine's starting folder: home, and the folder shown when the address names none
+    while (folder.home === null) {
+        try {
+            folder.home = (await files.list(null)).path;
+        }
+        catch (error) {
+            watch_said('bad', error.message);
+            await new Promise(v => setTimeout(v, POLL_MS));
+        }
+    }
+    folder_open(folder.path || folder.home);
+}
+
+// A folder shown: the watch opens first, and the list is read once it says ready, so nothing
+// made in between is missed; after that the events keep the list
+function folder_open(path)
+{
+    if (folder.stop !== null) {
+        folder.stop();
+    }
+    Object.assign(folder, {path, items: new Map(), moving: null});
+    document.getElementById('path').value = path;
+    address_set();
+    list_draw();
+    watch_said('', 'opening the watch…');
+    folder.stop = files.watch(path, {}, function (event) {
+        if (folder.path !== path) {
+            return;
+        }
+        if (event.type === 'ready' || event.type === 'resync') {
+            watch_said('on', 'watched');
+            list_read(path);
+        }
+        if (event.type === 'created' || event.type === 'changed') {
+            folder.items.set(event.path, {name: event.path, kind: event.kind, size: event.size, mtime_ms: event.mtime_ms});
+            list_draw();
+        }
+        if (event.type === 'removed') {
+            folder.items.delete(event.path);
+            list_draw();
+        }
+        if (event.type === 'error') {
+            watch_said('bad', event.error);
+            list_draw(event.error);
+        }
+    });
+}
+
+async function list_read(path)
+{
+    try {
+        const out = await files.list(path);
+        if (folder.path === path) {
+            folder.items = new Map(out.items.map(v => [v.name, v]));
+            list_draw();
+        }
+    }
+    catch (error) {
+        list_draw(error.message);
+    }
+}
+
+// Folders first, then files, each by name
+function list_draw(error)
+{
+    const box = document.getElementById('list');
+    box.replaceChildren();
+    if (error !== undefined) {
+        box.innerHTML = `<div class="none bad"></div>`;
+        box.firstChild.textContent = error;
+        return;
+    }
+    const items = Array.from(folder.items.values()).sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : (a.kind === 'dir' ? -1 : 1)));
+    if (items.length === 0) {
+        box.innerHTML = '<div class="none">An empty folder: a name above makes a folder or a file, and files dropped here go up into it.</div>';
+        return;
+    }
+    for (const item of items) {
+        box.append(row_make(item));
+    }
+}
+
+function row_make(item)
+{
+    const path = child_of(folder.path, item.name);
+    const row = document.createElement('div');
+    row.className = 'row';
+    const icon = document.createElement('span');
+    icon.className = 'icon';
+    icon.innerHTML = ICONS[item.kind];
+    let name;
+    if (folder.moving === item.name) {
+        // Move or rename: the whole new path, so another folder works too
+        name = document.createElement('input');
+        name.value = path;
+        name.spellcheck = false;
+        name.setAttribute('aria-label', `New path of ${item.name}`);
+        name.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && name.value.trim() !== path) {
+                folder.moving = null;
+                act(() => files.rename(path, name.value.trim()));
+            }
+            if (event.key === 'Escape' || (event.key === 'Enter' && name.value.trim() === path)) {
+                folder.moving = null;
+                list_draw();
+            }
+        });
+        setTimeout(() => name.focus());
+    }
+    else if (item.kind === 'dir') {
+        name = document.createElement('button');
+        name.type = 'button';
+        name.addEventListener('click', () => folder_open(path));
+    }
+    else {
+        name = document.createElement('a');
+        name.href = files.file_url(path);
+        name.target = '_blank';
+        name.rel = 'noreferrer';
+    }
+    if (folder.moving !== item.name) {
+        name.className = 'name';
+        name.textContent = item.name;
+        name.title = path;
+    }
+    const size = document.createElement('span');
+    size.className = 'size';
+    size.textContent = (item.kind === 'dir' ? '' : size_said(item.size));
+    const time = document.createElement('span');
+    time.className = 'time';
+    time.textContent = (item.mtime_ms === null ? '' : new Date(item.mtime_ms).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'}));
+    const acts = document.createElement('span');
+    acts.className = 'acts';
+    const download = document.createElement('a');
+    download.textContent = (item.kind === 'dir' ? 'tar' : 'Download');
+    download.title = (item.kind === 'dir' ? `${item.name} with all in it, as one tar` : `Download ${item.name}`);
+    download.href = (item.kind === 'dir' ? files.tar_url(folder.path, [item.name]) : files.file_url(path));
+    download.setAttribute('download', (item.kind === 'dir' ? `${item.name}.tar` : item.name));
+    download.addEventListener('click', () => log_add({type: 'request', method: 'GET', url: download.href, body: null}));
+    const move = document.createElement('button');
+    move.type = 'button';
+    move.textContent = 'Move';
+    move.title = 'Rename it, or move it to another folder';
+    move.addEventListener('click', function () {
+        folder.moving = item.name;
+        list_draw();
+    });
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Delete';
+    remove.title = (item.kind === 'dir' ? `Delete ${item.name} with everything in it` : `Delete ${item.name}`);
+    remove.addEventListener('click', () => act(() => files.remove(path)));
+    acts.append(download, move, remove);
+    row.append(icon, name, size, time, acts);
+    return row;
+}
+
+// The name box used by New folder and New file; the list changes when the watch says so
+function name_use(fn)
+{
+    const input = document.getElementById('new-name');
+    const value = input.value.trim();
+    if (value === '') {
+        input.focus();
+        return;
+    }
+    input.value = '';
+    act(() => fn(value));
+}
+
+function upload_all(list)
+{
+    for (const file of list) {
+        act(() => files.upload(folder.path, file.name, file));
+    }
+}
+
+// A call whose refusal is said in the header; the log has it too
+async function act(fn)
+{
+    try {
+        await fn();
+        note('');
+    }
+    catch (error) {
+        note(error.message);
+        list_draw();
+    }
+}
+
+function watch_said(kind, text)
+{
+    const box = document.getElementById('watch');
+    box.className = `watch ${kind}`;
+    box.lastChild.textContent = text;
+    box.title = text;
+}
+
+// One line a request, an answer or an event; the address without this page's origin
+function log_add(entry)
+{
+    const box = document.getElementById('log');
+    const line = document.createElement('div');
+    const url = decodeURIComponent(entry.url || '').replace(location.origin, '');
+    const body = (entry.body === null || entry.body === undefined ? '' : ` ${typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body)}`);
+    if (entry.type === 'request') {
+        line.className = 'request';
+        line.textContent = `→ ${entry.method} ${url}${body}`;
+    }
+    if (entry.type === 'answer') {
+        line.className = (entry.status >= 200 && entry.status < 300 ? 'answer' : 'answer bad');
+        line.textContent = `← ${entry.status === 0 ? 'no answer' : entry.status}${body}`;
+    }
+    if (entry.type === 'event') {
+        line.className = 'event';
+        line.textContent = `• event${body}`;
+    }
+    const end = (box.scrollHeight - box.scrollTop - box.clientHeight < 8);
+    box.append(line);
+    while (box.childElementCount > LOG_MAX) {
+        box.firstChild.remove();
+    }
+    if (end) {
+        box.scrollTop = box.scrollHeight;
+    }
+}
+
+function parent_of(path)
+{
+    const at = path.replace(/\/+$/, '').lastIndexOf('/');
+    return (at <= 0 ? '/' : path.slice(0, at));
+}
+
+function child_of(dir, name)
+{
+    return `${dir.replace(/\/+$/, '')}/${name}`;
+}
+
+function size_said(bytes)
+{
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let n = bytes/1024;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+        n = n/1024;
+        i++;
+    }
+    return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+}
+
+function names()
+{
+    return state.items.map(v => v.name);
+}
+
+function note(text)
+{
+    document.getElementById('note').textContent = text;
+}
+
+function theme_now()
+{
+    return document.documentElement.dataset.theme;
+}
+
+function theme_set(value)
+{
+    document.documentElement.dataset.theme = value;
+    document.getElementById('theme').innerHTML = (value === 'dark' ? ICONS.moon : ICONS.sun);
+    try {
+        localStorage.setItem('theme', value);
+    }
+    catch {
+        // A page without storage keeps the theme until it is reloaded
+    }
+    if (state.term !== null) {
+        state.term.options.theme = THEMES[value];
+    }
+}
+
+function theme_saved()
+{
+    try {
+        return (localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+    }
+    catch {
+        return 'dark';
+    }
+}
+</script>
+</body>
+</html>

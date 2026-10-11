@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminals</title>
+<link rel="stylesheet" href="/xterm.css">
+<style>
+:root {
+    --bg: #ffffff;
+    --panel: #f4f5f7;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #dfe2e6;
+    --bad: #c2410c;
+}
+:root[data-theme="dark"] {
+    --bg: #171a1f;
+    --panel: #1f242c;
+    --fg: #e8eaed;
+    --muted: #939aa4;
+    --line: #2a3140;
+    --bad: #f0846a;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px system-ui, sans-serif;
+}
+header {
+    display: flex;
+    gap: .25rem;
+    align-items: center;
+    padding: .4rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+button {
+    display: flex;
+    align-items: center;
+    padding: .3rem .45rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+}
+button:hover {
+    color: var(--fg);
+}
+.tab {
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+}
+.tab.on {
+    border-color: var(--line);
+    background: var(--panel);
+}
+.tab.on .name {
+    color: var(--fg);
+}
+.tab .name {
+    padding-left: .7rem;
+}
+.machine {
+    margin-right: .6rem;
+    font-weight: 600;
+}
+.right {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+.bad {
+    color: var(--bad);
+}
+#term {
+    flex: 1;
+    min-height: 0;
+    padding: .4rem .6rem;
+}
+#empty {
+    padding: 1rem;
+    color: var(--muted);
+}
+</style>
+</head>
+<body>
+<header>
+    <span class="machine" id="machine"></span>
+    <span id="tabs" style="display: contents"></span>
+    <button type="button" id="add" title="A new terminal, kept running on the machine" aria-label="A new terminal">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <span class="right">
+        <span id="note" class="bad"></span>
+        <button type="button" id="theme" title="Light or dark">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5"/></svg>
+        </button>
+    </span>
+</header>
+<div id="term"></div>
+<div id="empty" hidden>No terminals on this machine: + opens one, and it keeps running when the page closes.</div>
+<script type="module">
+import {FitAddon} from '/addon-fit.mjs';
+import {Terminal} from '/xterm.mjs';
+
+// The terminals of one machine, a tab each: + opens one, × ends it, and the one shown is in the
+// address, so a reload comes back to it. Each keeps running on the machine when this page closes.
+const THEMES = {
+    dark: {background: '#171a1f', foreground: '#e8eaed', cursor: '#6ea0ff', selectionBackground: '#2a3140'},
+    light: {background: '#ffffff', foreground: '#1b1d21', cursor: '#2f6fed', selectionBackground: '#d7e3fb'},
+};
+const POLL_MS = 5000;
+
+const params = new URLSearchParams(location.search);
+// The machine the address names, or the first serviceman knows
+const remote = params.get('remote') || (await (await fetch('/defaults')).json()).remote || 'laptop';
+// `ended` are the terminals ended here that the machine may still list for a moment
+const state = {items: [], ended: [], pick: params.get('name'), socket: null, term: null, fit: null};
+
+document.getElementById('machine').textContent = remote;
+document.getElementById('add').addEventListener('click', create);
+document.getElementById('theme').addEventListener('click', () => theme_set(theme_now() === 'dark' ? 'light' : 'dark'));
+theme_set(theme_saved());
+addEventListener('resize', () => state.fit && state.fit.fit());
+const first = await load();
+if (first === null) {
+    // Nothing to open while serviceman cannot be asked: the note says why, and the next
+    // look that works opens the terminal as usual
+    await until_loaded();
+}
+// Nothing is made by opening the page: the terminal the address names when it runs, else the
+// oldest, else none, and + makes one
+if (names().includes(state.pick)) {
+    show(state.pick);
+}
+else if (state.items.length > 0) {
+    show(state.items[0].name);
+}
+else {
+    state.pick = null;
+    term_close();
+}
+setInterval(load, POLL_MS);
+
+async function until_loaded()
+{
+    while (await new Promise(v => setTimeout(v, POLL_MS)).then(load) === null) {
+        // asked again until serviceman answers
+    }
+}
+
+// Answers with what the machine itself lists, null when it could not be asked
+async function load()
+{
+    try {
+        const answer = await fetch(`/terminals?remote=${encodeURIComponent(remote)}`);
+        const body = await answer.json();
+        if (answer.ok === false) {
+            note(body.error);
+            return null;
+        }
+        note('');
+        // The one shown stays a tab before the machine lists it; one ended here stays gone
+        const shown = state.items.find(v => v.name === state.pick);
+        state.ended = state.ended.filter(v => body.items.some(vv => vv.name === v));
+        state.items = body.items.filter(v => state.ended.includes(v.name) === false);
+        if (shown !== undefined && names().includes(shown.name) === false) {
+            state.items.push(shown);
+        }
+        tabs_draw();
+        return body.items;
+    }
+    catch (error) {
+        note(error.message);
+        return null;
+    }
+}
+
+// The lowest number no terminal has: opening a name that is not running makes it
+function create()
+{
+    let n = 1;
+    while (names().includes(String(n))) {
+        n++;
+    }
+    state.items.push({name: String(n), created_at: Date.now()});
+    show(String(n));
+}
+
+function show(name)
+{
+    state.pick = name;
+    state.ended = state.ended.filter(v => v !== name);
+    history.replaceState(null, '', `?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`);
+    if (names().includes(name) === false) {
+        state.items.push({name, created_at: Date.now()});
+    }
+    tabs_draw();
+    term_open(name);
+}
+
+// The tab goes at once, and the one beside it is shown; the machine is told after
+async function end(name)
+{
+    gone(name);
+    const answer = await fetch(`/end?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`, {method: 'POST'});
+    if (answer.ok === false) {
+        note((await answer.json()).error);
+    }
+}
+
+function gone(name)
+{
+    const at = names().indexOf(name);
+    state.ended.push(name);
+    state.items = state.items.filter(v => v.name !== name);
+    if (state.pick !== name) {
+        tabs_draw();
+        return;
+    }
+    if (state.items.length === 0) {
+        state.pick = null;
+        term_close();
+        history.replaceState(null, '', `?remote=${encodeURIComponent(remote)}`);
+        tabs_draw();
+        return;
+    }
+    show(state.items[Math.min(at, state.items.length - 1)].name);
+}
+
+function term_open(name)
+{
+    term_close();
+    document.getElementById('empty').hidden = true;
+    const term = new Terminal({fontSize: 13, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', theme: THEMES[theme_now()], cursorBlink: true, scrollback: 10000});
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('term'));
+    fit.fit();
+    const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/term?remote=${encodeURIComponent(remote)}&name=${encodeURIComponent(name)}`);
+    socket.binaryType = 'arraybuffer';
+    socket.addEventListener('open', function () {
+        socket.send(JSON.stringify({type: 'resize', cols: term.cols, rows: term.rows}));
+        term.focus();
+    });
+    socket.addEventListener('message', function (event) {
+        if (typeof event.data === 'string') {
+            const message = JSON.parse(event.data);
+            if (message.type === 'note' && message.text.startsWith('serviceman does not answer')) {
+                note(message.text);
+            }
+            return;
+        }
+        term.write(new Uint8Array(event.data));
+    });
+    // Closed from the far end: `exit` typed, or ended in another tab. One that still runs was
+    // only cut off, and is joined again.
+    socket.addEventListener('close', async function () {
+        if (state.socket !== socket) {
+            return;
+        }
+        const listed = await load();
+        if (listed === null || listed.some(v => v.name === name)) {
+            setTimeout(() => state.pick === name && term_open(name), 1000);
+            return;
+        }
+        gone(name);
+    });
+    term.onData(v => send({type: 'input', data: v}));
+    term.onResize(v => send({type: 'resize', cols: v.cols, rows: v.rows}));
+    Object.assign(state, {socket, term, fit});
+
+    function send(message) {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
+        }
+    }
+}
+
+function term_close()
+{
+    if (state.socket !== null) {
+        const socket = state.socket;
+        state.socket = null;
+        socket.close();
+    }
+    if (state.term !== null) {
+        state.term.dispose();
+        state.term = null;
+        state.fit = null;
+    }
+    document.getElementById('empty').hidden = (state.pick !== null);
+}
+
+function tabs_draw()
+{
+    const box = document.getElementById('tabs');
+    box.replaceChildren();
+    const items = state.items.slice().sort((a, b) => a.created_at - b.created_at || a.name.localeCompare(b.name));
+    for (const item of items) {
+        const tab = document.createElement('span');
+        tab.className = (item.name === state.pick ? 'tab on' : 'tab');
+        const label = (/^\d+$/.test(item.name) ? `${item.name} · Shell` : item.name);
+        const name = document.createElement('button');
+        name.type = 'button';
+        name.className = 'name';
+        name.textContent = label;
+        name.addEventListener('click', () => show(item.name));
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.title = `End ${label}`;
+        close.setAttribute('aria-label', `End ${label}`);
+        close.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        close.addEventListener('click', () => end(item.name));
+        tab.append(name, close);
+        box.append(tab);
+    }
+}
+
+function names()
+{
+    return state.items.map(v => v.name);
+}
+
+function note(text)
+{
+    document.getElementById('note').textContent = text;
+}
+
+function theme_now()
+{
+    return document.documentElement.dataset.theme;
+}
+
+function theme_set(value)
+{
+    document.documentElement.dataset.theme = value;
+    try {
+        localStorage.setItem('theme', value);
+    }
+    catch {
+        // A page without storage keeps the theme until it is reloaded
+    }
+    if (state.term !== null) {
+        state.term.options.theme = THEMES[value];
+    }
+}
+
+function theme_saved()
+{
+    try {
+        return (localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+    }
+    catch {
+        return 'dark';
+    }
+}
+</script>
+</body>
+</html>

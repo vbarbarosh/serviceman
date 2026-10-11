@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# The image as bin/build built it, in front of you and gone when it stops: --rm leaves nothing
+# but data/. The two doors are on this machine's loopback and nowhere else: 3000 is what the
+# services answer on, 3001 is the control page. data/ is mounted at /app/data, where the image
+# reads its config, data/serviceman.json (bin/configure writes the first one), and keeps its
+# logs and what it notes down. No docker socket is given to it: that socket is root on this
+# machine, and the containers of a service are started by an agent, on the machine that is
+# meant to carry them. TS_AUTHKEY from the environment joins the tailnet by itself; without it,
+# the log has the link to open.
+docker run --rm --init \
+    -p 127.0.0.1:3000:3000 \
+    -p 127.0.0.1:3001:3001 \
+    -v $PWD/data:/app/data \
+    -e TS_AUTHKEY=${TS_AUTHKEY:-} \
+    -v serviceman-tailscale:/var/lib/tailscale \
+    serviceman

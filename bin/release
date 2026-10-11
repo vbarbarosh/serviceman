@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+RED="\e[31m"
+GREEN="\e[32m"
+RESET="\e[0m"
+
+EXIT_MESSAGE="${RED}bin/release failed${RESET}"
+trap 'echo -e $EXIT_MESSAGE' EXIT
+
+cd $scriptdir/..
+
+case "${1-}"  in
+major|minor|patch)
+    ;;
+*)
+    echo usage: release 'major|minor|patch' 2>&1
+    exit 1
+    ;;
+esac
+
+if test -n "`git status -s`"; then
+    echo error: there is changes 2>&1
+    exit 1
+fi
+
+bin/test
+
+# Increase a version without commiting it and making a tag
+npm version $1 --no-git-tag-version
+
+# The version is stamped into the agent bundle, so it is built again
+bin/agent-bundle
+
+git add package.json serviceman-agent.js
+if test -e package-lock.json; then
+    git add package-lock.json
+fi
+
+git commit -m "release v$(node -e 'console.log(require("./package.json").version)')"
+
+# Create a tag
+git tag v$(node -e 'console.log(require("./package.json").version)')
+
+git push --all
+git push --tags
+
+EXIT_MESSAGE="${GREEN}bin/release succeeded${RESET}"

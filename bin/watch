@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# Restarts serviceman when the source changes; public/ is read per request and needs no restart.
+#
+# The config is not watched on purpose: serviceman applies a config change itself, without a
+# restart, and that is what every form and the config editor rely on. Restarting on it would
+# drop every remote link and cut the request that asked for the change — including the one from
+# the page that saved it, which then cannot tell whether the save landed.
+exec npx nodemon --watch src --ext js,json src/main.js "$@"

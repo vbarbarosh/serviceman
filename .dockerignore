@@ -1,0 +1,10 @@
+.git
+node_modules
+data
+serviceman.json
+tests
+demos
+docs
+*.log
+*.png
+*.zip

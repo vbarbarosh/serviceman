@@ -1,0 +1,7 @@
+.env
+__conf/
+__tasks/
+data/
+node_modules/
+*.sock
+/serviceman.json

@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Logline</title>
+        <script>
+            try {
+                const saved = localStorage.getItem('logline-theme');
+                const light = (saved ? saved === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches);
+                document.documentElement.dataset.theme = (light ? 'light' : 'dark');
+            }
+            catch {
+                document.documentElement.dataset.theme = 'dark';
+            }
+        </script>
+        <link rel="stylesheet" href="/styles.css">
+    </head>
+    <body>
+        <div id="app" v-cloak>
+            <main class="app-shell">
+                <header class="topbar">
+                    <div class="brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <div>
+                            <h1>Logline</h1>
+                            <p>Local ClickHouse logs</p>
+                        </div>
+                    </div>
+
+                    <div class="status-group">
+                        <span class="query-status">{{ queryStatus }}</span>
+                        <div class="disk-control" @click.stop>
+                            <button
+                                type="button"
+                                class="disk-button"
+                                :class="diskLevel"
+                                :aria-expanded="(diskOpen ? 'true' : 'false')"
+                                :title="(diskError || 'Disk used by logs and free on the Logline machine')"
+                                @click="toggleDisk"
+                            ><span class="disk-mark" aria-hidden="true"></span>{{ diskSummary }}</button>
+                            <section v-if="diskOpen" class="disk-popover" aria-label="Disk usage">
+                                <template v-if="disk">
+                                    <div class="disk-bar" role="img" :aria-label="diskShares.map(share => `${share.label} ${formatBytes(share.bytes)}`).join(', ')">
+                                        <i
+                                            v-for="share in diskShares"
+                                            :key="share.value"
+                                            :class="share.value"
+                                            :style="{width: (share.percent + '%')}"
+                                            :title="`${share.label}: ${formatBytes(share.bytes)}`"
+                                        ></i>
+                                    </div>
+                                    <dl class="disk-legend">
+                                        <template v-for="share in diskShares" :key="share.value">
+                                            <dt><i :class="share.value" aria-hidden="true"></i>{{ share.label }}</dt>
+                                            <dd>{{ formatBytes(share.bytes) }}<small>{{ share.percent.toFixed(1) }}%</small></dd>
+                                        </template>
+                                    </dl>
+                                    <p class="disk-note">
+                                        {{ formatCount(disk.logs.rows) }} lines<template v-if="disk.logs.since"> since {{ formatDate(disk.logs.since) }}</template>
+                                        <template v-if="disk.logs.raw"> · {{ formatBytes(disk.logs.raw) }} before compression (×{{ (disk.logs.raw / Math.max(1, disk.logs.bytes)).toFixed(1) }})</template>
+                                        · disk {{ formatBytes(disk.total) }}
+                                    </p>
+                                    <span class="eyebrow">Largest tables</span>
+                                    <table class="disk-tables">
+                                        <tr v-for="table in disk.tables" :key="table.name" :class="{logs: (table.name === 'default.otel_logs')}">
+                                            <td :title="table.name">{{ table.name }}</td>
+                                            <td>{{ formatCount(table.rows) }}</td>
+                                            <td>{{ formatBytes(table.bytes) }}</td>
+                                        </tr>
+                                    </table>
+                                    <small v-if="disk.tablesHidden" class="disk-more">and {{ disk.tablesHidden }} smaller</small>
+                                </template>
+                                <p v-else-if="diskError" class="disk-error">{{ diskError }}</p>
+                                <p v-else class="disk-note">Reading…</p>
+                            </section>
+                        </div>
+                        <button type="button" class="share-button" :disabled="sharing" @click="shareCurrentView">
+                            <span aria-hidden="true">↗</span>{{ sharing ? 'Preparing…' : 'Copy link' }}
+                        </button>
+                        <span class="status-pill" :class="{live: followLive}"><i></i>{{ followLive ? 'Live' : 'Paused' }}</span>
+                        <label class="theme-switch" :title="(lightTheme ? 'Switch to dark theme' : 'Switch to light theme')">
+                            <input v-model="lightTheme" type="checkbox" :aria-label="(lightTheme ? 'Use dark theme' : 'Use light theme')">
+                            <span class="theme-track" aria-hidden="true">
+                                <span class="theme-icon">☾</span>
+                                <i></i>
+                                <span class="theme-icon">☀</span>
+                            </span>
+                        </label>
+                    </div>
+                </header>
+
+                <aside class="labels-panel" aria-label="Labels">
+                    <div class="labels-head">
+                        <span class="eyebrow">Labels</span>
+                        <button v-if="labelChips.length" type="button" @click="clearLabels">Clear {{ labelChips.length }}</button>
+                    </div>
+                    <input
+                        v-model="labelFind"
+                        class="labels-find"
+                        type="text"
+                        spellcheck="false"
+                        placeholder="Find a label or value"
+                        aria-label="Find a label or value"
+                        @input="scheduleLabels"
+                    >
+                    <div class="labels-list">
+                        <section v-for="group in labelGroups" :key="group.name" class="label-group" :class="{open: group.open}">
+                            <button
+                                type="button"
+                                class="label-name"
+                                :aria-expanded="(group.open ? 'true' : 'false')"
+                                @click="toggleLabelGroup(group.name)"
+                            >
+                                <span class="label-caret" aria-hidden="true">▸</span>
+                                <strong>{{ group.name }}</strong>
+                                <span v-if="group.selected" class="label-picked">{{ group.selected }}</span>
+                                <small v-if="group.total" :title="`${group.total} values in this range`">{{ group.total }}</small>
+                            </button>
+                            <div v-if="group.open" class="label-values">
+                                <button
+                                    v-for="item in group.values"
+                                    :key="item.value"
+                                    type="button"
+                                    class="label-value"
+                                    :class="{selected: item.selected, none: !item.count}"
+                                    :aria-pressed="(item.selected ? 'true' : 'false')"
+                                    :title="`${group.name}=${item.value}`"
+                                    @click="toggleLabel(group.name, item.value)"
+                                >
+                                    <i :style="{width: (item.share + '%')}" aria-hidden="true"></i>
+                                    <span class="label-check" aria-hidden="true"></span>
+                                    <span class="label-text">{{ item.value }}</span>
+                                    <span class="label-count">{{ formatCount(item.count) }}</span>
+                                </button>
+                                <span v-if="group.hidden" class="label-more">{{ group.hidden }} more · find them above</span>
+                            </div>
+                        </section>
+                        <div v-if="!labelGroups.length" class="labels-empty">
+                            {{ labelFind.trim() ? 'No label or value matches' : 'No labels in this range' }}
+                        </div>
+                    </div>
+                </aside>
+
+                <section class="filter-panel" aria-label="Log filters">
+                    <div class="field terms-field">
+                        <label for="terms">Contains all substrings</label>
+                        <input
+                            id="terms"
+                            v-model="termsInput"
+                            type="text"
+                            spellcheck="false"
+                            placeholder="cron disk !success"
+                            @input="scheduleSearch"
+                            @keydown.ctrl.enter.prevent="runSearch"
+                            @keydown.meta.enter.prevent="runSearch"
+                        >
+                    </div>
+
+                    <div class="field range-field" @click.stop>
+                        <label for="rangeButton">Time range</label>
+                        <button
+                            id="rangeButton"
+                            type="button"
+                            class="range-button"
+                            :aria-expanded="(rangeOpen ? 'true' : 'false')"
+                            @click="toggleRange"
+                        >
+                            <span class="range-icon" aria-hidden="true">◷</span>
+                            <span class="range-text">{{ rangeLabel }}</span>
+                            <span class="range-caret" aria-hidden="true">▾</span>
+                        </button>
+                        <section v-if="rangeOpen" class="range-popover" aria-label="Choose a time range">
+                            <form class="range-custom" @submit.prevent="applyRangeInputs">
+                                <span class="eyebrow">Custom range</span>
+                                <label for="rangeFromInput">From</label>
+                                <input id="rangeFromInput" ref="rangeFromInput" v-model="rangeFromInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
+                                <label for="rangeToInput">To</label>
+                                <input id="rangeToInput" v-model="rangeToInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
+                                <p v-if="rangeError" class="range-error" role="alert">{{ rangeError }}</p>
+                                <p v-else class="range-hint"><code>2026-09-26 14:30</code>, <code>14:30</code> for today, <code>now-2h</code>, <code>now</code>. To <code>now</code> follows live.</p>
+                                <button type="submit" class="range-apply">Apply</button>
+                            </form>
+                            <div class="range-quick">
+                                <span class="eyebrow">Quick ranges</span>
+                                <div class="range-columns">
+                                    <div>
+                                        <button
+                                            v-for="range in relativeRanges"
+                                            :key="range.value"
+                                            type="button"
+                                            :class="{active: (activeRange === range.value)}"
+                                            @click="applyQuickRange(range.value)"
+                                        >{{ range.label }}</button>
+                                    </div>
+                                    <div>
+                                        <button
+                                            v-for="range in calendarRanges"
+                                            :key="range.value"
+                                            type="button"
+                                            :class="{active: (activeRange === range.value)}"
+                                            @click="applyQuickRange(range.value)"
+                                        >{{ range.label }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="quick-row">
+                        <label class="toggle">
+                            <input v-model="followLive" type="checkbox" @change="onFollowChange">
+                            <span></span>
+                            Follow live
+                        </label>
+
+                        <label class="refresh-control">
+                            Refresh every
+                            <input
+                                v-model.number="refreshSeconds"
+                                type="number"
+                                min="1"
+                                max="300"
+                                step="0.5"
+                                aria-label="Automatic refresh interval in seconds"
+                                @change="applyRefreshInterval"
+                            >
+                            <span>sec</span>
+                        </label>
+
+                        <label class="toggle">
+                            <input v-model="stripAnsiEnabled" type="checkbox">
+                            <span></span>
+                            Strip ANSI
+                        </label>
+
+                        <label class="toggle">
+                            <input v-model="ignoreEmptyEnabled" type="checkbox" @change="applyIgnoreEmpty">
+                            <span></span>
+                            Hide empty
+                        </label>
+
+                        <span class="syntax-note">Space-separated AND · !text excludes</span>
+                    </div>
+
+                    <div v-if="labelChips.length" class="label-chips" aria-label="Selected labels">
+                        <span class="label-chips-title" title="Values of one label: any of them. Different labels: all of them.">Only lines with</span>
+                        <button
+                            v-for="chip in labelChips"
+                            :key="(chip.name + '\u0000' + chip.value)"
+                            type="button"
+                            class="label-chip"
+                            :title="`Remove ${chip.name}=${chip.value}`"
+                            @click="toggleLabel(chip.name, chip.value)"
+                        ><span>{{ chip.name }}</span>{{ chip.value }}<i aria-hidden="true">×</i></button>
+                        <button type="button" class="label-chips-clear" @click="clearLabels">Clear</button>
+                    </div>
+
+                    <div v-if="investigation" class="investigation-banner" role="status">
+                        <span class="investigation-icon" aria-hidden="true">⌖</span>
+                        <div>
+                            <strong>{{ investigationLabel }}</strong>
+                            <span>Body terms can further narrow this scoped view.</span>
+                        </div>
+                        <button type="button" @click="restoreSearch">← Back to search</button>
+                    </div>
+                </section>
+
+                <section class="chart-panel" aria-label="Log volume">
+                    <div class="chart-heading">
+                        <div>
+                            <span class="eyebrow">Volume</span>
+                            <strong>{{ formattedEventCount }}</strong>
+                            <span>events</span>
+                        </div>
+                        <span class="bucket-label">{{ bucketLabel }}</span>
+                    </div>
+                    <div class="histogram" role="img" aria-label="Filtered events over time">
+                        <svg viewBox="0 0 1000 70" preserveAspectRatio="none">
+                            <line v-for="y in [5, 35, 65]" :key="y" class="grid" x1="0" x2="1000" :y1="y" :y2="y"></line>
+                            <rect
+                                v-for="bar in chartBars"
+                                :key="bar.bucket"
+                                class="bar"
+                                :x="bar.x"
+                                :y="bar.y"
+                                :width="bar.width"
+                                :height="bar.height"
+                                @click="zoomToBucket(bar.bucket)"
+                            ><title>{{ bar.title }}</title></rect>
+                        </svg>
+                        <div class="chart-axis"><span>{{ rangeStartLabel }}</span><span>{{ rangeEndLabel }}</span></div>
+                    </div>
+                </section>
+
+                <section class="log-panel">
+                    <div class="log-header" :class="{picking: pickedCount}">
+                        <button
+                            type="button"
+                            class="row-check"
+                            :class="loadedPicked"
+                            :disabled="!rows.length"
+                            :aria-label="(loadedPicked === 'all' ? 'Unselect the loaded lines' : 'Select every loaded line')"
+                            :title="(loadedPicked === 'all' ? 'Unselect the loaded lines' : 'Select every loaded line')"
+                            @click="toggleLoadedPicks"
+                        ></button>
+                        <template v-if="!pickedCount">
+                            <span aria-hidden="true">Time</span>
+                            <span aria-hidden="true">Service</span>
+                            <span aria-hidden="true">Message <small>· drag to select lines · Ctrl toggles · Shift adds</small></span>
+                        </template>
+                        <div v-else class="pick-bar" role="toolbar" aria-label="Selected lines">
+                            <strong>{{ formatCount(pickedCount) }} {{ pickedCount === 1 ? 'line' : 'lines' }} selected<small v-if="pickedElsewhere"> · {{ formatCount(pickedElsewhere) }} from other searches</small></strong>
+                            <div class="pick-formats" role="radiogroup" aria-label="Export format">
+                                <button
+                                    v-for="format in exportFormats"
+                                    :key="format.value"
+                                    type="button"
+                                    role="radio"
+                                    :aria-checked="(exportFormat === format.value ? 'true' : 'false')"
+                                    :class="{active: (exportFormat === format.value)}"
+                                    @click="setExportFormat(format.value)"
+                                >{{ format.label }}</button>
+                            </div>
+                            <button type="button" class="pick-action" @click="copyPicked">Copy</button>
+                            <button type="button" class="pick-action" @click="savePicked">Save .{{ exportFormatNow.extension }}</button>
+                            <button type="button" class="pick-clear" @click="clearPicks">Clear</button>
+                        </div>
+                    </div>
+                    <div
+                        ref="viewport"
+                        class="log-viewport"
+                        tabindex="0"
+                        @scroll="onScroll"
+                        @wheel.passive="cancelAutoScroll"
+                        @touchstart.passive="cancelAutoScroll"
+                        @pointerdown="onViewportPointerdown"
+                        @keydown="onViewportKeydown"
+                    >
+                        <div class="log-canvas" :class="{dragging: marquee}" :style="{height: (canvasHeight + 'px')}">
+                            <div
+                                v-if="marquee"
+                                class="marquee"
+                                :style="{left: (marquee.left + 'px'), top: (marquee.top + 'px'), width: (marquee.width + 'px'), height: (marquee.height + 'px')}"
+                            ></div>
+                            <div
+                                v-for="item in visibleRows"
+                                :key="item.row.key"
+                                class="log-row"
+                                :class="rowClasses(item.row)"
+                                :style="{top: ((item.index * rowHeight) + 'px')}"
+                                @click="onRowClick(item.row, $event)"
+                            >
+                                <button
+                                    type="button"
+                                    class="row-check"
+                                    :class="{all: picked[item.row.key]}"
+                                    :aria-pressed="(picked[item.row.key] ? 'true' : 'false')"
+                                    aria-label="Select this line"
+                                    tabindex="-1"
+                                    @click.stop="togglePick(item.row, $event)"
+                                ></button>
+                                <span class="log-time">{{ formatTime(item.row.timestamp_ms) }}</span>
+                                <span class="log-service" :title="(item.row.service || 'unknown')">{{ item.row.service || 'unknown' }}</span>
+                                <span class="log-message" :title="listBody(item.row)">
+                                    <highlighted-text :text="listBody(item.row)" :terms="(active ? active.terms : [])"></highlighted-text>
+                                </span>
+                            </div>
+                        </div>
+                        <div v-if="(!rows.length && !loadingInitial)" class="empty-state">
+                            <strong>No logs in this range</strong>
+                            <span>Change the substrings or widen the date range.</span>
+                        </div>
+                        <div v-if="loadingOlder" class="loading-older">Loading older logs…</div>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="detail-drawer" :class="{open: selectedRow}" :aria-hidden="(selectedRow ? 'false' : 'true')">
+                <div class="drawer-head">
+                    <div>
+                        <span class="eyebrow">Log detail</span>
+                        <strong>{{ selectedRow ? selectedRow.service : '' }}</strong>
+                    </div>
+                    <button type="button" aria-label="Close details" @click="closeDetail">×</button>
+                </div>
+                <dl>
+                    <template v-for="item in detailMetadata" :key="item.name">
+                        <dt>{{ item.name }}</dt><dd>{{ item.value }}</dd>
+                    </template>
+                </dl>
+                <section v-if="selectedRow" class="detail-labels" aria-label="Labels of this log entry">
+                    <span class="eyebrow">Labels · click to filter</span>
+                    <div>
+                        <button
+                            v-for="label in rowLabels"
+                            :key="(label.name + '\u0000' + label.value)"
+                            type="button"
+                            class="label-chip"
+                            :class="{selected: labelSelected(label.name, label.value)}"
+                            :aria-pressed="(labelSelected(label.name, label.value) ? 'true' : 'false')"
+                            :title="(labelSelected(label.name, label.value) ? `Stop filtering by ${label.name}=${label.value}` : `Only lines with ${label.name}=${label.value}`)"
+                            @click="toggleLabel(label.name, label.value)"
+                        ><span>{{ label.name }}</span>{{ label.value }}</button>
+                        <small v-if="!rowLabels.length">This line has no labels</small>
+                    </div>
+                </section>
+                <section v-if="selectedRow" class="investigation-actions" aria-label="Investigate this log entry">
+                    <span class="eyebrow">Investigate</span>
+                    <div>
+                        <button type="button" @click="investigateContext(selectedRow)">
+                            <strong>Surroundings</strong>
+                            <small>{{ inferGroupUid(selectedRow) ? 'Nearby + same group' : (selectedRow.container_id ? 'Same container · ±2 min' : 'Same service · ±2 min') }}</small>
+                        </button>
+                        <button type="button" :disabled="!selectedRow.group_uid" @click="investigateGroup(selectedRow)">
+                            <strong>This group</strong>
+                            <small>{{ selectedRow.group_uid || 'No group ID found' }}</small>
+                        </button>
+                        <button v-if="selectedRow.parent_group_uid" type="button" @click="investigateGroup(selectedRow, true)">
+                            <strong>Parent group</strong>
+                            <small>{{ selectedRow.parent_group_uid }}</small>
+                        </button>
+                    </div>
+                </section>
+                <div class="detail-body-head">
+                    <span>Body</span>
+                    <button type="button" @click="copyBody">Copy</button>
+                </div>
+                <pre>{{ selectedRow ? displayBody(selectedRow.body) : '' }}</pre>
+            </aside>
+
+            <div class="toast" :class="{show: toastVisible}" role="status" aria-live="polite">{{ toastMessage }}</div>
+        </div>
+
+        <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js" defer></script>
+        <script src="/app.js" defer></script>
+    </body>
+</html>

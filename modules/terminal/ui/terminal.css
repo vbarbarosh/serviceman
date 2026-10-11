@@ -1,0 +1,40 @@
+/* The Terminal's own rules. The host page gives the colours (--panel, --line) and the
+   page's classes for the note line (muted, bad, link); xterm's own css comes with xterm. */
+
+/* The title, the note, the terminal taking the rest of the height, and what goes under it */
+.terminal {
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    min-height: 0;
+}
+
+.terminal .term {
+    min-height: 0;
+    margin: .5rem 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    overflow: hidden;
+}
+
+/* The space inside the frame is the terminal's own padding, not the frame's: the fit counts
+   rows from the frame's height less the terminal's padding, and padding on the frame would be
+   counted as rows and cut off the last one */
+.terminal .xterm {
+    height: 100%;
+    padding: .5rem .25rem .5rem .6rem;
+}
+
+/* xterm paints its scroll layer black under the padding; the frame's colour is the one the
+   terminal's own theme has anyway. xterm draws a scrollbar of its own, so the browser's, light
+   in a dark page, is hidden; the wheel scrolls as before. */
+.terminal .xterm .xterm-viewport {
+    background-color: var(--panel);
+    scrollbar-width: none;
+}
+
+/* Full screen: the frame alone, over the page's own colour */
+.terminal:fullscreen {
+    padding: 1rem;
+    background: var(--bg);
+}

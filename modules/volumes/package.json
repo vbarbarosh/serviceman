@@ -1,0 +1,11 @@
+{
+    "name": "volumes",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "Encrypted volumes of a machine for a web page: LUKS in a file, listed, closed and grown; opened and made by the client that holds the key",
+    "main": "server/volumes_serve.js",
+    "scripts": {
+        "test": "node --test tests/*.test.js"
+    }
+}

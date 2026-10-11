@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# The only command to run after git pull for preparing the project for development
+npm install
+bin/vendor
+
+# The config serviceman runs with: a starting one, written when there is none. From then on
+# it is yours, edited by hand or from the control page, and nothing here writes over it.
+if [ ! -f data/serviceman.json ]; then
+    mkdir -p data
+    cp config/serviceman.json data/serviceman.json
+    echo "$scriptname: wrote data/serviceman.json, a starting config with no services yet"
+fi
+
+# The image bin/run runs, built when it is missing. After a change to the code: bin/build.
+docker image inspect serviceman > /dev/null 2>&1 || bin/build

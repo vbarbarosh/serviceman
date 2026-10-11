@@ -1,0 +1,42 @@
+# serviceman with a tailscale agent of its own, so the machine underneath carries neither.
+#
+#     TS_AUTHKEY=tskey-auth-… docker compose up -d
+#
+# Without a key it prints a link to open — `docker compose logs serviceman` has it.
+#
+# Nothing is published here on purpose. tailscaled joins the tailnet in userspace mode and
+# hands what it receives to serviceman on the loopback inside the container, so the only way
+# in is the tailnet. To reach it from the machine itself as well, add:
+#     ports: ["127.0.0.1:3000:3000", "127.0.0.1:3001:3001"]
+# and in the config bind both doors to 0.0.0.0 — a published port arrives on the container's
+# own address, not on its loopback. The control page also needs "exposed": true then, because
+# a forwarded request is a stranger to serviceman; the 127.0.0.1 above is its wall. bin/run
+# does exactly this.
+#
+# `network_mode: host` instead of that gives serviceman the machine's own loopback — which is
+# where tailscaled then hands its inbound connections, so a tailnet ACL should say which ports
+# may be reached.
+
+services:
+    serviceman:
+        build: ..
+        image: serviceman
+        init: true
+        restart: always
+        environment:
+            TS_AUTHKEY: ${TS_AUTHKEY:-}
+            TS_HOSTNAME: serviceman
+            # https://serviceman.<tailnet>.ts.net in front of it, on a certificate the tailnet
+            # issues. Needs HTTPS turned on for the tailnet.
+            TS_SERVE: 1
+        volumes:
+            - data:/data
+            - tailscale:/var/lib/tailscale
+            # The door for an agent on this machine: it dials
+            # `--url unix:///run/serviceman/serviceman.sock`, and no port is opened for it.
+            # The services of this machine are that agent's to run; nothing in here runs docker.
+            - /run/serviceman:/var/run/serviceman
+
+volumes:
+    data:
+    tailscale:

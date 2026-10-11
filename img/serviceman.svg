@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="455" height="120" viewBox="0 0 455 120" role="img" aria-label="serviceman">
+    <rect x="18" y="14" width="76" height="92" rx="6" fill="none" stroke="#8a93a0" stroke-width="4"/>
+    <path d="M56 18 L88 18 L88 102 L56 102 Z" fill="#2f6fed" opacity="0.14"/>
+    <path d="M56 18 L56 102" stroke="#2f6fed" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="64" cy="60" r="3.5" fill="#2f6fed"/>
+    <path d="M96 60 L150 60" stroke="#2f6fed" stroke-width="4" stroke-linecap="round"/>
+    <path d="M134 46 L150 60 L134 74" fill="none" stroke="#2f6fed" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="170" y="74" font-family="ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif" font-size="46" font-weight="600" fill="#8a93a0">serviceman</text>
+</svg>
