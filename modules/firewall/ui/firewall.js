@@ -52,9 +52,9 @@ const firewall = {
                 <button type="button" :disabled="(busy || offline)" @click="read">Read again</button>
             </div>
         </div>
-        <!-- Turning it on with nothing to let ssh in closes ssh; the agent dials out and stays -->
+        <!-- Turning it on with nothing to let ssh in closes ssh; the host says what still reaches it -->
         <div v-if="(state.ssh_open === false && state.active === false)" class="card fw-warn">
-            <span><b>No rule lets ssh (22) in.</b> Turned on like this, the firewall closes ssh to this machine. serviceman still reaches it: its agent dials out.</span>
+            <span><b>No rule lets ssh (22) in.</b> Turned on like this, the firewall closes ssh to this machine.<template v-if="(stays !== '')">{{ (' ' + stays) }}</template></span>
             <button type="button" :disabled="(busy || offline)" @click="ssh_allow">Allow 22/tcp</button>
         </div>
         <div v-if="(undo !== null)" class="card fw-undo">
@@ -162,6 +162,8 @@ const firewall = {
         // The machine's own addresses, for how far a port on every address reaches; null
         // when they are not known
         addresses: {type: Array, default: null},
+        // What still reaches the machine once the firewall closes ssh, said after the warning
+        stays: {type: String, default: ''},
     },
     data: function () {
         return {

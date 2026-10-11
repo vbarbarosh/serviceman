@@ -101,7 +101,8 @@ The page half: the host serves `ui/` and maps it in its import map:
     <firewall base="/firewall" :offline="false" :addresses="['203.0.113.7']"/>
 
 `addresses` are the machine's own, for how far a port on every address reaches; without them
-such a port is taken for open to the internet.
+such a port is taken for open to the internet. `stays` is what still reaches the machine once
+the firewall closes ssh, said after the warning that it will (serviceman's agent dials out).
 
 The host page gives the colours, as `--panel`, `--line`, `--muted`, `--fg` and `--accent`, and
 the classes the component shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`,

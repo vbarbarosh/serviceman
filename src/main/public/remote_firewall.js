@@ -5,7 +5,7 @@ import firewall from 'firewall/firewall.js';
 // agent
 const remote_firewall = {
     template: `
-<firewall id="detail" class="list" :base="base" :offline="(view.phase !== 'online')" :addresses="addresses"/>
+<firewall id="detail" class="list" :base="base" :offline="(view.phase !== 'online')" :addresses="addresses" stays="serviceman still reaches it: its agent dials out."/>
 `,
     components: {firewall},
     props: ['view'],
