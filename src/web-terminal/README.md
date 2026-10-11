@@ -17,7 +17,7 @@ server of the app's own (`tmux -L web-terminal`); the page lists them in its hea
 
 ## Run
 
-    PORT=3000 node web-terminal/index.js
+    PORT=3000 node src/web-terminal/index.js
 
 It needs `python3` (the pty) and `tmux` on the machine, and the vendored xterm and Vue in
 `src/main/public/vendor` (`bin/vendor`).
@@ -27,7 +27,7 @@ It needs `python3` (the pty) and `tmux` on the machine, and the vendored xterm a
 Every terminal is then a shell in an Ubuntu container. Built from the root of the repo:
 
     bin/vendor
-    docker build -f web-terminal/Dockerfile -t web-terminal .
+    docker build -f src/web-terminal/Dockerfile -t web-terminal .
 
 And served by serviceman like any other service, started by the first visit:
 

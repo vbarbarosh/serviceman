@@ -1,7 +1,7 @@
 const pty_spawn = require('./pty_spawn');
 const session_name_from_path = require('./session_name_from_path');
-const terminal_attach = require('../../modules/terminal/server/terminal_attach');
-const terminal_refuse = require('../../modules/terminal/server/terminal_refuse');
+const terminal_attach = require('../../../modules/terminal/server/terminal_attach');
+const terminal_refuse = require('../../../modules/terminal/server/terminal_refuse');
 const tmux_argv = require('./tmux_argv');
 const ws = require('ws');
 

@@ -7,7 +7,7 @@
     "main": "src/main/index.js",
     "scripts": {
         "start": "node src/main",
-        "lint": "npx vbarbarosh/rules src tests modules logline/lines logline/log-ui config demos web-terminal",
+        "lint": "npx vbarbarosh/rules src tests modules logline/lines logline/log-ui config demos",
         "test": "node --test --test-concurrency=1 tests/*.test.js"
     },
     "dependencies": {

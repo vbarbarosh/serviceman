@@ -17,7 +17,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
   `server/`, `ui/` and `tests/`.
 - **Logline:** `logline/` (its server in `logline/lines`, its page in `logline/log-ui`) is
   self-contained and is moving to a repository of its own; keep it free of serviceman's code.
-- **web-terminal:** a page and a server of its own, in `web-terminal/`.
+- **web-terminal:** a page and a server of its own, in `src/web-terminal/`.
 - **Notes and audits:** working notes in `notes/`; a full audit is `notes/audit-<date>.md`,
   and its register is the issue list (the last id is SM-132).
 
@@ -46,7 +46,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
 - **The running serviceman is the docker image.** A change shows only after `bin/build` and a
   restart; say so when handing a change over.
 - **Plain CSS.** `src/main/public/serviceman.css`, `logline/log-ui/styles.css` and
-  `web-terminal/public/web_terminal.css` are served as they are, with no preprocessor for
+  `src/web-terminal/public/web_terminal.css` are served as they are, with no preprocessor for
   `@include app-transition`: their transitions are written by hand, and the linter's 24
   CSS-09 findings on them are expected.
 - **Nothing private in the repository: it is public.** Secrets and tokens, the names and
@@ -97,7 +97,7 @@ Do not apply:
 
     npm run lint
 
-It runs `npx vbarbarosh/rules src tests modules logline/lines logline/log-ui config demos web-terminal`. Judge it by its exit status and read every finding. Today it reports only CSS-09 on the three plain stylesheets; anything else is new and is fixed. The linter does not read Vue template strings: check those by eye.
+It runs `npx vbarbarosh/rules src tests modules logline/lines logline/log-ui config demos`. Judge it by its exit status and read every finding. Today it reports only CSS-09 on the three plain stylesheets; anything else is new and is fixed. The linter does not read Vue template strings: check those by eye.
 
 ## Agent guides
 

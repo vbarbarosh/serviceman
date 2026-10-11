@@ -98,7 +98,7 @@ And on logins (20261004_122103):
 
 ## Where we are
 
-- **web-terminal** (`web-terminal/`) is an ordinary HTTP service: a docker image (Ubuntu, node,
+- **web-terminal** (`src/web-terminal/`) is an ordinary HTTP service: a docker image (Ubuntu, node,
   tmux, tini) whose page is the Terminal module. `/<name>` is a kept tmux session inside that
   container, `/` a shell that ends with its page. It proved the pieces, but its shells are inside
   a container, so ai-box, which needs the machine's own podman, cannot run there.

@@ -6,8 +6,8 @@ const sessions_list = require('./sessions_list');
 // The page's own files under /_/, from where they sit in the serviceman repo
 const DIRS = {
     app: path.resolve(__dirname, '../public'),
-    terminal: path.resolve(__dirname, '../../modules/terminal/ui'),
-    vendor: path.resolve(__dirname, '../../src/main/public/vendor'),
+    terminal: path.resolve(__dirname, '../../../modules/terminal/ui'),
+    vendor: path.resolve(__dirname, '../../main/public/vendor'),
 };
 
 const TYPES = {
