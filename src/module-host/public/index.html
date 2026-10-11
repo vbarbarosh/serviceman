@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>This computer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>&#9673;</text></svg>">
+<link rel="stylesheet" href="/_/serviceman.css">
+<link rel="stylesheet" href="/_/app/module_host.css">
+<script>
+try {
+    document.documentElement.dataset.theme = (localStorage.getItem('module-host.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+}
+catch {
+    document.documentElement.dataset.theme = 'light';
+}
+</script>
+<script type="importmap">
+{
+    "imports": {
+        "vue": "/_/vendor/vue.esm-browser.prod.js"
+    }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/_/app/module_host.js"></script>
+</body>
+</html>

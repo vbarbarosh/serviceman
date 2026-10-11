@@ -1,0 +1,91 @@
+/* A head with this computer's name, the modules down the side, the one open beside them */
+.mh-head {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    min-width: 0;
+    padding: .6rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.mh-head b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mh-head .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mh-theme {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin-left: auto;
+    padding: 0;
+}
+
+.mh-body {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    min-height: 0;
+}
+
+.mh-nav {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    padding: .75rem .5rem;
+    border-right: 1px solid var(--line);
+}
+
+.mh-nav button {
+    padding: .45rem .75rem;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.mh-nav button:hover {
+    background: var(--hover);
+}
+
+.mh-nav button.on {
+    background: var(--hover);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.mh-main {
+    min-width: 0;
+    overflow: auto;
+    padding: 1rem 1.5rem 2rem;
+}
+
+@media (max-width: 40rem) {
+    .mh-body {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .mh-main {
+        padding: .75rem 1rem 1.5rem;
+    }
+
+    .mh-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+}
