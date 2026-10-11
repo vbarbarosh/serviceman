@@ -144,6 +144,29 @@ test('a link that drops leaves the remote offline, and the agent dials in again'
     }
 });
 
+test('a link that drops while its machine is pinged leaves serviceman running', async function () {
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}]);
+    const remote = running.app.remote_by_name.vps1;
+    const agent = agent_start(running.control_port, TOKEN);
+    try {
+        await wait_until(() => remote.state.phase === 'online');
+
+        // Quiet long enough to be pinged; the link drops with the ping on its way, and the
+        // failed ping finds no socket left (a crash on socket.destroy() of null, 2026-08-17)
+        remote.state.heard_at = Date.now() - 30000;
+        const measured = remotes_measure(running.app);
+        remote.state.socket.destroy();
+        await measured;
+        assert.strictEqual(remote.state.phase, 'offline');
+        assert.strictEqual(remote.state.socket, null);
+        assert.strictEqual(running.app.log_lines.some(v => /\[remote_quiet\]/.test(v)), false, 'a dropped link is not a quiet machine');
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('a remote that is left alone in the config keeps its link when the config is applied again', async function () {
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
     const remote = running.app.remote_by_name.vps1;
