@@ -438,6 +438,9 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 1h;
+        # an event stream goes out as it comes, an upload as large as the service takes
+        proxy_buffering off;
+        client_max_body_size 0;
     }
 }
 ```
@@ -494,6 +497,38 @@ yours, and are the whole of what it needs.
 The service behind a wall is untouched — it keeps its own address, and answers there as it
 always did. Whatever a visitor claims about themselves in `X-Auth-User` is dropped: what the
 service reads is the wall's word.
+
+### A port at home, on a public name
+
+A port of a computer with no public address (the laptop, behind the home router) is served on
+a name of the machine that has one. It is an `external` service on the laptop and a rule on the
+machine, nothing more:
+
+```json
+"remotes": [
+    {"name": "vps1", "token": "0c0f…a91b", "inbound": {"phone.example.com": "phone-door"}},
+    {"name": "laptop", "token": "5e1d…07c2"}
+],
+"services": [
+    {"name": "phone-door", "type": "external", "remote": "laptop", "publish": {"host": "phone-door.localhost"}, "upstream": "127.0.0.1:8771"}
+]
+```
+
+The request comes in at vps1's front, its door hands it to the laptop's agent over the tailnet,
+and that agent carries it to `127.0.0.1:8771`. Nothing at home opens to the internet, and the
+port may stay bound to the loopback. The body is streamed both ways, so an upload and an
+event stream that stays open for hours pass as they are; whatever the front sets (an upload
+limit, a read timeout, buffering) still holds, and so does a CDN's (Cloudflare drops a stream
+quiet for 100 seconds). Both are in the config, so they outlive a restart of either side.
+
+**What a door carries is marked.** Every request it carries gets `X-Serviceman-Relay: 1`, set
+over whatever the visitor sent, so a service that lets more in at home (a pairing, a first
+sign-in) can refuse it to whoever came through a door. Who they are is in `X-Forwarded-For`, as
+the front wrote it.
+
+**When the laptop is away** (asleep, off, off the tailnet), the door waits 10 seconds for a
+connection and answers `502`. A front or a CDN may answer for it with a 5xx of its own, so a
+client reads any 502, 503, 504 or 52x as "not reachable now".
 
 ## Through a reverse proxy
 

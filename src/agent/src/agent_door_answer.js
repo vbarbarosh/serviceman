@@ -27,6 +27,7 @@ async function agent_door_answer(options, relay, req, res)
     res.once('close', function () {
         agent_say(group, 'door_request_end', {status: (res.writableEnded ? res.statusCode : 'cut_off'), took: `${((Date.now() - time0)/1000).toFixed(3)}s`});
     });
+    mark(req);
     const routed = await route(options, req, host, group);
     if (routed.answer !== undefined) {
         answer_now(res, routed.answer, group);
@@ -52,6 +53,7 @@ agent_door_answer.upgrade = async function (options, relay, req, socket, head) {
     const host = host_of(req);
     agent_say(group, 'group_spawn', undefined);
     agent_say(group, 'door_upgrade_begin', {host, path: path_of(req.url)});
+    mark(req);
     const routed = await route(options, req, host, group);
     if (routed.answer !== undefined) {
         if (routed.answer.why !== undefined) {
@@ -109,6 +111,13 @@ async function route(options, req, host, group)
         return {target: null};
     }
     return {target, extra: peer_headers(target), service: name};
+}
+
+// Everything a door carries came from outside: a service that lets more in at home (a pairing,
+// a first sign-in) reads it here. Set over whatever the visitor sent, so nobody takes it off.
+function mark(req)
+{
+    req.headers['x-serviceman-relay'] = '1';
 }
 
 // What a peer is asked with: its token and the service meant, which the peer finds on its own

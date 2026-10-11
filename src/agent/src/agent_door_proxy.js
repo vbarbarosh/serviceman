@@ -3,6 +3,9 @@ const http = require('http');
 
 // Headers that are about one connection and not the request: never carried to the next one
 const HOP = ['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'te', 'trailer', 'upgrade'];
+// A far end that takes no connection in this time is away (a machine asleep, off the tailnet):
+// the visitor hears 502 now, not when the system gives up on it two minutes later
+const CONNECT_MS = 10000;
 
 // The request carried on to where it is answered, and the answer back as it came, Set-Cookie
 // lines and all. `target` is {host, port} or {socket}; `extra` is headers set on the way.
@@ -25,7 +28,16 @@ function agent_door_proxy(req, res, target, extra)
                 resolve(true);
             });
         });
+        const timer = setTimeout(function () {
+            request.destroy(new Error('no connection in time'));
+        }, agent_door_proxy.connect_ms);
+        request.on('socket', function (socket) {
+            socket.once('connect', function () {
+                clearTimeout(timer);
+            });
+        });
         request.on('error', function () {
+            clearTimeout(timer);
             if (res.headersSent) {
                 res.destroy();
             }
@@ -50,5 +62,7 @@ function headers_of(given, extra)
 }
 
 agent_door_proxy.headers_of = headers_of;
+// Shorter in a test, which waits on a far end that never connects
+agent_door_proxy.connect_ms = CONNECT_MS;
 
 module.exports = agent_door_proxy;

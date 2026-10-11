@@ -1,3 +1,5 @@
+const agent_door_proxy = require('../src/agent/src/agent_door_proxy');
+const agent_door_upgrade = require('../src/agent/src/agent_door_upgrade');
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
@@ -44,7 +46,7 @@ test('a door routes through the wall to the service itself, and goes on with ser
     });
     const echoed = [];
     const echo = await server_of(function (req, res) {
-        echoed.push({url: req.url, user: req.headers['x-auth-user'] || ''});
+        echoed.push({url: req.url, user: req.headers['x-auth-user'] || '', relay: req.headers['x-serviceman-relay'] || ''});
         res.end(`echo ${req.url} for ${req.headers['x-auth-user'] || 'nobody'}`);
     });
     const peer_port = await port_free();
@@ -84,9 +86,11 @@ test('a door routes through the wall to the service itself, and goes on with ser
         assert.match(own.body, /the wall's own page \/auth\/sign-in/);
 
         // Signed in: through, with who they are in the wall's words — whatever the visitor claimed
-        const through = await fetch_socket(door, 'echo.example.com', '/hello', {cookie: 'session=good', 'x-auth-user': 'somebody-else'});
+        const through = await fetch_socket(door, 'echo.example.com', '/hello', {cookie: 'session=good', 'x-auth-user': 'somebody-else', 'x-serviceman-relay': '0'});
         assert.strictEqual(through.status, 200);
         assert.strictEqual(through.body, 'echo /hello for user@example.com');
+        // — and marked as come through a door, whatever the visitor said, so the service can tell
+        assert.strictEqual(echoed[echoed.length - 1].relay, '1');
 
         // serviceman goes away. The door is the agent's, and so is the table it routes by.
         await running.close();
@@ -162,6 +166,36 @@ test('a door wakes a sleeping service, waits for it to answer, and serviceman se
         agent.kill('SIGKILL');
         await running.close();
         delete process.env.SERVICEMAN_STATE_DIR;
+    }
+});
+
+// A far end that takes no connection — a machine asleep, or off the tailnet — is a 502 at once,
+// for a request and for a websocket, not a wait until the system gives up minutes later.
+// 192.0.2.1 is an address nothing answers on.
+test('a door answers 502 at once when the far end takes no connection', async function () {
+    const connect_ms = agent_door_proxy.connect_ms;
+    agent_door_proxy.connect_ms = 300;
+    const away = {host: '192.0.2.1', port: 9};
+    const front = await server_of(function (req, res) {
+        agent_door_proxy(req, res, away, {});
+    });
+    front.on('upgrade', function (req, socket, head) {
+        agent_door_upgrade(req, socket, head, away, {});
+    });
+    try {
+        const time0 = Date.now();
+        const answer = await fetch_port(front.address().port, {});
+        assert.strictEqual(answer.status, 502);
+        assert.ok(Date.now() - time0 < 2000);
+
+        const time1 = Date.now();
+        const closed = await fetch_port(front.address().port, {connection: 'upgrade', upgrade: 'websocket'});
+        assert.strictEqual(closed.status, 'closed');
+        assert.ok(Date.now() - time1 < 2000);
+    }
+    finally {
+        agent_door_proxy.connect_ms = connect_ms;
+        await close_server(front);
     }
 });
 
@@ -246,6 +280,26 @@ function fetch_socket(file, host, path_asked, headers)
             res.on('end', () => resolve({status: res.statusCode, headers: res.headers, body: Buffer.concat(body).toString('utf8')}));
         });
         req.on('error', reject);
+        req.end();
+    });
+}
+
+// {status, body}, or {status: 'closed'} for a connection that ended with no answer
+function fetch_port(port, headers)
+{
+    return new Promise(function (resolve) {
+        const req = http.request({host: '127.0.0.1', port, path: '/', headers}, function (res) {
+            const body = [];
+            res.on('data', v => body.push(v));
+            res.on('end', () => resolve({status: res.statusCode, body: Buffer.concat(body).toString('utf8')}));
+        });
+        req.on('upgrade', function (res, socket) {
+            socket.destroy();
+            resolve({status: res.statusCode});
+        });
+        req.on('error', function () {
+            resolve({status: 'closed'});
+        });
         req.end();
     });
 }
