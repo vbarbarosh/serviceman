@@ -1,0 +1,33 @@
+// The line icons of the remote's pages: the paths inside a 24×24 svg, stroked, by name
+const overview_icons = {
+    power: '<path d="M12 3v8"/><path d="M6.2 6.8a8 8 0 1 0 11.6 0"/>',
+    link: '<path d="M10.5 13.5a4.5 4.5 0 0 0 6.4 0l2.3-2.3a4.5 4.5 0 0 0-6.4-6.4l-1.3 1.3"/><path d="M13.5 10.5a4.5 4.5 0 0 0-6.4 0l-2.3 2.3a4.5 4.5 0 0 0 6.4 6.4l1.3-1.3"/>',
+    monitor: '<rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/>',
+    cpu: '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="10" y="10" width="4" height="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    memory: '<rect x="3" y="7" width="18" height="9" rx="1"/><path d="M7 16v3M12 16v3M17 16v3"/>',
+    database: '<ellipse cx="12" cy="6" rx="7.5" ry="2.6"/><path d="M4.5 6v12c0 1.4 3.4 2.6 7.5 2.6s7.5-1.2 7.5-2.6V6"/>',
+    thermometer: '<path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0z"/>',
+    battery: '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/>',
+    box: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+    robot: '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
+    lock: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    tag: '<path d="M3 11V4a1 1 0 0 1 1-1h7l10 10-8 8z"/><circle cx="8" cy="8" r="1.3"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13.5l9 5 9-5"/>',
+    warning: '<path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+    json: '<path d="M9.5 4c-2 0-2 1.5-2 3v2c0 1.5-.8 2.2-2 3 1.2.8 2 1.5 2 3v2c0 1.5 0 3 2 3"/><path d="M14.5 4c2 0 2 1.5 2 3v2c0 1.5.8 2.2 2 3-1.2.8-2 1.5-2 3v2c0 1.5 0 3-2 3"/>',
+    globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17-2.6-2.4-2.6-14.6 0-17z"/>',
+    return: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v5"/>',
+    shapes: '<circle cx="8" cy="8" r="3.5"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+    file: '<path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9z"/><path d="M13 3v6h6"/>',
+    sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>',
+    trend: '<path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>',
+    arrow: '<path d="M4 12h15M13 6l6 6-6 6"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+    bolt: '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
+    pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    copies: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15.5 4.5H6a1.5 1.5 0 0 0-1.5 1.5v9.5"/>',
+};
+
+export default overview_icons;

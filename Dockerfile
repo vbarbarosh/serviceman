@@ -30,8 +30,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./package.json
 COPY config ./config
-# src/main/public links to this one, so it sits where the link points
-COPY overview_remotes.json ./
 COPY src ./src
 # The modules (File Manager, Terminal, Docker), which src/ requires and the control page imports
 COPY modules ./modules

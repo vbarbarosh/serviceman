@@ -254,15 +254,13 @@ average, which counts what waits on disk and network too and so is no share of t
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in `/api/v1/status`.
 
-The **Overview** tab is drawn from `overview_remotes.json` at the root of the repo, read again
-every two seconds while it is open, so an edit to it shows by itself. Each piece is a component
-named by `__as`, with `__if` and `__for` to show and repeat it and `{{ }}` for values: `page` is
-the pane, `tiles` and `tile` are the numbers with a bar under them (`value` between 0 and 1,
-amber from 0.8 and red from 0.92), `cards` and `card` hold the facts as `field`s, with `tab` and
-`go` for a link to another tab, and `details` is a section that stays folded until it is asked
-for. A piece whose expression throws says so in red and takes nothing around it down.
+The **Overview** tab shows a machine at a glance: its state beside its name, then tiles for CPU,
+memory, disk and temperature, each with a bar under it (amber from 80%, red from 92%), and for
+its battery and the link; its history, then cards for the machine, its agent, its services, its updates and its logs, each
+with a link to the tab that does more with it, and its raw state folded away at the end.
+It is `src/main/public/remote_overview.js`.
 
-`charts` is the machine's history: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
+**History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
 connections and ping, over the last hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
 30 seconds for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
