@@ -23,6 +23,9 @@ function remote_disk(app, remote)
         tar: function (dir, names) {
             return tunnel_open(remote, {tar: {dir: ((dir === '') ? '~' : dir), names}});
         },
+        tree: function (dir, options) {
+            return tunnel_open(remote, {tree: {path: (((dir === null) || (dir === '')) ? '~' : dir), hash: options.hash, skip: options.skip}});
+        },
         watch: function (dir, options) {
             return tunnel_open(remote, {watch: {path: (((dir === null) || (dir === '')) ? '~' : dir), tree: options.tree, skip: options.skip}});
         },

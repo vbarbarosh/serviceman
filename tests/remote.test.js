@@ -1184,6 +1184,69 @@ test('a folder on a machine is watched through serviceman, and what changes in i
     }
 });
 
+// What a program copying a folder to a machine needs first: what is already there, all of it,
+// in one request rather than one a folder
+test('a whole tree of a machine comes in one request through serviceman, each hash read once', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const url = `http://127.0.0.1:${running.control_port}`;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-tree-'));
+    for (let i = 0; i < 3000; i++) {
+        fs.mkdirSync(path.join(dir, `d${i}`));
+        fs.writeFileSync(path.join(dir, `d${i}`, 'f.txt'), 'x'.repeat(i));
+    }
+    fs.mkdirSync(path.join(dir, 'node_modules'));
+    fs.writeFileSync(path.join(dir, 'node_modules', 'skipped.js'), 'x');
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        assert.ok(remote.state.resources.can.includes('fs_tree'));
+        const ask = `${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(dir)}&tree=1&skip=node_modules`;
+
+        // One request, every file, its size and time as stat says
+        const listed = await (await fetch(ask)).json();
+        assert.strictEqual(listed.path, dir);
+        assert.strictEqual(listed.items.length, 3000);
+        for (const item of listed.items) {
+            const stat = fs.statSync(path.join(dir, item.path));
+            assert.deepStrictEqual([item.kind, item.size, item.mtime_ms, item.sha256], ['file', stat.size, Math.round(stat.mtimeMs), undefined]);
+        }
+        assert.deepStrictEqual([listed.files, listed.hashed, listed.unread], [3000, 0, []]);
+
+        // With hashes: each one sha256sum's, and a second walk reads no file again
+        const hashed = await (await fetch(`${ask}&hash=sha256`)).json();
+        const summed = child_process.execFileSync('find', [dir, '-name', 'f.txt', '-exec', 'sha256sum', '{}', '+'], {encoding: 'utf8', maxBuffer: 64*1024*1024});
+        const by_path = new Map(summed.trim().split('\n').map(v => [path.relative(dir, v.slice(66)), v.slice(0, 64)]));
+        assert.deepStrictEqual([hashed.hashed, by_path.size], [3000, 3000]);
+        assert.strictEqual(hashed.items.every(v => (v.sha256 === by_path.get(v.path))), true);
+        const again = await (await fetch(`${ask}&hash=sha256`)).json();
+        assert.deepStrictEqual([again.hashed, JSON.stringify(again.items)], [0, JSON.stringify(hashed.items)]);
+        fs.writeFileSync(path.join(dir, 'd7', 'f.txt'), 'changed');
+        const changed = await (await fetch(`${ask}&hash=sha256`)).json();
+        assert.deepStrictEqual([changed.hashed, changed.items.find(v => v.path === 'd7/f.txt').sha256], [1, crypto.createHash('sha256').update('changed').digest('hex')]);
+
+        // The same walk as events, each file the moment it is read
+        const answer = await fetch(ask, {headers: {accept: 'text/event-stream'}});
+        assert.deepStrictEqual([answer.status, answer.headers.get('content-type')], [200, 'text/event-stream; charset=utf-8']);
+        const events = (await answer.text()).split('\n\n').filter(v => v.startsWith('event: ')).map(v => JSON.parse(v.split('\ndata: ')[1]));
+        assert.deepStrictEqual([events[0], events.length, events.at(-1).type, events.at(-1).files], [{type: 'start', path: dir}, 3002, 'end', 3000]);
+        await wait_until(() => running.app.log_lines.some(vv => /\[tree_listed\] remote=ui1 path=.+ hash=false files=3000 hashed=0 ms=\d+/.test(vv)));
+
+        const missing = await fetch(`${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(path.join(dir, 'nothing'))}&tree=1`);
+        assert.deepStrictEqual([missing.status, /ENOENT/.test((await missing.json()).error)], [502, true]);
+
+        // An agent from before the tree is told to update, not asked
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_tree');
+        const old = await fetch(ask);
+        assert.deepStrictEqual([old.status, /from before a whole tree is listed/.test((await old.json()).error)], [400, true]);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // htop and bash ask the terminal questions (its kind, its colours, its modes). Replayed on a
 // join, xterm would answer them again into the shell, where they show as typed text: the
 // history comes back without them, and with everything else

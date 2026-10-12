@@ -185,6 +185,75 @@ test('the copies API lists, starts, cancels and clears; a copy names known disks
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/transfers')).body).items, []);
 });
 
+test('a whole tree comes as one JSON sorted by path, or as events; a disk that cannot walk one says so', async function (t) {
+    const asked = [];
+    const logged = [];
+    const disk = {
+        tree: function (dir, options) {
+            asked.push([dir, options]);
+            if (dir === '/nothing') {
+                return stream.Readable.from((async function* () {
+                    throw new Error('ENOENT: /nothing');
+                })());
+            }
+            const lines = [
+                {type: 'start', path: '/home/me'},
+                {type: 'file', path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb'},
+                {type: 'file', path: 'a.txt', size: 2, mtime_ms: 6, sha256: 'aa'},
+                {type: 'link', path: 'b/to', target: '/etc', mtime_ms: 7},
+                {type: 'unread', path: 'closed', error: 'EACCES: closed'},
+            ];
+            if (dir !== '/cut') {
+                lines.push({type: 'end', files: 2, links: 1, bytes: 3, hashed: 1, ms: 4});
+            }
+            // Cut anywhere, as a link cuts it
+            const text = lines.map(v => `${JSON.stringify(v)}\n`).join('');
+            return stream.Readable.from([text.slice(0, 50), text.slice(50, 51), text.slice(51)].map(v => Buffer.from(v)));
+        },
+    };
+    const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
+
+    const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256&skip=.git,node_modules&skip=dist');
+    assert.strictEqual(listed.status, 200);
+    assert.deepStrictEqual(JSON.parse(listed.body), {
+        path: '/home/me',
+        items: [
+            {path: 'a.txt', size: 2, mtime_ms: 6, sha256: 'aa', kind: 'file'},
+            {path: 'b/to', target: '/etc', mtime_ms: 7, kind: 'link'},
+            {path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb', kind: 'file'},
+        ],
+        unread: [{path: 'closed', error: 'EACCES: closed'}],
+        files: 2,
+        links: 1,
+        bytes: 3,
+        hashed: 1,
+    });
+    assert.deepStrictEqual(asked[0], ['/home/me', {hash: true, skip: ['.git', 'node_modules', 'dist']}]);
+    await until(() => logged.length > 0);
+    assert.deepStrictEqual(logged[0][0], 'tree_listed');
+
+    // The same walk as events, each line as it comes
+    const events = await call(running, 'GET', '/fs?path=/home/me&tree=1', null, {accept: 'text/event-stream'});
+    assert.deepStrictEqual([events.status, events.headers['content-type']], [200, 'text/event-stream; charset=utf-8']);
+    assert.deepStrictEqual(events.body.split('\n\n').filter(v => v !== '').map(v => v.split('\n')[0]), ['event: start', 'event: file', 'event: file', 'event: link', 'event: unread', 'event: end']);
+    assert.deepStrictEqual(asked[1], ['/home/me', {hash: false, skip: []}]);
+
+    // A walk that stops before its end is an error, not a short list
+    const cut = await call(running, 'GET', '/fs?path=/cut&tree=1');
+    assert.deepStrictEqual([cut.status, JSON.parse(cut.body).error], [502, 'the disk stopped before the whole tree was read']);
+    const cut_events = await call(running, 'GET', '/fs?path=/cut&tree=1', null, {accept: 'text/event-stream'});
+    assert.deepStrictEqual([cut_events.status, cut_events.body.split('\n\n').filter(v => v !== '').at(-1)], [200, 'event: error\ndata: {"error":"the disk stopped before the whole tree was read"}']);
+
+    // A folder that cannot be read is an error before anything is answered, in both forms
+    assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs?path=/nothing&tree=1')).body), {error: 'ENOENT: /nothing'});
+    assert.strictEqual((await call(running, 'GET', '/fs?path=/nothing&tree=1', null, {accept: 'text/event-stream'})).status, 502);
+
+    assert.strictEqual((await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=md5')).status, 400);
+    const plain = await serve(t, {disk: disk_in_memory({'/home/me/a.txt': 'a'})});
+    assert.strictEqual((await call(plain, 'GET', '/fs?path=/home/me&tree=1')).status, 501);
+    assert.strictEqual(JSON.parse((await call(plain, 'GET', '/fs?path=/home/me')).body).items.length, 1, 'without tree the list is as it was');
+});
+
 test('a folder watched comes as server-sent events, an error before the watch holds as a 502, and a closed page ends it', async function (t) {
     const opened = [];
     const disk = {

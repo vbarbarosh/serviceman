@@ -546,6 +546,10 @@ async function handle_fs(app, req, res, name, tail)
         send_json(res, 501, {error: `the agent on ${name} is from before files in parts — its page says how it updates`});
         return;
     }
+    if (((tail === '') || (tail === '/')) && (new URL(req.url, 'http://serviceman.invalid').searchParams.get('tree') === '1') && (remote_can(remote, 'fs_tree') === false)) {
+        send_json(res, 400, {error: `the agent on ${name} is from before a whole tree is listed — its page says how it updates`});
+        return;
+    }
     if ((tail === '/watch') && (remote_can(remote, 'fs_watch') === false)) {
         send_json(res, 400, {error: `the agent on ${name} is from before folders are watched — its page says how it updates`});
         return;

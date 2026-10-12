@@ -1,7 +1,7 @@
 const path = require('path');
 
 const BODY_LIMIT_BYTES = 1024*1024;
-// A comment line down a watch this often, which is what keeps a proxy from closing it as idle
+// A comment line down a watch or a tree this often, which is what keeps a proxy from closing it as idle
 const WATCH_KEEP_MS = 15000;
 
 // What a file may land under: a name of its own, and nothing that walks out of the folder it
@@ -46,7 +46,8 @@ const TYPE_BY_EXT = {
 // The File Manager's whole API, under whatever base the host mounts it at. The host routes
 // every address under that base here, with `tail` the part after it, and gives a disk:
 // {list, stat, read, tar, write, rename, remove, mkdir}, for a file in parts
-// {part_stat, part_write, part_finish, part_remove}, and for a folder watched {watch}. What the disk is — a machine over a
+// {part_stat, part_write, part_finish, part_remove}, for a folder watched {watch}, and for a whole tree
+// {tree}. What the disk is — a machine over a
 // link, a folder here — is the host's business, and so is who may ask.
 //
 //     options = {disk, tail, log, name}
@@ -59,7 +60,7 @@ async function file_manager_serve(req, res, options)
     const log = ((options.log === undefined) ? function () {} : options.log);
     const ctx = {disk: options.disk, log, name: ((options.name === undefined) ? 'files' : options.name)};
     if (((tail === '') || (tail === '/')) && (req.method === 'GET')) {
-        await list_serve(ctx, res, url);
+        await list_serve(ctx, req, res, url);
         return;
     }
     const file = RE_FILE.exec(tail);
@@ -97,14 +98,125 @@ async function file_manager_serve(req, res, options)
 
 // GET <base> (query)
 // One folder, read when asked and kept nowhere. No path is the disk's own starting folder.
-async function list_serve(ctx, res, url)
+async function list_serve(ctx, req, res, url)
 {
+    if (url.searchParams.get('tree') === '1') {
+        tree_serve(ctx, req, res, url);
+        return;
+    }
     try {
         send_json(res, 200, await ctx.disk.list(url.searchParams.get('path')));
     }
     catch (error) {
         send_json(res, 502, {error: error.message});
     }
+}
+
+// GET <base>?tree=1 (query, header:accept)
+// Every file under a folder, at any depth, in one answer: links said as links and never
+// followed, folders not said, the names given as skip left out wherever they are, and with
+// hash=sha256 each file's hash, which the disk keeps while the file's size and time stay. An
+// answer that accepts text/event-stream gets each file as an event the moment it is read, so
+// a caller sees the walk go; any other gets one JSON once the walk is over. The answer waits
+// for the first line, so a folder that cannot be read is an error, not an empty stream.
+function tree_serve(ctx, req, res, url)
+{
+    if (ctx.disk.tree === undefined) {
+        send_json(res, 501, {error: 'this disk cannot list a whole tree'});
+        return;
+    }
+    const hash = url.searchParams.get('hash');
+    if ((hash !== null) && (hash !== 'sha256')) {
+        send_json(res, 400, {error: `a hash is sha256, and ${JSON.stringify(hash)} is not one`});
+        return;
+    }
+    const dir = url.searchParams.get('path');
+    const skip = url.searchParams.getAll('skip').flatMap(v => v.split(',')).map(v => v.trim()).filter(v => (v !== ''));
+    const events = String(req.headers.accept).includes('text/event-stream');
+    let stream;
+    try {
+        stream = ctx.disk.tree(dir, {hash: (hash === 'sha256'), skip});
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+        return;
+    }
+    const time0 = Date.now();
+    const listed = {path: null, items: [], unread: []};
+    let started = false;
+    let end = null;
+    let rest = '';
+    // A long hash says nothing for a while; a comment line keeps the request from looking idle
+    const timer = setInterval(function () {
+        if (started && events) {
+            res.write(': still reading\n\n');
+        }
+    }, WATCH_KEEP_MS);
+    function fail(error) {
+        if (started && events) {
+            // The stream is under way and cannot become an error page: it says why, and ends
+            res.end(`event: error\ndata: ${JSON.stringify({error: error.message})}\n\n`);
+            return;
+        }
+        if (res.headersSent === false) {
+            send_json(res, 502, {error: error.message});
+        }
+    }
+    stream.on('data', function (chunk) {
+        const lines = (rest + chunk.toString('utf8')).split('\n');
+        rest = lines.pop();
+        for (const line of lines) {
+            if (line.trim() === '') {
+                continue;
+            }
+            const event = JSON.parse(line);
+            if (started === false) {
+                started = true;
+                if (events) {
+                    res.writeHead(200, {'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no'});
+                }
+            }
+            if (event.type === 'start') {
+                listed.path = event.path;
+            }
+            if (event.type === 'end') {
+                end = event;
+            }
+            if (events) {
+                res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+                continue;
+            }
+            if ((event.type === 'file') || (event.type === 'link')) {
+                event.kind = event.type;
+                delete event.type;
+                listed.items.push(event);
+            }
+            else if (event.type === 'unread') {
+                delete event.type;
+                listed.unread.push(event);
+            }
+        }
+    });
+    stream.on('end', function () {
+        if (end === null) {
+            fail(new Error('the disk stopped before the whole tree was read'));
+            return;
+        }
+        if (events) {
+            res.end();
+            return;
+        }
+        listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
+        send_json(res, 200, Object.assign(listed, {files: end.files, links: end.links, bytes: end.bytes, hashed: end.hashed}));
+    });
+    stream.on('error', fail);
+    res.on('close', function () {
+        clearInterval(timer);
+        stream.destroy();
+        if (end !== null) {
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: end.files, hashed: end.hashed, ms: Date.now() - time0});
+        }
+    });
 }
 
 // GET <base>/file/<path> (header:range)

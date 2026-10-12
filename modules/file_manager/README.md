@@ -32,6 +32,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>?path=<dir>` | one folder: `{path, items: [{name, kind: dir or file, size, mtime_ms}]}`; no path is the disk's starting folder |
+| `GET <base>?path=<dir>&tree=1&hash=sha256&skip=<names>` | every file under the folder, at any depth, in one answer (below) |
 | `GET <base>/file/<path>` | the file, with its content type; `HEAD` for the size; one `bytes=` range as 206 |
 | `GET <base>/tar?dir=<dir>&names=<a>&names=<b>` | several names of one folder as one tar |
 | `POST <base>/rename` `{from, to}` | a name carried to another, another folder included |
@@ -58,6 +59,40 @@ it began and written over. The disk keeps the parts beside the file, as
 `.<name>.<id>.part`, so the rename that finishes them is one step on one disk; until then the
 file's name is left as it was. Cancel drops the part. A part left by an upload nobody carries
 on stays, as a dot file, until it is deleted.
+
+### A whole tree
+
+`GET <base>?path=<dir>&tree=1` reads every file under the folder, at any depth, in one request:
+what a program copying a folder asks first, to know what is already there.
+
+    {
+        "path": "/home/me/project",
+        "items": [
+            {"path": "a.txt", "size": 3, "mtime_ms": 1760280000000, "kind": "file"},
+            {"path": "src/link", "target": "../a.txt", "mtime_ms": 1760280000000, "kind": "link"}
+        ],
+        "unread": [{"path": "closed", "error": "EACCES: permission denied, …"}],
+        "files": 1, "links": 1, "bytes": 3, "hashed": 0
+    }
+
+- `path` of an item is relative to the folder asked, `/` between its parts; the items are sorted
+  by it. Folders are not said, only what is in them. A link is said as a link with its target,
+  and never followed. A socket, a pipe or a device is left out.
+- `hash=sha256` gives each file its `sha256`. The disk keeps each hash while the file's size,
+  time and inode stay, so a second walk over files that did not change reads none of them;
+  `hashed` says how many were read this time. A file it could not read has `sha256: null` and
+  an `error`.
+- `skip` names what is never descended into, wherever it is: `skip=.git,node_modules`, or
+  `skip` given several times.
+- A folder or a name it could not read is in `unread`, and the walk goes on. A folder that
+  cannot be read at all is a 502; more than 200,000 files is refused; a disk that cannot walk a
+  tree (a container's) answers 501.
+- Asked with `Accept: text/event-stream`, the same walk comes as events, each the moment it is
+  read, so the caller sees it go: `start` `{path}`, then `file`, `link` and `unread`, each line
+  as above with its `type`, and `end` `{files, links, bytes, hashed, ms}`. A walk that fails
+  half way ends with an `error` event. An `EventSource` closes itself on `end`, or it asks
+  again.
+- Without `tree`, the answer is the one folder, as above.
 
 ### A folder watched
 

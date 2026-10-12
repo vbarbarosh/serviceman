@@ -1,6 +1,7 @@
 const agent_file_get = require('./agent_file_get');
 const agent_file_part_put = require('./agent_file_part_put');
 const agent_file_put = require('./agent_file_put');
+const agent_fs_tree = require('./agent_fs_tree');
 const agent_fs_watch = require('./agent_fs_watch');
 const agent_machine_shell = require('./agent_machine_shell');
 const agent_tar_get = require('./agent_tar_get');
@@ -107,6 +108,9 @@ function target_socket(target)
     }
     if (target.watch !== undefined) {
         return agent_fs_watch(target.watch);
+    }
+    if (target.tree !== undefined) {
+        return agent_fs_tree(target.tree);
     }
     if (target.path !== undefined) {
         return net.connect({path: target.path});
