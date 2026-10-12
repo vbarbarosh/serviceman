@@ -229,13 +229,14 @@ function tree_serve(ctx, req, res, url)
         }
         const files = listed.items.filter(v => (v.kind === 'file'));
         listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
+        // Compact, unlike the other doors: a tree is thousands of items, and indents add 60%
         send_json(res, 200, Object.assign(listed, {
             cut,
             files: files.length,
             links: listed.items.length - files.length,
             bytes: files.reduce((sum, v) => sum + v.size, 0),
             hashed: (cut ? null : end.hashed),
-        }));
+        }), 0);
     }
     stream.on('error', fail);
     res.on('close', function () {
@@ -671,9 +672,9 @@ function body_read(req, limit_bytes)
     });
 }
 
-function send_json(res, status, value)
+function send_json(res, status, value, indent)
 {
-    const text = JSON.stringify(value, null, 4);
+    const text = JSON.stringify(value, null, ((indent === undefined) ? 4 : indent));
     res.writeHead(status, {
         'content-type': 'application/json; charset=utf-8',
         'content-length': Buffer.byteLength(text),

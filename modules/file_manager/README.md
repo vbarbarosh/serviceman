@@ -84,6 +84,8 @@ what a program copying a folder asks first, to know what is already there.
   an `error`.
 - `skip` names what is never descended into, wherever it is: `skip=.git,node_modules`, or
   `skip` given several times.
+- The JSON comes compact, with no indents: at 50,000 names with hashes that is 7.4 MB
+  instead of 11.8.
 - One JSON holds at most 50,000 names. A bigger tree stops there and says `cut: true`, its
   counts those of what it holds and `hashed` null; there is no next page. The walk stops too.
 - A folder or a name it could not read is in `unread`, and the walk goes on. A folder that

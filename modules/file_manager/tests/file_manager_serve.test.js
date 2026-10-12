@@ -266,7 +266,9 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
         out.on('close', () => destroyed = true);
         return out;
     }}});
-    const cut_json = JSON.parse((await call(big, 'GET', '/fs?path=/big&tree=1')).body);
+    const cut_text = (await call(big, 'GET', '/fs?path=/big&tree=1')).body;
+    assert.strictEqual(cut_text.includes('\n'), false, 'a tree comes compact, with no indents');
+    const cut_json = JSON.parse(cut_text);
     assert.deepStrictEqual([cut_json.items.length, cut_json.items.at(-1).path, cut_json.cut, cut_json.files, cut_json.bytes, cut_json.hashed], [50000, 'f49999', true, 50000, 50000, null]);
     await until(() => destroyed);
     assert.ok(read < 60000, 'the walk stops once the answer is cut');
