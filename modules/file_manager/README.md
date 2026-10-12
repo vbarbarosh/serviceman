@@ -32,7 +32,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>?path=<dir>` | one folder: `{path, items: [{name, kind: dir or file, size, mtime_ms}]}`; no path is the disk's starting folder |
-| `GET <base>?path=<dir>&tree=1&hash=sha256&skip=<names>` | every file under the folder, at any depth, in one answer (below) |
+| `GET <base>?path=<dir>&tree=1&hash=sha256&skip=<names>` | every name under the folder, at any depth, in one answer or as events (below) |
 | `GET <base>/file/<path>` | the file, with its content type; `HEAD` for the size; one `bytes=` range as 206 |
 | `GET <base>/tar?dir=<dir>&names=<a>&names=<b>` | several names of one folder as one tar |
 | `POST <base>/rename` `{from, to}` | a name carried to another, another folder included |
@@ -62,48 +62,43 @@ on stays, as a dot file, until it is deleted.
 
 ### A whole tree
 
-`GET <base>?path=<dir>&tree=1` reads every file under the folder, at any depth, in one request:
-what a program copying a folder asks first, to know what is already there.
+`GET <base>?path=<dir>&tree=1` reads every name under the folder, at any depth, in one request:
+what a program copying a folder asks first, to know what is already there. Every name is one
+object of one shape, its keys always in this order:
 
-    {
-        "path": "/home/me/project",
-        "items": [
-            {"path": "a.txt", "kind": "file", "size": 3, "mtime_ms": 1760280000000},
-            {"path": "src/link", "kind": "link", "target": "../a.txt", "mtime_ms": 1760280000000}
-        ],
-        "unread": [{"path": "closed", "error": "EACCES: permission denied, …"}],
-        "cut": false, "files": 1, "links": 1, "bytes": 3, "hashed": 0
-    }
+    [
+        {"type": "file",  "path": "a.txt",        "size": 3,    "mtime_ms": 1760280000000, "sha256": "…"},
+        {"type": "dir",   "path": "src",          "size": null, "mtime_ms": 1760280000000},
+        {"type": "link",  "path": "src/latest",   "size": null, "mtime_ms": 1760280000000, "target": "../a.txt"},
+        {"type": "other", "path": "run/app.sock", "size": null, "mtime_ms": 1760280000000},
+        {"type": "error", "path": "closed",       "error": "EACCES: permission denied"},
+        {"type": "end"}
+    ]
 
-- `path` of an item is relative to the folder asked, `/` between its parts; the items are sorted
-  by it. Folders are not said, only what is in them. A link is said as a link with its target,
-  and never followed. A socket, a pipe or a device is left out.
+- `type` is `file`, `dir`, `link`, `other` (a socket, a pipe, a device) or `error`; `size` is
+  null but for a file. A link is said with its `target` and never followed.
+- `path` is relative to the folder asked, `/` between its parts; one JSON is sorted by it.
 - `hash=sha256` gives each file its `sha256`. The disk keeps each hash while the file's size,
-  time and inode stay, so a second walk over files that did not change reads none of them;
-  `hashed` says how many were read this time. A file it could not read has `sha256: null` and
-  an `error`.
-- `skip` names what is never descended into, wherever it is: `skip=.git,node_modules`, or
-  `skip` given several times.
-- The JSON comes compact, with no indents: at 50,000 names with hashes that is 7.4 MB
-  instead of 11.8.
-- One JSON holds at most 50,000 names. A bigger tree stops there and says `cut: true`, its
-  counts those of what it holds and `hashed` null; there is no next page. The walk stops too.
-- A folder or a name it could not read is in `unread`, and the walk goes on. A folder that
-  cannot be read at all is a 502; a disk that cannot walk a tree (a container's) answers 501.
-- Asked with `Accept: text/event-stream`, the same walk comes as events, each the moment it is
-  read, so the caller sees it go: `start` `{path}`, then `item` and `unread`, each the very
-  object the JSON's `items` and `unread` hold, and `end` `{files, links, bytes, hashed, ms}`.
-  Events have no limit: closing the request stops the walk. A walk that fails half way ends
-  with an `error` event. An `EventSource` must be closed on `end`, or it asks again.
-
-      event: start    {"path": "/home/me/project"}
-      event: item     {"path": "a.txt", "kind": "file", "size": 3, "mtime_ms": 1760280000000}
-      event: unread   {"path": "closed", "error": "EACCES: permission denied, …"}
-      event: end      {"files": 1, "links": 1, "bytes": 3, "hashed": 0, "ms": 12}
-
+  time and inode stay, so a second walk over files that did not change reads none of them.
+- `skip` names what is left out and never descended into, wherever it is:
+  `skip=.git,node_modules`, or `skip` given several times.
+- Something that could not be read is an `error` object with its `path`, and the walk goes on:
+  a folder that cannot be opened (it is still listed as a `dir`). A file whose hash could not be
+  read stays a `file`, with `"sha256": null` and an `error`. An error says the reason, never the
+  machine's full path. Checking for an `error` key catches both.
+- **A whole list ends with `{"type": "end"}`.** One that stopped short ends with an error object
+  with no path instead: a walk that broke half way, or one JSON of more than 50,000 names,
+  `{"type": "error", "error": "more than 50000 names: the list stops here"}`.
+- One JSON is a bare array, compact, with no indents.
+- Asked with `Accept: text/event-stream`, the same objects come as events, each the moment it is
+  read, one plain `data:` line each, with no event names: `data: {"type": "file", …}`. Events
+  have no limit; closing the request stops the walk. Read them with `fetch`: an `EventSource`
+  asks again by itself when the stream closes, and would walk the tree again and again.
 - `delay=<ms>`, up to 1000, spaces the events out by that much, for watching a page fill while
   it is built; the walk on the machine waits for them. It is for events only: one JSON asked
   with a delay is a 400.
+- A folder that cannot be read at all is a 502 before anything is sent; a disk that cannot walk
+  a tree (a container's) answers 501; a machine whose agent is from before this shape, a 400.
 - Without `tree`, the answer is the one folder, as above.
 
 `node demos/tree-web/server.js` is a page for trying it on serviceman's machines: a folder, a

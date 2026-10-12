@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 
-test('a tree says every file at any depth, a link as a link, and leaves out what it skips', async function (t) {
+test('a tree says every name at any depth by its type, a link as a link, and leaves out what it skips', async function (t) {
     const dir = dir_make(t);
     const outside = dir_make(t);
     fs.writeFileSync(path.join(outside, 'not-mine.txt'), 'x');
@@ -23,27 +23,33 @@ test('a tree says every file at any depth, a link as a link, and leaves out what
     fs.symlinkSync(outside, path.join(dir, 'a', 'to-outside'));
     fs.symlinkSync('nowhere', path.join(dir, 'broken'));
 
-    // A socket is no file to copy
+    // A socket is no file and no folder: other
     const server = net.createServer();
     await new Promise(v => server.listen(path.join(dir, 'a.sock'), v));
     t.after(() => server.close());
 
     const said = await tree_read({path: dir, skip: ['node_modules', '.git']});
     assert.deepStrictEqual(said[0], {type: 'start', path: dir});
-    const items = said.filter(v => ((v.type === 'file') || (v.type === 'link')));
+    const items = said.slice(1, -1);
     assert.deepStrictEqual(items.map(v => `${v.type} ${v.path}`).sort(), [
+        'dir a',
+        'dir a/b',
+        'dir a/b/c',
+        'dir empty',
         'file a/b/c/deep.txt',
         'file a/привет файл.txt',
         'file top.txt',
         'link a/to-outside',
         'link broken',
+        'other a.sock',
     ]);
     assert.deepStrictEqual(items.find(v => v.path === 'a/to-outside').target, outside, 'a link is said, never followed');
     assert.deepStrictEqual(items.find(v => v.path === 'broken').target, 'nowhere');
     const stat = fs.statSync(path.join(dir, 'a', 'b', 'c', 'deep.txt'));
     assert.deepStrictEqual(items.find(v => v.path === 'a/b/c/deep.txt'), {type: 'file', path: 'a/b/c/deep.txt', size: 4, mtime_ms: Math.round(stat.mtimeMs)});
-    const end = said.at(-1);
-    assert.deepStrictEqual([end.type, end.files, end.links, end.bytes, end.hashed], ['end', 3, 2, 9, 0]);
+    assert.deepStrictEqual(Object.keys(items.find(v => v.path === 'a/to-outside')), ['type', 'path', 'size', 'mtime_ms', 'target']);
+    assert.deepStrictEqual(items.find(v => v.path === 'empty'), {type: 'dir', path: 'empty', size: null, mtime_ms: Math.round(fs.lstatSync(path.join(dir, 'empty')).mtimeMs)});
+    assert.deepStrictEqual([said.at(-1).type, said.at(-1).hashed], ['end', 0]);
 
     // A path without a root is under the home folder, as for every other name the host gives
     const home = await tree_read({path: path.relative(os.homedir(), dir)});
@@ -89,9 +95,11 @@ test('what cannot be read is said and the walk goes on; a tree that is not a fol
     fs.chmodSync(path.join(dir, 'locked.txt'), 0);
     try {
         const said = await tree_read({path: dir, hash: true});
-        assert.deepStrictEqual(said.filter(v => v.type === 'unread').map(v => [v.path, /EACCES/.test(v.error)]), [['closed', true]]);
+        // The reason alone, never the machine's full path
+        assert.deepStrictEqual(said.filter(v => v.type === 'error'), [{type: 'error', path: 'closed', error: 'EACCES: permission denied'}]);
+        assert.ok(said.some(v => (v.type === 'dir') && (v.path === 'closed')), 'a folder that cannot be read is still a folder');
         const locked = said.find(v => v.path === 'locked.txt');
-        assert.deepStrictEqual([locked.sha256, /EACCES/.test(locked.error)], [null, true]);
+        assert.deepStrictEqual([locked.type, locked.sha256, locked.error], ['file', null, 'EACCES: permission denied']);
         assert.strictEqual(said.find(v => v.path === 'open.txt').sha256.length, 64);
     }
     finally {

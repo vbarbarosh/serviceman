@@ -19,21 +19,22 @@ const HASHES_KEPT = 200000;
 // Every file's hash read so far, by its full path: {size, mtime_ms, ino, sha256}
 const hashes = new Map();
 
-// Every file under a folder of this machine, at any depth, read as the agent's own user. It
+// Every name under a folder of this machine, at any depth, read as the agent's own user. It
 // answers the way a socket does, in lines of JSON, so the tunnel carries a tree of any size,
-// held back by the link's own credit. Folders are not said, only what is in them; a link is
-// said as a link and never followed; the names in `skip` are left out, wherever they are; a
-// socket, a pipe or a device is no file to copy and is left out too.
+// held back by the link's own credit. A link is said as a link and never followed; the names
+// in `skip` are left out, wherever they are; a socket, a pipe or a device is `other`.
 //
 //     target = {path, hash, skip}
-//     {"type": "start", "path"}                                       the folder, in full
-//     {"type": "file", "path", "size", "mtime_ms", "sha256"?}         sha256 with hash: true
-//     {"type": "link", "path", "target", "mtime_ms"}
-//     {"type": "unread", "path", "error"}                             a folder or a name it could not read
-//     {"type": "end", "files", "links", "bytes", "hashed", "ms"}      hashed: files read for their hash
+//     {"type": "start", "path"}                                         the folder, in full
+//     {"type": "file", "path", "size", "mtime_ms", "sha256"?}           sha256 with hash: true
+//     {"type": "dir" | "other", "path", "size": null, "mtime_ms"}
+//     {"type": "link", "path", "size": null, "mtime_ms", "target"}
+//     {"type": "error", "path", "error"}                                a folder or a name it could not read
+//     {"type": "end", "hashed", "ms"}                                   hashed: files read for their hash
 //
 // `path` of a name is relative to the folder asked, with / between its parts. A file it could
-// not read for its hash has sha256 null and an error.
+// not read for its hash has sha256 null and an error. An error says the reason, never the
+// machine's full path.
 function agent_fs_tree(target)
 {
     const out = stream.Readable.from(lines(target), {objectMode: false});
@@ -60,7 +61,7 @@ async function* lines(target)
         throw new Error(`${root} is not a folder`);
     }
     yield lines_of([{type: 'start', path: root}]);
-    const end = {type: 'end', files: 0, links: 0, bytes: 0, hashed: 0, ms: 0};
+    const end = {type: 'end', hashed: 0, ms: 0};
     const files = [];
     const dirs = [''];
     let names = 0;
@@ -73,18 +74,10 @@ async function* lines(target)
         for (const item of found) {
             if (item.type === 'dir') {
                 deeper.push(item.path);
+            }
+            if (hash && (item.type === 'file')) {
+                files.push(item);
                 continue;
-            }
-            if (item.type === 'file') {
-                end.files++;
-                end.bytes += item.size;
-                if (hash) {
-                    files.push(item);
-                    continue;
-                }
-            }
-            else if (item.type === 'link') {
-                end.links++;
             }
             said.push(item);
         }
@@ -121,7 +114,7 @@ async function hashed_lines(slice, end)
 }
 
 // One folder's names, each by what lstat says of it, in the order of names. A folder that
-// cannot be read is one unread line; a name gone between the folder read and its stat is no
+// cannot be read is one error line; a name gone between the folder read and its stat is no
 // longer there to list.
 function folder_read(root, rel, skip)
 {
@@ -130,7 +123,7 @@ function folder_read(root, rel, skip)
         entries = fs.readdirSync(path.join(root, rel), {withFileTypes: true});
     }
     catch (error) {
-        return [{type: 'unread', path: rel, error: error.message}];
+        return [{type: 'error', path: rel, error: error_said(error)}];
     }
     const names = entries.map(v => v.name).filter(v => (skip.has(v) === false));
     names.sort((a, b) => ((a < b) ? -1 : ((a > b) ? 1 : 0)));
@@ -143,25 +136,29 @@ function folder_read(root, rel, skip)
             stat = fs.lstatSync(full, {throwIfNoEntry: false});
         }
         catch (error) {
-            out.push({type: 'unread', path: item_path, error: error.message});
+            out.push({type: 'error', path: item_path, error: error_said(error)});
             continue;
         }
         if (stat === undefined) {
             continue;
         }
+        const mtime_ms = Math.round(stat.mtimeMs);
         if (stat.isDirectory()) {
-            out.push({type: 'dir', path: item_path});
+            out.push({type: 'dir', path: item_path, size: null, mtime_ms});
         }
         else if (stat.isFile()) {
-            out.push({type: 'file', path: item_path, size: stat.size, mtime_ms: Math.round(stat.mtimeMs), full, stat});
+            out.push({type: 'file', path: item_path, size: stat.size, mtime_ms, full, stat});
         }
         else if (stat.isSymbolicLink()) {
             try {
-                out.push({type: 'link', path: item_path, target: fs.readlinkSync(full), mtime_ms: Math.round(stat.mtimeMs)});
+                out.push({type: 'link', path: item_path, size: null, mtime_ms, target: fs.readlinkSync(full)});
             }
             catch (error) {
-                out.push({type: 'unread', path: item_path, error: error.message});
+                out.push({type: 'error', path: item_path, error: error_said(error)});
             }
+        }
+        else {
+            out.push({type: 'other', path: item_path, size: null, mtime_ms});
         }
     }
     return out;
@@ -212,7 +209,7 @@ async function hash_fill(item)
     }
     catch (error) {
         item.sha256 = null;
-        item.error = error.message;
+        item.error = error_said(error);
         return true;
     }
     // A file written while it was read has a hash of neither version: it is said, and not kept
@@ -240,6 +237,15 @@ function file_sha256(full)
             resolve(sha.digest('hex'));
         });
     });
+}
+
+// What went wrong, without the full path node puts after it: "EACCES: permission denied"
+function error_said(error)
+{
+    if (error.code === undefined) {
+        return error.message;
+    }
+    return String(error.message).split(', ')[0];
 }
 
 function lines_of(items)

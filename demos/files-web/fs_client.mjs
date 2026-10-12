@@ -7,7 +7,8 @@
 //     await files.mkdir(`${path}/notes`);
 //     await files.upload(`${path}/notes`, 'a.txt', 'hello');
 //     const stop = files.watch(`${path}/notes`, {tree: false, skip: []}, v => console.log(v.type, v.path));
-//     const {items, cut} = await files.tree(path, {hash: true, skip: ['.git', 'node_modules']});
+//     const names = await files.tree(path, {hash: true, skip: ['.git', 'node_modules']});
+//     const whole = (names.at(-1).type === 'end');
 export default function fs_client(options)
 {
     const base = options.base;
@@ -43,10 +44,11 @@ export default function fs_client(options)
         tar_url: function (dir, names) {
             return `${base}/tar?dir=${encodeURIComponent(dir)}${names.map(v => `&names=${encodeURIComponent(v)}`).join('')}`;
         },
-        // Every file under a folder, at any depth, in one answer: {path, items, unread, cut,
-        // files, links, bytes, hashed}, an item {path, kind: 'file', size, mtime_ms, sha256}
-        // (sha256 with hash) or {path, kind: 'link', target, mtime_ms}. cut: true when the
-        // tree had more than 50,000 names; tree_events has no limit.
+        // Every name under a folder, at any depth, in one array sorted by path: {type, path,
+        // size, mtime_ms} with type file, dir, link (and its target), other or error (path
+        // and error alone); a file's sha256 with hash. A whole list ends with {type: 'end'};
+        // one that stopped short ends with an error object with no path, as a tree of more
+        // than 50,000 names does. tree_events has no limit.
         tree: function (path, settings) {
             return call('GET', tree_query(path, Object.assign({}, settings, {delay: 0})));
         },
@@ -54,11 +56,11 @@ export default function fs_client(options)
         watch,
     };
 
-    // The same walk as events, each the moment it is read: `on` hears start, then item (the
-    // same object tree lists, with type: 'item') and unread, then end with the counts, or
-    // error. settings.delay spaces them out by that many ms, up to 1000, for watching a page
-    // fill. Answers the function that stops it; a walk is not opened again when it drops,
-    // since it ended or failed.
+    // The same walk as events: `on` hears each object tree lists, the moment it is read, and
+    // {type: 'end'} last, or an error object with no path when it stopped short (a refusal and
+    // a stream that closed early say so the same way). settings.delay spaces them out by that
+    // many ms, up to 1000, for watching a page fill. Answers the function that stops it; a
+    // walk is not opened again when it drops, since it ended or failed.
     function tree_events(path, settings, on) {
         const url = `${base}${tree_query(path, settings)}`;
         const stop = new AbortController();
@@ -69,7 +71,8 @@ export default function fs_client(options)
 
         async function run() {
             log({type: 'request', method: 'GET', url, body: null});
-            let files = 0;
+            let names = 0;
+            let over = false;
             try {
                 const answer = await fetch(url, {headers: {accept: 'text/event-stream'}, signal: stop.signal});
                 if (answer.ok === false) {
@@ -80,19 +83,28 @@ export default function fs_client(options)
                 }
                 log({type: 'answer', method: 'GET', url, status: answer.status, body: 'a stream of events'});
                 for await (const event of events_read(answer.body)) {
-                    // An item an event: the log says how many, not each one
-                    if (event.type === 'item') {
-                        files++;
+                    // A name an event: the log says how many, not each one; an error and the end
+                    // it shows
+                    if (event.type === 'end') {
+                        log({type: 'event', url, body: Object.assign({names}, event)});
+                    }
+                    else if ((event.type === 'error') && (event.path === undefined)) {
+                        log({type: 'event', url, body: event});
                     }
                     else {
-                        log({type: 'event', url, body: ((event.type === 'end') ? Object.assign({names: files}, event) : event)});
+                        names++;
                     }
+                    over = ((event.type === 'end') || ((event.type === 'error') && (event.path === undefined)));
                     on(event);
+                }
+                if (over === false) {
+                    log({type: 'event', url, body: {type: 'closed', names}});
+                    on({type: 'error', error: 'the stream closed before its end'});
                 }
             }
             catch (error) {
                 if (stop.signal.aborted) {
-                    log({type: 'event', url, body: {type: 'stopped', names: files}});
+                    log({type: 'event', url, body: {type: 'stopped', names}});
                     return;
                 }
                 log({type: 'answer', method: 'GET', url, status: 0, body: {error: error.message}});

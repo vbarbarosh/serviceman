@@ -183,14 +183,14 @@ label {
     content: attr(data-target);
     color: var(--muted);
 }
-.row.unread {
+.row.error {
     color: var(--bad);
 }
-.row.unread {
+.row.error {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
 }
-.row.unread .error {
+.row.error .error {
     overflow-wrap: anywhere;
     color: var(--bad);
     text-align: left;
@@ -266,18 +266,19 @@ label {
     <input id="skip" spellcheck="false" autocomplete="off" value=".git,node_modules" placeholder="names to skip, a,b" aria-label="Names to skip, separated by commas">
     <label><input type="checkbox" id="hash"> sha256</label>
     <label title="Milliseconds between two events, up to 1000: for watching the list fill">delay <input type="number" id="delay" min="0" max="1000" step="10" value="0" aria-label="Milliseconds between events"> ms</label>
-    <button type="button" class="main" id="json" title="GET ?tree=1: one answer once the walk is over, cut after 50,000 names">One JSON</button>
-    <button type="button" id="events" title="The same GET with Accept: text/event-stream: each file as it is read, no limit">As events</button>
+    <button type="button" class="main" id="json" title="GET ?tree=1: one array once the walk is over, at most 50,000 names">One JSON</button>
+    <button type="button" id="events" title="The same GET with Accept: text/event-stream: each object as it is read, no limit">As events</button>
     <button type="button" id="stop" hidden>Stop</button>
 </div>
 <div id="sums">
     <span class="sum"><b id="n-files">0</b><span>files</span></span>
+    <span class="sum"><b id="n-dirs">0</b><span>folders</span></span>
     <span class="sum"><b id="n-links">0</b><span>links</span></span>
+    <span class="sum"><b id="n-others">0</b><span>other</span></span>
     <span class="sum"><b id="n-bytes">0 B</b><span>in all</span></span>
-    <span class="sum" id="s-hashed" hidden><b id="n-hashed">0</b><span>read for a hash</span></span>
     <span class="sum"><b id="n-ms">–</b><span>to answer</span></span>
-    <span class="tag warn" id="t-cut" hidden title="One JSON holds 50,000 names at most; events have no limit">cut at 50,000</span>
-    <span class="tag bad" id="t-unread" hidden></span>
+    <span class="tag bad" id="t-errors" hidden></span>
+    <span class="tag warn" id="t-short" hidden>stopped short</span>
     <span id="status">Pick a folder, then One JSON or As events.</span>
 </div>
 <div class="bar">
@@ -290,9 +291,11 @@ label {
 import fs_client from '/fs_client.mjs';
 
 // A whole tree of one machine's folder through serviceman's files API (fs_client.mjs): One JSON
-// is files.tree, one answer once the walk is over; As events is files.tree_events, each file as
-// it is read, a delay apart when one is set (for watching it fill; One JSON has none). The list draws the first rows and says how many more there are; the log under it
-// shows each request, its answer and the events other than a file each.
+// is files.tree, one array once the walk is over; As events is files.tree_events, the same
+// objects as they are read, a delay apart when one is set (for watching it fill). A list that
+// ends with {type: 'end'} is whole; one that ends with an error with no path stopped short.
+// The list draws the first rows and says how many more there are; the log under it shows each
+// request, its answer, and of the events the end and the errors.
 const ROWS_MAX = 1000;
 const LOG_MAX = 300;
 const ICONS = {
@@ -302,7 +305,7 @@ const ICONS = {
 
 const params = new URLSearchParams(location.search);
 // What the walk found so far: items as the API says them, unread as {path, error}
-const state = {items: [], unread: [], counts: null, failed: false, stop: null, time0: 0, timer: null, drawing: false};
+const state = {names: [], failed: false, stop: null, time0: 0, timer: null, drawing: false};
 const $ = id => document.getElementById(id);
 
 document.getElementById('theme').addEventListener('click', () => theme_set(theme_now() === 'dark' ? 'light' : 'dark'));
@@ -358,9 +361,8 @@ function walk(how)
     const files = fs_client({base: `/api/v1/remotes/${encodeURIComponent(remote)}/fs`, log: log_add});
     const path = (($('path').value.trim() === '') ? null : $('path').value.trim());
     const settings = {hash: $('hash').checked, skip: $('skip').value.split(',').map(v => v.trim()).filter(v => (v !== '')), delay: Math.max(0, Math.min(1000, Math.round(Number($('delay').value) || 0)))};
-    Object.assign(state, {items: [], unread: [], counts: null, failed: false, time0: performance.now()});
-    $('t-cut').hidden = true;
-    $('s-hashed').hidden = (settings.hash === false);
+    Object.assign(state, {names: [], failed: false, time0: performance.now()});
+    $('t-short').hidden = true;
     running(true);
     status(`Walking ${path || '~'} on ${remote}…`);
     sums_draw();
@@ -369,13 +371,17 @@ function walk(how)
     if (how === 'json') {
         let stopped = false;
         state.stop = () => stopped = true;
-        files.tree(path, settings).then(function (answer) {
+        files.tree(path, settings).then(function (list) {
             if (stopped) {
                 return;
             }
-            Object.assign(state, {items: answer.items, unread: answer.unread});
-            $('t-cut').hidden = (answer.cut === false);
-            done(answer, `${answer.path}: one answer, ${answer.items.length.toLocaleString()} names${answer.cut ? ', cut: the tree has more' : ''}`);
+            const last = list.at(-1);
+            state.names = list.slice(0, -1);
+            if (last.type === 'end') {
+                done(`${path || '~'}: one answer, ${state.names.length.toLocaleString()} names, whole`);
+                return;
+            }
+            short(last.error);
         }, function (error) {
             if (stopped === false) {
                 failed(error.message);
@@ -383,28 +389,22 @@ function walk(how)
         });
         return;
     }
-    let root = null;
     state.stop = files.tree_events(path, settings, function (event) {
-        if (event.type === 'start') {
-            root = event.path;
+        if (event.type === 'end') {
+            done(`${path || '~'}: ${state.names.length.toLocaleString()} names as events, whole`);
         }
-        else if (event.type === 'item') {
-            // The object One JSON lists; type is only the event's name
-            const item = Object.assign({}, event);
-            delete item.type;
-            state.items.push(item);
-            status(`${root}: ${event.path}`);
+        else if ((event.type === 'error') && (event.path === undefined)) {
+            // Refused before the first name: nothing came; after it: what came stays, marked
+            if (state.names.length === 0) {
+                failed(event.error);
+                return;
+            }
+            short(event.error);
+        }
+        else {
+            state.names.push(event);
+            status(`${path || '~'}: ${event.path}`);
             draw_soon();
-        }
-        else if (event.type === 'unread') {
-            state.unread.push({path: event.path, error: event.error});
-            draw_soon();
-        }
-        else if (event.type === 'end') {
-            done(event, `${root}: ${state.items.length.toLocaleString()} names as events`);
-        }
-        else if (event.type === 'error') {
-            failed(event.error);
         }
     });
 }
@@ -417,19 +417,28 @@ function stop()
     state.stop();
     state.stop = null;
     running(false);
-    status(`Stopped after ${state.items.length.toLocaleString()} names`);
+    $('t-short').hidden = false;
+    status(`Stopped after ${state.names.length.toLocaleString()} names`);
     list_draw();
 }
 
-function done(counts, text)
+function done(text)
 {
     state.stop = null;
     running(false);
     $('n-ms').textContent = ms_said(performance.now() - state.time0);
-    state.counts = counts;
     sums_draw();
     status(text);
     list_draw();
+}
+
+// What came stays; the list says it is not the whole tree, and why
+function short(text)
+{
+    done(text);
+    $('t-short').hidden = false;
+    $('t-short').title = text;
+    status(`Stopped short: ${text}`, true);
 }
 
 function failed(text)
@@ -451,17 +460,22 @@ function running(on)
     }
 }
 
-// Counts as the answer says them once it is over; while events come, as the list holds them
+// Each type counted from the list itself: the answer has no totals of its own
 function sums_draw()
 {
-    const files = state.items.filter(v => (v.kind === 'file'));
-    const said = ((state.counts !== null) ? state.counts : {files: files.length, links: state.items.length - files.length, bytes: files.reduce((sum, v) => sum + v.size, 0), hashed: null});
-    $('n-files').textContent = said.files.toLocaleString();
-    $('n-links').textContent = said.links.toLocaleString();
-    $('n-bytes').textContent = size_said(said.bytes);
-    $('n-hashed').textContent = ((said.hashed === null) || (said.hashed === undefined) ? '–' : said.hashed.toLocaleString());
-    $('t-unread').hidden = (state.unread.length === 0);
-    $('t-unread').textContent = `${state.unread.length.toLocaleString()} unread`;
+    const count = {file: 0, dir: 0, link: 0, other: 0, error: 0};
+    let bytes = 0;
+    for (const item of state.names) {
+        count[item.type]++;
+        bytes += ((item.type === 'file') ? item.size : 0);
+    }
+    $('n-files').textContent = count.file.toLocaleString();
+    $('n-dirs').textContent = count.dir.toLocaleString();
+    $('n-links').textContent = count.link.toLocaleString();
+    $('n-others').textContent = count.other.toLocaleString();
+    $('n-bytes').textContent = size_said(bytes);
+    $('t-errors').hidden = (count.error === 0);
+    $('t-errors').textContent = `${count.error.toLocaleString()} unreadable`;
 }
 
 // Events come thousands a second: the list is drawn once a frame
@@ -478,23 +492,24 @@ function draw_soon()
     });
 }
 
+// What could not be read first, then the rest in the order it came
 function list_draw()
 {
     const filter = $('filter').value.trim();
-    const unread = state.unread.filter(v => v.path.includes(filter));
-    const items = state.items.filter(v => v.path.includes(filter));
-    const rows = [...unread.map(row_unread), ...items.slice(0, ROWS_MAX).map(row_make)];
-    if (items.length > ROWS_MAX) {
+    const found = state.names.filter(v => v.path.includes(filter));
+    const shown = [...found.filter(v => v.type === 'error'), ...found.filter(v => v.type !== 'error')];
+    const rows = shown.slice(0, ROWS_MAX).map(row_make);
+    if (shown.length > ROWS_MAX) {
         const more = document.createElement('div');
         more.id = 'more';
-        more.textContent = `${ROWS_MAX.toLocaleString()} of ${items.length.toLocaleString()} shown: filter by path to find the rest`;
+        more.textContent = `${ROWS_MAX.toLocaleString()} of ${shown.length.toLocaleString()} shown: filter by path to find the rest`;
         rows.push(more);
     }
     // An empty list says why only when the walk got through: a failure says it in the status
     if ((rows.length === 0) && (state.stop === null) && (state.time0 !== 0) && (state.failed === false)) {
         const empty = document.createElement('div');
         empty.id = 'empty';
-        empty.textContent = ((filter === '') ? 'No files under this folder' : 'No path has that in it');
+        empty.textContent = ((filter === '') ? 'Nothing under this folder' : 'No path has that in it');
         rows.push(empty);
     }
     $('list').replaceChildren(...rows);
@@ -503,16 +518,23 @@ function list_draw()
 function row_make(item)
 {
     const row = document.createElement('div');
-    row.className = `row ${item.kind}`;
+    row.className = `row ${item.type}`;
     const path = document.createElement('span');
     path.className = 'path';
-    path.textContent = item.path;
-    if (item.kind === 'link') {
+    path.textContent = ((item.path === '') ? '(the folder itself)' : item.path);
+    if (item.type === 'error') {
+        const error = document.createElement('span');
+        error.className = 'error';
+        error.textContent = item.error;
+        row.append(path, error);
+        return row;
+    }
+    if (item.type === 'link') {
         path.dataset.target = ` → ${item.target}`;
     }
     const size = document.createElement('span');
     size.className = 'size';
-    size.textContent = ((item.kind === 'file') ? size_said(item.size) : 'link');
+    size.textContent = ((item.type === 'file') ? size_said(item.size) : item.type);
     const time = document.createElement('span');
     time.className = 'time';
     time.textContent = new Date(item.mtime_ms).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'});
@@ -521,20 +543,6 @@ function row_make(item)
     hash.textContent = ((item.sha256 === undefined) ? '' : ((item.sha256 === null) ? 'unread' : item.sha256));
     hash.title = ((item.error === undefined) ? (item.sha256 || '') : item.error);
     row.append(path, size, time, hash);
-    return row;
-}
-
-function row_unread(item)
-{
-    const row = document.createElement('div');
-    row.className = 'row unread';
-    const path = document.createElement('span');
-    path.className = 'path';
-    path.textContent = ((item.path === '') ? '(the folder itself)' : item.path);
-    const error = document.createElement('span');
-    error.className = 'error';
-    error.textContent = item.error;
-    row.append(path, error);
     return row;
 }
 
@@ -573,8 +581,9 @@ function log_add(entry)
     }
     if (entry.type === 'answer') {
         line.className = (entry.status >= 200 && entry.status < 300 ? 'answer' : 'answer bad');
-        // One JSON of a whole tree is long: the log says its counts, the list shows its items
-        const said = ((entry.body !== null) && (typeof entry.body === 'object') && Array.isArray(entry.body.items)) ? ` ${JSON.stringify(Object.assign({}, entry.body, {items: `${entry.body.items.length} items`}))}` : body;
+        // One JSON of a whole tree is long: the log says how many objects and its last one,
+        // the list shows the rest
+        const said = (Array.isArray(entry.body) ? ` [${entry.body.length.toLocaleString()} ${(entry.body.length === 1) ? 'object' : 'objects'}, the last ${JSON.stringify(entry.body.at(-1))}]` : body);
         line.textContent = `← ${entry.status === 0 ? 'no answer' : entry.status}${said}`;
     }
     if (entry.type === 'event') {

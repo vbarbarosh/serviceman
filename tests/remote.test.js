@@ -1200,48 +1200,54 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
     try {
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
-        assert.ok(remote.state.resources.can.includes('fs_tree'));
+        assert.ok(remote.state.resources.can.includes('fs_tree_typed'));
         const ask = `${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(dir)}&tree=1&skip=node_modules`;
-
-        // One request, every file, its size and time as stat says
-        const listed = await (await fetch(ask)).json();
-        assert.strictEqual(listed.path, dir);
-        assert.strictEqual(listed.items.length, 3000);
-        for (const item of listed.items) {
-            const stat = fs.statSync(path.join(dir, item.path));
-            assert.deepStrictEqual([item.kind, item.size, item.mtime_ms, item.sha256], ['file', stat.size, Math.round(stat.mtimeMs), undefined]);
+        // How many files the agent read for a hash on its last walk, as the host logged it
+        async function hashed_last(count) {
+            await wait_until(() => running.app.log_lines.some(vv => new RegExp(`\\[tree_listed\\] remote=ui1 path=.+ hash=true names=6000 hashed=${count} ms=\\d+`).test(vv)));
+            running.app.log_lines.length = 0;
         }
-        assert.deepStrictEqual([listed.files, listed.hashed, listed.unread, listed.cut], [3000, 0, [], false]);
+
+        // One request: every folder and file, sizes and times as stat says, end last
+        const listed = await (await fetch(ask)).json();
+        assert.deepStrictEqual([listed.length, listed.at(-1)], [6001, {type: 'end'}]);
+        for (const item of listed.slice(0, -1)) {
+            const stat = fs.lstatSync(path.join(dir, item.path));
+            assert.deepStrictEqual(Object.keys(item), ['type', 'path', 'size', 'mtime_ms']);
+            assert.deepStrictEqual([item.type, item.size, item.mtime_ms], [(stat.isDirectory() ? 'dir' : 'file'), (stat.isDirectory() ? null : stat.size), Math.round(stat.mtimeMs)]);
+        }
+        assert.deepStrictEqual([listed.filter(v => v.type === 'dir').length, listed.some(v => String(v.path).startsWith('node_modules'))], [3000, false]);
 
         // With hashes: each one sha256sum's, and a second walk reads no file again
+        running.app.log_lines.length = 0;
         const hashed = await (await fetch(`${ask}&hash=sha256`)).json();
         const summed = child_process.execFileSync('find', [dir, '-name', 'f.txt', '-exec', 'sha256sum', '{}', '+'], {encoding: 'utf8', maxBuffer: 64*1024*1024});
         const by_path = new Map(summed.trim().split('\n').map(v => [path.relative(dir, v.slice(66)), v.slice(0, 64)]));
-        assert.deepStrictEqual([hashed.hashed, by_path.size], [3000, 3000]);
-        assert.strictEqual(hashed.items.every(v => (v.sha256 === by_path.get(v.path))), true);
+        assert.strictEqual(by_path.size, 3000);
+        assert.strictEqual(hashed.filter(v => v.type === 'file').every(v => (v.sha256 === by_path.get(v.path))), true);
+        await hashed_last(3000);
         const again = await (await fetch(`${ask}&hash=sha256`)).json();
-        assert.deepStrictEqual([again.hashed, JSON.stringify(again.items)], [0, JSON.stringify(hashed.items)]);
+        assert.deepStrictEqual(JSON.stringify(again), JSON.stringify(hashed));
+        await hashed_last(0);
         fs.writeFileSync(path.join(dir, 'd7', 'f.txt'), 'changed');
         const changed = await (await fetch(`${ask}&hash=sha256`)).json();
-        assert.deepStrictEqual([changed.hashed, changed.items.find(v => v.path === 'd7/f.txt').sha256], [1, crypto.createHash('sha256').update('changed').digest('hex')]);
+        assert.strictEqual(changed.find(v => v.path === 'd7/f.txt').sha256, crypto.createHash('sha256').update('changed').digest('hex'));
+        await hashed_last(1);
 
-        // The same walk as events, each file the moment it is read
+        // The same walk as events: one plain data line an object, the very objects of the JSON
         const answer = await fetch(ask, {headers: {accept: 'text/event-stream'}});
         assert.deepStrictEqual([answer.status, answer.headers.get('content-type')], [200, 'text/event-stream; charset=utf-8']);
-        const events = (await answer.text()).split('\n\n').filter(v => v.startsWith('event: ')).map(v => [v.split('\n')[0].slice(7), JSON.parse(v.split('\ndata: ')[1])]);
-        assert.deepStrictEqual([events[0], events.length, events.at(-1)[0], events.at(-1)[1].files], [['start', {path: dir}], 3002, 'end', 3000]);
-        // Each item the same object the JSON holds
-        const sent = events.filter(v => v[0] === 'item').map(v => v[1]).sort((a, b) => ((a.path < b.path) ? -1 : 1));
-        assert.deepStrictEqual(JSON.stringify(sent), JSON.stringify((await (await fetch(ask)).json()).items));
-        await wait_until(() => running.app.log_lines.some(vv => /\[tree_listed\] remote=ui1 path=.+ hash=false files=3000 hashed=0 ms=\d+/.test(vv)));
+        const sent = (await answer.text()).split('\n\n').filter(v => v.startsWith('data: ')).map(v => v.slice(6));
+        assert.deepStrictEqual([sent.length, sent.at(-1)], [6001, '{"type":"end"}']);
+        assert.deepStrictEqual(sent.slice(0, -1).sort(), (await (await fetch(ask)).json()).slice(0, -1).map(v => JSON.stringify(v)).sort());
 
         const missing = await fetch(`${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(path.join(dir, 'nothing'))}&tree=1`);
         assert.deepStrictEqual([missing.status, /ENOENT/.test((await missing.json()).error)], [502, true]);
 
-        // An agent from before the tree is told to update, not asked
-        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_tree');
+        // An agent from before the typed tree is told to update, not asked
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_tree_typed');
         const old = await fetch(ask);
-        assert.deepStrictEqual([old.status, /from before a whole tree is listed/.test((await old.json()).error)], [400, true]);
+        assert.deepStrictEqual([old.status, /from before a whole tree is listed by type/.test((await old.json()).error)], [400, true]);
     }
     finally {
         agent.kill('SIGKILL');

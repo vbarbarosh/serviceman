@@ -185,7 +185,7 @@ test('the copies API lists, starts, cancels and clears; a copy names known disks
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/transfers')).body).items, []);
 });
 
-test('a whole tree comes as one JSON sorted by path, or as events; a disk that cannot walk one says so', async function (t) {
+test('a whole tree is objects of one shape, as one JSON array or as events, ending with end; a disk that cannot walk one says so', async function (t) {
     const asked = [];
     const logged = [];
     const disk = {
@@ -198,13 +198,16 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
             }
             const lines = [
                 {type: 'start', path: '/home/me'},
+                {type: 'dir', path: 'b', size: null, mtime_ms: 4},
                 {type: 'file', path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb'},
                 {type: 'file', path: 'a.txt', size: 2, mtime_ms: 6, sha256: 'aa'},
-                {type: 'link', path: 'b/to', target: '/etc', mtime_ms: 7},
-                {type: 'unread', path: 'closed', error: 'EACCES: closed'},
+                {type: 'link', path: 'b/to', size: null, mtime_ms: 7, target: '/etc'},
+                {type: 'other', path: 'b/app.sock', size: null, mtime_ms: 8},
+                {type: 'file', path: 'locked.txt', size: 3, mtime_ms: 9, sha256: null, error: 'EACCES: permission denied'},
+                {type: 'error', path: 'closed', error: 'EACCES: permission denied'},
             ];
             if (dir !== '/cut') {
-                lines.push({type: 'end', files: 2, links: 1, bytes: 3, hashed: 1, ms: 4});
+                lines.push({type: 'end', hashed: 1, ms: 4});
             }
             // Cut anywhere, as a link cuts it
             const text = lines.map(v => `${JSON.stringify(v)}\n`).join('');
@@ -213,42 +216,39 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
     };
     const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
 
+    // One JSON: a bare array, sorted by path, compact, keys always in one order, end last
     const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256&skip=.git,node_modules&skip=dist');
     assert.strictEqual(listed.status, 200);
-    assert.deepStrictEqual(JSON.parse(listed.body), {
-        path: '/home/me',
-        items: [
-            {path: 'a.txt', size: 2, mtime_ms: 6, sha256: 'aa', kind: 'file'},
-            {path: 'b/to', target: '/etc', mtime_ms: 7, kind: 'link'},
-            {path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb', kind: 'file'},
-        ],
-        unread: [{path: 'closed', error: 'EACCES: closed'}],
-        cut: false,
-        files: 2,
-        links: 1,
-        bytes: 3,
-        hashed: 1,
-    });
+    assert.strictEqual(listed.body.includes('\n'), false, 'a tree comes compact, with no indents');
+    assert.deepStrictEqual(JSON.parse(listed.body).map(v => JSON.stringify(v)), [
+        '{"type":"file","path":"a.txt","size":2,"mtime_ms":6,"sha256":"aa"}',
+        '{"type":"dir","path":"b","size":null,"mtime_ms":4}',
+        '{"type":"other","path":"b/app.sock","size":null,"mtime_ms":8}',
+        '{"type":"link","path":"b/to","size":null,"mtime_ms":7,"target":"/etc"}',
+        '{"type":"file","path":"b/z.txt","size":1,"mtime_ms":5,"sha256":"bb"}',
+        '{"type":"error","path":"closed","error":"EACCES: permission denied"}',
+        '{"type":"file","path":"locked.txt","size":3,"mtime_ms":9,"sha256":null,"error":"EACCES: permission denied"}',
+        '{"type":"end"}',
+    ]);
     assert.deepStrictEqual(asked[0], ['/home/me', {hash: true, skip: ['.git', 'node_modules', 'dist']}]);
     await until(() => logged.length > 0);
-    assert.deepStrictEqual(logged[0][0], 'tree_listed');
+    assert.deepStrictEqual([logged[0][0], logged[0][1].names, logged[0][1].hashed], ['tree_listed', 7, 1]);
 
-    // The same walk as events, each line as it comes
-    const events = await call(running, 'GET', '/fs?path=/home/me&tree=1', null, {accept: 'text/event-stream'});
+    // The same walk as events: one plain data line an object, the very objects of the JSON
+    const events = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256', null, {accept: 'text/event-stream'});
     assert.deepStrictEqual([events.status, events.headers['content-type']], [200, 'text/event-stream; charset=utf-8']);
-    const blocks = events.body.split('\n\n').filter(v => v !== '').map(v => [v.split('\n')[0].slice(7), JSON.parse(v.split('\ndata: ')[1])]);
-    assert.deepStrictEqual(blocks.map(v => v[0]), ['start', 'item', 'item', 'item', 'unread', 'end']);
-    assert.deepStrictEqual([blocks[0][1], blocks[4][1], blocks[5][1]], [{path: '/home/me'}, {path: 'closed', error: 'EACCES: closed'}, {files: 2, links: 1, bytes: 3, hashed: 1, ms: 4}]);
-    // An item is the same object as in one JSON, its keys in the same order
-    const json_items = JSON.parse(listed.body).items;
-    assert.deepStrictEqual(blocks.filter(v => v[0] === 'item').map(v => JSON.stringify(v[1])).sort(), json_items.map(v => JSON.stringify(v)).sort());
-    assert.deepStrictEqual(asked[1], ['/home/me', {hash: false, skip: []}]);
+    const blocks = events.body.split('\n\n').filter(v => v !== '');
+    assert.strictEqual(blocks.every(v => v.startsWith('data: {')), true, 'no event names, nothing but data');
+    assert.deepStrictEqual(blocks.map(v => v.slice(6)).sort(), JSON.parse(listed.body).map(v => JSON.stringify(v)).sort());
+    assert.strictEqual(blocks.at(-1), 'data: {"type":"end"}');
+    assert.deepStrictEqual(asked[1], ['/home/me', {hash: true, skip: []}]);
 
-    // A walk that stops before its end is an error, not a short list
+    // A walk that stops before its end: a 502 before anything is sent; under way, an error
+    // object with no path and no end
     const cut = await call(running, 'GET', '/fs?path=/cut&tree=1');
     assert.deepStrictEqual([cut.status, JSON.parse(cut.body).error], [502, 'the disk stopped before the whole tree was read']);
     const cut_events = await call(running, 'GET', '/fs?path=/cut&tree=1', null, {accept: 'text/event-stream'});
-    assert.deepStrictEqual([cut_events.status, cut_events.body.split('\n\n').filter(v => v !== '').at(-1)], [200, 'event: error\ndata: {"error":"the disk stopped before the whole tree was read"}']);
+    assert.deepStrictEqual([cut_events.status, cut_events.body.split('\n\n').filter(v => v !== '').at(-1)], [200, 'data: {"type":"error","error":"the disk stopped before the whole tree was read"}']);
 
     // A folder that cannot be read is an error before anything is answered, in both forms
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs?path=/nothing&tree=1')).body), {error: 'ENOENT: /nothing'});
@@ -258,15 +258,16 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
 
     // A delay spaces events out, and holds the walk meanwhile; it is for events alone
     const time0 = Date.now();
-    const slow = await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=100', null, {accept: 'text/event-stream'});
-    assert.ok(Date.now() - time0 >= 400, 'three items and an unread, a delay after each');
-    assert.strictEqual((slow.body.match(/event: item/g) || []).length, 3);
+    const slow = await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=60', null, {accept: 'text/event-stream'});
+    assert.ok(Date.now() - time0 >= 420, 'seven names, a delay after each');
+    assert.strictEqual((slow.body.match(/^data: /gm) || []).length, 8);
     for (const bad of ['delay=-1', 'delay=1001', 'delay=soon', 'delay=1.5']) {
         assert.strictEqual((await call(running, 'GET', `/fs?path=/home/me&tree=1&${bad}`, null, {accept: 'text/event-stream'})).status, 400, bad);
     }
     assert.match(JSON.parse((await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=10')).body).error, /spaces events out/);
 
-    // One JSON stops after 50,000 names, says it was cut and stops the walk; events have no limit
+    // One JSON stops after 50,000 names and ends with an error, not end, and stops the walk;
+    // events have no limit
     let read = 0;
     let destroyed = false;
     const big = await serve(t, {disk: {tree: function () {
@@ -276,19 +277,17 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
                 read++;
                 yield Buffer.from(`{"type":"file","path":"f${String(i).padStart(5, '0')}","size":1,"mtime_ms":1}\n`);
             }
-            yield Buffer.from('{"type":"end","files":60000,"links":0,"bytes":60000,"hashed":0,"ms":1}\n');
+            yield Buffer.from('{"type":"end","hashed":0,"ms":1}\n');
         })());
         out.on('close', () => destroyed = true);
         return out;
     }}});
-    const cut_text = (await call(big, 'GET', '/fs?path=/big&tree=1')).body;
-    assert.strictEqual(cut_text.includes('\n'), false, 'a tree comes compact, with no indents');
-    const cut_json = JSON.parse(cut_text);
-    assert.deepStrictEqual([cut_json.items.length, cut_json.items.at(-1).path, cut_json.cut, cut_json.files, cut_json.bytes, cut_json.hashed], [50000, 'f49999', true, 50000, 50000, null]);
+    const cut_json = JSON.parse((await call(big, 'GET', '/fs?path=/big&tree=1')).body);
+    assert.deepStrictEqual([cut_json.length, cut_json.at(-2).path, cut_json.at(-1)], [50001, 'f49999', {type: 'error', error: 'more than 50000 names: the list stops here'}]);
     await until(() => destroyed);
     assert.ok(read < 60000, 'the walk stops once the answer is cut');
     const uncut = await call(big, 'GET', '/fs?path=/big&tree=1', null, {accept: 'text/event-stream'});
-    assert.deepStrictEqual([(uncut.body.match(/event: item/g) || []).length, uncut.body.includes('event: end')], [60000, true]);
+    assert.deepStrictEqual([(uncut.body.match(/"type":"file"/g) || []).length, uncut.body.endsWith('data: {"type":"end"}\n\n')], [60000, true]);
 
     // With a delay the walk itself waits: a page that leaves after a moment read a few names
     read = 0;

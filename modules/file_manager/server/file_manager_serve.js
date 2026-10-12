@@ -1,8 +1,8 @@
 const path = require('path');
 
 const BODY_LIMIT_BYTES = 1024*1024;
-// A whole tree as one JSON stops after this many names and says it was cut; as events it has
-// no limit, since each one is sent as it comes
+// A whole tree as one JSON stops after this many names and ends with an error saying so; as
+// events it has no limit, since each one is sent as it comes
 const TREE_JSON_MAX_ITEMS = 50000;
 // The longest pause between two events of a tree a caller may ask for, so a request cannot
 // hold a walk open for days
@@ -119,15 +119,17 @@ async function list_serve(ctx, req, res, url)
 }
 
 // GET <base>?tree=1 (query, header:accept)
-// Every file under a folder, at any depth, in one answer: links said as links and never
-// followed, folders not said, the names given as skip left out wherever they are, and with
-// hash=sha256 each file's hash, which the disk keeps while the file's size and time stay. An
-// answer that accepts text/event-stream gets each item as an event the moment it is read, so
-// a caller sees the walk go; any other gets one JSON once the walk is over, cut after
-// TREE_JSON_MAX_ITEMS names with cut: true. An item is the same object in both. delay=<ms>
-// spaces the events out, for watching a page fill while it is built; the walk waits for them.
-// The answer waits for the first line, so a folder that cannot be read is an error, not an
-// empty stream.
+// Every name under a folder, at any depth, each one object of one shape: {type, path, size,
+// mtime_ms} and, by its type, target, sha256 or error (item_of). Links are said and never
+// followed, the names given as skip are left out wherever they are, and with hash=sha256 each
+// file has its hash, which the disk keeps while the file's size and time stay. An answer that
+// accepts text/event-stream gets each object as a data line the moment it is read, so a caller
+// sees the walk go; any other gets them as one JSON array once the walk is over, sorted by
+// path. Both end with {type: 'end'}: a list without it stopped short, and says why in an
+// error object with no path (a walk that broke, or one JSON cut after TREE_JSON_MAX_ITEMS).
+// delay=<ms> spaces the events out, for watching a page fill while it is built; the walk
+// waits for them. The answer waits for the first line, so a folder that cannot be read is a
+// 502, not an empty list.
 function tree_serve(ctx, req, res, url)
 {
     if (ctx.disk.tree === undefined) {
@@ -161,7 +163,7 @@ function tree_serve(ctx, req, res, url)
         return;
     }
     const time0 = Date.now();
-    const listed = {path: null, items: [], unread: []};
+    const listed = {path: null, items: []};
     // The lines read and not yet answered; a delay holds them, and the stream waits meanwhile
     const queue = [];
     let started = false;
@@ -170,6 +172,7 @@ function tree_serve(ctx, req, res, url)
     let end = null;
     let cut = false;
     let waiting = null;
+    let names = 0;
     let rest = '';
     // A long hash says nothing for a while; a comment line keeps the request from looking idle
     const timer = setInterval(function () {
@@ -193,10 +196,10 @@ function tree_serve(ctx, req, res, url)
         clearTimeout(waiting);
         stream.destroy();
         if (cut) {
-            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: listed.items.length, cut, ms: Date.now() - time0});
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), names: listed.items.length, cut, ms: Date.now() - time0});
         }
         else if (end !== null) {
-            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: end.files, hashed: end.hashed, ms: Date.now() - time0});
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), names, hashed: end.hashed, ms: Date.now() - time0});
         }
     });
 
@@ -224,7 +227,7 @@ function tree_serve(ctx, req, res, url)
         }
     }
 
-    // One line of the disk into the answer: true when it was an item or an unread one
+    // One line of the disk into the answer: true when it was a name, which a delay waits after
     function line_answer(line) {
         if (started === false) {
             started = true;
@@ -234,45 +237,29 @@ function tree_serve(ctx, req, res, url)
         }
         if (line.type === 'start') {
             listed.path = line.path;
-            event_send('start', {path: line.path});
             return false;
         }
         if (line.type === 'end') {
             end = line;
-            event_send('end', {files: line.files, links: line.links, bytes: line.bytes, hashed: line.hashed, ms: line.ms});
             return false;
         }
-        if ((line.type === 'file') || (line.type === 'link')) {
-            if ((events === false) && (listed.items.length >= TREE_JSON_MAX_ITEMS)) {
-                listed_send(true);
-                return false;
-            }
-            const item = item_of(line);
-            if (events) {
-                event_send('item', item);
-            }
-            else {
-                listed.items.push(item);
-            }
-            return true;
+        if ((events === false) && (listed.items.length >= TREE_JSON_MAX_ITEMS)) {
+            listed_send(true);
+            return false;
         }
-        if (line.type === 'unread') {
-            const unread = {path: line.path, error: line.error};
-            if (events) {
-                event_send('unread', unread);
-            }
-            else {
-                listed.unread.push(unread);
-            }
-            return true;
+        names++;
+        const item = item_of(line);
+        if (events) {
+            event_send(item);
         }
-        return false;
+        else {
+            listed.items.push(item);
+        }
+        return true;
     }
 
-    function event_send(name, value) {
-        if (events) {
-            res.write(`event: ${name}\ndata: ${JSON.stringify(value)}\n\n`);
-        }
+    function event_send(value) {
+        res.write(`data: ${JSON.stringify(value)}\n\n`);
     }
 
     function finish() {
@@ -282,6 +269,7 @@ function tree_serve(ctx, req, res, url)
         }
         if (events) {
             finished = true;
+            event_send({type: 'end'});
             res.end();
             return;
         }
@@ -295,7 +283,8 @@ function tree_serve(ctx, req, res, url)
         finished = true;
         if (started && events) {
             // The stream is under way and cannot become an error page: it says why, and ends
-            res.end(`event: error\ndata: ${JSON.stringify({error: error.message})}\n\n`);
+            event_send({type: 'error', error: error.message});
+            res.end();
             return;
         }
         if (res.headersSent === false) {
@@ -303,8 +292,8 @@ function tree_serve(ctx, req, res, url)
         }
     }
 
-    // The JSON, once the walk is over or cut: a cut one stops the walk, and its counts are of
-    // what it holds
+    // The JSON, once the walk is over or cut: a cut one stops the walk, and ends with an error
+    // object where a whole one ends with end
     function listed_send(cut_now) {
         if (finished) {
             return;
@@ -314,28 +303,26 @@ function tree_serve(ctx, req, res, url)
         if (cut) {
             stream.destroy();
         }
-        const files = listed.items.filter(v => (v.kind === 'file'));
         listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
+        listed.items.push(cut ? {type: 'error', error: `more than ${TREE_JSON_MAX_ITEMS} names: the list stops here`} : {type: 'end'});
         // Compact, unlike the other doors: a tree is thousands of items, and indents add 60%
-        send_json(res, 200, Object.assign(listed, {
-            cut,
-            files: files.length,
-            links: listed.items.length - files.length,
-            bytes: files.reduce((sum, v) => sum + v.size, 0),
-            hashed: (cut ? null : end.hashed),
-        }), 0);
+        send_json(res, 200, listed.items, 0);
     }
 }
 
-// One file or link of a tree as the API says it, the same in one JSON and in an event:
-// {path, kind, size, mtime_ms, sha256, error} of a file, the last two only when asked or
-// failed; {path, kind, target, mtime_ms} of a link
+// One name of a tree as the API says it, the same in one JSON and in an event, its keys
+// always in this order: {type, path, size, mtime_ms}, then a link's target, a file's sha256
+// when asked, and an error when something failed. type is file, dir, link, other (a socket, a
+// pipe, a device) or error, which has path and error alone; size is null but for a file.
 function item_of(line)
 {
-    if (line.type === 'link') {
-        return {path: line.path, kind: 'link', target: line.target, mtime_ms: line.mtime_ms};
+    if (line.type === 'error') {
+        return {type: 'error', path: line.path, error: line.error};
     }
-    const out = {path: line.path, kind: 'file', size: line.size, mtime_ms: line.mtime_ms};
+    const out = {type: line.type, path: line.path, size: ((line.type === 'file') ? line.size : null), mtime_ms: line.mtime_ms};
+    if (line.target !== undefined) {
+        out.target = line.target;
+    }
     if (line.sha256 !== undefined) {
         out.sha256 = line.sha256;
     }
