@@ -1211,7 +1211,7 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
             const stat = fs.statSync(path.join(dir, item.path));
             assert.deepStrictEqual([item.kind, item.size, item.mtime_ms, item.sha256], ['file', stat.size, Math.round(stat.mtimeMs), undefined]);
         }
-        assert.deepStrictEqual([listed.files, listed.hashed, listed.unread], [3000, 0, []]);
+        assert.deepStrictEqual([listed.files, listed.hashed, listed.unread, listed.cut], [3000, 0, [], false]);
 
         // With hashes: each one sha256sum's, and a second walk reads no file again
         const hashed = await (await fetch(`${ask}&hash=sha256`)).json();

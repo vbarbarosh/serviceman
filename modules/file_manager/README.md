@@ -72,7 +72,7 @@ what a program copying a folder asks first, to know what is already there.
             {"path": "src/link", "target": "../a.txt", "mtime_ms": 1760280000000, "kind": "link"}
         ],
         "unread": [{"path": "closed", "error": "EACCES: permission denied, …"}],
-        "files": 1, "links": 1, "bytes": 3, "hashed": 0
+        "cut": false, "files": 1, "links": 1, "bytes": 3, "hashed": 0
     }
 
 - `path` of an item is relative to the folder asked, `/` between its parts; the items are sorted
@@ -84,13 +84,15 @@ what a program copying a folder asks first, to know what is already there.
   an `error`.
 - `skip` names what is never descended into, wherever it is: `skip=.git,node_modules`, or
   `skip` given several times.
+- One JSON holds at most 50,000 names. A bigger tree stops there and says `cut: true`, its
+  counts those of what it holds and `hashed` null; there is no next page. The walk stops too.
 - A folder or a name it could not read is in `unread`, and the walk goes on. A folder that
-  cannot be read at all is a 502; more than 200,000 files is refused; a disk that cannot walk a
-  tree (a container's) answers 501.
+  cannot be read at all is a 502; a disk that cannot walk a tree (a container's) answers 501.
 - Asked with `Accept: text/event-stream`, the same walk comes as events, each the moment it is
   read, so the caller sees it go: `start` `{path}`, then `file`, `link` and `unread`, each line
-  as above with its `type`, and `end` `{files, links, bytes, hashed, ms}`. A walk that fails
-  half way ends with an `error` event. An `EventSource` closes itself on `end`, or it asks
+  as above with its `type`, and `end` `{files, links, bytes, hashed, ms}`. Events have no
+  limit: closing the request stops the walk. A walk that fails half way ends with an `error`
+  event. An `EventSource` closes itself on `end`, or it asks
   again.
 - Without `tree`, the answer is the one folder, as above.
 

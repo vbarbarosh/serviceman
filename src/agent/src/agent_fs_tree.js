@@ -4,8 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const stream = require('stream');
 
-// A tree this big is not one answer: a home folder asked by mistake, not a project
-const TREE_MAX_FILES = 200000;
 // Names read before the walk lets the agent's other work in: each is a stat that does not wait
 // on the thread pool, which on a busy machine is what makes a walk slow
 const NAMES_AT_ONCE = 512;
@@ -48,8 +46,9 @@ function agent_fs_tree(target)
 // The number of files read for their hash since the agent started, for the tests
 agent_fs_tree.reads = 0;
 
-// Without hashes each folder goes out as it is read; with them the files wait for the walk,
-// then go out a slice at a time as their hashes are ready
+// Without hashes each folder goes out as it is read; with them the files go out a slice at a
+// time as their hashes are ready. There is no limit: whoever reads it closes it when it has
+// enough, and the walk stops there.
 async function* lines(target)
 {
     const time0 = Date.now();
@@ -79,9 +78,6 @@ async function* lines(target)
             if (item.type === 'file') {
                 end.files++;
                 end.bytes += item.size;
-                if (end.files > TREE_MAX_FILES) {
-                    throw new Error(`more than ${TREE_MAX_FILES} files under ${root}; skip some of them`);
-                }
                 if (hash) {
                     files.push(item);
                     continue;
@@ -96,24 +92,32 @@ async function* lines(target)
         if (said.length > 0) {
             yield lines_of(said);
         }
+        while (files.length >= HASH_SLICE) {
+            yield await hashed_lines(files.splice(0, HASH_SLICE), end);
+        }
         names += found.length + 1;
         if (names >= NAMES_AT_ONCE) {
             names = 0;
             await new Promise(v => setImmediate(v));
         }
     }
-    for (let i = 0; i < files.length; i += HASH_SLICE) {
-        const slice = files.slice(i, i + HASH_SLICE);
-        await pool(slice, HASH_AT_ONCE, async function (item) {
-            if (await hash_fill(item)) {
-                end.hashed++;
-            }
-        });
-        yield lines_of(slice);
-        await new Promise(v => setImmediate(v));
+    if (files.length > 0) {
+        yield await hashed_lines(files, end);
     }
     end.ms = Date.now() - time0;
     yield lines_of([end]);
+}
+
+// A slice of files with their hashes, as lines; the event loop let in after it
+async function hashed_lines(slice, end)
+{
+    await pool(slice, HASH_AT_ONCE, async function (item) {
+        if (await hash_fill(item)) {
+            end.hashed++;
+        }
+    });
+    await new Promise(v => setImmediate(v));
+    return lines_of(slice);
 }
 
 // One folder's names, each by what lstat says of it, in the order of names. A folder that

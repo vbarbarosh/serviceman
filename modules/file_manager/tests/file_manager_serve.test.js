@@ -223,6 +223,7 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
             {path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb', kind: 'file'},
         ],
         unread: [{path: 'closed', error: 'EACCES: closed'}],
+        cut: false,
         files: 2,
         links: 1,
         bytes: 3,
@@ -249,6 +250,29 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
     assert.strictEqual((await call(running, 'GET', '/fs?path=/nothing&tree=1', null, {accept: 'text/event-stream'})).status, 502);
 
     assert.strictEqual((await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=md5')).status, 400);
+
+    // One JSON stops after 50,000 names, says it was cut and stops the walk; events have no limit
+    let read = 0;
+    let destroyed = false;
+    const big = await serve(t, {disk: {tree: function () {
+        const out = stream.Readable.from((function* () {
+            yield Buffer.from('{"type":"start","path":"/big"}\n');
+            for (let i = 0; i < 60000; i++) {
+                read++;
+                yield Buffer.from(`{"type":"file","path":"f${String(i).padStart(5, '0')}","size":1,"mtime_ms":1}\n`);
+            }
+            yield Buffer.from('{"type":"end","files":60000,"links":0,"bytes":60000,"hashed":0,"ms":1}\n');
+        })());
+        out.on('close', () => destroyed = true);
+        return out;
+    }}});
+    const cut_json = JSON.parse((await call(big, 'GET', '/fs?path=/big&tree=1')).body);
+    assert.deepStrictEqual([cut_json.items.length, cut_json.items.at(-1).path, cut_json.cut, cut_json.files, cut_json.bytes, cut_json.hashed], [50000, 'f49999', true, 50000, 50000, null]);
+    await until(() => destroyed);
+    assert.ok(read < 60000, 'the walk stops once the answer is cut');
+    const uncut = await call(big, 'GET', '/fs?path=/big&tree=1', null, {accept: 'text/event-stream'});
+    assert.deepStrictEqual([(uncut.body.match(/event: file/g) || []).length, uncut.body.includes('event: end')], [60000, true]);
+
     const plain = await serve(t, {disk: disk_in_memory({'/home/me/a.txt': 'a'})});
     assert.strictEqual((await call(plain, 'GET', '/fs?path=/home/me&tree=1')).status, 501);
     assert.strictEqual(JSON.parse((await call(plain, 'GET', '/fs?path=/home/me')).body).items.length, 1, 'without tree the list is as it was');

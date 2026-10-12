@@ -1,6 +1,9 @@
 const path = require('path');
 
 const BODY_LIMIT_BYTES = 1024*1024;
+// A whole tree as one JSON stops after this many names and says it was cut; as events it has
+// no limit, since each one is sent as it comes
+const TREE_JSON_MAX_ITEMS = 50000;
 // A comment line down a watch or a tree this often, which is what keeps a proxy from closing it as idle
 const WATCH_KEEP_MS = 15000;
 
@@ -117,8 +120,9 @@ async function list_serve(ctx, req, res, url)
 // followed, folders not said, the names given as skip left out wherever they are, and with
 // hash=sha256 each file's hash, which the disk keeps while the file's size and time stay. An
 // answer that accepts text/event-stream gets each file as an event the moment it is read, so
-// a caller sees the walk go; any other gets one JSON once the walk is over. The answer waits
-// for the first line, so a folder that cannot be read is an error, not an empty stream.
+// a caller sees the walk go; any other gets one JSON once the walk is over, cut after
+// TREE_JSON_MAX_ITEMS names with cut: true. The answer waits for the first line, so a folder
+// that cannot be read is an error, not an empty stream.
 function tree_serve(ctx, req, res, url)
 {
     if (ctx.disk.tree === undefined) {
@@ -145,6 +149,7 @@ function tree_serve(ctx, req, res, url)
     const listed = {path: null, items: [], unread: []};
     let started = false;
     let end = null;
+    let cut = false;
     let rest = '';
     // A long hash says nothing for a while; a comment line keeps the request from looking idle
     const timer = setInterval(function () {
@@ -187,6 +192,10 @@ function tree_serve(ctx, req, res, url)
                 continue;
             }
             if ((event.type === 'file') || (event.type === 'link')) {
+                if (listed.items.length >= TREE_JSON_MAX_ITEMS) {
+                    listed_send(true);
+                    return;
+                }
                 event.kind = event.type;
                 delete event.type;
                 listed.items.push(event);
@@ -206,14 +215,36 @@ function tree_serve(ctx, req, res, url)
             res.end();
             return;
         }
-        listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
-        send_json(res, 200, Object.assign(listed, {files: end.files, links: end.links, bytes: end.bytes, hashed: end.hashed}));
+        listed_send(false);
     });
+    // The JSON, once the walk is over or cut: a cut one stops the walk, and its counts are of
+    // what it holds
+    function listed_send(cut_now) {
+        if (res.headersSent) {
+            return;
+        }
+        cut = cut_now;
+        if (cut) {
+            stream.destroy();
+        }
+        const files = listed.items.filter(v => (v.kind === 'file'));
+        listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
+        send_json(res, 200, Object.assign(listed, {
+            cut,
+            files: files.length,
+            links: listed.items.length - files.length,
+            bytes: files.reduce((sum, v) => sum + v.size, 0),
+            hashed: (cut ? null : end.hashed),
+        }));
+    }
     stream.on('error', fail);
     res.on('close', function () {
         clearInterval(timer);
         stream.destroy();
-        if (end !== null) {
+        if (cut) {
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: listed.items.length, cut, ms: Date.now() - time0});
+        }
+        else if (end !== null) {
             ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: end.files, hashed: end.hashed, ms: Date.now() - time0});
         }
     });
