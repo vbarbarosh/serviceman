@@ -194,18 +194,21 @@ a {
 }
 
 .nav h2 {
-    margin: 20px 0 6px 10px;
-    padding: 0;
+    margin: 20px 0 8px;
+    padding: 16px 10px 0;
     border: 0;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 600;
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
 .nav h2:first-child {
     margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
 }
 
 .nav ul {
@@ -216,9 +219,11 @@ a {
 
 .nav a {
     display: block;
-    padding: 5px 10px;
+    padding: 6px 10px;
     border-radius: 6px;
-    color: var(--ink-2);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 500;
     text-decoration: none;
     overflow-wrap: anywhere;
     transition: background-color var(--fast) ease;
@@ -235,15 +240,16 @@ a {
 }
 
 .nav .toc {
-    margin: 4px 0 8px 10px;
-    border-left: 1px solid var(--line);
+    margin: 4px 0 10px 18px;
+    border-left: 2px solid var(--line);
 }
 
 .nav .toc a {
     padding: 3px 10px;
     border-radius: 0 6px 6px 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 400;
 }
 
 .nav .toc code {
