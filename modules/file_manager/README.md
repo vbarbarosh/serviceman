@@ -96,6 +96,10 @@ what a program copying a folder asks first, to know what is already there.
   again.
 - Without `tree`, the answer is the one folder, as above.
 
+`node demos/tree-web/server.js` is a page for trying it on serviceman's machines: a folder, a
+hash and names to skip, then One JSON or As events, with the counts, the list and each request.
+`tree` and `tree_events` in `demos/files-web/fs_client.mjs` are the calls to copy.
+
 ### A folder watched
 
 `GET <base>/watch?path=<dir>` answers once the watch holds (a folder that cannot be watched is a

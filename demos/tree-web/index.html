@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A whole tree</title>
+<style>
+:root {
+    --bg: #ffffff;
+    --panel: #f4f5f7;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #dfe2e6;
+    --bad: #c2410c;
+    --warn: #b45309;
+    --accent: #2f6fed;
+    --ok: #15803d;
+}
+:root[data-theme="dark"] {
+    --bg: #171a1f;
+    --panel: #1f242c;
+    --fg: #e8eaed;
+    --muted: #939aa4;
+    --line: #2a3140;
+    --bad: #f0846a;
+    --warn: #fbbf24;
+    --accent: #6ea0ff;
+    --ok: #4ade80;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px system-ui, sans-serif;
+}
+header, .bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    align-items: center;
+    padding: .4rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+h1 {
+    margin: 0 .4rem 0 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+.right {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+button {
+    display: flex;
+    align-items: center;
+    padding: .3rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+button:hover {
+    border-color: var(--accent);
+}
+button:disabled {
+    color: var(--muted);
+    cursor: default;
+}
+button.main {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+}
+#theme {
+    border-color: transparent;
+    color: var(--muted);
+}
+input, select {
+    padding: .3rem .5rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+#path {
+    flex: 3 1 14rem;
+    min-width: 0;
+}
+#skip {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+label {
+    display: flex;
+    gap: .3rem;
+    align-items: center;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.bad {
+    color: var(--bad);
+}
+#sums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem 1.4rem;
+    align-items: baseline;
+    padding: .55rem .6rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+.sum b {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+}
+.sum span {
+    margin-left: .3rem;
+    color: var(--muted);
+}
+.tag {
+    padding: .1rem .5rem;
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.tag.warn {
+    color: var(--warn);
+}
+.tag.bad {
+    color: var(--bad);
+}
+#status {
+    flex: 1 1 12rem;
+    overflow: hidden;
+    min-width: 0;
+    color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#status.bad {
+    color: var(--bad);
+    white-space: normal;
+}
+#list {
+    overflow: auto;
+    flex: 1;
+    min-height: 6rem;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 70px 150px 110px;
+    gap: .6rem;
+    padding: .1rem .6rem;
+    border-bottom: 1px solid var(--line);
+}
+.row .path {
+    overflow-wrap: anywhere;
+}
+.row .size, .row .time, .row .hash {
+    overflow: hidden;
+    color: var(--muted);
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.row.link .path::after {
+    content: attr(data-target);
+    color: var(--muted);
+}
+.row.unread {
+    color: var(--bad);
+}
+.row.unread {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+.row.unread .error {
+    overflow-wrap: anywhere;
+    color: var(--bad);
+    text-align: left;
+    white-space: normal;
+}
+#more, #empty {
+    padding: .5rem .6rem;
+    color: var(--muted);
+}
+.log-head {
+    display: flex;
+    align-items: center;
+    padding: .2rem .6rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+}
+.log-head button {
+    margin-left: auto;
+    padding: .1rem .35rem;
+    border-color: transparent;
+    color: var(--muted);
+    font-size: 12px;
+}
+#log {
+    overflow: auto;
+    height: 22%;
+    min-height: 5rem;
+    padding: .3rem .6rem;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+#log div {
+    overflow-wrap: anywhere;
+}
+#log .request {
+    color: var(--accent);
+}
+#log .answer {
+    color: var(--muted);
+}
+#log .answer.bad {
+    color: var(--bad);
+}
+#log .event {
+    color: var(--ok);
+}
+[hidden] {
+    display: none !important;
+}
+@media (max-width: 700px) {
+    .row {
+        grid-template-columns: minmax(0, 1fr) 70px;
+    }
+    .row .time, .row .hash {
+        display: none;
+    }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>A whole tree</h1>
+    <select id="remote" aria-label="Machine"></select>
+    <span class="right">
+        <span id="note" class="bad"></span>
+        <button type="button" id="theme" title="Light or dark"></button>
+    </span>
+</header>
+<div class="bar">
+    <input id="path" spellcheck="false" autocomplete="off" placeholder="~ (the machine's home)" aria-label="Folder">
+    <input id="skip" spellcheck="false" autocomplete="off" value=".git,node_modules" placeholder="names to skip, a,b" aria-label="Names to skip, separated by commas">
+    <label><input type="checkbox" id="hash"> sha256</label>
+    <button type="button" class="main" id="json" title="GET ?tree=1: one answer once the walk is over, cut after 50,000 names">One JSON</button>
+    <button type="button" id="events" title="The same GET with Accept: text/event-stream: each file as it is read, no limit">As events</button>
+    <button type="button" id="stop" hidden>Stop</button>
+</div>
+<div id="sums">
+    <span class="sum"><b id="n-files">0</b><span>files</span></span>
+    <span class="sum"><b id="n-links">0</b><span>links</span></span>
+    <span class="sum"><b id="n-bytes">0 B</b><span>in all</span></span>
+    <span class="sum" id="s-hashed" hidden><b id="n-hashed">0</b><span>read for a hash</span></span>
+    <span class="sum"><b id="n-ms">–</b><span>to answer</span></span>
+    <span class="tag warn" id="t-cut" hidden title="One JSON holds 50,000 names at most; events have no limit">cut at 50,000</span>
+    <span class="tag bad" id="t-unread" hidden></span>
+    <span id="status">Pick a folder, then One JSON or As events.</span>
+</div>
+<div class="bar">
+    <input id="filter" spellcheck="false" autocomplete="off" placeholder="filter by path" aria-label="Filter by path" style="flex: 1; min-width: 0">
+</div>
+<div id="list"></div>
+<div class="log-head">Requests, answers and events<button type="button" id="log-clear">Clear</button></div>
+<div id="log"></div>
+<script type="module">
+import fs_client from '/fs_client.mjs';
+
+// A whole tree of one machine's folder through serviceman's files API (fs_client.mjs): One JSON
+// is files.tree, one answer once the walk is over; As events is files.tree_events, each file as
+// it is read. The list draws the first rows and says how many more there are; the log under it
+// shows each request, its answer and the events other than a file each.
+const ROWS_MAX = 1000;
+const LOG_MAX = 300;
+const ICONS = {
+    sun: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
+};
+
+const params = new URLSearchParams(location.search);
+// What the walk found so far: items as the API says them, unread as {path, error}
+const state = {items: [], unread: [], counts: null, failed: false, stop: null, time0: 0, timer: null, drawing: false};
+const $ = id => document.getElementById(id);
+
+document.getElementById('theme').addEventListener('click', () => theme_set(theme_now() === 'dark' ? 'light' : 'dark'));
+theme_set(theme_saved());
+$('path').value = (params.get('dir') || '');
+$('hash').checked = (params.get('hash') === '1');
+$('json').addEventListener('click', () => walk('json'));
+$('events').addEventListener('click', () => walk('events'));
+$('stop').addEventListener('click', stop);
+$('path').addEventListener('keydown', v => (v.key === 'Enter') && walk('json'));
+$('filter').addEventListener('input', list_draw);
+$('log-clear').addEventListener('click', () => $('log').replaceChildren());
+$('remote').addEventListener('change', address_set);
+await remotes_load();
+
+async function remotes_load()
+{
+    let said;
+    try {
+        said = await (await fetch('/defaults')).json();
+    }
+    catch {
+        note('this page\'s own server does not answer');
+        return;
+    }
+    if (said.answered === false) {
+        note(`serviceman does not answer at ${said.url}`);
+    }
+    else if (said.remotes.length === 0) {
+        note('serviceman lists no machines yet');
+    }
+    const asked = params.get('remote');
+    const names = ((asked !== null) && (said.remotes.includes(asked) === false)) ? [asked, ...said.remotes] : said.remotes;
+    $('remote').replaceChildren(...names.map(function (name) {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        return option;
+    }));
+    $('remote').value = (asked || said.remote || '');
+    for (const id of ['json', 'events']) {
+        $(id).disabled = (names.length === 0);
+    }
+}
+
+// One walk, as JSON or as events; a walk under way is stopped first
+function walk(how)
+{
+    stop();
+    address_set();
+    const remote = $('remote').value;
+    const files = fs_client({base: `/api/v1/remotes/${encodeURIComponent(remote)}/fs`, log: log_add});
+    const path = (($('path').value.trim() === '') ? null : $('path').value.trim());
+    const settings = {hash: $('hash').checked, skip: $('skip').value.split(',').map(v => v.trim()).filter(v => (v !== ''))};
+    Object.assign(state, {items: [], unread: [], counts: null, failed: false, time0: performance.now()});
+    $('t-cut').hidden = true;
+    $('s-hashed').hidden = (settings.hash === false);
+    running(true);
+    status(`Walking ${path || '~'} on ${remote}…`);
+    sums_draw();
+    list_draw();
+    state.timer = setInterval(() => $('n-ms').textContent = ms_said(performance.now() - state.time0), 100);
+    if (how === 'json') {
+        let stopped = false;
+        state.stop = () => stopped = true;
+        files.tree(path, settings).then(function (answer) {
+            if (stopped) {
+                return;
+            }
+            Object.assign(state, {items: answer.items, unread: answer.unread});
+            $('t-cut').hidden = (answer.cut === false);
+            done(answer, `${answer.path}: one answer, ${answer.items.length.toLocaleString()} names${answer.cut ? ', cut: the tree has more' : ''}`);
+        }, function (error) {
+            if (stopped === false) {
+                failed(error.message);
+            }
+        });
+        return;
+    }
+    let root = null;
+    state.stop = files.tree_events(path, settings, function (event) {
+        if (event.type === 'start') {
+            root = event.path;
+        }
+        else if ((event.type === 'file') || (event.type === 'link')) {
+            state.items.push(Object.assign({kind: event.type}, event));
+            status(`${root}: ${event.path}`);
+            draw_soon();
+        }
+        else if (event.type === 'unread') {
+            state.unread.push(event);
+            draw_soon();
+        }
+        else if (event.type === 'end') {
+            done(event, `${root}: ${state.items.length.toLocaleString()} names as events`);
+        }
+        else if (event.type === 'error') {
+            failed(event.error);
+        }
+    });
+}
+
+function stop()
+{
+    if (state.stop === null) {
+        return;
+    }
+    state.stop();
+    state.stop = null;
+    running(false);
+    status(`Stopped after ${state.items.length.toLocaleString()} names`);
+    list_draw();
+}
+
+function done(counts, text)
+{
+    state.stop = null;
+    running(false);
+    $('n-ms').textContent = ms_said(performance.now() - state.time0);
+    state.counts = counts;
+    sums_draw();
+    status(text);
+    list_draw();
+}
+
+function failed(text)
+{
+    state.stop = null;
+    state.failed = true;
+    running(false);
+    status(text, true);
+    list_draw();
+}
+
+function running(on)
+{
+    $('stop').hidden = (on === false);
+    $('json').disabled = on;
+    $('events').disabled = on;
+    if (on === false) {
+        clearInterval(state.timer);
+    }
+}
+
+// Counts as the answer says them once it is over; while events come, as the list holds them
+function sums_draw()
+{
+    const files = state.items.filter(v => (v.kind === 'file'));
+    const said = ((state.counts !== null) ? state.counts : {files: files.length, links: state.items.length - files.length, bytes: files.reduce((sum, v) => sum + v.size, 0), hashed: null});
+    $('n-files').textContent = said.files.toLocaleString();
+    $('n-links').textContent = said.links.toLocaleString();
+    $('n-bytes').textContent = size_said(said.bytes);
+    $('n-hashed').textContent = ((said.hashed === null) || (said.hashed === undefined) ? '–' : said.hashed.toLocaleString());
+    $('t-unread').hidden = (state.unread.length === 0);
+    $('t-unread').textContent = `${state.unread.length.toLocaleString()} unread`;
+}
+
+// Events come thousands a second: the list is drawn once a frame
+function draw_soon()
+{
+    if (state.drawing) {
+        return;
+    }
+    state.drawing = true;
+    requestAnimationFrame(function () {
+        state.drawing = false;
+        sums_draw();
+        list_draw();
+    });
+}
+
+function list_draw()
+{
+    const filter = $('filter').value.trim();
+    const unread = state.unread.filter(v => v.path.includes(filter));
+    const items = state.items.filter(v => v.path.includes(filter));
+    const rows = [...unread.map(row_unread), ...items.slice(0, ROWS_MAX).map(row_make)];
+    if (items.length > ROWS_MAX) {
+        const more = document.createElement('div');
+        more.id = 'more';
+        more.textContent = `${ROWS_MAX.toLocaleString()} of ${items.length.toLocaleString()} shown: filter by path to find the rest`;
+        rows.push(more);
+    }
+    // An empty list says why only when the walk got through: a failure says it in the status
+    if ((rows.length === 0) && (state.stop === null) && (state.time0 !== 0) && (state.failed === false)) {
+        const empty = document.createElement('div');
+        empty.id = 'empty';
+        empty.textContent = ((filter === '') ? 'No files under this folder' : 'No path has that in it');
+        rows.push(empty);
+    }
+    $('list').replaceChildren(...rows);
+}
+
+function row_make(item)
+{
+    const row = document.createElement('div');
+    row.className = `row ${item.kind}`;
+    const path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = item.path;
+    if (item.kind === 'link') {
+        path.dataset.target = ` → ${item.target}`;
+    }
+    const size = document.createElement('span');
+    size.className = 'size';
+    size.textContent = ((item.kind === 'file') ? size_said(item.size) : 'link');
+    const time = document.createElement('span');
+    time.className = 'time';
+    time.textContent = new Date(item.mtime_ms).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'});
+    const hash = document.createElement('span');
+    hash.className = 'hash';
+    hash.textContent = ((item.sha256 === undefined) ? '' : ((item.sha256 === null) ? 'unread' : item.sha256));
+    hash.title = ((item.error === undefined) ? (item.sha256 || '') : item.error);
+    row.append(path, size, time, hash);
+    return row;
+}
+
+function row_unread(item)
+{
+    const row = document.createElement('div');
+    row.className = 'row unread';
+    const path = document.createElement('span');
+    path.className = 'path';
+    path.textContent = ((item.path === '') ? '(the folder itself)' : item.path);
+    const error = document.createElement('span');
+    error.className = 'error';
+    error.textContent = item.error;
+    row.append(path, error);
+    return row;
+}
+
+function status(text, bad)
+{
+    $('status').textContent = text;
+    $('status').className = ((bad === true) ? 'bad' : '');
+}
+
+// The machine, the folder and the hash in the address, so a reload comes back to them
+function address_set()
+{
+    const next = new URLSearchParams();
+    next.set('remote', $('remote').value);
+    if ($('path').value.trim() !== '') {
+        next.set('dir', $('path').value.trim());
+    }
+    if ($('hash').checked) {
+        next.set('hash', '1');
+    }
+    history.replaceState(null, '', `?${next}`);
+}
+
+function log_add(entry)
+{
+    const box = $('log');
+    const line = document.createElement('div');
+    const url = decodeURIComponent(entry.url || '').replace(location.origin, '');
+    const body = (entry.body === null || entry.body === undefined ? '' : ` ${typeof entry.body === 'string' ? entry.body : JSON.stringify(entry.body)}`);
+    if (entry.type === 'request') {
+        line.className = 'request';
+        line.textContent = `→ ${entry.method} ${url}${body}`;
+    }
+    if (entry.type === 'answer') {
+        line.className = (entry.status >= 200 && entry.status < 300 ? 'answer' : 'answer bad');
+        // One JSON of a whole tree is long: the log says its counts, the list shows its items
+        const said = ((entry.body !== null) && (typeof entry.body === 'object') && Array.isArray(entry.body.items)) ? ` ${JSON.stringify(Object.assign({}, entry.body, {items: `${entry.body.items.length} items`}))}` : body;
+        line.textContent = `← ${entry.status === 0 ? 'no answer' : entry.status}${said}`;
+    }
+    if (entry.type === 'event') {
+        line.className = 'event';
+        line.textContent = `• event${body}`;
+    }
+    const end = (box.scrollHeight - box.scrollTop - box.clientHeight < 8);
+    box.append(line);
+    while (box.childElementCount > LOG_MAX) {
+        box.firstChild.remove();
+    }
+    if (end) {
+        box.scrollTop = box.scrollHeight;
+    }
+}
+
+function size_said(bytes)
+{
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let n = bytes/1024;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+        n = n/1024;
+        i++;
+    }
+    return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+}
+
+function ms_said(ms)
+{
+    return ((ms < 1000) ? `${Math.round(ms)} ms` : `${(ms/1000).toFixed(2)} s`);
+}
+
+function note(text)
+{
+    $('note').textContent = text;
+}
+
+function theme_now()
+{
+    return document.documentElement.dataset.theme;
+}
+
+function theme_set(value)
+{
+    document.documentElement.dataset.theme = value;
+    $('theme').innerHTML = (value === 'dark' ? ICONS.moon : ICONS.sun);
+    try {
+        localStorage.setItem('theme', value);
+    }
+    catch {
+        // A page without storage keeps the theme until it is reloaded
+    }
+}
+
+function theme_saved()
+{
+    try {
+        return (localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+    }
+    catch {
+        return 'dark';
+    }
+}
+</script>
+</body>
+</html>
