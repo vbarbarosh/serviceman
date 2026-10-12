@@ -236,7 +236,12 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
     // The same walk as events, each line as it comes
     const events = await call(running, 'GET', '/fs?path=/home/me&tree=1', null, {accept: 'text/event-stream'});
     assert.deepStrictEqual([events.status, events.headers['content-type']], [200, 'text/event-stream; charset=utf-8']);
-    assert.deepStrictEqual(events.body.split('\n\n').filter(v => v !== '').map(v => v.split('\n')[0]), ['event: start', 'event: file', 'event: file', 'event: link', 'event: unread', 'event: end']);
+    const blocks = events.body.split('\n\n').filter(v => v !== '').map(v => [v.split('\n')[0].slice(7), JSON.parse(v.split('\ndata: ')[1])]);
+    assert.deepStrictEqual(blocks.map(v => v[0]), ['start', 'item', 'item', 'item', 'unread', 'end']);
+    assert.deepStrictEqual([blocks[0][1], blocks[4][1], blocks[5][1]], [{path: '/home/me'}, {path: 'closed', error: 'EACCES: closed'}, {files: 2, links: 1, bytes: 3, hashed: 1, ms: 4}]);
+    // An item is the same object as in one JSON, its keys in the same order
+    const json_items = JSON.parse(listed.body).items;
+    assert.deepStrictEqual(blocks.filter(v => v[0] === 'item').map(v => JSON.stringify(v[1])).sort(), json_items.map(v => JSON.stringify(v)).sort());
     assert.deepStrictEqual(asked[1], ['/home/me', {hash: false, skip: []}]);
 
     // A walk that stops before its end is an error, not a short list
@@ -250,6 +255,16 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
     assert.strictEqual((await call(running, 'GET', '/fs?path=/nothing&tree=1', null, {accept: 'text/event-stream'})).status, 502);
 
     assert.strictEqual((await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=md5')).status, 400);
+
+    // A delay spaces events out, and holds the walk meanwhile; it is for events alone
+    const time0 = Date.now();
+    const slow = await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=100', null, {accept: 'text/event-stream'});
+    assert.ok(Date.now() - time0 >= 400, 'three items and an unread, a delay after each');
+    assert.strictEqual((slow.body.match(/event: item/g) || []).length, 3);
+    for (const bad of ['delay=-1', 'delay=1001', 'delay=soon', 'delay=1.5']) {
+        assert.strictEqual((await call(running, 'GET', `/fs?path=/home/me&tree=1&${bad}`, null, {accept: 'text/event-stream'})).status, 400, bad);
+    }
+    assert.match(JSON.parse((await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=10')).body).error, /spaces events out/);
 
     // One JSON stops after 50,000 names, says it was cut and stops the walk; events have no limit
     let read = 0;
@@ -273,7 +288,22 @@ test('a whole tree comes as one JSON sorted by path, or as events; a disk that c
     await until(() => destroyed);
     assert.ok(read < 60000, 'the walk stops once the answer is cut');
     const uncut = await call(big, 'GET', '/fs?path=/big&tree=1', null, {accept: 'text/event-stream'});
-    assert.deepStrictEqual([(uncut.body.match(/event: file/g) || []).length, uncut.body.includes('event: end')], [60000, true]);
+    assert.deepStrictEqual([(uncut.body.match(/event: item/g) || []).length, uncut.body.includes('event: end')], [60000, true]);
+
+    // With a delay the walk itself waits: a page that leaves after a moment read a few names
+    read = 0;
+    destroyed = false;
+    await new Promise(function (resolve) {
+        const req = http.get({host: '127.0.0.1', port: big.port, path: '/fs?path=/big&tree=1&delay=20', headers: {accept: 'text/event-stream'}}, function (res) {
+            res.resume();
+            setTimeout(function () {
+                req.destroy();
+                resolve();
+            }, 300);
+        });
+    });
+    await until(() => destroyed);
+    assert.ok(read < 1000, `the walk waited for the page: ${read} names read`);
 
     const plain = await serve(t, {disk: disk_in_memory({'/home/me/a.txt': 'a'})});
     assert.strictEqual((await call(plain, 'GET', '/fs?path=/home/me&tree=1')).status, 501);

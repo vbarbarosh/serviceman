@@ -43,20 +43,22 @@ export default function fs_client(options)
         tar_url: function (dir, names) {
             return `${base}/tar?dir=${encodeURIComponent(dir)}${names.map(v => `&names=${encodeURIComponent(v)}`).join('')}`;
         },
-        // Every file under a folder, at any depth, in one answer: {path, items: [{path, kind:
-        // 'file' or 'link', size, mtime_ms, sha256 with hash, target of a link}], unread, cut,
-        // files, links, bytes, hashed}. cut: true when the tree had more than 50,000 names;
-        // tree_events has no limit.
+        // Every file under a folder, at any depth, in one answer: {path, items, unread, cut,
+        // files, links, bytes, hashed}, an item {path, kind: 'file', size, mtime_ms, sha256}
+        // (sha256 with hash) or {path, kind: 'link', target, mtime_ms}. cut: true when the
+        // tree had more than 50,000 names; tree_events has no limit.
         tree: function (path, settings) {
-            return call('GET', tree_query(path, settings));
+            return call('GET', tree_query(path, Object.assign({}, settings, {delay: 0})));
         },
         tree_events,
         watch,
     };
 
-    // The same walk as events, each the moment it is read: `on` hears start, then file, link
-    // and unread, then end with the counts, or error. Answers the function that stops it; a
-    // walk is not opened again when it drops, since it ended or failed.
+    // The same walk as events, each the moment it is read: `on` hears start, then item (the
+    // same object tree lists, with type: 'item') and unread, then end with the counts, or
+    // error. settings.delay spaces them out by that many ms, up to 1000, for watching a page
+    // fill. Answers the function that stops it; a walk is not opened again when it drops,
+    // since it ended or failed.
     function tree_events(path, settings, on) {
         const url = `${base}${tree_query(path, settings)}`;
         const stop = new AbortController();
@@ -78,8 +80,8 @@ export default function fs_client(options)
                 }
                 log({type: 'answer', method: 'GET', url, status: answer.status, body: 'a stream of events'});
                 for await (const event of events_read(answer.body)) {
-                    // A file an event: the log says how many, not each one
-                    if ((event.type === 'file') || (event.type === 'link')) {
+                    // An item an event: the log says how many, not each one
+                    if (event.type === 'item') {
                         files++;
                     }
                     else {
@@ -175,7 +177,8 @@ function tree_query(path, settings)
 {
     const hash = ((settings.hash === true) ? '&hash=sha256' : '');
     const skip = (((settings.skip === undefined) || (settings.skip.length === 0)) ? '' : `&skip=${encodeURIComponent(settings.skip.join(','))}`);
-    return `?path=${encodeURIComponent((path === null) ? '' : path)}&tree=1${hash}${skip}`;
+    const delay = (((settings.delay === undefined) || (settings.delay === 0)) ? '' : `&delay=${settings.delay}`);
+    return `?path=${encodeURIComponent((path === null) ? '' : path)}&tree=1${hash}${skip}${delay}`;
 }
 
 // Server-sent events: blocks parted by a blank line, `event:` naming it and `data:` holding the

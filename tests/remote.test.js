@@ -1228,8 +1228,11 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
         // The same walk as events, each file the moment it is read
         const answer = await fetch(ask, {headers: {accept: 'text/event-stream'}});
         assert.deepStrictEqual([answer.status, answer.headers.get('content-type')], [200, 'text/event-stream; charset=utf-8']);
-        const events = (await answer.text()).split('\n\n').filter(v => v.startsWith('event: ')).map(v => JSON.parse(v.split('\ndata: ')[1]));
-        assert.deepStrictEqual([events[0], events.length, events.at(-1).type, events.at(-1).files], [{type: 'start', path: dir}, 3002, 'end', 3000]);
+        const events = (await answer.text()).split('\n\n').filter(v => v.startsWith('event: ')).map(v => [v.split('\n')[0].slice(7), JSON.parse(v.split('\ndata: ')[1])]);
+        assert.deepStrictEqual([events[0], events.length, events.at(-1)[0], events.at(-1)[1].files], [['start', {path: dir}], 3002, 'end', 3000]);
+        // Each item the same object the JSON holds
+        const sent = events.filter(v => v[0] === 'item').map(v => v[1]).sort((a, b) => ((a.path < b.path) ? -1 : 1));
+        assert.deepStrictEqual(JSON.stringify(sent), JSON.stringify((await (await fetch(ask)).json()).items));
         await wait_until(() => running.app.log_lines.some(vv => /\[tree_listed\] remote=ui1 path=.+ hash=false files=3000 hashed=0 ms=\d+/.test(vv)));
 
         const missing = await fetch(`${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(path.join(dir, 'nothing'))}&tree=1`);

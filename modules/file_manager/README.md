@@ -68,8 +68,8 @@ what a program copying a folder asks first, to know what is already there.
     {
         "path": "/home/me/project",
         "items": [
-            {"path": "a.txt", "size": 3, "mtime_ms": 1760280000000, "kind": "file"},
-            {"path": "src/link", "target": "../a.txt", "mtime_ms": 1760280000000, "kind": "link"}
+            {"path": "a.txt", "kind": "file", "size": 3, "mtime_ms": 1760280000000},
+            {"path": "src/link", "kind": "link", "target": "../a.txt", "mtime_ms": 1760280000000}
         ],
         "unread": [{"path": "closed", "error": "EACCES: permission denied, …"}],
         "cut": false, "files": 1, "links": 1, "bytes": 3, "hashed": 0
@@ -91,11 +91,19 @@ what a program copying a folder asks first, to know what is already there.
 - A folder or a name it could not read is in `unread`, and the walk goes on. A folder that
   cannot be read at all is a 502; a disk that cannot walk a tree (a container's) answers 501.
 - Asked with `Accept: text/event-stream`, the same walk comes as events, each the moment it is
-  read, so the caller sees it go: `start` `{path}`, then `file`, `link` and `unread`, each line
-  as above with its `type`, and `end` `{files, links, bytes, hashed, ms}`. Events have no
-  limit: closing the request stops the walk. A walk that fails half way ends with an `error`
-  event. An `EventSource` closes itself on `end`, or it asks
-  again.
+  read, so the caller sees it go: `start` `{path}`, then `item` and `unread`, each the very
+  object the JSON's `items` and `unread` hold, and `end` `{files, links, bytes, hashed, ms}`.
+  Events have no limit: closing the request stops the walk. A walk that fails half way ends
+  with an `error` event. An `EventSource` must be closed on `end`, or it asks again.
+
+      event: start    {"path": "/home/me/project"}
+      event: item     {"path": "a.txt", "kind": "file", "size": 3, "mtime_ms": 1760280000000}
+      event: unread   {"path": "closed", "error": "EACCES: permission denied, …"}
+      event: end      {"files": 1, "links": 1, "bytes": 3, "hashed": 0, "ms": 12}
+
+- `delay=<ms>`, up to 1000, spaces the events out by that much, for watching a page fill while
+  it is built; the walk on the machine waits for them. It is for events only: one JSON asked
+  with a delay is a 400.
 - Without `tree`, the answer is the one folder, as above.
 
 `node demos/tree-web/server.js` is a page for trying it on serviceman's machines: a folder, a

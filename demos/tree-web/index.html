@@ -101,6 +101,9 @@ input, select {
     flex: 1 1 10rem;
     min-width: 0;
 }
+#delay {
+    width: 4.5rem;
+}
 label {
     display: flex;
     gap: .3rem;
@@ -262,6 +265,7 @@ label {
     <input id="path" spellcheck="false" autocomplete="off" placeholder="~ (the machine's home)" aria-label="Folder">
     <input id="skip" spellcheck="false" autocomplete="off" value=".git,node_modules" placeholder="names to skip, a,b" aria-label="Names to skip, separated by commas">
     <label><input type="checkbox" id="hash"> sha256</label>
+    <label title="Milliseconds between two events, up to 1000: for watching the list fill">delay <input type="number" id="delay" min="0" max="1000" step="10" value="0" aria-label="Milliseconds between events"> ms</label>
     <button type="button" class="main" id="json" title="GET ?tree=1: one answer once the walk is over, cut after 50,000 names">One JSON</button>
     <button type="button" id="events" title="The same GET with Accept: text/event-stream: each file as it is read, no limit">As events</button>
     <button type="button" id="stop" hidden>Stop</button>
@@ -287,7 +291,7 @@ import fs_client from '/fs_client.mjs';
 
 // A whole tree of one machine's folder through serviceman's files API (fs_client.mjs): One JSON
 // is files.tree, one answer once the walk is over; As events is files.tree_events, each file as
-// it is read. The list draws the first rows and says how many more there are; the log under it
+// it is read, a delay apart when one is set (for watching it fill; One JSON has none). The list draws the first rows and says how many more there are; the log under it
 // shows each request, its answer and the events other than a file each.
 const ROWS_MAX = 1000;
 const LOG_MAX = 300;
@@ -305,6 +309,7 @@ document.getElementById('theme').addEventListener('click', () => theme_set(theme
 theme_set(theme_saved());
 $('path').value = (params.get('dir') || '');
 $('hash').checked = (params.get('hash') === '1');
+$('delay').value = (params.get('delay') || '0');
 $('json').addEventListener('click', () => walk('json'));
 $('events').addEventListener('click', () => walk('events'));
 $('stop').addEventListener('click', stop);
@@ -352,7 +357,7 @@ function walk(how)
     const remote = $('remote').value;
     const files = fs_client({base: `/api/v1/remotes/${encodeURIComponent(remote)}/fs`, log: log_add});
     const path = (($('path').value.trim() === '') ? null : $('path').value.trim());
-    const settings = {hash: $('hash').checked, skip: $('skip').value.split(',').map(v => v.trim()).filter(v => (v !== ''))};
+    const settings = {hash: $('hash').checked, skip: $('skip').value.split(',').map(v => v.trim()).filter(v => (v !== '')), delay: Math.max(0, Math.min(1000, Math.round(Number($('delay').value) || 0)))};
     Object.assign(state, {items: [], unread: [], counts: null, failed: false, time0: performance.now()});
     $('t-cut').hidden = true;
     $('s-hashed').hidden = (settings.hash === false);
@@ -383,13 +388,16 @@ function walk(how)
         if (event.type === 'start') {
             root = event.path;
         }
-        else if ((event.type === 'file') || (event.type === 'link')) {
-            state.items.push(Object.assign({kind: event.type}, event));
+        else if (event.type === 'item') {
+            // The object One JSON lists; type is only the event's name
+            const item = Object.assign({}, event);
+            delete item.type;
+            state.items.push(item);
             status(`${root}: ${event.path}`);
             draw_soon();
         }
         else if (event.type === 'unread') {
-            state.unread.push(event);
+            state.unread.push({path: event.path, error: event.error});
             draw_soon();
         }
         else if (event.type === 'end') {
@@ -546,6 +554,9 @@ function address_set()
     }
     if ($('hash').checked) {
         next.set('hash', '1');
+    }
+    if (Number($('delay').value) > 0) {
+        next.set('delay', $('delay').value);
     }
     history.replaceState(null, '', `?${next}`);
 }

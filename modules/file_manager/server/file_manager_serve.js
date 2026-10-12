@@ -4,6 +4,9 @@ const BODY_LIMIT_BYTES = 1024*1024;
 // A whole tree as one JSON stops after this many names and says it was cut; as events it has
 // no limit, since each one is sent as it comes
 const TREE_JSON_MAX_ITEMS = 50000;
+// The longest pause between two events of a tree a caller may ask for, so a request cannot
+// hold a walk open for days
+const TREE_DELAY_MAX_MS = 1000;
 // A comment line down a watch or a tree this often, which is what keeps a proxy from closing it as idle
 const WATCH_KEEP_MS = 15000;
 
@@ -119,10 +122,12 @@ async function list_serve(ctx, req, res, url)
 // Every file under a folder, at any depth, in one answer: links said as links and never
 // followed, folders not said, the names given as skip left out wherever they are, and with
 // hash=sha256 each file's hash, which the disk keeps while the file's size and time stay. An
-// answer that accepts text/event-stream gets each file as an event the moment it is read, so
+// answer that accepts text/event-stream gets each item as an event the moment it is read, so
 // a caller sees the walk go; any other gets one JSON once the walk is over, cut after
-// TREE_JSON_MAX_ITEMS names with cut: true. The answer waits for the first line, so a folder
-// that cannot be read is an error, not an empty stream.
+// TREE_JSON_MAX_ITEMS names with cut: true. An item is the same object in both. delay=<ms>
+// spaces the events out, for watching a page fill while it is built; the walk waits for them.
+// The answer waits for the first line, so a folder that cannot be read is an error, not an
+// empty stream.
 function tree_serve(ctx, req, res, url)
 {
     if (ctx.disk.tree === undefined) {
@@ -134,9 +139,19 @@ function tree_serve(ctx, req, res, url)
         send_json(res, 400, {error: `a hash is sha256, and ${JSON.stringify(hash)} is not one`});
         return;
     }
+    const events = String(req.headers.accept).includes('text/event-stream');
+    const delay_text = url.searchParams.get('delay');
+    const delay = ((delay_text === null) ? 0 : Number(delay_text));
+    if ((Number.isInteger(delay) === false) || (delay < 0) || (delay > TREE_DELAY_MAX_MS)) {
+        send_json(res, 400, {error: `a delay is a number of milliseconds from 0 to ${TREE_DELAY_MAX_MS}, and ${JSON.stringify(delay_text)} is not one`});
+        return;
+    }
+    if ((delay > 0) && (events === false)) {
+        send_json(res, 400, {error: 'a delay spaces events out: ask with Accept: text/event-stream'});
+        return;
+    }
     const dir = url.searchParams.get('path');
     const skip = url.searchParams.getAll('skip').flatMap(v => v.split(',')).map(v => v.trim()).filter(v => (v !== ''));
-    const events = String(req.headers.accept).includes('text/event-stream');
     let stream;
     try {
         stream = ctx.disk.tree(dir, {hash: (hash === 'sha256'), skip});
@@ -147,17 +162,137 @@ function tree_serve(ctx, req, res, url)
     }
     const time0 = Date.now();
     const listed = {path: null, items: [], unread: []};
+    // The lines read and not yet answered; a delay holds them, and the stream waits meanwhile
+    const queue = [];
     let started = false;
+    let ended = false;
+    let finished = false;
     let end = null;
     let cut = false;
+    let waiting = null;
     let rest = '';
     // A long hash says nothing for a while; a comment line keeps the request from looking idle
     const timer = setInterval(function () {
-        if (started && events) {
+        if (started && events && (finished === false)) {
             res.write(': still reading\n\n');
         }
     }, WATCH_KEEP_MS);
+    stream.on('data', function (chunk) {
+        const lines = (rest + chunk.toString('utf8')).split('\n');
+        rest = lines.pop();
+        queue.push(...lines.filter(v => (v.trim() !== '')).map(v => JSON.parse(v)));
+        pump();
+    });
+    stream.on('end', function () {
+        ended = true;
+        pump();
+    });
+    stream.on('error', fail);
+    res.on('close', function () {
+        clearInterval(timer);
+        clearTimeout(waiting);
+        stream.destroy();
+        if (cut) {
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: listed.items.length, cut, ms: Date.now() - time0});
+        }
+        else if (end !== null) {
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: end.files, hashed: end.hashed, ms: Date.now() - time0});
+        }
+    });
+
+    // The lines in order, each delay apart when there is one; the stream is held while any wait
+    function pump() {
+        while ((finished === false) && (waiting === null) && (queue.length > 0)) {
+            const said = line_answer(queue.shift());
+            if ((delay > 0) && said) {
+                waiting = setTimeout(function () {
+                    waiting = null;
+                    pump();
+                }, delay);
+            }
+        }
+        if (finished) {
+            return;
+        }
+        if ((queue.length > 0) || (waiting !== null)) {
+            stream.pause();
+            return;
+        }
+        stream.resume();
+        if (ended) {
+            finish();
+        }
+    }
+
+    // One line of the disk into the answer: true when it was an item or an unread one
+    function line_answer(line) {
+        if (started === false) {
+            started = true;
+            if (events) {
+                res.writeHead(200, {'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no'});
+            }
+        }
+        if (line.type === 'start') {
+            listed.path = line.path;
+            event_send('start', {path: line.path});
+            return false;
+        }
+        if (line.type === 'end') {
+            end = line;
+            event_send('end', {files: line.files, links: line.links, bytes: line.bytes, hashed: line.hashed, ms: line.ms});
+            return false;
+        }
+        if ((line.type === 'file') || (line.type === 'link')) {
+            if ((events === false) && (listed.items.length >= TREE_JSON_MAX_ITEMS)) {
+                listed_send(true);
+                return false;
+            }
+            const item = item_of(line);
+            if (events) {
+                event_send('item', item);
+            }
+            else {
+                listed.items.push(item);
+            }
+            return true;
+        }
+        if (line.type === 'unread') {
+            const unread = {path: line.path, error: line.error};
+            if (events) {
+                event_send('unread', unread);
+            }
+            else {
+                listed.unread.push(unread);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function event_send(name, value) {
+        if (events) {
+            res.write(`event: ${name}\ndata: ${JSON.stringify(value)}\n\n`);
+        }
+    }
+
+    function finish() {
+        if (end === null) {
+            fail(new Error('the disk stopped before the whole tree was read'));
+            return;
+        }
+        if (events) {
+            finished = true;
+            res.end();
+            return;
+        }
+        listed_send(false);
+    }
+
     function fail(error) {
+        if (finished) {
+            return;
+        }
+        finished = true;
         if (started && events) {
             // The stream is under way and cannot become an error page: it says why, and ends
             res.end(`event: error\ndata: ${JSON.stringify({error: error.message})}\n\n`);
@@ -167,62 +302,14 @@ function tree_serve(ctx, req, res, url)
             send_json(res, 502, {error: error.message});
         }
     }
-    stream.on('data', function (chunk) {
-        const lines = (rest + chunk.toString('utf8')).split('\n');
-        rest = lines.pop();
-        for (const line of lines) {
-            if (line.trim() === '') {
-                continue;
-            }
-            const event = JSON.parse(line);
-            if (started === false) {
-                started = true;
-                if (events) {
-                    res.writeHead(200, {'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no'});
-                }
-            }
-            if (event.type === 'start') {
-                listed.path = event.path;
-            }
-            if (event.type === 'end') {
-                end = event;
-            }
-            if (events) {
-                res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
-                continue;
-            }
-            if ((event.type === 'file') || (event.type === 'link')) {
-                if (listed.items.length >= TREE_JSON_MAX_ITEMS) {
-                    listed_send(true);
-                    return;
-                }
-                event.kind = event.type;
-                delete event.type;
-                listed.items.push(event);
-            }
-            else if (event.type === 'unread') {
-                delete event.type;
-                listed.unread.push(event);
-            }
-        }
-    });
-    stream.on('end', function () {
-        if (end === null) {
-            fail(new Error('the disk stopped before the whole tree was read'));
-            return;
-        }
-        if (events) {
-            res.end();
-            return;
-        }
-        listed_send(false);
-    });
+
     // The JSON, once the walk is over or cut: a cut one stops the walk, and its counts are of
     // what it holds
     function listed_send(cut_now) {
-        if (res.headersSent) {
+        if (finished) {
             return;
         }
+        finished = true;
         cut = cut_now;
         if (cut) {
             stream.destroy();
@@ -238,17 +325,24 @@ function tree_serve(ctx, req, res, url)
             hashed: (cut ? null : end.hashed),
         }), 0);
     }
-    stream.on('error', fail);
-    res.on('close', function () {
-        clearInterval(timer);
-        stream.destroy();
-        if (cut) {
-            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: listed.items.length, cut, ms: Date.now() - time0});
-        }
-        else if (end !== null) {
-            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), files: end.files, hashed: end.hashed, ms: Date.now() - time0});
-        }
-    });
+}
+
+// One file or link of a tree as the API says it, the same in one JSON and in an event:
+// {path, kind, size, mtime_ms, sha256, error} of a file, the last two only when asked or
+// failed; {path, kind, target, mtime_ms} of a link
+function item_of(line)
+{
+    if (line.type === 'link') {
+        return {path: line.path, kind: 'link', target: line.target, mtime_ms: line.mtime_ms};
+    }
+    const out = {path: line.path, kind: 'file', size: line.size, mtime_ms: line.mtime_ms};
+    if (line.sha256 !== undefined) {
+        out.sha256 = line.sha256;
+    }
+    if (line.error !== undefined) {
+        out.error = line.error;
+    }
+    return out;
 }
 
 // GET <base>/file/<path> (header:range)
