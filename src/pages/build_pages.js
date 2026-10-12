@@ -3,23 +3,24 @@ const marked = require('marked');
 const path = require('path');
 
 const GITHUB_URL = 'https://github.com/vbarbarosh/serviceman';
+const GROUPS = ['Docs', 'Tutorials', 'Modules'];
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 
 // The site at vbarbarosh.github.io/serviceman, as [{path, text}] under docs/: the front page,
-// and one page for every doc README.md lists under Docs and Tutorials, in that order. The
-// .md files stay the source; bin/build-pages writes these, tests/pages.test.js checks them.
+// and one page for every file README.md lists under Docs, Tutorials and Modules, in that
+// order. The .md files stay the source; bin/build-pages writes these, tests/pages.test.js
+// checks them.
 function build_pages()
 {
     const readme = fs.readFileSync(path.join(ROOT_DIR, 'README.md'), 'utf8');
-    const groups = [readme_list(readme, 'Docs'), readme_list(readme, 'Tutorials')];
+    const groups = GROUPS.map(v => readme_list(readme, v));
     const pages = groups.flat().map(function (item) {
         const markdown = fs.readFileSync(path.join(ROOT_DIR, item.md), 'utf8');
-        const html_path = item.md.replace(/^docs\//, '').replace(/\.md$/, '.html');
-        return {...item, html_path, markdown};
+        return {...item, html_path: html_path_from_md(item.md), markdown};
     });
     const template = fs.readFileSync(path.join(__dirname, 'page.html'), 'utf8');
     const out = pages.map(function (page) {
-        const {html, title, lede, sections} = markdown_render(page.markdown, page.md, pages);
+        const {html, title, lede, sections} = markdown_render(page, pages);
         const text = template_fill(template, {
             title: `${title} · serviceman`,
             description: lede,
@@ -37,7 +38,7 @@ function build_pages()
         description: 'serviceman answers on the hostnames you give it, starts a docker image or a program at the first request, and stops it again when nobody visits.',
         root: '',
         nav: nav_html(groups, pages, null, []),
-        content: template_fill(front, {docs: cards_html(groups[0], pages, ''), tutorials: cards_html(groups[1], pages, '')}),
+        content: template_fill(front, {docs: cards_html(groups[0], pages), tutorials: cards_html(groups[1], pages), modules: cards_html(groups[2], pages)}),
         source: GITHUB_URL,
         body_class: 'front',
     })});
@@ -56,7 +57,7 @@ function readme_list(readme, heading)
         throw new Error(`README.md has no "## ${heading}"`);
     }
     for (let i = start + 1; (i < lines.length) && !lines[i].startsWith('## '); i++) {
-        const match = lines[i].match(/^- \[(.+?)\]\((docs\/[^)]+\.md)\)\s*[—-]\s*(.*)$/);
+        const match = lines[i].match(/^- \[(.+?)\]\(([^)]+\.md)\)\s*[—-]\s*(.*)$/);
         if (match) {
             out.push({label: match[1], md: match[2], about: match[3]});
         }
@@ -67,7 +68,19 @@ function readme_list(readme, heading)
     return out;
 }
 
-function markdown_render(markdown, md_path, pages)
+// docs/config.md is config.html; modules/docker/README.md is modules/docker.html
+function html_path_from_md(md)
+{
+    if (md.startsWith('docs/')) {
+        return md.slice('docs/'.length).replace(/\.md$/, '.html');
+    }
+    if (md.endsWith('/README.md')) {
+        return `${path.posix.dirname(md)}.html`;
+    }
+    return md.replace(/\.md$/, '.html');
+}
+
+function markdown_render(page, pages)
 {
     let title = null;
     let lede = '';
@@ -95,45 +108,45 @@ function markdown_render(markdown, md_path, pages)
         link({href, title: link_title, tokens}) {
             const inner = this.parser.parseInline(tokens);
             const title_attr = link_title ? ` title="${html_escape(link_title)}"` : '';
-            return `<a href="${html_escape(href_resolve(href, md_path, pages))}"${title_attr}>${inner}</a>`;
+            return `<a href="${html_escape(href_resolve(href, page, pages))}"${title_attr}>${inner}</a>`;
         },
         image({href, title: image_title, text}) {
             const title_attr = image_title ? ` title="${html_escape(image_title)}"` : '';
-            return `<img src="${html_escape(href_resolve(href, md_path, pages))}" alt="${html_escape(text)}"${title_attr}>`;
+            return `<img src="${html_escape(href_resolve(href, page, pages))}" alt="${html_escape(text)}"${title_attr}>`;
         },
         table(token) {
             return `<div class="table-wrap">${marked.Renderer.prototype.table.call(this, token)}</div>\n`;
         },
     };
     const parser = new marked.Marked({gfm: true, renderer});
-    const html = parser.parse(markdown);
-    return {html, title: title || md_path, lede, sections};
+    const html = parser.parse(page.markdown);
+    return {html, title: title || page.md, lede, sections};
 }
 
 // A link of a doc, as the site needs it: a page of the site becomes its .html beside this
 // one, README.md the front page, and any other file of the repository its page on GitHub
-function href_resolve(href, md_path, pages)
+function href_resolve(href, page, pages)
 {
     if (/^([a-z]+:|#|\/\/)/i.test(href)) {
         return href;
     }
     const [file, hash] = href.split('#');
-    const repo_path = path.posix.normalize(path.posix.join(path.posix.dirname(md_path), file));
-    const from = path.posix.dirname(md_path.replace(/^docs\//, ''));
+    const repo_path = path.posix.normalize(path.posix.join(path.posix.dirname(page.md), file));
+    const from = path.posix.dirname(page.html_path);
     const suffix = (hash === undefined) ? '' : `#${hash}`;
-    const page = pages.find(v => v.md === repo_path);
-    if (page) {
-        return `${path.posix.relative(from, page.html_path) || path.posix.basename(page.html_path)}${suffix}`;
+    const target = pages.find(v => v.md === repo_path);
+    if (target) {
+        return `${path.posix.relative(from, target.html_path) || path.posix.basename(target.html_path)}${suffix}`;
     }
     if (repo_path === 'README.md') {
-        return `${root_prefix(md_path.replace(/^docs\//, ''))}index.html${suffix}`;
+        return `${root_prefix(page.html_path)}index.html${suffix}`;
     }
     if (repo_path.startsWith('..')) {
-        throw new Error(`${md_path}: the link ${href} leaves the repository`);
+        throw new Error(`${page.md}: the link ${href} leaves the repository`);
     }
     const full = path.join(ROOT_DIR, repo_path);
     if (!fs.existsSync(full)) {
-        throw new Error(`${md_path}: the link ${href} names ${repo_path}, which is not there`);
+        throw new Error(`${page.md}: the link ${href} names ${repo_path}, which is not there`);
     }
     const kind = fs.statSync(full).isDirectory() ? 'tree' : 'blob';
     return `${GITHUB_URL}/${kind}/main/${repo_path.replace(/\/$/, '')}${suffix}`;
@@ -141,7 +154,6 @@ function href_resolve(href, md_path, pages)
 
 function nav_html(groups, pages, current, sections)
 {
-    const titles = ['Docs', 'Tutorials'];
     const from = current ? current.html_path : 'index.html';
     return groups.map(function (group, i) {
         const items = group.map(function (item) {
@@ -153,15 +165,15 @@ function nav_html(groups, pages, current, sections)
             const toc = sections.map(v => `<li><a href="#${v.slug}">${v.html}</a></li>`).join('');
             return `<li class="current"><a href="${href}" aria-current="page">${html_escape(item.label)}</a>${toc ? `<ul class="toc">${toc}</ul>` : ''}</li>`;
         }).join('\n');
-        return `<h2>${titles[i]}</h2>\n<ul>\n${items}\n</ul>`;
+        return `<h2>${GROUPS[i]}</h2>\n<ul>\n${items}\n</ul>`;
     }).join('\n');
 }
 
-function cards_html(group, pages, root)
+function cards_html(group, pages)
 {
     return group.map(function (item) {
         const page = pages.find(v => v.md === item.md);
-        return `<a class="card" href="${root}${page.html_path}"><strong>${html_escape(item.label)}</strong><span>${html_escape(item.about)}</span></a>`;
+        return `<a class="card" href="${page.html_path}"><strong>${html_escape(item.label)}</strong><span>${html_escape(item.about)}</span></a>`;
     }).join('\n');
 }
 

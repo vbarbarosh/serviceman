@@ -31,8 +31,8 @@ in the file ([Config](docs/config.md)); then visit the service's hostname.
 
 ## Docs
 
-Also as a site: https://vbarbarosh.github.io/serviceman/, built from these files by
-`bin/build-pages`.
+Also as a site: https://vbarbarosh.github.io/serviceman/, built from these files and the
+modules' by `bin/build-pages`.
 
 - [Overview](docs/overview.md) — what serviceman is, what it serves, what it is not
 - [Philosophy](docs/philosophy.md) — nothing you could not do by hand, and the command on every part of the page
@@ -48,6 +48,21 @@ Also as a site: https://vbarbarosh.github.io/serviceman/, built from these files
 
 - [A coding agent on a machine](docs/tutorials/coding-agent-on-a-machine.md) — Claude in ai-box
   on a VPS, a deploy key to push with, a terminal that outlives the page
+
+## Modules
+
+Parts of the control page that stand on their own: a page half and a server half, and a host
+that gives them what they reach. serviceman is the first host of each.
+
+- [Docker](modules/docker/README.md) — the containers of one machine, its compose projects,
+  images, volumes and networks
+- [Files](modules/file_manager/README.md) — a file manager: folders, uploads in parts, a whole
+  tree as JSON or events, a folder watched, copies between disks
+- [Firewall](modules/firewall/README.md) — what a machine listens on and what ufw lets through
+- [Terminal](modules/terminal/README.md) — xterm on a page, joined over a websocket to a shell
+  in a container or a pty on a machine
+- [Volumes](modules/volumes/README.md) — encrypted volumes of a machine: LUKS in a file, opened
+  at a folder, the key never kept on the machine
 
 ## Code
 
