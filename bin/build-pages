@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+
+const build_pages = require('../src/pages/build_pages');
+const cli = require('@vbarbarosh/node-helpers/src/cli');
+const fs = require('fs');
+const path = require('path');
+
+const DOCS_DIR = path.resolve(__dirname, '..', 'docs');
+
+cli(main);
+
+// The site, vbarbarosh.github.io/serviceman: every doc README.md lists, and the front page,
+// written into docs/ beside their .md; GitHub Pages serves docs/ of main as it is
+function main()
+{
+    for (const page of build_pages()) {
+        const file = path.join(DOCS_DIR, page.path);
+        fs.mkdirSync(path.dirname(file), {recursive: true});
+        fs.writeFileSync(file, page.text);
+        console.log(`docs/${page.path}`);
+    }
+}

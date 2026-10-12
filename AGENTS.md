@@ -30,6 +30,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
     (cd logline/lines && bin/test)
     npm run lint                        # the rulebook's linter, see below
     bin/build                           # the docker image the author runs
+    bin/build-pages                     # the site in docs/, after a change to a doc or README's Docs list
     bin/agent-version patch|minor       # after any change to the agent
     bin/release major|minor|patch
 

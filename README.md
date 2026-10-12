@@ -31,6 +31,9 @@ in the file ([Config](docs/config.md)); then visit the service's hostname.
 
 ## Docs
 
+Also as a site: https://vbarbarosh.github.io/serviceman/, built from these files by
+`bin/build-pages`.
+
 - [Overview](docs/overview.md) — what serviceman is, what it serves, what it is not
 - [Philosophy](docs/philosophy.md) — nothing you could not do by hand, and the command on every part of the page
 - [Use cases](docs/usecases.md) — the situations it is used in, as configs you can copy

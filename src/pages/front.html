@@ -1,0 +1,107 @@
+<section class="hero">
+    <h1>Starts a service on its first request. Stops it when nobody visits.</h1>
+    <p class="lede">serviceman answers on the hostnames you give it. When a request arrives for a service that is asleep, it starts it (a docker image or a program, here or on a machine of yours), waits until it answers, and passes the request on. You write one config file; the hostnames do the rest.</p>
+    <div class="actions">
+        <a class="button main-action" href="overview.html">Read the overview</a>
+        <a class="button" href="usecases.html">Use cases</a>
+        <a class="button" href="https://github.com/vbarbarosh/serviceman">GitHub</a>
+    </div>
+</section>
+
+<figure class="flow">
+    <svg viewBox="0 0 880 250" role="img" aria-label="A request for grafana.example.com comes to serviceman; serviceman asks the agent on vps1 to start the grafana container, waits until it answers, and passes the request on. After ten quiet minutes the container is stopped.">
+        <defs>
+            <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker>
+        </defs>
+        <rect class="box" x="10" y="30" width="170" height="80" rx="10"/>
+        <text class="label" x="95" y="65" text-anchor="middle">A visitor</text>
+        <text class="note" x="95" y="90" text-anchor="middle">grafana.example.com</text>
+        <path class="arrow accent" d="M184 70H262" marker-end="url(#arrow-head)"/>
+        <rect class="box accent" x="268" y="30" width="190" height="80" rx="10"/>
+        <text class="label" x="363" y="65" text-anchor="middle">serviceman</text>
+        <text class="note" x="363" y="90" text-anchor="middle">the doors and the config</text>
+        <path class="arrow accent" d="M462 70H540" marker-end="url(#arrow-head)"/>
+        <text class="note" x="501" y="58" text-anchor="middle">the link</text>
+        <rect class="box" x="546" y="20" width="324" height="100" rx="10"/>
+        <text class="label" x="566" y="50">vps1, with the agent</text>
+        <rect class="box" x="566" y="64" width="284" height="40" rx="8"/>
+        <circle class="dot-ok" cx="586" cy="84" r="6"/>
+        <text class="note" x="600" y="89">grafana · docker · running</text>
+        <circle class="dot-off" cx="40" cy="190" r="7"/>
+        <text class="label" x="56" y="196">asleep</text>
+        <path class="arrow" d="M130 190H196" marker-end="url(#arrow-head)"/>
+        <text class="note" x="163" y="178" text-anchor="middle">a request</text>
+        <circle class="dot-warn" cx="216" cy="190" r="7"/>
+        <text class="label" x="232" y="196">starting</text>
+        <path class="arrow" d="M318 190H384" marker-end="url(#arrow-head)"/>
+        <text class="note" x="351" y="178" text-anchor="middle">it answers</text>
+        <circle class="dot-ok" cx="404" cy="190" r="7"/>
+        <text class="label" x="420" y="196">running</text>
+        <path class="arrow" d="M504 190H636" marker-end="url(#arrow-head)"/>
+        <text class="note" x="570" y="178" text-anchor="middle">10 quiet minutes</text>
+        <circle class="dot-off" cx="656" cy="190" r="7"/>
+        <text class="label" x="672" y="196">stopped</text>
+        <text class="note" x="40" y="232">A start under 2.5 seconds goes unnoticed; a longer one shows a waiting page that reloads itself when the service answers.</text>
+    </svg>
+</figure>
+
+<h2 id="what-it-serves">What it serves</h2>
+<div class="kinds">
+    <div class="kind"><code>docker</code><span>A docker image. The agent runs it on a port docker picks, and stops it when it is idle.</span></div>
+    <div class="kind"><code>shell</code><span>A program on a machine of yours. The agent runs it, keeps it alive, and stops it with its group.</span></div>
+    <div class="kind"><code>external</code><span>Something already running. Never started or stopped: an address, and a proxy.</span></div>
+</div>
+<p>A <code>docker</code> or <code>shell</code> service runs on a machine with the agent: the box beside serviceman, or a VPS across the world, dialled in over one link. serviceman itself runs nothing but the doors. See <a href="remotes.html">Remotes</a>.</p>
+
+<h2 id="one-file">One file</h2>
+<p>Every service is a few lines of <code>serviceman.json</code>: what runs, where, on which hostname, and when it sleeps.</p>
+<pre><code>{
+    "listen": {"host": "127.0.0.1", "port": 8080},
+    "control": {"host": "serviceman.localhost", "port": 8081},
+    "remotes": [
+        {"name": "vps1", "token": "replace-me-with-openssl-rand-hex-32"}
+    ],
+    "services": [
+        {
+            "name": "grafana",
+            "type": "docker",
+            "remote": "vps1",
+            "image": "grafana/grafana:latest",
+            "publish": {"host": "grafana.example.com", "port": 3000},
+            "policy": {"start": "on_demand", "stop_after_idle": "10m"}
+        }
+    ]
+}</code></pre>
+<p>Every field is in <a href="config.html">Config</a>; whole setups to copy are in <a href="usecases.html">Use cases</a>.</p>
+
+<h2 id="run-it">Run it</h2>
+<pre><code>git clone https://github.com/vbarbarosh/serviceman
+cd serviceman
+bin/configure
+bin/run</code></pre>
+<p><code>bin/configure</code> installs the packages, builds the image and writes a starting <code>data/serviceman.json</code>; <code>bin/run</code> runs the image with it. Open <code>http://serviceman.localhost:3001</code> for the control page, add a machine and a service there or in the file, then visit the service's hostname. Going live (DNS, port 80, TLS, systemd) is in <a href="deploy.html">Deploy</a>.</p>
+
+<h2 id="the-control-page">The control page</h2>
+<figure class="shot">
+    <img class="light" src="img/control-page.png" width="1280" height="800" alt="The control page: services grouped under the machine they run on, each with its address, kind and state">
+    <img class="dark" src="img/control-page-dark.png" width="1280" height="800" alt="The control page: services grouped under the machine they run on, each with its address, kind and state">
+    <figcaption>Every service under the machine it runs on, with its address, kind and state. Start, stop, edit a card, open a shell in a container, or the config file itself.</figcaption>
+</figure>
+
+<h2 id="what-it-is-not">What it is not</h2>
+<ul>
+    <li>Not a load balancer for one big app. It is a door for many small ones.</li>
+    <li>Not a TLS terminator. Put caddy or nginx in front and keep the <code>Host</code> header.</li>
+    <li>Not a container builder. Images are pulled and run, never built.</li>
+    <li>Not a scheduler. A service runs where you put it; nothing moves on its own.</li>
+</ul>
+
+<h2 id="docs">Docs</h2>
+<div class="cards">
+{{docs}}
+</div>
+
+<h2 id="tutorials">Tutorials</h2>
+<div class="cards">
+{{tutorials}}
+</div>
