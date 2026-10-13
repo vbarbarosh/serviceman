@@ -524,10 +524,12 @@ async function handle_machine_read(app, res, name, method, what)
 // GET /api/v1/remotes/<name>/fs/file/<path> (header:range)
 // GET /api/v1/remotes/<name>/fs/tar (query)
 // GET /api/v1/remotes/<name>/fs/watch (query)
+// GET /api/v1/remotes/<name>/fs/room (query)
 // POST /api/v1/remotes/<name>/fs/rename (body)
 // POST /api/v1/remotes/<name>/fs/delete (body)
 // POST /api/v1/remotes/<name>/fs/mkdir (body)
 // POST /api/v1/remotes/<name>/fs/upload (body, query)
+// POST /api/v1/remotes/<name>/fs/upload/tar (body, query)
 // One machine's files, through the File Manager module: the doors are the module's, the
 // machine is asked over the link its agent dialled. The refusals are this host's own.
 async function handle_fs(app, req, res, name, tail)
@@ -541,6 +543,11 @@ async function handle_fs(app, req, res, name, tail)
         send_json(res, 409, {error: `${name} is not connected`});
         return;
     }
+    // Many files in one tar need an agent that reads one; the page hears 501 and sends them apart
+    if ((tail === '/upload/tar') && (remote_can(remote, 'tar_put') === false)) {
+        send_json(res, 501, {error: `the agent on ${name} is from before files come in one tar — its page says how it updates`});
+        return;
+    }
     // A file in parts needs an agent that keeps parts; the page hears 501 and sends it whole
     if (tail.startsWith('/upload/') && (remote_can(remote, 'file_parts') === false)) {
         send_json(res, 501, {error: `the agent on ${name} is from before files in parts — its page says how it updates`});
@@ -548,6 +555,11 @@ async function handle_fs(app, req, res, name, tail)
     }
     if (((tail === '') || (tail === '/')) && (new URL(req.url, 'http://serviceman.invalid').searchParams.get('tree') === '1') && (remote_can(remote, 'fs_tree_typed') === false)) {
         send_json(res, 400, {error: `the agent on ${name} is from before a whole tree is listed by type — its page says how it updates`});
+        return;
+    }
+    // Nor can an agent from before the room is said: the page hears 501 and uploads unchecked
+    if ((tail === '/room') && (remote_can(remote, 'fs_room') === false)) {
+        send_json(res, 501, {error: `the agent on ${name} is from before a disk says its room — its page says how it updates`});
         return;
     }
     if ((tail === '/watch') && (remote_can(remote, 'fs_watch') === false)) {

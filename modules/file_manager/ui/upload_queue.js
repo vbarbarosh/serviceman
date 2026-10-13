@@ -1,3 +1,4 @@
+import tar_blob from './tar_blob.js';
 import {reactive} from 'vue';
 
 // The uploads to each disk, kept by the page and not by its File Manager. The tab is made again
@@ -11,6 +12,35 @@ const requests = {};
 
 // The pause before a retry, for each disk, so Cancel can end it
 const waits = {};
+
+// What a paused queue waits on, for each disk, so Resume and Cancel can end it
+const resumes = {};
+
+// How often the speed is taken for the graph, and over how long a stretch: a file of a few
+// bytes takes no time, so the speed of one instant is mostly zero
+const SAMPLE_MS = 500;
+const SAMPLE_SPAN_MS = 3000;
+
+// The most points the graph keeps; past that, every other one goes
+const SAMPLES_MAX = 400;
+
+// A stream that moves no byte for this long has stalled: it is cut and sent again
+const STALL_MS = 30*1000;
+
+// Two empty blocks: a tar of nothing, to ask a disk once whether it takes a stream at all
+const TAR_EMPTY = new Uint8Array(1024);
+
+// How many folders are read at once to see what a cut stream left
+const SETTLE_AT_ONCE = 6;
+
+// A stream is sized to take about a minute at the speed seen: a server cuts a request after
+// five, and something in front of it may refuse a body over 100 MB. It starts at 8 MB, never
+// takes more than 64 MB or 2000 files, and a file bigger than that goes in parts of its own.
+const STREAM_FIRST_BYTES = 8*1024*1024;
+const STREAM_MIN_BYTES = 1024*1024;
+const STREAM_MAX_BYTES = 64*1024*1024;
+const STREAM_MAX_FILES = 2000;
+const STREAM_TARGET_MS = 60*1000;
 
 // A part starts at 8 MB and is halved, down to this, when something in front of the server
 // refuses bodies that big
@@ -38,14 +68,16 @@ addEventListener('beforeunload', function (event) {
     }
 });
 
-// base -> {copies, copying, note, bad, landed, landed_dir, whole, part_bytes, take, refuse, stop,
-// clear}. `landed` counts the files that arrived and `landed_dir` is the folder of the last one,
-// for a tab showing that folder to read it again; `whole` is a disk that keeps no parts;
+// base -> {copies, copying, paused, samples, note, bad, landed, landed_dirs, whole, no_stream,
+// part_bytes, began, take, release, refuse, pause, resume, stop, clear}. `samples` are the speed
+// across the copy, [{x: how far it is, 0 to 1; y: bytes a second}]. `landed` counts the
+// landings and `landed_dirs` are the folders of the last one, for a tab showing one of them to
+// read it again. `whole` is a disk that keeps no parts, `no_stream` one that takes no tar;
 // `part_bytes` is how big a part gets through; `began` is when the copying under way started.
 function upload_queue(base)
 {
     if (queues[base] === undefined) {
-        const queue = reactive({base, copies: [], copying: false, cancelled: false, note: '', bad: false, landed: 0, landed_dir: '', began: 0, whole: false, part_bytes: PART_BYTES});
+        const queue = reactive({base, copies: [], copying: false, cancelled: false, paused: false, samples: [], note: '', bad: false, landed: 0, landed_dirs: [], began: 0, whole: false, no_stream: false, stream_known: false, stream_bytes: STREAM_FIRST_BYTES, batches: 0, part_bytes: PART_BYTES});
         queue.take = function (list, held) {
             return take(queue, list, held);
         };
@@ -54,6 +86,12 @@ function upload_queue(base)
         };
         queue.refuse = function (labels, why) {
             refuse(queue, labels, why);
+        };
+        queue.pause = function () {
+            pause(queue);
+        };
+        queue.resume = function () {
+            resume(queue);
         };
         queue.stop = function () {
             stop(queue);
@@ -73,8 +111,10 @@ function upload_queue(base)
 function take(queue, list, held)
 {
     const out = [];
+    // The files taken at once go as one stream
+    const batch = ++queue.batches;
     for (const {file, dir, label} of list) {
-        queue.copies.push({name: file.name, label, size: file.size, file, dir, phase: (held ? 'held' : 'waiting'), said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
+        queue.copies.push({name: file.name, label, size: file.size, file, dir, batch, phase: (held ? 'held' : 'waiting'), said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
         out.push(queue.copies.at(-1));
     }
     if (held !== true) {
@@ -115,17 +155,31 @@ async function copy(queue)
     queue.copying = true;
     queue.cancelled = false;
     queue.began = Date.now();
+    queue.samples = [];
     report(queue, '', false);
+    const sampler = sampler_start(queue);
     try {
         for (;;) {
+            if (queue.paused) {
+                await new Promise(function (resolve) {
+                    resumes[queue.base] = resolve;
+                });
+            }
             const item = queue.copies.find(v => v.phase === 'waiting');
             if ((item === undefined) || queue.cancelled) {
                 break;
             }
-            await copy_one(queue, item);
+            const batch = stream_next(queue, item);
+            if ((batch.length > 1) && (queue.no_stream === false)) {
+                await copy_stream(queue, batch);
+            }
+            else {
+                await copy_one(queue, item);
+            }
         }
     }
     finally {
+        clearInterval(sampler);
         // Cancel stops the queue, not only the file in it: nothing is left looking as though
         // it is still on its way
         for (const item of queue.copies.filter(v => v.phase === 'waiting')) {
@@ -152,7 +206,7 @@ async function copy_one(queue, item)
     item.id = upload_id(queue.base, item);
     let received = null;
     let failures = 0;
-    while (queue.cancelled === false) {
+    while ((queue.cancelled === false) && (queue.paused === false)) {
         try {
             if (received === null) {
                 received = await part_received(queue, item);
@@ -197,6 +251,11 @@ async function copy_one(queue, item)
             await wait_out(queue, item, Math.min(RETRY_MAX_S, 2**(failures - 1)));
             item.phase = 'copying';
         }
+    }
+    // Paused: the file goes back in line, and its parts stay on the disk to carry on from
+    if (queue.paused && (queue.cancelled === false)) {
+        item.phase = 'waiting';
+        return;
     }
     item.phase = 'cancelled';
     report(queue, 'stopped', false);
@@ -267,7 +326,7 @@ async function part_send(queue, item, received)
 async function copy_whole(queue, item)
 {
     let failures = 0;
-    while (queue.cancelled === false) {
+    while ((queue.cancelled === false) && (queue.paused === false)) {
         try {
             const landed = await upload_call(queue, 'POST', '', item, {}, item.file, function (loaded) {
                 item.sent = loaded;
@@ -294,6 +353,12 @@ async function copy_whole(queue, item)
             item.phase = 'copying';
         }
     }
+    // Paused: the file goes back in line, to be sent again whole
+    if (queue.paused && (queue.cancelled === false)) {
+        item.sent = 0;
+        item.phase = 'waiting';
+        return;
+    }
     item.phase = 'cancelled';
     report(queue, 'stopped', false);
 }
@@ -304,9 +369,193 @@ function land(queue, item, landed)
     item.phase = 'ok';
     item.said = landed.path;
     item.replaced = landed.replaced;
-    queue.landed_dir = item.dir;
+    queue.landed_dirs = [item.dir];
     queue.landed++;
     report(queue, 'copied', false);
+}
+
+// Many files as one stream, as `tar | pv | socat` sends them: one request, nothing waited for
+// between files, the bytes counted as they go. A file whose bytes have gone is `sent`, and done
+// once the stream ends whole. A stream that is cut or stalls asks the disk what it holds: a
+// file there at its size and with its date (a tar carries the date, and the disk keeps it) is
+// done; the rest goes again. A disk that takes no tar gets its files one by one.
+async function copy_stream(queue, items)
+{
+    if (await stream_able(queue) === false) {
+        return;
+    }
+    const base = folder_common(items.map(v => v.dir));
+    const names = items.map(v => `${(v.dir === base) ? '' : `${v.dir.slice(base.length + 1)}/`}${v.name}`);
+    const {blob, ends} = tar_blob(items.map((v, i) => ({file: v.file, name: names[i]})));
+    const starts = ends.map((v, i) => v - items[i].size);
+    for (const item of items) {
+        item.phase = 'copying';
+        item.began = Date.now();
+        item.sent = 0;
+    }
+    let moved_at = Date.now();
+    const stall = setInterval(function () {
+        if ((Date.now() - moved_at > STALL_MS) && (requests[queue.base] !== undefined)) {
+            requests[queue.base].stalled = true;
+            requests[queue.base].abort();
+        }
+    }, 1000);
+    let failed = null;
+    const began = Date.now();
+    try {
+        const landed = await upload_call(queue, 'POST', 'tar', {dir: base, name: '', id: ''}, {}, blob, function (loaded) {
+            moved_at = Date.now();
+            for (let i = 0; i < items.length; i++) {
+                items[i].sent = Math.max(0, Math.min(items[i].size, loaded - starts[i]));
+                if ((loaded >= ends[i]) && (items[i].phase === 'copying')) {
+                    items[i].phase = 'sent';
+                }
+            }
+        });
+        if (landed.files === items.length) {
+            for (const item of items) {
+                item.phase = 'ok';
+                item.sent = item.size;
+            }
+            const bytes = items.reduce((sum, v) => sum + v.size, 0);
+            const ms = Math.max(1, Date.now() - began);
+            queue.stream_bytes = Math.min(STREAM_MAX_BYTES, Math.max(STREAM_MIN_BYTES, Math.round(bytes*STREAM_TARGET_MS/ms)));
+        }
+        else {
+            failed = new Error(`the disk says ${landed.files} of ${items.length} files are in`);
+        }
+    }
+    catch (error) {
+        failed = error;
+    }
+    finally {
+        clearInterval(stall);
+    }
+    if (failed !== null) {
+        await stream_settle(queue, items);
+    }
+    queue.landed_dirs = Array.from(new Set(items.filter(v => v.phase === 'ok').map(v => v.dir)));
+    queue.landed++;
+    if ((failed === null) || queue.cancelled || queue.paused || ((failed.aborted === true) && (failed.stalled !== true))) {
+        report(queue, ((failed === null) ? 'copied' : 'stopped'), false);
+        return;
+    }
+    // Something in front of the server takes bodies only so big: smaller streams get through
+    if ((failed.status === 413) && (queue.stream_bytes > STREAM_MIN_BYTES)) {
+        queue.stream_bytes = Math.max(STREAM_MIN_BYTES, Math.floor(queue.stream_bytes/2));
+        return;
+    }
+    if (failed.lasting === true) {
+        for (const item of items.filter(v => v.phase === 'waiting')) {
+            item.phase = 'error';
+            item.said = failed.message;
+        }
+        report(queue, `the stream was refused: ${failed.message}`, true);
+        return;
+    }
+    const first = items.find(v => v.phase === 'waiting');
+    if (first !== undefined) {
+        first.phase = 'retrying';
+        first.said = ((failed.stalled === true) ? 'the stream stalled' : failed.message);
+        await wait_out(queue, first, 5);
+        first.phase = 'waiting';
+    }
+}
+
+// The files to go in the next stream: from `item` on, of the same choice, as many as fit its size
+function stream_next(queue, item)
+{
+    const files = [];
+    let bytes = 0;
+    for (const next of queue.copies) {
+        if ((next.phase !== 'waiting') || (next.batch !== item.batch) || (next.size > STREAM_MAX_BYTES)) {
+            continue;
+        }
+        if ((files.length > 0) && ((bytes + next.size > queue.stream_bytes) || (files.length >= STREAM_MAX_FILES))) {
+            break;
+        }
+        files.push(next);
+        bytes += next.size;
+    }
+    return (((files.length > 0) && (files[0] === item)) ? files : [item]);
+}
+
+// Asked once of each disk: a tar of nothing either goes in, or the disk takes no stream
+async function stream_able(queue)
+{
+    if (queue.stream_known !== true) {
+        try {
+            await upload_call(queue, 'POST', 'tar', {dir: '~', name: '', id: ''}, {}, new Blob([TAR_EMPTY]));
+            queue.stream_known = true;
+        }
+        catch (error) {
+            if (error.aborted === true) {
+                return false;
+            }
+            queue.no_stream = true;
+            queue.stream_known = true;
+        }
+    }
+    return (queue.no_stream === false);
+}
+
+// After a cut: which files the disk holds whole, by a read of each of their folders, a few at
+// once. The rest go back in line, to go again; a folder that cannot be read sends its files again.
+async function stream_settle(queue, items)
+{
+    const open = items.filter(v => v.phase !== 'ok');
+    const dirs = Array.from(new Set(open.map(v => v.dir)));
+    const listed = new Map();
+    async function next() {
+        while (dirs.length > 0) {
+            const dir = dirs.shift();
+            listed.set(dir, await folder_files(queue, dir));
+        }
+    }
+    await Promise.all(Array.from({length: Math.min(SETTLE_AT_ONCE, dirs.length)}, next));
+    for (const item of open) {
+        const now = listed.get(item.dir).get(item.name);
+        if ((now !== undefined) && (now.size === item.size) && (Math.floor(now.mtime_ms/1000) === Math.floor(item.file.lastModified/1000))) {
+            item.phase = 'ok';
+            item.sent = item.size;
+        }
+        else {
+            item.phase = 'waiting';
+            item.sent = 0;
+        }
+    }
+}
+
+// The files of one folder: Map(name -> {size, mtime_ms}), empty when it cannot be read
+async function folder_files(queue, dir)
+{
+    const out = new Map();
+    try {
+        const answer = await fetch(`${queue.base}?path=${encodeURIComponent(dir)}`, {cache: 'no-store'});
+        if (answer.ok) {
+            for (const item of (await answer.json()).items) {
+                if (item.kind === 'file') {
+                    out.set(item.name, {size: item.size, mtime_ms: item.mtime_ms});
+                }
+            }
+        }
+    }
+    catch {
+        // Nothing known is in: its files go again
+    }
+    return out;
+}
+
+// ['/a/b', '/a/b/c', '/a/d'] -> '/a': the folder all of them are in
+function folder_common(dirs)
+{
+    let out = dirs[0];
+    for (const dir of dirs) {
+        while ((dir !== out) && (dir.startsWith(`${out}/`) === false)) {
+            out = out.slice(0, Math.max(0, out.lastIndexOf('/')));
+        }
+    }
+    return out;
 }
 
 // XMLHttpRequest, and not fetch, for the one thing fetch cannot say: how much of the body has
@@ -339,6 +588,7 @@ function upload_call(queue, method, action, item, query, body, progress)
         request.addEventListener('abort', function () {
             const error = new Error('stopped');
             error.aborted = true;
+            error.stalled = (request.stalled === true);
             reject(error);
         });
         request.open(method, `${queue.base}/upload${(action === '') ? '' : `/${action}`}?${where}`);
@@ -421,6 +671,63 @@ function stop(queue)
     if (waits[queue.base] !== undefined) {
         waits[queue.base]();
     }
+    resume(queue);
+}
+
+// The file under way stops where it is and goes back in line; the queue waits for Resume
+function pause(queue)
+{
+    if ((queue.copying === false) || queue.paused) {
+        return;
+    }
+    queue.paused = true;
+    if (requests[queue.base] !== undefined) {
+        requests[queue.base].abort();
+    }
+    if (waits[queue.base] !== undefined) {
+        waits[queue.base]();
+    }
+}
+
+function resume(queue)
+{
+    queue.paused = false;
+    if (resumes[queue.base] !== undefined) {
+        resumes[queue.base]();
+        delete resumes[queue.base];
+    }
+}
+
+// The speed across the copy, for its graph: how far it is and how fast it went over the last
+// few seconds, twice a second while it runs; a pause draws no points
+function sampler_start(queue)
+{
+    const seen = [];
+    return setInterval(function () {
+        if (queue.paused) {
+            seen.length = 0;
+            return;
+        }
+        let bytes = 0;
+        let done = 0;
+        for (const item of queue.copies) {
+            bytes += item.size;
+            done += ((item.phase === 'ok') ? item.size : item.sent);
+        }
+        const now = Date.now();
+        seen.push([now, done]);
+        while ((seen.length > 1) && (now - seen[0][0] > SAMPLE_SPAN_MS)) {
+            seen.shift();
+        }
+        if ((seen.length < 2) || (bytes === 0)) {
+            return;
+        }
+        const speed = Math.max(0, (done - seen[0][1])*1000/(now - seen[0][0]));
+        queue.samples.push({x: Math.min(1, done/bytes), y: speed});
+        if (queue.samples.length > SAMPLES_MAX) {
+            queue.samples = queue.samples.filter((v, i) => (i % 2 === 0));
+        }
+    }, SAMPLE_MS);
 }
 
 // What is done is taken off the list; what is still on its way stays

@@ -840,6 +840,12 @@ archive of one entry docker unpacks (<code>PUT …/archive</code>), through a li
 file it replaces; the length must be known first, as an upload&#39;s is</li>
 <li>rename, delete, new folder and a tar of several names are <code>mv</code>, <code>rm -rf</code>, <code>mkdir -p</code> and
 <code>tar -cf -</code> run in it, as the container&#39;s own user</li>
+<li>many files as one tar go to docker&#39;s own unpack (<code>PUT …/archive</code>) as the body comes, with its
+length when the request said one, into the folder, made with <code>mkdir -p</code> first when it is not
+there; docker keeps the tar&#39;s times, and the counts in the answer are the File Manager&#39;s own</li>
+<li>the room left on a folder&#39;s disk is <code>df -Pk</code> and <code>df -Pi</code> run in it, at the nearest folder
+that is there; a <code>df</code> with no <code>-i</code> says no inodes (null), and a container with no <code>df</code> is a
+502</li>
 <li>it keeps no parts, so a big file goes up in one piece</li>
 </ul>
 <p>A volume&#39;s Files opens the same File Manager: through a running container that mounts it, at

@@ -19,6 +19,7 @@ reached over the link that machine's agent dialled.
 
     server/file_manager_serve.js   the HTTP API, given a disk
     server/transfer_queue.js       copies from one disk to another, in parts, run by the server
+    server/tar_parser.js           a tar read as its bytes come, for the tar upload
     server/file_manager_transfers_serve.js   the HTTP API of those copies
     ui/file_manager.js             the component
     ui/upload_queue.js             the uploads, kept by the page so they outlive the component
@@ -41,14 +42,36 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | `POST <base>/delete` `{path}` | a file or a whole folder, gone |
 | `POST <base>/mkdir` `{path}` | the whole path made, as `mkdir -p` does |
 | `POST <base>/upload?dir=<dir>&name=<name>` | the body as a file: `{path, bytes, replaced}` |
+| `POST <base>/upload/tar?dir=<dir>` | many files and folders as one tar, written as the bytes come: `{files, bytes}` once the body is over (below) |
 | `GET <base>/upload/part?dir=&name=&id=` | how much of a file in parts is in: `{received}` |
 | `POST <base>/upload/part?dir=&name=&id=&offset=` | one part, written at `offset`: `{received}` |
 | `POST <base>/upload/finish?dir=&name=&id=&size=` | the parts become the file once `size` bytes are in: `{path, bytes, replaced}` |
 | `POST <base>/upload/cancel?dir=&name=&id=` | what came of the parts goes |
 | `GET <base>/watch?path=<dir>&tree=1&skip=<name>` | the folder watched, as server-sent events while the request stays open (below) |
+| `GET <base>/room?path=<dir>` | the room left on the folder's disk, for an upload to check it fits: `{bytes_free, inodes_free}`, `inodes_free` null where the disk counts none; a folder not made yet is measured at the nearest one that is |
 
 A refusal of the disk is a 502 with `{error}`; a request the API cannot take is a 400; a disk
-that keeps no parts answers the part doors with 501.
+that keeps no parts answers the part doors with 501, and one that cannot say its room (an agent
+from before 1.14.0) answers `room` with 501, so the page uploads without checking.
+
+### Many files as one tar
+
+`POST <base>/upload/tar?dir=<dir>` takes a whole drop as one stream, the way
+`tar | pv | socat` sends it: the page only watches the bytes go, and no file waits for the one
+before it to be confirmed. The body is a tar (ustar; a longer name as GNU's `././@LongLink` or
+a pax `path`, or in ustar's prefix), its names relative to the folder and `/`-separated. Files
+and folders are made, folders as needed; any other entry (a link, a device) is passed over. The
+machine writes each file beside its name until its last byte is in, then gives it the name and the
+time the tar says, so after a cut stream a listing tells by name, size and time which files are
+whole; a file cut halfway is not there at all. A container's disk is docker's own unpack,
+which keeps the times too but writes a file under its name as it comes.
+
+Every name is read by the server on the way through. A name that is absolute or walks out with
+`..`, a body that is not a tar, or one that ends before the tar does, is a 400: before the disk
+is asked when it is the first entry, otherwise after the entries before it are written. The
+answer, when the body is over, is `{files, bytes}`: the files written and their bytes. A disk
+that takes no tar (an agent from before 1.14.0) answers 501, and the page sends the files one
+by one.
 
 ### A file in parts
 
@@ -241,10 +264,24 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
   ones included: a container's disk writes a file only into a folder that is there.
 - Each file goes up under its way from the folder taken (`photos/2024/a.jpg`), A to Z. A name
   the browser cannot read is a failed row in Uploads, the rest still goes.
-- Uploads says how far all of them are, with one bar: files, bytes, the rate and the time left.
-  Its list follows the file under way; a hand on it stops that for ten seconds.
-- A file of up to 1 MB goes in one request, sent again whole if it fails: three requests for its
-  parts cost more than its bytes over a link to a far machine.
+- A big drop is counted first (Counting… 1,284 files · 812 MB so far, with Cancel); nothing goes
+  before it is.
+- Before more than one file goes, `<base>/room` says whether the disk has the bytes and the
+  inodes for them (a file and a folder are one each). When not, Uploads asks: **Copy what fits**,
+  as far as they reach in the order they go, or **Don't copy**. A disk that cannot say lets
+  everything go.
+- The files taken at once go as one stream, a tar (below), in pieces of about a minute each at
+  the speed seen (1 to 64 MB, halved on a 413), since a server cuts a request at five minutes and
+  a proxy may refuse a big body. A file over 64 MB, a single file, and every file of a disk that
+  takes no tar go one by one: in parts that carry on after a break, or whole up to 1 MB.
+- Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
+  dashed line; under it the time left, the files left and the file under way. **Pause** stops
+  the stream where it is; **Resume** sends what is not in yet.
+- Its rows are nine: two done, the file under way, the next ones, sliding up a place as each
+  file goes; the failed stay on top, and **Show all** lists every one. A file of a stream is
+  `sent` once its bytes have gone, and done when the stream ends whole. A stream cut or still
+  for 30 seconds lists the folders of its files: what is there at its size and date is done,
+  the rest goes again.
 - A file that lands in the folder shown reads it again, at most once a second and in place: the
   ticks stay. One that lands deeper changes nothing the list shows, and reads nothing.
 - A file dropped anywhere else on the page never opens in the tab and loses it.
@@ -261,7 +298,9 @@ and `--accent`, and the classes the component shares with the rest of the page: 
   not connected, an agent too old to read folders
 - `src/main/src/helpers/remote_disk.js` is the disk: each call goes to the machine's agent;
   an agent keeps the parts of a file with `agent_file_part_put` and its `stat`, `finish` and
-  `remove` calls, and says so as `file_parts`
+  `remove` calls, and says so as `file_parts`; it measures the room of a folder's disk with
+  `agent_fs_room` (statfs), and says so as `fs_room`; it writes a tar with `agent_tar_put`,
+  which reads it with this module's `tar_parser`, and says so as `tar_put`
 - `/api/v1/transfers` is the copies between machines; a machine is a disk while it is
   connected with an agent that keeps parts
 - `src/main/public/serviceman.js` has `remote_files`, the Remote tab, which wraps the component

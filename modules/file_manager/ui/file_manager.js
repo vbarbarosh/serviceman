@@ -169,30 +169,73 @@ const file_manager = {
     <input ref="picker" type="file" multiple hidden @change="picked">
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
+    <!-- A drop being read: what it holds so far. Nothing goes before it is counted. -->
+    <div v-if="(counting !== null)" class="card fm-uploads">
+        <div class="list-head">
+            <b>Uploads</b>
+            <span class="muted fm-copy-summary">Counting… {{ counting.files }} {{ plural(counting.files, 'file', 'files') }} · {{ format_bytes(counting.bytes) }} so far</span>
+            <div class="list-acts"><button type="button" @click="counting.stop = true">Cancel</button></div>
+            <span class="meter fm-copy-total fm-counting"><i/></span>
+        </div>
+    </div>
+    <!-- Not room enough on that disk for all of it: what fits, or nothing -->
+    <div v-if="(room_ask !== null)" class="card fm-uploads fm-room">
+        <div class="list-head">
+            <b>Uploads</b>
+            <span class="muted fm-copy-summary">{{ room_ask.files }} {{ plural(room_ask.files, 'file', 'files') }} · {{ format_bytes(room_ask.bytes) }}</span>
+        </div>
+        <p class="fm-room-what">{{ room_ask.text }}</p>
+        <div class="fm-room-acts">
+            <button v-if="(room_ask.fit_files > 0)" type="button" class="primary" @click="room_answer(true)">Copy what fits: {{ room_ask.fit_files }} {{ plural(room_ask.fit_files, 'file', 'files') }}, {{ format_bytes(room_ask.fit_bytes) }}</button>
+            <button type="button" @click="room_answer(false)">Don't copy</button>
+        </div>
+    </div>
     <div v-if="(queue.copies.length > 0)" class="card fm-uploads" :class="{all: copies_all}">
         <div class="list-head">
             <b>Uploads</b>
+            <span v-if="queue.paused" class="fm-paused">Paused</span>
             <span class="muted fm-copy-summary" :title="copy_summary">{{ copy_summary }}</span>
             <div class="list-acts">
+                <button v-if="(queue.copying && (queue.paused === false))" type="button" @click="queue.pause()">Pause</button>
+                <button v-if="queue.paused" type="button" class="primary" @click="queue.resume()">Resume</button>
                 <button v-if="(queue.copies.length > COPY_ROWS)" type="button" @click="copies_all = (copies_all === false)">{{ (copies_all ? 'Show fewer' : ('Show all ' + queue.copies.length)) }}</button>
                 <button v-if="queue.copying" type="button" @click="queue.stop()">Cancel</button>
                 <button v-else type="button" @click="queue.clear()">Clear</button>
             </div>
-            <span v-if="(copy_total.files > 1)" class="meter fm-copy-total"><i :style="{width: (Math.max(1, Math.round(copy_total.ratio * 100)) + '%')}"/></span>
         </div>
+        <!-- The speed across the copy, as a file manager on the desktop draws it: how fast it went
+             at each point of the way, the part done shaded, the speed now a dashed line -->
+        <template v-if="(copy_total.files > 1)">
+            <div class="fm-graph" :class="{paused: queue.paused}">
+                <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+                    <line v-for="n of 9" :key="n" :x1="(n * 100)" y1="0" :x2="(n * 100)" y2="100" class="fm-graph-grid"/>
+                    <rect x="0" y="0" :width="copy_graph.done_x" height="100" class="fm-graph-done"/>
+                    <path :d="copy_graph.area" class="fm-graph-area"/>
+                    <path :d="copy_graph.line" class="fm-graph-line"/>
+                    <line v-if="(copy_graph.now_y !== null)" x1="0" :y1="copy_graph.now_y" x2="1000" :y2="copy_graph.now_y" class="fm-graph-now"/>
+                </svg>
+                <span v-if="(copy_graph.now_y !== null)" class="fm-graph-speed" :class="{under: (copy_graph.now_y < 30)}" :style="{top: (copy_graph.now_y + '%')}">Speed: {{ format_bytes(copy_graph.speed) }}/s</span>
+            </div>
+            <div class="fm-facts">
+                <span><b>Time left</b> {{ copy_left }}</span>
+                <span><b>Files left</b> {{ copy_total.files - copy_total.files_done - copy_total.failed }} ({{ format_bytes(copy_total.bytes - copy_total.bytes_done) }})</span>
+                <code v-if="(copy_now !== null)" class="muted" :title="copy_now.label">{{ copy_now.label }}</code>
+            </div>
+        </template>
         <transition-group tag="div" name="fm-row" class="fm-copy-rows">
         <div v-for="{item, i} of copy_rows" :key="i" class="fm-copy">
             <code :title="item.label">{{ item.label }}</code>
-            <span v-if="(item.phase === 'waiting')" class="muted">{{ format_bytes(item.size) }} — waiting</span>
-            <span v-else-if="(item.phase === 'held')" class="muted">{{ format_bytes(item.size) }} — waiting for its folder</span>
-            <template v-else-if="(item.phase === 'copying' || item.phase === 'retrying')">
+            <span v-if="(item.phase === 'waiting')" class="fm-copy-state muted">{{ format_bytes(item.size) }} — waiting</span>
+            <span v-else-if="(item.phase === 'held')" class="fm-copy-state muted">{{ format_bytes(item.size) }} — waiting for its folder</span>
+            <span v-else-if="(item.phase === 'copying' || item.phase === 'retrying')" class="fm-copy-state fm-copy-going">
                 <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(item) * 100)) + '%')}"/></span>
                 <span v-if="(item.phase === 'retrying')" class="bad" :title="copy_retry(item)">{{ copy_retry(item) }}</span>
                 <span v-else class="muted" :title="copy_detail(item)">{{ copy_detail(item) }}</span>
-            </template>
-            <span v-else-if="(item.phase === 'ok')" class="muted">{{ format_bytes(item.size) }}{{ (item.replaced ? ' · over the one that was there' : '') }} · done</span>
-            <span v-else-if="(item.phase === 'cancelled')" class="muted">stopped — nothing landed</span>
-            <span v-else class="bad" :title="item.said">{{ item.said }}</span>
+            </span>
+            <span v-else-if="(item.phase === 'sent')" class="fm-copy-state muted">{{ format_bytes(item.size) }} · sent</span>
+            <span v-else-if="(item.phase === 'ok')" class="fm-copy-state muted">{{ format_bytes(item.size) }}{{ (item.replaced ? ' · over the one that was there' : '') }} · done</span>
+            <span v-else-if="(item.phase === 'cancelled')" class="fm-copy-state muted">stopped — nothing landed</span>
+            <span v-else class="fm-copy-state bad" :title="item.said">{{ item.said }}</span>
         </div>
         </transition-group>
     </div>
@@ -356,6 +399,10 @@ const file_manager = {
             drop_style: {},
             // Every upload in the list, not only the few about the file under way
             copies_all: false,
+            // A drop being read: {files, bytes, stop}; null when none is
+            counting: null,
+            // Not room enough on the disk for a drop: what it needs, what fits; null when all fits
+            room_ask: null,
             // Shown, not kept aside: only a tab in view takes a paste
             active: true,
             // The copies between disks the host is running, as it last said
@@ -501,7 +548,7 @@ const file_manager = {
                     out.files_done++;
                     out.bytes_done += item.size;
                 }
-                else if ((item.phase === 'copying') || (item.phase === 'retrying')) {
+                else if ((item.phase === 'copying') || (item.phase === 'retrying') || (item.phase === 'sent')) {
                     out.bytes_done += item.sent;
                 }
                 else if (item.phase === 'error') {
@@ -515,18 +562,13 @@ const file_manager = {
             out.ratio = ((out.bytes === 0) ? ((out.files === 0) ? 0 : out.files_done/out.files) : out.bytes_done/out.bytes);
             return out;
         },
-        // "54 of 3020 files · 120MB of 2.9GB · 1.2MB/s · ~25m left". The rate is the whole copy's,
-        // as a file's is. The time left is the longer of two guesses: by bytes, and by files,
-        // since a thousand small files are a thousand answers to wait for, whatever their bytes.
+        // "48% · 1417 of 2940 files · 1.4GB of 2.9GB"; the speed and the time left are under the
+        // graph. One file has no graph: its own row says it all.
         copy_summary: function () {
             const total = this.copy_total;
             const said = [`${total.files_done} of ${total.files} ${plural(total.files, 'file', 'files')}`, `${format_bytes(total.bytes_done)} of ${format_bytes(total.bytes)}`];
-            const ms = Date.now() - this.queue.began;
-            if (this.queue.copying && (ms > 2000) && (total.bytes_since > 0)) {
-                said.push(`${format_bytes(Math.round(total.bytes_since*1000/ms))}/s`);
-                const by_bytes = (total.bytes - total.bytes_done)*ms/total.bytes_since;
-                const by_files = ((total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0);
-                said.push(`~${format_ms(Math.max(by_bytes, by_files))} left`);
+            if (total.files > 1) {
+                said.unshift(`${Math.floor(total.ratio*100)}%`);
             }
             if (total.failed > 0) {
                 said.push(`${total.failed} failed`);
@@ -535,6 +577,44 @@ const file_manager = {
                 said.push(this.queue.note);
             }
             return said.join(' · ');
+        },
+        // The longer of two guesses, from the whole copy's rate: by bytes, and by files, since a
+        // thousand small files are a thousand answers to wait for, whatever their bytes
+        copy_left: function () {
+            const total = this.copy_total;
+            const ms = Date.now() - this.queue.began;
+            if (this.queue.paused) {
+                return 'paused';
+            }
+            if ((this.queue.copying === false) || (ms < 2000) || (total.bytes_since === 0)) {
+                return '…';
+            }
+            const by_bytes = (total.bytes - total.bytes_done)*ms/total.bytes_since;
+            const by_files = ((total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0);
+            return `about ${format_ms(Math.max(by_bytes, by_files))}`;
+        },
+        // The file under way, named under the graph
+        copy_now: function () {
+            const item = this.queue.copies.find(v => (v.phase === 'copying') || (v.phase === 'retrying'));
+            return ((item === undefined) ? null : item);
+        },
+        // The graph's lines, on a box of 1000 by 100: the speed scaled to the fastest seen, with
+        // a little room above it
+        copy_graph: function () {
+            const samples = this.queue.samples;
+            const out = {done_x: Math.round(this.copy_total.ratio*1000), line: '', area: '', now_y: null, speed: 0};
+            if (samples.length === 0) {
+                return out;
+            }
+            const top = Math.max(1, ...samples.map(v => v.y))*1.25;
+            const points = samples.map(v => [v.x*1000, 100 - v.y/top*100]);
+            out.line = points.map((v, i) => `${(i === 0) ? 'M' : 'L'}${v[0].toFixed(1)} ${v[1].toFixed(1)}`).join(' ');
+            out.area = `${out.line} L${points.at(-1)[0].toFixed(1)} 100 L${points[0][0].toFixed(1)} 100 Z`;
+            if (this.queue.paused === false) {
+                out.now_y = Math.round(points.at(-1)[1]);
+                out.speed = samples.at(-1).y;
+            }
+            return out;
         },
         // The rows of Uploads shown: the few about the file under way, the last failed ones above
         // them, so a thousand files are nine rows that slide, not a list to scroll. [{item, i}]
@@ -590,7 +670,7 @@ const file_manager = {
         // A file landed in the folder shown: the list reads it again, quietly. One landed deeper,
         // in a folder of its own, changes nothing this list shows: its folder was made first.
         'queue.landed': function () {
-            if ((this.path !== null) && (this.queue.landed_dir === this.path)) {
+            if ((this.path !== null) && this.queue.landed_dirs.includes(this.path)) {
                 this.reread_soon();
             }
         },
@@ -1105,24 +1185,68 @@ const file_manager = {
         },
         // A drop or a paste, read before the browser empties it: a folder file by file
         transfer_take: async function (transfer) {
-            const reading = data_transfer_read(transfer, true);
-            this.act_report('reading what came…', false);
-            const read = await reading;
-            this.act_report('', false);
+            this.counting = {files: 0, bytes: 0, stop: false};
+            const read = await data_transfer_read(transfer, true, this.counting);
+            this.counting = null;
+            if (read.stopped) {
+                return;
+            }
             this.queue.refuse(read.unread, 'not sent: the browser could not read it; a folder also goes by Upload folder');
             await this.take(read.files, read.dirs);
+        },
+        // Before a copy of more than one file: does it fit on that disk, in bytes and in inodes
+        // (a file and a folder are one each)? When not, the page asks: what fits, in the order
+        // they go, or nothing. A disk that cannot say lets everything go. files: [{file, dir}]
+        room_check: async function (path, files, dirs) {
+            const folders = folders_all(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
+            const bytes = files.reduce((sum, v) => sum + v.file.size, 0);
+            let room = null;
+            try {
+                const answer = await fetch(`${this.base}/room?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
+                room = (answer.ok ? await answer.json() : null);
+            }
+            catch {
+                room = null;
+            }
+            const inodes_short = ((room !== null) && (room.inodes_free !== null) && (files.length + folders.length > room.inodes_free));
+            if ((room === null) || ((bytes <= room.bytes_free) && (inodes_short === false))) {
+                return {files, dirs};
+            }
+            const fit = files_that_fit(files, room);
+            const said = [`Not room enough on ${this.title ? this.title : 'this disk'} for all of it.`];
+            said.push(`${format_bytes(room.bytes_free)} free, this needs ${format_bytes(bytes)}.`);
+            if (room.inodes_free !== null) {
+                said.push(`Inodes: ${files.length + folders.length} needed, ${room.inodes_free} free.`);
+            }
+            this.room_ask = {files: files.length, bytes, text: said.join(' '), fit_files: fit.files.length, fit_bytes: fit.bytes};
+            const self = this;
+            const yes = await new Promise(function (resolve) {
+                self.room_resolve = resolve;
+            });
+            this.room_ask = null;
+            return (yes ? {files: fit.files, dirs: []} : null);
+        },
+        room_answer: function (yes) {
+            this.room_resolve(yes);
         },
         // Choosing is the act, and the copy follows it, into the folder shown now. files: [{file,
         // dir}], `dir` the way under this folder. The files show in Uploads at once; the folders
         // are made first, the deepest of each branch the way mkdir -p does: a container's disk
         // writes a file only into a folder that is there, and an empty folder has no file to
         // bring it.
-        take: async function (files, dirs) {
+        take: async function (files_asked, dirs_asked) {
             const path = this.path;
+            const sorted = files_asked.slice().sort((a, b) => file_label(a).localeCompare(file_label(b), undefined, {numeric: true}));
+            const room = (((sorted.length > 1) || (dirs_asked.length > 0)) ? await this.room_check(path, sorted, dirs_asked) : {files: sorted, dirs: dirs_asked});
+            if (room === null) {
+                return;
+            }
+            const files = room.files;
+            const dirs = room.dirs;
             const made = folders_deepest(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
             // A folder's names come in the order the disk keeps them: they go A to Z, by path
-            const list = files.map(v => ((v.dir === '') ? {file: v.file, dir: path, label: v.file.name} : {file: v.file, dir: `${path}/${v.dir}`, label: `${v.dir}/${v.file.name}`}));
-            const items = this.queue.take(list.sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric: true})), (made.length > 0));
+            const list = files.map(v => ({file: v.file, dir: ((v.dir === '') ? path : `${path}/${v.dir}`), label: file_label(v)}));
+            const items = this.queue.take(list, (made.length > 0));
             if (made.length > 0) {
                 const why = await this.folders_make(path, made);
                 this.queue.release(items, ((why === '') ? '' : `its folder was not made: ${why}`));
@@ -1336,6 +1460,47 @@ function is_files_drag(event)
         return false;
     }
     return Array.from(event.dataTransfer.types).includes('Files');
+}
+
+// {file, dir: 'photos/2024'} -> 'photos/2024/a.jpg': a file by its way from the folder taken
+function file_label(item)
+{
+    return ((item.dir === '') ? item.file.name : `${item.dir}/${item.file.name}`);
+}
+
+// ['a/b/c', 'd'] -> ['a', 'a/b', 'a/b/c', 'd']: every folder on the way, once
+function folders_all(dirs)
+{
+    const seen = new Set();
+    for (const dir of dirs) {
+        const parts = dir.split('/');
+        for (let i = 1; i <= parts.length; i++) {
+            seen.add(parts.slice(0, i).join('/'));
+        }
+    }
+    return Array.from(seen);
+}
+
+// The files, in the order they go, as far as the room on the disk reaches: its bytes, less a
+// hundredth for what a file system keeps for itself, and its inodes, a folder one each
+function files_that_fit(files, room)
+{
+    const out = {files: [], bytes: 0};
+    const folders = new Set();
+    const bytes_max = room.bytes_free*0.99;
+    for (const item of files) {
+        const fresh = folders_all((item.dir === '') ? [] : [item.dir]).filter(v => folders.has(v) === false);
+        const inodes = out.files.length + folders.size + fresh.length + 1;
+        if ((out.bytes + item.file.size > bytes_max) || ((room.inodes_free !== null) && (inodes > room.inodes_free))) {
+            break;
+        }
+        for (const dir of fresh) {
+            folders.add(dir);
+        }
+        out.files.push(item);
+        out.bytes += item.file.size;
+    }
+    return out;
 }
 
 // ['a', 'a/b', 'a/b/c', 'd'] -> ['a/b/c', 'd']: each folder no other one is inside of

@@ -1,4 +1,6 @@
 const path = require('path');
+const stream = require('stream');
+const tar_parser = require('./tar_parser');
 
 const BODY_LIMIT_BYTES = 1024*1024;
 // A whole tree as one JSON stops after this many names and ends with an error saying so; as
@@ -52,9 +54,10 @@ const TYPE_BY_EXT = {
 // The File Manager's whole API, under whatever base the host mounts it at. The host routes
 // every address under that base here, with `tail` the part after it, and gives a disk:
 // {list, stat, read, tar, write, rename, remove, mkdir}, for a file in parts
-// {part_stat, part_write, part_finish, part_remove}, for a folder watched {watch}, and for a whole tree
-// {tree}. What the disk is — a machine over a
-// link, a folder here — is the host's business, and so is who may ask.
+// {part_stat, part_write, part_finish, part_remove}, for many files in one tar {write_tar}, for
+// a folder watched {watch}, for a whole tree {tree}, and for the room left on it {room}. What
+// the disk is — a machine over a link, a folder here — is the host's business, and so is who
+// may ask.
 //
 //     options = {disk, tail, log, name}
 //     log(event, fields)  what was done, for the host's own log
@@ -82,6 +85,10 @@ async function file_manager_serve(req, res, options)
         watch_serve(ctx, req, res, url);
         return;
     }
+    if ((tail === '/room') && (req.method === 'GET')) {
+        await room_serve(ctx, res, url);
+        return;
+    }
     const act = RE_DO.exec(tail);
     if ((act !== null) && (req.method === 'POST')) {
         await act_serve(ctx, req, res, act[1]);
@@ -89,6 +96,10 @@ async function file_manager_serve(req, res, options)
     }
     if ((tail === '/upload') && (req.method === 'POST')) {
         await upload_serve(ctx, req, res, url);
+        return;
+    }
+    if ((tail === '/upload/tar') && (req.method === 'POST')) {
+        await tar_upload_serve(ctx, req, res, url);
         return;
     }
     if ((tail === '/upload/part') && ((req.method === 'GET') || (req.method === 'POST'))) {
@@ -538,6 +549,26 @@ function watch_serve(ctx, req, res, url)
     });
 }
 
+// GET <base>/room (query)
+// The room left on a folder's disk, for a page to check that an upload fits before it starts:
+// {bytes_free, inodes_free}, inodes_free null for a disk that does not count them. A folder not
+// made yet is measured at the nearest one that is, since the upload makes it. A disk that
+// cannot say answers 501, and the page uploads without asking.
+async function room_serve(ctx, res, url)
+{
+    if (ctx.disk.room === undefined) {
+        send_json(res, 501, {error: 'this disk cannot say how much room it has'});
+        return;
+    }
+    try {
+        const room = await ctx.disk.room(url.searchParams.get('path'));
+        send_json(res, 200, {bytes_free: room.bytes_free, inodes_free: ((room.inodes_free === undefined) ? null : room.inodes_free)});
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+    }
+}
+
 // POST <base>/rename (body)
 // POST <base>/delete (body)
 // POST <base>/mkdir (body)
@@ -599,6 +630,128 @@ async function upload_serve(ctx, req, res, url)
     catch (error) {
         send_json(res, 502, {error: error.message});
     }
+}
+
+// POST <base>/upload/tar (body, query)
+// Many files as one stream, the way `tar | pv | socat` sends them: the body is a tar, its names
+// under the folder, and nobody waits on a file before the next is sent. The disk writes each file
+// as its bytes come and keeps its time; the answer comes when the body is over, with what was
+// written: {files, bytes}. Every name is read here on the way through. A name that is absolute
+// or walks out with `..` refuses the tar with a 400: before the disk is asked when it is the
+// first, and when it comes later, after the disk has the entries before it and the tar ends
+// there. So does a body that is no tar, or one that stops before the tar does.
+async function tar_upload_serve(ctx, req, res, url)
+{
+    if (ctx.disk.write_tar === undefined) {
+        send_json(res, 501, {error: 'this disk cannot take a tar'});
+        return;
+    }
+    const dir = ((url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim());
+    if (dir === '') {
+        send_json(res, 400, {error: 'a folder is required'});
+        return;
+    }
+    const time0 = Date.now();
+    const parser = tar_parser();
+    const counted = {files: 0, bytes: 0};
+    // What goes on to the disk: the body as it came, up to a refusal. Its headers are the
+    // request's, so a disk that wants the length first has it.
+    const body = new stream.PassThrough();
+    body.headers = req.headers;
+    let refused = null;
+    let gone = false;
+    let asked = false;
+    let seen = false;
+    let wake = null;
+    const first = new Promise(function (resolve) {
+        wake = resolve;
+    });
+    req.on('data', function (chunk) {
+        if (refused !== null) {
+            return;
+        }
+        try {
+            for (const event of parser.push(chunk)) {
+                seen = (seen || (event.type !== 'data'));
+                counted.files += ((event.type === 'file') ? 1 : 0);
+                counted.bytes += ((event.type === 'data') ? event.bytes.length : 0);
+            }
+        }
+        catch (error) {
+            refuse(error, chunk.subarray(0, error.at));
+            return;
+        }
+        // Until the first name is read the disk is not asked, so nothing holds the body back:
+        // what is kept meanwhile is a header or a long name, which the parser keeps small
+        if ((body.write(chunk) === false) && seen) {
+            req.pause();
+            body.once('drain', function () {
+                req.resume();
+            });
+        }
+        if (seen) {
+            wake();
+        }
+    });
+    req.on('end', function () {
+        if (refused !== null) {
+            return;
+        }
+        const error = parser.end();
+        if (error !== null) {
+            refuse(error, Buffer.alloc(0));
+            return;
+        }
+        body.end();
+        wake();
+    });
+    req.on('aborted', function () {
+        given_up(new Error('the copy was given up before the tar was in'));
+    });
+    req.on('error', given_up);
+    // The entries before a refusal go to the disk, and the tar ends there: the disk finds it cut
+    // and keeps what was whole. A refusal at the first entry asks nothing of the disk.
+    function refuse(error, before) {
+        refused = error;
+        seen = (seen || (error.entries > 0));
+        body.end(before);
+        wake();
+    }
+    // The page went away: the disk hears it, and drops what it had of the file it was writing
+    function given_up(error) {
+        if (refused !== null) {
+            return;
+        }
+        refused = error;
+        gone = true;
+        if (asked) {
+            body.destroy(error);
+        }
+        wake();
+    }
+    await first;
+    if ((refused !== null) && ((seen === false) || gone)) {
+        send_json(res, 400, {error: refused.message});
+        return;
+    }
+    let landed;
+    asked = true;
+    try {
+        landed = await ctx.disk.write_tar(dir, body);
+    }
+    catch (error) {
+        send_json(res, ((refused === null) ? 502 : 400), {error: ((refused === null) ? error.message : refused.message)});
+        return;
+    }
+    if (refused !== null) {
+        send_json(res, 400, {error: refused.message});
+        return;
+    }
+    // A disk that cannot count what it unpacked leaves it to what was read here
+    const files = ((typeof landed.files === 'number') ? landed.files : counted.files);
+    const bytes = ((typeof landed.bytes === 'number') ? landed.bytes : counted.bytes);
+    ctx.log('files_copied', {dir, files, bytes, ms: Date.now() - time0});
+    send_json(res, 200, {files, bytes});
 }
 
 // GET <base>/upload/part (query)

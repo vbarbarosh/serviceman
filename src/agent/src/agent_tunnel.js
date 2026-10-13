@@ -5,6 +5,7 @@ const agent_fs_tree = require('./agent_fs_tree');
 const agent_fs_watch = require('./agent_fs_watch');
 const agent_machine_shell = require('./agent_machine_shell');
 const agent_tar_get = require('./agent_tar_get');
+const agent_tar_put = require('./agent_tar_put');
 const link_send_stream = require('../../helpers/link_send_stream');
 const net = require('net');
 
@@ -41,8 +42,9 @@ function agent_tunnel(state, kind, body)
 }
 
 // The far end is usually a socket; a target that says `shell` is a pty on this machine, and
-// one that says `file` or `part` is a file, or a part of one, being written here. Each of them answers the way a socket
-// does, which is the whole of what a tunnelled stream asks of its end.
+// one that says `file` or `part` is a file, or a part of one, being written here, and `tar_put`
+// many files in one tar. Each of them answers the way a socket does, which is the whole of what
+// a tunnelled stream asks of its end.
 function stream_open(state, id, target)
 {
     let socket;
@@ -99,6 +101,9 @@ function target_socket(target)
     }
     if (target.part !== undefined) {
         return agent_file_part_put(target.part);
+    }
+    if (target.tar_put !== undefined) {
+        return agent_tar_put(target.tar_put);
     }
     if (target.read !== undefined) {
         return agent_file_get(target.read);

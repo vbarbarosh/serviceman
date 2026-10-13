@@ -55,16 +55,64 @@ test('a container as a File Manager disk: list, stat through a link, read a rang
     assert.deepStrictEqual(engine.cmds[engine.cmds.length - 1], ['tar', '-cf', '-', '-C', '/app', 'conf', 'a.txt']);
 });
 
+test('a container says the room left on the disk of a folder, made or not yet, as its df does', async function (t) {
+    const engine = await engine_start(t);
+    const disk = container_disk(() => net.connect(engine.socket), ID);
+
+    // A folder not made yet is measured at the nearest one that is
+    assert.deepStrictEqual(await disk.room('/app/conf/new/deep'), {bytes_free: 600*1024, inodes_free: 70});
+    assert.deepStrictEqual(engine.cmds, [['df', '-Pk', '/app/conf'], ['df', '-Pi', '/app/conf']]);
+    assert.deepStrictEqual(await disk.room(''), {bytes_free: 600*1024, inodes_free: 70});
+    assert.deepStrictEqual(engine.cmds.slice(-1), [['df', '-Pi', '/app']]);
+
+    // A df with no -i (busybox), and a disk that counts no inodes (btrfs): no inodes said
+    engine.df_inodes = 'unknown';
+    assert.deepStrictEqual(await disk.room('/app'), {bytes_free: 600*1024, inodes_free: null});
+    engine.df_inodes = 'none';
+    assert.deepStrictEqual(await disk.room('/app'), {bytes_free: 600*1024, inodes_free: null});
+
+    // A container with no df in it says so
+    engine.df = false;
+    await assert.rejects(disk.room('/app'), /executable file not found/);
+});
+
+test('many files as one tar go to docker as they come, into a folder made first when it is not there', async function (t) {
+    const engine = await engine_start(t);
+    const disk = container_disk(() => net.connect(engine.socket), ID);
+    const tarred = Buffer.alloc(2048, 't');
+
+    // The length the request said goes on; docker does not count, the door does
+    const sized = stream.Readable.from([tarred.subarray(0, 1000), tarred.subarray(1000)]);
+    sized.headers = {'content-length': '2048'};
+    assert.deepStrictEqual(await disk.write_tar('/app/conf', sized), {files: null, bytes: null});
+    assert.deepStrictEqual([engine.puts[0].url, engine.puts[0].length, engine.puts[0].body.equals(tarred)], [`/containers/${ID}/archive?path=%2Fapp%2Fconf`, '2048', true]);
+    assert.deepStrictEqual(engine.cmds, [], 'a folder that is there is not made');
+
+    // A folder that is not there is made first; a body of no known length goes chunked
+    await disk.write_tar('/app/new/deep', stream.Readable.from([tarred]));
+    assert.deepStrictEqual(engine.cmds, [['mkdir', '-p', '/app/new/deep']]);
+    assert.deepStrictEqual([engine.puts[1].url, engine.puts[1].length, engine.puts[1].body.length], [`/containers/${ID}/archive?path=%2Fapp%2Fnew%2Fdeep`, undefined, 2048]);
+
+    // A body that breaks on the way stops the copy, and says why
+    const broken = new stream.PassThrough();
+    const sent = disk.write_tar('/app', broken);
+    broken.write('half');
+    setTimeout(() => broken.destroy(new Error('the copy was given up before the tar was in')), 50);
+    await assert.rejects(sent, /given up/);
+});
+
 // The part of the Engine API the disk asks for: inspect, exec (its output in docker's frames),
 // the archive's header, the archive of a file (with a long-name header first), and a PUT of one
 async function engine_start(t)
 {
     const socket = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'docker-engine-')), 'docker.sock');
-    const out = {socket, cmds: [], puts: []};
+    // df: whether the container has one; df_inodes: counted, none (btrfs) or unknown (no -i)
+    const out = {socket, cmds: [], puts: [], df: true, df_inodes: 'counted'};
     const execs = {};
     const files = {
         '/app/a.txt': {text: 'hello', mode: 0o644},
         '/app/link.txt': {link: '/app/a.txt'},
+        '/app': {dir: true},
         '/app/conf': {dir: true},
     };
     const server = http.createServer(function (req, res) {
@@ -93,6 +141,21 @@ async function engine_start(t)
                 if (cmd[0] === 'tar') {
                     return res.end(Buffer.concat([frame(1, 'TAR'), frame(2, 'a warning'), frame(1, 'BYTES')]));
                 }
+                if ((cmd[0] === 'df') && (out.df === false)) {
+                    execs[start[1]].code = 127;
+                    return res.end(frame(2, 'exec: "df": executable file not found in $PATH\n'));
+                }
+                if ((cmd[0] === 'df') && (cmd[1] === '-Pk')) {
+                    return res.end(frame(1, `Filesystem 1024-blocks Used Available Capacity Mounted on\noverlay 1000 400 600 40% /\n`));
+                }
+                if ((cmd[0] === 'df') && (out.df_inodes === 'unknown')) {
+                    execs[start[1]].code = 1;
+                    return res.end(frame(2, 'df: unrecognized option: i\n'));
+                }
+                if (cmd[0] === 'df') {
+                    const counted = ((out.df_inodes === 'counted') ? '100 30 70 30%' : '0 0 0 -');
+                    return res.end(frame(1, `Filesystem Inodes IUsed IFree IUse% Mounted on\noverlay ${counted} /\n`));
+                }
                 if ((cmd[1] === '-p') && (cmd[2] === '/fail')) {
                     execs[start[1]].code = 1;
                     return res.end(frame(2, 'mkdir: cannot create directory /fail\n'));
@@ -106,7 +169,7 @@ async function engine_start(t)
             if (url.pathname === `/containers/${ID}/archive`) {
                 const asked = url.searchParams.get('path');
                 if (req.method === 'PUT') {
-                    out.puts.push({url: req.url, body});
+                    out.puts.push({url: req.url, body, length: req.headers['content-length']});
                     res.writeHead(200);
                     return res.end();
                 }

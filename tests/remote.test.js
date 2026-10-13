@@ -1445,6 +1445,83 @@ test('a file too big for one request lands in parts, and a part sent again is wr
     }
 });
 
+// A drop of many files sent as one stream: no file waits on the one before it
+test('many files reach a machine as one tar through serviceman, with their times; an agent from before says 501', async function () {
+    const from = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tar-from-'));
+    const to = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tar-to-'));
+    for (let i = 0; i < 300; i++) {
+        fs.mkdirSync(path.join(from, `d${i % 10}`), {recursive: true});
+        fs.writeFileSync(path.join(from, `d${i % 10}`, `f${i}.txt`), 'x'.repeat(i));
+    }
+    fs.utimesSync(path.join(from, 'd7', 'f7.txt'), 1600000000, 1600000000);
+    const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', '.']);
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const ask = `http://127.0.0.1:${running.control_port}/api/v1/remotes/ui1/fs/upload/tar?dir=${encodeURIComponent(path.join(to, 'in'))}`;
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        assert.ok(remote.state.resources.can.includes('tar_put'));
+
+        const answer = await fetch(ask, {method: 'POST', body: tarred});
+        assert.deepStrictEqual([answer.status, await answer.json()], [200, {files: 300, bytes: 44850}]);
+        assert.strictEqual(fs.readFileSync(path.join(to, 'in', 'd3', 'f293.txt'), 'utf8'), 'x'.repeat(293));
+        assert.strictEqual(fs.readdirSync(path.join(to, 'in'), {recursive: true}).filter(v => v.endsWith('.txt')).length, 300);
+        assert.strictEqual(fs.statSync(path.join(to, 'in', 'd7', 'f7.txt')).mtimeMs, 1600000000000);
+        await wait_until(() => running.app.log_lines.some(vv => /\[files_copied\] remote=ui1 dir=.+ files=300 bytes=44850 ms=\d+/.test(vv)));
+
+        // A name that walks out is refused before the machine is asked
+        const walked = Buffer.from(tarred);
+        walked.write('../out\0', 0);
+        walked.write('        ', 148);
+        walked.write(`${walked.subarray(0, 512).reduce((v, vv) => v + vv, 0).toString(8).padStart(6, '0')}\0 `, 148);
+        const refused = await fetch(ask, {method: 'POST', body: walked});
+        assert.deepStrictEqual([refused.status, (await refused.json()).error], [400, '"../out" walks out of the folder the tar is sent to']);
+
+        // An agent from before the tar is not asked: the page sends the files apart
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'tar_put');
+        const old = await fetch(ask, {method: 'POST', body: tarred});
+        assert.deepStrictEqual([old.status, /from before files come in one tar/.test((await old.json()).error)], [501, true]);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(from, {recursive: true, force: true});
+        fs.rmSync(to, {recursive: true, force: true});
+    }
+});
+
+// What a page asks before an upload of thousands of files: whether they fit
+test('a machine says the room left on the disk of a folder, made or not yet; an agent from before says 501', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-room-'));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const ask = `http://127.0.0.1:${running.control_port}/api/v1/remotes/ui1/fs/room?path=${encodeURIComponent(path.join(dir, 'new', 'deep'))}`;
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        assert.ok(remote.state.resources.can.includes('fs_room'));
+
+        // A folder not made yet is measured at the nearest one that is, and is not made
+        const answer = await fetch(ask);
+        const room = await answer.json();
+        assert.deepStrictEqual([answer.status, Object.keys(room)], [200, ['bytes_free', 'inodes_free']]);
+        assert.ok(room.bytes_free > 0);
+        assert.ok((room.inodes_free === null) || (room.inodes_free > 0));
+        assert.strictEqual(fs.existsSync(path.join(dir, 'new')), false);
+
+        // An agent from before the room is said is not asked: the page uploads unchecked
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_room');
+        const old = await fetch(ask);
+        assert.deepStrictEqual([old.status, /from before a disk says its room/.test((await old.json()).error)], [501, true]);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('a folder of a machine is read from its page, and a folder that is not there says so', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-fs-'));
     fs.mkdirSync(path.join(dir, 'inner'));

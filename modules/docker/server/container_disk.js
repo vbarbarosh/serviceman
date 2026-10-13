@@ -16,8 +16,9 @@ const LIST_FORMAT = '%F/%s/%Y/%n';
 // A File Manager disk inside one container, over the Engine API alone: nothing is installed
 // in the container and nothing is mounted. A folder is listed by find and stat run in it, a
 // file is read and written through its archive, a name is weighed by the archive's header,
-// and renaming, deleting, making a folder and packing several names are commands run in it,
-// as its own user. A container with no shell in it has no folder listing.
+// many files in one tar are unpacked by docker, and renaming, deleting, making a folder,
+// packing several names and the room left (df) are commands run in it, as its own user. A
+// container with no shell in it has no folder listing.
 //
 //     connect()   a stream to the Engine API, as the Docker module's host gives it
 //     id          the container
@@ -53,6 +54,9 @@ function container_disk(connect, id)
         write: function (dir, name, source) {
             return file_put(connect, id, path.posix.normalize(dir), name, source);
         },
+        write_tar: function (dir, source) {
+            return tar_put(connect, id, path.posix.normalize(dir), source);
+        },
         rename: function (from, to) {
             return exec_or_throw(connect, id, ['mv', path.posix.normalize(from), path.posix.normalize(to)]);
         },
@@ -65,6 +69,9 @@ function container_disk(connect, id)
         },
         mkdir: function (asked) {
             return exec_or_throw(connect, id, ['mkdir', '-p', path.posix.normalize(asked)]);
+        },
+        room: async function (asked) {
+            return await disk_room(connect, id, (((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked)));
         },
     };
 }
@@ -180,6 +187,35 @@ async function* file_bytes(connect, id, asked, range)
     }
 }
 
+// The room left on the disk a folder of the container is on, or will be on once made, as df
+// says it: free bytes, and free inodes where its df counts them (busybox may have no -i)
+async function disk_room(connect, id, full)
+{
+    let at = full;
+    while ((await path_stat(connect, id, at) === null) && (at !== path.posix.dirname(at))) {
+        at = path.posix.dirname(at);
+    }
+    const bytes = await exec_run(connect, id, ['df', '-Pk', at]);
+    const blocks = df_numbers(bytes.stdout);
+    if ((bytes.code !== 0) || (blocks === null)) {
+        throw new Error(bytes.stderr.trim() || `df ended with ${bytes.code} in the container`);
+    }
+    const inodes = await exec_run(connect, id, ['df', '-Pi', at]);
+    const counted = ((inodes.code === 0) ? df_numbers(inodes.stdout) : null);
+    return {bytes_free: blocks.free*1024, inodes_free: (((counted === null) || (counted.total === 0)) ? null : counted.free)};
+}
+
+// The numbers of df -P's one line about a disk: total, used, free, then a share and where it is
+// mounted; null for anything else
+function df_numbers(text)
+{
+    const found = /\s(\d+)\s+(\d+)\s+(\d+)\s+(?:\d+%|-)\s+\/.*$/.exec(text.trim().split('\n').pop());
+    if (found === null) {
+        return null;
+    }
+    return {total: Number(found[1]), used: Number(found[2]), free: Number(found[3])};
+}
+
 // A file into a folder of the container, as an archive of one entry that docker unpacks there.
 // A file that is there keeps its permissions — an edited script stays runnable.
 async function file_put(connect, id, dir, name, source)
@@ -221,6 +257,33 @@ async function file_put(connect, id, dir, name, source)
         throw new Error(engine_said({status: res.statusCode, body: said}));
     }
     return {path: path.posix.join(dir, name), bytes: size, replaced: where.replaced};
+}
+
+// Many files as one tar, unpacked by docker into a folder of the container, which is made first
+// when it is not there; docker makes the folders under it. The body goes on as it comes, with
+// its length when the request said one. Docker does not say what it unpacked, so the counts
+// are left to whoever read the tar on its way here.
+async function tar_put(connect, id, dir, source)
+{
+    if (await path_stat(connect, id, dir) === null) {
+        await exec_or_throw(connect, id, ['mkdir', '-p', dir]);
+    }
+    const size = Number((source.headers === undefined) ? NaN : source.headers['content-length']);
+    const headers = (Number.isInteger(size) ? {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': size} : {'host': 'docker', 'content-type': 'application/x-tar'});
+    const res = await new Promise(function (resolve, reject) {
+        const req = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(dir)}`, headers}, resolve);
+        req.on('error', reject);
+        source.on('aborted', () => req.destroy(new Error('the copy was given up before the tar was in')));
+        source.on('error', function (error) {
+            req.destroy(error);
+        });
+        source.pipe(req);
+    });
+    const said = await body_text(res);
+    if (res.statusCode !== 200) {
+        throw new Error(engine_said({status: res.statusCode, body: said}));
+    }
+    return {files: null, bytes: null};
 }
 
 // The 512 bytes that say one file of an archive: name, mode, size, date, and their checksum

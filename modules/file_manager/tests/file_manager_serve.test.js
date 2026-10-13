@@ -1,8 +1,13 @@
 const assert = require('assert');
+const child_process = require('child_process');
 const file_manager_serve = require('../server/file_manager_serve');
 const file_manager_transfers_serve = require('../server/file_manager_transfers_serve');
+const fs = require('fs');
 const http = require('http');
+const os = require('os');
+const path = require('path');
 const stream = require('stream');
+const tar_parser = require('../server/tar_parser');
 const test = require('node:test');
 const timers = require('timers/promises');
 const transfer_queue = require('../server/transfer_queue');
@@ -368,6 +373,111 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     assert.strictEqual((await call(plain, 'GET', '/fs/watch?path=/')).status, 501);
 });
 
+test('the room left on a folder\'s disk, for an upload to check it fits; a disk that cannot say answers 501, a refusal 502', async function (t) {
+    const disk = disk_in_memory({'/home/me/a.txt': 'a'});
+    const running = await serve(t, {disk});
+
+    // A folder not made yet is the disk's to measure, at the nearest one that is
+    const room = await call(running, 'GET', `/fs/room?path=${encodeURIComponent('/home/me/new folder')}`);
+    assert.deepStrictEqual([room.status, JSON.parse(room.body)], [200, {bytes_free: 5000000000, inodes_free: 300000}]);
+    assert.deepStrictEqual(disk.measured, ['/home/me/new folder']);
+    assert.strictEqual((await call(running, 'POST', '/fs/room?path=/home/me')).status, 404);
+
+    // A disk that counts no inodes says null, whatever it left out
+    disk.room = async function () {
+        return {bytes_free: 7};
+    };
+    assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs/room?path=/home/me')).body), {bytes_free: 7, inodes_free: null});
+
+    // A disk that refuses
+    disk.room = async function () {
+        throw new Error('ENOTDIR: /home/me/a.txt/x');
+    };
+    const refused = await call(running, 'GET', '/fs/room?path=/home/me/a.txt/x');
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'ENOTDIR: /home/me/a.txt/x'}]);
+
+    // A disk that cannot say: the page uploads without asking
+    const plain_disk = disk_in_memory({});
+    delete plain_disk.room;
+    const plain = await serve(t, {disk: plain_disk});
+    const unknown = await call(plain, 'GET', '/fs/room?path=/home/me');
+    assert.deepStrictEqual([unknown.status, JSON.parse(unknown.body)], [501, {error: 'this disk cannot say how much room it has'}]);
+});
+
+test('many files as one tar: written as they come, with their times; a bad name refuses the tar, before the disk is asked when it is the first', async function (t) {
+    const disk = disk_in_memory({'/home/me/old.txt': 'old'});
+    const logged = [];
+    const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
+
+    // What GNU tar writes of a folder: files, folders inside, an empty one, a name too long
+    // for ustar (././@LongLink)
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fm-tar-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const long = `${'d'.repeat(120)}/${'f'.repeat(130)}.txt`;
+    fs.mkdirSync(path.join(dir, 'a', 'b'), {recursive: true});
+    fs.mkdirSync(path.join(dir, 'empty'));
+    fs.mkdirSync(path.join(dir, path.dirname(long)));
+    fs.writeFileSync(path.join(dir, 'a', 'b', 'deep.txt'), 'deep');
+    fs.writeFileSync(path.join(dir, 'top.txt'), 'top');
+    fs.writeFileSync(path.join(dir, long), 'long');
+    fs.utimesSync(path.join(dir, 'top.txt'), 1600000000, 1600000000);
+    const tarred = child_process.execFileSync('tar', ['-C', dir, '-cf', '-', '.']);
+    const landed = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/in', tarred);
+    assert.deepStrictEqual([landed.status, JSON.parse(landed.body)], [200, {files: 3, bytes: 11}]);
+    assert.deepStrictEqual([disk.files['/home/me/in/a/b/deep.txt'], disk.files['/home/me/in/top.txt'], disk.files[`/home/me/in/${long}`]], ['deep', 'top', 'long']);
+    assert.strictEqual(disk.files['/home/me/in/empty/'], '', 'an empty folder is made');
+    assert.strictEqual(disk.times['/home/me/in/top.txt'], 1600000000, 'a file keeps the time it had');
+    assert.deepStrictEqual(logged, [['files_copied', {dir: '/home/me/in', files: 3, bytes: 11, ms: logged[0][1].ms}]]);
+
+    // Written by hand: a long name, a ustar prefix, a link passed over
+    const by_hand = tar_of([
+        {name: '././@LongLink', type: 'L', text: `${'x'.repeat(150)}.txt\0`},
+        {name: 'x'.repeat(99), text: 'long'},
+        {prefix: 'p/'.repeat(60).slice(0, -1), name: 'prefixed.txt', text: 'pre', mtime: 1500000000},
+        {name: 'link', type: '2'},
+    ]);
+    assert.deepStrictEqual(JSON.parse((await call(running, 'POST', '/fs/upload/tar?dir=/home/me/hand', by_hand)).body), {files: 2, bytes: 7});
+    assert.strictEqual(disk.files[`/home/me/hand/${'x'.repeat(150)}.txt`], 'long');
+    assert.strictEqual(disk.files[`/home/me/hand/${'p/'.repeat(60)}prefixed.txt`], 'pre');
+    assert.strictEqual(disk.times[`/home/me/hand/${'p/'.repeat(60)}prefixed.txt`], 1500000000);
+
+    // A first name that walks out, or is absolute: refused before the disk is asked
+    const tars = disk.tars.length;
+    const out_of = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', tar_of([{name: '../escape.txt', text: 'x'}]));
+    assert.deepStrictEqual([out_of.status, JSON.parse(out_of.body).error], [400, '"../escape.txt" walks out of the folder the tar is sent to']);
+    const absolute = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', tar_of([{name: '/etc/passwd', text: 'x'}]));
+    assert.deepStrictEqual([absolute.status, /is an absolute name/.test(JSON.parse(absolute.body).error)], [400, true]);
+    assert.strictEqual(disk.tars.length, tars, 'the disk was not asked');
+
+    // A bad name later: what came before it is in, nothing after it
+    const later = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/later', tar_of([{name: 'one.txt', text: '1'}, {name: 'a/../../two.txt', text: '2'}, {name: 'three.txt', text: '3'}]));
+    assert.deepStrictEqual([later.status, /walks out/.test(JSON.parse(later.body).error)], [400, true]);
+    assert.deepStrictEqual(Object.keys(disk.files).filter(v => v.startsWith('/home/me/later/')), ['/home/me/later/one.txt']);
+    assert.strictEqual(disk.files['/home/me/two.txt'], undefined);
+
+    // A body that stops before the tar ends, or is no tar at all
+    const whole = tar_of([{name: 'cut.txt', text: 'x'.repeat(2000)}]);
+    const cut = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/cut', whole.subarray(0, 1024));
+    assert.deepStrictEqual([cut.status, JSON.parse(cut.body).error], [400, 'the tar was cut before its end']);
+    assert.strictEqual(disk.files['/home/me/cut/cut.txt'], undefined, 'no half file');
+    const junk = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', Buffer.alloc(1024, 'j'));
+    assert.deepStrictEqual([junk.status, /not a tar/.test(JSON.parse(junk.body).error)], [400, true]);
+    assert.strictEqual((await call(running, 'POST', '/fs/upload/tar', whole)).status, 400);
+    assert.strictEqual(logged.length, 2, 'one line a tar, for the two that went in');
+
+    // A disk that refuses, and one that takes no tar
+    disk.write_tar = async function () {
+        throw new Error('EACCES: /home/me/locked');
+    };
+    const refused = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/locked', whole);
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'EACCES: /home/me/locked'}]);
+    const plain_disk = disk_in_memory({});
+    delete plain_disk.write_tar;
+    const plain = await serve(t, {disk: plain_disk});
+    const unknown = await call(plain, 'POST', '/fs/upload/tar?dir=/home/me', whole);
+    assert.deepStrictEqual([unknown.status, JSON.parse(unknown.body)], [501, {error: 'this disk cannot take a tar'}]);
+});
+
 // A disk held in an object: path -> text, a folder as a path that ends in a slash or as the
 // folder of a file. Enough of a disk to answer every call the way a real one does.
 function disk_in_memory(files)
@@ -375,7 +485,12 @@ function disk_in_memory(files)
     const held = Object.assign({}, files);
     // A file in parts: what is in so far, kept by upload id
     const parts = {};
-    const out = {files: held, parts};
+    // Every folder it was asked to measure the room of, the time each file of a tar was given,
+    // and the folder of every tar it was handed
+    const measured = [];
+    const times = {};
+    const tars = [];
+    const out = {files: held, parts, measured, times, tars};
     function folder_has(dir) {
         return Object.keys(held).some(v => v.startsWith(`${(dir === '/') ? '' : dir}/`));
     }
@@ -440,6 +555,41 @@ function disk_in_memory(files)
         held[`${asked}/`] = '';
         return {created: true};
     };
+    // A file is held once its last byte is in, with the time the tar gives it
+    out.write_tar = async function (dir, source) {
+        tars.push(dir);
+        const parser = tar_parser();
+        const out = {files: 0, bytes: 0};
+        let file = null;
+        for await (const chunk of source) {
+            for (const event of parser.push(chunk)) {
+                if (event.type === 'dir') {
+                    held[`${dir}/${event.name}/`] = '';
+                }
+                if (event.type === 'file') {
+                    file = {full: `${dir}/${event.name}`, mtime_s: event.mtime_s, chunks: []};
+                }
+                if (event.type === 'data') {
+                    file.chunks.push(Buffer.from(event.bytes));
+                    out.bytes += event.bytes.length;
+                }
+                if (event.type === 'file_end') {
+                    held[file.full] = Buffer.concat(file.chunks).toString('utf8');
+                    times[file.full] = file.mtime_s;
+                    out.files += 1;
+                }
+            }
+        }
+        const error = parser.end();
+        if (error !== null) {
+            throw error;
+        }
+        return out;
+    };
+    out.room = async function (dir) {
+        measured.push(dir);
+        return {bytes_free: 5000000000, inodes_free: 300000};
+    };
     out.part_stat = async function (dir, name, id) {
         return {received: ((parts[id] === undefined) ? 0 : parts[id].length)};
     };
@@ -471,6 +621,37 @@ function disk_in_memory(files)
         return {};
     };
     return out;
+}
+
+// A tar written by hand, entry by entry: {name, prefix, type, text, mtime}, then its end
+function tar_of(entries)
+{
+    const blocks = [];
+    for (const entry of entries) {
+        const data = Buffer.from((entry.text === undefined) ? '' : entry.text);
+        const header = Buffer.alloc(512);
+        header.write(entry.name, 0, 100, 'utf8');
+        header.write('0000644\0', 100, 'latin1');
+        header.write('0000000\0', 108, 'latin1');
+        header.write('0000000\0', 116, 'latin1');
+        header.write(`${data.length.toString(8).padStart(11, '0')}\0`, 124, 'latin1');
+        header.write(`${((entry.mtime === undefined) ? 0 : entry.mtime).toString(8).padStart(11, '0')}\0`, 136, 'latin1');
+        header.write('        ', 148, 'latin1');
+        header.write(((entry.type === undefined) ? '0' : entry.type), 156, 'latin1');
+        header.write('ustar\0', 257, 'latin1');
+        header.write('00', 263, 'latin1');
+        if (entry.prefix !== undefined) {
+            header.write(entry.prefix, 345, 155, 'utf8');
+        }
+        let sum = 0;
+        for (const byte of header) {
+            sum += byte;
+        }
+        header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148, 'latin1');
+        blocks.push(header, data, Buffer.alloc((512 - data.length % 512) % 512));
+    }
+    blocks.push(Buffer.alloc(1024));
+    return Buffer.concat(blocks);
 }
 
 // The module mounted at /fs on a server of its own, the way a host mounts it

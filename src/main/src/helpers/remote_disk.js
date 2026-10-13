@@ -46,6 +46,12 @@ function remote_disk(app, remote)
         mkdir: function (asked) {
             return remote_call(app, remote, 'dir_create', {path: asked}, FS_TIMEOUT_MS);
         },
+        room: function (dir) {
+            return remote_call(app, remote, 'fs_room', {path: (((dir === null) || (dir === '')) ? '~' : dir)}, FS_TIMEOUT_MS);
+        },
+        write_tar: function (dir, source) {
+            return file_send(remote, {tar_put: {dir}}, source);
+        },
         part_stat: function (dir, name, id) {
             return remote_call(app, remote, 'file_part_stat', {dir, name, id}, FS_TIMEOUT_MS);
         },
@@ -61,9 +67,9 @@ function remote_disk(app, remote)
     };
 }
 
-// The bytes of one file, or of one part of it, into a stream whose far end is that file. What
-// comes back is the one line the machine writes when they are in — where the file landed and
-// how big it is, or how much of it is in so far. The bytes come from a browser's request, or
+// The bytes of one file, of one part of it, or of a tar of many, into a stream whose far end
+// writes them. What comes back is the one line the machine writes when they are in — where the
+// file landed and how big it is, how much of it is in so far, or how many files a tar made. The bytes come from a browser's request, or
 // from a file read on another machine.
 function file_send(remote, target, source)
 {

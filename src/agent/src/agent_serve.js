@@ -10,6 +10,7 @@ const agent_file_part_stat = require('./agent_file_part_stat');
 const agent_fs_delete = require('./agent_fs_delete');
 const agent_fs_list = require('./agent_fs_list');
 const agent_fs_rename = require('./agent_fs_rename');
+const agent_fs_room = require('./agent_fs_room');
 const agent_fs_stat = require('./agent_fs_stat');
 const agent_link = require('./agent_link');
 const agent_logline = require('./agent_logline');
@@ -78,7 +79,7 @@ const TUNNEL_KINDS = ['o', 'd', 'e', 'x', 'r'];
 
 // What the host asks for every half minute, and every time it measures the link. These would
 // bury everything worth reading, so they are done quietly.
-const QUIET = ['ping', 'stats', 'metrics', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'package_list', 'term_list'];
+const QUIET = ['ping', 'stats', 'metrics', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'package_list', 'term_list'];
 
 // The work worth bracketing: a line that fetches a repo, an image that has to come down, a
 // shell line somebody wrote. It takes seconds, so a reader wants to see it start and wait.
@@ -447,6 +448,9 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'fs_stat') {
         return await agent_fs_stat(params);
+    }
+    if (method === 'fs_room') {
+        return await agent_fs_room(params);
     }
     if (method === 'fs_delete') {
         return await agent_fs_delete(params);

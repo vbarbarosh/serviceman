@@ -248,19 +248,172 @@ p.fm-foot {
     margin: .1rem 0 .2rem;
 }
 
-/* Each row a grid of its own on the same columns, so a row can slide in and out by itself; a
-   name with its folders, photos/2024/a.jpg, gets as much of the row as the figures */
+/* A drop being counted: a light that runs along the bar, since nobody knows yet how far */
+.fm-uploads .meter.fm-counting i {
+    width: 30%;
+    animation: fm-counting 1.4s ease-in-out infinite;
+}
+
+@keyframes fm-counting {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(340%);
+    }
+}
+
+.fm-room {
+    border-color: var(--busy, #d38b12);
+}
+
+.fm-room-what {
+    margin: .2rem 0 .7rem;
+    line-height: 1.5;
+}
+
+.fm-room-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.fm-paused {
+    padding: 0 .5rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--busy, #d38b12) 18%, transparent);
+    color: var(--busy, #d38b12);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+/* The speed across the copy: grid lines, the part done shaded, the speed drawn over it */
+.fm-graph {
+    position: relative;
+    height: 5.5rem;
+    margin: .5rem 0 .4rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.fm-graph svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.fm-graph svg * {
+    vector-effect: non-scaling-stroke;
+}
+
+.fm-graph-grid {
+    stroke: var(--line);
+}
+
+.fm-graph-done {
+    fill: color-mix(in srgb, var(--accent) 7%, transparent);
+    transition: width .5s ease;
+}
+
+.fm-graph-area {
+    fill: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.fm-graph-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.6;
+}
+
+.fm-graph-now {
+    stroke: var(--accent);
+    stroke-dasharray: 4 4;
+    opacity: .7;
+}
+
+.fm-graph-speed {
+    position: absolute;
+    right: .6rem;
+    padding: 0 .3rem;
+    transform: translateY(-120%);
+    background: var(--panel);
+    color: var(--accent);
+    font-size: .85rem;
+    font-weight: 600;
+    transition: top .5s ease;
+}
+
+.fm-graph-speed.under {
+    transform: translateY(20%);
+}
+
+.fm-graph.paused svg {
+    opacity: .45;
+}
+
+.fm-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem 1.4rem;
+    margin-bottom: .5rem;
+    font-size: .9rem;
+}
+
+.fm-facts > code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A row is the path, as wide as it needs, and what became of the file at the row's end: a small
+   bar and its figures while it goes. The path is cut only when the two do not fit. */
 .fm-copy-rows {
     position: relative;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: .4rem;
 }
 
 .fm-uploads .fm-copy {
-    grid-column: auto;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 4fr);
-    column-gap: .8rem;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
     min-height: 1.6rem;
+}
+
+.fm-uploads .fm-copy > code {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.fm-copy-state {
+    flex: none;
+    min-width: 0;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fm-copy-going {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.fm-copy-state > .meter {
+    flex: none;
+    width: 7rem;
+    margin: 0;
+}
+
+.fm-copy-state > span:not(.meter) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* A file landed: its row goes up and out, the rest slide up a place, the next comes in under */
@@ -378,7 +531,7 @@ p.fm-foot {
 }
 
 .svc-warn {
-    color: var(--busy);
+    color: var(--busy, #d38b12);
 }
 
 .form .svc-body {
@@ -451,8 +604,8 @@ p.fm-foot {
 }
 
 .pill.starting {
-    background: color-mix(in srgb, var(--busy) 16%, transparent);
-    color: var(--busy);
+    background: color-mix(in srgb, var(--busy, #d38b12) 16%, transparent);
+    color: var(--busy, #d38b12);
 }
 
 @media (max-width: 40rem) {
@@ -475,7 +628,16 @@ p.fm-foot {
     }
 
     .fm-uploads .fm-copy {
-        grid-template-columns: 5rem minmax(0, 1fr);
+        flex-wrap: wrap;
+        row-gap: .2rem;
+    }
+
+    .fm-uploads .fm-copy > code {
+        flex-basis: 100%;
+    }
+
+    .fm-copy-state {
+        max-width: 100%;
     }
 
     .fm-copy-summary {
@@ -516,7 +678,7 @@ p.fm-foot {
 }
 
 .fm-dirty {
-    color: var(--busy);
+    color: var(--busy, #d38b12);
     font-size: .9rem;
 }
 

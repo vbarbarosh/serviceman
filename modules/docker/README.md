@@ -78,6 +78,12 @@ of the Engine API alone: nothing is installed in the container and nothing is mo
   file it replaces; the length must be known first, as an upload's is
 - rename, delete, new folder and a tar of several names are `mv`, `rm -rf`, `mkdir -p` and
   `tar -cf -` run in it, as the container's own user
+- many files as one tar go to docker's own unpack (`PUT …/archive`) as the body comes, with its
+  length when the request said one, into the folder, made with `mkdir -p` first when it is not
+  there; docker keeps the tar's times, and the counts in the answer are the File Manager's own
+- the room left on a folder's disk is `df -Pk` and `df -Pi` run in it, at the nearest folder
+  that is there; a `df` with no `-i` says no inodes (null), and a container with no `df` is a
+  502
 - it keeps no parts, so a big file goes up in one piece
 
 A volume's Files opens the same File Manager: through a running container that mounts it, at
