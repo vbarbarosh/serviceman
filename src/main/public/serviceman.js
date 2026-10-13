@@ -790,10 +790,12 @@ const remote_files = {
     <p class="muted">The agent on this machine is from before the file manager, so its folders cannot be read yet.</p>
     <p class="muted">It updates itself within a minute or two of being connected; the Overview says when it refuses, and why.</p>
 </article>
-<file-manager v-else id="detail" class="list" :base="base" :theme="theme" :offline="offline" :open_base="open_base" :title="(view.title || view.name)" :user="agent_user" home_title="The home folder of the agent's user" transfers="/api/v1/transfers" :disk="view.name" :targets="targets"/>
+<file-manager v-else id="detail" class="list" :base="base" :theme="theme" :offline="offline" :open_base="open_base" :title="(view.title || view.name)" :user="agent_user" home_title="The home folder of the agent's user" :start="start" transfers="/api/v1/transfers" :disk="view.name" :targets="targets" @path="$emit('path', $event)"/>
 `,
     components: {'file-manager': file_manager},
-    props: ['view', 'remotes', 'control', 'theme'],
+    // start: the folder to open first, from the address; path: each folder opened after
+    props: ['view', 'remotes', 'control', 'theme', 'start'],
+    emits: ['path'],
     computed: {
         // The other machines a file can be copied to: one that is not connected now takes the
         // copy when it is back
@@ -1955,7 +1957,7 @@ const remote_page = {
     <remote-logline v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" @logline="$emit('logline')"/>
     <remote-docker v-else-if="(tab_now === 'docker')" :key="('docker-' + view.name)" :view="view" :theme="theme"/>
     <remote-firewall v-else-if="(tab_now === 'firewall')" :key="('firewall-' + view.name)" :view="view"/>
-    <remote-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme"/>
+    <remote-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme" :start="files_path" @path="$emit('files_path', $event)"/>
     <remote-processes v-else-if="(tab_now === 'processes')" :key="('processes-' + view.name)" :view="view"/>
     <remote-disks v-else-if="(tab_now === 'disks')" :key="('disks-' + view.name)" :view="view"/>
     <remote-packages v-else-if="(tab_now === 'packages')" :key="('packages-' + view.name)" :view="view"/>
@@ -1970,8 +1972,8 @@ const remote_page = {
 </div>
 `,
     components: {ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell},
-    props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer'],
-    emits: ['create', 'list', 'logline', 'saved', 'select', 'service', 'tab'],
+    props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path'],
+    emits: ['create', 'files_path', 'list', 'logline', 'saved', 'select', 'service', 'tab'],
     data: function () {
         return {original: null, edit_key: 0};
     },
@@ -2194,7 +2196,7 @@ function route_from_path(pathname, search)
         return {kind: 'home', name: '', tab: '', item: '', remote};
     }
     if (((parts[0] === 'services') || (parts[0] === 'remotes')) && (parts.length > 1)) {
-        return {kind: parts[0], name: parts[1], tab: ((parts[2] === undefined) ? '' : parts[2]), item: ((parts[3] === undefined) ? '' : parts[3]), remote: null};
+        return {kind: parts[0], name: parts[1], tab: ((parts[2] === undefined) ? '' : parts[2]), item: ((parts[3] === undefined) ? '' : parts[3]), remote: null, path: new URLSearchParams(search).get('path')};
     }
     return {kind: parts[0], name: '', tab: '', item: '', remote};
 }
@@ -2334,7 +2336,7 @@ const app = {
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" @close="form_open = false" @saved="form_saved"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
@@ -2360,6 +2362,9 @@ const app = {
             remote_form_open: false,
             // The tab of the remote page, kept the same way service_tab is
             remote_tab: 'overview',
+            // The folder each machine's File Manager shows, by machine: in the address, so a reload
+            // and a link come back to it
+            remote_files_paths: {},
             // The terminal last open in each machine's Shell tab, by machine; and the one last open
             // on any, which another machine opens too when it has one of that name
             remote_terminals: {},
@@ -2481,7 +2486,9 @@ const app = {
             if (this.remote_name !== null) {
                 const tail = ((this.remote_tab_now === 'overview') ? '' : `/${this.remote_tab_now}`);
                 const item = (((this.remote_tab_now === 'shell') && (this.remote_terminal_now !== null)) ? `/${encodeURIComponent(this.remote_terminal_now)}` : '');
-                return `/remotes/${encodeURIComponent(this.remote_name)}${tail}${item}`;
+                const folder = this.remote_files_paths[this.remote_name];
+                const query = (((this.remote_tab_now === 'files') && (folder !== undefined)) ? `?path=${encodeURIComponent(folder)}` : '');
+                return `/remotes/${encodeURIComponent(this.remote_name)}${tail}${item}${query}`;
             }
             return ((only === '') ? '/' : `/services${only}`);
         },
@@ -2725,6 +2732,9 @@ const app = {
                     return;
                 }
                 this.remote_name = route.name;
+                if ((route.path !== null) && (route.path !== undefined)) {
+                    this.remote_files_paths[route.name] = route.path;
+                }
                 this.selected_name = null;
                 this.remote_key++;
                 // The Ports tab is part of Firewall now; an address from before still opens it

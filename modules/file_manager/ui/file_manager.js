@@ -348,6 +348,9 @@ const file_manager = {
     // disk       this disk's name among them
     // targets    the other disks a file may be copied to: [{value, label}]
     props: ['base', 'theme', 'offline', 'open_base', 'title', 'user', 'home_title', 'start', 'transfers', 'disk', 'targets'],
+    // path       the folder now shown, each time another one is, for the host to keep: in the
+    //            address, say, where a reload finds it and gives it back as `start`
+    emits: ['path'],
     data: function () {
         return {
             LANGUAGES,
@@ -708,6 +711,7 @@ const file_manager = {
                 this.path = outcome.path;
                 this.typed = outcome.path;
                 this.items = outcome.items;
+                this.$emit('path', outcome.path);
                 this.crumbs_end();
                 this.now = Date.now();
                 this.chosen = {};
@@ -718,6 +722,23 @@ const file_manager = {
             }
             finally {
                 this.busy = false;
+            }
+        },
+        // The folder asked for first, or the nearest one on its way there that is: a link may
+        // name a folder deleted since, and a page that only says so has nowhere to go
+        open_nearest: async function (where) {
+            await this.open(where);
+            let at = where;
+            while ((this.path === null) && (at.lastIndexOf('/') > 0)) {
+                at = at.slice(0, at.lastIndexOf('/'));
+                await this.open(at);
+            }
+            if ((this.path === null) && at.startsWith('/') && (at !== '/')) {
+                at = '/';
+                await this.open(at);
+            }
+            if ((at !== where) && (this.path !== null)) {
+                this.act_report(`${where} is not there: the nearest folder on its way is shown`, true);
             }
         },
         // One quiet read for all that lands within a second
@@ -1414,7 +1435,7 @@ const file_manager = {
     mounted: function () {
         // The editor lives outside what vue watches: it is a large object that changes itself
         this.editor = null;
-        this.open(this.start ? this.start : '');
+        this.open_nearest(this.start ? this.start : '');
         // A tab closed with an edit that is not saved asks first, the way a browser can
         const self = this;
         this.unload_guard = function (event) {

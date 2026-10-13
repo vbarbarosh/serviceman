@@ -1046,6 +1046,11 @@ import file_manager from &#39;file_manager/file_manager.js&#39;;
 </tr>
 </tbody></table>
 </div>
+<p>It emits <code>path</code>, the folder it shows, each time it shows another one: the host keeps it where a
+reload finds it and gives it back as <code>start</code>. serviceman keeps it in the address,
+<code>/remotes/&lt;name&gt;/files?path=&lt;folder&gt;</code>, so a reload, Back and a link sent to somebody come back
+to it. A <code>start</code> that is not there any more opens the nearest folder on its way that is, and
+says so.</p>
 <h3 id="files-and-folders-from-outside"><a class="anchor" href="#files-and-folders-from-outside" aria-hidden="true" tabindex="-1">#</a>Files and folders from outside</h3>
 <p>What the dialogs take, a drop takes, as the rulebook&#39;s UIM-04 to UIM-06 ask:</p>
 <ul>

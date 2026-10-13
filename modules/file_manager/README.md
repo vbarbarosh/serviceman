@@ -251,6 +251,12 @@ The page half: the host serves `ui/` and maps it, with Vue and a CodeMirror bund
 | `disk` | this disk's name among them |
 | `targets` | the other disks a file may be copied to: `[{value, label}]` |
 
+It emits `path`, the folder it shows, each time it shows another one: the host keeps it where a
+reload finds it and gives it back as `start`. serviceman keeps it in the address,
+`/remotes/<name>/files?path=<folder>`, so a reload, Back and a link sent to somebody come back
+to it. A `start` that is not there any more opens the nearest folder on its way that is, and
+says so.
+
 ### Files and folders from outside
 
 What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
