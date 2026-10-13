@@ -195,7 +195,7 @@ button.fm-sort.on {
     display: grid;
     place-items: center;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--panel) 85%, transparent);
+    background: var(--panel);
     color: var(--accent);
     font-weight: 600;
     pointer-events: none;
@@ -208,7 +208,7 @@ p.fm-foot {
 
 .fm-copies {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 16rem 26rem;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 4fr);
     gap: .4rem .8rem;
     padding: .7rem .9rem;
 }
@@ -217,7 +217,23 @@ p.fm-foot {
     grid-column: 1 / -1;
 }
 
-/* One grid for the whole card, so the names take the room left and the bars line up */
+/* A folder of a thousand files keeps the list in view: the uploads scroll, their head stays */
+.fm-uploads {
+    max-height: 40vh;
+    overflow: auto;
+}
+
+.fm-uploads > .list-head {
+    position: sticky;
+    top: -.7rem;
+    z-index: 1;
+    margin-top: -.7rem;
+    padding-top: .7rem;
+    background: var(--panel);
+}
+
+/* One grid for the whole card, so the bars line up; a name with its folders, photos/2024/a.jpg,
+   gets as much of the row as the figures */
 .fm-copy {
     display: grid;
     grid-column: 1 / -1;
@@ -410,6 +426,12 @@ p.fm-foot {
     .fm-copy > code,
     .fm-copy > span:not(.meter):only-of-type {
         grid-column: 1 / -1;
+    }
+
+    /* With no pointer to hover, a path wraps whole: its end is the file's name */
+    .fm-copy > code {
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }
 

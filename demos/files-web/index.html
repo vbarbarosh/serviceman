@@ -415,6 +415,18 @@ document.getElementById('theme').addEventListener('click', () => theme_set(theme
 theme_set(theme_saved());
 // Chrome on Wayland can hold a drag started on a link, and every click with it
 addEventListener('dragstart', v => v.preventDefault());
+// A file dropped beside the list never opens in the tab and loses the page; a drag of text is
+// left to the field under it
+addEventListener('dragover', function (event) {
+    if (event.dataTransfer.types.includes('Files')) {
+        event.preventDefault();
+    }
+});
+addEventListener('drop', function (event) {
+    if (event.dataTransfer.types.includes('Files')) {
+        event.preventDefault();
+    }
+});
 files_start();
 addEventListener('resize', () => state.fit && state.fit.fit());
 const first = await load();
@@ -693,7 +705,12 @@ async function files_start()
         event.preventDefault();
         list.classList.add('drop');
     });
-    list.addEventListener('dragleave', () => list.classList.remove('drop'));
+    list.addEventListener('dragleave', function (event) {
+        // Leaving for a row inside the list is not leaving it
+        if (list.contains(event.relatedTarget) === false) {
+            list.classList.remove('drop');
+        }
+    });
     list.addEventListener('drop', function (event) {
         event.preventDefault();
         list.classList.remove('drop');

@@ -34,15 +34,18 @@ addEventListener('beforeunload', function (event) {
     }
 });
 
-// base -> {copies, copying, note, bad, landed, whole, part_bytes, take, stop, clear}. `landed`
+// base -> {copies, copying, note, bad, landed, whole, part_bytes, take, refuse, stop, clear}. `landed`
 // counts the files that arrived, for a tab showing their folder to read it again; `whole` is a
 // disk that keeps no parts; `part_bytes` is how big a part gets through.
 function upload_queue(base)
 {
     if (queues[base] === undefined) {
         const queue = reactive({base, copies: [], copying: false, cancelled: false, note: '', bad: false, landed: 0, whole: false, part_bytes: PART_BYTES});
-        queue.take = function (list, dir) {
-            take(queue, list, dir);
+        queue.take = function (list) {
+            take(queue, list);
+        };
+        queue.refuse = function (labels, why) {
+            refuse(queue, labels, why);
         };
         queue.stop = function () {
             stop(queue);
@@ -56,13 +59,23 @@ function upload_queue(base)
 }
 
 // Choosing a file is the act, and the copy follows it. Each lands in the folder it was chosen
-// for, whichever folder the tab shows by the time its turn comes.
-function take(queue, list, dir)
+// for, whichever folder the tab shows by the time its turn comes. list: [{file, dir, label}],
+// `label` the name as the list of uploads shows it, with the folders it came in.
+function take(queue, list)
 {
-    for (const file of list) {
-        queue.copies.push({name: file.name, size: file.size, file, dir, phase: 'waiting', said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
+    for (const {file, dir, label} of list) {
+        queue.copies.push({name: file.name, label, size: file.size, file, dir, phase: 'waiting', said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
     }
     copy(queue);
+}
+
+// What was chosen but cannot be sent, said in the list where the rest goes: it stays until
+// Clear, and counts among the failed
+function refuse(queue, labels, why)
+{
+    for (const label of labels) {
+        queue.copies.push({name: label.split('/').pop(), label, size: 0, file: null, dir: '', phase: 'error', said: why, replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
+    }
 }
 
 // One at a time, in the order they were chosen: a link carrying six files at once carries none
@@ -150,7 +163,7 @@ async function copy_one(queue, item)
             if (error.lasting === true) {
                 item.phase = 'error';
                 item.said = error.message;
-                report(queue, `${item.name} did not land`, true);
+                report(queue, `${item.label} did not land`, true);
                 return;
             }
             // Whatever went wrong, the disk is asked again where the file stands
@@ -242,7 +255,7 @@ function copy_whole(queue, item)
     }, function (error) {
         item.phase = ((error.aborted === true) ? 'cancelled' : 'error');
         item.said = ((error.aborted === true) ? '' : error.message);
-        report(queue, ((error.aborted === true) ? 'stopped' : `${item.name} did not land`), (error.aborted !== true));
+        report(queue, ((error.aborted === true) ? 'stopped' : `${item.label} did not land`), (error.aborted !== true));
     });
 }
 

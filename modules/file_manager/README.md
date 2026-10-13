@@ -1,7 +1,8 @@
 # file_manager
 
 A file manager for a web page: walk folders, filter and sort them, tick names to rename,
-move, delete or download, make folders, upload by picker or drop, open a text file in an
+move, delete or download, make folders, upload files or a whole folder by picker, drop or
+Ctrl+V, open a text file in an
 editor and save it, and open any file in a tab of its own, served as what it is — a video
 seeks, a page finds its neighbours. A big file goes up in parts and carries on after a dropped
 connection or a closed page, and a file can be copied from one disk to another by the server.
@@ -21,6 +22,7 @@ reached over the link that machine's agent dialled.
     server/file_manager_transfers_serve.js   the HTTP API of those copies
     ui/file_manager.js             the component
     ui/upload_queue.js             the uploads, kept by the page so they outlive the component
+    ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
     ui/file_manager.css            the component's rules
     vendor_src/codemirror.js       what the editor takes from CodeMirror, for the host to bundle
     tests/                         the API over a disk held in memory
@@ -224,6 +226,21 @@ The page half: the host serves `ui/` and maps it, with Vue and a CodeMirror bund
 | `transfers` | where the host's copies between disks are; without it there is no Copy to… |
 | `disk` | this disk's name among them |
 | `targets` | the other disks a file may be copied to: `[{value, label}]` |
+
+### Files and folders from outside
+
+What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
+
+- **Upload files** and **Upload folder** open the dialogs; a folder goes with its inner folders.
+- Files or folders dropped on the list are copied into the folder it shows; the list lights up
+  while they are over it. A folder is read file by file, its inner folders too.
+- **Ctrl+V** with files or a folder in the clipboard does what a drop does, anywhere in the tab
+  but a field or the editor; a paste of text is left alone.
+- A folder's own folders are made first, the deepest of each branch as `mkdir -p` does, empty
+  ones included: a container's disk writes a file only into a folder that is there.
+- Each file goes up under its way from the folder taken (`photos/2024/a.jpg`), A to Z. A name
+  the browser cannot read is a failed row in Uploads, the rest still goes.
+- A file dropped anywhere else on the page never opens in the tab and loses it.
 
 The host page gives the colours, as `--bg`, `--panel`, `--fg`, `--muted`, `--line`, `--hover`
 and `--accent`, and the classes the component shares with the rest of the page: `card`, `chip`,

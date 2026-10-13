@@ -1,3 +1,4 @@
+import data_transfer_read from './data_transfer_read.js';
 import upload_queue from './upload_queue.js';
 
 // How often the copies between disks are asked about while one is under way
@@ -47,6 +48,20 @@ const LANGUAGE_BY_EXTENSION = {
     scss: 'css', service: 'properties', sh: 'shell', sql: 'sql', svg: 'xml', toml: 'toml',
     ts: 'typescript', tsx: 'tsx', vue: 'html', xml: 'xml', yaml: 'yaml', yml: 'yaml', zsh: 'shell',
 };
+
+// A file dropped beside the list never opens in the tab and loses the page. An editor takes
+// its own drops, and a drag of text is left to the field under it.
+addEventListener('dragover', function (event) {
+    if ((event.defaultPrevented === false) && is_files_drag(event)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'none';
+    }
+});
+addEventListener('drop', function (event) {
+    if (is_files_drag(event)) {
+        event.preventDefault();
+    }
+});
 
 // One folder at a time, read from the API under `base` when asked and kept nowhere, and
 // files from here copied into the open folder. The host page gives the API, the colours
@@ -130,14 +145,16 @@ const file_manager = {
             <button type="button" class="chip" :class="{on: show_dot_files}" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files">dot files <span class="muted">{{ dot_count }}</span></button>
             <span class="list-right">
                 <button type="button" :disabled="(offline || path === null)" @click="mode_open('folder')">+ New folder</button>
-                <button type="button" class="primary" :disabled="(offline || path === null)" @click="$refs.picker.click()">Upload</button>
+                <button type="button" :disabled="(offline || path === null)" title="A whole folder, its inner folders too; or drop it on the list" @click="$refs.folder_picker.click()">Upload folder</button>
+                <button type="button" class="primary" :disabled="(offline || path === null)" title="Or drop them on the list, or paste them with Ctrl+V" @click="$refs.picker.click()">Upload files</button>
             </span>
         </template>
     </div>
     <p v-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note">{{ note_shown }}</p>
     <input ref="picker" type="file" multiple hidden @change="picked">
+    <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
-    <div v-if="(queue.copies.length > 0)" class="card fm-copies">
+    <div v-if="(queue.copies.length > 0)" class="card fm-copies fm-uploads">
         <div class="list-head">
             <b>Uploads</b>
             <span class="muted">{{ copy_summary }}</span>
@@ -147,7 +164,7 @@ const file_manager = {
             </div>
         </div>
         <div v-for="(item, i) of queue.copies" :key="i" class="fm-copy">
-            <code>{{ item.name }}</code>
+            <code :title="item.label">{{ item.label }}</code>
             <span v-if="(item.phase === 'waiting')" class="muted">{{ format_bytes(item.size) }} — waiting</span>
             <template v-else-if="(item.phase === 'copying' || item.phase === 'retrying')">
                 <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(item) * 100)) + '%')}"/></span>
@@ -180,8 +197,8 @@ const file_manager = {
             <span v-else class="bad" :title="(transfer_where(item) + ' · ' + item.said)">{{ transfer_where(item) }} · {{ item.said }}</span>
         </div>
     </div>
-    <!-- Anything dropped on the list is copied into the folder it shows -->
-    <div class="card fm-list" :class="{over: dragging}" @dragover.prevent="drag_over" @dragleave.self="dragging = false" @drop.prevent="dropped">
+    <!-- Files and folders dropped on the list are copied into the folder it shows -->
+    <div ref="list" class="card fm-list" :class="{over: dragging}" @dragover.prevent="drag_over" @dragleave="drag_leave" @drop.prevent="dropped">
         <table class="list-table fm-table">
             <thead>
                 <tr>
@@ -212,9 +229,9 @@ const file_manager = {
                 </tr>
             </tbody>
         </table>
-        <div v-if="dragging" class="fm-drop"><span>Drop to copy into <code>{{ here }}</code><template v-if="user">, written as {{ user }}</template></span></div>
+        <div v-if="dragging" class="fm-drop"><span>Drop files or folders to copy into <code>{{ here }}</code><template v-if="user">, written as {{ user }}</template></span></div>
     </div>
-    <p v-if="(path !== null)" class="muted fm-foot">{{ summary }} · drop files on the list to copy them here</p>
+    <p v-if="(path !== null)" class="muted fm-foot">{{ summary }} · drop files or folders on the list, or paste them with Ctrl+V, to copy them here</p>
     </template>
     <!-- One file of the folder, read into an editor in place of the list -->
     <template v-else>
@@ -315,6 +332,8 @@ const file_manager = {
             // not this tab: a copy goes on while another tab is open, and is here on coming back.
             queue: upload_queue(this.base),
             dragging: false,
+            // Shown, not kept aside: only a tab in view takes a paste
+            active: true,
             // The copies between disks the host is running, as it last said
             transfer_items: [],
             copy_disk: '',
@@ -322,6 +341,10 @@ const file_manager = {
         };
     },
     computed: {
+        // A folder is open and its machine is there: what is dropped or pasted has a place
+        can_take: function () {
+            return (this.path !== null) && (this.offline === false);
+        },
         copy_able: function () {
             return Boolean(this.transfers) && Array.isArray(this.targets) && (this.targets.length > 0);
         },
@@ -413,7 +436,7 @@ const file_manager = {
         },
         empty_text: function () {
             if (this.items.length === 0) {
-                return 'An empty folder. Upload files here, or drop them on this list.';
+                return 'An empty folder. Upload files or a folder here, drop them on this list, or paste them with Ctrl+V.';
             }
             if (this.filter !== '') {
                 return 'Nothing in this folder matches the filter.';
@@ -852,7 +875,16 @@ const file_manager = {
         },
         // Only files from outside light the list up; a drag of text or a link is not a copy
         drag_over: function (event) {
-            this.dragging = Array.from(event.dataTransfer.types).includes('Files');
+            this.dragging = this.can_take && Array.from(event.dataTransfer.types).includes('Files');
+            if (this.dragging === false) {
+                event.dataTransfer.dropEffect = 'none';
+            }
+        },
+        // Leaving for a name inside the list is not leaving it
+        drag_leave: function (event) {
+            if (this.$refs.list.contains(event.relatedTarget) === false) {
+                this.dragging = false;
+            }
         },
         choose: function (item, on) {
             if (on) {
@@ -930,22 +962,60 @@ const file_manager = {
             this.act_note = note;
             this.act_bad = bad;
         },
+        // A folder's dialog names each file by its way from the folder chosen: photos/2024/a.jpg
         picked: function (event) {
-            this.take(event.target.files);
+            this.take(Array.from(event.target.files).map(v => ({file: v, dir: v.webkitRelativePath.split('/').slice(0, -1).join('/')})), []);
             // The same file chosen twice in a row is two copies, and a picker that remembers
             // the last one would answer the second choice with nothing
             event.target.value = '';
         },
         dropped: function (event) {
             this.dragging = false;
-            if ((this.path === null) || this.offline) {
+            if (this.can_take === false) {
                 return;
             }
-            this.take(event.dataTransfer.files);
+            this.transfer_take(event.dataTransfer);
         },
-        // Choosing a file is the act, and the copy follows it, into the folder shown now
-        take: function (list) {
-            this.queue.take(list, this.path);
+        // Ctrl+V with files or a folder in the clipboard, anywhere but a field or the editor: they
+        // are copied here as a drop would be. A paste of text is left to the page.
+        pasted: function (event) {
+            if ((this.active === false) || (this.open_file !== null) || (this.can_take === false)) {
+                return;
+            }
+            if ((event.target.closest !== undefined) && (event.target.closest('input, textarea, select, [contenteditable]') !== null)) {
+                return;
+            }
+            if (Array.from(event.clipboardData.types).includes('Files') === false) {
+                return;
+            }
+            event.preventDefault();
+            this.transfer_take(event.clipboardData);
+        },
+        // A drop or a paste, read before the browser empties it: a folder file by file
+        transfer_take: async function (transfer) {
+            const reading = data_transfer_read(transfer, true);
+            this.act_report('reading what came…', false);
+            const read = await reading;
+            this.act_report('', false);
+            this.queue.refuse(read.unread, 'not sent: the browser could not read it; a folder also goes by Upload folder');
+            await this.take(read.files, read.dirs);
+        },
+        // Choosing is the act, and the copy follows it, into the folder shown now. files: [{file,
+        // dir}], `dir` the way under this folder. The folders come first, the deepest of each
+        // branch made the way mkdir -p does: a container's disk writes a file only into a folder
+        // that is there, and an empty folder has no file to bring it.
+        take: async function (files, dirs) {
+            const path = this.path;
+            const made = folders_deepest(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
+            if (made.length > 0) {
+                await this.acts(made.map(v => ['mkdir', {path: `${path}/${v}`}]), `${made.length} ${plural(made.length, 'folder', 'folders')} made`);
+                if (this.act_bad) {
+                    return;
+                }
+            }
+            // A folder's names come in the order the disk keeps them: they go A to Z, by path
+            const list = files.map(v => ((v.dir === '') ? {file: v.file, dir: path, label: v.file.name} : {file: v.file, dir: `${path}/${v.dir}`, label: `${v.dir}/${v.file.name}`}));
+            this.queue.take(list.sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric: true})));
         },
         // One copy for each file ticked, into the folder named on the machine picked; the host
         // runs them one after another
@@ -1089,21 +1159,41 @@ const file_manager = {
             }
         };
         addEventListener('beforeunload', this.unload_guard);
+        document.addEventListener('paste', this.pasted);
         this.transfers_read();
     },
     unmounted: function () {
         removeEventListener('beforeunload', this.unload_guard);
+        document.removeEventListener('paste', this.pasted);
         this.editor_destroy();
         clearTimeout(this.transfers_timer);
     },
     // A tab kept aside stops asking about copies, and asks again when it is shown
     activated: function () {
+        this.active = true;
         this.transfers_read();
     },
     deactivated: function () {
+        this.active = false;
         clearTimeout(this.transfers_timer);
     },
 };
+
+// Files from outside, dragged anywhere but over a field or an editor that takes them itself
+function is_files_drag(event)
+{
+    if ((event.target.closest !== undefined) && (event.target.closest('input, textarea, [contenteditable]') !== null)) {
+        return false;
+    }
+    return Array.from(event.dataTransfer.types).includes('Files');
+}
+
+// ['a', 'a/b', 'a/b/c', 'd'] -> ['a/b/c', 'd']: each folder no other one is inside of
+function folders_deepest(dirs)
+{
+    const unique = Array.from(new Set(dirs));
+    return unique.filter(v => unique.every(vv => (vv.startsWith(`${v}/`) === false)));
+}
 
 // "Dockerfile", "nginx.conf", "app.test.js" -> the language to highlight it as
 function language_of(name)
