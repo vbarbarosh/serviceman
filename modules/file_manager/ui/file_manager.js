@@ -8,6 +8,9 @@ const TRANSFERS_POLL_MS = 1000;
 // are a thousand landings
 const REREAD_MS = 1000;
 
+// A drop counted quicker than this shows no Counting card: it would only flash
+const COUNTING_SHOWN_MS = 300;
+
 // The failed files Uploads keeps in view, the latest
 const COPY_FAILED_ROWS = 3;
 
@@ -165,13 +168,17 @@ const file_manager = {
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
     <!-- A drop being read: what it holds so far. Nothing goes before it is counted. -->
-    <div v-if="(counting !== null)" class="card fm-uploads">
+    <!-- Shaped as Uploads will be, so nothing under it moves when the copy takes its place; a
+         drop counted in a moment never shows it -->
+    <div v-if="((counting !== null) && counting.shown)" class="card fm-uploads">
         <div class="list-head">
             <b>Uploads</b>
             <span class="muted fm-copy-summary">Counting… {{ counting.files }} {{ plural(counting.files, 'file', 'files') }} · {{ format_bytes(counting.bytes) }} so far</span>
             <div class="list-acts"><button type="button" @click="counting.stop = true">Cancel</button></div>
-            <span class="meter fm-copy-total fm-counting"><i/></span>
         </div>
+        <div class="fm-graph"><span class="meter fm-copy-total fm-counting"><i/></span></div>
+        <div class="fm-facts"><span><b>Time left</b> …</span><span><b>Files left</b> {{ counting.files }} ({{ format_bytes(counting.bytes) }})</span></div>
+        <div class="fm-copy"><code class="muted">reading the folder</code><span class="fm-copy-state"></span></div>
     </div>
     <!-- Not room enough on that disk for all of it: what fits, or nothing -->
     <div v-if="(room_ask !== null)" class="card fm-uploads fm-room">
@@ -189,7 +196,7 @@ const file_manager = {
         <div class="list-head">
             <b>Uploads</b>
             <span v-if="queue.paused" class="fm-paused">Paused</span>
-            <span class="muted fm-copy-summary" :title="copy_summary">{{ copy_summary }}</span>
+            <span class="muted fm-copy-summary" :title="copy_said.summary">{{ copy_said.summary }}</span>
             <div class="list-acts">
                 <button v-if="(queue.copying && (queue.paused === false))" type="button" @click="queue.pause()">Pause</button>
                 <button v-if="queue.paused" type="button" class="primary" @click="queue.resume()">Resume</button>
@@ -200,7 +207,7 @@ const file_manager = {
         <!-- The speed across the copy, as a file manager on the desktop draws it: how fast it went
              at each point of the way, the part done shaded, the speed now a dashed line -->
         <template v-if="copy_big">
-            <div class="fm-graph" :class="{paused: queue.paused}">
+            <div class="fm-graph">
                 <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
                     <line v-for="n of 9" :key="n" :x1="(n * 100)" y1="0" :x2="(n * 100)" y2="100" class="fm-graph-grid"/>
                     <rect x="0" y="0" :width="copy_graph.done_x" height="100" class="fm-graph-done"/>
@@ -211,17 +218,20 @@ const file_manager = {
                 <span v-if="(copy_graph.now_y !== null)" class="fm-graph-speed" :class="{under: (copy_graph.now_y < 30)}" :style="{top: (copy_graph.now_y + '%')}">Speed: {{ format_bytes(copy_graph.speed) }}/s</span>
             </div>
             <div class="fm-facts">
-                <span><b>Time left</b> {{ copy_left }}</span>
-                <span><b>Files left</b> {{ copy_total.files - copy_total.files_done - copy_total.failed }} ({{ format_bytes(copy_total.bytes - copy_total.bytes_done) }})</span>
+                <span><b>Time left</b> {{ copy_said.left }}</span>
+                <span><b>Files left</b> {{ copy_said.files_left }}</span>
             </div>
         </template>
-        <!-- The file under way, with its own bar; a retry says why and when -->
-        <div v-if="(copy_now !== null)" class="fm-copy">
-            <code :title="copy_now.label">{{ copy_now.label }}</code>
+        <!-- The file under way, with its own bar; a retry says why and when. Between two files,
+             and between two streams, the last one stays: the line never comes and goes, so
+             nothing under it jumps. -->
+        <div v-if="(copy_shown !== null)" class="fm-copy">
+            <code :title="copy_shown.label">{{ copy_shown.label }}</code>
             <span class="fm-copy-state fm-copy-going">
-                <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(copy_now)*100)) + '%')}"/></span>
-                <span v-if="(copy_now.phase === 'retrying')" class="bad" :title="copy_retry(copy_now)">{{ copy_retry(copy_now) }}</span>
-                <span v-else class="muted">{{ format_bytes(copy_now.sent) }} of {{ format_bytes(copy_now.size) }}</span>
+                <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(copy_shown)*100)) + '%')}"/></span>
+                <span v-if="(copy_shown.phase === 'retrying')" class="bad" :title="copy_retry(copy_shown)">{{ copy_retry(copy_shown) }}</span>
+                <span v-else-if="(copy_shown.phase === 'copying')" class="muted">{{ format_bytes(copy_shown.sent) }} of {{ format_bytes(copy_shown.size) }}</span>
+                <span v-else class="muted">{{ format_bytes(copy_shown.size) }}</span>
             </span>
         </div>
         <!-- What failed stays in view, the last few of it, until Clear -->
@@ -394,6 +404,10 @@ const file_manager = {
             counting: null,
             // Not room enough on the disk for a drop: what it needs, what fits; null when all fits
             room_ask: null,
+            // The last file that was under way, shown while none is
+            copy_last: null,
+            // What Uploads said when it was paused, held as it was until Resume
+            frozen: null,
             // Shown, not kept aside: only a tab in view takes a paste
             active: true,
             // The copies between disks the host is running, as it last said
@@ -576,10 +590,7 @@ const file_manager = {
         // thousand small files are a thousand answers to wait for, whatever their bytes
         copy_left: function () {
             const total = this.copy_total;
-            const ms = Date.now() - this.queue.began;
-            if (this.queue.paused) {
-                return 'paused';
-            }
+            const ms = Date.now() - this.queue.began - this.queue.paused_ms;
             if ((this.queue.copying === false) && (total.files_done + total.failed === total.files)) {
                 return 'done';
             }
@@ -596,11 +607,32 @@ const file_manager = {
             const item = going.find(v => (v.sent > 0) && (v.sent < v.size));
             return ((item !== undefined) ? item : ((going.length > 0) ? going[0] : null));
         },
+        // The file under way, or the last one while none is: what the line under the graph shows
+        copy_shown: function () {
+            if (this.queue.copies.length === 0) {
+                return null;
+            }
+            if (this.frozen !== null) {
+                return this.frozen.shown;
+            }
+            if (this.copy_now !== null) {
+                return this.copy_now;
+            }
+            return ((this.copy_last !== null) ? this.copy_last : this.queue.copies[0]);
+        },
+        // Paused, Uploads stands still as it was: its figures, its graph, its file line
+        copy_said: function () {
+            return ((this.frozen !== null) ? this.frozen.said : {summary: this.copy_summary, left: this.copy_left, files_left: this.copy_files_left});
+        },
+        copy_files_left: function () {
+            const total = this.copy_total;
+            return `${total.files - total.files_done - total.failed} (${format_bytes(total.bytes - total.bytes_done)})`;
+        },
         // The graph's lines, on a box of 1000 by 100: the speed scaled to the fastest seen, with
         // a little room above it
         copy_graph: function () {
             const samples = this.queue.samples;
-            const out = {done_x: Math.round(this.copy_total.ratio*1000), line: '', area: '', now_y: null, speed: 0};
+            const out = {done_x: ((this.frozen !== null) ? this.frozen.done_x : Math.round(this.copy_total.ratio*1000)), line: '', area: '', now_y: null, speed: 0};
             if (samples.length === 0) {
                 return out;
             }
@@ -608,7 +640,7 @@ const file_manager = {
             const points = samples.map(v => [v.x*1000, 100 - v.y/top*100]);
             out.line = points.map((v, i) => `${(i === 0) ? 'M' : 'L'}${v[0].toFixed(1)} ${v[1].toFixed(1)}`).join(' ');
             out.area = `${out.line} L${points.at(-1)[0].toFixed(1)} 100 L${points[0][0].toFixed(1)} 100 Z`;
-            if (this.queue.copying && (this.queue.paused === false)) {
+            if (this.queue.copying) {
                 out.now_y = Math.round(points.at(-1)[1]);
                 out.speed = samples.at(-1).y;
             }
@@ -659,6 +691,21 @@ const file_manager = {
         },
         // A file landed in the folder shown: the list reads it again, quietly. One landed deeper,
         // in a folder of its own, changes nothing this list shows: its folder was made first.
+        copy_now: function (value) {
+            if (value !== null) {
+                this.copy_last = value;
+            }
+        },
+        // A pause takes back what was in flight; the screen does not show that, it stands still
+        'queue.paused': function (value) {
+            if (value) {
+                const shown = this.copy_shown;
+                this.frozen = {said: this.copy_said, done_x: Math.round(this.copy_total.ratio*1000), shown: ((shown === null) ? null : {label: shown.label, sent: shown.sent, size: shown.size, phase: 'copying'})};
+            }
+            else {
+                this.frozen = null;
+            }
+        },
         'queue.landed': function () {
             if ((this.path !== null) && this.queue.landed_dirs.includes(this.path)) {
                 this.reread_soon();
@@ -1193,8 +1240,13 @@ const file_manager = {
         },
         // A drop or a paste, read before the browser empties it: a folder file by file
         transfer_take: async function (transfer) {
-            this.counting = {files: 0, bytes: 0, stop: false};
+            this.counting = {files: 0, bytes: 0, stop: false, shown: false};
+            const counting = this.counting;
+            const timer = setTimeout(function () {
+                counting.shown = true;
+            }, COUNTING_SHOWN_MS);
             const read = await data_transfer_read(transfer, true, this.counting);
+            clearTimeout(timer);
             this.counting = null;
             if (read.stopped) {
                 return;

@@ -272,7 +272,7 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
 - Each file goes up under its way from the folder taken (`photos/2024/a.jpg`), A to Z. A name
   the browser cannot read is a failed row in Uploads, the rest still goes.
 - A big drop is counted first (Counting… 1,284 files · 812 MB so far, with Cancel); nothing goes
-  before it is.
+  before it is. A drop counted within 0.3 s shows no Counting card.
 - Before more than one file goes, `<base>/room` says whether the disk has the bytes and the
   inodes for them (a file and a folder are one each). When not, Uploads asks: **Copy what fits**,
   as far as they reach in the order they go, or **Don't copy**. A disk that cannot say lets
@@ -283,8 +283,11 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
   takes no tar go one by one: in parts that carry on after a break, or whole up to 1 MB.
 - Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
   dashed line; under it the time left and the files left, then the file under way with its own
-  bar, and the last few files that failed. No list of every file. **Pause** stops the stream
-  where it is; **Resume** sends what is not in yet.
+  bar, and the last few files that failed. No list of every file. Nothing in it comes and goes
+  while it runs, so nothing under it moves: between two files the last one stays on its line,
+  and the Counting card is shaped as Uploads will be. **Pause** stops the stream where it is and
+  Uploads stands still as it was, figures, graph and file alike; **Resume** sends what is not in
+  yet, and the time paused is not counted into the rate.
 - A file of a stream is done when the stream ends whole. A stream cut or still for 30 seconds
   lists the folders of its files: what is there at its size and date is done, the rest goes
   again.

@@ -87,7 +87,7 @@ addEventListener('beforeunload', function (event) {
 function upload_queue(base)
 {
     if (queues[base] === undefined) {
-        const queue = reactive({base, copies: [], copying: false, cancelled: false, paused: false, samples: [], note: '', bad: false, landed: 0, landed_dirs: [], making: null, began: 0, whole: false, no_stream: false, stream_known: false, stream_bytes: STREAM_FIRST_BYTES, batches: 0, part_bytes: PART_BYTES});
+        const queue = reactive({base, copies: [], copying: false, cancelled: false, paused: false, samples: [], note: '', bad: false, landed: 0, landed_dirs: [], making: null, began: 0, paused_ms: 0, whole: false, no_stream: false, stream_known: false, stream_bytes: STREAM_FIRST_BYTES, batches: 0, part_bytes: PART_BYTES});
         queue.take = function (list, plan) {
             take(queue, list, plan);
         };
@@ -201,6 +201,7 @@ async function copy(queue)
     queue.copying = true;
     queue.cancelled = false;
     queue.began = Date.now();
+    queue.paused_ms = 0;
     queue.samples = [];
     report(queue, '', false);
     const sampler = sampler_start(queue);
@@ -733,6 +734,7 @@ function pause(queue)
         return;
     }
     queue.paused = true;
+    queue.paused_at = Date.now();
     if (requests[queue.base] !== undefined) {
         requests[queue.base].abort();
     }
@@ -743,6 +745,10 @@ function pause(queue)
 
 function resume(queue)
 {
+    // The time paused is not the copy's: its rate and the time left go on from where they stood
+    if (queue.paused) {
+        queue.paused_ms += Date.now() - queue.paused_at;
+    }
     queue.paused = false;
     if (resumes[queue.base] !== undefined) {
         resumes[queue.base]();

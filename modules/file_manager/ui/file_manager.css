@@ -239,6 +239,12 @@ p.fm-foot {
 }
 
 /* A drop being counted: a light that runs along the bar, since nobody knows yet how far */
+.fm-graph > .meter.fm-counting {
+    position: absolute;
+    inset: auto 0 0;
+    margin: 0;
+}
+
 .fm-uploads .meter.fm-counting i {
     width: 30%;
     animation: fm-counting 1.4s ease-in-out infinite;
@@ -337,10 +343,6 @@ p.fm-foot {
 
 .fm-graph-speed.under {
     transform: translateY(20%);
-}
-
-.fm-graph.paused svg {
-    opacity: .45;
 }
 
 .fm-facts {
