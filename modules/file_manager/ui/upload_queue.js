@@ -723,7 +723,12 @@ function sampler_start(queue)
             return;
         }
         const speed = Math.max(0, (done - seen[0][1])*1000/(now - seen[0][0]));
-        queue.samples.push({x: Math.min(1, done/bytes), y: speed});
+        const x = Math.min(1, done/bytes);
+        // Files of a cut stream back in line: the graph goes back with them, never over itself
+        while ((queue.samples.length > 0) && (queue.samples.at(-1).x > x)) {
+            queue.samples.pop();
+        }
+        queue.samples.push({x, y: speed});
         if (queue.samples.length > SAMPLES_MAX) {
             queue.samples = queue.samples.filter((v, i) => (i % 2 === 0));
         }

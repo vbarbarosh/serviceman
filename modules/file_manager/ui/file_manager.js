@@ -586,6 +586,9 @@ const file_manager = {
             if (this.queue.paused) {
                 return 'paused';
             }
+            if ((this.queue.copying === false) && (total.files_done + total.failed === total.files)) {
+                return 'done';
+            }
             if ((this.queue.copying === false) || (ms < 2000) || (total.bytes_since === 0)) {
                 return '…';
             }
@@ -610,7 +613,7 @@ const file_manager = {
             const points = samples.map(v => [v.x*1000, 100 - v.y/top*100]);
             out.line = points.map((v, i) => `${(i === 0) ? 'M' : 'L'}${v[0].toFixed(1)} ${v[1].toFixed(1)}`).join(' ');
             out.area = `${out.line} L${points.at(-1)[0].toFixed(1)} 100 L${points[0][0].toFixed(1)} 100 Z`;
-            if (this.queue.paused === false) {
+            if (this.queue.copying && (this.queue.paused === false)) {
                 out.now_y = Math.round(points.at(-1)[1]);
                 out.speed = samples.at(-1).y;
             }
