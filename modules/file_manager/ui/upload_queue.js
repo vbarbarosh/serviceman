@@ -17,6 +17,10 @@ const waits = {};
 const PART_BYTES = 8*1024*1024;
 const PART_MIN_BYTES = 256*1024;
 
+// A file this small goes in one request: the three of a file in parts cost a small file more
+// than its bytes do, and a link to a far machine pays each of them in full
+const WHOLE_MAX_BYTES = 1024*1024;
+
 // The longest pause between two tries, in seconds; the first is one, then two, four…
 const RETRY_MAX_S = 30;
 
@@ -34,15 +38,19 @@ addEventListener('beforeunload', function (event) {
     }
 });
 
-// base -> {copies, copying, note, bad, landed, whole, part_bytes, take, refuse, stop, clear}. `landed`
-// counts the files that arrived, for a tab showing their folder to read it again; `whole` is a
-// disk that keeps no parts; `part_bytes` is how big a part gets through.
+// base -> {copies, copying, note, bad, landed, landed_dir, whole, part_bytes, take, refuse, stop,
+// clear}. `landed` counts the files that arrived and `landed_dir` is the folder of the last one,
+// for a tab showing that folder to read it again; `whole` is a disk that keeps no parts;
+// `part_bytes` is how big a part gets through; `began` is when the copying under way started.
 function upload_queue(base)
 {
     if (queues[base] === undefined) {
-        const queue = reactive({base, copies: [], copying: false, cancelled: false, note: '', bad: false, landed: 0, whole: false, part_bytes: PART_BYTES});
-        queue.take = function (list) {
-            take(queue, list);
+        const queue = reactive({base, copies: [], copying: false, cancelled: false, note: '', bad: false, landed: 0, landed_dir: '', began: 0, whole: false, part_bytes: PART_BYTES});
+        queue.take = function (list, held) {
+            return take(queue, list, held);
+        };
+        queue.release = function (items, why) {
+            release(queue, items, why);
         };
         queue.refuse = function (labels, why) {
             refuse(queue, labels, why);
@@ -60,13 +68,31 @@ function upload_queue(base)
 
 // Choosing a file is the act, and the copy follows it. Each lands in the folder it was chosen
 // for, whichever folder the tab shows by the time its turn comes. list: [{file, dir, label}],
-// `label` the name as the list of uploads shows it, with the folders it came in.
-function take(queue, list)
+// `label` the name as the list of uploads shows it, with the folders it came in. `held` files
+// are shown at once and wait for their folders to be made: release() lets them go.
+function take(queue, list, held)
 {
+    const out = [];
     for (const {file, dir, label} of list) {
-        queue.copies.push({name: file.name, label, size: file.size, file, dir, phase: 'waiting', said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
+        queue.copies.push({name: file.name, label, size: file.size, file, dir, phase: (held ? 'held' : 'waiting'), said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
+        out.push(queue.copies.at(-1));
     }
-    copy(queue);
+    if (held !== true) {
+        copy(queue);
+    }
+    return out;
+}
+
+// The folders of files held are made, and they join the queue; or not, and they say why
+function release(queue, items, why)
+{
+    for (const item of items.filter(v => v.phase === 'held')) {
+        item.phase = ((why === '') ? 'waiting' : 'error');
+        item.said = why;
+    }
+    if (why === '') {
+        copy(queue);
+    }
 }
 
 // What was chosen but cannot be sent, said in the list where the rest goes: it stays until
@@ -88,6 +114,7 @@ async function copy(queue)
     }
     queue.copying = true;
     queue.cancelled = false;
+    queue.began = Date.now();
     report(queue, '', false);
     try {
         for (;;) {
@@ -113,12 +140,12 @@ async function copy(queue)
 // One file, in parts: the disk says how much of it is in, and the next part starts there. A part
 // the server refuses as too big is halved; a connection that drops is tried again a little
 // later, and the disk is asked again where the file stands, so nothing is sent twice and
-// nothing is missed. A disk that keeps no parts takes the file in one piece.
+// nothing is missed. A disk that keeps no parts, and a small file, take it in one piece.
 async function copy_one(queue, item)
 {
     item.phase = 'copying';
     item.began = Date.now();
-    if (queue.whole) {
+    if (queue.whole || (item.size <= WHOLE_MAX_BYTES)) {
         await copy_whole(queue, item);
         return;
     }
@@ -148,12 +175,8 @@ async function copy_one(queue, item)
             }
             item.finish_sent_at = Date.now();
             const landed = await upload_call(queue, 'POST', 'finish', item, {size: item.size});
-            item.phase = 'ok';
-            item.said = landed.path;
-            item.replaced = landed.replaced;
             upload_id_forget(queue.base, item);
-            queue.landed++;
-            report(queue, 'copied', false);
+            land(queue, item, landed);
             return;
         }
         catch (error) {
@@ -212,10 +235,8 @@ async function finished_already(queue, item, received)
     if ((found === undefined) || (found.size !== item.size) || (found.mtime_ms < item.finish_sent_at - FINISH_SLACK_MS)) {
         return false;
     }
-    item.phase = 'ok';
     upload_id_forget(queue.base, item);
-    queue.landed++;
-    report(queue, 'copied', false);
+    land(queue, item, {path: `${item.dir}/${item.name}`, replaced: false});
     return true;
 }
 
@@ -241,22 +262,51 @@ async function part_send(queue, item, received)
     }
 }
 
-// The file in one request, for a disk that keeps no parts
-function copy_whole(queue, item)
+// The file in one request. One that fails is sent again whole, after the same pauses as a part:
+// the disk writes it under a name of its own until the last byte is in, so a half never stands.
+async function copy_whole(queue, item)
 {
-    return upload_call(queue, 'POST', '', item, {}, item.file, function (loaded) {
-        item.sent = loaded;
-    }).then(function (landed) {
-        item.phase = 'ok';
-        item.said = landed.path;
-        item.replaced = landed.replaced;
-        queue.landed++;
-        report(queue, 'copied', false);
-    }, function (error) {
-        item.phase = ((error.aborted === true) ? 'cancelled' : 'error');
-        item.said = ((error.aborted === true) ? '' : error.message);
-        report(queue, ((error.aborted === true) ? 'stopped' : `${item.label} did not land`), (error.aborted !== true));
-    });
+    let failures = 0;
+    while (queue.cancelled === false) {
+        try {
+            const landed = await upload_call(queue, 'POST', '', item, {}, item.file, function (loaded) {
+                item.sent = loaded;
+            });
+            item.sent = item.size;
+            land(queue, item, landed);
+            return;
+        }
+        catch (error) {
+            if ((error.aborted === true) || queue.cancelled) {
+                break;
+            }
+            if (error.lasting === true) {
+                item.phase = 'error';
+                item.said = error.message;
+                report(queue, `${item.label} did not land`, true);
+                return;
+            }
+            failures++;
+            item.sent = 0;
+            item.phase = 'retrying';
+            item.said = error.message;
+            await wait_out(queue, item, Math.min(RETRY_MAX_S, 2**(failures - 1)));
+            item.phase = 'copying';
+        }
+    }
+    item.phase = 'cancelled';
+    report(queue, 'stopped', false);
+}
+
+// A file is in: where it landed, for the list of uploads and for a tab showing its folder
+function land(queue, item, landed)
+{
+    item.phase = 'ok';
+    item.said = landed.path;
+    item.replaced = landed.replaced;
+    queue.landed_dir = item.dir;
+    queue.landed++;
+    report(queue, 'copied', false);
 }
 
 // XMLHttpRequest, and not fetch, for the one thing fetch cannot say: how much of the body has

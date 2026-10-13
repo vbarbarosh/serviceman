@@ -800,8 +800,9 @@ tests/                         the API over a disk held in memory
 <p>A refusal of the disk is a 502 with <code>{error}</code>; a request the API cannot take is a 400; a disk
 that keeps no parts answers the part doors with 501.</p>
 <h3 id="a-file-in-parts"><a class="anchor" href="#a-file-in-parts" aria-hidden="true" tabindex="-1">#</a>A file in parts</h3>
-<p>The page draws an id for each upload and keeps it in <code>localStorage</code> under the file (folder,
-name, size, date), so the same file chosen again for the same folder carries on where it was.
+<p>The page draws an id for each upload of more than 1 MB and keeps it in <code>localStorage</code> under the
+file (folder, name, size, date), so the same file chosen again for the same folder carries on
+where it was.
 Each part is 8 MB; a 413 from anything in front of the server halves it, down to 256 KB. A
 part that fails for any other reason is tried again after 1, 2, 4… up to 30 seconds, and the
 disk is asked first how much is in, so a part whose answer was lost is sent again from where
@@ -1023,14 +1024,20 @@ import file_manager from &#39;file_manager/file_manager.js&#39;;
 <p>What the dialogs take, a drop takes, as the rulebook&#39;s UIM-04 to UIM-06 ask:</p>
 <ul>
 <li><strong>Upload files</strong> and <strong>Upload folder</strong> open the dialogs; a folder goes with its inner folders.</li>
-<li>Files or folders dropped on the list are copied into the folder it shows; the list lights up
-while they are over it. A folder is read file by file, its inner folders too.</li>
+<li>Files or folders dropped anywhere on the file manager are copied into the folder it shows; it
+lights up while they are over it. A folder is read file by file, its inner folders too.</li>
 <li><strong>Ctrl+V</strong> with files or a folder in the clipboard does what a drop does, anywhere in the tab
 but a field or the editor; a paste of text is left alone.</li>
 <li>A folder&#39;s own folders are made first, the deepest of each branch as <code>mkdir -p</code> does, empty
 ones included: a container&#39;s disk writes a file only into a folder that is there.</li>
 <li>Each file goes up under its way from the folder taken (<code>photos/2024/a.jpg</code>), A to Z. A name
 the browser cannot read is a failed row in Uploads, the rest still goes.</li>
+<li>Uploads says how far all of them are, with one bar: files, bytes, the rate and the time left.
+Its list follows the file under way; a hand on it stops that for ten seconds.</li>
+<li>A file of up to 1 MB goes in one request, sent again whole if it fails: three requests for its
+parts cost more than its bytes over a link to a far machine.</li>
+<li>A file that lands in the folder shown reads it again, at most once a second and in place: the
+ticks stay. One that lands deeper changes nothing the list shows, and reads nothing.</li>
 <li>A file dropped anywhere else on the page never opens in the tab and loses it.</li>
 </ul>
 <p>The host page gives the colours, as <code>--bg</code>, <code>--panel</code>, <code>--fg</code>, <code>--muted</code>, <code>--line</code>, <code>--hover</code>

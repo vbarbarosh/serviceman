@@ -130,10 +130,6 @@ p.fm-note {
     overflow: auto;
 }
 
-.fm-list.over {
-    border-color: var(--accent);
-}
-
 .fm-table th.fm-pick,
 .fm-table td.fm-pick {
     width: 2.4rem;
@@ -190,8 +186,9 @@ button.fm-sort.on {
 }
 
 .fm-drop {
-    position: absolute;
-    inset: 0;
+    position: fixed;
+    z-index: 10;
+    border: 2px dashed var(--accent);
     display: grid;
     place-items: center;
     border-radius: 10px;
@@ -217,8 +214,13 @@ p.fm-foot {
     grid-column: 1 / -1;
 }
 
-/* A folder of a thousand files keeps the list in view: the uploads scroll, their head stays */
+/* Uploads: a head of figures with the bar of all the uploads at once, and a few rows under it.
+   Show all lists every one: then they scroll, and the head stays. */
 .fm-uploads {
+    padding: .7rem .9rem;
+}
+
+.fm-uploads.all {
     max-height: 40vh;
     overflow: auto;
 }
@@ -227,13 +229,62 @@ p.fm-foot {
     position: sticky;
     top: -.7rem;
     z-index: 1;
-    margin-top: -.7rem;
+    flex-wrap: wrap;
+    margin: -.7rem 0 .4rem;
     padding-top: .7rem;
     background: var(--panel);
 }
 
-/* One grid for the whole card, so the bars line up; a name with its folders, photos/2024/a.jpg,
-   gets as much of the row as the figures */
+.fm-copy-summary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fm-uploads .meter.fm-copy-total {
+    flex: 1 0 100%;
+    max-width: none;
+    margin: .1rem 0 .2rem;
+}
+
+/* Each row a grid of its own on the same columns, so a row can slide in and out by itself; a
+   name with its folders, photos/2024/a.jpg, gets as much of the row as the figures */
+.fm-copy-rows {
+    position: relative;
+    display: grid;
+    gap: .4rem;
+}
+
+.fm-uploads .fm-copy {
+    grid-column: auto;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 4fr);
+    column-gap: .8rem;
+    min-height: 1.6rem;
+}
+
+/* A file landed: its row goes up and out, the rest slide up a place, the next comes in under */
+.fm-row-move,
+.fm-row-enter-active,
+.fm-row-leave-active {
+    transition: transform .25s ease, opacity .25s ease;
+}
+
+.fm-row-enter-from,
+.fm-row-leave-to {
+    opacity: 0;
+}
+
+.fm-row-leave-to {
+    transform: translateY(-100%);
+}
+
+.fm-row-leave-active {
+    position: absolute;
+    width: 100%;
+}
+
+/* Copies between machines: one grid for the whole card, so the bars line up */
 .fm-copy {
     display: grid;
     grid-column: 1 / -1;
@@ -421,6 +472,14 @@ p.fm-foot {
     /* On a phone the name has a line of its own, the bar and figures under it */
     .fm-copies {
         grid-template-columns: 5rem minmax(0, 1fr);
+    }
+
+    .fm-uploads .fm-copy {
+        grid-template-columns: 5rem minmax(0, 1fr);
+    }
+
+    .fm-copy-summary {
+        white-space: normal;
     }
 
     .fm-copy > code,

@@ -4,6 +4,21 @@ import upload_queue from './upload_queue.js';
 // How often the copies between disks are asked about while one is under way
 const TRANSFERS_POLL_MS = 1000;
 
+// Files landing in the folder shown read it again at most this often: a thousand small files
+// are a thousand landings
+const REREAD_MS = 1000;
+
+// How many folders are asked for at once: a tree of a hundred folders, one after another, is a
+// hundred waits on a far machine
+const MKDIR_AT_ONCE = 6;
+
+// The rows of Uploads in view at once: two done, the file under way, the next ones. They slide
+// up a place as each file lands; Show all lists every one.
+const COPY_ROWS = 9;
+
+// Failed rows kept on top of them, the latest
+const COPY_FAILED_ROWS = 3;
+
 // A file larger than this is opened in a tab, not read into the page
 const EDIT_MAX_BYTES = 10*1024*1024;
 
@@ -68,7 +83,7 @@ addEventListener('drop', function (event) {
 // (--bg, --panel, --fg, --muted, --line, --hover, --accent) and its usual classes.
 const file_manager = {
     template: `
-<article class="fm">
+<article class="fm" @dragover="drag_over" @dragleave="drag_leave" @drop="dropped">
     <!-- Where this is: every folder on the way is a step back to it -->
     <div class="fm-path">
         <button type="button" class="fm-icon" title="Up one folder" aria-label="Up one folder" :disabled="(busy || offline || parent === null)" @click="go(parent)">
@@ -154,18 +169,22 @@ const file_manager = {
     <input ref="picker" type="file" multiple hidden @change="picked">
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
-    <div v-if="(queue.copies.length > 0)" class="card fm-copies fm-uploads">
+    <div v-if="(queue.copies.length > 0)" class="card fm-uploads" :class="{all: copies_all}">
         <div class="list-head">
             <b>Uploads</b>
-            <span class="muted">{{ copy_summary }}</span>
+            <span class="muted fm-copy-summary" :title="copy_summary">{{ copy_summary }}</span>
             <div class="list-acts">
+                <button v-if="(queue.copies.length > COPY_ROWS)" type="button" @click="copies_all = (copies_all === false)">{{ (copies_all ? 'Show fewer' : ('Show all ' + queue.copies.length)) }}</button>
                 <button v-if="queue.copying" type="button" @click="queue.stop()">Cancel</button>
                 <button v-else type="button" @click="queue.clear()">Clear</button>
             </div>
+            <span v-if="(copy_total.files > 1)" class="meter fm-copy-total"><i :style="{width: (Math.max(1, Math.round(copy_total.ratio * 100)) + '%')}"/></span>
         </div>
-        <div v-for="(item, i) of queue.copies" :key="i" class="fm-copy">
+        <transition-group tag="div" name="fm-row" class="fm-copy-rows">
+        <div v-for="{item, i} of copy_rows" :key="i" class="fm-copy">
             <code :title="item.label">{{ item.label }}</code>
             <span v-if="(item.phase === 'waiting')" class="muted">{{ format_bytes(item.size) }} — waiting</span>
+            <span v-else-if="(item.phase === 'held')" class="muted">{{ format_bytes(item.size) }} — waiting for its folder</span>
             <template v-else-if="(item.phase === 'copying' || item.phase === 'retrying')">
                 <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(item) * 100)) + '%')}"/></span>
                 <span v-if="(item.phase === 'retrying')" class="bad" :title="copy_retry(item)">{{ copy_retry(item) }}</span>
@@ -175,6 +194,7 @@ const file_manager = {
             <span v-else-if="(item.phase === 'cancelled')" class="muted">stopped — nothing landed</span>
             <span v-else class="bad" :title="item.said">{{ item.said }}</span>
         </div>
+        </transition-group>
     </div>
     <!-- Copies between this disk and another, run by the server: they go on with the page closed -->
     <div v-if="(transfers_here.length > 0)" class="card fm-copies">
@@ -197,8 +217,7 @@ const file_manager = {
             <span v-else class="bad" :title="(transfer_where(item) + ' · ' + item.said)">{{ transfer_where(item) }} · {{ item.said }}</span>
         </div>
     </div>
-    <!-- Files and folders dropped on the list are copied into the folder it shows -->
-    <div ref="list" class="card fm-list" :class="{over: dragging}" @dragover.prevent="drag_over" @dragleave="drag_leave" @drop.prevent="dropped">
+    <div class="card fm-list">
         <table class="list-table fm-table">
             <thead>
                 <tr>
@@ -229,9 +248,8 @@ const file_manager = {
                 </tr>
             </tbody>
         </table>
-        <div v-if="dragging" class="fm-drop"><span>Drop files or folders to copy into <code>{{ here }}</code><template v-if="user">, written as {{ user }}</template></span></div>
     </div>
-    <p v-if="(path !== null)" class="muted fm-foot">{{ summary }} · drop files or folders on the list, or paste them with Ctrl+V, to copy them here</p>
+    <p v-if="(path !== null)" class="muted fm-foot">{{ summary }} · drop files or folders here, or paste them with Ctrl+V, to copy them in</p>
     </template>
     <!-- One file of the folder, read into an editor in place of the list -->
     <template v-else>
@@ -272,6 +290,9 @@ const file_manager = {
         <div v-else-if="(open_file.state === 'error')" class="card fm-editor-msg bad">{{ open_file.error }}</div>
         <div v-show="(open_file.state === 'ready')" ref="editor" class="card fm-editor"></div>
     </template>
+    <!-- Files and folders dropped anywhere on the file manager are copied into the folder shown.
+         Fixed over the part of it in view, wherever the page is scrolled. -->
+    <div v-if="dragging" class="fm-drop" :style="drop_style"><span>Drop files or folders to copy into <code>{{ here }}</code><template v-if="user">, written as {{ user }}</template></span></div>
 </article>
 `,
     // base       where the API is: GET base?path=, base/file/<path>, base/tar, POST base/upload…
@@ -287,6 +308,7 @@ const file_manager = {
     data: function () {
         return {
             LANGUAGES,
+            COPY_ROWS,
             // The file read into the editor, while there is one: {name, path, size, mtime_ms,
             // state: loading | ready | binary | error, error}
             open_file: null,
@@ -309,8 +331,6 @@ const file_manager = {
             note: '',
             bad: false,
             busy: false,
-            // A file landed while the list was being read: read it once more when that is done
-            read_again: false,
             show_dot_files: false,
             // Narrows the open folder by name; walking into another folder keeps it
             filter: '',
@@ -332,6 +352,10 @@ const file_manager = {
             // not this tab: a copy goes on while another tab is open, and is here on coming back.
             queue: upload_queue(this.base),
             dragging: false,
+            // Where the drop zone stands on the screen while something is dragged over
+            drop_style: {},
+            // Every upload in the list, not only the few about the file under way
+            copies_all: false,
             // Shown, not kept aside: only a tab in view takes a paste
             active: true,
             // The copies between disks the host is running, as it last said
@@ -436,7 +460,7 @@ const file_manager = {
         },
         empty_text: function () {
             if (this.items.length === 0) {
-                return 'An empty folder. Upload files or a folder here, drop them on this list, or paste them with Ctrl+V.';
+                return 'An empty folder. Upload files or a folder here, drop them anywhere on this page, or paste them with Ctrl+V.';
             }
             if (this.filter !== '') {
                 return 'Nothing in this folder matches the filter.';
@@ -466,17 +490,66 @@ const file_manager = {
         note_bad: function () {
             return ((this.act_note !== '') ? this.act_bad : this.bad);
         },
+        // Every upload at once: files and bytes in, and what the copying under way has done since
+        // it began, for its rate. Bytes that were in before (a file carried on) are not its work.
+        copy_total: function () {
+            const out = {files: 0, files_done: 0, failed: 0, bytes: 0, bytes_done: 0, files_since: 0, bytes_since: 0, ratio: 0};
+            for (const item of this.queue.copies) {
+                out.files++;
+                out.bytes += item.size;
+                if (item.phase === 'ok') {
+                    out.files_done++;
+                    out.bytes_done += item.size;
+                }
+                else if ((item.phase === 'copying') || (item.phase === 'retrying')) {
+                    out.bytes_done += item.sent;
+                }
+                else if (item.phase === 'error') {
+                    out.failed++;
+                }
+                if ((item.began >= this.queue.began) && (item.began > 0)) {
+                    out.files_since += ((item.phase === 'ok') ? 1 : 0);
+                    out.bytes_since += ((item.phase === 'ok') ? item.size : item.sent) - (((item.began_at === null) || (item.began_at === undefined)) ? 0 : item.began_at);
+                }
+            }
+            out.ratio = ((out.bytes === 0) ? ((out.files === 0) ? 0 : out.files_done/out.files) : out.bytes_done/out.bytes);
+            return out;
+        },
+        // "54 of 3020 files · 120MB of 2.9GB · 1.2MB/s · ~25m left". The rate is the whole copy's,
+        // as a file's is. The time left is the longer of two guesses: by bytes, and by files,
+        // since a thousand small files are a thousand answers to wait for, whatever their bytes.
         copy_summary: function () {
-            const done = this.queue.copies.filter(v => v.phase === 'ok').length;
-            const failed = this.queue.copies.filter(v => v.phase === 'error').length;
-            const said = [`${done} of ${this.queue.copies.length} copied`];
-            if (failed > 0) {
-                said.push(`${failed} failed`);
+            const total = this.copy_total;
+            const said = [`${total.files_done} of ${total.files} ${plural(total.files, 'file', 'files')}`, `${format_bytes(total.bytes_done)} of ${format_bytes(total.bytes)}`];
+            const ms = Date.now() - this.queue.began;
+            if (this.queue.copying && (ms > 2000) && (total.bytes_since > 0)) {
+                said.push(`${format_bytes(Math.round(total.bytes_since*1000/ms))}/s`);
+                const by_bytes = (total.bytes - total.bytes_done)*ms/total.bytes_since;
+                const by_files = ((total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0);
+                said.push(`~${format_ms(Math.max(by_bytes, by_files))} left`);
+            }
+            if (total.failed > 0) {
+                said.push(`${total.failed} failed`);
             }
             if (this.queue.bad && (this.queue.copying === false)) {
                 said.push(this.queue.note);
             }
             return said.join(' · ');
+        },
+        // The rows of Uploads shown: the few about the file under way, the last failed ones above
+        // them, so a thousand files are nine rows that slide, not a list to scroll. [{item, i}]
+        copy_rows: function () {
+            const rows = this.queue.copies.map((v, i) => ({item: v, i}));
+            if (this.copies_all || (rows.length <= COPY_ROWS)) {
+                return rows;
+            }
+            let at = rows.findIndex(v => ['copying', 'retrying', 'waiting', 'held'].includes(v.item.phase));
+            if (at < 0) {
+                at = rows.length;
+            }
+            const start = Math.max(0, Math.min(at - 2, rows.length - COPY_ROWS));
+            const failed = rows.filter(v => (v.item.phase === 'error') && ((v.i < start) || (v.i >= start + COPY_ROWS))).slice(-COPY_FAILED_ROWS);
+            return failed.concat(rows.slice(start, start + COPY_ROWS));
         },
         // Ticks on names the dot-files toggle has hidden do not count
         chosen_names: function () {
@@ -514,17 +587,12 @@ const file_manager = {
         wrap: function () {
             this.editor_wrap();
         },
-        // A file landed, maybe in the folder shown: the list reads it again. A read already under
-        // way may have started before the file was in, so another follows it.
+        // A file landed in the folder shown: the list reads it again, quietly. One landed deeper,
+        // in a folder of its own, changes nothing this list shows: its folder was made first.
         'queue.landed': function () {
-            if (this.path === null) {
-                return;
+            if ((this.path !== null) && (this.queue.landed_dir === this.path)) {
+                this.reread_soon();
             }
-            if (this.busy) {
-                this.read_again = true;
-                return;
-            }
-            this.open(this.path);
         },
         // One chosen name is the one a rename starts from; nothing chosen asks nothing about it
         chosen_names: function (value) {
@@ -567,10 +635,47 @@ const file_manager = {
             }
             finally {
                 this.busy = false;
-                if (this.read_again) {
-                    this.read_again = false;
-                    this.open(this.path);
+            }
+        },
+        // One quiet read for all that lands within a second
+        reread_soon: function () {
+            if (this.reread_timer !== null) {
+                return;
+            }
+            const self = this;
+            this.reread_timer = setTimeout(function () {
+                self.reread_timer = null;
+                self.reread();
+            }, REREAD_MS);
+        },
+        // The folder shown, read again in place: nothing greys, the bar keeps what it said, and
+        // a tick stays on a name that is still there. A walk elsewhere meanwhile wins; a read
+        // under way may have started before the file was in, so this one waits for it.
+        reread: async function () {
+            const path = this.path;
+            if (path === null) {
+                return;
+            }
+            if (this.busy) {
+                this.reread_soon();
+                return;
+            }
+            try {
+                const answer = await fetch(`${this.base}?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
+                const outcome = await answer.json();
+                if ((answer.ok === false) || (this.path !== path) || this.busy) {
+                    return;
                 }
+                this.items = outcome.items;
+                this.now = Date.now();
+                for (const name of Object.keys(this.chosen)) {
+                    if (outcome.items.some(v => v.name === name) === false) {
+                        delete this.chosen[name];
+                    }
+                }
+            }
+            catch {
+                // The next landing reads it again
             }
         },
         report: function (note, bad) {
@@ -873,16 +978,21 @@ const file_manager = {
             this.editing = false;
             this.go(this.typed);
         },
-        // Only files from outside light the list up; a drag of text or a link is not a copy
+        // Only files from outside light the file manager up, and only with a folder shown; a drag
+        // of text or a link is not a copy, and an open file takes no drop
         drag_over: function (event) {
-            this.dragging = this.can_take && Array.from(event.dataTransfer.types).includes('Files');
+            if ((this.can_take === false) || (this.open_file !== null) || (Array.from(event.dataTransfer.types).includes('Files') === false)) {
+                return;
+            }
+            event.preventDefault();
             if (this.dragging === false) {
-                event.dataTransfer.dropEffect = 'none';
+                this.drop_style = drop_style_of(this.$el.getBoundingClientRect());
+                this.dragging = true;
             }
         },
-        // Leaving for a name inside the list is not leaving it
+        // Leaving for a part inside the file manager is not leaving it
         drag_leave: function (event) {
-            if (this.$refs.list.contains(event.relatedTarget) === false) {
+            if (this.$el.contains(event.relatedTarget) === false) {
                 this.dragging = false;
             }
         },
@@ -970,10 +1080,12 @@ const file_manager = {
             event.target.value = '';
         },
         dropped: function (event) {
+            const taken = this.dragging;
             this.dragging = false;
-            if (this.can_take === false) {
+            if (taken === false) {
                 return;
             }
+            event.preventDefault();
             this.transfer_take(event.dataTransfer);
         },
         // Ctrl+V with files or a folder in the clipboard, anywhere but a field or the editor: they
@@ -1001,21 +1113,46 @@ const file_manager = {
             await this.take(read.files, read.dirs);
         },
         // Choosing is the act, and the copy follows it, into the folder shown now. files: [{file,
-        // dir}], `dir` the way under this folder. The folders come first, the deepest of each
-        // branch made the way mkdir -p does: a container's disk writes a file only into a folder
-        // that is there, and an empty folder has no file to bring it.
+        // dir}], `dir` the way under this folder. The files show in Uploads at once; the folders
+        // are made first, the deepest of each branch the way mkdir -p does: a container's disk
+        // writes a file only into a folder that is there, and an empty folder has no file to
+        // bring it.
         take: async function (files, dirs) {
             const path = this.path;
             const made = folders_deepest(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
-            if (made.length > 0) {
-                await this.acts(made.map(v => ['mkdir', {path: `${path}/${v}`}]), `${made.length} ${plural(made.length, 'folder', 'folders')} made`);
-                if (this.act_bad) {
-                    return;
-                }
-            }
             // A folder's names come in the order the disk keeps them: they go A to Z, by path
             const list = files.map(v => ((v.dir === '') ? {file: v.file, dir: path, label: v.file.name} : {file: v.file, dir: `${path}/${v.dir}`, label: `${v.dir}/${v.file.name}`}));
-            this.queue.take(list.sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric: true})));
+            const items = this.queue.take(list.sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric: true})), (made.length > 0));
+            if (made.length > 0) {
+                const why = await this.folders_make(path, made);
+                this.queue.release(items, ((why === '') ? '' : `its folder was not made: ${why}`));
+            }
+        },
+        // The folders asked for a few at a time, the bar counting them; the list shows them once
+        // they are there. What comes back is '' or why one was refused.
+        folders_make: async function (path, dirs) {
+            const self = this;
+            let done = 0;
+            let why = '';
+            const left = dirs.slice();
+            this.act_report(`making ${dirs.length} ${plural(dirs.length, 'folder', 'folders')}…`, false);
+            async function next() {
+                while ((left.length > 0) && (why === '')) {
+                    const dir = left.shift();
+                    try {
+                        await self.fs_call('mkdir', {path: `${path}/${dir}`});
+                        done++;
+                        self.act_report(`making ${dirs.length} ${plural(dirs.length, 'folder', 'folders')}: ${done} made`, false);
+                    }
+                    catch (error) {
+                        why = `${dir}: ${error.message}`;
+                    }
+                }
+            }
+            await Promise.all(Array.from({length: Math.min(MKDIR_AT_ONCE, dirs.length)}, next));
+            this.act_report(((why === '') ? `${done} ${plural(done, 'folder', 'folders')} made` : why), (why !== ''));
+            await this.reread();
+            return why;
         },
         // One copy for each file ticked, into the folder named on the machine picked; the host
         // runs them one after another
@@ -1056,7 +1193,7 @@ const file_manager = {
                     this.transfer_items = (await answer.json()).items;
                     const landed = this.transfer_items.filter(v => (v.phase === 'ok') && (v.to.disk === this.disk) && (v.to.dir === this.path) && before.some(vv => (vv.id === v.id) && (vv.phase !== 'ok')));
                     if (landed.length > 0) {
-                        this.open(this.path);
+                        this.reread_soon();
                     }
                 }
             }
@@ -1160,11 +1297,14 @@ const file_manager = {
         };
         addEventListener('beforeunload', this.unload_guard);
         document.addEventListener('paste', this.pasted);
+        // A timer is not something vue watches
+        this.reread_timer = null;
         this.transfers_read();
     },
     unmounted: function () {
         removeEventListener('beforeunload', this.unload_guard);
         document.removeEventListener('paste', this.pasted);
+        clearTimeout(this.reread_timer);
         this.editor_destroy();
         clearTimeout(this.transfers_timer);
     },
@@ -1178,6 +1318,16 @@ const file_manager = {
         clearTimeout(this.transfers_timer);
     },
 };
+
+// The part of the file manager in view, for the drop zone fixed over it
+function drop_style_of(rect)
+{
+    const top = Math.max(0, rect.top);
+    const left = Math.max(0, rect.left);
+    const bottom = Math.min(innerHeight, rect.bottom);
+    const right = Math.min(innerWidth, rect.right);
+    return {top: `${top}px`, left: `${left}px`, width: `${Math.max(0, right - left)}px`, height: `${Math.max(0, bottom - top)}px`};
+}
 
 // Files from outside, dragged anywhere but over a field or an editor that takes them itself
 function is_files_drag(event)

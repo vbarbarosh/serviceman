@@ -52,8 +52,9 @@ that keeps no parts answers the part doors with 501.
 
 ### A file in parts
 
-The page draws an id for each upload and keeps it in `localStorage` under the file (folder,
-name, size, date), so the same file chosen again for the same folder carries on where it was.
+The page draws an id for each upload of more than 1 MB and keeps it in `localStorage` under the
+file (folder, name, size, date), so the same file chosen again for the same folder carries on
+where it was.
 Each part is 8 MB; a 413 from anything in front of the server halves it, down to 256 KB. A
 part that fails for any other reason is tried again after 1, 2, 4… up to 30 seconds, and the
 disk is asked first how much is in, so a part whose answer was lost is sent again from where
@@ -232,14 +233,20 @@ The page half: the host serves `ui/` and maps it, with Vue and a CodeMirror bund
 What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
 
 - **Upload files** and **Upload folder** open the dialogs; a folder goes with its inner folders.
-- Files or folders dropped on the list are copied into the folder it shows; the list lights up
-  while they are over it. A folder is read file by file, its inner folders too.
+- Files or folders dropped anywhere on the file manager are copied into the folder it shows; it
+  lights up while they are over it. A folder is read file by file, its inner folders too.
 - **Ctrl+V** with files or a folder in the clipboard does what a drop does, anywhere in the tab
   but a field or the editor; a paste of text is left alone.
 - A folder's own folders are made first, the deepest of each branch as `mkdir -p` does, empty
   ones included: a container's disk writes a file only into a folder that is there.
 - Each file goes up under its way from the folder taken (`photos/2024/a.jpg`), A to Z. A name
   the browser cannot read is a failed row in Uploads, the rest still goes.
+- Uploads says how far all of them are, with one bar: files, bytes, the rate and the time left.
+  Its list follows the file under way; a hand on it stops that for ten seconds.
+- A file of up to 1 MB goes in one request, sent again whole if it fails: three requests for its
+  parts cost more than its bytes over a link to a far machine.
+- A file that lands in the folder shown reads it again, at most once a second and in place: the
+  ticks stay. One that lands deeper changes nothing the list shows, and reads nothing.
 - A file dropped anywhere else on the page never opens in the tab and loses it.
 
 The host page gives the colours, as `--bg`, `--panel`, `--fg`, `--muted`, `--line`, `--hover`
