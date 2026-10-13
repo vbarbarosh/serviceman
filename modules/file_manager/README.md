@@ -266,8 +266,9 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
   lights up while they are over it. A folder is read file by file, its inner folders too.
 - **Ctrl+V** with files or a folder in the clipboard does what a drop does, anywhere in the tab
   but a field or the editor; a paste of text is left alone.
-- A folder's own folders are made first, the deepest of each branch as `mkdir -p` does, empty
-  ones included: a container's disk writes a file only into a folder that is there.
+- A folder's own folders are made when its turn comes, before its files, the deepest of each
+  branch as `mkdir -p` does, empty ones included: a container's disk writes a file only into a
+  folder that is there. A drop made while another goes waits in line, its folders too.
 - Each file goes up under its way from the folder taken (`photos/2024/a.jpg`), A to Z. A name
   the browser cannot read is a failed row in Uploads, the rest still goes.
 - A big drop is counted first (Counting… 1,284 files · 812 MB so far, with Cancel); nothing goes
@@ -281,13 +282,12 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
   a proxy may refuse a big body. A file over 64 MB, a single file, and every file of a disk that
   takes no tar go one by one: in parts that carry on after a break, or whole up to 1 MB.
 - Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
-  dashed line; under it the time left, the files left and the file under way. **Pause** stops
-  the stream where it is; **Resume** sends what is not in yet.
-- Its rows are nine: two done, the file under way, the next ones, sliding up a place as each
-  file goes; the failed stay on top, and **Show all** lists every one. A file of a stream is
-  `sent` once its bytes have gone, and done when the stream ends whole. A stream cut or still
-  for 30 seconds lists the folders of its files: what is there at its size and date is done,
-  the rest goes again.
+  dashed line; under it the time left and the files left, then the file under way with its own
+  bar, and the last few files that failed. No list of every file. **Pause** stops the stream
+  where it is; **Resume** sends what is not in yet.
+- A file of a stream is done when the stream ends whole. A stream cut or still for 30 seconds
+  lists the folders of its files: what is there at its size and date is done, the rest goes
+  again.
 - A file that lands in the folder shown reads it again, at most once a second and in place: the
   ticks stay. One that lands deeper changes nothing the list shows, and reads nothing.
 - A file dropped anywhere else on the page never opens in the tab and loses it.

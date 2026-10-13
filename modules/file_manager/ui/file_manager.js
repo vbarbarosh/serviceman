@@ -8,16 +8,11 @@ const TRANSFERS_POLL_MS = 1000;
 // are a thousand landings
 const REREAD_MS = 1000;
 
-// How many folders are asked for at once: a tree of a hundred folders, one after another, is a
-// hundred waits on a far machine
-const MKDIR_AT_ONCE = 6;
-
-// The rows of Uploads in view at once: two done, the file under way, the next ones. They slide
-// up a place as each file lands; Show all lists every one.
-const COPY_ROWS = 9;
-
-// Failed rows kept on top of them, the latest
+// The failed files Uploads keeps in view, the latest
 const COPY_FAILED_ROWS = 3;
+
+// An upload this big, or of more than one file, has its graph and the time left
+const COPY_BIG_BYTES = 8*1024*1024;
 
 // A file larger than this is opened in a tab, not read into the page
 const EDIT_MAX_BYTES = 10*1024*1024;
@@ -190,7 +185,7 @@ const file_manager = {
             <button type="button" @click="room_answer(false)">Don't copy</button>
         </div>
     </div>
-    <div v-if="(queue.copies.length > 0)" class="card fm-uploads" :class="{all: copies_all}">
+    <div v-if="(queue.copies.length > 0)" class="card fm-uploads">
         <div class="list-head">
             <b>Uploads</b>
             <span v-if="queue.paused" class="fm-paused">Paused</span>
@@ -198,14 +193,13 @@ const file_manager = {
             <div class="list-acts">
                 <button v-if="(queue.copying && (queue.paused === false))" type="button" @click="queue.pause()">Pause</button>
                 <button v-if="queue.paused" type="button" class="primary" @click="queue.resume()">Resume</button>
-                <button v-if="(queue.copies.length > COPY_ROWS)" type="button" @click="copies_all = (copies_all === false)">{{ (copies_all ? 'Show fewer' : ('Show all ' + queue.copies.length)) }}</button>
                 <button v-if="queue.copying" type="button" @click="queue.stop()">Cancel</button>
                 <button v-else type="button" @click="queue.clear()">Clear</button>
             </div>
         </div>
         <!-- The speed across the copy, as a file manager on the desktop draws it: how fast it went
              at each point of the way, the part done shaded, the speed now a dashed line -->
-        <template v-if="(copy_total.files > 1)">
+        <template v-if="copy_big">
             <div class="fm-graph" :class="{paused: queue.paused}">
                 <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
                     <line v-for="n of 9" :key="n" :x1="(n * 100)" y1="0" :x2="(n * 100)" y2="100" class="fm-graph-grid"/>
@@ -219,25 +213,22 @@ const file_manager = {
             <div class="fm-facts">
                 <span><b>Time left</b> {{ copy_left }}</span>
                 <span><b>Files left</b> {{ copy_total.files - copy_total.files_done - copy_total.failed }} ({{ format_bytes(copy_total.bytes - copy_total.bytes_done) }})</span>
-                <code v-if="(copy_now !== null)" class="muted" :title="copy_now.label">{{ copy_now.label }}</code>
             </div>
         </template>
-        <transition-group tag="div" name="fm-row" class="fm-copy-rows">
-        <div v-for="{item, i} of copy_rows" :key="i" class="fm-copy">
-            <code :title="item.label">{{ item.label }}</code>
-            <span v-if="(item.phase === 'waiting')" class="fm-copy-state muted">{{ format_bytes(item.size) }} — waiting</span>
-            <span v-else-if="(item.phase === 'held')" class="fm-copy-state muted">{{ format_bytes(item.size) }} — waiting for its folder</span>
-            <span v-else-if="(item.phase === 'copying' || item.phase === 'retrying')" class="fm-copy-state fm-copy-going">
-                <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(item) * 100)) + '%')}"/></span>
-                <span v-if="(item.phase === 'retrying')" class="bad" :title="copy_retry(item)">{{ copy_retry(item) }}</span>
-                <span v-else class="muted" :title="copy_detail(item)">{{ copy_detail(item) }}</span>
+        <!-- The file under way, with its own bar; a retry says why and when -->
+        <div v-if="(copy_now !== null)" class="fm-copy">
+            <code :title="copy_now.label">{{ copy_now.label }}</code>
+            <span class="fm-copy-state fm-copy-going">
+                <span class="meter"><i :style="{width: (Math.max(2, Math.round(copy_ratio(copy_now)*100)) + '%')}"/></span>
+                <span v-if="(copy_now.phase === 'retrying')" class="bad" :title="copy_retry(copy_now)">{{ copy_retry(copy_now) }}</span>
+                <span v-else class="muted">{{ format_bytes(copy_now.sent) }} of {{ format_bytes(copy_now.size) }}</span>
             </span>
-            <span v-else-if="(item.phase === 'sent')" class="fm-copy-state muted">{{ format_bytes(item.size) }} · sent</span>
-            <span v-else-if="(item.phase === 'ok')" class="fm-copy-state muted">{{ format_bytes(item.size) }}{{ (item.replaced ? ' · over the one that was there' : '') }} · done</span>
-            <span v-else-if="(item.phase === 'cancelled')" class="fm-copy-state muted">stopped — nothing landed</span>
-            <span v-else class="fm-copy-state bad" :title="item.said">{{ item.said }}</span>
         </div>
-        </transition-group>
+        <!-- What failed stays in view, the last few of it, until Clear -->
+        <div v-for="item of copy_failed" :key="item.label" class="fm-copy">
+            <code :title="item.label">{{ item.label }}</code>
+            <span class="fm-copy-state bad" :title="item.said">{{ item.said }}</span>
+        </div>
     </div>
     <!-- Copies between this disk and another, run by the server: they go on with the page closed -->
     <div v-if="(transfers_here.length > 0)" class="card fm-copies">
@@ -354,7 +345,6 @@ const file_manager = {
     data: function () {
         return {
             LANGUAGES,
-            COPY_ROWS,
             // The file read into the editor, while there is one: {name, path, size, mtime_ms,
             // state: loading | ready | binary | error, error}
             open_file: null,
@@ -400,8 +390,6 @@ const file_manager = {
             dragging: false,
             // Where the drop zone stands on the screen while something is dragged over
             drop_style: {},
-            // Every upload in the list, not only the few about the file under way
-            copies_all: false,
             // A drop being read: {files, bytes, stop}; null when none is
             counting: null,
             // Not room enough on the disk for a drop: what it needs, what fits; null when all fits
@@ -569,6 +557,9 @@ const file_manager = {
         // graph. One file has no graph: its own row says it all.
         copy_summary: function () {
             const total = this.copy_total;
+            if (this.queue.making !== null) {
+                return `making ${this.queue.making.total} ${plural(this.queue.making.total, 'folder', 'folders')}: ${this.queue.making.done} made`;
+            }
             const said = [`${total.files_done} of ${total.files} ${plural(total.files, 'file', 'files')}`, `${format_bytes(total.bytes_done)} of ${format_bytes(total.bytes)}`];
             if (total.files > 1) {
                 said.unshift(`${Math.floor(total.ratio*100)}%`);
@@ -599,10 +590,11 @@ const file_manager = {
             const by_files = ((total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0);
             return `about ${format_ms(Math.max(by_bytes, by_files))}`;
         },
-        // The file under way, named under the graph
+        // The file under way: in a stream, the one whose bytes are going now
         copy_now: function () {
-            const item = this.queue.copies.find(v => (v.phase === 'copying') || (v.phase === 'retrying'));
-            return ((item === undefined) ? null : item);
+            const going = this.queue.copies.filter(v => (v.phase === 'copying') || (v.phase === 'retrying'));
+            const item = going.find(v => (v.sent > 0) && (v.sent < v.size));
+            return ((item !== undefined) ? item : ((going.length > 0) ? going[0] : null));
         },
         // The graph's lines, on a box of 1000 by 100: the speed scaled to the fastest seen, with
         // a little room above it
@@ -622,20 +614,12 @@ const file_manager = {
             }
             return out;
         },
-        // The rows of Uploads shown: the few about the file under way, the last failed ones above
-        // them, so a thousand files are nine rows that slide, not a list to scroll. [{item, i}]
-        copy_rows: function () {
-            const rows = this.queue.copies.map((v, i) => ({item: v, i}));
-            if (this.copies_all || (rows.length <= COPY_ROWS)) {
-                return rows;
-            }
-            let at = rows.findIndex(v => ['copying', 'retrying', 'waiting', 'held'].includes(v.item.phase));
-            if (at < 0) {
-                at = rows.length;
-            }
-            const start = Math.max(0, Math.min(at - 2, rows.length - COPY_ROWS));
-            const failed = rows.filter(v => (v.item.phase === 'error') && ((v.i < start) || (v.i >= start + COPY_ROWS))).slice(-COPY_FAILED_ROWS);
-            return failed.concat(rows.slice(start, start + COPY_ROWS));
+        // The failed files, the latest few: the rest are counted in the line above
+        copy_failed: function () {
+            return this.queue.copies.filter(v => v.phase === 'error').slice(-COPY_FAILED_ROWS);
+        },
+        copy_big: function () {
+            return (this.copy_total.files > 1) || (this.copy_total.bytes > COPY_BIG_BYTES);
         },
         // Ticks on names the dot-files toggle has hidden do not count
         chosen_names: function () {
@@ -1254,10 +1238,10 @@ const file_manager = {
             this.room_resolve(yes);
         },
         // Choosing is the act, and the copy follows it, into the folder shown now. files: [{file,
-        // dir}], `dir` the way under this folder. The files show in Uploads at once; the folders
-        // are made first, the deepest of each branch the way mkdir -p does: a container's disk
-        // writes a file only into a folder that is there, and an empty folder has no file to
-        // bring it.
+        // dir}], `dir` the way under this folder. The files join Uploads at once; when their turn
+        // comes their folders are made first, the deepest of each branch the way mkdir -p does:
+        // a container's disk writes a file only into a folder that is there, and an empty folder
+        // has no file to bring it. Only empty folders, with no file to wait for, are made now.
         take: async function (files_asked, dirs_asked) {
             const path = this.path;
             const sorted = files_asked.slice().sort((a, b) => file_label(a).localeCompare(file_label(b), undefined, {numeric: true}));
@@ -1270,37 +1254,12 @@ const file_manager = {
             const made = folders_deepest(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
             // A folder's names come in the order the disk keeps them: they go A to Z, by path
             const list = files.map(v => ({file: v.file, dir: ((v.dir === '') ? path : `${path}/${v.dir}`), label: file_label(v)}));
-            const items = this.queue.take(list, (made.length > 0));
-            if (made.length > 0) {
-                const why = await this.folders_make(path, made);
-                this.queue.release(items, ((why === '') ? '' : `its folder was not made: ${why}`));
+            if (list.length > 0) {
+                this.queue.take(list, {path, folders: made});
+                return;
             }
-        },
-        // The folders asked for a few at a time, the bar counting them; the list shows them once
-        // they are there. What comes back is '' or why one was refused.
-        folders_make: async function (path, dirs) {
-            const self = this;
-            let done = 0;
-            let why = '';
-            const left = dirs.slice();
-            this.act_report(`making ${dirs.length} ${plural(dirs.length, 'folder', 'folders')}…`, false);
-            async function next() {
-                while ((left.length > 0) && (why === '')) {
-                    const dir = left.shift();
-                    try {
-                        await self.fs_call('mkdir', {path: `${path}/${dir}`});
-                        done++;
-                        self.act_report(`making ${dirs.length} ${plural(dirs.length, 'folder', 'folders')}: ${done} made`, false);
-                    }
-                    catch (error) {
-                        why = `${dir}: ${error.message}`;
-                    }
-                }
-            }
-            await Promise.all(Array.from({length: Math.min(MKDIR_AT_ONCE, dirs.length)}, next));
-            this.act_report(((why === '') ? `${done} ${plural(done, 'folder', 'folders')} made` : why), (why !== ''));
-            await this.reread();
-            return why;
+            const why = await this.queue.folders_make(path, made);
+            this.act_report(((why === '') ? `${made.length} ${plural(made.length, 'folder', 'folders')} made` : why), (why !== ''));
         },
         // One copy for each file ticked, into the folder named on the machine picked; the host
         // runs them one after another
@@ -1404,32 +1363,6 @@ const file_manager = {
         },
         copy_ratio: function (item) {
             return ((item.size === 0) ? 1 : item.sent/item.size);
-        },
-        // The numbers under the bar, in the words this page uses for a download: what has gone
-        // over, how fast, and what that leaves. The rate is the whole copy's, not the last
-        // second's — a number that stands still is easier to read than one that jumps. What
-        // was in before this page carried the copy on is not counted into it.
-        copy_detail: function (item) {
-            const ms = Date.now() - item.began;
-            const ratio = this.copy_ratio(item);
-            const before = (((item.began_at === null) || (item.began_at === undefined)) ? 0 : item.began_at);
-            const sent = item.sent - before;
-            const said = [`${format_bytes(item.sent)} of ${format_bytes(item.size)}`];
-            if (before > 0) {
-                said.push(`carried on from ${format_bytes(before)}`);
-            }
-            if ((ms > 1000) && (sent > 0)) {
-                said.push(`${format_bytes(Math.round(sent*1000/ms))}/s`);
-            }
-            if ((ratio < 1) && (ms > 1000) && (sent > item.size*0.01)) {
-                said.push(`~${format_ms((item.size - item.sent)*ms/sent)} left`);
-            }
-            if (ratio >= 1) {
-                // The bytes are over the link; the machine is still writing the last of them
-                // down, and a big file is a moment of exactly that
-                said.push('waiting for the disk to say where it landed');
-            }
-            return said.join(' · ');
         },
     },
     mounted: function () {

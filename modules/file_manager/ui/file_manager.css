@@ -214,25 +214,15 @@ p.fm-foot {
     grid-column: 1 / -1;
 }
 
-/* Uploads: a head of figures with the bar of all the uploads at once, and a few rows under it.
-   Show all lists every one: then they scroll, and the head stays. */
+/* Uploads: a head of figures, the graph, the time and files left, the file under way, and the
+   files that failed */
 .fm-uploads {
     padding: .7rem .9rem;
 }
 
-.fm-uploads.all {
-    max-height: 40vh;
-    overflow: auto;
-}
-
 .fm-uploads > .list-head {
-    position: sticky;
-    top: -.7rem;
-    z-index: 1;
     flex-wrap: wrap;
-    margin: -.7rem 0 .4rem;
-    padding-top: .7rem;
-    background: var(--panel);
+    margin-bottom: .4rem;
 }
 
 .fm-copy-summary {
@@ -368,15 +358,8 @@ p.fm-foot {
     white-space: nowrap;
 }
 
-/* A row is the path, as wide as it needs, and what became of the file at the row's end: a small
-   bar and its figures while it goes. The path is cut only when the two do not fit. */
-.fm-copy-rows {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: .4rem;
-}
-
+/* A row is the path, as wide as it needs, and its state at the row's end: a small bar and its
+   figures while it goes. The path is cut only when the two do not fit. */
 .fm-uploads .fm-copy {
     display: flex;
     align-items: center;
@@ -414,27 +397,6 @@ p.fm-foot {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* A file landed: its row goes up and out, the rest slide up a place, the next comes in under */
-.fm-row-move,
-.fm-row-enter-active,
-.fm-row-leave-active {
-    transition: transform .25s ease, opacity .25s ease;
-}
-
-.fm-row-enter-from,
-.fm-row-leave-to {
-    opacity: 0;
-}
-
-.fm-row-leave-to {
-    transform: translateY(-100%);
-}
-
-.fm-row-leave-active {
-    position: absolute;
-    width: 100%;
 }
 
 /* Copies between machines: one grid for the whole card, so the bars line up */

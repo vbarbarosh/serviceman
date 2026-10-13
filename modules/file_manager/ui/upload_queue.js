@@ -16,6 +16,15 @@ const waits = {};
 // What a paused queue waits on, for each disk, so Resume and Cancel can end it
 const resumes = {};
 
+// The folders each choice of files needs before its files go: base -> {batch -> {path, folders}}.
+// They are made when its turn comes, not when it is chosen: a drop added while another goes
+// waits in line, its folders too.
+const plans = {};
+
+// How many folders are asked for at once: a tree of a hundred folders, one after another, is a
+// hundred waits on a far machine
+const MKDIR_AT_ONCE = 6;
+
 // How often the speed is taken for the graph, and over how long a stretch: a file of a few
 // bytes takes no time, so the speed of one instant is mostly zero
 const SAMPLE_MS = 500;
@@ -68,8 +77,9 @@ addEventListener('beforeunload', function (event) {
     }
 });
 
-// base -> {copies, copying, paused, samples, note, bad, landed, landed_dirs, whole, no_stream,
-// part_bytes, began, take, release, refuse, pause, resume, stop, clear}. `samples` are the speed
+// base -> {copies, copying, paused, samples, note, bad, landed, landed_dirs, making, whole,
+// no_stream, part_bytes, began, take, folders_make, refuse, pause, resume, stop, clear}.
+// `making` is {done, total} while the folders of a choice are made. `samples` are the speed
 // across the copy, [{x: how far it is, 0 to 1; y: bytes a second}]. `landed` counts the
 // landings and `landed_dirs` are the folders of the last one, for a tab showing one of them to
 // read it again. `whole` is a disk that keeps no parts, `no_stream` one that takes no tar;
@@ -77,12 +87,12 @@ addEventListener('beforeunload', function (event) {
 function upload_queue(base)
 {
     if (queues[base] === undefined) {
-        const queue = reactive({base, copies: [], copying: false, cancelled: false, paused: false, samples: [], note: '', bad: false, landed: 0, landed_dirs: [], began: 0, whole: false, no_stream: false, stream_known: false, stream_bytes: STREAM_FIRST_BYTES, batches: 0, part_bytes: PART_BYTES});
-        queue.take = function (list, held) {
-            return take(queue, list, held);
+        const queue = reactive({base, copies: [], copying: false, cancelled: false, paused: false, samples: [], note: '', bad: false, landed: 0, landed_dirs: [], making: null, began: 0, whole: false, no_stream: false, stream_known: false, stream_bytes: STREAM_FIRST_BYTES, batches: 0, part_bytes: PART_BYTES});
+        queue.take = function (list, plan) {
+            take(queue, list, plan);
         };
-        queue.release = function (items, why) {
-            release(queue, items, why);
+        queue.folders_make = function (path, folders) {
+            return folders_make(queue, path, folders);
         };
         queue.refuse = function (labels, why) {
             refuse(queue, labels, why);
@@ -106,32 +116,68 @@ function upload_queue(base)
 
 // Choosing a file is the act, and the copy follows it. Each lands in the folder it was chosen
 // for, whichever folder the tab shows by the time its turn comes. list: [{file, dir, label}],
-// `label` the name as the list of uploads shows it, with the folders it came in. `held` files
-// are shown at once and wait for their folders to be made: release() lets them go.
-function take(queue, list, held)
+// `label` the name as Uploads shows it, with the folders it came in. plan: {path, folders}, the
+// folders under `path` to make first, when the turn of these files comes.
+function take(queue, list, plan)
 {
-    const out = [];
     // The files taken at once go as one stream
     const batch = ++queue.batches;
     for (const {file, dir, label} of list) {
-        queue.copies.push({name: file.name, label, size: file.size, file, dir, batch, phase: (held ? 'held' : 'waiting'), said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
-        out.push(queue.copies.at(-1));
+        queue.copies.push({name: file.name, label, size: file.size, file, dir, batch, phase: 'waiting', said: '', replaced: false, sent: 0, began: 0, began_at: null, id: '', wait_s: 0, finish_sent_at: null});
     }
-    if (held !== true) {
-        copy(queue);
+    if ((plan !== undefined) && (plan.folders.length > 0)) {
+        if (plans[queue.base] === undefined) {
+            plans[queue.base] = {};
+        }
+        plans[queue.base][batch] = plan;
     }
-    return out;
+    copy(queue);
 }
 
-// The folders of files held are made, and they join the queue; or not, and they say why
-function release(queue, items, why)
+// The folders asked for a few at a time, Uploads counting them; the tab showing `path` reads it
+// again once they are there. What comes back is '' or why one was refused.
+async function folders_make(queue, path, folders)
 {
-    for (const item of items.filter(v => v.phase === 'held')) {
-        item.phase = ((why === '') ? 'waiting' : 'error');
-        item.said = why;
+    const left = folders.slice();
+    let why = '';
+    queue.making = {done: 0, total: folders.length};
+    async function next() {
+        while ((left.length > 0) && (why === '')) {
+            const dir = left.shift();
+            try {
+                const answer = await fetch(`${queue.base}/mkdir`, {method: 'POST', body: JSON.stringify({path: `${path}/${dir}`})});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json()).error);
+                }
+                queue.making.done++;
+            }
+            catch (error) {
+                why = `${dir}: ${error.message}`;
+            }
+        }
     }
-    if (why === '') {
-        copy(queue);
+    await Promise.all(Array.from({length: Math.min(MKDIR_AT_ONCE, folders.length)}, next));
+    queue.making = null;
+    queue.landed_dirs = [path];
+    queue.landed++;
+    return why;
+}
+
+// A choice whose turn has come: its folders first. Refused, its files fail with the reason.
+async function plan_run(queue, batch)
+{
+    const plan = ((plans[queue.base] === undefined) ? undefined : plans[queue.base][batch]);
+    if (plan === undefined) {
+        return;
+    }
+    delete plans[queue.base][batch];
+    const why = await folders_make(queue, plan.path, plan.folders);
+    if (why !== '') {
+        for (const item of queue.copies.filter(v => (v.batch === batch) && (v.phase === 'waiting'))) {
+            item.phase = 'error';
+            item.said = `its folder was not made: ${why}`;
+        }
+        report(queue, why, true);
     }
 }
 
@@ -165,9 +211,14 @@ async function copy(queue)
                     resumes[queue.base] = resolve;
                 });
             }
-            const item = queue.copies.find(v => v.phase === 'waiting');
+            let item = queue.copies.find(v => v.phase === 'waiting');
             if ((item === undefined) || queue.cancelled) {
                 break;
+            }
+            await plan_run(queue, item.batch);
+            item = queue.copies.find(v => v.phase === 'waiting');
+            if ((item === undefined) || queue.cancelled) {
+                continue;
             }
             const batch = stream_next(queue, item);
             if ((batch.length > 1) && (queue.no_stream === false)) {
@@ -665,6 +716,7 @@ function ids_write(kept)
 function stop(queue)
 {
     queue.cancelled = true;
+    delete plans[queue.base];
     if (requests[queue.base] !== undefined) {
         requests[queue.base].abort();
     }
