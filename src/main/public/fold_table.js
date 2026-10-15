@@ -23,7 +23,9 @@ const fold_table = {
         return {folded: [], span: 0, opened: {}};
     },
     mounted: function () {
-        this.observer = new ResizeObserver(() => this.measure());
+        // Measured on the next frame and only for a new width: folding changes the room's height,
+        // and measuring inside the observer's own call made Chrome report a loop as an error
+        this.observer = new ResizeObserver(this.resized);
         this.observer.observe(this.$refs.room);
         this.measure();
     },
@@ -32,8 +34,18 @@ const fold_table = {
     },
     unmounted: function () {
         this.observer.disconnect();
+        cancelAnimationFrame(this.frame);
     },
     methods: {
+        resized: function () {
+            const width = this.$refs.room.clientWidth;
+            if (width === this.width) {
+                return;
+            }
+            this.width = width;
+            cancelAnimationFrame(this.frame);
+            this.frame = requestAnimationFrame(() => this.measure());
+        },
         is_open: function (key) {
             return ((this.folded.length > 0) && (this.opened[key] === true));
         },
