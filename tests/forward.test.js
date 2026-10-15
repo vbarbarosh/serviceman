@@ -39,6 +39,7 @@ test('a forward carries a laptop socket to a port on another machine, both ways'
         await wait_until(() => running.app.forward_counts.loki.open === 0);
         const view = (await state_read(running)).forwards[0];
         assert.strictEqual(view.problem, null);
+        assert.strictEqual(view.state, 'ready');
         assert.strictEqual(view.at, sock);
         assert.strictEqual(view.total, 2);
         assert.strictEqual(view.bytes_to, 5 + 600000);
@@ -89,6 +90,7 @@ test('a forward to a machine that is away closes each connection at once and say
         assert.strictEqual(await say_through({path: sock}, 'hello'), '', 'closed with nothing said');
         const view = (await state_read(running)).forwards[0];
         assert.strictEqual(view.problem, 'vps1 is offline');
+        assert.strictEqual(view.state, 'to_offline');
         assert.strictEqual(view.error, 'vps1 is offline');
         assert.strictEqual(running.app.log_lines.some(v => /\[forward_error\] forward=loki reason="vps1 is offline"/.test(v)), true);
 
@@ -150,6 +152,7 @@ test('a stale socket file is taken over, a live one is left to its program', asy
         assert.strictEqual(await say_through({path: stale}, 'a'), 'echo: a');
         const view = (await state_read(running)).forwards.find(v => v.name === 'live');
         assert.strictEqual(view.problem, `laptop cannot listen: ${live} is answered by another program`);
+        assert.strictEqual(view.state, 'cannot_listen');
         assert.strictEqual(view.at, null);
 
         // Its program goes, and the next minute's telling takes the file
@@ -179,7 +182,8 @@ test('a forward taken out of the config or set aside closes its socket', async f
         await wait_listening(running, 'loki');
         await app_apply_config(running.app, config_of([Object.assign({}, forward, {off: true})]));
         await wait_until(() => fs.existsSync(sock) === false);
-        assert.strictEqual((await state_read(running)).forwards[0].problem, 'set aside');
+        const aside = (await state_read(running)).forwards[0];
+        assert.deepStrictEqual([aside.state, aside.problem], ['aside', 'set aside']);
 
         await app_apply_config(running.app, config_of([forward]));
         await wait_listening(running, 'loki');
@@ -266,14 +270,16 @@ test('the config says what is wrong with a forward, in its own words', function 
     for (const [forward, message] of cases) {
         assert.throws(() => config_of([forward]), {message});
     }
-    assert.throws(() => config_of([
+    const twice = [
         {name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2}},
         {name: 'a', from: {remote: 'laptop', port: 3}, to: {remote: 'vps1', port: 2}},
-    ]), {message: 'forwards[1].name: "a" is used twice'});
-    assert.throws(() => config_of([
+    ];
+    assert.throws(() => config_of(twice), {message: 'forwards[1].name: "a" is used twice'});
+    const same_place = [
         {name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2}},
         {name: 'b', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 3}},
-    ]), {message: 'forwards[1].from: a already listens there'});
+    ];
+    assert.throws(() => config_of(same_place), {message: 'forwards[1].from: a already listens there'});
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{name: 'a', from: {remote: 'laptop', socket: '~/a.sock'}, to: {remote: 'vps1', host: '10.0.0.5', port: 2}}]).forwards, [
