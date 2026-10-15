@@ -375,94 +375,112 @@ table.rules tr.off code {
     width: 8rem;
 }
 
-/* A list of one line each, what it is and where it stands, the rest opening under it on a
-   click: the forwards, the names the doors answer, the doors. The name and the middle are cut
-   with an ellipsis; the state word is kept whole where it fits. */
-.fold-list {
-    list-style: none;
+/* A table that keeps its columns while they fit and folds the rest under a row on a click
+   (fold_table.js). A cell stays on one line; only a name, marked .wraps, may wrap once
+   everything else has folded. While measured, every cell is on one line and the table as wide
+   as its cells want. */
+.fold-room {
+    overflow-x: auto;
     margin: 1rem 0;
-    padding: 0;
-    border-top: 1px solid var(--line);
 }
 
-.fold-list > li {
-    border-bottom: 1px solid var(--line);
-}
-
-.fold-list > li.empty {
-    padding: .5rem 0;
-}
-
-.fold-line {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
+.fold-room > table {
     width: 100%;
-    min-width: 0;
-    padding: .55rem .25rem;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.fold-room > table.fold-measure {
+    width: max-content;
+}
+
+.fold-room > table > * > tr > th,
+.fold-room > table > * > tr > td {
+    padding: .45rem .9rem .45rem 0;
+    border-bottom: 1px solid var(--line);
     text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* .bad lets its text wrap everywhere else */
+.fold-room > table > * > tr:not(.fold-more) > :not(.wraps) .bad {
+    white-space: nowrap;
+}
+
+.fold-room > table > * > tr > .wraps {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fold-room > table.fold-measure > * > tr > * {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+.fold-room > table > thead > tr > th {
+    color: var(--muted);
+    font-weight: normal;
+    font-size: .8rem;
+}
+
+.fold-room > table > * > tr > .tick {
+    text-align: center;
+}
+
+.fold-room td > button.link + button.link {
+    margin-left: .75rem;
+}
+
+.fold-room > table > * > tr > .fold-caret {
+    width: 24px;
+    padding-right: 0;
+    color: var(--muted);
+}
+
+.fold-room .fold-caret svg {
+    display: block;
+    transition: transform .12s ease;
+}
+
+.fold-room tr.open .fold-caret svg {
+    transform: rotate(90deg);
+}
+
+.fold-room tr.foldable {
     cursor: pointer;
     transition: background .12s ease;
 }
 
-.fold-line:hover {
+.fold-room tr.foldable:hover {
     background: var(--panel);
 }
 
-.fold-line .caret {
-    flex: none;
-    color: var(--muted);
-    transition: transform .12s ease;
+.fold-room tr.foldable.open > td {
+    border-bottom: 0;
 }
 
-.fold-list > li.open .caret {
-    transform: rotate(90deg);
-}
-
-.fold-line .name {
-    flex: 0 1 auto;
-    min-width: 3rem;
-    max-width: 40%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fold-line .route {
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fold-line .word {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 45%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fold-list > li.off .name {
+.fold-room tr.off .name {
     color: var(--muted);
     text-decoration: line-through;
 }
 
-.fold-details {
-    padding: 0 .25rem .75rem 1.6rem;
+.fold-room > table > tbody > tr.fold-more > td {
+    padding: 0 0 .75rem 24px;
+    white-space: normal;
 }
 
-.fold-details dl {
+/* The details take the width the columns leave them and never widen a column themselves */
+.fold-room tr.fold-more .fold-details {
+    contain: inline-size;
+}
+
+/* What folded out of a row, under it: one line each, its label and its value */
+.fold-details {
     display: grid;
     grid-template-columns: 7.5rem minmax(0, 1fr);
     gap: .3rem 1rem;
-    margin: 0 0 .5rem;
+    margin: 0;
 }
 
 .fold-details dt {
@@ -488,20 +506,14 @@ table.rules tr.off code {
     gap: .4rem;
 }
 
-.form .fold-actions input[type=checkbox] {
+.form .fold-actions input[type=checkbox],
+.form .fold-room input[type=checkbox] {
     width: auto;
 }
 
-/* With room to spare the names take one width, so what follows lines up under each other */
-@media (min-width: 900px) {
-    .fold-line .name {
-        flex-basis: 14rem;
-    }
-}
-
-/* On a phone the labels take less room, and each detail stays one line: its label, its value */
+/* On a phone the labels take less room */
 @media (max-width: 560px) {
-    .fold-details dl {
+    .fold-details {
         grid-template-columns: 6rem minmax(0, 1fr);
         gap: .3rem .6rem;
     }
