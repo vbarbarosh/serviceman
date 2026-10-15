@@ -38,55 +38,68 @@ const authwall_pane = {
             </div>
         </div>
         <h2>What it guards</h2>
-        <ul class="fold-list">
-            <li v-for="rule of guarded" :key="rule_key(rule)" :class="{off: rule.off, open: rule_open(rule)}">
-                <button type="button" class="fold-line" :aria-expanded="rule_open(rule)" @click="rule_toggle(rule)">
-                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                    <span class="dot" :class="rule_dot(rule)"/>
-                    <b class="name" :title="rule.host">{{ rule.host }}</b>
-                    <span class="route muted" :title="(rule.title + ' → ' + rule.service)">{{ rule.title }} → {{ rule.service }}</span>
-                    <span class="word" :class="{bad: (known(rule.service) === false), muted: (rule.auth === null && rule.off === false && known(rule.service))}">{{ rule_word(rule) }}</span>
-                </button>
-                <div v-if="rule_open(rule)" class="fold-details">
-                    <dl>
-                        <dt>Door of</dt>
-                        <dd>{{ rule.title }}</dd>
-                        <dt>Answered by</dt>
-                        <dd><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button><span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></dd>
-                    </dl>
-                    <div class="fold-actions">
-                        <button type="button" :disabled="busy" @click="guard(rule, null)">Stop guarding</button>
-                    </div>
-                </div>
-            </li>
-            <li v-if="(guarded.length === 0)" class="muted empty">Nothing yet — pick a name below.</li>
-        </ul>
+        <div class="wide-scroll">
+            <table class="grid-table rules">
+                <colgroup>
+                    <col>
+                    <col width="200">
+                    <col width="200">
+                    <col width="220">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Door of</th>
+                        <th>Answered by</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="rule of guarded" :key="(rule.machine + ' ' + rule.host)" :class="{off: rule.off}">
+                        <td><code>{{ rule.host }}</code><span v-if="rule.off" class="muted"> · set aside</span></td>
+                        <td>{{ rule.title }}</td>
+                        <td><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></td>
+                        <td><button type="button" :disabled="busy" @click="guard(rule, null)">Stop guarding</button></td>
+                    </tr>
+                    <tr v-if="(guarded.length === 0)">
+                        <td class="muted" colspan="4">Nothing yet — pick a name below.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         <h2>Not behind it</h2>
-        <ul class="fold-list">
-            <li v-for="rule of open" :key="rule_key(rule)" :class="{off: rule.off, open: rule_open(rule)}">
-                <button type="button" class="fold-line" :aria-expanded="rule_open(rule)" @click="rule_toggle(rule)">
-                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                    <span class="dot" :class="rule_dot(rule)"/>
-                    <b class="name" :title="rule.host">{{ rule.host }}</b>
-                    <span class="route muted" :title="(rule.title + ' → ' + rule.service)">{{ rule.title }} → {{ rule.service }}</span>
-                    <span class="word" :class="{bad: (known(rule.service) === false), muted: (rule.auth === null && rule.off === false && known(rule.service))}">{{ rule_word(rule) }}</span>
-                </button>
-                <div v-if="rule_open(rule)" class="fold-details">
-                    <dl>
-                        <dt>Door of</dt>
-                        <dd>{{ rule.title }}</dd>
-                        <dt>Answered by</dt>
-                        <dd><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button><span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></dd>
-                        <dt>Behind</dt>
-                        <dd :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}</dd>
-                    </dl>
-                    <div class="fold-actions">
-                        <button type="button" :disabled="busy" @click="guard(rule, wall)">Guard with {{ wall }}</button>
-                    </div>
-                </div>
-            </li>
-            <li v-if="(open.length === 0)" class="muted empty">Every name a door answers is behind {{ wall }}.</li>
-        </ul>
+        <div class="wide-scroll">
+            <table class="grid-table rules">
+                <colgroup>
+                    <col>
+                    <col width="200">
+                    <col width="200">
+                    <col width="240">
+                    <col width="220">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Door of</th>
+                        <th>Answered by</th>
+                        <th>Behind</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="rule of open" :key="(rule.machine + ' ' + rule.host)" :class="{off: rule.off}">
+                        <td><code>{{ rule.host }}</code><span v-if="rule.off" class="muted"> · set aside</span></td>
+                        <td>{{ rule.title }}</td>
+                        <td><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></td>
+                        <td :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}</td>
+                        <td><button type="button" :disabled="busy" @click="guard(rule, wall)">Guard with {{ wall }}</button></td>
+                    </tr>
+                    <tr v-if="(open.length === 0)">
+                        <td class="muted" colspan="5">Every name a door answers is behind {{ wall }}.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </template>
     <p :class="(bad ? 'bad' : 'muted')">{{ note }} <template v-if="(note === '')">A name is given to a door on the <button type="button" class="link" @click="$emit('doors')">Doors</button> page.</template></p>
 </article>
@@ -95,9 +108,7 @@ const authwall_pane = {
     emits: ['create', 'doors', 'select'],
     data: function () {
         // `picked` is another wall looked at for now; null is the usual one
-        // `opened` is the names whose details are shown, by machine and name: a name guarded or
-        // let go shows up opened in the other list, its way back at hand
-        return {picked: null, busy: false, note: '', bad: false, opened: {}};
+        return {picked: null, busy: false, note: '', bad: false};
     },
     computed: {
         // Every name a machine's door answers, with the wall in front of it
@@ -155,34 +166,6 @@ const authwall_pane = {
         },
     },
     methods: {
-        known: function (name) {
-            return this.state.services.some(v => v.name === name);
-        },
-        rule_key: function (rule) {
-            return `${rule.machine} ${rule.host}`;
-        },
-        rule_open: function (rule) {
-            return (this.opened[this.rule_key(rule)] === true);
-        },
-        rule_toggle: function (rule) {
-            this.opened = Object.assign({}, this.opened, {[this.rule_key(rule)]: (this.rule_open(rule) === false)});
-        },
-        // Where a name stands, in a word or two for its one line, in the words of the Doors page
-        rule_word: function (rule) {
-            if (this.known(rule.service) === false) {
-                return 'no such service';
-            }
-            if (rule.off) {
-                return 'set aside';
-            }
-            return ((rule.auth === null) ? 'no wall' : `behind ${rule.auth}`);
-        },
-        rule_dot: function (rule) {
-            if (this.known(rule.service) === false) {
-                return 'failed';
-            }
-            return (rule.off ? '' : 'running');
-        },
         // The wall put in front of a name, or taken away; the name keeps everything else it has
         guard: async function (rule, auth) {
             this.busy = true;

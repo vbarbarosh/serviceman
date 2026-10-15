@@ -1,10 +1,10 @@
 // The encrypted volumes of several machines in one list: each one's file, the folder it opens
-// at, open or closed, and how full. Close and Grow in its details, Open with a passphrase, Delete
+// at, open or closed, and how full. Close and Grow from its row, Open with a passphrase, Delete
 // on a closed one with Undo for a few seconds before the machine is asked; New volume makes one
 // with a passphrase a person types, kept nowhere. Visual Agents makes and opens its own with keys
 // it holds. A change shows at once, marked while the machine makes it. The
 // host page gives the API of each machine, the colours and its usual classes: card, form, grid,
-// list-head, list-acts, fold-list, dot, muted, bad, alert, primary, link.
+// list-head, list-acts, list-table, wide-scroll, dot, muted, bad, alert, primary, link.
 const PASSPHRASE_MIN = 16;
 const UNDO_SECONDS = 10;
 const STATES = {
@@ -73,70 +73,90 @@ const volumes = {
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <ul class="fold-list">
-        <li v-for="item of items" :key="item.key" :class="{open: item_open(item)}">
-            <button type="button" class="fold-line" :aria-expanded="item_open(item)" @click="item_toggle(item)">
-                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                <span class="dot" :class="dot_of(item)"/>
-                <b class="name" :title="item.name">{{ item.name }}</b>
-                <span class="route muted" :title="item.machine_title">{{ item.machine_title }}</span>
-                <span class="vol-used muted">{{ used_text(item) }}</span>
-                <span class="word" :class="{bad: (item.state === 'missing'), muted: (pending[item.key] !== undefined)}" :title="(pending[item.key] === undefined ? state_of(item).text : pending[item.key])">{{ (pending[item.key] === undefined ? state_of(item).text : pending[item.key]) }}</span>
-            </button>
-            <div v-if="item_open(item)" class="fold-details">
-                <dl>
-                    <dt>On</dt>
-                    <dd>{{ item.machine_title }}</dd>
-                    <dt>Folder</dt>
-                    <dd><code>{{ item.target }}</code></dd>
-                    <dt>State</dt>
-                    <dd>{{ state_of(item).text }}<span v-if="(state_of(item).note !== '')" class="muted"> · {{ state_of(item).note }}</span></dd>
-                    <dt>Used</dt>
-                    <dd v-if="(item.size === null)" class="muted">not known yet</dd>
-                    <dd v-else>{{ used_text(item) }}<span v-if="(item.on_disk !== null)" class="muted"> · {{ bytes_text(item.on_disk) }} on disk</span></dd>
-                </dl>
-                <div v-if="(pending[item.key] !== undefined)" class="fold-actions">
-                    <span class="muted">{{ pending[item.key] }}</span>
-                </div>
-                <div v-else-if="(item.state === 'open')" class="fold-actions">
-                    <button type="button" :disabled="item.offline" @click="grow_show(item)">Grow…</button>
-                    <button type="button" :disabled="item.offline" @click="close(item)">Close</button>
-                </div>
-                <div v-else-if="((item.state === 'closed') || (item.state === 'missing'))" class="fold-actions">
-                    <button v-if="((item.state === 'closed') && (item.passphrase === true))" type="button" :disabled="item.offline" @click="open_show(item)">Open…</button>
-                    <button type="button" :disabled="item.offline" @click="delete_start(item)">Delete</button>
-                </div>
-                <form v-if="(grow_key === item.key)" class="vol-grow" @submit.prevent="grow(item)">
-                    <span class="muted">Now {{ bytes_text(item.size) }}. New size:</span>
-                    <input v-model.trim="grow_size" placeholder="40G" aria-label="New size" required>
-                    <button type="submit" class="primary" :disabled="(grow_size === '')">Grow</button>
-                    <button type="button" class="link" @click="grow_key = null">Cancel</button>
-                </form>
-                <form v-if="(open_key === item.key)" class="vol-grow" @submit.prevent="open_volume(item)">
-                    <span class="muted">Passphrase of {{ item.name }}:</span>
-                    <input v-model="open_passphrase" class="vol-pass" type="password" autocomplete="current-password" aria-label="Passphrase" required>
-                    <button type="submit" class="primary" :disabled="((open_passphrase === '') || (key_safe_here === false))">Open</button>
-                    <button type="button" class="link" @click="open_key = null">Cancel</button>
-                    <span v-if="(key_safe_here === false)" class="bad">Only over https or from a page on this machine.</span>
-                </form>
-            </div>
-            <!-- What the machine said shows under the line, opened or not: it may answer a row made or deleted from elsewhere -->
-            <div v-if="(said[item.key] !== undefined)" class="vol-said-box">
-                <div class="vol-said">
-                    <span v-if="(said[item.key].note !== undefined)" class="muted">{{ said[item.key].note }}</span>
-                    <span v-else class="bad">{{ said[item.key].error }}</span>
-                    <button type="button" class="link" aria-label="Close" @click="said_clear(item)">×</button>
-                </div>
-                <ul v-if="(said[item.key].users !== undefined)" class="vol-users">
-                    <li v-for="user of said[item.key].users" :key="user.pid">
-                        <code>{{ user.command }}</code>
-                        <span class="muted">{{ ((user.terminal === null) || (user.terminal === undefined)) ? '' : 'terminal ' + user.terminal + ' · ' }}pid {{ user.pid }} · {{ user.user }} · {{ user.how }}</span>
-                    </li>
-                </ul>
-            </div>
-        </li>
-        <li v-if="(items.length === 0)" class="muted empty">{{ (reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.') }}</li>
-    </ul>
+    <div class="wide-scroll card">
+        <table class="list-table vol-table">
+            <thead>
+                <tr>
+                    <th>Volume</th>
+                    <th>On</th>
+                    <th>Folder</th>
+                    <th>State</th>
+                    <th>Used</th>
+                    <th/>
+                </tr>
+            </thead>
+            <tbody>
+                <template v-for="item of items" :key="item.key">
+                    <tr>
+                        <td><code class="vol-cut" :title="item.name">{{ item.name }}</code></td>
+                        <td><span class="vol-cut" :title="item.machine_title">{{ item.machine_title }}</span></td>
+                        <td><code class="vol-cut" :title="item.target">{{ item.target }}</code></td>
+                        <td>
+                            <span class="vol-state">
+                                <span class="dot" :class="{running: (item.state === 'open'), failed: (item.state === 'missing')}"/>
+                                {{ state_of(item).text }}
+                            </span>
+                            <small v-if="(state_of(item).note !== '')" class="muted vol-line">{{ state_of(item).note }}</small>
+                        </td>
+                        <td class="vol-numbers">
+                            {{ used_text(item) }}
+                            <small v-if="(item.on_disk !== null)" class="muted vol-line">{{ bytes_text(item.on_disk) }} on disk</small>
+                        </td>
+                        <td class="vol-acts">
+                            <span v-if="(pending[item.key] !== undefined)" class="muted">{{ pending[item.key] }}</span>
+                            <template v-else-if="(item.state === 'open')">
+                                <button type="button" :disabled="item.offline" @click="grow_show(item)">Grow…</button>
+                                <button type="button" :disabled="item.offline" @click="close(item)">Close</button>
+                            </template>
+                            <template v-else-if="((item.state === 'closed') || (item.state === 'missing'))">
+                                <button v-if="((item.state === 'closed') && (item.passphrase === true))" type="button" :disabled="item.offline" @click="open_show(item)">Open…</button>
+                                <button type="button" :disabled="item.offline" @click="delete_start(item)">Delete</button>
+                            </template>
+                        </td>
+                    </tr>
+                    <tr v-if="(grow_key === item.key)" class="vol-sub">
+                        <td colspan="6">
+                            <form class="vol-grow" @submit.prevent="grow(item)">
+                                <span class="muted">Now {{ bytes_text(item.size) }}. New size:</span>
+                                <input v-model.trim="grow_size" placeholder="40G" aria-label="New size" required>
+                                <button type="submit" class="primary" :disabled="(grow_size === '')">Grow</button>
+                                <button type="button" class="link" @click="grow_key = null">Cancel</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr v-if="(open_key === item.key)" class="vol-sub">
+                        <td colspan="6">
+                            <form class="vol-grow" @submit.prevent="open_volume(item)">
+                                <span class="muted">Passphrase of {{ item.name }}:</span>
+                                <input v-model="open_passphrase" class="vol-pass" type="password" autocomplete="current-password" aria-label="Passphrase" required>
+                                <button type="submit" class="primary" :disabled="((open_passphrase === '') || (key_safe_here === false))">Open</button>
+                                <button type="button" class="link" @click="open_key = null">Cancel</button>
+                                <span v-if="(key_safe_here === false)" class="bad">Only over https or from a page on this machine.</span>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr v-if="(said[item.key] !== undefined)" class="vol-sub">
+                        <td colspan="6">
+                            <div class="vol-said">
+                                <span v-if="(said[item.key].note !== undefined)" class="muted">{{ said[item.key].note }}</span>
+                                <span v-else class="bad">{{ said[item.key].error }}</span>
+                                <button type="button" class="link" aria-label="Close" @click="said_clear(item)">×</button>
+                            </div>
+                            <ul v-if="(said[item.key].users !== undefined)" class="vol-users">
+                                <li v-for="user of said[item.key].users" :key="user.pid">
+                                    <code>{{ user.command }}</code>
+                                    <span class="muted">{{ ((user.terminal === null) || (user.terminal === undefined)) ? '' : 'terminal ' + user.terminal + ' · ' }}pid {{ user.pid }} · {{ user.user }} · {{ user.how }}</span>
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                </template>
+                <tr v-if="(items.length === 0)">
+                    <td class="muted" colspan="6">{{ (reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.') }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
     <ul v-if="(notes.length > 0)" class="vol-notes">
         <li v-for="note of notes" :key="note.machine">
             <b>{{ note.title }}</b>
@@ -159,8 +179,6 @@ const volumes = {
             pending: {},
             // A row's refusal: key → {error, users}
             said: {},
-            // The lines whose details are shown: key → true
-            opened: {},
             // Rows deleted, their row gone: {item, above, left, phase: waiting|sending|note, text}
             deleting: [],
             grow_key: null,
@@ -404,16 +422,6 @@ const volumes = {
             finally {
                 delete this.pending[item.key];
             }
-        },
-        item_open: function (item) {
-            return (this.opened[item.key] === true);
-        },
-        item_toggle: function (item) {
-            this.opened = Object.assign({}, this.opened, {[item.key]: (this.item_open(item) === false)});
-        },
-        dot_of: function (item) {
-            const dots = {open: 'running', making: 'starting', missing: 'failed'};
-            return ((dots[item.state] === undefined) ? '' : dots[item.state]);
         },
         state_of: function (item) {
             if ((item.state === 'closed') && (item.passphrase === true)) {

@@ -1,8 +1,8 @@
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
 
-// The front page: every service, one line each, under the machine it runs on. A filter and the
-// state chips narrow it; a click on a line opens the rest of it below, and its page from there.
+// The front page: every service, one row each, under the machine it runs on. A filter and the
+// state chips narrow it; nothing here is kept but what the rows say.
 const services_pane = {
     template: `
 <article id="detail" class="list">
@@ -29,61 +29,61 @@ const services_pane = {
             </span>
         </span>
     </div>
-    <ul class="fold-list">
-        <template v-for="group of groups" :key="group.key">
-            <li v-if="grouped" class="group">
-                <span class="row-of">
-                    <b :title="group.title">{{ group.title }}</b>
-                    <span v-if="(group.phase !== null)" class="dot" :class="group.phase"/>
-                    <span class="muted">{{ group.text }}</span>
-                    <a v-if="(group.phase !== null && logs_url('remote', group.key) !== null)" class="tag" :href="logs_url('remote', group.key)" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">logs ↗</a>
-                </span>
-            </li>
-            <li v-for="row of group.rows" :key="row.name" :class="{open: is_open(row)}">
-                <button type="button" class="fold-line" :aria-expanded="is_open(row)" @click="toggle(row)">
-                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                    <span class="dot" :class="row.phase"/>
-                    <b class="name" :title="row.title">{{ row.title }}</b>
-                    <span class="route muted" :title="row.hosts.join(' ')">{{ (row.host === '' ? 'no address' : row.host) }}{{ (row.more > 0 ? ' +' + row.more : '') }}</span>
-                    <span class="word" :class="{bad: row.bad}" :title="row.detail">{{ row.state }}</span>
-                </button>
-                <div v-if="is_open(row)" class="fold-details">
-                    <dl>
-                        <template v-if="(row.title !== row.name)">
-                            <dt>Name</dt>
-                            <dd><code>{{ row.name }}</code></dd>
-                        </template>
-                        <dt>Address</dt>
-                        <dd v-if="(row.hosts.length === 0)" class="muted">no address</dd>
-                        <dd v-else><div v-for="host of row.hosts" :key="host"><a :href="url_of(host)" target="_blank" rel="noopener"><code>{{ host }}</code></a></div></dd>
-                        <dt>Kind</dt>
-                        <dd>{{ row.type }}<span v-if="(row.image !== null)" class="muted"> · <code>{{ row.image }}</code></span></dd>
-                        <dt>Runs on</dt>
-                        <dd :class="{muted: (row.machines === '')}">{{ (row.machines === '' ? 'no machine named' : row.machines) }}</dd>
-                        <dt>State</dt>
-                        <dd :class="{bad: row.bad}">{{ row.state }}</dd>
-                        <template v-if="(row.detail !== '')">
-                            <dt>Now</dt>
-                            <dd :class="(row.bad ? 'bad' : 'muted')">{{ row.detail }}</dd>
-                        </template>
-                    </dl>
-                    <div class="fold-actions">
-                        <button type="button" class="link" @click="$emit('select', row.name)">open its page</button>
-                        <a v-if="(logs_url('service', row.name) !== null)" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">logs ↗</a>
-                    </div>
-                </div>
-            </li>
-        </template>
-        <li v-if="(groups.length === 0)" class="muted empty">{{ services.length === 0 ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.' }}</li>
-    </ul>
+    <div class="wide-scroll card">
+        <table class="list-table">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Address</th>
+                    <th>Kind</th>
+                    <th>State</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template v-for="group of groups" :key="group.key">
+                    <tr v-if="grouped" class="group">
+                        <td colspan="5">
+                            <span class="row-of">
+                                <b>{{ group.title }}</b>
+                                <span v-if="(group.phase !== null)" class="dot" :class="group.phase"/>
+                                <span class="muted">{{ group.text }}</span>
+                                <a v-if="(group.phase !== null && logs_url('remote', group.key) !== null)" class="tag" :href="logs_url('remote', group.key)" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr v-for="row of group.rows" :key="row.name" class="pick" @click="$emit('select', row.name)">
+                        <td>
+                            <span class="row-of">
+                                <span class="dot" :class="row.phase"/>
+                                <b>{{ row.title }}</b>
+                                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+                                <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
+                            </span>
+                        </td>
+                        <td>
+                            <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.host }}</code></a>
+                            <span v-else class="muted">no address</span>
+                            <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
+                        </td>
+                        <td>{{ row.type }}</td>
+                        <td>{{ row.state }}</td>
+                        <td :class="(row.bad ? 'bad' : 'muted')">{{ row.detail }}</td>
+                    </tr>
+                </template>
+                <tr v-if="(groups.length === 0)">
+                    <td class="muted" colspan="5">{{ services.length === 0 ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </article>
 `,
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],
     data: function () {
-        // `opened` is the services whose details are shown, by name
-        return {filter: '', show: 'all', grouped: true, opened: {}};
+        return {filter: '', show: 'all', grouped: true};
     },
     computed: {
         services: function () {
@@ -152,12 +152,6 @@ const services_pane = {
         },
     },
     methods: {
-        is_open: function (row) {
-            return (this.opened[row.name] === true);
-        },
-        toggle: function (row) {
-            this.opened = Object.assign({}, this.opened, {[row.name]: (this.is_open(row) === false)});
-        },
         logs_url: function (kind, name) {
             return logline_link(this.state.logline, kind, name);
         },
@@ -189,11 +183,9 @@ const services_pane = {
                 title: (service.title || service.name),
                 phase: ((service.doing === null) ? service.phase : 'starting'),
                 host,
-                hosts: service.publish.hosts,
+                url: this.url_of(host),
                 more: Math.max(0, service.publish.hosts.length - 1),
                 type: service.type,
-                image: (service.image || null),
-                machines: service.remotes.map(v => (v.startsWith('#') ? `machines tagged ${v.slice(1)}` : this.remote_title(v))).join(', '),
                 state: ((service.doing === null) ? service.phase : service.doing),
                 detail: this.detail_of(service),
                 bad: ((service.error !== null) && (service.phase !== 'running')),

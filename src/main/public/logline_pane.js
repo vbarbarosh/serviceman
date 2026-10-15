@@ -20,34 +20,41 @@ const logline_pane = {
         </div>
     </div>
     <h2>Remotes</h2>
-    <ul class="fold-list">
-        <li v-for="row of rows" :key="row.name" :class="{open: row_open(row)}">
-            <button type="button" class="fold-line" :aria-expanded="row_open(row)" @click="row_toggle(row)">
-                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                <span class="dot" :class="row.stage.pill"/>
-                <b class="name" :title="row.title">{{ row.title }}</b>
-                <span class="route muted" :title="row.last_text">{{ row.last_text }}</span>
-                <span class="word" :class="{bad: (row.stage.pill === 'failed'), muted: (row.stage.pill === '')}" :title="row.stage.detail">{{ row.stage.text }}</span>
-            </button>
-            <div v-if="row_open(row)" class="fold-details">
-                <dl>
-                    <dt>Its logs</dt>
-                    <dd>{{ row.stage.text }}<div class="muted">{{ row.stage.detail }}</div></dd>
-                    <dt>Sent</dt>
-                    <dd :class="{muted: (row.sent === '')}">{{ (row.sent === '' ? '—' : row.sent + ' lines') }}</dd>
-                    <dt>Waiting</dt>
-                    <dd :class="{muted: (row.waiting === '')}">{{ (row.waiting === '' ? '—' : row.waiting + ' lines') }}</dd>
-                    <dt>Last sent</dt>
-                    <dd :class="{muted: (row.last === ''), bad: row.held}">{{ (row.last === '' ? '—' : row.last) }}</dd>
-                </dl>
-                <div class="fold-actions">
-                    <button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button>
-                    <button type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">its Logs tab</button>
-                </div>
-            </div>
-        </li>
-        <li v-if="(rows.length === 0)" class="muted empty">No remotes yet. Logs come from remotes, where an agent runs — add a remote first.</li>
-    </ul>
+    <div class="wide-scroll">
+        <table class="grid-table doors">
+            <colgroup>
+                <col>
+                <col width="170">
+                <col width="130">
+                <col width="130">
+                <col width="150">
+                <col width="170">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Remote</th>
+                    <th>Its logs</th>
+                    <th>Sent</th>
+                    <th>Waiting</th>
+                    <th>Last sent</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="row of rows" :key="row.name">
+                    <td><button type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button></td>
+                    <td :title="row.stage.detail"><span class="pill" :class="row.stage.pill">{{ row.stage.text }}</span></td>
+                    <td>{{ row.sent }}</td>
+                    <td :class="{busy: row.behind}">{{ row.waiting }}</td>
+                    <td :class="{bad: row.held}">{{ row.last }}</td>
+                    <td><button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></td>
+                </tr>
+                <tr v-if="(rows.length === 0)">
+                    <td class="muted" colspan="6">No remotes yet. Logs come from remotes, where an agent runs — add a remote first.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
     <p :class="(bad ? 'bad' : 'muted')">{{ note || 'A remote is switched off on its own Logs tab, where it is asked twice: what is written while it is off is never sent.' }}</p>
     <h2>Where Logline is</h2>
     <div class="card svc-status">
@@ -97,9 +104,7 @@ const logline_pane = {
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
-        // `opened` is the remotes whose details are shown, by name
         return {
-            opened: {},
             busy: false,
             note: '',
             bad: false,
@@ -142,7 +147,6 @@ const logline_pane = {
             return this.state.remotes.map(function (item) {
                 const status = item.logline.status;
                 const counting = ((item.logline.logs === 'all') && (status !== null) && status.collecting);
-                const last = ((counting && (status.last_sent_at !== null)) ? `${format_ms(Math.max(0, now - Date.parse(status.last_sent_at)))} ago` : '');
                 return {
                     name: item.name,
                     title: (item.title || item.name),
@@ -150,21 +154,14 @@ const logline_pane = {
                     off: (item.logline.logs === 'off'),
                     sent: (counting ? status.sent.lines.toLocaleString('en-US') : ''),
                     waiting: (counting ? status.waiting.lines.toLocaleString('en-US') : ''),
-                    last,
-                    // How fresh it is, compared down the list: the one quiet for an hour stands out
-                    last_text: ((last === '') ? '' : `sent ${last}`),
+                    behind: (counting && (status.waiting.lines > 0)),
+                    last: ((counting && (status.last_sent_at !== null)) ? `${format_ms(Math.max(0, now - Date.parse(status.last_sent_at)))} ago` : ''),
                     held: (counting && (status.last_answer !== null) && (status.last_answer !== 'ok')),
                 };
             });
         },
     },
     methods: {
-        row_open: function (row) {
-            return (this.opened[row.name] === true);
-        },
-        row_toggle: function (row) {
-            this.opened = Object.assign({}, this.opened, {[row.name]: (this.row_open(row) === false)});
-        },
         viewer_open: function () {
             window.open(this.logline.ui, '_blank', 'noopener');
         },

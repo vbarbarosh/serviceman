@@ -22,43 +22,50 @@ const addresses_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
-    <ul class="fold-list">
-        <li v-for="row of rows" :key="row.key" :class="{off: row.off, open: row_open(row)}">
-            <button type="button" class="fold-line" :aria-expanded="row_open(row)" @click="row_toggle(row)">
-                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                <span class="dot" :class="row_dot(row)"/>
-                <b class="name" :title="row.address">{{ row.address }}</b>
-                <span class="route muted" :title="(row.place + ' → ' + row.service_title)">{{ row.place }} → {{ row.service_title }}</span>
-                <span class="word" :class="{bad: (row.service === ''), muted: (row.behind === null && row.off === false && row.service !== '')}">{{ row_word(row) }}</span>
-            </button>
-            <div v-if="row_open(row)" class="fold-details">
-                <dl>
-                    <dt>Opens</dt>
-                    <dd><a :href="row.url" target="_blank" rel="noopener"><code>{{ row.address }}</code></a><span v-if="(row.note !== '')" class="muted"> · {{ row.note }}</span></dd>
-                    <dt>Goes to</dt>
-                    <dd><span v-if="(row.service === '')" class="bad">no such service</span><button v-else type="button" class="link" @click="$emit('select', row.service)">{{ row.service_title }}</button><span v-if="(row.service !== '')" class="muted"> · {{ row.phase }}</span></dd>
-                    <dt>Through</dt>
-                    <dd :class="{muted: (row.remote === null)}">{{ row.through }}</dd>
-                    <dt>Behind</dt>
-                    <dd :class="{muted: (row.behind === null)}">{{ (row.behind === null ? 'nothing — anyone may reach it' : row.behind) }}</dd>
-                </dl>
-                <div class="fold-actions">
-                    <span v-if="(row.remote === null)" class="muted">serviceman answers its own addresses for as long as the service is in the config</span>
-                    <label v-else :title="('Whether the door of ' + row.place + ' answers this name')"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)"> Answering</label>
-                </div>
-            </div>
-        </li>
-        <li v-if="(rows.length === 0)" class="muted empty">{{ rows_all.length === 0 ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.' }}</li>
-    </ul>
-    <p v-if="(note !== '')" class="bad">{{ note }}</p>
+    <div class="wide-scroll card">
+        <table class="list-table">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>Goes to</th>
+                    <th>Arrives through</th>
+                    <th>Behind</th>
+                    <th>On</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="row of rows" :key="row.key" class="pick" :class="{off: row.off}" @click="$emit('select', row.service)">
+                    <td>
+                        <a :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.address }}</code></a>
+                        <span v-if="(row.note !== '')" class="muted"> · {{ row.note }}</span>
+                    </td>
+                    <td><span class="row-of"><span class="dot" :class="row.phase"/>{{ row.service_title }}</span></td>
+                    <td :class="{muted: (row.remote === null)}">{{ row.through }}</td>
+                    <td :class="{muted: (row.behind === null)}">{{ row.behind === null ? '—' : row.behind }}</td>
+                    <td @click.stop>
+                        <span v-if="(row.remote === null)" class="pill running" title="serviceman answers its own addresses for as long as the service is in the config">on</span>
+                        <span v-else class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
+                            <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
+                            <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
+                        </span>
+                    </td>
+                </tr>
+                <tr v-if="(note !== '')">
+                    <td class="bad" colspan="5">{{ note }}</td>
+                </tr>
+                <tr v-if="(rows.length === 0)">
+                    <td class="muted" colspan="5">{{ rows_all.length === 0 ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </article>
 `,
     // remote: the one machine whose door names the list is narrowed to, or null for every address
     props: ['state', 'remote'],
     emits: ['doors', 'only', 'select'],
     data: function () {
-        // `opened` is the addresses whose details are shown, by their row's key
-        return {filter: '', show: 'all', busy: false, note: '', opened: {}};
+        return {filter: '', show: 'all', busy: false, note: ''};
     },
     computed: {
         // Sorted by the name itself, the way one is looked for
@@ -111,26 +118,6 @@ const addresses_pane = {
         },
     },
     methods: {
-        row_open: function (row) {
-            return (this.opened[row.key] === true);
-        },
-        row_toggle: function (row) {
-            this.opened = Object.assign({}, this.opened, {[row.key]: (this.row_open(row) === false)});
-        },
-        // Where an address stands, in a word or two for its one line
-        row_word: function (row) {
-            if (row.service === '') {
-                return 'no such service';
-            }
-            if (row.off) {
-                return 'set aside';
-            }
-            return ((row.behind === null) ? 'no wall' : `behind ${row.behind}`);
-        },
-        // The service's own dot, while the name is answered
-        row_dot: function (row) {
-            return (row.off ? '' : row.phase);
-        },
         // A door name set aside, or put back; the rest of the rule stays as it is written
         turn: async function (row, on) {
             if (row.off === (on === false)) {
@@ -156,7 +143,6 @@ const addresses_pane = {
                 phase: ((service === null) ? 'failed' : service.phase),
                 remote: ((remote === null) ? null : remote.name),
                 through: ((remote === null) ? `serviceman :${port}` : `the door of ${remote.title || remote.name}`),
-                place: ((remote === null) ? 'serviceman' : (remote.title || remote.name)),
                 behind: ((behind === undefined) ? null : behind),
                 off,
             };

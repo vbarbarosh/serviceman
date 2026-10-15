@@ -1,5 +1,5 @@
 /* The Docker module's own rules. The host page gives the colours (--panel, --line, --muted)
-   and the classes the module shares with it: card, list-head, list-acts, fold-list, dot,
+   and the classes the module shares with it: card, list-head, list-acts, list-table, dot,
    muted, bad, primary, danger. */
 
 /* The parts one under another, each keeping its own height */
@@ -19,7 +19,7 @@
 
 .dk-group {
     padding: 0;
-    overflow: hidden;
+    overflow-x: auto;
 }
 
 .dk-group-head {
@@ -27,72 +27,60 @@
     border-bottom: 1px solid var(--line);
 }
 
-/* The project's name and counts take what the buttons leave, cut, whole in their tooltips; on a
-   narrow screen the buttons go under them */
-.dk-group-head {
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.dk-group-title {
-    display: flex;
-    flex: 1 1 14rem;
-    gap: .6rem;
-    align-items: baseline;
-    min-width: 0;
-}
-
-.dk-group-title b {
-    flex: 0 1 auto;
-    min-width: 3rem;
+.dk-group-head .muted {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.dk-group-title .muted {
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.dk-table {
+    width: 100%;
+}
+
+.dk-table td {
+    vertical-align: middle;
+}
+
+.dk-name {
     white-space: nowrap;
 }
 
-.dk-group-head .list-acts {
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
+.dk-name .dot {
+    display: inline-block;
+    margin-right: .45rem;
+    vertical-align: middle;
 }
 
-/* The lines sit inside their card: no rule above the first or under the last, and the card's
-   own padding at the sides */
-.dk-group .fold-list {
-    margin: 0;
-    border-top: 0;
+.dk-name b + .muted {
+    margin-left: .45rem;
 }
 
-.dk-group .fold-list > li:last-child {
-    border-bottom: 0;
+/* A long image name is cut, and whole in its title; the status and ports wrap before the row
+   grows past its card */
+.dk-image span {
+    display: inline-block;
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
 }
 
-.dk-group .fold-line {
-    padding: .55rem .9rem;
+table.list-table td.dk-ports,
+table.list-table td.dk-status {
+    white-space: normal;
 }
 
-.dk-group .fold-details {
-    padding: 0 .9rem .75rem 2.15rem;
-}
-
-.dk-group .fold-list > li.empty {
-    padding: .8rem .9rem;
-}
-
-/* An image's size, the one value read down the list: one width, so the sizes line up */
-.fold-line .dk-size {
-    flex: none;
-    width: 4.5rem;
-    font-variant-numeric: tabular-nums;
+.dk-acts {
     text-align: right;
+    white-space: nowrap;
+}
+
+.dk-acts button + button {
+    margin-left: .35rem;
+}
+
+.dk-acts .bad {
+    margin-right: .45rem;
 }
 
 .dk-run {
@@ -149,14 +137,13 @@
     height: 34rem;
 }
 
-/* The four tabs and the buttons wrap on a narrow screen rather than run past it */
-.dk-tabs {
-    flex-wrap: wrap;
-    align-items: center;
-}
-
 .dk-tabs .chip .muted {
     margin-left: .25rem;
+}
+
+.dk-empty {
+    margin: 0;
+    padding: .8rem .9rem;
 }
 
 /* How far a long action is: the bar, and the numbers beside it */
@@ -190,10 +177,70 @@
     }
 }
 
-/* An image is known by its whole registry path: with room to spare it gets most of the line */
-@media (min-width: 900px) {
-    .dk-images .fold-line .name {
-        flex-basis: 30rem;
-        max-width: 55%;
-    }
+/* A long name — a registry path, a list of containers — cut, whole in its tooltip, so a row
+   keeps its buttons in view */
+.dk-cut {
+    display: inline-block;
+    max-width: 26rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    white-space: nowrap;
+}
+
+/* The images, volumes and networks lists fit their card whatever the names: every column but
+   the first has its width, the first takes what is left, and what does not fit is cut */
+table.dk-fixed {
+    table-layout: fixed;
+}
+
+table.dk-fixed td,
+table.dk-fixed th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+table.dk-fixed .dk-cut {
+    max-width: 100%;
+}
+
+table.dk-fixed td.dk-acts {
+    overflow: visible;
+    white-space: normal;
+}
+
+.dk-w-id {
+    width: 7.5rem;
+}
+
+.dk-w-size {
+    width: 5.5rem;
+}
+
+.dk-w-age {
+    width: 6.5rem;
+}
+
+.dk-w-users {
+    width: 11rem;
+}
+
+.dk-w-acts {
+    width: 12rem;
+}
+
+.dk-w-project {
+    width: 10rem;
+}
+
+.dk-w-driver {
+    width: 5.5rem;
+}
+
+.dk-w-subnet {
+    width: 9rem;
+}
+
+.dk-w-net-acts {
+    width: 8rem;
 }

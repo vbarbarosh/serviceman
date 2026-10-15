@@ -1,6 +1,6 @@
 /* The Volumes module's own rules. The host page gives the colours (--panel, --line, --muted,
    --fg, --accent) and the classes the module shares with it: card, list-head, list-acts,
-   fold-list, dot, muted, bad, primary, link. */
+   list-table, wide-scroll, dot, muted, bad, primary, link. */
 
 .vol {
     display: flex;
@@ -27,35 +27,46 @@
     white-space: nowrap;
 }
 
-.vol > .fold-list {
-    margin: 0;
+/* A long name or folder ends in an ellipsis inside its column; the whole of it is the title */
+.vol-cut {
+    display: inline-block;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+    white-space: nowrap;
 }
 
-/* How full, compared down the list: a column of its own on the line, the state after it in one
-   width so the sizes line up */
-.vol .fold-line .vol-used {
-    flex: none;
-    width: 8.5rem;
-    overflow: hidden;
-    text-align: right;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.vol-numbers {
     font-variant-numeric: tabular-nums;
 }
 
-.vol .fold-line .word {
-    flex: none;
-    width: 5rem;
-    max-width: none;
+.vol-state {
+    display: inline-flex;
+    gap: .45rem;
+    align-items: center;
 }
 
-/* A row's form under its buttons, and what the machine said under its line */
-.vol .fold-details .vol-grow {
-    margin-top: .6rem;
+.vol .dot {
+    display: inline-block;
 }
 
-.vol-said-box {
-    padding: 0 .25rem .75rem 1.6rem;
+/* A cell's second line: what the state waits for, what the file takes on the disk */
+.vol-line {
+    display: block;
+}
+
+.vol-acts {
+    text-align: right;
+}
+
+.vol-acts button + button {
+    margin-left: .4rem;
+}
+
+/* A row's form or refusal, under it, across the table */
+table.list-table tr.vol-sub td {
+    white-space: normal;
 }
 
 .vol-grow,

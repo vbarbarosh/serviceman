@@ -293,6 +293,41 @@ table.grid-table td.tick {
     padding-right: 1.2rem;
 }
 
+/* The process tree: the first column is indented by how deep the process sits, and the caret
+   turns where a branch is open. A command line is as long as somebody made it, so the column
+   ends in an ellipsis and the whole of it is the row's title. */
+table.procs {
+    width: 100%;
+    table-layout: fixed;
+}
+
+table.procs td.tree {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+table.procs tr.folds {
+    cursor: pointer;
+}
+
+table.procs tbody tr:hover td {
+    background: var(--panel);
+}
+
+table.procs .caret {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: .3rem;
+    vertical-align: -2px;
+    color: var(--muted);
+    transition: transform .12s ease;
+}
+
+table.procs .caret.open {
+    transform: rotate(90deg);
+}
+
 /* The doors of the machines: what a person types is the wide column, and the rest are as
    narrow as what they hold */
 table.doors,
@@ -384,32 +419,8 @@ table.rules tr.off code {
     transition: transform .12s ease;
 }
 
-/* Only the line's own caret turns: a list inside an opened line keeps its own */
-.fold-list > li.open > .fold-line .caret {
+.fold-list > li.open .caret {
     transform: rotate(90deg);
-}
-
-/* A machine's name over its services: a heading among the lines, not a line that opens */
-.fold-list > li.group {
-    padding: .4rem .25rem;
-    background: var(--bg);
-    font-size: .9rem;
-}
-
-.fold-list > li.group b {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fold-list > li.group .row-of > * {
-    flex: none;
-    white-space: nowrap;
-}
-
-.fold-list > li.group .row-of > b {
-    flex: 0 1 auto;
 }
 
 .fold-line .name {
@@ -494,66 +505,6 @@ table.rules tr.off code {
         grid-template-columns: 6rem minmax(0, 1fr);
         gap: .3rem .6rem;
     }
-}
-
-/* A number read down a fold list, as a column is: one width, right-aligned, so the digits line
-   up from line to line */
-.fold-line .num {
-    flex: none;
-    width: 3.6rem;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-    white-space: nowrap;
-}
-
-.fold-line .num.wide {
-    width: 4.4rem;
-}
-
-.fold-line .num.free {
-    width: 6.6rem;
-}
-
-/* How deep a process sits in the tree; a branch deeper than the line has room for gives way
-   before the numbers do */
-.fold-line .indent {
-    flex: 0 1 auto;
-    min-width: 0;
-}
-
-/* A branch of the process tree folds by a square of its own, so a click on the line is always
-   the one that opens the details */
-.fold-line .branch {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 3px;
-    background: var(--bg);
-    color: var(--muted);
-    cursor: pointer;
-    transition: color .12s ease, border-color .12s ease;
-}
-
-.fold-line .branch:hover {
-    border-color: var(--muted);
-    color: var(--fg);
-}
-
-.fold-line .branch.none {
-    border-color: transparent;
-    background: none;
-    cursor: inherit;
-}
-
-/* A state word that is the reason for the line's red dot keeps its whole width; the name gives
-   way first */
-.fold-line .word.whole {
-    flex: none;
 }
 
 /* A name with its dot beside it, outside the rail: a dot has a size only as a flex item */
@@ -1801,12 +1752,41 @@ a.button:hover {
     background: var(--bad);
 }
 
+.disks-table td {
+    vertical-align: top;
+    white-space: normal;
+}
+
+.disks-table code,
 .disk-use {
     white-space: nowrap;
 }
 
+.disks-table tr.muted td {
+    color: var(--muted);
+}
+
 .disk-lock {
     margin-left: .4rem;
+}
+
+/* A machine's packages: one line each where the width allows, what it is last */
+.packages-table td {
+    vertical-align: top;
+}
+
+.packages-table td.package-summary {
+    min-width: 16rem;
+    white-space: normal;
+}
+
+.packages-table th.package-size,
+.packages-table td.package-size {
+    text-align: right;
+}
+
+.packages-table .tag {
+    margin-left: .3rem;
 }
 
 .package-next {
@@ -1815,6 +1795,10 @@ a.button:hover {
 }
 
 .package-security {
+    color: var(--bad);
+}
+
+.packages-table .tag.bad {
     color: var(--bad);
 }
 
@@ -2404,6 +2388,14 @@ article.rf .actions {
     margin: 0;
 }
 
+table.procs tr.dim td {
+    color: var(--muted);
+}
+
+table.procs tr.dim .meter {
+    opacity: .5;
+}
+
 /* The Map: a column for each kind of thing, the lines between them drawn underneath. Pointing
    at a node dims everything it is not joined to. */
 .map-legend {
@@ -2576,16 +2568,16 @@ article.rf .actions {
 }
 
 /* A service's public addresses: its door names, each with its switch */
-/* A fold-list inside a status card keeps the details' own two columns */
-.svc-status .fold-details dl {
-    grid-template-columns: 7.5rem minmax(0, 1fr);
-    margin: 0 0 .5rem;
+.svc-doors table.doors-of {
+    width: 100%;
 }
 
-@media (max-width: 560px) {
-    .svc-status .fold-details dl {
-        grid-template-columns: 6rem minmax(0, 1fr);
-    }
+.svc-doors table.doors-of tr.off td {
+    color: var(--muted);
+}
+
+.door-problem {
+    white-space: nowrap;
 }
 
 .door-add {
@@ -2632,13 +2624,47 @@ article.rf .actions {
     background: none;
 }
 
+.load-tests table.list-table td {
+    transition: background-color .2s ease;
+}
+
+.load-tests table.list-table tr.on td {
+    background: var(--hover);
+}
+
+.load-tests td.lt-act {
+    width: 1%;
+    text-align: right;
+}
+
+.lt-last {
+    display: inline-flex;
+    gap: .5rem;
+    align-items: center;
+}
+
 .lt-lines {
     max-height: 16rem;
     border: 1px solid var(--line);
     border-radius: 8px;
 }
 
-/* A run's log, opened under its details: long, so it scrolls in a window of its own */
-.load-tests .lt-log pre {
+.load-tests tr.lt-noted td {
+    border-bottom: 0;
+}
+
+.load-tests tr.lt-log td {
+    padding-top: 0;
+    white-space: normal;
+}
+
+.load-tests tr.lt-log pre {
     max-height: 28rem;
+}
+
+.load-tests tr.lt-notes td {
+    padding-top: 0;
+    white-space: normal;
+    font-size: .85rem;
+    overflow-wrap: anywhere;
 }
