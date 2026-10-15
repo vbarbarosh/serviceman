@@ -1169,22 +1169,22 @@ connection and answers <code>502</code>. A front or a CDN may answer for it with
 client reads any 502, 503, 504 or 52x as &quot;not reachable now&quot;.</p>
 <h2 id="a-port-or-a-socket-from-one-machine-to-another"><a class="anchor" href="#a-port-or-a-socket-from-one-machine-to-another" aria-hidden="true" tabindex="-1">#</a>A port or a socket from one machine to another</h2>
 <p>A forward makes a port of one machine show up on another, the way <code>ssh -L</code> does, with no ssh:
-the machines&#39; links to serviceman carry it. A Loki on vps1&#39;s loopback, as a socket file on the
-laptop:</p>
+the machines&#39; links to serviceman carry it. <code>from</code> is where the service is, <code>to</code> where it shows
+up. A Loki on vps1&#39;s loopback, as a socket file on the laptop:</p>
 <pre><code class="language-json">&quot;forwards&quot;: [
-    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}}
+    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
 ]
 </code></pre>
 <p>The laptop&#39;s agent listens on <code>~/repos/loki.sock</code>. Each connection opens a stream over its link
 to serviceman, serviceman opens one over vps1&#39;s link to <code>127.0.0.1:3100</code>, and joins the two. A
-port works as well as a socket at either end, so a socket on a server answered by a port at home
-is the same thing written the other way round.</p>
+port works as well as a socket at either end, and a service at home brought to a server is the
+same thing written the other way round.</p>
 <ul>
 <li><strong>The socket stays.</strong> The agent keeps listening while its link is down: a connection then is
 closed at once, and the first one after the redial goes through. A dead ssh holds a socket
 for as long as its keep-alives take to notice; a forward has none to wait for.</li>
 <li><strong>Nobody else&#39;s.</strong> A socket file is <code>0600</code>, for the agent&#39;s user alone; a port is bound to
-<code>127.0.0.1</code>. A machine may open only the forwards whose <code>from</code> is itself: one that names
+<code>127.0.0.1</code>. A machine may open only the forwards whose <code>to</code> is itself: one that names
 another machine&#39;s forward is refused, and nothing is dialled for it.</li>
 <li><strong>A socket someone else answers on is theirs.</strong> An <code>ssh -L</code> already on that path keeps it; the
 page says the forward cannot listen, and it is tried again every minute. A file left by a

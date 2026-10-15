@@ -160,25 +160,26 @@ again. Changing either drops the link, and the agent comes back with the new one
 
 ### Forwards
 
-A port or a socket file on one machine, answered by a port or a socket on another. The machine
-at `from` listens; each connection rides its link to serviceman and the other machine's link to
-`to`. No ssh and no key. **Forwards** on the Doors page writes this list for you.
+A port or a socket file of one machine, brought to another, as `ssh -L` brings one: `from` is
+where the service is, `to` is where it shows up. The machine at `to` listens; each connection
+rides its link to serviceman and the other machine's link to `from`. No ssh and no key.
+**Forwards** on the Doors page writes this list for you.
 
 ```json
 "forwards": [
-    {"name": "loki", "from": {"remote": "laptop", "socket": "~/repos/loki.sock"}, "to": {"remote": "vps1", "port": 3100}}
+    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 ]
 ```
 
 | Field         | What it is                                                                         |
 |---------------|------------------------------------------------------------------------------------|
 | `name`        | Lowercase letters, digits, `-` and `_`.                                            |
-| `from.remote` | The machine that listens.                                                          |
-| `from.socket` | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. |
-| `from.port`   | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
-| `to.remote`   | The machine that answers.                                                          |
-| `to.port`     | A port there, on its loopback unless `to.host` names an address it reaches.        |
-| `to.socket`   | Or a socket file there.                                                            |
+| `from.remote` | The machine the service is on.                                                     |
+| `from.port`   | A port there, on its loopback unless `from.host` names an address it reaches.      |
+| `from.socket` | Or a socket file there.                                                            |
+| `to.remote`   | The machine it shows up on, which listens.                                         |
+| `to.socket`   | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. |
+| `to.port`     | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
 
 Both machines run the agent, version 1.15 or newer. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)

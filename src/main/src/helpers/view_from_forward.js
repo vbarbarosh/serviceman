@@ -6,7 +6,7 @@ function view_from_forward(app, forward)
 {
     const from = app.remote_by_name[forward.from.remote];
     const to = app.remote_by_name[forward.to.remote];
-    const said = (((from === undefined) || (from.state.forwards_said === null)) ? undefined : from.state.forwards_said[forward.name]);
+    const said = (((to === undefined) || (to.state.forwards_said === null)) ? undefined : to.state.forwards_said[forward.name]);
     const counts = forward_join.counts(app, forward.name);
     const now = now_of(forward, from, to, said);
     return Object.assign({}, forward, {
@@ -17,35 +17,36 @@ function view_from_forward(app, forward)
         problem: now.problem,
         open: counts.open,
         total: counts.total,
-        bytes_to: counts.bytes_to,
-        bytes_from: counts.bytes_from,
+        bytes_sent: counts.bytes_sent,
+        bytes_back: counts.bytes_back,
         error: counts.error,
         error_at: counts.error_at,
     });
 }
 
 // The one thing that keeps a connection from going through right now, in full, or null for
-// none, and a word for it. The order is the order a connection meets them in.
+// none, and a word for it. The order is the order a connection meets them in: first the machine
+// it shows up on, which listens, then the one the service is on.
 function now_of(forward, from, to, said)
 {
     if (forward.off) {
         return {state: 'aside', problem: 'set aside'};
     }
-    const can = (((from.state.resources === null) || (from.state.resources.can === undefined)) ? [] : from.state.resources.can);
-    if ((from.state.phase === 'online') && (can.includes('forwards') === false)) {
-        return {state: 'old_agent', problem: `the agent on ${from.name} is older than forwards — update it`};
+    const can = (((to.state.resources === null) || (to.state.resources.can === undefined)) ? [] : to.state.resources.can);
+    if ((to.state.phase === 'online') && (can.includes('forwards') === false)) {
+        return {state: 'old_agent', problem: `the agent on ${to.name} is older than forwards — update it`};
     }
     if (said === undefined) {
-        return ((from.state.phase === 'online') ? {state: 'telling', problem: `${from.name} is being told`} : {state: 'from_offline', problem: `${from.name} is offline`});
+        return ((to.state.phase === 'online') ? {state: 'telling', problem: `${to.name} is being told`} : {state: 'to_offline', problem: `${to.name} is offline`});
     }
     if (said.error !== null) {
-        return {state: 'cannot_listen', problem: `${from.name} cannot listen: ${said.error}`};
-    }
-    if (from.state.phase !== 'online') {
-        return {state: 'link_down', problem: `${from.name}'s link is down: it listens, and refuses each connection until it is back`};
+        return {state: 'cannot_listen', problem: `${to.name} cannot listen: ${said.error}`};
     }
     if (to.state.phase !== 'online') {
-        return {state: 'to_offline', problem: `${to.name} is offline`};
+        return {state: 'link_down', problem: `${to.name}'s link is down: it listens, and refuses each connection until it is back`};
+    }
+    if (from.state.phase !== 'online') {
+        return {state: 'from_offline', problem: `${from.name} is offline`};
     }
     return {state: 'ready', problem: null};
 }

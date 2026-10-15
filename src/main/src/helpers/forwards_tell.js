@@ -38,13 +38,14 @@ async function forwards_tell(app)
     }
 }
 
-// What one machine listens for: its end of each forward that is on, and nothing about the other
+// What one machine listens for: the `to` of each forward that is on and shows up there, and
+// nothing about where it comes from
 function forwards_of(app, name)
 {
     const out = [];
     for (const item of app.config.forwards) {
-        if ((item.off === false) && (item.from.remote === name)) {
-            out.push((item.from.socket === null) ? {name: item.name, port: item.from.port} : {name: item.name, socket: item.from.socket});
+        if ((item.off === false) && (item.to.remote === name)) {
+            out.push((item.to.socket === null) ? {name: item.name, port: item.to.port} : {name: item.name, socket: item.to.socket});
         }
     }
     return out;

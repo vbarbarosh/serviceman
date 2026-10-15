@@ -3,14 +3,15 @@ import format_ms_ago from './format_ms_ago.js';
 import forward_end_parse from './forward_end_parse.js';
 import forwards_write from './forwards_write.js';
 
-// A port or a socket on one machine, answered on another. The machine at `from` listens; each
-// connection is carried over its link to serviceman, and over the other machine's link to `to`.
+// A port or a socket of one machine, brought to another: `from` is where the service is, `to`
+// is where it shows up. The machine at `to` listens; each connection is carried over its link
+// to serviceman, and over the other machine's link to `from`.
 // No ssh, no key: the links are already up, and the socket stays while one of them redials.
 const forwards_section = {
     template: `
 <div class="forwards">
     <h1>Forwards</h1>
-    <p class="muted">A port or a socket file on one machine, answered by a port or a socket on another. The machine on the left listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the right. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once.</p>
+    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once.</p>
     <ul class="forward-list">
         <li v-for="item of forwards" :key="item.name" :class="{off: item.off, open: is_open(item)}">
             <button type="button" class="forward-line" :aria-expanded="is_open(item)" @click="toggle(item)">
@@ -22,10 +23,10 @@ const forwards_section = {
             </button>
             <div v-if="is_open(item)" class="forward-details">
                 <dl>
-                    <dt>Listens on</dt>
+                    <dt>From</dt>
                     <dd>{{ title_of(item.from.remote) }} · <code>{{ end_text(item.from) }}</code></dd>
-                    <dt>Carried to</dt>
-                    <dd>{{ title_of(item.to.remote) }} · <code>{{ end_text(item.to) }}</code></dd>
+                    <dt>Shows up on</dt>
+                    <dd>{{ title_of(item.to.remote) }} · <code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></dd>
                     <template v-if="(item.problem !== null && item.off === false)">
                         <dt>Now</dt>
                         <dd class="bad">{{ item.problem }}</dd>
@@ -36,7 +37,7 @@ const forwards_section = {
                     </template>
                     <dt>Through it</dt>
                     <dd v-if="(item.total === 0)" class="muted">nothing yet</dd>
-                    <dd v-else>{{ item.open }} open · {{ item.total }} in all · ↑ {{ bytes(item.bytes_to) }} sent · ↓ {{ bytes(item.bytes_from) }} back</dd>
+                    <dd v-else>{{ item.open }} open · {{ item.total }} in all · ↑ {{ bytes(item.bytes_sent) }} sent · ↓ {{ bytes(item.bytes_back) }} back</dd>
                 </dl>
                 <div class="forward-actions">
                     <label><input type="checkbox" :checked="(item.off === false)" :disabled="busy" @change="turn(item, $event.target.checked)"> Listening</label>
@@ -50,16 +51,16 @@ const forwards_section = {
     <div class="rule-add">
         <input v-model.trim="fresh.name" class="short" placeholder="loki" spellcheck="false" title="A name for it: lowercase letters, digits, - and _" @keyup.enter="write">
         <select v-model="fresh.from_remote">
-            <option value="">listens on</option>
+            <option value="">from</option>
             <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
-        <input v-model.trim="fresh.from" placeholder="~/repos/loki.sock or 3100" spellcheck="false" title="A socket file there (~/ is the agent's user's home), or a port on its loopback" @keyup.enter="write">
+        <input v-model.trim="fresh.from" placeholder="3100" spellcheck="false" title="Where the service is: a port on its loopback, an address it reaches (10.0.0.5:3100), or a socket file" @keyup.enter="write">
         <span class="muted">→</span>
         <select v-model="fresh.to_remote">
-            <option value="">carried to</option>
+            <option value="">shows up on</option>
             <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
-        <input v-model.trim="fresh.to" placeholder="3100" spellcheck="false" title="A port on its loopback, an address it reaches (10.0.0.5:3100), or a socket file" @keyup.enter="write">
+        <input v-model.trim="fresh.to" placeholder="~/repos/loki.sock or 3100" spellcheck="false" title="Where it shows up: a socket file there (~/ is the agent's user's home), or a port on its loopback" @keyup.enter="write">
         <button type="button" :disabled="(busy || fresh.name === '' || fresh.from_remote === '' || fresh.from === '' || fresh.to_remote === '' || fresh.to === '')" @click="write">{{ (editing === null ? 'Add' : 'Save') }}</button>
         <button v-if="(editing !== null)" type="button" :disabled="busy" @click="clear">Cancel</button>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -100,7 +101,7 @@ const forwards_section = {
                 telling: 'starting',
                 from_offline: `${this.title_of(item.from.remote)} offline`,
                 cannot_listen: 'cannot listen',
-                link_down: `${this.title_of(item.from.remote)} link down`,
+                link_down: `${this.title_of(item.to.remote)} link down`,
                 to_offline: `${this.title_of(item.to.remote)} offline`,
             };
             return ((words[item.state] === undefined) ? item.state : words[item.state]);
@@ -139,15 +140,15 @@ const forwards_section = {
             const from = forward_end_parse(fresh.from_remote, fresh.from);
             const to = forward_end_parse(fresh.to_remote, fresh.to);
             if (typeof from === 'string') {
-                this.report(`listens on: ${from}`, true);
+                this.report(`from: ${from}`, true);
                 return;
             }
             if (typeof to === 'string') {
-                this.report(`carried to: ${to}`, true);
+                this.report(`shows up on: ${to}`, true);
                 return;
             }
-            if (from.host !== undefined) {
-                this.report('listens on: a port or a socket on that machine — it listens on its loopback, not on an address', true);
+            if (to.host !== undefined) {
+                this.report('shows up on: a port or a socket on that machine — it listens on its loopback, not on an address', true);
                 return;
             }
             const editing = this.editing;

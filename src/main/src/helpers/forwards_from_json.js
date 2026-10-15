@@ -2,16 +2,17 @@ const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const RE_HOST = /^[A-Za-z0-9.:_-]+$/;
 const END_FIELDS = ['remote', 'port', 'socket', 'host'];
 
-// A port or a socket on one machine, answered by a port or a socket on another. Whatever
-// connects to `from` is carried over both machines' links, through serviceman, to `to`:
+// A port or a socket of one machine, brought to another, the way `ssh -L` brings one: `from` is
+// where the service is, `to` is where it shows up. Whatever connects at `to` is carried over
+// both machines' links, through serviceman, to `from`:
 //
 //     "forwards": [
-//         {"name": "loki", "from": {"remote": "laptop", "socket": "~/repos/loki.sock"}, "to": {"remote": "vps1", "port": 3100}}
+//         {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 //     ]
 //
-// `from` listens on the loopback of its machine (a port) or on a socket file only the agent's
-// user may open. `to` is a port on its machine's loopback, or `host` with it for an address that
-// machine reaches, or a socket file. `~/` in a socket is the home of the user the agent runs as.
+// `from` is a port on its machine's loopback, or `host` with it for an address that machine
+// reaches, or a socket file. `to` listens on the loopback of its machine (a port) or on a socket
+// file only the agent's user may open. `~/` in a socket is the home of the user the agent runs as.
 function forwards_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
@@ -34,16 +35,16 @@ function forwards_from_json(json, label)
             throw new Error(`${at}.name: ${JSON.stringify(item.name)} is used twice`);
         }
         const from = end_from_json(item.from, `${at}.from`);
-        if (from.host !== null) {
-            throw new Error(`${at}.from.host: a forward listens on its machine's loopback and nowhere else`);
+        if ((from.socket !== null) && (from.host !== null)) {
+            throw new Error(`${at}.from.host: a host goes with a port, not with a socket`);
         }
         const to = end_from_json(item.to, `${at}.to`);
-        if ((to.socket !== null) && (to.host !== null)) {
-            throw new Error(`${at}.to.host: a host goes with a port, not with a socket`);
+        if (to.host !== null) {
+            throw new Error(`${at}.to.host: a forward shows up on its machine's loopback and nowhere else`);
         }
-        const taken = out.find(v => (v.from.remote === from.remote) && (v.from.port === from.port) && (v.from.socket === from.socket));
+        const taken = out.find(v => (v.to.remote === to.remote) && (v.to.port === to.port) && (v.to.socket === to.socket));
         if (taken !== undefined) {
-            throw new Error(`${at}.from: ${taken.name} already listens there`);
+            throw new Error(`${at}.to: ${taken.name} already listens there`);
         }
         out.push({name: item.name, from, to, off: item.off === true});
     }

@@ -531,25 +531,25 @@ client reads any 502, 503, 504 or 52x as "not reachable now".
 ## A port or a socket from one machine to another
 
 A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
-the machines' links to serviceman carry it. A Loki on vps1's loopback, as a socket file on the
-laptop:
+the machines' links to serviceman carry it. `from` is where the service is, `to` where it shows
+up. A Loki on vps1's loopback, as a socket file on the laptop:
 
 ```json
 "forwards": [
-    {"name": "loki", "from": {"remote": "laptop", "socket": "~/repos/loki.sock"}, "to": {"remote": "vps1", "port": 3100}}
+    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 ]
 ```
 
 The laptop's agent listens on `~/repos/loki.sock`. Each connection opens a stream over its link
 to serviceman, serviceman opens one over vps1's link to `127.0.0.1:3100`, and joins the two. A
-port works as well as a socket at either end, so a socket on a server answered by a port at home
-is the same thing written the other way round.
+port works as well as a socket at either end, and a service at home brought to a server is the
+same thing written the other way round.
 
 - **The socket stays.** The agent keeps listening while its link is down: a connection then is
   closed at once, and the first one after the redial goes through. A dead ssh holds a socket
   for as long as its keep-alives take to notice; a forward has none to wait for.
 - **Nobody else's.** A socket file is `0600`, for the agent's user alone; a port is bound to
-  `127.0.0.1`. A machine may open only the forwards whose `from` is itself: one that names
+  `127.0.0.1`. A machine may open only the forwards whose `to` is itself: one that names
   another machine's forward is refused, and nothing is dialled for it.
 - **A socket someone else answers on is theirs.** An `ssh -L` already on that path keeps it; the
   page says the forward cannot listen, and it is tried again every minute. A file left by a

@@ -3,29 +3,30 @@ const log_event = require('./log_event');
 const tunnel_open = require('./tunnel_open');
 const tunnel_stream = require('./tunnel_stream');
 
-// Something connected to a forward's `from` on the machine that carried it here: a stream to its
-// `to` is opened, and the two are joined, byte for byte, until either end closes. A stream that
-// cannot be joined is refused at once with the reason, and the connection over there closes.
+// Something connected to a forward's `to` on the machine that carried it here: a stream to its
+// `from`, where the service is, is opened, and the two are joined, byte for byte, until either
+// end closes. A stream that cannot be joined is refused at once with the reason, and the
+// connection over there closes.
 //
-// Only the forward's own `from` machine may open it, and only while the forward is on: a
-// machine that names somebody else's forward is asking this host to dial for it.
+// Only the forward's own `to` machine may open it, and only while the forward is on: a machine
+// that names somebody else's forward is asking this host to dial for it.
 function forward_join(app, remote, id, name)
 {
     const state = remote.state;
     const forward = app.config.forwards.find(v => v.name === name);
-    if ((forward === undefined) || (forward.off) || (forward.from.remote !== remote.name)) {
+    if ((forward === undefined) || (forward.off) || (forward.to.remote !== remote.name)) {
         refuse(state, id, 'EBADTARGET', `${remote.name} has no forward named ${name}`);
         return;
     }
     const counts = forward_counts(app, name);
-    const to = app.remote_by_name[forward.to.remote];
+    const from = app.remote_by_name[forward.from.remote];
     let far;
     try {
-        far = tunnel_open(to, ((forward.to.socket === null) ? {host: ((forward.to.host === null) ? '127.0.0.1' : forward.to.host), port: forward.to.port} : {path: forward.to.socket}));
+        far = tunnel_open(from, ((forward.from.socket === null) ? {host: ((forward.from.host === null) ? '127.0.0.1' : forward.from.host), port: forward.from.port} : {path: forward.from.socket}));
     }
     catch (error) {
         refuse(state, id, 'EHOSTDOWN', error.message);
-        failed(app, counts, name, `${forward.to.remote} is offline`);
+        failed(app, counts, name, `${forward.from.remote} is offline`);
         return;
     }
     const near = tunnel_stream(state.socket, id, true);
@@ -37,14 +38,14 @@ function forward_join(app, remote, id, name)
     counts.open++;
     counts.total++;
     near.on('data', function (chunk) {
-        counts.bytes_to += chunk.length;
+        counts.bytes_sent += chunk.length;
     });
     far.on('data', function (chunk) {
-        counts.bytes_from += chunk.length;
+        counts.bytes_back += chunk.length;
     });
     // The far end refused or broke: the near one goes with the reason, and the reason is kept
     far.on('error', function (error) {
-        failed(app, counts, name, `${forward.to.remote}: ${error.message}`);
+        failed(app, counts, name, `${forward.from.remote}: ${error.message}`);
         near.destroy(error);
     });
     near.on('error', function (error) {
@@ -63,12 +64,13 @@ function forward_join(app, remote, id, name)
     far.pipe(near);
 }
 
-// What went through one forward since serviceman started: kept by name, so a forward whose
+// What went through one forward since serviceman started — sent to the service, and back from
+// it: kept by name, so a forward whose
 // definition changes goes on counting
 function forward_counts(app, name)
 {
     if (app.forward_counts[name] === undefined) {
-        app.forward_counts[name] = {open: 0, total: 0, bytes_to: 0, bytes_from: 0, error: null, error_at: null};
+        app.forward_counts[name] = {open: 0, total: 0, bytes_sent: 0, bytes_back: 0, error: null, error_at: null};
     }
     return app.forward_counts[name];
 }

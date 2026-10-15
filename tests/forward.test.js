@@ -21,12 +21,12 @@ const TOKEN_VPS = 'dddddddddddddddddddddddddddddddd';
 
 // The author's case: a port on a VPS shows up as a socket file on the laptop. Bytes go both
 // ways through both links, the socket is the agent's user's alone, and the page sees the counts.
-test('a forward carries a laptop socket to a port on another machine, both ways', async function () {
+test('a forward brings a port of another machine to a socket on the laptop, both ways', async function () {
     const echo = await echo_server({port: 0, host: '127.0.0.1'});
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
     const sock = path.join(dir, 'loki.sock');
     const running = await serviceman_start([
-        {name: 'loki', from: {remote: 'laptop', socket: sock}, to: {remote: 'vps1', port: echo.address().port}},
+        {name: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: sock}},
     ]);
     const agents = agents_start(running);
     try {
@@ -42,8 +42,8 @@ test('a forward carries a laptop socket to a port on another machine, both ways'
         assert.strictEqual(view.state, 'ready');
         assert.strictEqual(view.at, sock);
         assert.strictEqual(view.total, 2);
-        assert.strictEqual(view.bytes_to, 5 + 600000);
-        assert.strictEqual(view.bytes_from, 11 + 600006);
+        assert.strictEqual(view.bytes_sent, 5 + 600000);
+        assert.strictEqual(view.bytes_back, 11 + 600006);
     }
     finally {
         agents_stop(agents);
@@ -52,14 +52,14 @@ test('a forward carries a laptop socket to a port on another machine, both ways'
     }
 });
 
-// The other way round, with a port at the near end: socket → port and port → socket are one thing
-test('a forward listens on a loopback port and reaches a socket file over there', async function () {
+// The other way round, a socket brought to a port: socket → port and port → socket are one thing
+test('a forward brings a socket file over there to a loopback port', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
     const far = path.join(dir, 'far.sock');
     const echo = await echo_server({path: far});
     const port = await port_free();
     const running = await serviceman_start([
-        {name: 'back', from: {remote: 'vps1', port}, to: {remote: 'laptop', socket: far}},
+        {name: 'back', from: {remote: 'laptop', socket: far}, to: {remote: 'vps1', port}},
     ]);
     const agents = agents_start(running);
     try {
@@ -74,12 +74,12 @@ test('a forward listens on a loopback port and reaches a socket file over there'
 });
 
 // What breaks says so at once, where it broke: nothing hangs, and the page names the reason
-test('a forward to a machine that is away closes each connection at once and says why', async function () {
+test('a forward from a machine that is away closes each connection at once and says why', async function () {
     const echo = await echo_server({port: 0, host: '127.0.0.1'});
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
     const sock = path.join(dir, 'loki.sock');
     const running = await serviceman_start([
-        {name: 'loki', from: {remote: 'laptop', socket: sock}, to: {remote: 'vps1', port: echo.address().port}},
+        {name: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: sock}},
     ]);
     const agents = agents_start(running);
     try {
@@ -90,7 +90,7 @@ test('a forward to a machine that is away closes each connection at once and say
         assert.strictEqual(await say_through({path: sock}, 'hello'), '', 'closed with nothing said');
         const view = (await state_read(running)).forwards[0];
         assert.strictEqual(view.problem, 'vps1 is offline');
-        assert.strictEqual(view.state, 'to_offline');
+        assert.strictEqual(view.state, 'from_offline');
         assert.strictEqual(view.error, 'vps1 is offline');
         assert.strictEqual(running.app.log_lines.some(v => /\[forward_error\] forward=loki reason="vps1 is offline"/.test(v)), true);
 
@@ -115,7 +115,7 @@ test('a forward goes on listening while the link is down, and refuses at once', 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
     const sock = path.join(dir, 'loki.sock');
     const running = await serviceman_start([
-        {name: 'loki', from: {remote: 'laptop', socket: sock}, to: {remote: 'vps1', port: echo.address().port}},
+        {name: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: sock}},
     ]);
     const agents = agents_start(running);
     try {
@@ -143,8 +143,8 @@ test('a stale socket file is taken over, a live one is left to its program', asy
     await stale_socket(stale);
     const holder = await echo_server({path: live});
     const running = await serviceman_start([
-        {name: 'stale', from: {remote: 'laptop', socket: stale}, to: {remote: 'vps1', port: echo.address().port}},
-        {name: 'live', from: {remote: 'laptop', socket: live}, to: {remote: 'vps1', port: echo.address().port}},
+        {name: 'stale', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: stale}},
+        {name: 'live', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: live}},
     ]);
     const agents = agents_start(running);
     try {
@@ -175,7 +175,7 @@ test('a forward taken out of the config or set aside closes its socket', async f
     const echo = await echo_server({port: 0, host: '127.0.0.1'});
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
     const sock = path.join(dir, 'loki.sock');
-    const forward = {name: 'loki', from: {remote: 'laptop', socket: sock}, to: {remote: 'vps1', port: echo.address().port}};
+    const forward = {name: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: sock}};
     const running = await serviceman_start([forward]);
     const agents = agents_start(running);
     try {
@@ -203,7 +203,7 @@ test('a forward taken out of the config or set aside closes its socket', async f
 // A machine may open only its own forwards: naming another machine's is asking this host to dial
 // for it, and is refused without a stream ever being opened
 test('a machine that names a forward that is not its own is refused', async function () {
-    const config = config_of([{name: 'loki', from: {remote: 'laptop', port: 9999}, to: {remote: 'vps1', port: 3100}}]);
+    const config = config_of([{name: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', port: 9999}}]);
     const app = app_from_config(config);
     app.servers = {};
     const frames = [];
@@ -234,15 +234,15 @@ test('the page writes the forwards into the config file', async function () {
     const servers = await server_start(app);
     const port = servers.control.address().port;
     try {
-        const forwards = [{name: 'loki', from: {remote: 'laptop', socket: '~/repos/loki.sock'}, to: {remote: 'vps1', port: 3100}}];
+        const forwards = [{name: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', socket: '~/repos/loki.sock'}}];
         const written = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', body: JSON.stringify({forwards})});
         assert.strictEqual(written.status, 200);
         assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, forwards);
-        assert.strictEqual(app.config.forwards[0].from.socket, '~/repos/loki.sock');
+        assert.strictEqual(app.config.forwards[0].to.socket, '~/repos/loki.sock');
 
-        const bad = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', body: JSON.stringify({forwards: [{name: 'x', from: {remote: 'phone', port: 1}, to: {remote: 'vps1', port: 2}}]})});
+        const bad = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', body: JSON.stringify({forwards: [{name: 'x', from: {remote: 'vps1', port: 2}, to: {remote: 'phone', port: 1}}]})});
         assert.strictEqual(bad.status, 400);
-        assert.strictEqual(JSON.parse(bad.body).error, 'forwards[0].from.remote: no remote named "phone" is in the config');
+        assert.strictEqual(JSON.parse(bad.body).error, 'forwards[0].to.remote: no remote named "phone" is in the config');
         assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, forwards, 'a refused list leaves the file as it was');
 
         const emptied = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', body: JSON.stringify({forwards: []})});
@@ -257,33 +257,33 @@ test('the page writes the forwards into the config file', async function () {
 
 test('the config says what is wrong with a forward, in its own words', function () {
     const cases = [
-        [{name: 'Loki', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2}}, 'forwards[0].name: lowercase letters, digits, - and _ (got "Loki")'],
-        [{name: 'a', from: {remote: 'laptop'}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from: one of "port" or "socket"'],
-        [{name: 'a', from: {remote: 'laptop', port: 1, socket: '/a.sock'}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from: one of "port" or "socket"'],
-        [{name: 'a', from: {remote: 'laptop', port: 70000}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from.port: a port from 1 to 65535 (got 70000)'],
-        [{name: 'a', from: {remote: 'laptop', socket: 'loki.sock'}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from.socket: a path from / or ~/, of at most 100 characters (got "loki.sock")'],
-        [{name: 'a', from: {remote: 'laptop', host: '0.0.0.0', port: 1}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from.host: a forward listens on its machine\'s loopback and nowhere else'],
-        [{name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', socket: '/a.sock', host: '10.0.0.5'}}, 'forwards[0].to.host: a host goes with a port, not with a socket'],
-        [{name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2, user: 'root'}}, 'forwards[0].to.user: not a field of a forward\'s end — remote, port, socket, host'],
-        [{name: 'a', from: {remote: 'nobody', port: 1}, to: {remote: 'vps1', port: 2}}, 'forwards[0].from.remote: no remote named "nobody" is in the config'],
+        [{name: 'Loki', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}, 'forwards[0].name: lowercase letters, digits, - and _ (got "Loki")'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop'}}, 'forwards[0].to: one of "port" or "socket"'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1, socket: '/a.sock'}}, 'forwards[0].to: one of "port" or "socket"'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 70000}}, 'forwards[0].to.port: a port from 1 to 65535 (got 70000)'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', socket: 'loki.sock'}}, 'forwards[0].to.socket: a path from / or ~/, of at most 100 characters (got "loki.sock")'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', host: '0.0.0.0', port: 1}}, 'forwards[0].to.host: a forward shows up on its machine\'s loopback and nowhere else'],
+        [{name: 'a', from: {remote: 'vps1', socket: '/a.sock', host: '10.0.0.5'}, to: {remote: 'laptop', port: 1}}, 'forwards[0].from.host: a host goes with a port, not with a socket'],
+        [{name: 'a', from: {remote: 'vps1', port: 2, user: 'root'}, to: {remote: 'laptop', port: 1}}, 'forwards[0].from.user: not a field of a forward\'s end — remote, port, socket, host'],
+        [{name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'nobody', port: 1}}, 'forwards[0].to.remote: no remote named "nobody" is in the config'],
     ];
     for (const [forward, message] of cases) {
         assert.throws(() => config_of([forward]), {message});
     }
     const twice = [
-        {name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2}},
-        {name: 'a', from: {remote: 'laptop', port: 3}, to: {remote: 'vps1', port: 2}},
+        {name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}},
+        {name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 3}},
     ];
     assert.throws(() => config_of(twice), {message: 'forwards[1].name: "a" is used twice'});
     const same_place = [
-        {name: 'a', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 2}},
-        {name: 'b', from: {remote: 'laptop', port: 1}, to: {remote: 'vps1', port: 3}},
+        {name: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}},
+        {name: 'b', from: {remote: 'vps1', port: 3}, to: {remote: 'laptop', port: 1}},
     ];
-    assert.throws(() => config_of(same_place), {message: 'forwards[1].from: a already listens there'});
+    assert.throws(() => config_of(same_place), {message: 'forwards[1].to: a already listens there'});
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
-    assert.deepStrictEqual(config_of([{name: 'a', from: {remote: 'laptop', socket: '~/a.sock'}, to: {remote: 'vps1', host: '10.0.0.5', port: 2}}]).forwards, [
-        {name: 'a', from: {remote: 'laptop', port: null, socket: '~/a.sock', host: null}, to: {remote: 'vps1', port: 2, socket: null, host: '10.0.0.5'}, off: false},
+    assert.deepStrictEqual(config_of([{name: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
+        {name: 'a', from: {remote: 'vps1', port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', port: null, socket: '~/a.sock', host: null}, off: false},
     ]);
 });
 
@@ -367,7 +367,7 @@ function agent_start(control_port, token)
 async function wait_listening(running, name)
 {
     await wait_until(function () {
-        const said = running.app.remote_by_name[running.app.config.forwards.find(v => v.name === name).from.remote].state.forwards_said;
+        const said = running.app.remote_by_name[running.app.config.forwards.find(v => v.name === name).to.remote].state.forwards_said;
         return (said !== null) && (said[name] !== undefined) && (said[name].error === null) && (running.app.remote_by_name.vps1.state.phase === 'online') && (running.app.remote_by_name.laptop.state.phase === 'online');
     });
 }
