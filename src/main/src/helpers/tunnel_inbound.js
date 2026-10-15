@@ -1,7 +1,9 @@
+const forward_join = require('./forward_join');
 const link_send_stream = require('../../../helpers/link_send_stream');
 const tunnel_stream = require('./tunnel_stream');
 
-// A stream the machine opened, which is the other direction from every other one: a request
+// A stream the machine opened, which is the other direction from every other one. A forward is
+// joined to its other end (forward_join); anything else is a request
 // reached that machine's http socket — nginx in front of it — and it is handed here to be
 // answered. The stream is given to the services door as if something had connected to it, so
 // the hostname decides what answers, a sleeping service is woken, and the log reads the same
@@ -11,14 +13,19 @@ function tunnel_inbound(app, remote, body)
     const state = remote.state;
     const id = body.readUInt32BE(0);
     const target = JSON.parse(body.subarray(4).toString('utf8'));
-    if (target.http === undefined) {
-        refuse(state, id, 'EBADTARGET', 'a machine opens nothing but an http stream on this host');
-        return;
-    }
     // This host takes the even numbers and a machine the odd: one that comes in on the wrong
     // side of that line is a machine that would be writing over a stream this end opened
     if ((id % 2 === 0) || (state.streams[id] !== undefined)) {
         refuse(state, id, 'EBADSTREAM', `stream ${id} is not one for that end to open`);
+        return;
+    }
+    // Something connected to a forward on that machine, and is carried on to the other end
+    if (typeof target.forward === 'string') {
+        forward_join(app, remote, id, target.forward);
+        return;
+    }
+    if (target.http === undefined) {
+        refuse(state, id, 'EBADTARGET', 'a machine opens an http stream or a forward on this host, and nothing else');
         return;
     }
     if (app.servers === null) {

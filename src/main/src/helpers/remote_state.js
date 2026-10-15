@@ -47,6 +47,13 @@ function remote_state()
         doors_sending: null,
         doors_peer: null,
         doors_error: null,
+        // The forwards it was told to listen for on this link, a telling in flight, what it
+        // answered for each ({name: {at, error}}), and why the last telling failed. What it
+        // answered stays while it is away: an agent keeps its forwards listening between links.
+        forwards_told: null,
+        forwards_sending: null,
+        forwards_said: null,
+        forwards_error: null,
         logline_error: null,
         logline_busy: null,
         // The addresses its token was issued for, and when

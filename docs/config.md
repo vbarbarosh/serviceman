@@ -158,6 +158,32 @@ answering is dropped; the agent dials in again, waiting 1s, then 2s, up to 30s.
 A remote that keeps its name and its token keeps its link when the config is applied
 again. Changing either drops the link, and the agent comes back with the new one.
 
+### Forwards
+
+A port or a socket file on one machine, answered by a port or a socket on another. The machine
+at `from` listens; each connection rides its link to serviceman and the other machine's link to
+`to`. No ssh and no key. **Forwards** on the Doors page writes this list for you.
+
+```json
+"forwards": [
+    {"name": "loki", "from": {"remote": "laptop", "socket": "~/repos/loki.sock"}, "to": {"remote": "vps1", "port": 3100}}
+]
+```
+
+| Field         | What it is                                                                         |
+|---------------|------------------------------------------------------------------------------------|
+| `name`        | Lowercase letters, digits, `-` and `_`.                                            |
+| `from.remote` | The machine that listens.                                                          |
+| `from.socket` | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. |
+| `from.port`   | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
+| `to.remote`   | The machine that answers.                                                          |
+| `to.port`     | A port there, on its loopback unless `to.host` names an address it reaches.        |
+| `to.socket`   | Or a socket file there.                                                            |
+| `off`         | `true` sets it aside: written down, and not listened for.                          |
+
+Both machines run the agent, version 1.15 or newer. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
+says what happens while one of them is away.
+
 ### Logline
 
 [Logline](../logline/) is where the remotes' logs go: one endpoint, and ClickHouse behind it.

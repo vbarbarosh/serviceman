@@ -2272,7 +2272,7 @@ const app = {
                 <span class="name"><code>{{ item.address }}</code></span>
             </button>
         </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'doors'), open: (kind_now === 'doors')}" title="The public names machines' doors answer, and what stands in front of them" @click="networking_show">
+        <button type="button" class="row kind" :class="{on: (kind_now === 'doors'), open: (kind_now === 'doors')}" title="The public names machines' doors answer, what stands in front of them, and the forwards between machines" @click="networking_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="1"/></svg>
             <span class="name">Doors</span>
             <span class="muted">{{ doors_count }}</span>

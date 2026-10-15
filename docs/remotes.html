@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
 </ul>
@@ -1167,6 +1167,34 @@ the front wrote it.</p>
 <p><strong>When the laptop is away</strong> (asleep, off, off the tailnet), the door waits 10 seconds for a
 connection and answers <code>502</code>. A front or a CDN may answer for it with a 5xx of its own, so a
 client reads any 502, 503, 504 or 52x as &quot;not reachable now&quot;.</p>
+<h2 id="a-port-or-a-socket-from-one-machine-to-another"><a class="anchor" href="#a-port-or-a-socket-from-one-machine-to-another" aria-hidden="true" tabindex="-1">#</a>A port or a socket from one machine to another</h2>
+<p>A forward makes a port of one machine show up on another, the way <code>ssh -L</code> does, with no ssh:
+the machines&#39; links to serviceman carry it. A Loki on vps1&#39;s loopback, as a socket file on the
+laptop:</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}}
+]
+</code></pre>
+<p>The laptop&#39;s agent listens on <code>~/repos/loki.sock</code>. Each connection opens a stream over its link
+to serviceman, serviceman opens one over vps1&#39;s link to <code>127.0.0.1:3100</code>, and joins the two. A
+port works as well as a socket at either end, so a socket on a server answered by a port at home
+is the same thing written the other way round.</p>
+<ul>
+<li><strong>The socket stays.</strong> The agent keeps listening while its link is down: a connection then is
+closed at once, and the first one after the redial goes through. A dead ssh holds a socket
+for as long as its keep-alives take to notice; a forward has none to wait for.</li>
+<li><strong>Nobody else&#39;s.</strong> A socket file is <code>0600</code>, for the agent&#39;s user alone; a port is bound to
+<code>127.0.0.1</code>. A machine may open only the forwards whose <code>from</code> is itself: one that names
+another machine&#39;s forward is refused, and nothing is dialled for it.</li>
+<li><strong>A socket someone else answers on is theirs.</strong> An <code>ssh -L</code> already on that path keeps it; the
+page says the forward cannot listen, and it is tried again every minute. A file left by a
+process that is gone is taken over.</li>
+<li><strong>What it says.</strong> The Doors page lists every forward: where it listens, whether a connection
+would go through now and if not why (<code>vps2 is offline</code>, <code>the agent on laptop is older than forwards — update it</code>), the connections open and in all, the bytes each way, and the last
+failure.</li>
+</ul>
+<p>Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
+A forward carries bytes and nothing else: what is spoken over it is between the two programs.</p>
 <h2 id="through-a-reverse-proxy"><a class="anchor" href="#through-a-reverse-proxy" aria-hidden="true" tabindex="-1">#</a>Through a reverse proxy</h2>
 <p>The agent asks for an HTTP upgrade on <code>/api/v1/remote</code>, the same shape as a websocket. nginx
 and caddy carry it with their usual websocket block; give it a long read timeout, because the
@@ -1188,7 +1216,9 @@ through the tunnel. Treat it like an ssh key: one token per machine, 32 random b
 a file only root can read.</p>
 <p>The other direction is narrow, but not empty. The agent does what it is asked and nothing
 else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
-or to its docker socket, which is how a shell in one of its containers is opened from here.
+or to its docker socket, which is how a shell in one of its containers is opened from here. A
+forward&#39;s listener is the one way a connection on the machine reaches the host, and only under
+a forward&#39;s name.
 That socket is docker itself, so a remote trusts this host as much as this host trusts
 whoever reaches its control page. Its firewall too: ufw&#39;s rules are written from the control
 page, as root. The agent runs no shell of its own for the host, and it never dials anywhere

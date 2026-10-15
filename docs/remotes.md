@@ -528,6 +528,40 @@ the front wrote it.
 connection and answers `502`. A front or a CDN may answer for it with a 5xx of its own, so a
 client reads any 502, 503, 504 or 52x as "not reachable now".
 
+## A port or a socket from one machine to another
+
+A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
+the machines' links to serviceman carry it. A Loki on vps1's loopback, as a socket file on the
+laptop:
+
+```json
+"forwards": [
+    {"name": "loki", "from": {"remote": "laptop", "socket": "~/repos/loki.sock"}, "to": {"remote": "vps1", "port": 3100}}
+]
+```
+
+The laptop's agent listens on `~/repos/loki.sock`. Each connection opens a stream over its link
+to serviceman, serviceman opens one over vps1's link to `127.0.0.1:3100`, and joins the two. A
+port works as well as a socket at either end, so a socket on a server answered by a port at home
+is the same thing written the other way round.
+
+- **The socket stays.** The agent keeps listening while its link is down: a connection then is
+  closed at once, and the first one after the redial goes through. A dead ssh holds a socket
+  for as long as its keep-alives take to notice; a forward has none to wait for.
+- **Nobody else's.** A socket file is `0600`, for the agent's user alone; a port is bound to
+  `127.0.0.1`. A machine may open only the forwards whose `from` is itself: one that names
+  another machine's forward is refused, and nothing is dialled for it.
+- **A socket someone else answers on is theirs.** An `ssh -L` already on that path keeps it; the
+  page says the forward cannot listen, and it is tried again every minute. A file left by a
+  process that is gone is taken over.
+- **What it says.** The Doors page lists every forward: where it listens, whether a connection
+  would go through now and if not why (`vps2 is offline`, `the agent on laptop is older than
+  forwards — update it`), the connections open and in all, the bytes each way, and the last
+  failure.
+
+Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
+A forward carries bytes and nothing else: what is spoken over it is between the two programs.
+
 ## Through a reverse proxy
 
 The agent asks for an HTTP upgrade on `/api/v1/remote`, the same shape as a websocket. nginx
@@ -556,7 +590,9 @@ a file only root can read.
 
 The other direction is narrow, but not empty. The agent does what it is asked and nothing
 else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
-or to its docker socket, which is how a shell in one of its containers is opened from here.
+or to its docker socket, which is how a shell in one of its containers is opened from here. A
+forward's listener is the one way a connection on the machine reaches the host, and only under
+a forward's name.
 That socket is docker itself, so a remote trusts this host as much as this host trusts
 whoever reaches its control page. Its firewall too: ufw's rules are written from the control
 page, as root. The agent runs no shell of its own for the host, and it never dials anywhere

@@ -1,5 +1,6 @@
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import forwards_section from './forwards_section.js';
 
 // Every machine's door, and what comes in through it.
 //
@@ -112,8 +113,10 @@ bin/restart</pre>
         </table>
     </div>
     <p class="muted">Then point that machine's web server at the file, keeping the <code>Host</code> header as it came — the door answers by that name and nothing else.</p>
+    <forwards-section :state="state"/>
 </article>
 `,
+    components: {'forwards-section': forwards_section},
     props: ['state'],
     emits: [],
     data: function () {

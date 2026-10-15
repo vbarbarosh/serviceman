@@ -51,6 +51,7 @@ const socket_pending = require('../helpers/socket_pending');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const transfer_queue = require('../../../../modules/file_manager/server/transfer_queue');
 const url_logged = require('../helpers/url_logged');
+const view_from_forward = require('../helpers/view_from_forward');
 const view_from_remote = require('../helpers/view_from_remote');
 const view_from_service = require('../helpers/view_from_service');
 const volumes_of_app = require('../helpers/volumes_of_app');
@@ -222,6 +223,10 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/skins') && (req.method === 'GET')) {
         send_json(res, 200, {skins: await skins_read(SKINS_ROOT)});
+        return;
+    }
+    if ((url.pathname === '/api/v1/forwards') && (req.method === 'PUT')) {
+        await forwards_put(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/logline') && (req.method === 'PUT')) {
@@ -1561,6 +1566,25 @@ function service_names_remote(service, name)
     return Array.isArray(service.remotes) && service.remotes.includes(name);
 }
 
+// PUT /api/v1/forwards {"forwards": [...]}
+// The whole list, as the page edits it: written to the config, and the machines told
+async function forwards_put(app, req, res)
+{
+    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    if (Array.isArray(body.forwards) === false) {
+        send_json(res, 400, {error: 'forwards: a list is required'});
+        return;
+    }
+    await config_file_mutate(app, res, function (json) {
+        if (body.forwards.length === 0) {
+            delete json.forwards;
+            return null;
+        }
+        json.forwards = body.forwards;
+        return null;
+    });
+}
+
 // The one shape the form sends: {service: {...}} with a plain object inside
 function service_from_body(body)
 {
@@ -1660,6 +1684,7 @@ function state_from_app(app)
         }),
         services,
         remotes,
+        forwards: app.config.forwards.map(v => view_from_forward(app, v)),
         // What k6 is sent at, each with the address it asks, and the runs so far, oldest first
         load_tests: app.config.load_tests.map(v => Object.assign({}, v, {url_asked: load_test_url(app, v)})),
         // A run's lines are its log, asked for when opened; one going shows its last few

@@ -4,6 +4,7 @@ const counters_apply = require('./counters_apply');
 const counters_from_service = require('./counters_from_service');
 const doors_tell = require('./doors_tell');
 const externals_attach = require('./externals_attach');
+const forwards_tell = require('./forwards_tell');
 const link_send_message = require('../../../helpers/link_send_message');
 const log_event = require('./log_event');
 const logline_revoke = require('./logline_revoke');
@@ -91,6 +92,7 @@ async function app_apply_config(app, config)
         log_event(app, 'logline_sweep_error', {reason: error.message});
     });
     doors_tell(app);
+    forwards_tell(app);
     for (const service of fresh) {
         await service_probe(app, service);
     }

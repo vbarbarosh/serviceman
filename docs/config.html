@@ -941,6 +941,57 @@ and sends a megabyte there and back every ten minutes for the speed. A link that
 answering is dropped; the agent dials in again, waiting 1s, then 2s, up to 30s.</p>
 <p>A remote that keeps its name and its token keeps its link when the config is applied
 again. Changing either drops the link, and the agent comes back with the new one.</p>
+<h3 id="forwards"><a class="anchor" href="#forwards" aria-hidden="true" tabindex="-1">#</a>Forwards</h3>
+<p>A port or a socket file on one machine, answered by a port or a socket on another. The machine
+at <code>from</code> listens; each connection rides its link to serviceman and the other machine&#39;s link to
+<code>to</code>. No ssh and no key. <strong>Forwards</strong> on the Doors page writes this list for you.</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}}
+]
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>Lowercase letters, digits, <code>-</code> and <code>_</code>.</td>
+</tr>
+<tr>
+<td><code>from.remote</code></td>
+<td>The machine that listens.</td>
+</tr>
+<tr>
+<td><code>from.socket</code></td>
+<td>A socket file there, <code>0600</code>: only the agent&#39;s user may open it. <code>~/</code> is that user&#39;s home.</td>
+</tr>
+<tr>
+<td><code>from.port</code></td>
+<td>Or a port on its loopback, <code>127.0.0.1</code>, and nowhere else.</td>
+</tr>
+<tr>
+<td><code>to.remote</code></td>
+<td>The machine that answers.</td>
+</tr>
+<tr>
+<td><code>to.port</code></td>
+<td>A port there, on its loopback unless <code>to.host</code> names an address it reaches.</td>
+</tr>
+<tr>
+<td><code>to.socket</code></td>
+<td>Or a socket file there.</td>
+</tr>
+<tr>
+<td><code>off</code></td>
+<td><code>true</code> sets it aside: written down, and not listened for.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Both machines run the agent, version 1.15 or newer. <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>
+says what happens while one of them is away.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>

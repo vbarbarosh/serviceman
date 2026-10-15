@@ -8,6 +8,7 @@ const counters_read = require('./src/helpers/counters_read');
 const counters_write = require('./src/helpers/counters_write');
 const doors_tell = require('./src/helpers/doors_tell');
 const file_log_from_env = require('./src/helpers/file_log_from_env');
+const forwards_tell = require('./src/helpers/forwards_tell');
 const image_prepull_start = require('./src/helpers/image_prepull_start');
 const log_close = require('./src/helpers/log_close');
 const log_event = require('./src/helpers/log_event');
@@ -104,6 +105,8 @@ async function main()
             });
             // Where a service runs moves as it starts and stops; the doors follow within the minute
             doors_tell(app);
+            // A forward that could not listen is tried again
+            forwards_tell(app);
         }, LOGLINE_INTERVAL_MS);
         watch_signals(app);
     });

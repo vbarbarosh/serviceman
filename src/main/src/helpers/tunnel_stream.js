@@ -9,7 +9,10 @@ const WINDOW_BYTES = 256*1024;
 //
 // The number is the stream's name on that link: every frame of it leads with the number, and
 // both ends know it by nothing else.
-function tunnel_stream(socket, id)
+//
+// `half_open` keeps the way out open after the way in has ended, as a forward needs it to be:
+// a client that says it is done and waits for the answer gets the answer.
+function tunnel_stream(socket, id, half_open)
 {
     const link = {
         send_data: function (chunk) {
@@ -34,7 +37,7 @@ function tunnel_stream(socket, id)
     let timer = null;
 
     const out = new stream.Duplex({
-        allowHalfOpen: false,
+        allowHalfOpen: (half_open === true),
         write: function (chunk, encoding, done) {
             timer_arm();
             link.send_data(chunk);

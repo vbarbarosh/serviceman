@@ -1259,6 +1259,18 @@ minute, and they would bury the rest.</p>
 <td><code>agent_frame_error</code></td>
 <td>A frame made no sense, so the agent closed the link.</td>
 </tr>
+<tr>
+<td><code>forward_listen</code></td>
+<td>A forward listens here, and where: a socket file or a port.</td>
+</tr>
+<tr>
+<td><code>forward_listen_error</code></td>
+<td>It could not listen, and why; tried again every minute.</td>
+</tr>
+<tr>
+<td><code>forward_close</code></td>
+<td>A forward taken out of the config stopped listening.</td>
+</tr>
 </tbody></table>
 </div>
 <p>What an agent says about sending its machine&#39;s lines to Logline:</p>
@@ -1385,6 +1397,28 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <tr>
 <td><code>remote_service_error</code></td>
 <td>Waking that remote&#39;s services went wrong.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="forwards"><a class="anchor" href="#forwards" aria-hidden="true" tabindex="-1">#</a>Forwards</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Sender</th>
+<th>What it says</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>forwards_told</code></td>
+<td>A machine was told the forwards it listens for; <code>failed=</code> names any that could not.</td>
+</tr>
+<tr>
+<td><code>forwards_tell_error</code></td>
+<td>Telling it failed, and why; said once per reason.</td>
+</tr>
+<tr>
+<td><code>forward_error</code></td>
+<td>A connection through a forward could not reach the far end, and why; said once per reason in a row.</td>
 </tr>
 </tbody></table>
 </div>

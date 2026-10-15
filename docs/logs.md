@@ -333,6 +333,9 @@ minute, and they would bury the rest.
 | `agent_call_stdout`       | One line the command printed, as it printed it.             |
 | `agent_call_stderr`       | And one from the other stream.                              |
 | `agent_frame_error`       | A frame made no sense, so the agent closed the link.        |
+| `forward_listen`          | A forward listens here, and where: a socket file or a port. |
+| `forward_listen_error`    | It could not listen, and why; tried again every minute.     |
+| `forward_close`           | A forward taken out of the config stopped listening.        |
 
 What an agent says about sending its machine's lines to Logline:
 
@@ -377,6 +380,14 @@ keeps its own copy, so a machine with no link still writes its log.
 | `remote_said`          | The agent asked for a line to be written.                        |
 | `remote_service_lost`  | A dropped link put a service out of reach.                       |
 | `remote_service_error` | Waking that remote's services went wrong.                        |
+
+### Forwards
+
+| Sender                | What it says                                                             |
+|-----------------------|--------------------------------------------------------------------------|
+| `forwards_told`       | A machine was told the forwards it listens for; `failed=` names any that could not. |
+| `forwards_tell_error` | Telling it failed, and why; said once per reason.                        |
+| `forward_error`       | A connection through a forward could not reach the far end, and why; said once per reason in a row. |
 
 ### Logline
 

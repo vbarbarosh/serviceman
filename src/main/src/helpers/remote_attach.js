@@ -4,6 +4,7 @@ const door_peer_known = require('./door_peer_known');
 const doors_tell = require('./doors_tell');
 const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
 const format_duration_ms = require('../../../helpers/format_duration_ms');
+const forwards_tell = require('./forwards_tell');
 const image_prepull_start = require('./image_prepull_start');
 const k6_lane = require('./k6_lane');
 const link_read = require('../../../helpers/link_read');
@@ -159,6 +160,10 @@ function message_read(app, remote, message)
         state.doors_told = (((doors === undefined) || (doors === null)) ? null : doors.version);
         state.doors_peer = (((doors === undefined) || (doors === null) || (doors.peer === null)) ? state.doors_peer : door_peer_known(app, remote.name, doors.peer));
         doors_tell(app);
+        // A new link is told its forwards afresh, whatever the last one was told
+        state.forwards_told = null;
+        state.forwards_error = null;
+        forwards_tell(app);
         return;
     }
     if (message.type === 'stats') {

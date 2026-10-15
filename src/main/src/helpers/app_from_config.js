@@ -35,6 +35,8 @@ function app_from_config(config)
         started_at: Date.now(),
         // Where the service door ended up, once it is open
         listen_port: null,
+        // What went through each forward since this serviceman started, by name
+        forward_counts: {},
     };
     for (const item of config.services) {
         out.services.push(Object.assign({}, item, {state: state_from_service(item)}));

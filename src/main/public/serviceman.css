@@ -333,6 +333,8 @@ table.procs .caret.open {
 table.doors,
 table.rules {
     width: 100%;
+    /* Narrower than this, the free columns go down to a letter a line; the box scrolls instead */
+    min-width: 56rem;
     table-layout: fixed;
 }
 
@@ -366,6 +368,21 @@ table.rules tr.off code {
 
 .form .rule-add input {
     width: 16rem;
+}
+
+/* A forward's name is short; its two ends are paths that may be long and wrap where they must */
+.form .rule-add input.short {
+    width: 8rem;
+}
+
+table.forwards td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+table.forwards .small {
+    font-size: .85em;
+    overflow-wrap: anywhere;
 }
 
 /* A name with its dot beside it, outside the rail: a dot has a size only as a flex item */

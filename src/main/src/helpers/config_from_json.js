@@ -1,5 +1,6 @@
 const assert_service_valid = require('./assert_service_valid');
 const duration_ms_from_text = require('./duration_ms_from_text');
+const forwards_from_json = require('./forwards_from_json');
 const join_from_json = require('./join_from_json');
 const lifecycle_from_json = require('./lifecycle_from_json');
 const load_tests_from_json = require('./load_tests_from_json');
@@ -76,6 +77,8 @@ function config_from_json(json, base_dir)
         logline: logline_from_json(json.logline, 'logline'),
 
         remotes: remotes_from_json(json.remotes, 'remotes'),
+        // A port or a socket on one machine, answered on another, through both links
+        forwards: forwards_from_json(json.forwards, 'forwards'),
         services: [],
         // What k6 is sent at, and from where
         load_tests: load_tests_from_json(json.load_tests, 'load_tests'),
@@ -132,6 +135,14 @@ function config_from_json(json, base_dir)
             }
             if (rule.auth === rule.service) {
                 throw new Error(`${label} behind itself — a wall and what it guards are two services`);
+            }
+        }
+    }
+    for (let i = 0; i < out.forwards.length; i++) {
+        for (const end of ['from', 'to']) {
+            const name = out.forwards[i][end].remote;
+            if (out.remotes.some(v => v.name === name) === false) {
+                throw new Error(`forwards[${i}].${end}.remote: no remote named ${JSON.stringify(name)} is in the config`);
             }
         }
     }

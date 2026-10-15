@@ -7,6 +7,7 @@ const agent_doors_state = require('./agent_doors_state');
 const agent_file_part_finish = require('./agent_file_part_finish');
 const agent_file_part_remove = require('./agent_file_part_remove');
 const agent_file_part_stat = require('./agent_file_part_stat');
+const agent_forwards_set = require('./agent_forwards_set');
 const agent_fs_delete = require('./agent_fs_delete');
 const agent_fs_list = require('./agent_fs_list');
 const agent_fs_rename = require('./agent_fs_rename');
@@ -544,6 +545,9 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'doors_set') {
         return agent_doors_set(params.table);
+    }
+    if (method === 'forwards_set') {
+        return await agent_forwards_set(params.forwards, group);
     }
     if (method === 'logline_set') {
         const out = agent_logline_set(params);
