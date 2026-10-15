@@ -9,7 +9,7 @@ function view_from_forward(app, forward)
     // (forwards_here), in the same shape as what an agent says back
     const to = (forward.to.here ? null : app.remote_by_name[forward.to.remote]);
     const said = said_of(app, forward, to);
-    const counts = forward_join.counts(app, forward.name);
+    const counts = forward_join.counts(app, forward.label);
     const now = now_of(forward, from, to, said);
     return Object.assign({}, forward, {
         // Where the agent listens, its ~ written out, or where serviceman does, inside its
@@ -82,12 +82,12 @@ function now_here(from, said)
 function said_of(app, forward, to)
 {
     if (to === null) {
-        return app.forwards_here[forward.name];
+        return app.forwards_here[forward.label];
     }
     if ((to === undefined) || (to.state.forwards_said === null)) {
         return undefined;
     }
-    return to.state.forwards_said[forward.name];
+    return to.state.forwards_said[forward.label];
 }
 
 module.exports = view_from_forward;

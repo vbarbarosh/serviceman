@@ -167,13 +167,13 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 
 ```json
 "forwards": [
-    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
+    {"label": "Loki on vps1", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 ]
 ```
 
 | Field         | What it is                                                                         |
 |---------------|------------------------------------------------------------------------------------|
-| `name`        | Lowercase letters, digits, `-` and `_`.                                            |
+| `label`       | Any text of one line, up to 100 characters, one per forward. A config from before labels has `name`. |
 | `from.remote` | The machine the service is on.                                                     |
 | `from.port`   | A port there, on its loopback unless `from.host` names an address it reaches.      |
 | `from.socket` | Or a socket file there.                                                            |

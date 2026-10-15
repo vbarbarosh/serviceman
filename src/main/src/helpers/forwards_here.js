@@ -14,7 +14,7 @@ const SOCKET_PATH_MAX = 107;
 // Called at the start, after the config changes, and on the minute, when one that could not
 // listen is tried again — a file another program held may be free by now.
 //
-// app.forwards_here holds what each one is now: {name: {key, at, server, error}}, error null
+// app.forwards_here holds what each one is now: {label: {key, at, server, error}}, error null
 // for one that listens. One change at a time: a minute that strikes during a config change
 // waits for it.
 function forwards_here(app)
@@ -34,28 +34,28 @@ async function forwards_apply(app)
     const wanted = {};
     for (const item of app.config.forwards) {
         if ((item.off === false) && item.to.here) {
-            wanted[item.name] = item;
+            wanted[item.label] = item;
         }
     }
     // What a forward that is tried again failed with last time, so the log says a reason once
     const before = {};
-    for (const name of Object.keys(app.forwards_here)) {
-        const found = app.forwards_here[name];
-        if ((wanted[name] !== undefined) && (key_of(app, wanted[name]) === found.key) && (found.error === null)) {
+    for (const label of Object.keys(app.forwards_here)) {
+        const found = app.forwards_here[label];
+        if ((wanted[label] !== undefined) && (key_of(app, wanted[label]) === found.key) && (found.error === null)) {
             continue;
         }
         close(found);
-        delete app.forwards_here[name];
+        delete app.forwards_here[label];
         if (found.error === null) {
-            log_event(app, 'forward_here_close', {forward: name, at: found.at});
+            log_event(app, 'forward_here_close', {forward: label, at: found.at});
         }
         else {
-            before[name] = found.error;
+            before[label] = found.error;
         }
     }
-    for (const name of Object.keys(wanted)) {
-        if (app.forwards_here[name] === undefined) {
-            app.forwards_here[name] = await listen(app, wanted[name], before[name]);
+    for (const label of Object.keys(wanted)) {
+        if (app.forwards_here[label] === undefined) {
+            app.forwards_here[label] = await listen(app, wanted[label], before[label]);
         }
     }
 }
@@ -66,7 +66,7 @@ async function listen(app, item, error_before)
     const out = {key: key_of(app, item), at, server: null, error: null};
     // Half open, as ssh -L is: a client that says it is done is still sent the answer
     const server = net.createServer({allowHalfOpen: true}, function (socket) {
-        connection(app, item.name, socket);
+        connection(app, item.label, socket);
     });
     let owner = null;
     try {
@@ -94,7 +94,7 @@ async function listen(app, item, error_before)
         }
         out.error = error.message;
         if (error.message !== error_before) {
-            log_event(app, 'forward_here_listen_error', {forward: item.name, at, reason: error.message, then: 'tried again every minute'});
+            log_event(app, 'forward_here_listen_error', {forward: item.label, at, reason: error.message, then: 'tried again every minute'});
         }
         return out;
     }
@@ -103,18 +103,18 @@ async function listen(app, item, error_before)
         out.error = error.message;
     });
     out.server = server;
-    log_event(app, 'forward_here_listen', {forward: item.name, at, owner: ((owner === null) ? null : `${owner.uid}:${owner.gid}`)});
+    log_event(app, 'forward_here_listen', {forward: item.label, at, owner: ((owner === null) ? null : `${owner.uid}:${owner.gid}`)});
     return out;
 }
 
 // A connection to it: carried to `from` while the forward is still on and still here, else
 // closed at once, as it is while the machine the service is on is offline
-function connection(app, name, socket)
+function connection(app, label, socket)
 {
     socket.on('error', function () {
         socket.destroy();
     });
-    const forward = app.config.forwards.find(v => v.name === name);
+    const forward = app.config.forwards.find(v => v.label === label);
     if ((forward === undefined) || forward.off || (forward.to.here === false)) {
         socket.destroy();
         return;

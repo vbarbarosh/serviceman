@@ -11,7 +11,7 @@ const HISTORY_MAX = 120;
 function forwards_sample(app, now)
 {
     for (const forward of app.config.forwards) {
-        forward_sample(forward_join.counts(app, forward.name), now);
+        forward_sample(forward_join.counts(app, forward.label), now);
     }
 }
 

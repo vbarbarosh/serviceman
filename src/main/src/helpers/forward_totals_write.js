@@ -9,8 +9,8 @@ function forward_totals_write(app)
 {
     const forwards = {};
     for (const forward of app.config.forwards) {
-        const counts = forward_join.counts(app, forward.name);
-        forwards[forward.name] = {total: counts.total, bytes_sent: counts.bytes_sent, bytes_back: counts.bytes_back};
+        const counts = forward_join.counts(app, forward.label);
+        forwards[forward.label] = {total: counts.total, bytes_sent: counts.bytes_sent, bytes_back: counts.bytes_back};
     }
     const text = `${JSON.stringify({forwards}, null, 4)}\n`;
     if (text === app.forward_totals_text) {

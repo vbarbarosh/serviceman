@@ -352,9 +352,11 @@ table.procs .caret.open {
     border-color: var(--accent);
 }
 
+/* "Change" and the forward's label, which may be one long word */
 .fwd-make h2 {
     margin: 0 0 .75rem;
     font-size: 1rem;
+    overflow-wrap: anywhere;
 }
 
 .fwd-ends {
@@ -432,9 +434,9 @@ table.procs .caret.open {
     align-items: center;
 }
 
-/* A forward's name is a machine and a port, or a socket's name: room for it whole, and on a
+/* A forward's label is any text: room for a machine and a port, or a path, whole, and on a
    phone no wider than its row */
-.form .fwd-make-foot input.fwd-name {
+.form .fwd-make-foot input.fwd-label {
     width: 16rem;
     min-width: 0;
 }
@@ -487,6 +489,15 @@ table.procs .caret.open {
 }
 
 .fold-room > table > * > tr > .wraps {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* A forward's label wraps inside its own width, measured or not, so a long one never folds the
+   rest of its row away */
+.fold-room > table > * > tr > .wraps > .fwd-label {
+    display: inline-block;
+    max-width: 16rem;
     white-space: normal;
     overflow-wrap: anywhere;
 }

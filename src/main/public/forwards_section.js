@@ -21,7 +21,7 @@ const forwards_section = {
             <thead>
                 <tr>
                     <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Name</th>
+                    <th>Label</th>
                     <th data-fold="from">From</th>
                     <th data-fold="to">Shows up on</th>
                     <th>Now</th>
@@ -33,10 +33,10 @@ const forwards_section = {
                 </tr>
             </thead>
             <tbody>
-                <template v-for="item of forwards" :key="item.name">
-                    <tr :class="{off: item.off, foldable: (fold.folded.length > 0), open: fold.is_open(item.name)}" @click="fold.toggle(item.name, $event)">
+                <template v-for="item of forwards" :key="item.label">
+                    <tr :class="{off: item.off, foldable: (fold.folded.length > 0), open: fold.is_open(item.label)}" @click="fold.toggle(item.label, $event)">
                         <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><code class="name">{{ item.name }}</code></td>
+                        <td class="wraps"><span class="fwd-label">{{ item.label }}</span></td>
                         <td data-fold="from"><span class="muted">{{ title_of(item.from.remote) }} · </span><code>{{ end_text(item.from) }}</code></td>
                         <td data-fold="to"><span class="muted">{{ place_of(item.to) }} · </span><code :title="(item.at === null ? '' : item.at)">{{ landed_text(item.to) }}</code></td>
                         <td><span class="dot-name" :class="{bad: bad_of(item)}"><span class="dot" :class="dot_of(item)"/>{{ word_of(item) }}</span></td>
@@ -49,7 +49,7 @@ const forwards_section = {
                             <button type="button" class="link" :disabled="busy" @click="drop(item)">forget it</button>
                         </td>
                     </tr>
-                    <tr v-if="fold.is_open(item.name)" class="fold-more">
+                    <tr v-if="fold.is_open(item.label)" class="fold-more">
                         <td :colspan="fold.span">
                             <dl class="fold-details">
                                 <template v-if="fold.folded.includes('from')">
@@ -91,7 +91,7 @@ const forwards_section = {
         </table>
     </fold-table>
     <div class="fwd-make" :class="{editing: (editing !== null)}">
-        <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.name) }}</h2>
+        <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.label) }}</h2>
         <div class="fwd-ends">
             <div class="fwd-end">
                 <div class="fwd-end-title">The service is on</div>
@@ -120,7 +120,7 @@ const forwards_section = {
         </div>
         <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and what to bring.' : summary) }}</p>
         <div class="fwd-make-foot">
-            <label>Name <input v-model.trim="fresh.name" class="fwd-name" :placeholder="name_auto" spellcheck="false" title="A name for it: lowercase letters, digits, - and _; left empty, the one shown" @keyup.enter="write"></label>
+            <label>Label <input v-model.trim="fresh.label" class="fwd-label" :placeholder="label_auto" maxlength="100" spellcheck="false" title="Any text, one per forward; left empty, the one shown" @keyup.enter="write"></label>
             <button type="button" class="primary" :disabled="(busy || ready === false)" @click="write">{{ (editing === null ? 'Add' : 'Save') }}</button>
             <button v-if="(editing !== null)" type="button" :disabled="busy" @click="clear">Cancel</button>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -132,7 +132,7 @@ const forwards_section = {
     props: ['state'],
     emits: [],
     data: function () {
-        // `editing` is the forward the line below is rewriting, by the name it had; `here_value`
+        // `editing` is the forward the line below is rewriting, by the label it had; `here_value`
         // is serviceman itself in the picker
         return {fresh: fresh_empty(), editing: null, note: '', bad: false, busy: false, here_value: HERE};
     },
@@ -192,8 +192,8 @@ const forwards_section = {
             const to = ((fresh.to_remote === HERE) ? this.landed_text(forward_here_parse(fresh.to)) : fresh.to);
             return `A connection to ${end_words(to)} on ${this.place_title(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
         },
-        // The name a forward gets when none is typed: the socket's name, or the machine and port
-        name_auto: function () {
+        // The label a forward gets when none is typed: the socket's name, or the machine and port
+        label_auto: function () {
             const from = this.fresh.from;
             const socket = /([A-Za-z0-9_-]+)(\.sock)?$/.exec(from.startsWith('/') || from.startsWith('~/') ? from : '');
             if (socket !== null) {
@@ -308,7 +308,7 @@ const forwards_section = {
             if (this.ready === false) {
                 return;
             }
-            const fresh = Object.assign({}, this.fresh, {name: ((this.fresh.name === '') ? this.name_auto : this.fresh.name)});
+            const fresh = Object.assign({}, this.fresh, {label: ((this.fresh.label === '') ? this.label_auto : this.fresh.label)});
             const from = forward_end_parse(fresh.from_remote, fresh.from);
             const to = ((fresh.to_remote === HERE) ? forward_here_parse(fresh.to) : forward_end_parse(fresh.to_remote, fresh.to));
             if (typeof from === 'string') {
@@ -325,9 +325,9 @@ const forwards_section = {
             }
             const editing = this.editing;
             const written = await this.forwards_write(function (forwards) {
-                const at = forwards.findIndex(v => v.name === ((editing === null) ? fresh.name : editing.name));
+                const at = forwards.findIndex(v => label_of(v) === ((editing === null) ? fresh.label : editing.label));
                 const kept = (((at === -1) || (editing === null)) ? false : (forwards[at].off === true));
-                const forward = Object.assign({name: fresh.name, from, to}, (kept ? {off: true} : {}));
+                const forward = Object.assign({label: fresh.label, from, to}, (kept ? {off: true} : {}));
                 if ((editing === null) || (at === -1)) {
                     forwards.push(forward);
                     return;
@@ -340,7 +340,7 @@ const forwards_section = {
         },
         edit: function (item) {
             this.editing = item;
-            this.fresh = {name: item.name, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: (item.to.here ? HERE : item.to.remote), to: this.end_text(item.to)};
+            this.fresh = {label: item.label, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: (item.to.here ? HERE : item.to.remote), to: this.end_text(item.to)};
             this.report('', false);
         },
         clear: function () {
@@ -350,7 +350,7 @@ const forwards_section = {
         // Set aside for now, and put back later, without retyping either end
         turn: async function (item, on) {
             await this.forwards_write(function (forwards) {
-                const found = forwards.find(v => v.name === item.name);
+                const found = forwards.find(v => label_of(v) === item.label);
                 if (found === undefined) {
                     return;
                 }
@@ -363,11 +363,11 @@ const forwards_section = {
             });
         },
         drop: async function (item) {
-            if ((this.editing !== null) && (this.editing.name === item.name)) {
+            if ((this.editing !== null) && (this.editing.label === item.label)) {
                 this.clear();
             }
             await this.forwards_write(function (forwards) {
-                const at = forwards.findIndex(v => v.name === item.name);
+                const at = forwards.findIndex(v => label_of(v) === item.label);
                 if (at !== -1) {
                     forwards.splice(at, 1);
                 }
@@ -446,7 +446,13 @@ const HISTORY_LENGTH = 120;
 
 function fresh_empty()
 {
-    return {name: '', from_remote: '', from: '', to_remote: '', to: ''};
+    return {label: '', from_remote: '', from: '', to_remote: '', to: ''};
+}
+
+// A forward as the config file has it: one written before labels carries `name`
+function label_of(forward)
+{
+    return ((forward.label === undefined) ? forward.name : forward.label);
 }
 
 export default forwards_section;

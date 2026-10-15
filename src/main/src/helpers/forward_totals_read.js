@@ -2,7 +2,7 @@ const forward_totals_path = require('./forward_totals_path');
 const fs = require('fs');
 const log_event = require('./log_event');
 
-// What the last serviceman kept of each forward, by name. No file, or one that does not read,
+// What the last serviceman kept of each forward, by label. No file, or one that does not read,
 // is a start from zero and not a reason to refuse to start.
 function forward_totals_read(app)
 {

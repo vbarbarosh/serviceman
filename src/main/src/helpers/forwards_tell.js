@@ -45,7 +45,7 @@ function forwards_of(app, name)
     const out = [];
     for (const item of app.config.forwards) {
         if ((item.off === false) && (item.to.remote === name)) {
-            out.push((item.to.socket === null) ? {name: item.name, port: item.to.port} : {name: item.name, socket: item.to.socket});
+            out.push((item.to.socket === null) ? {name: item.label, port: item.to.port} : {name: item.label, socket: item.to.socket});
         }
     }
     return out;

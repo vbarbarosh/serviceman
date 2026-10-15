@@ -1178,7 +1178,7 @@ client reads any 502, 503, 504 or 52x as &quot;not reachable now&quot;.</p>
 the machines&#39; links to serviceman carry it. <code>from</code> is where the service is, <code>to</code> where it shows
 up. A Loki on vps1&#39;s loopback, as a socket file on the laptop:</p>
 <pre><code class="language-json">&quot;forwards&quot;: [
-    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
+    {&quot;label&quot;: &quot;Loki on vps1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
 ]
 </code></pre>
 <p>The laptop&#39;s agent listens on <code>~/repos/loki.sock</code>. Each connection opens a stream over its link
@@ -1206,7 +1206,7 @@ A forward carries bytes and nothing else: what is spoken over it is between the 
 serviceman then listens in place of an agent, and the machine with the service is the only one
 that needs one. vps1&#39;s Loki, as a socket file beside serviceman:</p>
 <pre><code class="language-json">&quot;forwards&quot;: [
-    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;here&quot;: true, &quot;socket&quot;: &quot;sockets/loki.sock&quot;}}
+    {&quot;label&quot;: &quot;Loki on vps1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;here&quot;: true, &quot;socket&quot;: &quot;sockets/loki.sock&quot;}}
 ]
 </code></pre>
 <ul>
@@ -1249,7 +1249,7 @@ a file only root can read.</p>
 else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
 or to its docker socket, which is how a shell in one of its containers is opened from here. A
 forward&#39;s listener is the one way a connection on the machine reaches the host, and only under
-a forward&#39;s name.
+a forward&#39;s label.
 That socket is docker itself, so a remote trusts this host as much as this host trusts
 whoever reaches its control page. Its firewall too: ufw&#39;s rules are written from the control
 page, as root. The agent runs no shell of its own for the host, and it never dials anywhere

@@ -947,7 +947,7 @@ where the service is, <code>to</code> is where it shows up. The machine at <code
 rides its link to serviceman and the other machine&#39;s link to <code>from</code>. No ssh and no key.
 <strong>Forwards</strong> on the Doors page writes this list for you.</p>
 <pre><code class="language-json">&quot;forwards&quot;: [
-    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
+    {&quot;label&quot;: &quot;Loki on vps1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
 ]
 </code></pre>
 <div class="table-wrap"><table>
@@ -958,8 +958,8 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 </tr>
 </thead>
 <tbody><tr>
-<td><code>name</code></td>
-<td>Lowercase letters, digits, <code>-</code> and <code>_</code>.</td>
+<td><code>label</code></td>
+<td>Any text of one line, up to 100 characters, one per forward. A config from before labels has <code>name</code>.</td>
 </tr>
 <tr>
 <td><code>from.remote</code></td>

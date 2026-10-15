@@ -1,4 +1,5 @@
-const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+const RE_LINE_BREAK = /[\x00-\x1f\x7f]/;
+const LABEL_MAX = 100;
 const RE_HOST = /^[A-Za-z0-9.:_-]+$/;
 const END_FIELDS = ['remote', 'here', 'port', 'socket', 'host'];
 const SOCKET_MAX = 100;
@@ -8,7 +9,7 @@ const SOCKET_MAX = 100;
 // both machines' links, through serviceman, to `from`:
 //
 //     "forwards": [
-//         {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
+//         {"label": "Loki on vps1", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 //     ]
 //
 // `from` is a port on its machine's loopback, or `host` with it for an address that machine
@@ -18,27 +19,31 @@ const SOCKET_MAX = 100;
 // `to` may be serviceman itself instead of a machine, `"here": true`: it listens then, on its own
 // loopback or on a socket file inside its state dir, written relative to it (forwards_here):
 //
-//     {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"here": true, "socket": "sockets/loki.sock"}}
+//     {"label": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"here": true, "socket": "sockets/loki.sock"}}
+//
+// `label` is any text of one line, one per forward: it is how the page, the totals and the logs
+// know the forward, and never a path or an address. A config from before labels has `name`.
 function forwards_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
         return [];
     }
     if (Array.isArray(json) === false) {
-        throw new Error(`${label}: a list of forwards, [{"name", "from": {"remote", "port" or "socket"}, "to": {...}}]`);
+        throw new Error(`${label}: a list of forwards, [{"label", "from": {"remote", "port" or "socket"}, "to": {...}}]`);
     }
     const out = [];
     for (let i = 0; i < json.length; i++) {
         const item = json[i];
         const at = `${label}[${i}]`;
         if ((item === null) || (typeof item !== 'object') || Array.isArray(item)) {
-            throw new Error(`${at}: {"name", "from": {"remote", "port" or "socket"}, "to": {...}}`);
+            throw new Error(`${at}: {"label", "from": {"remote", "port" or "socket"}, "to": {...}}`);
         }
-        if ((typeof item.name !== 'string') || (RE_NAME.test(item.name) === false)) {
-            throw new Error(`${at}.name: lowercase letters, digits, - and _ (got ${JSON.stringify(item.name)})`);
+        const forward_label = ((item.label === undefined) ? item.name : item.label);
+        if ((typeof forward_label !== 'string') || (forward_label.trim() !== forward_label) || (forward_label === '') || (forward_label.length > LABEL_MAX) || RE_LINE_BREAK.test(forward_label)) {
+            throw new Error(`${at}.label: any text of one line, at most ${LABEL_MAX} characters, with no spaces around it (got ${JSON.stringify(forward_label)})`);
         }
-        if (out.some(v => v.name === item.name)) {
-            throw new Error(`${at}.name: ${JSON.stringify(item.name)} is used twice`);
+        if (out.some(v => v.label === forward_label)) {
+            throw new Error(`${at}.label: ${JSON.stringify(forward_label)} is used twice`);
         }
         const from = end_from_json(item.from, `${at}.from`, false);
         if ((from.socket !== null) && (from.host !== null)) {
@@ -50,9 +55,9 @@ function forwards_from_json(json, label)
         }
         const taken = out.find(v => (v.to.remote === to.remote) && (v.to.port === to.port) && (v.to.socket === to.socket));
         if (taken !== undefined) {
-            throw new Error(`${at}.to: ${taken.name} already listens there`);
+            throw new Error(`${at}.to: ${JSON.stringify(taken.label)} already listens there`);
         }
-        out.push({name: item.name, from, to, off: item.off === true});
+        out.push({label: forward_label, from, to, off: item.off === true});
     }
     return out;
 }

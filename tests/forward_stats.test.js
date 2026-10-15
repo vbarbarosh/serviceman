@@ -16,8 +16,8 @@ const timers = require('timers/promises');
 const view_from_forward = require('../src/main/src/helpers/view_from_forward');
 
 const MAIN = path.join(__dirname, '..', 'src', 'main', 'index.js');
-const LOKI = {name: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', port: 9999}};
-const IDLE = {name: 'idle', from: {remote: 'vps1', port: 3200}, to: {remote: 'laptop', port: 9998}};
+const LOKI = {label: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', port: 9999}};
+const IDLE = {label: 'idle', from: {remote: 'vps1', port: 3200}, to: {remote: 'laptop', port: 9998}};
 // A whole number of buckets, so the first look opens a bucket at its start
 const TIME0 = 1700000000000;
 

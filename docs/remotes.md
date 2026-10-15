@@ -543,7 +543,7 @@ up. A Loki on vps1's loopback, as a socket file on the laptop:
 
 ```json
 "forwards": [
-    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
+    {"label": "Loki on vps1", "from": {"remote": "vps1", "port": 3100}, "to": {"remote": "laptop", "socket": "~/repos/loki.sock"}}
 ]
 ```
 
@@ -577,7 +577,7 @@ that needs one. vps1's Loki, as a socket file beside serviceman:
 
 ```json
 "forwards": [
-    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"here": true, "socket": "sockets/loki.sock"}}
+    {"label": "Loki on vps1", "from": {"remote": "vps1", "port": 3100}, "to": {"here": true, "socket": "sockets/loki.sock"}}
 ]
 ```
 
@@ -627,7 +627,7 @@ The other direction is narrow, but not empty. The agent does what it is asked an
 else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
 or to its docker socket, which is how a shell in one of its containers is opened from here. A
 forward's listener is the one way a connection on the machine reaches the host, and only under
-a forward's name.
+a forward's label.
 That socket is docker itself, so a remote trusts this host as much as this host trusts
 whoever reaches its control page. Its firewall too: ufw's rules are written from the control
 page, as root. The agent runs no shell of its own for the host, and it never dials anywhere

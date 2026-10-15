@@ -4,12 +4,12 @@ const forward_join = require('./forward_join');
 // may have been counted already, since the doors open before the file is read.
 function forward_totals_apply(app, saved)
 {
-    for (const name of Object.keys(saved)) {
-        const kept = saved[name];
+    for (const label of Object.keys(saved)) {
+        const kept = saved[label];
         if ((kept === null) || (typeof kept !== 'object')) {
             continue;
         }
-        const counts = forward_join.counts(app, name);
+        const counts = forward_join.counts(app, label);
         for (const key of ['total', 'bytes_sent', 'bytes_back']) {
             if (Number.isFinite(kept[key])) {
                 counts[key] += kept[key];

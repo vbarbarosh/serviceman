@@ -35,12 +35,12 @@ function app_from_config(config)
         started_at: Date.now(),
         // Where the service door ended up, once it is open
         listen_port: null,
-        // What went through each forward, by name: since this serviceman started, and the
+        // What went through each forward, by label: since this serviceman started, and the
         // totals of the last one added
         forward_counts: {},
         // What forward_totals_write last put on disk, so an unchanged one is not written again
         forward_totals_text: null,
-        // The forwards serviceman itself listens for, by name, and one change to them at a time
+        // The forwards serviceman itself listens for, by label, and one change to them at a time
         // (forwards_here)
         forwards_here: {},
         forwards_here_lock: Promise.resolve(),
