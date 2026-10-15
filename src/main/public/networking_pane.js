@@ -1,7 +1,6 @@
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
 import fold_table from './fold_table.js';
-import forwards_section from './forwards_section.js';
 
 // Every machine's door, and what comes in through it.
 //
@@ -150,10 +149,9 @@ bin/restart</pre>
         </table>
     </fold-table>
     <p class="muted">Then point that machine's web server at the file, keeping the <code>Host</code> header as it came — the door answers by that name and nothing else.</p>
-    <forwards-section :state="state"/>
 </article>
 `,
-    components: {'fold-table': fold_table, 'forwards-section': forwards_section},
+    components: {'fold-table': fold_table},
     props: ['state'],
     emits: [],
     data: function () {

@@ -8,6 +8,7 @@ import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
+import forwards_section from './forwards_section.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -2402,10 +2403,15 @@ const app = {
                 <span class="name"><code>{{ item.address }}</code></span>
             </button>
         </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'doors'), open: (kind_now === 'doors')}" title="The public names machines' doors answer, what stands in front of them, and the forwards between machines" @click="networking_show">
+        <button type="button" class="row kind" :class="{on: (kind_now === 'doors'), open: (kind_now === 'doors')}" title="The public names machines' doors answer, and what stands in front of them" @click="networking_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="1"/></svg>
             <span class="name">Doors</span>
             <span class="muted">{{ doors_count }}</span>
+        </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'forwards'), open: (kind_now === 'forwards')}" title="A port or a socket of one machine, brought to another" @click="forwards_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="6" height="8" rx="1"/><rect x="16" y="8" width="6" height="8" rx="1"/><path d="M8 12h7M12 9l3 3-3 3"/></svg>
+            <span class="name">Forwards</span>
+            <span class="muted">{{ forwards_count }}</span>
         </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'storage'), open: (kind_now === 'storage')}" @click="volumes_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
@@ -2457,6 +2463,7 @@ const app = {
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
+        <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
         <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
@@ -2473,7 +2480,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2517,6 +2524,7 @@ const app = {
             volumes_open: false,
             volumes_count: '',
             networking_open: false,
+            forwards_open: false,
             networking_key: 0,
             remotes_open: false,
             addresses_open: false,
@@ -2582,6 +2590,9 @@ const app = {
             if (this.networking_open) {
                 return '/networking';
             }
+            if (this.forwards_open) {
+                return '/forwards';
+            }
             if (this.logline_open) {
                 return '/logline';
             }
@@ -2637,6 +2648,9 @@ const app = {
             if (this.networking_open) {
                 return 'doors';
             }
+            if (this.forwards_open) {
+                return 'forwards';
+            }
             if (this.logline_open) {
                 return 'logline';
             }
@@ -2670,6 +2684,9 @@ const app = {
         // Door names with a wall in front of them
         guarded_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(vv => (typeof vv === 'object') && (vv.auth !== undefined)).length, 0);
+        },
+        forwards_count: function () {
+            return ((this.state.forwards === undefined) ? 0 : this.state.forwards.length);
         },
         doors_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.keys((remote.inbound === undefined) ? {} : remote.inbound).length, 0);
@@ -2892,6 +2909,10 @@ const app = {
                 this.networking_open = true;
                 return;
             }
+            if (route.kind === 'forwards') {
+                this.forwards_open = true;
+                return;
+            }
             if (route.kind === 'logline') {
                 this.logline_open = true;
                 return;
@@ -3009,6 +3030,10 @@ const app = {
             this.networking_key++;
             this.networking_open = true;
         },
+        forwards_show: function () {
+            this.panes_close();
+            this.forwards_open = true;
+        },
         remotes_show: function () {
             this.panes_close();
             this.remote_name = null;
@@ -3106,6 +3131,7 @@ const app = {
             this.form_open = false;
             this.remote_form_open = false;
             this.networking_open = false;
+            this.forwards_open = false;
             this.logline_open = false;
             this.authwall_open = false;
             this.load_tests_open = false;

@@ -81,22 +81,40 @@ const forwards_section = {
             </tbody>
         </table>
     </fold-table>
-    <div class="rule-add">
-        <input v-model.trim="fresh.name" class="short" placeholder="loki" spellcheck="false" title="A name for it: lowercase letters, digits, - and _" @keyup.enter="write">
-        <select v-model="fresh.from_remote">
-            <option value="">from</option>
-            <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-        </select>
-        <input v-model.trim="fresh.from" placeholder="3100" spellcheck="false" title="Where the service is: a port on its loopback, an address it reaches (10.0.0.5:3100), or a socket file" @keyup.enter="write">
-        <span class="muted">→</span>
-        <select v-model="fresh.to_remote">
-            <option value="">shows up on</option>
-            <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-        </select>
-        <input v-model.trim="fresh.to" placeholder="~/repos/loki.sock or 3100" spellcheck="false" title="Where it shows up: a socket file there (~/ is the agent's user's home), or a port on its loopback" @keyup.enter="write">
-        <button type="button" :disabled="(busy || fresh.name === '' || fresh.from_remote === '' || fresh.from === '' || fresh.to_remote === '' || fresh.to === '')" @click="write">{{ (editing === null ? 'Add' : 'Save') }}</button>
-        <button v-if="(editing !== null)" type="button" :disabled="busy" @click="clear">Cancel</button>
-        <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+    <div class="fwd-make" :class="{editing: (editing !== null)}">
+        <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.name) }}</h2>
+        <div class="fwd-ends">
+            <div class="fwd-end">
+                <div class="fwd-end-title">The service is on</div>
+                <select v-model="fresh.from_remote" aria-label="The machine the service is on">
+                    <option value="">a machine…</option>
+                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+                <input v-model.trim="fresh.from" placeholder="3100" spellcheck="false" aria-label="Its port, address or socket there" title="A port on its loopback (3100), an address it reaches (10.0.0.5:3100), or a socket file (/run/app.sock)" @keyup.enter="write">
+                <div class="fwd-end-says" :class="{bad: (from_says.bad)}">{{ from_says.text }}</div>
+            </div>
+            <div class="fwd-arrow" aria-hidden="true">
+                <svg class="across" viewBox="0 0 120 24" preserveAspectRatio="none"><path d="M2 12 H110" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M106 5 L117 12 L106 19" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <svg class="down" viewBox="0 0 24 48" width="24" height="48"><path d="M12 2 V38" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M5 34 L12 45 L19 34" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span>over the agents' links</span>
+            </div>
+            <div class="fwd-end">
+                <div class="fwd-end-title">It shows up on</div>
+                <select v-model="fresh.to_remote" aria-label="The machine it shows up on">
+                    <option value="">a machine…</option>
+                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+                <input v-model.trim="fresh.to" placeholder="~/loki.sock or 3100" spellcheck="false" aria-label="A socket file or a port there" title="A socket file there (~/ is the agent's user's home), or a port on its loopback" @keyup.enter="write">
+                <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
+            </div>
+        </div>
+        <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and what to bring.' : summary) }}</p>
+        <div class="fwd-make-foot">
+            <label>Name <input v-model.trim="fresh.name" class="short" :placeholder="name_auto" spellcheck="false" title="A name for it: lowercase letters, digits, - and _; left empty, the one shown" @keyup.enter="write"></label>
+            <button type="button" class="primary" :disabled="(busy || ready === false)" @click="write">{{ (editing === null ? 'Add' : 'Save') }}</button>
+            <button v-if="(editing !== null)" type="button" :disabled="busy" @click="clear">Cancel</button>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </div>
     </div>
 </div>
 `,
@@ -119,7 +137,43 @@ const forwards_section = {
             return ((this.state === null) ? [] : this.state.remotes);
         },
         machine_options: function () {
-            return this.machines.map(v => ({value: v.name, label: (v.title || v.name)}));
+            return this.machines.map(v => ({value: v.name, label: ((v.phase === 'online') ? (v.title || v.name) : `${v.title || v.name} · offline`)}));
+        },
+        // Each end as typed, said back in words under its box
+        from_says: function () {
+            return end_says(this.fresh.from_remote, this.fresh.from, this.title_of(this.fresh.from_remote), false);
+        },
+        to_says: function () {
+            const says = end_says(this.fresh.to_remote, this.fresh.to, this.title_of(this.fresh.to_remote), true);
+            if ((says.bad === false) && (this.fresh.to_remote !== '') && (this.fresh.to_remote === this.fresh.from_remote)) {
+                return {text: 'the same machine as the service: pick another', bad: true};
+            }
+            return says;
+        },
+        ready: function () {
+            const fresh = this.fresh;
+            return ((fresh.from_remote !== '') && (fresh.to_remote !== '') && (fresh.from !== '') && (fresh.to !== '') && (this.from_says.bad === false) && (this.to_says.bad === false));
+        },
+        // The whole forward in one sentence, once both ends are there
+        summary: function () {
+            if (this.ready === false) {
+                return null;
+            }
+            const fresh = this.fresh;
+            return `A connection to ${end_words(fresh.to)} on ${this.title_of(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
+        },
+        // The name a forward gets when none is typed: the socket's name, or the machine and port
+        name_auto: function () {
+            const from = this.fresh.from;
+            const socket = /([A-Za-z0-9_-]+)(\.sock)?$/.exec(from.startsWith('/') || from.startsWith('~/') ? from : '');
+            if (socket !== null) {
+                return socket[1].toLowerCase();
+            }
+            const port = /(\d+)$/.exec(from);
+            if ((this.fresh.from_remote === '') || (port === null)) {
+                return 'loki';
+            }
+            return `${this.fresh.from_remote}-${port[1]}`.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
         },
     },
     methods: {
@@ -189,7 +243,10 @@ const forwards_section = {
         },
         // One forward written, new or the one being edited, which may have been renamed
         write: async function () {
-            const fresh = this.fresh;
+            if (this.ready === false) {
+                return;
+            }
+            const fresh = Object.assign({}, this.fresh, {name: ((this.fresh.name === '') ? this.name_auto : this.fresh.name)});
             const from = forward_end_parse(fresh.from_remote, fresh.from);
             const to = forward_end_parse(fresh.to_remote, fresh.to);
             if (typeof from === 'string') {
@@ -271,6 +328,35 @@ const forwards_section = {
         },
     },
 };
+
+// One end as typed, in words: what it is and where, or what is wrong with it
+function end_says(remote, text, title, listens)
+{
+    if (text === '') {
+        return {text: (listens ? 'a socket file or a port there' : 'a port, an address or a socket there'), bad: false};
+    }
+    const end = forward_end_parse(remote, text);
+    if (typeof end === 'string') {
+        return {text: end, bad: true};
+    }
+    const machine = ((remote === '') ? 'that machine' : title);
+    if (end.socket !== undefined) {
+        return {text: (listens ? `a socket file on ${machine}, only its agent's user may open it` : `the socket file ${end.socket} on ${machine}`), bad: false};
+    }
+    if (end.host !== undefined) {
+        return (listens ? {text: 'a port or a socket here: it listens on its loopback, not on an address', bad: true} : {text: `${end.host}:${end.port}, as ${machine} reaches it`, bad: false});
+    }
+    return {text: `port ${end.port} on the loopback of ${machine}`, bad: false};
+}
+
+// An end as typed, in words: a bare number is a port, the rest reads as it is
+function end_words(text)
+{
+    if (/^\d+$/.test(text)) {
+        return `port ${text}`;
+    }
+    return text;
+}
 
 function fresh_empty()
 {
