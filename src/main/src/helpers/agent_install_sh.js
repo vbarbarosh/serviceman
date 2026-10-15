@@ -202,6 +202,31 @@ fi
 
 # A person's own systemd, for a machine where they are not root. It stops at logout unless
 # lingering is on, which is the one thing here that may ask for a password.
+# A shell opened with su or sudo has no XDG_RUNTIME_DIR, and systemctl --user then finds no bus
+# even while your own systemd runs: where it lives is known, so it is looked for there
+export XDG_RUNTIME_DIR=\\\${XDG_RUNTIME_DIR:-/run/user/\\$(id -u)}
+
+user_bus() {
+    systemctl --user show-environment >/dev/null 2>&1
+}
+
+# No session, no systemd of your own; lingering starts one that stays
+if ! user_bus; then
+    loginctl enable-linger "\\$(id -un)" 2>/dev/null || true
+    for attempt in 1 2 3 4 5; do
+        user_bus && break
+        sleep 1
+    done
+fi
+
+# The unit is written only for a systemd that answers: one left behind sends bin/restart to it
+if ! user_bus; then
+    echo "serviceman: your own systemd does not answer in this shell, and it could not be started"
+    echo "serviceman: to keep the agent up, run once as root: loginctl enable-linger \\$(id -un)"
+    echo "serviceman: then run this again: \\$prefix/bin/install"
+    by_hand
+fi
+
 mkdir -p "\\$HOME/.config/systemd/user"
 echo "\\$unit_body
 WantedBy=default.target" > "\\$HOME/.config/systemd/user/serviceman-agent.service"
@@ -229,6 +254,10 @@ cat > "$prefix/bin/uninstall" <<UNINSTALLEOF
 set -eu
 
 prefix=$prefix
+
+# A shell opened with su or sudo has no XDG_RUNTIME_DIR, and systemctl --user then finds no bus
+# even while your own systemd runs: where it lives is known, so it is looked for there
+export XDG_RUNTIME_DIR=\\\${XDG_RUNTIME_DIR:-/run/user/\\$(id -u)}
 
 if command -v systemctl >/dev/null 2>&1; then
     if [ "\\$(id -u)" = 0 ] && [ -f /etc/systemd/system/serviceman-agent.service ]; then
@@ -370,7 +399,15 @@ command -v systemctl >/dev/null 2>&1 || {
     exit 1
 }
 
+# A shell opened with su or sudo has no XDG_RUNTIME_DIR, and systemctl --user then finds no bus
+# even while your own systemd runs: where it lives is known, so it is looked for there
+export XDG_RUNTIME_DIR=\\\${XDG_RUNTIME_DIR:-/run/user/\\$(id -u)}
+
 if [ -f "\\$HOME/.config/systemd/user/serviceman-agent.service" ] && [ "\\$(id -u)" != 0 ]; then
+    if ! systemctl --user show-environment >/dev/null 2>&1; then
+        echo "serviceman: your own systemd does not answer in this shell — bin/install says why and what to do" >&2
+        exit 1
+    fi
     systemctl --user restart serviceman-agent
     echo "serviceman: the agent is up — systemctl --user status serviceman-agent"
     exit 0
