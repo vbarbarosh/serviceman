@@ -66,134 +66,112 @@ const load_tests_pane = {
             </div>
         </div>
     </template>
-    <div class="wide-scroll card">
-        <table class="list-table">
-            <thead>
-                <tr>
-                    <th>Test</th>
-                    <th>Service</th>
-                    <th>From</th>
-                    <th>Load</th>
-                    <th>Last run</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="test of tests" :key="test.name" class="pick" :class="{on: (test.name === picked_name)}" @click="picked = test.name">
-                    <td><b>{{ test.name }}</b></td>
-                    <td><button type="button" class="link" @click.stop="$emit('select', test.service)">{{ test.service }}</button></td>
-                    <td><button type="button" class="link" @click.stop="$emit('remote', test.remote)">{{ remote_title(test.remote) }}</button></td>
-                    <td>{{ load_text(test) }}</td>
-                    <td>
-                        <span v-if="(last_of(test.name) !== null)" class="lt-last">
-                            <span class="pill" :class="pill_of(last_of(test.name))">{{ phase_text(last_of(test.name)) }}</span>
-                            <span class="muted">{{ result_text(last_of(test.name)) }}</span>
-                        </span>
-                        <span v-else class="muted">never run</span>
-                    </td>
-                    <td class="lt-act">
-                        <button v-if="(going_of(test.name) === null)" type="button" :disabled="busy" @click.stop="run(test)">Run</button>
-                        <button v-else type="button" :disabled="(busy || (going_of(test.name).phase === 'stopping'))" @click.stop="stop(test)">Stop</button>
-                    </td>
-                </tr>
-                <tr v-if="(tests.length === 0)">
-                    <td class="muted" colspan="6">No tests yet — <button type="button" class="link" @click="form_begin(null)">make the first one</button>.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <p v-if="((form === null) && (note !== ''))" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-    <template v-if="(test_now !== null)">
-        <div class="list-head lt-head">
-            <h2>{{ test_now.name }}</h2>
-            <span class="muted">{{ test_now.service }} · from {{ remote_title(test_now.remote) }}</span>
-            <div class="list-acts">
-                <button type="button" :disabled="(form !== null)" @click="form_begin(test_now)">Change</button>
-                <button type="button" :disabled="(busy || (going_of(test_now.name) !== null))" @click="remove(test_now)">Remove</button>
-            </div>
-        </div>
-        <div class="card svc-status">
-            <dl>
-                <dt>Asks</dt>
-                <dd><code>{{ (test_now.url_asked || 'no address') }}</code><span v-if="(test_now.url === null)" class="muted"> · the service's own address</span></dd>
-                <dt>Load</dt>
-                <dd>{{ load_text(test_now) }}, from {{ remote_title(test_now.remote) }}</dd>
-                <dt>Passes when</dt>
-                <dd>{{ pass_text(test_now) }}</dd>
-                <template v-if="((runs_now.length > 0) && (runs_now[0].via !== undefined) && (runs_now[0].via !== null))">
-                    <dt>Reached</dt>
-                    <dd>{{ runs_now[0].via }}</dd>
+    <ul class="fold-list">
+        <li v-for="test of tests" :key="test.name" :class="{open: test_open(test)}">
+            <button type="button" class="fold-line" :aria-expanded="test_open(test)" @click="test_toggle(test)">
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <span class="dot" :class="test_dot(test)"/>
+                <b class="name" :title="test.name">{{ test.name }}</b>
+                <span class="route muted" :title="(test.service + ' · ' + load_text(test))">{{ test.service }} · {{ load_text(test) }}</span>
+                <span class="word" :class="test_tone(test)" :title="test_hint(test)">{{ test_word(test) }}</span>
+            </button>
+            <div v-if="test_open(test)" class="fold-details">
+                <dl>
+                    <dt>Service</dt>
+                    <dd><button type="button" class="link" @click="$emit('select', test.service)">{{ test.service }}</button></dd>
+                    <dt>Runs from</dt>
+                    <dd><button type="button" class="link" @click="$emit('remote', test.remote)">{{ remote_title(test.remote) }}</button></dd>
+                    <dt>Load</dt>
+                    <dd>{{ load_text(test) }}</dd>
+                    <dt>Asks</dt>
+                    <dd><code>{{ (test.url_asked || 'no address') }}</code><span v-if="(test.url === null)" class="muted"> · the service's own address</span></dd>
+                    <dt>Passes when</dt>
+                    <dd>{{ pass_text(test) }}</dd>
+                    <template v-if="(via_of(test) !== null)">
+                        <dt>Reached</dt>
+                        <dd>{{ via_of(test) }}</dd>
+                    </template>
+                    <dt>Last run</dt>
+                    <dd v-if="(runs_of(test).length === 0)" class="muted">{{ (going_of(test.name) === null ? 'never run' : 'none has ended yet') }}</dd>
+                    <dd v-else><span :class="{bad: ['failed', 'error'].includes(runs_of(test)[0].phase)}">{{ phase_text(runs_of(test)[0]) }}</span><span class="muted"> · {{ result_text(runs_of(test)[0]) }}</span></dd>
+                </dl>
+                <div class="fold-actions">
+                    <button v-if="(going_of(test.name) === null)" type="button" :disabled="busy" @click="run(test)">Run</button>
+                    <button v-else type="button" :disabled="(busy || (going_of(test.name).phase === 'stopping'))" @click="stop(test)">Stop</button>
+                    <button type="button" class="link" :disabled="(form !== null)" @click="form_begin(test)">change</button>
+                    <button type="button" class="link" :disabled="(busy || (going_of(test.name) !== null))" @click="remove(test)">remove</button>
+                </div>
+                <template v-if="(going_of(test.name) !== null)">
+                    <div class="row-of svc-state">
+                        <span class="pill starting">{{ phase_text(going_of(test.name)) }}</span>
+                        <span class="muted">{{ live_text(going_of(test.name)) }}</span>
+                    </div>
+                    <div class="meter"><i :style="{width: (Math.round(live_ratio(going_of(test.name))*100) + '%')}"/></div>
+                    <pre v-if="(going_of(test.name).lines.length > 0)" class="lt-lines">{{ going_of(test.name).lines.slice(-12).join('\\n') }}</pre>
                 </template>
-            </dl>
-        </div>
-        <div v-if="(going !== null)" class="card svc-status">
-            <div class="row-of svc-state">
-                <span class="pill starting">{{ phase_text(going) }}</span>
-                <span class="muted">{{ live_text(going) }}</span>
-            </div>
-            <div class="meter"><i :style="{width: (Math.round(live_ratio(going)*100) + '%')}"/></div>
-            <pre v-if="(going.lines.length > 0)" class="lt-lines">{{ going.lines.slice(-12).join('\\n') }}</pre>
-        </div>
-        <div class="wide-scroll card">
-            <table class="list-table">
-                <thead>
-                    <tr>
-                        <th>When</th>
-                        <th>Result</th>
-                        <th>Answers</th>
-                        <th>Per second</th>
-                        <th>Median</th>
-                        <th>95%</th>
-                        <th>Slowest</th>
-                        <th>Errors</th>
-                        <th>Woke in</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="item of runs_now" :key="item.id">
-                        <tr :class="{'lt-noted': (has_notes(item) || (log_id === item.id))}">
-                            <td :title="new Date(item.started_at).toLocaleString()">{{ ago(item.started_at) }} ago</td>
-                            <td><span class="pill" :class="pill_of(item)">{{ phase_text(item) }}</span></td>
-                            <template v-if="(item.result !== null)">
-                                <td>{{ item.result.reqs.toLocaleString() }}</td>
-                                <td>{{ Math.round(item.result.rps).toLocaleString() }}</td>
-                                <td>{{ ms_text(item.result.med_ms) }}</td>
-                                <td :class="{bad: (item.result.p95_passed === false)}">{{ ms_text(item.result.p95_ms) }}</td>
-                                <td>{{ ms_text(item.result.max_ms) }}</td>
-                                <td :class="{bad: (item.result.errors_passed === false)}">{{ pct_text(item.result.errors) }}</td>
-                            </template>
-                            <td v-else class="muted" colspan="6">—</td>
-                            <td>{{ (item.wake_ms === null) ? '—' : ((item.wake_ms < 50) ? 'was up' : ms_text(item.wake_ms)) }}</td>
-                            <td class="lt-act"><button v-if="(item.log_kept === true)" type="button" @click="log_toggle(item)">{{ (log_id === item.id) ? 'Hide log' : 'Log' }}</button></td>
-                        </tr>
-                        <tr v-if="has_notes(item)" class="lt-notes" :class="{'lt-noted': (log_id === item.id)}">
-                            <td colspan="10">
-                                <div v-if="(item.error !== null)" class="bad">{{ item.error }}</div>
-                                <div v-for="note of (item.said || [])" :key="note.text" class="muted">{{ note.count.toLocaleString() }} {{ (note.users ? ((note.count === 1) ? 'user got' : 'users got') : '×') }} {{ note.text }}</div>
-                            </td>
-                        </tr>
-                        <tr v-if="(log_id === item.id)" class="lt-log">
-                            <td colspan="10">
+                <ul class="fold-list">
+                    <li v-for="item of runs_of(test)" :key="item.id" :class="{open: run_open(item)}">
+                        <button type="button" class="fold-line" :aria-expanded="run_open(item)" @click="run_toggle(item)">
+                            <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                            <span class="dot" :class="pill_of(item)"/>
+                            <b class="name" :title="new Date(item.started_at).toLocaleString()">{{ ago(item.started_at) }} ago</b>
+                            <span class="route" :class="((item.result !== null && item.result.p95_passed === false) ? 'bad' : 'muted')" title="95% of answers came faster than this">{{ (item.result === null ? '' : '95% ' + ms_text(item.result.p95_ms)) }}</span>
+                            <span class="word" :class="{bad: ((item.phase === 'failed') || (item.phase === 'error'))}">{{ phase_text(item) }}</span>
+                        </button>
+                        <div v-if="run_open(item)" class="fold-details">
+                            <dl>
+                                <dt>Started</dt>
+                                <dd>{{ new Date(item.started_at).toLocaleString() }}</dd>
+                                <template v-if="(item.result !== null)">
+                                    <dt>Answers</dt>
+                                    <dd>{{ item.result.reqs.toLocaleString() }}</dd>
+                                    <dt>Per second</dt>
+                                    <dd>{{ Math.round(item.result.rps).toLocaleString() }}</dd>
+                                    <dt>Median</dt>
+                                    <dd>{{ ms_text(item.result.med_ms) }}</dd>
+                                    <dt>95%</dt>
+                                    <dd :class="{bad: (item.result.p95_passed === false)}">{{ ms_text(item.result.p95_ms) }}</dd>
+                                    <dt>Slowest</dt>
+                                    <dd>{{ ms_text(item.result.max_ms) }}</dd>
+                                    <dt>Errors</dt>
+                                    <dd :class="{bad: (item.result.errors_passed === false)}">{{ pct_text(item.result.errors) }}</dd>
+                                </template>
+                                <dt>Woke in</dt>
+                                <dd :class="{muted: (item.wake_ms === null)}">{{ (item.wake_ms === null) ? '—' : ((item.wake_ms < 50) ? 'was up' : ms_text(item.wake_ms)) }}</dd>
+                                <template v-if="(item.error !== null)">
+                                    <dt>Why</dt>
+                                    <dd class="bad">{{ item.error }}</dd>
+                                </template>
+                                <template v-if="((item.said || []).length > 0)">
+                                    <dt>k6 said</dt>
+                                    <dd><div v-for="note of item.said" :key="note.text" class="muted">{{ note.count.toLocaleString() }} {{ (note.users ? ((note.count === 1) ? 'user got' : 'users got') : '×') }} {{ note.text }}</div></dd>
+                                </template>
+                            </dl>
+                            <div v-if="(item.log_kept === true)" class="fold-actions">
+                                <button type="button" class="link" @click="log_toggle(item)">{{ (log_id === item.id) ? 'hide the log' : 'the log' }}</button>
+                            </div>
+                            <div v-if="(log_id === item.id)" class="lt-log">
                                 <p v-if="(log_text === null)" :class="(log_bad ? 'bad' : 'muted')">{{ log_note }}</p>
                                 <pre v-else class="lt-lines">{{ log_text }}</pre>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr v-if="(runs_now.length === 0)">
-                        <td class="muted" colspan="10">Not run yet.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </template>
+                            </div>
+                        </div>
+                    </li>
+                    <li v-if="(runs_of(test).length === 0)" class="muted empty">{{ (going_of(test.name) === null ? 'Not run yet.' : 'The first run is going.') }}</li>
+                </ul>
+            </div>
+        </li>
+        <li v-if="(tests.length === 0)" class="muted empty">No tests yet — <button type="button" class="link" @click="form_begin(null)">make the first one</button>.</li>
+    </ul>
+    <p v-if="((form === null) && (note !== ''))" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
 </article>
 `,
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
+        // `picked` is the test last opened, whose service a new test starts from
+        // `tests_opened` and `runs_opened` are the lines whose details are shown, by name and by id
         // `log_id` is the run whose log is open under it, and `log_text` that log once it came
-        return {picked: null, form: null, busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
+        return {picked: null, tests_opened: {}, runs_opened: {}, form: null, busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
     },
     computed: {
         tests: function () {
@@ -201,23 +179,6 @@ const load_tests_pane = {
         },
         runs: function () {
             return (this.state.load_test_runs === undefined) ? [] : this.state.load_test_runs;
-        },
-        // The test looked at: the one picked, or else the only one there is
-        test_now: function () {
-            const found = this.tests.find(v => v.name === this.picked);
-            if (found !== undefined) {
-                return found;
-            }
-            return (this.tests.length === 1) ? this.tests[0] : null;
-        },
-        picked_name: function () {
-            return (this.test_now === null) ? null : this.test_now.name;
-        },
-        runs_now: function () {
-            return this.runs.filter(v => (v.test === this.test_now.name) && (v.ended_at !== null)).reverse();
-        },
-        going: function () {
-            return (this.test_now === null) ? null : this.going_of(this.test_now.name);
         },
         service_options: function () {
             return this.state.services.map(v => ({value: v.name, label: v.name}));
@@ -227,13 +188,66 @@ const load_tests_pane = {
         },
     },
     methods: {
+        // A lone test is open until it is closed, as it was shown at once before there were lines
+        test_open: function (test) {
+            const opened = this.tests_opened[test.name];
+            return (opened === true) || ((opened === undefined) && (this.tests.length === 1));
+        },
+        test_toggle: function (test) {
+            const open = (this.test_open(test) === false);
+            this.tests_opened = Object.assign({}, this.tests_opened, {[test.name]: open});
+            if (open) {
+                this.picked = test.name;
+            }
+        },
+        run_open: function (item) {
+            return (this.runs_opened[item.id] === true);
+        },
+        run_toggle: function (item) {
+            this.runs_opened = Object.assign({}, this.runs_opened, {[item.id]: (this.run_open(item) === false)});
+        },
+        // The run going now, or else the last one, for the test's one line
+        test_dot: function (test) {
+            if (this.going_of(test.name) !== null) {
+                return 'starting';
+            }
+            const last = this.last_of(test.name);
+            return (last === null) ? '' : this.pill_of(last);
+        },
+        test_word: function (test) {
+            const going = this.going_of(test.name);
+            if (going !== null) {
+                return this.phase_text(going);
+            }
+            const last = this.last_of(test.name);
+            return (last === null) ? 'never run' : this.phase_text(last);
+        },
+        test_tone: function (test) {
+            const last = this.last_of(test.name);
+            if (last === null) {
+                return 'muted';
+            }
+            return ((last.phase === 'failed') || (last.phase === 'error')) ? 'bad' : '';
+        },
+        test_hint: function (test) {
+            const last = this.last_of(test.name);
+            return (last === null) ? '' : this.result_text(last);
+        },
+        // The runs that ended, the latest first
+        runs_of: function (test) {
+            return this.runs.filter(v => (v.test === test.name) && (v.ended_at !== null)).reverse();
+        },
+        // Where the latest run sent a .localhost name, when it said
+        via_of: function (test) {
+            const runs = this.runs_of(test);
+            if ((runs.length === 0) || (runs[0].via === undefined) || (runs[0].via === null)) {
+                return null;
+            }
+            return runs[0].via;
+        },
         last_of: function (name) {
             const found = this.runs.filter(v => v.test === name);
             return (found.length === 0) ? null : found[found.length - 1];
-        },
-        // What a run has to say under its numbers: why it did not run, what k6 complained of
-        has_notes: function (item) {
-            return (item.error !== null) || ((item.said !== undefined) && (item.said.length > 0));
         },
         going_of: function (name) {
             return this.runs.find(v => (v.test === name) && (v.ended_at === null)) || null;
@@ -320,7 +334,8 @@ const load_tests_pane = {
                 this.form = {original: test.name, name: test.name, service: test.service, url: (test.url || ''), remote: test.remote, vus: test.vus, duration: test.duration, p95_ms: test.p95_ms, errors_pct: test.errors_pct};
                 return;
             }
-            const service = (this.test_now === null) ? this.state.services[0] : this.state.services.find(v => v.name === this.test_now.service);
+            const test_now = this.tests.find(v => v.name === this.picked);
+            const service = (test_now === undefined) ? this.state.services[0] : this.state.services.find(v => v.name === test_now.service);
             const online = this.state.remotes.find(v => v.phase === 'online') || this.state.remotes[0];
             this.form = {original: null, name: '', service: (service === undefined) ? '' : service.name, url: '', remote: (online === undefined) ? '' : online.name, vus: 10, duration: '30s', p95_ms: 500, errors_pct: 1};
             this.form.name = this.name_free(this.form.service);
@@ -346,11 +361,13 @@ const load_tests_pane = {
             const done = await this.call((form.original === null) ? 'POST' : 'PUT', (form.original === null) ? '/api/v1/load-tests' : `/api/v1/load-tests/${encodeURIComponent(form.original)}`, body);
             if (done) {
                 this.picked = form.name;
+                this.tests_opened = Object.assign({}, this.tests_opened, {[form.name]: true});
                 this.form = null;
             }
         },
         run: async function (test) {
             this.picked = test.name;
+            this.tests_opened = Object.assign({}, this.tests_opened, {[test.name]: true});
             await this.call('POST', `/api/v1/load-tests/${encodeURIComponent(test.name)}/run`);
         },
         stop: async function (test) {
@@ -362,6 +379,7 @@ const load_tests_pane = {
             }
             if (await this.call('DELETE', `/api/v1/load-tests/${encodeURIComponent(test.name)}`)) {
                 this.picked = null;
+                this.tests_opened = Object.assign({}, this.tests_opened, {[test.name]: false});
             }
         },
         // One call to serviceman; true when it did what was asked, the reason on the page when not

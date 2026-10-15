@@ -14,37 +14,34 @@ const service_doors = {
         <b>Public addresses</b>
         <span class="muted">names a machine's door answers for this service, on that machine's public side</span>
     </div>
-    <table v-if="(rules.length > 0)" class="grid-table doors-of">
-        <thead>
-            <tr>
-                <th>Address</th>
-                <th>Through</th>
-                <th>Protected by</th>
-                <th>Answering</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="rule of rules" :key="(rule.machine + ' ' + rule.host)" :class="{off: rule.off}">
-                <td>
-                    <a v-if="(rule.host.startsWith('*') === false)" :href="('https://' + rule.host)" target="_blank" rel="noopener"><code>{{ rule.host }}</code></a>
-                    <code v-else>{{ rule.host }}</code>
-                </td>
-                <td>
-                    {{ rule.title }}
-                    <span v-if="(rule.door_problem !== null)" class="bad door-problem" :title="rule.door_problem">· its door is not open</span>
-                </td>
-                <td :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}<span v-if="(rule.auth !== null && known(rule.auth) === false)" class="bad"> — no such service</span></td>
-                <td>
-                    <span class="seg">
-                        <button type="button" :class="{on: (rule.off === false)}" :disabled="busy" @click="turn(rule, true)">On</button>
-                        <button type="button" :class="{on: rule.off}" :disabled="busy" @click="turn(rule, false)">Off</button>
-                    </span>
-                </td>
-                <td><button type="button" class="link" :disabled="busy" @click="drop(rule)">remove</button></td>
-            </tr>
-        </tbody>
-    </table>
+    <ul v-if="(rules.length > 0)" class="fold-list">
+        <li v-for="rule of rules" :key="rule_key(rule)" :class="{off: rule.off, open: rule_open(rule)}">
+            <button type="button" class="fold-line" :aria-expanded="rule_open(rule)" @click="rule_toggle(rule)">
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <span class="dot" :class="rule_dot(rule)"/>
+                <b class="name" :title="rule.host">{{ rule.host }}</b>
+                <span class="route muted" :title="('through the door of ' + rule.title)">{{ rule.title }}</span>
+                <span class="word" :class="{bad: rule_bad(rule), muted: (rule.auth === null && rule.off === false && rule_bad(rule) === false)}" :title="(rule.door_problem === null ? '' : rule.door_problem)">{{ rule_word(rule) }}</span>
+            </button>
+            <div v-if="rule_open(rule)" class="fold-details">
+                <dl>
+                    <dt>Address</dt>
+                    <dd>
+                        <a v-if="(rule.host.startsWith('*') === false)" :href="('https://' + rule.host)" target="_blank" rel="noopener"><code>{{ rule.host }}</code></a>
+                        <code v-else>{{ rule.host }}</code>
+                    </dd>
+                    <dt>Through</dt>
+                    <dd>the door of {{ rule.title }}<div v-if="(rule.door_problem !== null)" class="bad">{{ rule.door_problem }}</div></dd>
+                    <dt>Protected by</dt>
+                    <dd :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}<span v-if="(rule.auth !== null && known(rule.auth) === false)" class="bad"> — no such service</span></dd>
+                </dl>
+                <div class="fold-actions">
+                    <label><input type="checkbox" :checked="(rule.off === false)" :disabled="busy" @change="turn(rule, $event.target.checked)"> Answering</label>
+                    <button type="button" class="link" :disabled="busy" @click="drop(rule)">remove</button>
+                </div>
+            </div>
+        </li>
+    </ul>
     <p v-else class="muted">None. This service answers its own address on serviceman; a public address is a name a machine's door answers for it too — <code>echo.example.com</code>, served from that machine's public side, and protected by a wall if you like.</p>
     <div v-if="adding" class="door-add">
         <input v-model.trim="fresh.host" placeholder="echo.example.com" spellcheck="false" aria-label="Address" @keyup.enter="add">
@@ -67,7 +64,8 @@ const service_doors = {
 `,
     props: ['view', 'remotes', 'names'],
     data: function () {
-        return {adding: false, fresh: {host: '', machine: '', auth: ''}, busy: false, note: '', bad: false};
+        // `opened` is the addresses whose details are shown, by machine and name
+        return {adding: false, fresh: {host: '', machine: '', auth: ''}, busy: false, note: '', bad: false, opened: {}};
     },
     computed: {
         // Every door name, on every machine, that this service answers
@@ -100,6 +98,39 @@ const service_doors = {
     methods: {
         known: function (name) {
             return this.names.includes(name);
+        },
+        rule_key: function (rule) {
+            return `${rule.machine} ${rule.host}`;
+        },
+        rule_open: function (rule) {
+            return (this.opened[this.rule_key(rule)] === true);
+        },
+        rule_toggle: function (rule) {
+            this.opened = Object.assign({}, this.opened, {[this.rule_key(rule)]: (this.rule_open(rule) === false)});
+        },
+        // A wall that is not there lets nothing through; a shut door lets no web server in, which
+        // matters only while the name is answered
+        rule_bad: function (rule) {
+            return ((rule.auth !== null) && (this.known(rule.auth) === false)) || ((rule.door_problem !== null) && (rule.off === false));
+        },
+        // Where an address stands, in a word or two for its one line
+        rule_word: function (rule) {
+            if ((rule.auth !== null) && (this.known(rule.auth) === false)) {
+                return 'no such wall';
+            }
+            if (rule.off) {
+                return 'set aside';
+            }
+            if (rule.door_problem !== null) {
+                return 'door not open';
+            }
+            return ((rule.auth === null) ? 'no wall' : `behind ${rule.auth}`);
+        },
+        rule_dot: function (rule) {
+            if (this.rule_bad(rule)) {
+                return 'failed';
+            }
+            return (rule.off ? '' : 'running');
         },
         add_open: function () {
             const machine = ((this.remotes.length === 1) ? this.remotes[0].name : '');

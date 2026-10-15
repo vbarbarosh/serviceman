@@ -934,7 +934,8 @@ function load_level(share)
 }
 
 // Everything running on a machine, as the tree it is: a process sits under the one that
-// started it, and a branch folds away. ps is run over there when the pane opens and when Read
+// started it, and a branch folds away by the square before it; a click on the line opens the
+// rest of what ps says about it. ps is run over there when the pane opens and when Read
 // again is pressed — a table this long on a clock would be a machine talking about itself all
 // day, and a tree that moves under the hand is one nobody can read.
 const remote_processes = {
@@ -963,62 +964,50 @@ const remote_processes = {
             <span>RSS {{ format_bytes(rss_total) }}</span>
             <span v-if="(query !== '')">{{ matched_count }} {{ plural(matched_count, 'match', 'matches') }}</span>
         </div>
-        <div v-if="(rows.length > 0)" class="wide-scroll">
-            <table class="grid-table procs">
-                <!-- Every column but the first is as wide as what it holds, so the tree keeps
-                     the rest of the pane and a row that folds moves nothing sideways -->
-                <colgroup>
-                    <col>
-                    <col width="70">
-                    <col width="110">
-                    <col width="110">
-                    <col width="110">
-                    <col width="80">
-                    <col width="90">
-                    <col width="60">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th>Command</th>
-                        <th>PID</th>
-                        <th>User</th>
-                        <th>CPU</th>
-                        <th>Memory</th>
-                        <th>RSS</th>
-                        <th>Running</th>
-                        <th>State</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- The whole row is the fold: what a row of a tree does is open and close -->
-                    <tr v-for="row of rows" :key="row.item.pid" :class="{folds: (row.children > 0 && foldable), dim: row.dim}" @click="fold(row)">
-                        <td class="tree" :style="{paddingLeft: ((row.depth*1.1) + 'rem')}" :title="row.item.command">
-                            <svg v-if="(row.children > 0 && foldable)" class="caret" :class="{open: (closed[row.item.pid] !== true)}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-                            <span v-else-if="(view_by === 'tree')" class="caret"></span>
-                            <code>{{ row.item.command }}</code>
-                            <span v-if="(row.hidden > 0)" class="muted"> +{{ row.hidden }}</span>
-                        </td>
-                        <td>{{ row.item.pid }}</td>
-                        <td>{{ row.item.user }}</td>
-                        <td>
-                            <span class="load">
-                                <span class="meter" :class="load_level(row.item.cpu/100)"><i :style="{width: (Math.max(2, Math.min(100, row.item.cpu)) + '%')}"></i></span>
-                                {{ row.item.cpu.toFixed(1) }}%
-                            </span>
-                        </td>
-                        <td>
-                            <span class="load">
-                                <span class="meter" :class="load_level(row.item.mem/25)"><i :style="{width: (Math.max(2, Math.min(100, row.item.mem*4)) + '%')}"></i></span>
-                                {{ row.item.mem.toFixed(1) }}%
-                            </span>
-                        </td>
-                        <td>{{ format_bytes(row.item.rss) }}</td>
-                        <td>{{ format_ms(row.item.elapsed_ms) }}</td>
-                        <td class="muted">{{ row.item.state }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- One line a process, what it is and the two numbers read down the list; the rest
+             opens under it. The square before the command folds what that process started. -->
+        <ul v-if="(rows.length > 0)" class="fold-list">
+            <li v-for="row of rows" :key="row.item.pid" :class="{open: is_open(row.item)}">
+                <!-- A div, not a button: the branch's own button sits inside the line -->
+                <div class="fold-line" :class="{muted: row.dim}" role="button" tabindex="0" :aria-expanded="is_open(row.item)" @click="toggle(row.item)" @keydown.enter.self.prevent="toggle(row.item)" @keydown.space.self.prevent="toggle(row.item)">
+                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                    <span v-if="(row.depth > 0)" class="indent" :style="{width: ((row.depth - 0.5) + 'rem')}"/>
+                    <button v-if="(row.children > 0 && foldable)" type="button" class="branch" :title="(closed[row.item.pid] === true ? 'Show what it started' : 'Fold what it started')" :aria-expanded="(closed[row.item.pid] !== true)" @click.stop="fold(row)">
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path v-if="(closed[row.item.pid] === true)" d="M12 5v14M5 12h14"/><path v-else d="M5 12h14"/></svg>
+                    </button>
+                    <span v-else-if="(view_by === 'tree')" class="branch none"/>
+                    <b class="name" :title="row.item.command">{{ program_of(row.item) }}</b>
+                    <span v-if="(row.hidden > 0)" class="muted" :title="(row.hidden + ' ' + plural(row.hidden, 'process', 'processes') + ' folded under it')">+{{ row.hidden }}</span>
+                    <span class="route muted" :title="row.item.command">{{ args_of(row.item) }}</span>
+                    <span class="num" :class="{bad: (load_level(row.item.cpu/100) === 'full')}" :title="cpu_title">{{ row.item.cpu.toFixed(1) }}%</span>
+                    <span class="num wide" title="RSS: the memory it holds">{{ format_bytes(row.item.rss) }}</span>
+                </div>
+                <div v-if="is_open(row.item)" class="fold-details">
+                    <dl>
+                        <dt>Command</dt>
+                        <dd><code>{{ row.item.command }}</code></dd>
+                        <dt>PID</dt>
+                        <dd>{{ row.item.pid }} <span class="muted">· started by {{ row.item.ppid }}</span></dd>
+                        <dt>User</dt>
+                        <dd>{{ row.item.user }}</dd>
+                        <dt>CPU</dt>
+                        <dd class="load">
+                            <span class="meter" :class="load_level(row.item.cpu/100)"><i :style="{width: (Math.max(2, Math.min(100, row.item.cpu)) + '%')}"></i></span>
+                            {{ row.item.cpu.toFixed(1) }}% <span class="muted">of one core</span>
+                        </dd>
+                        <dt>Memory</dt>
+                        <dd class="load">
+                            <span class="meter" :class="load_level(row.item.mem/25)"><i :style="{width: (Math.max(2, Math.min(100, row.item.mem*4)) + '%')}"></i></span>
+                            {{ row.item.mem.toFixed(1) }}% <span class="muted">· RSS {{ format_bytes(row.item.rss) }}</span>
+                        </dd>
+                        <dt>Running</dt>
+                        <dd>{{ format_ms(row.item.elapsed_ms) }}</dd>
+                        <dt>State</dt>
+                        <dd><code>{{ row.item.state }}</code> <span class="muted">{{ state_text(row.item.state) }}</span></dd>
+                    </dl>
+                </div>
+            </li>
+        </ul>
         <p v-else-if="(items.length > 0)" class="muted">Nothing matches “{{ query }}”.</p>
     </template>
 </article>
@@ -1026,8 +1015,9 @@ const remote_processes = {
     components: {'command-copy': command_copy},
     props: ['view'],
     data: function () {
-        // What is folded, by pid. A read that brings the same tree back keeps the folds it had.
-        return {items: [], commands: undefined, window_ms: null, closed: {}, note: '', bad: false, busy: false, query: '', view_by: 'tree', views: PROC_VIEWS};
+        // What is folded, and whose details are shown, by pid. A read that brings the same tree
+        // back keeps both.
+        return {items: [], commands: undefined, window_ms: null, closed: {}, opened: {}, note: '', bad: false, busy: false, query: '', view_by: 'tree', views: PROC_VIEWS};
     },
     computed: {
         offline: function () {
@@ -1138,6 +1128,40 @@ const remote_processes = {
             this.note = note;
             this.bad = bad;
         },
+        is_open: function (item) {
+            return (this.opened[item.pid] === true);
+        },
+        toggle: function (item) {
+            this.opened = Object.assign({}, this.opened, {[item.pid]: (this.is_open(item) === false)});
+        },
+        // The program alone, for the line: `/usr/bin/dockerd -H fd://` is dockerd. A kernel
+        // thread is its bracketed name, and a title a process gave itself loses its colon.
+        program_of: function (item) {
+            const command = item.command.trim();
+            if (command === '') {
+                return `pid ${item.pid}`;
+            }
+            if (command.startsWith('[')) {
+                return command;
+            }
+            const first = command.split(/\s+/)[0];
+            return first.slice(first.lastIndexOf('/') + 1).replace(/:$/, '') || first;
+        },
+        // Whatever follows the program, muted beside it
+        args_of: function (item) {
+            const command = item.command.trim();
+            if (command.startsWith('[')) {
+                return '';
+            }
+            const at = command.search(/\s/);
+            return ((at === -1) ? '' : command.slice(at + 1).trim());
+        },
+        // ps's first letter of STAT, in words
+        state_text: function (state) {
+            const words = {R: 'running', S: 'sleeping', D: 'waiting on a disk', Z: 'a zombie: ended, its parent has not collected it', T: 'stopped', t: 'stopped by a debugger', I: 'idle', X: 'dead', W: 'paging'};
+            const word = words[String(state).charAt(0)];
+            return ((word === undefined) ? '' : word);
+        },
         fold: function (row) {
             if ((row.children === 0) || (this.foldable === false)) {
                 return;
@@ -1190,51 +1214,51 @@ const remote_disks = {
                 <command-copy :commands="commands"/>
             </span>
         </div>
-        <div v-if="(rows.length > 0)" class="wide-scroll card">
-            <table class="list-table disks-table">
-                <thead>
-                    <tr>
-                        <th>Disk</th>
-                        <th>Mounted at</th>
-                        <th>Type</th>
-                        <th>Space used</th>
-                        <th>Free</th>
-                        <th>Inodes used</th>
-                        <th>Inodes free</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="item of rows" :key="(item.device + ' ' + item.mounts[0])" :class="{muted: (item.disk === false)}">
-                        <td><code>{{ item.device }}</code></td>
-                        <td>
-                            <code>{{ item.mounts[0] }}</code>
-                            <div v-if="(item.mounts.length > 1)" class="muted" :title="item.mounts.slice(1).join(', ')">also at {{ item.mounts.slice(1, 4).join(', ') }}{{ item.mounts.length > 4 ? ' and ' + (item.mounts.length - 4) + ' more' : '' }}</div>
-                            <div v-if="(item.key_of !== undefined && item.key_of !== null)" class="muted">holds the key of {{ item.key_of }}</div>
-                        </td>
-                        <td>{{ item.type }}<span v-if="item.encrypted" class="tag disk-lock">encrypted</span></td>
-                        <td>
-                            <div class="disk-use">
-                                <span class="meter" :class="level_of(item.used, item.total)"><i :style="{width: (percent_of(item.used, item.total) + '%')}"/></span>
-                                <span>{{ percent_of(item.used, item.total) }}%</span>
-                            </div>
-                            <div class="muted">{{ format_bytes(item.used) }} of {{ format_bytes(item.total) }}</div>
-                        </td>
-                        <td>{{ format_bytes(item.free) }}</td>
-                        <td>
-                            <template v-if="(item.inodes_total !== null)">
-                                <div class="disk-use">
-                                    <span class="meter" :class="level_of(item.inodes_used, item.inodes_total)"><i :style="{width: (percent_of(item.inodes_used, item.inodes_total) + '%')}"/></span>
-                                    <span>{{ percent_of(item.inodes_used, item.inodes_total) }}%</span>
-                                </div>
-                                <div class="muted">{{ count_text(item.inodes_used) }} of {{ count_text(item.inodes_total) }}</div>
-                            </template>
-                            <span v-else class="muted">not counted</span>
-                        </td>
-                        <td>{{ item.inodes_total === null ? '' : count_text(item.inodes_free) }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- One line a mount: where it is, what it is, how full and how much is left -->
+        <ul v-if="(rows.length > 0)" class="fold-list">
+            <li v-for="item of rows" :key="disk_key(item)" :class="{open: is_open(item)}">
+                <button type="button" class="fold-line" :class="{muted: (item.disk === false)}" :aria-expanded="is_open(item)" @click="toggle(item)">
+                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                    <span class="dot" :class="dot_of(item)"/>
+                    <b class="name" :title="item.mounts.join(', ')">{{ item.mounts[0] }}</b>
+                    <span class="route muted" :title="kind_of(item)">{{ kind_of(item) }}</span>
+                    <span v-if="(item.disk && inodes_level(item) !== '')" class="word whole" :class="{bad: (inodes_level(item) === 'full')}" title="Inodes used: a disk out of them refuses new files with space to spare">inodes {{ percent_of(item.inodes_used, item.inodes_total) }}%</span>
+                    <span class="num" title="Space used">{{ percent_of(item.used, item.total) }}%</span>
+                    <span class="num free" title="Free">{{ format_bytes(item.free) }} free</span>
+                </button>
+                <div v-if="is_open(item)" class="fold-details">
+                    <dl>
+                        <dt>Disk</dt>
+                        <dd><code>{{ item.device }}</code></dd>
+                        <dt>Mounted at</dt>
+                        <dd><div v-for="mount of item.mounts" :key="mount"><code>{{ mount }}</code></div></dd>
+                        <dt>Type</dt>
+                        <dd>{{ item.type }}<span v-if="item.encrypted" class="tag disk-lock">encrypted</span></dd>
+                        <template v-if="(item.key_of !== undefined && item.key_of !== null)">
+                            <dt>Holds the key</dt>
+                            <dd>of <code>{{ item.key_of }}</code></dd>
+                        </template>
+                        <dt>Space used</dt>
+                        <dd class="disk-use">
+                            <span class="meter" :class="level_of(item.used, item.total)"><i :style="{width: (percent_of(item.used, item.total) + '%')}"/></span>
+                            <span>{{ percent_of(item.used, item.total) }}% <span class="muted">· {{ format_bytes(item.used) }} of {{ format_bytes(item.total) }}</span></span>
+                        </dd>
+                        <dt>Free</dt>
+                        <dd>{{ format_bytes(item.free) }}</dd>
+                        <dt>Inodes used</dt>
+                        <dd v-if="(item.inodes_total === null)" class="muted">not counted</dd>
+                        <dd v-else class="disk-use">
+                            <span class="meter" :class="level_of(item.inodes_used, item.inodes_total)"><i :style="{width: (percent_of(item.inodes_used, item.inodes_total) + '%')}"/></span>
+                            <span>{{ percent_of(item.inodes_used, item.inodes_total) }}% <span class="muted">· {{ count_text(item.inodes_used) }} of {{ count_text(item.inodes_total) }}</span></span>
+                        </dd>
+                        <template v-if="(item.inodes_total !== null)">
+                            <dt>Inodes free</dt>
+                            <dd>{{ count_text(item.inodes_free) }}</dd>
+                        </template>
+                    </dl>
+                </div>
+            </li>
+        </ul>
         <p v-else-if="(busy === false && items.length > 0)" class="muted">No disks of its own — everything mounted here is tmpfs, overlay or a loop image. The chip above shows them.</p>
     </template>
 </article>
@@ -1242,7 +1266,8 @@ const remote_disks = {
     components: {'command-copy': command_copy},
     props: ['view'],
     data: function () {
-        return {items: [], commands: undefined, show_all: false, note: '', bad: false, busy: false};
+        // `opened` is the mounts whose details are shown, by device and first mount
+        return {items: [], commands: undefined, show_all: false, opened: {}, note: '', bad: false, busy: false};
     },
     computed: {
         offline: function () {
@@ -1321,6 +1346,35 @@ const remote_disks = {
         percent_of: function (part, whole) {
             return ((whole > 0) ? Math.round(part/whole*100) : 0);
         },
+        disk_key: function (item) {
+            return `${item.device} ${item.mounts[0]}`;
+        },
+        is_open: function (item) {
+            return (this.opened[this.disk_key(item)] === true);
+        },
+        toggle: function (item) {
+            this.opened = Object.assign({}, this.opened, {[this.disk_key(item)]: (this.is_open(item) === false)});
+        },
+        // What it is, muted beside where it is mounted; a tmpfs says its name once
+        kind_of: function (item) {
+            const type = ((item.type === item.device) ? '' : item.type);
+            return [item.device, type, (item.encrypted ? 'encrypted' : '')].filter(v => v !== '').join(' · ');
+        },
+        // A disk's dot is the fuller of its space and its inodes; a mount that is not a disk
+        // of its own (tmpfs, overlay, a loop image) keeps an empty ring
+        dot_of: function (item) {
+            if (item.disk === false) {
+                return '';
+            }
+            const levels = [this.level_of(item.used, item.total), this.inodes_level(item)];
+            if (levels.includes('full')) {
+                return 'failed';
+            }
+            return (levels.includes('filling') ? 'stopping' : 'running');
+        },
+        inodes_level: function (item) {
+            return ((item.inodes_total === null) ? '' : this.level_of(item.inodes_used, item.inodes_total));
+        },
         // A disk past nine tenths is one to look at; past three quarters, one to keep an eye on
         level_of: function (part, whole) {
             const percent = this.percent_of(part, whole);
@@ -1373,37 +1427,45 @@ const remote_packages = {
             </span>
         </div>
         <p v-if="(note !== '' || summary !== '')" :class="(bad ? 'bad' : 'muted')">{{ (note !== '' ? note : summary) }}</p>
-        <div v-if="(shown.length > 0)" class="wide-scroll card">
-            <table class="list-table packages-table">
-                <thead>
-                    <tr>
-                        <th>Package</th>
-                        <th>Version</th>
-                        <th class="package-size">Size</th>
-                        <th>Section</th>
-                        <th>Installed</th>
-                        <th>What it is</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="item of shown" :key="(item.name + ':' + item.arch)">
-                        <td>
-                            <code>{{ item.name }}</code><span v-if="(item.arch !== native && item.arch !== 'all')" class="muted">:{{ item.arch }}</span>
-                            <span v-if="item.held" class="tag" title="apt-mark hold: an upgrade leaves it where it is">held</span>
-                            <span v-if="item.broken" class="tag bad" title="dpkg did not finish with it; sudo dpkg --configure -a finishes what was interrupted">half installed</span>
-                        </td>
-                        <td>
-                            <code>{{ item.version }}</code>
-                            <div v-if="(item.update !== null)" class="package-next">→ <code>{{ item.update.version }}</code><span v-if="item.update.security" class="tag package-security">security</span></div>
-                        </td>
-                        <td class="package-size">{{ (item.size === null ? '' : format_bytes(item.size)) }}</td>
-                        <td class="muted">{{ item.section }}</td>
-                        <td :class="{muted: (item.manual === false)}">{{ (item.manual ? 'by hand' : 'as a need') }}</td>
-                        <td class="package-summary">{{ item.summary }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- One line a package: its name, what it is, where it stands and its size -->
+        <ul v-if="(shown.length > 0)" class="fold-list">
+            <li v-for="item of shown" :key="package_key(item)" :class="{open: is_open(item)}">
+                <button type="button" class="fold-line" :aria-expanded="is_open(item)" @click="toggle(item)">
+                    <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                    <b class="name" :title="package_key(item)">{{ item.name }}<span v-if="(item.arch !== native && item.arch !== 'all')" class="muted">:{{ item.arch }}</span></b>
+                    <span class="route muted" :title="item.summary">{{ item.summary }}</span>
+                    <span v-if="(word_of(item) !== '')" class="word" :class="tone_of(item)">{{ word_of(item) }}</span>
+                    <span class="num wide" title="Size">{{ (item.size === null ? '' : format_bytes(item.size)) }}</span>
+                </button>
+                <div v-if="is_open(item)" class="fold-details">
+                    <dl>
+                        <dt>Package</dt>
+                        <dd><code>{{ item.name }}</code><span class="muted">:{{ item.arch }}</span></dd>
+                        <dt>Version</dt>
+                        <dd><code>{{ item.version }}</code></dd>
+                        <template v-if="(item.update !== null)">
+                            <dt>Upgrade to</dt>
+                            <dd><span class="package-next">→</span> <code>{{ item.update.version }}</code> <span v-if="item.update.security" class="tag package-security">security</span></dd>
+                        </template>
+                        <template v-if="(item.held || item.broken)">
+                            <dt>State</dt>
+                            <dd>
+                                <div v-if="item.held">held <span class="muted">— apt-mark hold: an upgrade leaves it where it is</span></div>
+                                <div v-if="item.broken" class="bad">half installed — dpkg did not finish with it; <code>sudo dpkg --configure -a</code> finishes what was interrupted</div>
+                            </dd>
+                        </template>
+                        <dt>Size</dt>
+                        <dd :class="{muted: (item.size === null)}">{{ (item.size === null ? 'not said' : format_bytes(item.size)) }}</dd>
+                        <dt>Section</dt>
+                        <dd :class="{muted: (item.section === '')}">{{ (item.section === '' ? 'none' : item.section) }}</dd>
+                        <dt>Installed</dt>
+                        <dd :class="{muted: (item.manual === false)}">{{ (item.manual ? 'by hand' : 'as a need of something else') }}</dd>
+                        <dt>What it is</dt>
+                        <dd :class="{muted: (item.summary === '')}">{{ (item.summary === '' ? 'it does not say' : item.summary) }}</dd>
+                    </dl>
+                </div>
+            </li>
+        </ul>
         <p v-else-if="(busy === false && items.length > 0)" class="muted">No package here matches.</p>
         <p v-if="(matching.length > shown.length)"><button type="button" @click="limit = matching.length">Show the other {{ matching.length - shown.length }}</button></p>
     </template>
@@ -1412,7 +1474,8 @@ const remote_packages = {
     components: {'command-copy': command_copy},
     props: ['view'],
     data: function () {
-        return {items: [], commands: undefined, filter: '', show: 'all', order: 'name', limit: PACKAGES_AT_ONCE, manual_known: true, updates_known: true, note: '', bad: false, busy: false};
+        // `opened` is the packages whose details are shown, by name and architecture
+        return {items: [], commands: undefined, filter: '', show: 'all', order: 'name', limit: PACKAGES_AT_ONCE, manual_known: true, updates_known: true, opened: {}, note: '', bad: false, busy: false};
     },
     computed: {
         offline: function () {
@@ -1550,6 +1613,35 @@ const remote_packages = {
         report: function (note, bad) {
             this.note = note;
             this.bad = bad;
+        },
+        package_key: function (item) {
+            return `${item.name}:${item.arch}`;
+        },
+        is_open: function (item) {
+            return (this.opened[this.package_key(item)] === true);
+        },
+        toggle: function (item) {
+            this.opened = Object.assign({}, this.opened, {[this.package_key(item)]: (this.is_open(item) === false)});
+        },
+        // Where it stands, in a word or two for its line; a package with nothing to say has none
+        word_of: function (item) {
+            const words = [];
+            if (item.broken) {
+                words.push('half installed');
+            }
+            if (item.held) {
+                words.push('held');
+            }
+            if (item.update !== null) {
+                words.push(item.update.security ? 'security update' : 'update');
+            }
+            return words.join(' · ');
+        },
+        tone_of: function (item) {
+            if (item.broken || ((item.update !== null) && item.update.security)) {
+                return 'bad';
+            }
+            return ((item.update === null) ? 'muted' : 'package-next');
         },
     },
     mounted: function () {

@@ -18,34 +18,35 @@ const volumes_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
-    <div class="wide-scroll card">
-        <table class="list-table">
-            <thead>
-                <tr>
-                    <th>Folder</th>
-                    <th>Kind</th>
-                    <th>On</th>
-                    <th>Kept for</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="item of rows" :key="(item.machine + '/' + item.name)">
-                    <td><code>{{ item.name }}</code></td>
-                    <td class="muted">{{ kind_text(item) }}</td>
-                    <td><button type="button" class="link" @click="$emit('remote', item.machine)">{{ remote_title(item.machine) }}</button></td>
-                    <td>
-                        <div v-for="user of item.used_by" :key="(user.service + user.at)" class="row-of">
+    <ul class="fold-list">
+        <li v-for="item of rows" :key="key_of(item)" :class="{open: is_open(item)}">
+            <button type="button" class="fold-line" :aria-expanded="is_open(item)" @click="toggle(item)">
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <b class="name" :title="item.name">{{ item.name }}</b>
+                <span class="route muted" :title="users_text(item)">{{ users_text(item) }}</span>
+                <span class="word muted" :title="remote_title(item.machine)">{{ remote_title(item.machine) }}</span>
+            </button>
+            <div v-if="is_open(item)" class="fold-details">
+                <dl>
+                    <dt>Folder</dt>
+                    <dd><code>{{ item.name }}</code></dd>
+                    <dt>Kind</dt>
+                    <dd>{{ kind_text(item) }}</dd>
+                    <dt>On</dt>
+                    <dd><button type="button" class="link" @click="$emit('remote', item.machine)">{{ remote_title(item.machine) }}</button></dd>
+                    <dt>Kept for</dt>
+                    <dd v-if="(item.used_by.length === 0)" class="muted">no service keeps it now</dd>
+                    <dd v-else>
+                        <div v-for="user of item.used_by" :key="(user.service + user.at)">
                             <button type="button" class="link" @click="$emit('select', user.service)">{{ user.service }}</button>
-                            <span class="muted">at <code>{{ user.at }}</code>{{ user.readonly ? ' · read only' : '' }}</span>
+                            <span class="muted"> at <code>{{ user.at }}</code>{{ user.readonly ? ' · read only' : '' }}</span>
                         </div>
-                    </td>
-                </tr>
-                <tr v-if="(rows.length === 0)">
-                    <td class="muted" colspan="4">{{ volumes.length === 0 ? 'Nothing is kept yet.' : 'Nothing matches.' }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+                    </dd>
+                </dl>
+            </div>
+        </li>
+        <li v-if="(rows.length === 0)" class="muted empty">{{ volumes.length === 0 ? 'Nothing is kept yet.' : 'Nothing matches.' }}</li>
+    </ul>
     <volumes :machines="volume_machines"/>
 </article>
 `,
@@ -54,9 +55,11 @@ const volumes_pane = {
     props: ['state', 'remote'],
     emits: ['only', 'remote', 'select'],
     data: function () {
+        // `opened` is the folders whose details are shown, by machine and name
         return {
             volumes: [],
             filter: '',
+            opened: {},
         };
     },
     computed: {
@@ -102,6 +105,22 @@ const volumes_pane = {
         },
     },
     methods: {
+        key_of: function (item) {
+            return `${item.machine}/${item.name}`;
+        },
+        is_open: function (item) {
+            return (this.opened[this.key_of(item)] === true);
+        },
+        toggle: function (item) {
+            this.opened = Object.assign({}, this.opened, {[this.key_of(item)]: (this.is_open(item) === false)});
+        },
+        // Who keeps it, by name, for its one line; where each one mounts it is in the details
+        users_text: function (item) {
+            if (item.used_by.length === 0) {
+                return 'kept for no service';
+            }
+            return `for ${item.used_by.map(v => v.service).join(', ')}`;
+        },
         kind_text: function (item) {
             if (item.kind === 'kept') {
                 return 'a folder under the agent';

@@ -130,6 +130,34 @@ p.fm-note {
     overflow: auto;
 }
 
+/* A file is a name, a size and a time, read down the columns: the name gives way with an
+   ellipsis, so the size and the time stay on the row on any screen */
+.fm-table {
+    table-layout: fixed;
+}
+
+.fm-table td.name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fm-table td.name .row-of {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    min-width: 0;
+}
+
+.fm-table td.name .row-of > svg {
+    flex: none;
+}
+
+.fm-table td.name .row-of > b,
+.fm-table td.name .row-of > a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .fm-table th.fm-pick,
 .fm-table td.fm-pick {
     width: 2.4rem;
@@ -653,4 +681,26 @@ p.fm-foot {
     background: var(--panel);
     color: var(--fg);
     font: inherit;
+}
+
+/* On a phone the size and the time take what they need and no more */
+@media (max-width: 560px) {
+    .fm-table th.size,
+    .fm-table td.size {
+        width: 4.5rem;
+        padding-left: .3rem;
+        padding-right: .3rem;
+    }
+
+    .fm-table th.mtime,
+    .fm-table td.mtime {
+        width: 5rem;
+        padding-left: .3rem;
+        padding-right: .5rem;
+    }
+
+    .fm-table td.name {
+        padding-left: .3rem;
+        padding-right: .3rem;
+    }
 }

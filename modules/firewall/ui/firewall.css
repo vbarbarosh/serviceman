@@ -1,6 +1,6 @@
 /* The UFW module's own rules. The host page gives the colours (--panel, --line, --muted, --fg,
-   --accent) and the classes the module shares with it: card, list-head, list-acts, list-table,
-   dot, muted, bad, primary, link. */
+   --accent) and the classes the module shares with it: card, list-head, list-acts, fold-list,
+   dot, pill, muted, bad, primary, link. */
 
 /* The parts one under another, each keeping its own height */
 .fw {
@@ -56,10 +56,6 @@
     flex: 0 1 auto;
 }
 
-.fw-nowrap {
-    white-space: nowrap;
-}
-
 .fw-warn,
 .fw-undo {
     display: flex;
@@ -77,51 +73,12 @@
     color: var(--bad, #c0392b);
 }
 
-.fw-rules {
-    padding: 0;
-    overflow-x: auto;
+.fw > .fold-list {
+    margin: 0;
 }
 
-/* Narrower than this, the table scrolls inside its card rather than cutting every column to a
-   letter */
-.fw-table {
-    width: 100%;
-    min-width: 46rem;
-    table-layout: fixed;
-}
-
-.fw-table th:nth-child(1) {
-    width: 7rem;
-}
-
-.fw-table th:nth-child(2) {
-    width: 9rem;
-}
-
-.fw-table th:nth-child(3),
-.fw-table th:nth-child(4) {
-    width: 20%;
-}
-
-.fw-table th:nth-child(6) {
-    width: 5rem;
-}
-
-.fw-cut-cell {
-    overflow: hidden;
-}
-
-.fw-acts {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.fw-acts button.link {
-    font-size: 1.1rem;
-    line-height: 1;
-}
-
-.fw-pending td {
+/* A rule shown before the machine has it */
+.fw-pending .fold-line {
     opacity: .55;
 }
 
@@ -257,56 +214,24 @@
     border-color: var(--accent);
 }
 
-/* The ports table: port, reach, what the firewall does, who holds it, the action */
-.fw-ports th:nth-child(1) {
-    width: 7rem;
-}
-
-.fw-ports th:nth-child(2) {
-    width: 18rem;
-}
-
-.fw-ports th:nth-child(3) {
-    width: 30%;
-}
-
-.fw-ports th:nth-child(4) {
-    width: auto;
-}
-
-.fw-ports th:nth-child(5) {
-    width: 8rem;
-}
-
-.fw-port-cell {
+/* A port's line: its number keeps one width for the digits, so the ports read down as a column */
+.fw-port-name {
     font-variant-numeric: tabular-nums;
 }
 
-/* A port others can reach is marked at its left edge, red for the internet and amber for a
-   network; one the firewall keeps out is not */
-.fw-ports tr.fw-open td:first-child {
-    box-shadow: inset 3px 0 0 var(--bad);
-}
-
-.fw-ports tr.fw-network td:first-child {
-    box-shadow: inset 3px 0 0 var(--busy);
-}
-
-.fw-ports tr.fw-shut td:first-child {
-    box-shadow: none;
-}
-
-.fw-ports tr.fw-open:not(.fw-shut) .fw-port-cell,
-.fw-ports tr.fw-network:not(.fw-shut) .fw-port-cell {
-    font-weight: 700;
-}
-
+/* What gets through, by its colour: kept out, or open on a network */
 .fw-ok {
     color: var(--run, #1e9e63);
 }
 
-.fw-acts button:not(.link) {
-    font-size: inherit;
+.fw-warm {
+    color: var(--busy, #d38b12);
+}
+
+/* One address after another, each kept whole */
+.fw-address {
+    display: inline-block;
+    margin-right: .6rem;
 }
 
 .fw-how {
@@ -318,7 +243,7 @@
     margin-top: .3rem;
 }
 
-.fw-ports tr.fw-local td {
+.fw-local .fold-line {
     color: var(--muted);
 }
 
