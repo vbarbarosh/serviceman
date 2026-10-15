@@ -1,3 +1,4 @@
+import fold_table from './fold_table.js';
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
 
@@ -29,21 +30,22 @@ const services_pane = {
             </span>
         </span>
     </div>
-    <div class="wide-scroll card">
+    <fold-table v-slot="fold" class="card" :order="['detail', 'type', 'address']">
         <table class="list-table">
             <thead>
                 <tr>
+                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
                     <th>Service</th>
-                    <th>Address</th>
-                    <th>Kind</th>
+                    <th data-fold="address">Address</th>
+                    <th data-fold="type">Kind</th>
                     <th>State</th>
-                    <th>Detail</th>
+                    <th data-fold="detail">Detail</th>
                 </tr>
             </thead>
             <tbody>
                 <template v-for="group of groups" :key="group.key">
                     <tr v-if="grouped" class="group">
-                        <td colspan="5">
+                        <td class="wraps" colspan="6">
                             <span class="row-of">
                                 <b>{{ group.title }}</b>
                                 <span v-if="(group.phase !== null)" class="dot" :class="group.phase"/>
@@ -52,33 +54,60 @@ const services_pane = {
                             </span>
                         </td>
                     </tr>
-                    <tr v-for="row of group.rows" :key="row.name" class="pick" @click="$emit('select', row.name)">
-                        <td>
-                            <span class="row-of">
-                                <span class="dot" :class="row.phase"/>
-                                <b>{{ row.title }}</b>
-                                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
-                                <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
-                            </span>
-                        </td>
-                        <td>
-                            <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.host }}</code></a>
-                            <span v-else class="muted">no address</span>
-                            <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
-                        </td>
-                        <td>{{ row.type }}</td>
-                        <td>{{ row.state }}</td>
-                        <td :class="(row.bad ? 'bad' : 'muted')">{{ row.detail }}</td>
-                    </tr>
+                    <template v-for="row of group.rows" :key="row.name">
+                        <tr class="pick" :class="{foldable: more_of(row, fold.folded), open: fold.is_open(row.name)}" @click="row_click(row, fold, $event)">
+                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg v-if="more_of(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
+                            <td class="wraps">
+                                <span class="row-of">
+                                    <span class="dot" :class="row.phase"/>
+                                    <button v-if="(fold.folded.length > 0)" type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
+                                    <b v-else>{{ row.title }}</b>
+                                    <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+                                    <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
+                                </span>
+                            </td>
+                            <td data-fold="address">
+                                <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.host }}</code></a>
+                                <span v-else class="muted">no address</span>
+                                <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
+                            </td>
+                            <td data-fold="type">{{ row.type }}</td>
+                            <td>{{ row.state }}</td>
+                            <td data-fold="detail" :class="(row.bad ? 'bad' : 'muted')"><span class="cut-line" :title="row.detail">{{ row.detail }}</span></td>
+                        </tr>
+                        <tr v-if="fold.is_open(row.name)" class="fold-more">
+                            <td :colspan="fold.span">
+                                <dl class="fold-details">
+                                    <template v-if="fold.folded.includes('address')">
+                                        <dt>Address</dt>
+                                        <dd>
+                                            <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
+                                            <span v-else class="muted">no address</span>
+                                            <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
+                                        </dd>
+                                    </template>
+                                    <template v-if="fold.folded.includes('type')">
+                                        <dt>Kind</dt>
+                                        <dd>{{ row.type }}</dd>
+                                    </template>
+                                    <template v-if="(fold.folded.includes('detail') && row.detail !== '')">
+                                        <dt>Detail</dt>
+                                        <dd :class="(row.bad ? 'bad' : 'muted')">{{ row.detail }}</dd>
+                                    </template>
+                                </dl>
+                            </td>
+                        </tr>
+                    </template>
                 </template>
                 <tr v-if="(groups.length === 0)">
-                    <td class="muted" colspan="5">{{ services.length === 0 ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.' }}</td>
+                    <td class="muted wraps" colspan="6">{{ services.length === 0 ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.' }}</td>
                 </tr>
             </tbody>
         </table>
-    </div>
+    </fold-table>
 </article>
 `,
+    components: {'fold-table': fold_table},
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],
@@ -152,6 +181,19 @@ const services_pane = {
         },
     },
     methods: {
+        // With nothing folded a row opens its service, as it always has; with columns folded it
+        // opens what folded, and the service's name is the link to it
+        row_click: function (row, fold, event) {
+            if (this.more_of(row, fold.folded) === false) {
+                this.$emit('select', row.name);
+                return;
+            }
+            fold.toggle(row.name, event);
+        },
+        // Whether anything folded out of this row has a value to show under it
+        more_of: function (row, folded) {
+            return (folded.includes('address') || folded.includes('type') || (folded.includes('detail') && (row.detail !== '')));
+        },
         logs_url: function (kind, name) {
             return logline_link(this.state.logline, kind, name);
         },

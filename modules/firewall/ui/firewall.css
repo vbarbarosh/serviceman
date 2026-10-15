@@ -1,6 +1,6 @@
 /* The UFW module's own rules. The host page gives the colours (--panel, --line, --muted, --fg,
    --accent) and the classes the module shares with it: card, list-head, list-acts, list-table,
-   dot, muted, bad, primary, link. */
+   fold-table, dot, muted, bad, primary, link. */
 
 /* The parts one under another, each keeping its own height */
 .fw {
@@ -56,10 +56,6 @@
     flex: 0 1 auto;
 }
 
-.fw-nowrap {
-    white-space: nowrap;
-}
-
 .fw-warn,
 .fw-undo {
     display: flex;
@@ -77,41 +73,20 @@
     color: var(--bad, #c0392b);
 }
 
-.fw-rules {
+/* A table's card, the table to its edges: the host's fold-table, which scrolls it inside the
+   card only when nothing more can fold */
+.fw > .fw-rules {
+    margin: 0;
     padding: 0;
-    overflow-x: auto;
 }
 
-/* Narrower than this, the table scrolls inside its card rather than cutting every column to a
-   letter */
-.fw-table {
-    width: 100%;
-    min-width: 46rem;
-    table-layout: fixed;
+/* The line of an empty list wraps in the table's width and never widens it */
+.fw-empty {
+    contain: inline-size;
+    white-space: normal;
 }
 
-.fw-table th:nth-child(1) {
-    width: 7rem;
-}
-
-.fw-table th:nth-child(2) {
-    width: 9rem;
-}
-
-.fw-table th:nth-child(3),
-.fw-table th:nth-child(4) {
-    width: 20%;
-}
-
-.fw-table th:nth-child(6) {
-    width: 5rem;
-}
-
-.fw-cut-cell {
-    overflow: hidden;
-}
-
-.fw-acts {
+.fw-rules .fw-acts {
     text-align: right;
     white-space: nowrap;
 }
@@ -255,27 +230,6 @@
 .fw-filter input:focus {
     outline: none;
     border-color: var(--accent);
-}
-
-/* The ports table: port, reach, what the firewall does, who holds it, the action */
-.fw-ports th:nth-child(1) {
-    width: 7rem;
-}
-
-.fw-ports th:nth-child(2) {
-    width: 18rem;
-}
-
-.fw-ports th:nth-child(3) {
-    width: 30%;
-}
-
-.fw-ports th:nth-child(4) {
-    width: auto;
-}
-
-.fw-ports th:nth-child(5) {
-    width: 8rem;
 }
 
 .fw-port-cell {

@@ -1,3 +1,4 @@
+import fold_table from './fold_table.js';
 import volumes from 'volumes/volumes.js';
 
 // What survives a restart, and where it lives. There is no register apart from the services: a
@@ -18,38 +19,65 @@ const volumes_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
-    <div class="wide-scroll card">
+    <fold-table v-slot="fold" class="card" :order="['kind', 'kept', 'on']">
         <table class="list-table">
             <thead>
                 <tr>
+                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
                     <th>Folder</th>
-                    <th>Kind</th>
-                    <th>On</th>
-                    <th>Kept for</th>
+                    <th data-fold="kind">Kind</th>
+                    <th data-fold="on">On</th>
+                    <th data-fold="kept">Kept for</th>
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="item of rows" :key="(item.machine + '/' + item.name)">
-                    <td><code>{{ item.name }}</code></td>
-                    <td class="muted">{{ kind_text(item) }}</td>
-                    <td><button type="button" class="link" @click="$emit('remote', item.machine)">{{ remote_title(item.machine) }}</button></td>
-                    <td>
-                        <div v-for="user of item.used_by" :key="(user.service + user.at)" class="row-of">
-                            <button type="button" class="link" @click="$emit('select', user.service)">{{ user.service }}</button>
-                            <span class="muted">at <code>{{ user.at }}</code>{{ user.readonly ? ' · read only' : '' }}</span>
-                        </div>
-                    </td>
-                </tr>
+                <template v-for="item of rows" :key="row_key(item)">
+                    <tr :class="{foldable: (fold.folded.length > 0), open: fold.is_open(row_key(item))}" @click="fold.toggle(row_key(item), $event)">
+                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
+                        <td class="wraps"><code>{{ item.name }}</code></td>
+                        <td data-fold="kind" class="muted">{{ kind_text(item) }}</td>
+                        <td data-fold="on"><button type="button" class="link" @click="$emit('remote', item.machine)">{{ remote_title(item.machine) }}</button></td>
+                        <td data-fold="kept">
+                            <div v-for="user of item.used_by" :key="(user.service + user.at)" class="row-of">
+                                <button type="button" class="link" @click="$emit('select', user.service)">{{ user.service }}</button>
+                                <span class="muted">at <code>{{ user.at }}</code>{{ user.readonly ? ' · read only' : '' }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-if="fold.is_open(row_key(item))" class="fold-more">
+                        <td :colspan="fold.span">
+                            <dl class="fold-details">
+                                <template v-if="fold.folded.includes('kind')">
+                                    <dt>Kind</dt>
+                                    <dd class="muted">{{ kind_text(item) }}</dd>
+                                </template>
+                                <template v-if="fold.folded.includes('on')">
+                                    <dt>On</dt>
+                                    <dd><button type="button" class="link" @click="$emit('remote', item.machine)">{{ remote_title(item.machine) }}</button></dd>
+                                </template>
+                                <template v-if="(fold.folded.includes('kept') && item.used_by.length > 0)">
+                                    <dt>Kept for</dt>
+                                    <dd>
+                                        <div v-for="user of item.used_by" :key="(user.service + user.at)">
+                                            <button type="button" class="link" @click="$emit('select', user.service)">{{ user.service }}</button>
+                                            <span class="muted"> at <code>{{ user.at }}</code>{{ user.readonly ? ' · read only' : '' }}</span>
+                                        </div>
+                                    </dd>
+                                </template>
+                            </dl>
+                        </td>
+                    </tr>
+                </template>
                 <tr v-if="(rows.length === 0)">
-                    <td class="muted" colspan="4">{{ volumes.length === 0 ? 'Nothing is kept yet.' : 'Nothing matches.' }}</td>
+                    <td class="muted" :colspan="fold.span">{{ volumes.length === 0 ? 'Nothing is kept yet.' : 'Nothing matches.' }}</td>
                 </tr>
             </tbody>
         </table>
-    </div>
+    </fold-table>
     <volumes :machines="volume_machines"/>
 </article>
 `,
-    components: {volumes},
+    components: {'fold-table': fold_table, volumes},
     // remote: the one machine the list is narrowed to, or null for all of them; the chips set it
     props: ['state', 'remote'],
     emits: ['only', 'remote', 'select'],
@@ -102,6 +130,9 @@ const volumes_pane = {
         },
     },
     methods: {
+        row_key: function (item) {
+            return `${item.machine}/${item.name}`;
+        },
         kind_text: function (item) {
             if (item.kind === 'kept') {
                 return 'a folder under the agent';

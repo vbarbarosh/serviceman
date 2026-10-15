@@ -1,5 +1,6 @@
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import fold_table from './fold_table.js';
 
 // The service a new address is protected with unless another is picked: one called this
 const WALL_NAME = 'authwall';
@@ -14,37 +15,61 @@ const service_doors = {
         <b>Public addresses</b>
         <span class="muted">names a machine's door answers for this service, on that machine's public side</span>
     </div>
-    <table v-if="(rules.length > 0)" class="grid-table doors-of">
-        <thead>
-            <tr>
-                <th>Address</th>
-                <th>Through</th>
-                <th>Protected by</th>
-                <th>Answering</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="rule of rules" :key="(rule.machine + ' ' + rule.host)" :class="{off: rule.off}">
-                <td>
-                    <a v-if="(rule.host.startsWith('*') === false)" :href="('https://' + rule.host)" target="_blank" rel="noopener"><code>{{ rule.host }}</code></a>
-                    <code v-else>{{ rule.host }}</code>
-                </td>
-                <td>
-                    {{ rule.title }}
-                    <span v-if="(rule.door_problem !== null)" class="bad door-problem" :title="rule.door_problem">· its door is not open</span>
-                </td>
-                <td :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}<span v-if="(rule.auth !== null && known(rule.auth) === false)" class="bad"> — no such service</span></td>
-                <td>
-                    <span class="seg">
-                        <button type="button" :class="{on: (rule.off === false)}" :disabled="busy" @click="turn(rule, true)">On</button>
-                        <button type="button" :class="{on: rule.off}" :disabled="busy" @click="turn(rule, false)">Off</button>
-                    </span>
-                </td>
-                <td><button type="button" class="link" :disabled="busy" @click="drop(rule)">remove</button></td>
-            </tr>
-        </tbody>
-    </table>
+    <fold-table v-if="(rules.length > 0)" v-slot="fold" :order="['acts', 'auth', 'through']">
+        <table class="doors-of">
+            <thead>
+                <tr>
+                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
+                    <th>Address</th>
+                    <th data-fold="through">Through</th>
+                    <th data-fold="auth">Protected by</th>
+                    <th>Answering</th>
+                    <th data-fold="acts"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <template v-for="rule of rules" :key="rule_key(rule)">
+                    <tr :class="{off: rule.off, foldable: (fold.folded.length > 0), open: fold.is_open(rule_key(rule))}" @click="fold.toggle(rule_key(rule), $event)">
+                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
+                        <td class="wraps">
+                            <a v-if="(rule.host.startsWith('*') === false)" :href="('https://' + rule.host)" target="_blank" rel="noopener"><code>{{ rule.host }}</code></a>
+                            <code v-else>{{ rule.host }}</code>
+                        </td>
+                        <td data-fold="through">
+                            {{ rule.title }}
+                            <span v-if="(rule.door_problem !== null)" class="bad door-problem" :title="rule.door_problem">· its door is not open</span>
+                        </td>
+                        <td data-fold="auth" :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}<span v-if="(rule.auth !== null && known(rule.auth) === false)" class="bad"> — no such service</span></td>
+                        <td>
+                            <span class="seg">
+                                <button type="button" :class="{on: (rule.off === false)}" :disabled="busy" @click="turn(rule, true)">On</button>
+                                <button type="button" :class="{on: rule.off}" :disabled="busy" @click="turn(rule, false)">Off</button>
+                            </span>
+                        </td>
+                        <td data-fold="acts"><button type="button" class="link" :disabled="busy" @click="drop(rule)">remove</button></td>
+                    </tr>
+                    <tr v-if="fold.is_open(rule_key(rule))" class="fold-more">
+                        <td :colspan="fold.span">
+                            <dl class="fold-details">
+                                <template v-if="fold.folded.includes('through')">
+                                    <dt>Through</dt>
+                                    <dd>{{ rule.title }}<span v-if="(rule.door_problem !== null)" class="bad"> · its door is not open: {{ rule.door_problem }}</span></dd>
+                                </template>
+                                <template v-if="fold.folded.includes('auth')">
+                                    <dt>Protected by</dt>
+                                    <dd :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}<span v-if="(rule.auth !== null && known(rule.auth) === false)" class="bad"> — no such service</span></dd>
+                                </template>
+                                <template v-if="fold.folded.includes('acts')">
+                                    <dt>Change</dt>
+                                    <dd class="fold-actions"><button type="button" class="link" :disabled="busy" @click="drop(rule)">remove</button></dd>
+                                </template>
+                            </dl>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </fold-table>
     <p v-else class="muted">None. This service answers its own address on serviceman; a public address is a name a machine's door answers for it too — <code>echo.example.com</code>, served from that machine's public side, and protected by a wall if you like.</p>
     <div v-if="adding" class="door-add">
         <input v-model.trim="fresh.host" placeholder="echo.example.com" spellcheck="false" aria-label="Address" @keyup.enter="add">
@@ -65,6 +90,7 @@ const service_doors = {
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
 </div>
 `,
+    components: {'fold-table': fold_table},
     props: ['view', 'remotes', 'names'],
     data: function () {
         return {adding: false, fresh: {host: '', machine: '', auth: ''}, busy: false, note: '', bad: false};
@@ -98,6 +124,9 @@ const service_doors = {
         },
     },
     methods: {
+        rule_key: function (rule) {
+            return `${rule.machine} ${rule.host}`;
+        },
         known: function (name) {
             return this.names.includes(name);
         },

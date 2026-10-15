@@ -71,7 +71,7 @@ const fold_table = {
                     break;
                 }
                 if (folded.length === 0) {
-                    width += CARET_WIDTH;
+                    width += ((caret === null) ? CARET_WIDTH : caret_width);
                 }
                 folded.push(name);
                 width -= (widths[name] || 0);
@@ -90,7 +90,7 @@ const fold_table = {
     },
 };
 
-// The chevron's column, as .fold-caret is wide in serviceman.css
+// The chevron's column before it is drawn, as .fold-caret is wide in serviceman.css
 const CARET_WIDTH = 24;
 
 export default fold_table;

@@ -1,3 +1,4 @@
+import fold_table from './fold_table.js';
 import format_ms from './format_ms.js';
 import logline_stage from './logline_stage.js';
 
@@ -20,41 +21,55 @@ const logline_pane = {
         </div>
     </div>
     <h2>Remotes</h2>
-    <div class="wide-scroll">
-        <table class="grid-table doors">
-            <colgroup>
-                <col>
-                <col width="170">
-                <col width="130">
-                <col width="130">
-                <col width="150">
-                <col width="170">
-            </colgroup>
+    <fold-table v-slot="fold" :order="['acts', 'sent', 'waiting']">
+        <table>
             <thead>
                 <tr>
+                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
                     <th>Remote</th>
                     <th>Its logs</th>
-                    <th>Sent</th>
-                    <th>Waiting</th>
+                    <th data-fold="sent">Sent</th>
+                    <th data-fold="waiting">Waiting</th>
                     <th>Last sent</th>
-                    <th></th>
+                    <th data-fold="acts"></th>
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="row of rows" :key="row.name">
-                    <td><button type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button></td>
-                    <td :title="row.stage.detail"><span class="pill" :class="row.stage.pill">{{ row.stage.text }}</span></td>
-                    <td>{{ row.sent }}</td>
-                    <td :class="{busy: row.behind}">{{ row.waiting }}</td>
-                    <td :class="{bad: row.held}">{{ row.last }}</td>
-                    <td><button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></td>
-                </tr>
+                <template v-for="row of rows" :key="row.name">
+                    <tr :class="{foldable: more_of(row, fold.folded), open: fold.is_open(row.name)}" @click="row_click(row, fold, $event)">
+                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg v-if="more_of(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
+                        <td class="wraps"><button type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button></td>
+                        <td :title="row.stage.detail"><span class="pill" :class="row.stage.pill">{{ row.stage.text }}</span></td>
+                        <td data-fold="sent">{{ row.sent }}</td>
+                        <td data-fold="waiting" :class="{busy: row.behind}">{{ row.waiting }}</td>
+                        <td :class="{bad: row.held}">{{ row.last }}</td>
+                        <td data-fold="acts"><button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></td>
+                    </tr>
+                    <tr v-if="fold.is_open(row.name)" class="fold-more">
+                        <td :colspan="fold.span">
+                            <dl class="fold-details">
+                                <template v-if="(fold.folded.includes('sent') && row.sent !== '')">
+                                    <dt>Sent</dt>
+                                    <dd>{{ row.sent }}</dd>
+                                </template>
+                                <template v-if="(fold.folded.includes('waiting') && row.waiting !== '')">
+                                    <dt>Waiting</dt>
+                                    <dd :class="{busy: row.behind}">{{ row.waiting }}</dd>
+                                </template>
+                                <template v-if="(fold.folded.includes('acts') && row.off)">
+                                    <dt>Change</dt>
+                                    <dd class="fold-actions"><button type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></dd>
+                                </template>
+                            </dl>
+                        </td>
+                    </tr>
+                </template>
                 <tr v-if="(rows.length === 0)">
-                    <td class="muted" colspan="6">No remotes yet. Logs come from remotes, where an agent runs — add a remote first.</td>
+                    <td class="muted wraps" colspan="7">No remotes yet. Logs come from remotes, where an agent runs — add a remote first.</td>
                 </tr>
             </tbody>
         </table>
-    </div>
+    </fold-table>
     <p :class="(bad ? 'bad' : 'muted')">{{ note || 'A remote is switched off on its own Logs tab, where it is asked twice: what is written while it is off is never sent.' }}</p>
     <h2>Where Logline is</h2>
     <div class="card svc-status">
@@ -101,6 +116,7 @@ const logline_pane = {
     </div>
 </article>
 `,
+    components: {'fold-table': fold_table},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
@@ -162,6 +178,15 @@ const logline_pane = {
         },
     },
     methods: {
+        // Whether anything folded out of this row has a value to show under it
+        more_of: function (row, folded) {
+            return ((folded.includes('sent') && (row.sent !== '')) || (folded.includes('waiting') && (row.waiting !== '')) || (folded.includes('acts') && row.off));
+        },
+        row_click: function (row, fold, event) {
+            if (this.more_of(row, fold.folded)) {
+                fold.toggle(row.name, event);
+            }
+        },
         viewer_open: function () {
             window.open(this.logline.ui, '_blank', 'noopener');
         },

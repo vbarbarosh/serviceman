@@ -262,50 +262,9 @@ button:disabled:hover {
 
 /* One service as one page: the tab bar is the page's header, so it stays put while the tab's
    own article scrolls under it */
-/* A table wider than the pane scrolls inside itself; the page never slides sideways */
-.wide-scroll {
-    overflow-x: auto;
-    margin: 1rem 0;
-}
-
-table.grid-table {
-    border-collapse: collapse;
-    font-variant-numeric: tabular-nums;
-}
-
-table.grid-table th,
-table.grid-table td {
-    padding: .35rem .8rem .35rem 0;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
-    white-space: nowrap;
-}
-
-table.grid-table th {
-    color: var(--muted);
-    font-weight: normal;
-    font-size: .8rem;
-}
-
-table.grid-table th.tick,
-table.grid-table td.tick {
-    text-align: center;
-    padding-right: 1.2rem;
-}
-
 /* The process tree: the first column is indented by how deep the process sits, and the caret
    turns where a branch is open. A command line is as long as somebody made it, so the column
    ends in an ellipsis and the whole of it is the row's title. */
-table.procs {
-    width: 100%;
-    table-layout: fixed;
-}
-
-table.procs td.tree {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 table.procs tr.folds {
     cursor: pointer;
 }
@@ -314,42 +273,25 @@ table.procs tbody tr:hover td {
     background: var(--panel);
 }
 
+/* A branch opens on its own small square, apart from the click that opens a row's details */
 table.procs .caret {
     display: inline-block;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     margin-right: .3rem;
-    vertical-align: -2px;
+    padding: 1px;
+    border-radius: 4px;
+    vertical-align: -3px;
     color: var(--muted);
-    transition: transform .12s ease;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+
+table.procs .caret svg {
+    display: block;
 }
 
 table.procs .caret.open {
     transform: rotate(90deg);
-}
-
-/* The doors of the machines: what a person types is the wide column, and the rest are as
-   narrow as what they hold */
-table.doors,
-table.rules {
-    width: 100%;
-    /* Narrower than this, the free columns go down to a letter a line; the box scrolls instead */
-    min-width: 56rem;
-    table-layout: fixed;
-}
-
-/* Two words to press, and a space between them */
-table.rules .link + .link {
-    margin-left: .8rem;
-}
-
-/* A rule that is set aside: still written down, and plainly not answering */
-table.rules tr.off td {
-    color: var(--muted);
-}
-
-table.rules tr.off code {
-    text-decoration: line-through;
 }
 
 /* The line that writes a rule: the three parts of it side by side, and not one to a row the
@@ -475,6 +417,121 @@ table.rules tr.off code {
     contain: inline-size;
 }
 
+/* A list-table in a fold-table keeps its own look: its padding, its headers, a hover that
+   shows in a card */
+.fold-room > table.list-table > * > tr > th,
+.fold-room > table.list-table > * > tr > td {
+    padding: .55rem .9rem;
+}
+
+.fold-room > table.list-table > thead > tr > th {
+    font-size: .75rem;
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.fold-room > table.list-table > * > tr > .fold-caret {
+    padding-right: 0;
+    padding-left: .6rem;
+}
+
+.fold-room > table.list-table > tbody > tr.fold-more > td {
+    padding: 0 .9rem .75rem calc(24px + .9rem);
+}
+
+.fold-room > table.list-table > tbody > tr.foldable:hover {
+    background: var(--hover);
+}
+
+/* The process tree in a fold-room: the command takes the room the other columns leave and ends
+   in an ellipsis; measured, it asks for 16rem */
+.fold-room > table.procs > tbody > tr > td.tree {
+    width: 100%;
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fold-room > table.procs.fold-measure > tbody > tr > td.tree {
+    width: auto;
+    max-width: 16rem;
+}
+
+/* A disk's and a package's lines read from the top, the chevron on the first */
+.fold-room > table.disks-table > tbody > tr > td,
+.fold-room > table.packages-table > tbody > tr > td {
+    vertical-align: top;
+}
+
+.fold-room > table.disks-table .fold-caret svg,
+.fold-room > table.packages-table .fold-caret svg {
+    margin-top: .3rem;
+}
+
+/* What a package is wraps in its column as it always has; measured, it asks for 16rem */
+.fold-room > table.packages-table.fold-measure > tbody > tr > td.package-summary {
+    max-width: 16rem;
+    overflow: hidden;
+}
+
+/* The other places a disk is mounted: a line, cut where it is long, the whole list its title */
+.disk-also {
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fold-room > table.list-table > * > tr.group > td {
+    padding: .4rem .9rem;
+}
+
+/* A list-table's message stays on one line too: a long one folds its column, not the row's height */
+.fold-room > table.list-table > * > tr > td.bad {
+    white-space: nowrap;
+}
+
+/* On a phone a list-table's cells come closer, so a short name keeps its line */
+@media (max-width: 560px) {
+    .fold-room > table.list-table > * > tr > th,
+    .fold-room > table.list-table > * > tr > td {
+        padding-left: .6rem;
+        padding-right: .6rem;
+    }
+}
+
+/* A message as long as a paragraph: one line, cut, the whole of it in its title and its details */
+.fold-room .cut-line {
+    display: inline-block;
+    max-width: 28rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+/* A name of many parts wraps between them, and a tag stays whole */
+.fold-room > table > * > tr > .wraps > .row-of {
+    flex-wrap: wrap;
+}
+
+.fold-room > table > * > tr > .wraps .tag {
+    white-space: nowrap;
+}
+
+/* A service's public addresses sit tight in their card, little room around the cells */
+.svc-doors .fold-room {
+    margin: 0;
+}
+
+.fold-room > table.doors-of > * > tr > th,
+.fold-room > table.doors-of > * > tr > td {
+    padding: .35rem .8rem .35rem 0;
+}
+
+.fold-room > table.doors-of > * > tr > .fold-caret {
+    padding-right: 0;
+}
+
 /* What folded out of a row, under it: one line each, its label and its value */
 .fold-details {
     display: grid;
@@ -514,7 +571,7 @@ table.rules tr.off code {
 /* On a phone the labels take less room */
 @media (max-width: 560px) {
     .fold-details {
-        grid-template-columns: 6rem minmax(0, 1fr);
+        grid-template-columns: max-content minmax(0, 1fr);
         gap: .3rem .6rem;
     }
 }
@@ -1764,16 +1821,6 @@ a.button:hover {
     background: var(--bad);
 }
 
-.disks-table td {
-    vertical-align: top;
-    white-space: normal;
-}
-
-.disks-table code,
-.disk-use {
-    white-space: nowrap;
-}
-
 .disks-table tr.muted td {
     color: var(--muted);
 }
@@ -1783,10 +1830,6 @@ a.button:hover {
 }
 
 /* A machine's packages: one line each where the width allows, what it is last */
-.packages-table td {
-    vertical-align: top;
-}
-
 .packages-table td.package-summary {
     min-width: 16rem;
     white-space: normal;
@@ -2580,9 +2623,6 @@ table.procs tr.dim .meter {
 }
 
 /* A service's public addresses: its door names, each with its switch */
-.svc-doors table.doors-of {
-    width: 100%;
-}
 
 .svc-doors table.doors-of tr.off td {
     color: var(--muted);
@@ -2653,6 +2693,17 @@ table.procs tr.dim .meter {
     display: inline-flex;
     gap: .5rem;
     align-items: center;
+    white-space: normal;
+}
+
+/* A test's name breaks only where it must, never short ones mid-word */
+.load-tests td.wraps > b {
+    overflow-wrap: break-word;
+}
+
+/* A run's notes and its log take the width the columns leave them and never widen one */
+.load-tests .lt-room {
+    contain: inline-size;
 }
 
 .lt-lines {

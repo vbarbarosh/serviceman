@@ -1,6 +1,6 @@
 /* The Volumes module's own rules. The host page gives the colours (--panel, --line, --muted,
    --fg, --accent) and the classes the module shares with it: card, list-head, list-acts,
-   list-table, wide-scroll, dot, muted, bad, primary, link. */
+   list-table, fold-table, dot, muted, bad, primary, link. */
 
 .vol {
     display: flex;
@@ -27,16 +27,6 @@
     white-space: nowrap;
 }
 
-/* A long name or folder ends in an ellipsis inside its column; the whole of it is the title */
-.vol-cut {
-    display: inline-block;
-    max-width: 12rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-    white-space: nowrap;
-}
-
 .vol-numbers {
     font-variant-numeric: tabular-nums;
 }
@@ -56,7 +46,7 @@
     display: block;
 }
 
-.vol-acts {
+.vol .vol-acts {
     text-align: right;
 }
 
@@ -64,8 +54,23 @@
     margin-left: .4rem;
 }
 
-/* A row's form or refusal, under it, across the table */
+/* The line of an empty list wraps in the table's width and never widens it */
+.vol-empty {
+    contain: inline-size;
+    white-space: normal;
+}
+
+/* A row's form or refusal, under it, across the table: it wraps in the table's width and never
+   widens it */
 table.list-table tr.vol-sub td {
+    white-space: normal;
+}
+
+table.list-table tr.vol-sub td > * {
+    contain: inline-size;
+}
+
+.vol table.list-table > tbody > tr.vol-sub > td .bad {
     white-space: normal;
 }
 

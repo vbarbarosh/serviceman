@@ -17,12 +17,16 @@
     margin: 0;
 }
 
+/* A card is the container its narrow rules below ask about */
 .dk-group {
+    container-type: inline-size;
     padding: 0;
     overflow-x: auto;
 }
 
+/* On a phone the buttons go under the title rather than off the card */
 .dk-group-head {
+    flex-wrap: wrap;
     padding: .6rem .9rem;
     border-bottom: 1px solid var(--line);
 }
@@ -33,16 +37,17 @@
     white-space: nowrap;
 }
 
-.dk-table {
-    width: 100%;
+/* A table flush with its card, which draws the border around it */
+.dk-group > .fold-room {
+    margin: 0;
 }
 
-.dk-table td {
-    vertical-align: middle;
-}
-
-.dk-name {
-    white-space: nowrap;
+/* The containers' table has no titles: its head row is there for the measuring only */
+.dk-group > .fold-room > table > thead.dk-bare > tr > th {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
 }
 
 .dk-name .dot {
@@ -55,24 +60,8 @@
     margin-left: .45rem;
 }
 
-/* A long image name is cut, and whole in its title; the status and ports wrap before the row
-   grows past its card */
-.dk-image span {
-    display: inline-block;
-    max-width: 16rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-}
-
-table.list-table td.dk-ports,
-table.list-table td.dk-status {
-    white-space: normal;
-}
-
-.dk-acts {
+.dk-group > .fold-room > table > * > tr > td.dk-acts {
     text-align: right;
-    white-space: nowrap;
 }
 
 .dk-acts button + button {
@@ -137,6 +126,11 @@ table.list-table td.dk-status {
     height: 34rem;
 }
 
+/* On a phone the tabs take two lines rather than going off the screen */
+.dk-tabs {
+    flex-wrap: wrap;
+}
+
 .dk-tabs .chip .muted {
     margin-left: .25rem;
 }
@@ -188,59 +182,43 @@ table.list-table td.dk-status {
     white-space: nowrap;
 }
 
-/* The images, volumes and networks lists fit their card whatever the names: every column but
-   the first has its width, the first takes what is left, and what does not fit is cut */
-table.dk-fixed {
-    table-layout: fixed;
+/* How far each column's long value goes before it is cut: as wide as the columns were */
+.dk-image .dk-cut {
+    max-width: 16rem;
 }
 
-table.dk-fixed td,
-table.dk-fixed th {
-    overflow: hidden;
-    text-overflow: ellipsis;
+.dk-users .dk-cut {
+    max-width: 11rem;
 }
 
-table.dk-fixed .dk-cut {
-    max-width: 100%;
+.dk-project .dk-cut {
+    max-width: 10rem;
 }
 
-table.dk-fixed td.dk-acts {
-    overflow: visible;
-    white-space: normal;
+.dk-subnet .dk-cut {
+    max-width: 9rem;
 }
 
-.dk-w-id {
-    width: 7.5rem;
-}
+/* In a narrow card, where the other columns have folded, a long name wraps whole: the dot stays
+   with the service's word, and the container's own name goes under it */
+@container (max-width: 40rem) {
+    .dk-group > .fold-room > table > * > tr > td.dk-name {
+        white-space: nowrap;
+    }
 
-.dk-w-size {
-    width: 5.5rem;
-}
+    .dk-name b,
+    .dk-name .dk-cut {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
 
-.dk-w-age {
-    width: 6.5rem;
-}
+    .dk-name .dk-cut {
+        display: block;
+        max-width: none;
+    }
 
-.dk-w-users {
-    width: 11rem;
-}
-
-.dk-w-acts {
-    width: 12rem;
-}
-
-.dk-w-project {
-    width: 10rem;
-}
-
-.dk-w-driver {
-    width: 5.5rem;
-}
-
-.dk-w-subnet {
-    width: 9rem;
-}
-
-.dk-w-net-acts {
-    width: 8rem;
+    .dk-name b + .dk-cut {
+        margin-left: 0;
+        padding-left: 1.05rem;
+    }
 }
