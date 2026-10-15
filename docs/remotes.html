@@ -806,10 +806,12 @@ bin/restart    starts it again — what a line added to env needs to take
 bin/uninstall  stops it and takes it out of systemd
 README.md      the same, on the machine, for whoever finds it there
 </code></pre>
-<p><strong>Not root, it is kept up by your own systemd.</strong> A shell opened with <code>su</code> or <code>sudo</code> has no
-<code>XDG_RUNTIME_DIR</code>, so <code>systemctl --user</code> there finds no bus; the scripts look for it at
-<code>/run/user/&lt;uid&gt;</code> themselves. With no systemd of yours running at all, <code>bin/install</code> turns
-lingering on, and when it may not, it says so and writes no unit: <code>sudo loginctl enable-linger &lt;you&gt;</code>, then <code>bin/install</code> again.</p>
+<p><strong>Not root, it is kept up by your own systemd,</strong> and the one install line does all it takes.
+Your systemd runs only while you are logged in unless lingering is on, so <code>bin/install</code> turns
+lingering on first, asking for the sudo password once when you may not do it alone. A shell
+opened with <code>su</code> or <code>sudo</code> has no <code>XDG_RUNTIME_DIR</code>, so <code>systemctl --user</code> there finds no bus;
+the scripts look for it at <code>/run/user/&lt;uid&gt;</code> themselves. With no sudo either, it says what to
+run as root and writes no unit: <code>loginctl enable-linger &lt;you&gt;</code>, then <code>bin/install</code> again.</p>
 <p><code>status</code> is for the moment the host is the thing that cannot be reached:</p>
 <pre><code>serviceman-agent 1.0.0 built 2026-08-23T11:32:17.607Z
 pid 203911, up 4h 12m

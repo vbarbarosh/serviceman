@@ -98,11 +98,12 @@ root, `~/serviceman-agent` otherwise:
     bin/uninstall  stops it and takes it out of systemd
     README.md      the same, on the machine, for whoever finds it there
 
-**Not root, it is kept up by your own systemd.** A shell opened with `su` or `sudo` has no
-`XDG_RUNTIME_DIR`, so `systemctl --user` there finds no bus; the scripts look for it at
-`/run/user/<uid>` themselves. With no systemd of yours running at all, `bin/install` turns
-lingering on, and when it may not, it says so and writes no unit: `sudo loginctl enable-linger
-<you>`, then `bin/install` again.
+**Not root, it is kept up by your own systemd,** and the one install line does all it takes.
+Your systemd runs only while you are logged in unless lingering is on, so `bin/install` turns
+lingering on first, asking for the sudo password once when you may not do it alone. A shell
+opened with `su` or `sudo` has no `XDG_RUNTIME_DIR`, so `systemctl --user` there finds no bus;
+the scripts look for it at `/run/user/<uid>` themselves. With no sudo either, it says what to
+run as root and writes no unit: `loginctl enable-linger <you>`, then `bin/install` again.
 
 `status` is for the moment the host is the thing that cannot be reached:
 

@@ -200,29 +200,43 @@ WantedBy=multi-user.target" > /etc/systemd/system/serviceman-agent.service
     exit 0
 fi
 
-# A person's own systemd, for a machine where they are not root. It stops at logout unless
-# lingering is on, which is the one thing here that may ask for a password.
+# A person's own systemd, for a machine where they are not root. It runs only while they are
+# logged in, unless lingering is on: then it starts at boot and stays. So lingering comes first,
+# with sudo once when this user may not turn it on alone: the one install line does it all.
 # A shell opened with su or sudo has no XDG_RUNTIME_DIR, and systemctl --user then finds no bus
 # even while your own systemd runs: where it lives is known, so it is looked for there
 export XDG_RUNTIME_DIR=\\\${XDG_RUNTIME_DIR:-/run/user/\\$(id -u)}
+
+user=\\$(id -un)
 
 user_bus() {
     systemctl --user show-environment >/dev/null 2>&1
 }
 
-# No session, no systemd of your own; lingering starts one that stays
-if ! user_bus; then
-    loginctl enable-linger "\\$(id -un)" 2>/dev/null || true
-    for attempt in 1 2 3 4 5; do
-        user_bus && break
-        sleep 1
-    done
-fi
+lingers() {
+    loginctl show-user "\\$user" --property=Linger 2>/dev/null | grep -q 'Linger=yes'
+}
+
+linger() {
+    loginctl enable-linger "\\$user" 2>/dev/null && return 0
+    command -v sudo >/dev/null 2>&1 || return 1
+    sudo -n loginctl enable-linger "\\$user" 2>/dev/null && return 0
+    echo "serviceman: lingering keeps your own systemd running with nobody logged in; it needs sudo once"
+    sudo loginctl enable-linger "\\$user"
+}
+
+lingers || linger || true
+
+# A systemd that lingering has just started answers a moment later
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    user_bus && break
+    sleep 1
+done
 
 # The unit is written only for a systemd that answers: one left behind sends bin/restart to it
 if ! user_bus; then
-    echo "serviceman: your own systemd does not answer in this shell, and it could not be started"
-    echo "serviceman: to keep the agent up, run once as root: loginctl enable-linger \\$(id -un)"
+    echo "serviceman: your own systemd does not answer, and lingering could not be turned on"
+    echo "serviceman: to keep the agent up, run once as root: loginctl enable-linger \\$user"
     echo "serviceman: then run this again: \\$prefix/bin/install"
     by_hand
 fi
@@ -235,14 +249,9 @@ systemctl --user enable --now serviceman-agent
 systemctl --user restart serviceman-agent
 echo "serviceman: the agent is up — systemctl --user status serviceman-agent"
 
-if loginctl show-user "\\$(id -un)" --property=Linger 2>/dev/null | grep -q 'Linger=yes'; then
-    exit 0
+if ! lingers; then
+    echo "serviceman: lingering is off, so it stops when you log out. To keep it: sudo loginctl enable-linger \\$user"
 fi
-if loginctl enable-linger "\\$(id -un)" 2>/dev/null; then
-    echo "serviceman: lingering is on, so it keeps running when you log out"
-    exit 0
-fi
-echo "serviceman: it stops when you log out. To keep it: sudo loginctl enable-linger \\$(id -un)"
 INSTALLEOF
 
 cat > "$prefix/bin/uninstall" <<UNINSTALLEOF
