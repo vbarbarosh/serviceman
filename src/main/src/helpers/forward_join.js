@@ -64,13 +64,25 @@ function forward_join(app, remote, id, name)
     far.pipe(near);
 }
 
-// What went through one forward since serviceman started — sent to the service, and back from
-// it: kept by name, so a forward whose
-// definition changes goes on counting
+// What went through one forward, sent to the service and back, by name so that an edited
+// forward goes on counting; forward_totals_apply and forwards_sample fill in the rest
 function forward_counts(app, name)
 {
     if (app.forward_counts[name] === undefined) {
-        app.forward_counts[name] = {open: 0, total: 0, bytes_sent: 0, bytes_back: 0, error: null, error_at: null};
+        app.forward_counts[name] = {
+            open: 0,
+            total: 0,
+            bytes_sent: 0,
+            bytes_back: 0,
+            error: null,
+            error_at: null,
+            speed_sent: 0,
+            speed_back: 0,
+            history_sent: [],
+            history_back: [],
+            samples: [],
+            bucket: null,
+        };
     }
     return app.forward_counts[name];
 }

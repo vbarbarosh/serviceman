@@ -8,6 +8,10 @@ const counters_read = require('./src/helpers/counters_read');
 const counters_write = require('./src/helpers/counters_write');
 const doors_tell = require('./src/helpers/doors_tell');
 const file_log_from_env = require('./src/helpers/file_log_from_env');
+const forward_totals_apply = require('./src/helpers/forward_totals_apply');
+const forward_totals_read = require('./src/helpers/forward_totals_read');
+const forward_totals_write = require('./src/helpers/forward_totals_write');
+const forwards_sample = require('./src/helpers/forwards_sample');
 const forwards_tell = require('./src/helpers/forwards_tell');
 const image_prepull_start = require('./src/helpers/image_prepull_start');
 const log_close = require('./src/helpers/log_close');
@@ -36,6 +40,10 @@ const MEASURE_INTERVAL_MS = 10000;
 const REAP_INTERVAL_MS = 5000;
 // How often the counters go to disk, when they moved; a crash loses at most this much of them
 const COUNTERS_INTERVAL_MS = 5000;
+// The forwards' speeds are sampled every second; what they carried goes to disk less often,
+// since bytes move all the time a forward is busy
+const FORWARDS_SAMPLE_INTERVAL_MS = 1000;
+const FORWARD_TOTALS_INTERVAL_MS = 30000;
 // How soon a machine hears about Logline again after the telling failed — Logline away, a
 // token that could not be issued — and a token that could not be taken back is tried again
 const LOGLINE_INTERVAL_MS = 60000;
@@ -81,6 +89,7 @@ async function main()
         for (const service of app.services) {
             counters_apply(service, saved[service.name]);
         }
+        forward_totals_apply(app, forward_totals_read(app));
         await probe_all(app);
         start_always(app);
         image_prepull_start(app);
@@ -95,6 +104,12 @@ async function main()
         setInterval(function () {
             counters_save(app);
         }, COUNTERS_INTERVAL_MS);
+        setInterval(function () {
+            forwards_sample(app, Date.now());
+        }, FORWARDS_SAMPLE_INTERVAL_MS);
+        setInterval(function () {
+            forward_totals_save(app);
+        }, FORWARD_TOTALS_INTERVAL_MS);
         // A machine that has been connected for a week hears about a newer agent too
         setInterval(function () {
             remotes_update(app);
@@ -250,10 +265,12 @@ function watch_signals(app)
             const promise = stop_programs(app);
             promise.then(function () {
                 counters_save(app);
+                forward_totals_save(app);
                 log_event(app, 'serviceman_end_ok', {signal, containers: 'left running'});
                 leave(app);
             }, function (error) {
                 counters_save(app);
+                forward_totals_save(app);
                 log_event(app, 'serviceman_end_error', {signal, reason: error.message});
                 leave(app);
             });
@@ -274,6 +291,17 @@ function counters_save(app)
     }
     catch (error) {
         log_event(app, 'counters_write_error', {reason: error.message});
+    }
+}
+
+// The same for what the forwards carried
+function forward_totals_save(app)
+{
+    try {
+        forward_totals_write(app);
+    }
+    catch (error) {
+        log_event(app, 'forward_totals_write_error', {reason: error.message});
     }
 }
 

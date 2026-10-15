@@ -1,4 +1,5 @@
 import fold_table from './fold_table.js';
+import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import forward_end_parse from './forward_end_parse.js';
@@ -13,7 +14,7 @@ const forwards_section = {
 <div class="forwards">
     <h1>Forwards</h1>
     <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once.</p>
-    <fold-table v-slot="fold" :order="['acts', 'problem', 'through', 'to', 'from']">
+    <fold-table v-slot="fold" :order="['acts', 'problem', 'through', 'speed', 'to', 'from']">
         <table>
             <thead>
                 <tr>
@@ -23,6 +24,7 @@ const forwards_section = {
                     <th data-fold="to">Shows up on</th>
                     <th>Now</th>
                     <th v-if="wrongs" data-fold="problem">What is wrong</th>
+                    <th data-fold="speed">Speed</th>
                     <th data-fold="through">Through it</th>
                     <th data-fold="acts" class="tick">On</th>
                     <th data-fold="acts"></th>
@@ -37,6 +39,7 @@ const forwards_section = {
                         <td data-fold="to"><span class="muted">{{ title_of(item.to.remote) }} · </span><code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></td>
                         <td><span class="dot-name" :class="{bad: bad_of(item)}"><span class="dot" :class="dot_of(item)"/>{{ word_of(item) }}</span></td>
                         <td v-if="wrongs" data-fold="problem" :class="(problem_of(item) === null ? 'muted' : 'bad')">{{ wrong_text(item) }}</td>
+                        <td data-fold="speed"><span class="fwd-speed" :class="{muted: idle(item)}">{{ speed_text(item) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(item) + ' minutes')"><polyline class="back" :points="spark(item, item.history_back)"/><polyline class="sent" :points="spark(item, item.history_sent)"/></svg></td>
                         <td data-fold="through" class="muted">{{ through_text(item) }}</td>
                         <td data-fold="acts" class="tick"><input type="checkbox" title="Listening, or set aside for now" :checked="(item.off === false)" :disabled="busy" @change="turn(item, $event.target.checked)"></td>
                         <td data-fold="acts">
@@ -58,6 +61,10 @@ const forwards_section = {
                                 <template v-if="(fold.folded.includes('problem') && wrong_text(item) !== '')">
                                     <dt>What is wrong</dt>
                                     <dd :class="(problem_of(item) === null ? 'muted' : 'bad')">{{ wrong_text(item) }}</dd>
+                                </template>
+                                <template v-if="fold.folded.includes('speed')">
+                                    <dt>Speed</dt>
+                                    <dd><span class="fwd-speed" :class="{muted: idle(item)}">{{ speed_text(item) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none"><polyline class="back" :points="spark(item, item.history_back)"/><polyline class="sent" :points="spark(item, item.history_sent)"/></svg></dd>
                                 </template>
                                 <template v-if="fold.folded.includes('through')">
                                     <dt>Through it</dt>
@@ -219,6 +226,23 @@ const forwards_section = {
             }
             return ((item.error === null) ? '' : `last failure ${this.ago(item.error_at)}: ${item.error}`);
         },
+        idle: function (item) {
+            return ((item.speed_sent === 0) && (item.speed_back === 0));
+        },
+        // Each way, now: what went to the service and what came back, a second at a time
+        speed_text: function (item) {
+            return (this.idle(item) ? 'idle' : `↑ ${format_bps(item.speed_sent)} ↓ ${format_bps(item.speed_back)}`);
+        },
+        history_minutes: function (item) {
+            return Math.max(1, Math.round(item.history_back.length/12));
+        },
+        // One way's last ten minutes as a line; both ways share one scale, so they compare
+        spark: function (item, values) {
+            const top = Math.max(1, ...item.history_sent, ...item.history_back);
+            const step = (80/Math.max(1, (HISTORY_LENGTH - 1)));
+            const left = (80 - (values.length - 1)*step);
+            return values.map((v, i) => `${(left + i*step).toFixed(1)},${(17 - (v/top)*16).toFixed(1)}`).join(' ');
+        },
         through_text: function (item) {
             if (item.total === 0) {
                 return 'nothing yet';
@@ -357,6 +381,9 @@ function end_words(text)
     }
     return text;
 }
+
+// The 5-second buckets the server keeps for a forward: ten minutes
+const HISTORY_LENGTH = 120;
 
 function fresh_empty()
 {

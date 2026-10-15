@@ -35,8 +35,11 @@ function app_from_config(config)
         started_at: Date.now(),
         // Where the service door ended up, once it is open
         listen_port: null,
-        // What went through each forward since this serviceman started, by name
+        // What went through each forward, by name: since this serviceman started, and the
+        // totals of the last one added
         forward_counts: {},
+        // What forward_totals_write last put on disk, so an unchanged one is not written again
+        forward_totals_text: null,
     };
     for (const item of config.services) {
         out.services.push(Object.assign({}, item, {state: state_from_service(item)}));

@@ -317,6 +317,31 @@ table.procs .caret.open {
     width: 8rem;
 }
 
+/* A forward's speed each way, and its last ten minutes beside it: back in the accent, sent
+   muted; the number keeps its width as it changes, so the columns do not shift */
+.fwd-speed {
+    display: inline-block;
+    min-width: 8.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.fwd-spark {
+    vertical-align: middle;
+}
+
+.fwd-spark polyline {
+    fill: none;
+    stroke-width: 1.5;
+}
+
+.fwd-spark polyline.back {
+    stroke: var(--accent);
+}
+
+.fwd-spark polyline.sent {
+    stroke: var(--muted);
+}
+
 /* A new forward drawn as what it does: the machine with the service, an arrow, the machine
    it shows up on; each box says back what was typed in it. On a phone the boxes stack and
    the arrow points down. */

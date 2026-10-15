@@ -1,7 +1,7 @@
 const forward_join = require('./forward_join');
 
 // One forward as the page shows it: the two ends, whether the near one listens and where, what
-// stands in its way now, and what went through it
+// stands in its way now, and what went through it and how fast
 function view_from_forward(app, forward)
 {
     const from = app.remote_by_name[forward.from.remote];
@@ -19,6 +19,12 @@ function view_from_forward(app, forward)
         total: counts.total,
         bytes_sent: counts.bytes_sent,
         bytes_back: counts.bytes_back,
+        // Bytes per second over the last 3 seconds, and over each 5-second bucket of the last
+        // 10 minutes, oldest first, the one in progress left out (forwards_sample)
+        speed_sent: counts.speed_sent,
+        speed_back: counts.speed_back,
+        history_sent: counts.history_sent,
+        history_back: counts.history_back,
         error: counts.error,
         error_at: counts.error_at,
     });
