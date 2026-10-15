@@ -375,24 +375,25 @@ table.rules tr.off code {
     width: 8rem;
 }
 
-/* Forwards: one line each, what it is and where it stands; the rest opens under it. The name
-   and the two machines are cut with an ellipsis, the state word is kept whole where it fits. */
-.forward-list {
+/* A list of one line each, what it is and where it stands, the rest opening under it on a
+   click: the forwards, the names the doors answer, the doors. The name and the middle are cut
+   with an ellipsis; the state word is kept whole where it fits. */
+.fold-list {
     list-style: none;
     margin: 1rem 0;
     padding: 0;
     border-top: 1px solid var(--line);
 }
 
-.forward-list > li {
+.fold-list > li {
     border-bottom: 1px solid var(--line);
 }
 
-.forward-list > li.empty {
+.fold-list > li.empty {
     padding: .5rem 0;
 }
 
-.forward-line {
+.fold-line {
     display: flex;
     align-items: center;
     gap: .5rem;
@@ -408,21 +409,21 @@ table.rules tr.off code {
     transition: background .12s ease;
 }
 
-.forward-line:hover {
+.fold-line:hover {
     background: var(--panel);
 }
 
-.forward-line .caret {
+.fold-line .caret {
     flex: none;
     color: var(--muted);
     transition: transform .12s ease;
 }
 
-.forward-list > li.open .caret {
+.fold-list > li.open .caret {
     transform: rotate(90deg);
 }
 
-.forward-line .name {
+.fold-line .name {
     flex: 0 1 auto;
     min-width: 3rem;
     max-width: 40%;
@@ -431,7 +432,7 @@ table.rules tr.off code {
     white-space: nowrap;
 }
 
-.forward-line .route {
+.fold-line .route {
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
@@ -439,7 +440,7 @@ table.rules tr.off code {
     white-space: nowrap;
 }
 
-.forward-line .word {
+.fold-line .word {
     flex: 0 1 auto;
     min-width: 0;
     max-width: 45%;
@@ -448,32 +449,32 @@ table.rules tr.off code {
     white-space: nowrap;
 }
 
-.forward-list > li.off .name {
+.fold-list > li.off .name {
     color: var(--muted);
     text-decoration: line-through;
 }
 
-.forward-details {
+.fold-details {
     padding: 0 .25rem .75rem 1.6rem;
 }
 
-.forward-details dl {
+.fold-details dl {
     display: grid;
     grid-template-columns: 7.5rem minmax(0, 1fr);
     gap: .3rem 1rem;
     margin: 0 0 .5rem;
 }
 
-.forward-details dt {
+.fold-details dt {
     color: var(--muted);
 }
 
-.forward-details dd {
+.fold-details dd {
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-.forward-actions {
+.fold-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -481,32 +482,28 @@ table.rules tr.off code {
 }
 
 /* A box to tick beside its word, not a field as wide as the form's */
-.forward-actions label {
+.fold-actions label {
     display: inline-flex;
     align-items: center;
     gap: .4rem;
 }
 
-.form .forward-actions input[type=checkbox] {
+.form .fold-actions input[type=checkbox] {
     width: auto;
 }
 
-/* With room to spare the names take one width, so the machines line up under each other */
+/* With room to spare the names take one width, so what follows lines up under each other */
 @media (min-width: 900px) {
-    .forward-line .name {
+    .fold-line .name {
         flex-basis: 14rem;
     }
 }
 
-/* On a phone the label goes above what it names: two columns there leave the value no room */
+/* On a phone the labels take less room, and each detail stays one line: its label, its value */
 @media (max-width: 560px) {
-    .forward-details dl {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 0;
-    }
-
-    .forward-details dd {
-        margin-bottom: .4rem;
+    .fold-details dl {
+        grid-template-columns: 6rem minmax(0, 1fr);
+        gap: .3rem .6rem;
     }
 }
 

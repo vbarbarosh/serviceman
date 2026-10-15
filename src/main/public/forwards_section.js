@@ -12,16 +12,16 @@ const forwards_section = {
 <div class="forwards">
     <h1>Forwards</h1>
     <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once.</p>
-    <ul class="forward-list">
+    <ul class="fold-list">
         <li v-for="item of forwards" :key="item.name" :class="{off: item.off, open: is_open(item)}">
-            <button type="button" class="forward-line" :aria-expanded="is_open(item)" @click="toggle(item)">
+            <button type="button" class="fold-line" :aria-expanded="is_open(item)" @click="toggle(item)">
                 <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
                 <span class="dot" :class="dot_of(item)"/>
                 <b class="name" :title="item.name">{{ item.name }}</b>
                 <span class="route muted" :title="(title_of(item.from.remote) + ' → ' + title_of(item.to.remote))">{{ title_of(item.from.remote) }} → {{ title_of(item.to.remote) }}</span>
                 <span class="word" :class="{bad: bad_of(item)}" :title="(item.problem === null ? 'ready' : item.problem)">{{ word_of(item) }}</span>
             </button>
-            <div v-if="is_open(item)" class="forward-details">
+            <div v-if="is_open(item)" class="fold-details">
                 <dl>
                     <dt>From</dt>
                     <dd>{{ title_of(item.from.remote) }} · <code>{{ end_text(item.from) }}</code></dd>
@@ -39,7 +39,7 @@ const forwards_section = {
                     <dd v-if="(item.total === 0)" class="muted">nothing yet</dd>
                     <dd v-else>{{ item.open }} open · {{ item.total }} in all · ↑ {{ bytes(item.bytes_sent) }} sent · ↓ {{ bytes(item.bytes_back) }} back</dd>
                 </dl>
-                <div class="forward-actions">
+                <div class="fold-actions">
                     <label><input type="checkbox" :checked="(item.off === false)" :disabled="busy" @change="turn(item, $event.target.checked)"> Listening</label>
                     <button type="button" class="link" :disabled="busy" @click="edit(item)">edit</button>
                     <button type="button" class="link" :disabled="busy" @click="drop(item)">forget it</button>

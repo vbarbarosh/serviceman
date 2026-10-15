@@ -19,44 +19,33 @@ const networking_pane = {
     <h2>What the doors answer</h2>
     <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
     <p class="muted"><b>Behind</b> is a service asked before anything else is touched — an authwall. The door asks it <code>/auth/sidecar</code>, carries its <code>X-Auth-User</code> to the service on a yes, and on a no sends the visitor to <code>/auth/sign-in</code> on the name they asked for; a wall that cannot be asked lets nothing through. One wall stands in front of as many names as point at it, and serviceman writes nothing into it: whose email may pass is the wall's own business.</p>
-    <div class="wide-scroll">
-        <table class="grid-table rules">
-            <colgroup>
-                <col width="180">
-                <col>
-                <col width="180">
-                <col width="180">
-                <col width="50">
-                <col width="130">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Machine</th>
-                    <th>Name</th>
-                    <th>Answered by</th>
-                    <th>Behind</th>
-                    <th class="tick">On</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="rule of rules" :key="(rule.machine + ' ' + rule.host)" :class="{off: rule.off}">
-                    <td>{{ rule.title }}</td>
-                    <td><code>{{ rule.host }}</code></td>
-                    <td>{{ rule.service }}<span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></td>
-                    <td>{{ (rule.auth === null ? '' : rule.auth) }}</td>
-                    <td class="tick"><input type="checkbox" title="Answering, or set aside for now" :checked="(rule.off === false)" :disabled="busy" @change="turn(rule, $event.target.checked)"></td>
-                    <td>
-                        <button type="button" class="link" :disabled="busy" @click="edit(rule)">edit</button>
-                        <button type="button" class="link" :disabled="busy" @click="drop(rule)">forget it</button>
-                    </td>
-                </tr>
-                <tr v-if="(rules.length === 0)">
-                    <td class="muted" colspan="6">No door answers anything yet.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <ul class="fold-list">
+        <li v-for="rule of rules" :key="rule_key(rule)" :class="{off: rule.off, open: rule_open(rule)}">
+            <button type="button" class="fold-line" :aria-expanded="rule_open(rule)" @click="rule_toggle(rule)">
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <span class="dot" :class="rule_dot(rule)"/>
+                <b class="name" :title="rule.host">{{ rule.host }}</b>
+                <span class="route muted" :title="(rule.title + ' → ' + rule.service)">{{ rule.title }} → {{ rule.service }}</span>
+                <span class="word" :class="{bad: (known(rule.service) === false), muted: (rule.auth === null && rule.off === false && known(rule.service))}">{{ rule_word(rule) }}</span>
+            </button>
+            <div v-if="rule_open(rule)" class="fold-details">
+                <dl>
+                    <dt>Door of</dt>
+                    <dd>{{ rule.title }}</dd>
+                    <dt>Answered by</dt>
+                    <dd>{{ rule.service }}<span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></dd>
+                    <dt>Behind</dt>
+                    <dd :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}</dd>
+                </dl>
+                <div class="fold-actions">
+                    <label><input type="checkbox" :checked="(rule.off === false)" :disabled="busy" @change="turn(rule, $event.target.checked)"> Answering</label>
+                    <button type="button" class="link" :disabled="busy" @click="edit(rule)">edit</button>
+                    <button type="button" class="link" :disabled="busy" @click="drop(rule)">forget it</button>
+                </div>
+            </div>
+        </li>
+        <li v-if="(rules.length === 0)" class="muted empty">No door answers anything yet.</li>
+    </ul>
     <div class="rule-add">
         <select v-model="fresh.machine">
             <option value="">which machine</option>
@@ -80,38 +69,32 @@ const networking_pane = {
     <pre class="tail">SERVICEMAN_HTTP_SOCKET_MODE=0660
 
 bin/restart</pre>
-    <div class="wide-scroll">
-        <table class="grid-table doors">
-            <colgroup>
-                <col width="200">
-                <col width="200">
-                <col width="240">
-                <col width="110">
-                <col>
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Machine</th>
-                    <th>Door</th>
-                    <th>Routes</th>
-                    <th>Riding now</th>
-                    <th>Where it is</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="item of machines" :key="item.name">
-                    <td><span class="dot-name"><span class="dot" :class="(item.phase === 'online' ? 'running' : 'stopped')"/>{{ item.title || item.name }}</span></td>
-                    <td :class="{muted: (door_open(item) === false)}">{{ door_text(item) }}</td>
-                    <td :class="routes_of(item).tone" :title="routes_of(item).hint">{{ routes_of(item).text }}</td>
-                    <td class="muted">{{ (item.streams === 0 ? '' : item.streams + (item.streams === 1 ? ' stream' : ' streams')) }}</td>
-                    <td class="muted"><code>{{ door_path(item) }}</code></td>
-                </tr>
-                <tr v-if="(machines.length === 0)">
-                    <td class="muted" colspan="5">No machines yet. A door is a machine's own — add a remote first.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <ul class="fold-list">
+        <li v-for="item of machines" :key="item.name" :class="{open: door_shown(item)}">
+            <button type="button" class="fold-line" :aria-expanded="door_shown(item)" @click="door_toggle(item)">
+                <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <span class="dot" :class="(item.phase === 'online' ? 'running' : '')"/>
+                <b class="name" :title="(item.title || item.name)">{{ item.title || item.name }}</b>
+                <span class="route muted" :title="door_text(item)">{{ door_text(item) }}</span>
+                <span class="word" :class="routes_of(item).tone" :title="routes_of(item).hint">{{ routes_of(item).text }}</span>
+            </button>
+            <div v-if="door_shown(item)" class="fold-details">
+                <dl>
+                    <dt>Door</dt>
+                    <dd :class="{muted: (door_open(item) === false)}">{{ door_text(item) }}</dd>
+                    <dt>Routes</dt>
+                    <dd><span :class="routes_of(item).tone">{{ routes_of(item).text }}</span><div class="muted">{{ routes_of(item).hint }}</div></dd>
+                    <dt>Riding now</dt>
+                    <dd :class="{muted: (item.streams === 0)}">{{ (item.streams === 0 ? 'nothing' : item.streams + (item.streams === 1 ? ' stream' : ' streams')) }}</dd>
+                    <template v-if="(door_path(item) !== '')">
+                        <dt>Where it is</dt>
+                        <dd><code>{{ door_path(item) }}</code></dd>
+                    </template>
+                </dl>
+            </div>
+        </li>
+        <li v-if="(machines.length === 0)" class="muted empty">No machines yet. A door is a machine's own — add a remote first.</li>
+    </ul>
     <p class="muted">Then point that machine's web server at the file, keeping the <code>Host</code> header as it came — the door answers by that name and nothing else.</p>
     <forwards-section :state="state"/>
 </article>
@@ -122,7 +105,8 @@ bin/restart</pre>
     data: function () {
         // `editing` is the rule the line below is rewriting — the same three boxes, so a rule is
         // changed where it was written rather than in a form of its own
-        return {fresh: {machine: '', host: '', service: '', auth: ''}, editing: null, note: '', bad: false, busy: false};
+        // `rules_opened` and `doors_opened` are the lines whose details are shown
+        return {fresh: {machine: '', host: '', service: '', auth: ''}, editing: null, note: '', bad: false, busy: false, rules_opened: {}, doors_opened: {}};
     },
     computed: {
         machines: function () {
@@ -156,6 +140,37 @@ bin/restart</pre>
     methods: {
         known: function (name) {
             return this.services.some(v => v.name === name);
+        },
+        rule_key: function (rule) {
+            return `${rule.machine} ${rule.host}`;
+        },
+        rule_open: function (rule) {
+            return (this.rules_opened[this.rule_key(rule)] === true);
+        },
+        rule_toggle: function (rule) {
+            this.rules_opened = Object.assign({}, this.rules_opened, {[this.rule_key(rule)]: (this.rule_open(rule) === false)});
+        },
+        // Where a rule stands, in a word or two for its one line
+        rule_word: function (rule) {
+            if (this.known(rule.service) === false) {
+                return 'no such service';
+            }
+            if (rule.off) {
+                return 'set aside';
+            }
+            return ((rule.auth === null) ? 'no wall' : `behind ${rule.auth}`);
+        },
+        rule_dot: function (rule) {
+            if (this.known(rule.service) === false) {
+                return 'failed';
+            }
+            return (rule.off ? '' : 'running');
+        },
+        door_shown: function (item) {
+            return (this.doors_opened[item.name] === true);
+        },
+        door_toggle: function (item) {
+            this.doors_opened = Object.assign({}, this.doors_opened, {[item.name]: (this.door_shown(item) === false)});
         },
         door_open: function (item) {
             const door = door_of(item);
