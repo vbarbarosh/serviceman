@@ -178,12 +178,15 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 | `from.port`   | A port there, on its loopback unless `from.host` names an address it reaches.      |
 | `from.socket` | Or a socket file there.                                                            |
 | `to.remote`   | The machine it shows up on, which listens.                                         |
-| `to.socket`   | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. |
+| `to.here`     | Or `true` in place of `to.remote`: it shows up on serviceman itself, which listens. |
+| `to.socket`   | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. On serviceman itself, a path inside its state dir, written from it: `sockets/loki.sock`. |
 | `to.port`     | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
 
-Both machines run the agent, version 1.15 or newer. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
-says what happens while one of them is away.
+Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
+needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
+says what happens while one of them is away, and [onto serviceman itself](remotes.md#a-forward-onto-serviceman-itself)
+where its socket lands.
 
 ### Logline
 

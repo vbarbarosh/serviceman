@@ -40,6 +40,10 @@ function app_from_config(config)
         forward_counts: {},
         // What forward_totals_write last put on disk, so an unchanged one is not written again
         forward_totals_text: null,
+        // The forwards serviceman itself listens for, by name, and one change to them at a time
+        // (forwards_here)
+        forwards_here: {},
+        forwards_here_lock: Promise.resolve(),
     };
     for (const item of config.services) {
         out.services.push(Object.assign({}, item, {state: state_from_service(item)}));

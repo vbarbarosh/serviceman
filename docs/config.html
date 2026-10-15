@@ -978,8 +978,12 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <td>The machine it shows up on, which listens.</td>
 </tr>
 <tr>
+<td><code>to.here</code></td>
+<td>Or <code>true</code> in place of <code>to.remote</code>: it shows up on serviceman itself, which listens.</td>
+</tr>
+<tr>
 <td><code>to.socket</code></td>
-<td>A socket file there, <code>0600</code>: only the agent&#39;s user may open it. <code>~/</code> is that user&#39;s home.</td>
+<td>A socket file there, <code>0600</code>: only the agent&#39;s user may open it. <code>~/</code> is that user&#39;s home. On serviceman itself, a path inside its state dir, written from it: <code>sockets/loki.sock</code>.</td>
 </tr>
 <tr>
 <td><code>to.port</code></td>
@@ -991,8 +995,10 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 </tr>
 </tbody></table>
 </div>
-<p>Both machines run the agent, version 1.15 or newer. <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>
-says what happens while one of them is away.</p>
+<p>Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
+needs it only on <code>from</code>. <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>
+says what happens while one of them is away, and <a href="remotes.html#a-forward-onto-serviceman-itself">onto serviceman itself</a>
+where its socket lands.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>

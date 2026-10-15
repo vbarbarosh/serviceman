@@ -4,6 +4,7 @@ const counters_apply = require('./counters_apply');
 const counters_from_service = require('./counters_from_service');
 const doors_tell = require('./doors_tell');
 const externals_attach = require('./externals_attach');
+const forwards_here = require('./forwards_here');
 const forwards_tell = require('./forwards_tell');
 const link_send_message = require('../../../helpers/link_send_message');
 const log_event = require('./log_event');
@@ -93,6 +94,7 @@ async function app_apply_config(app, config)
     });
     doors_tell(app);
     forwards_tell(app);
+    forwards_here(app);
     for (const service of fresh) {
         await service_probe(app, service);
     }

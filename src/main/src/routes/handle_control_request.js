@@ -1685,6 +1685,8 @@ function state_from_app(app)
         services,
         remotes,
         forwards: app.config.forwards.map(v => view_from_forward(app, v)),
+        // Where a forward that shows up on serviceman itself puts its socket file
+        state_dir: app.state_dir,
         // What k6 is sent at, each with the address it asks, and the runs so far, oldest first
         load_tests: app.config.load_tests.map(v => Object.assign({}, v, {url_asked: load_test_url(app, v)})),
         // A run's lines are its log, asked for when opened; one going shows its last few

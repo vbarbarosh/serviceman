@@ -5,12 +5,15 @@ const forward_join = require('./forward_join');
 function view_from_forward(app, forward)
 {
     const from = app.remote_by_name[forward.from.remote];
-    const to = app.remote_by_name[forward.to.remote];
-    const said = (((to === undefined) || (to.state.forwards_said === null)) ? undefined : to.state.forwards_said[forward.name]);
+    // serviceman itself, for a forward that shows up here: what it listens on is its own
+    // (forwards_here), in the same shape as what an agent says back
+    const to = (forward.to.here ? null : app.remote_by_name[forward.to.remote]);
+    const said = said_of(app, forward, to);
     const counts = forward_join.counts(app, forward.name);
     const now = now_of(forward, from, to, said);
     return Object.assign({}, forward, {
-        // Where the agent listens, its ~ written out; null while it does not
+        // Where the agent listens, its ~ written out, or where serviceman does, inside its
+        // state dir; null while it does not
         at: (((said === undefined) || (said.error !== null)) ? null : said.at),
         // Where it stands, as a word the page shows on the forward's one line, and in full
         state: now.state,
@@ -38,6 +41,9 @@ function now_of(forward, from, to, said)
     if (forward.off) {
         return {state: 'aside', problem: 'set aside'};
     }
+    if (to === null) {
+        return now_here(from, said);
+    }
     const can = (((to.state.resources === null) || (to.state.resources.can === undefined)) ? [] : to.state.resources.can);
     if ((to.state.phase === 'online') && (can.includes('forwards') === false)) {
         return {state: 'old_agent', problem: `the agent on ${to.name} is older than forwards — update it`};
@@ -55,6 +61,33 @@ function now_of(forward, from, to, said)
         return {state: 'from_offline', problem: `${from.name} is offline`};
     }
     return {state: 'ready', problem: null};
+}
+
+// The same for a forward serviceman listens for itself: it has no link to lose
+function now_here(from, said)
+{
+    if (said === undefined) {
+        return {state: 'telling', problem: 'serviceman is opening it'};
+    }
+    if (said.error !== null) {
+        return {state: 'cannot_listen', problem: `serviceman cannot listen: ${said.error}`};
+    }
+    if (from.state.phase !== 'online') {
+        return {state: 'from_offline', problem: `${from.name} is offline`};
+    }
+    return {state: 'ready', problem: null};
+}
+
+// What the machine at `to` said about the forward, {at, error}, or undefined while it said nothing
+function said_of(app, forward, to)
+{
+    if (to === null) {
+        return app.forwards_here[forward.name];
+    }
+    if ((to === undefined) || (to.state.forwards_said === null)) {
+        return undefined;
+    }
+    return to.state.forwards_said[forward.name];
 }
 
 module.exports = view_from_forward;

@@ -569,6 +569,34 @@ same thing written the other way round.
 Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.
 
+### A forward onto serviceman itself
+
+`to` may be serviceman itself instead of a machine: `"here": true` in place of `remote`.
+serviceman then listens in place of an agent, and the machine with the service is the only one
+that needs one. vps1's Loki, as a socket file beside serviceman:
+
+```json
+"forwards": [
+    {"name": "loki", "from": {"remote": "vps1", "port": 3100}, "to": {"here": true, "socket": "sockets/loki.sock"}}
+]
+```
+
+- **Where the socket lands.** In serviceman's state dir (`SERVICEMAN_STATE_DIR`), written from
+  it: `sockets/loki.sock` is `data/sockets/loki.sock`. A path from `/` or `~/`, or one that goes
+  up with `..`, is refused. Its folder is made when it is missing. `bin/run` already mounts the
+  host's `./data` at `/app/data`, the state dir in the image, so the socket is on the host's
+  disk at `./data/sockets/loki.sock` with no extra docker mount.
+- **Whose it is.** The socket is `0600`. A serviceman that runs as root, as it does in a rootful
+  docker, gives it, and any folder it made for it, to whoever owns the state dir: on the host,
+  the person who owns `./data` opens it, and nobody else. Any other serviceman keeps it for its
+  own user.
+- **A port** (`"port": 3100`) listens on serviceman's own `127.0.0.1`. Under `bin/run` that is
+  the container's loopback, which the host does not reach; a socket is the way out of it.
+- **The rest is a forward like any other.** A connection while vps1 is away is closed at once
+  and the reason is kept; a file left by a serviceman that crashed is taken over, a file that is
+  not a socket is never deleted, and a socket that cannot listen is tried again every minute and
+  shown on the page. A forward set aside or taken out of the config closes, and its file goes.
+
 ## Through a reverse proxy
 
 The agent asks for an HTTP upgrade on `/api/v1/remote`, the same shape as a websocket. nginx

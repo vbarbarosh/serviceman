@@ -312,11 +312,6 @@ table.procs .caret.open {
     width: 16rem;
 }
 
-/* A forward's name is short; its two ends are paths that may be long and wrap where they must */
-.form .rule-add input.short {
-    width: 8rem;
-}
-
 /* A forward's speed each way, and its last ten minutes beside it: back in the accent, sent
    muted; the number keeps its width as it changes, so the columns do not shift */
 .fwd-speed {
@@ -432,8 +427,16 @@ table.procs .caret.open {
 
 .fwd-make-foot label {
     display: inline-flex;
+    max-width: 100%;
     gap: .5rem;
     align-items: center;
+}
+
+/* A forward's name is a machine and a port, or a socket's name: room for it whole, and on a
+   phone no wider than its row */
+.form .fwd-make-foot input.fwd-name {
+    width: 16rem;
+    min-width: 0;
 }
 
 @media (max-width: 640px) {

@@ -388,6 +388,10 @@ keeps its own copy, so a machine with no link still writes its log.
 | `forwards_told`       | A machine was told the forwards it listens for; `failed=` names any that could not. |
 | `forwards_tell_error` | Telling it failed, and why; said once per reason.                        |
 | `forward_error`       | A connection through a forward could not reach the far end, and why; said once per reason in a row. |
+| `forward_here_listen` | serviceman itself listens for a forward, where (a socket file or a port), and `owner=` the socket was given to when it runs as root. |
+| `forward_here_listen_error` | It could not, and why; tried again every minute, said once per reason. |
+| `forward_here_close`  | A forward set aside, changed or taken out of the config stopped listening here; its socket file is gone. |
+| `forward_here_apply_error` | Following the config for those forwards failed, and why; the next change is still applied. |
 
 ### Logline
 

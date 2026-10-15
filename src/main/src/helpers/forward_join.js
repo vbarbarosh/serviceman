@@ -18,6 +18,29 @@ function forward_join(app, remote, id, name)
         refuse(state, id, 'EBADTARGET', `${remote.name} has no forward named ${name}`);
         return;
     }
+    try {
+        forward_carry(app, forward, function () {
+            const out = tunnel_stream(state.socket, id, true);
+            state.streams[id] = out;
+            out.id = id;
+            out.on('close', function () {
+                delete state.streams[id];
+            });
+            return out;
+        });
+    }
+    catch (error) {
+        refuse(state, id, 'EHOSTDOWN', error.message);
+    }
+}
+
+// The far half of every forward, wherever its `to` listens — on a machine or on serviceman
+// itself (forwards_here): a stream to `from` is opened, the near one is made by `near_make`,
+// and the two are joined and counted. Throws, with the near one never made, while the machine
+// the service is on is offline; the reason is kept for the page.
+function forward_carry(app, forward, near_make)
+{
+    const name = forward.name;
     const counts = forward_counts(app, name);
     const from = app.remote_by_name[forward.from.remote];
     let far;
@@ -25,16 +48,10 @@ function forward_join(app, remote, id, name)
         far = tunnel_open(from, ((forward.from.socket === null) ? {host: ((forward.from.host === null) ? '127.0.0.1' : forward.from.host), port: forward.from.port} : {path: forward.from.socket}));
     }
     catch (error) {
-        refuse(state, id, 'EHOSTDOWN', error.message);
         failed(app, counts, name, `${forward.from.remote} is offline`);
-        return;
+        throw error;
     }
-    const near = tunnel_stream(state.socket, id, true);
-    state.streams[id] = near;
-    near.id = id;
-    near.on('close', function () {
-        delete state.streams[id];
-    });
+    const near = near_make();
     counts.open++;
     counts.total++;
     near.on('data', function (chunk) {
@@ -102,6 +119,7 @@ function refuse(state, id, code, message)
     link_send_stream(state.socket, 'x', id, Buffer.from(JSON.stringify({code, message})));
 }
 
+forward_join.carry = forward_carry;
 forward_join.counts = forward_counts;
 
 module.exports = forward_join;

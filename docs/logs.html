@@ -1420,6 +1420,22 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>forward_error</code></td>
 <td>A connection through a forward could not reach the far end, and why; said once per reason in a row.</td>
 </tr>
+<tr>
+<td><code>forward_here_listen</code></td>
+<td>serviceman itself listens for a forward, where (a socket file or a port), and <code>owner=</code> the socket was given to when it runs as root.</td>
+</tr>
+<tr>
+<td><code>forward_here_listen_error</code></td>
+<td>It could not, and why; tried again every minute, said once per reason.</td>
+</tr>
+<tr>
+<td><code>forward_here_close</code></td>
+<td>A forward set aside, changed or taken out of the config stopped listening here; its socket file is gone.</td>
+</tr>
+<tr>
+<td><code>forward_here_apply_error</code></td>
+<td>Following the config for those forwards failed, and why; the next change is still applied.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>

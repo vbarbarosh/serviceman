@@ -1201,6 +1201,31 @@ failure.</li>
 </ul>
 <p>Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.</p>
+<h3 id="a-forward-onto-serviceman-itself"><a class="anchor" href="#a-forward-onto-serviceman-itself" aria-hidden="true" tabindex="-1">#</a>A forward onto serviceman itself</h3>
+<p><code>to</code> may be serviceman itself instead of a machine: <code>&quot;here&quot;: true</code> in place of <code>remote</code>.
+serviceman then listens in place of an agent, and the machine with the service is the only one
+that needs one. vps1&#39;s Loki, as a socket file beside serviceman:</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;name&quot;: &quot;loki&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;here&quot;: true, &quot;socket&quot;: &quot;sockets/loki.sock&quot;}}
+]
+</code></pre>
+<ul>
+<li><strong>Where the socket lands.</strong> In serviceman&#39;s state dir (<code>SERVICEMAN_STATE_DIR</code>), written from
+it: <code>sockets/loki.sock</code> is <code>data/sockets/loki.sock</code>. A path from <code>/</code> or <code>~/</code>, or one that goes
+up with <code>..</code>, is refused. Its folder is made when it is missing. <code>bin/run</code> already mounts the
+host&#39;s <code>./data</code> at <code>/app/data</code>, the state dir in the image, so the socket is on the host&#39;s
+disk at <code>./data/sockets/loki.sock</code> with no extra docker mount.</li>
+<li><strong>Whose it is.</strong> The socket is <code>0600</code>. A serviceman that runs as root, as it does in a rootful
+docker, gives it, and any folder it made for it, to whoever owns the state dir: on the host,
+the person who owns <code>./data</code> opens it, and nobody else. Any other serviceman keeps it for its
+own user.</li>
+<li><strong>A port</strong> (<code>&quot;port&quot;: 3100</code>) listens on serviceman&#39;s own <code>127.0.0.1</code>. Under <code>bin/run</code> that is
+the container&#39;s loopback, which the host does not reach; a socket is the way out of it.</li>
+<li><strong>The rest is a forward like any other.</strong> A connection while vps1 is away is closed at once
+and the reason is kept; a file left by a serviceman that crashed is taken over, a file that is
+not a socket is never deleted, and a socket that cannot listen is tried again every minute and
+shown on the page. A forward set aside or taken out of the config closes, and its file goes.</li>
+</ul>
 <h2 id="through-a-reverse-proxy"><a class="anchor" href="#through-a-reverse-proxy" aria-hidden="true" tabindex="-1">#</a>Through a reverse proxy</h2>
 <p>The agent asks for an HTTP upgrade on <code>/api/v1/remote</code>, the same shape as a websocket. nginx
 and caddy carry it with their usual websocket block; give it a long read timeout, because the

@@ -3,17 +3,19 @@ import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import forward_end_parse from './forward_end_parse.js';
+import forward_here_parse from './forward_here_parse.js';
 import forwards_write from './forwards_write.js';
 
 // A port or a socket of one machine, brought to another: `from` is where the service is, `to`
 // is where it shows up. The machine at `to` listens; each connection is carried over its link
 // to serviceman, and over the other machine's link to `from`.
 // No ssh, no key: the links are already up, and the socket stays while one of them redials.
+// The machine at `to` may be serviceman itself, which then listens in place of an agent.
 const forwards_section = {
     template: `
 <div class="forwards">
     <h1>Forwards</h1>
-    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once.</p>
+    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
     <fold-table v-slot="fold" :order="['acts', 'problem', 'through', 'speed', 'to', 'from']">
         <table>
             <thead>
@@ -36,7 +38,7 @@ const forwards_section = {
                         <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
                         <td class="wraps"><code class="name">{{ item.name }}</code></td>
                         <td data-fold="from"><span class="muted">{{ title_of(item.from.remote) }} · </span><code>{{ end_text(item.from) }}</code></td>
-                        <td data-fold="to"><span class="muted">{{ title_of(item.to.remote) }} · </span><code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></td>
+                        <td data-fold="to"><span class="muted">{{ place_of(item.to) }} · </span><code :title="(item.at === null ? '' : item.at)">{{ landed_text(item.to) }}</code></td>
                         <td><span class="dot-name" :class="{bad: bad_of(item)}"><span class="dot" :class="dot_of(item)"/>{{ word_of(item) }}</span></td>
                         <td v-if="wrongs" data-fold="problem" :class="(problem_of(item) === null ? 'muted' : 'bad')">{{ wrong_text(item) }}</td>
                         <td data-fold="speed"><span class="fwd-speed" :class="{muted: idle(item)}">{{ speed_text(item) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(item) + ' minutes')"><polyline class="back" :points="spark(item, item.history_back)"/><polyline class="sent" :points="spark(item, item.history_sent)"/></svg></td>
@@ -56,7 +58,7 @@ const forwards_section = {
                                 </template>
                                 <template v-if="fold.folded.includes('to')">
                                     <dt>Shows up on</dt>
-                                    <dd>{{ title_of(item.to.remote) }} · <code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></dd>
+                                    <dd>{{ place_of(item.to) }} · <code :title="(item.at === null ? '' : item.at)">{{ landed_text(item.to) }}</code></dd>
                                 </template>
                                 <template v-if="(fold.folded.includes('problem') && wrong_text(item) !== '')">
                                     <dt>What is wrong</dt>
@@ -109,15 +111,16 @@ const forwards_section = {
                 <div class="fwd-end-title">It shows up on</div>
                 <select v-model="fresh.to_remote" aria-label="The machine it shows up on">
                     <option value="">a machine…</option>
+                    <option :value="here_value">this host — where serviceman runs</option>
                     <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
                 </select>
-                <input v-model.trim="fresh.to" placeholder="~/loki.sock or 3100" spellcheck="false" aria-label="A socket file or a port there" title="A socket file there (~/ is the agent's user's home), or a port on its loopback" @keyup.enter="write">
+                <input v-model.trim="fresh.to" :placeholder="to_hint.placeholder" spellcheck="false" :aria-label="to_hint.label" :title="to_hint.title" @keyup.enter="write">
                 <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
             </div>
         </div>
         <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and what to bring.' : summary) }}</p>
         <div class="fwd-make-foot">
-            <label>Name <input v-model.trim="fresh.name" class="short" :placeholder="name_auto" spellcheck="false" title="A name for it: lowercase letters, digits, - and _; left empty, the one shown" @keyup.enter="write"></label>
+            <label>Name <input v-model.trim="fresh.name" class="fwd-name" :placeholder="name_auto" spellcheck="false" title="A name for it: lowercase letters, digits, - and _; left empty, the one shown" @keyup.enter="write"></label>
             <button type="button" class="primary" :disabled="(busy || ready === false)" @click="write">{{ (editing === null ? 'Add' : 'Save') }}</button>
             <button v-if="(editing !== null)" type="button" :disabled="busy" @click="clear">Cancel</button>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -129,8 +132,9 @@ const forwards_section = {
     props: ['state'],
     emits: [],
     data: function () {
-        // `editing` is the forward the line below is rewriting, by the name it had
-        return {fresh: fresh_empty(), editing: null, note: '', bad: false, busy: false};
+        // `editing` is the forward the line below is rewriting, by the name it had; `here_value`
+        // is serviceman itself in the picker
+        return {fresh: fresh_empty(), editing: null, note: '', bad: false, busy: false, here_value: HERE};
     },
     computed: {
         forwards: function () {
@@ -150,7 +154,25 @@ const forwards_section = {
         from_says: function () {
             return end_says(this.fresh.from_remote, this.fresh.from, this.title_of(this.fresh.from_remote), false);
         },
+        // The folder a socket of serviceman's own lands in, as its owner sees it beside the
+        // config: data/ under bin/run
+        state_folder: function () {
+            if ((this.state === null) || (typeof this.state.state_dir !== 'string')) {
+                return 'data';
+            }
+            return this.state.state_dir.replace(/\/+$/, '').split('/').pop();
+        },
+        // What the box under the picker asks for: on serviceman itself a path inside its state dir
+        to_hint: function () {
+            if (this.fresh.to_remote === HERE) {
+                return {placeholder: 'sockets/loki.sock or 3100', label: 'A socket file in serviceman\'s state dir, or a port on its loopback', title: 'A socket file inside serviceman\'s state dir, written from it (sockets/loki.sock), or a port on its loopback'};
+            }
+            return {placeholder: '~/loki.sock or 3100', label: 'A socket file or a port there', title: 'A socket file there (~/ is the agent\'s user\'s home), or a port on its loopback'};
+        },
         to_says: function () {
+            if (this.fresh.to_remote === HERE) {
+                return here_says(this.fresh.to, this.state_folder);
+            }
             const says = end_says(this.fresh.to_remote, this.fresh.to, this.title_of(this.fresh.to_remote), true);
             if ((says.bad === false) && (this.fresh.to_remote !== '') && (this.fresh.to_remote === this.fresh.from_remote)) {
                 return {text: 'the same machine as the service: pick another', bad: true};
@@ -167,7 +189,8 @@ const forwards_section = {
                 return null;
             }
             const fresh = this.fresh;
-            return `A connection to ${end_words(fresh.to)} on ${this.title_of(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
+            const to = ((fresh.to_remote === HERE) ? this.landed_text(forward_here_parse(fresh.to)) : fresh.to);
+            return `A connection to ${end_words(to)} on ${this.place_title(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
         },
         // The name a forward gets when none is typed: the socket's name, or the machine and port
         name_auto: function () {
@@ -253,6 +276,21 @@ const forwards_section = {
             const found = this.machines.find(v => v.name === name);
             return ((found === undefined) ? name : (found.title || found.name));
         },
+        // The machine one end is on, serviceman itself included, as a picker's value names it
+        place_title: function (value) {
+            return ((value === HERE) ? 'this host' : this.title_of(value));
+        },
+        place_of: function (end) {
+            return (end.here ? 'this host' : this.title_of(end.remote));
+        },
+        // An end as the table shows it: a socket of serviceman's own where it lands, in its
+        // state dir; the rest as written
+        landed_text: function (end) {
+            if (end.here && (typeof end.socket === 'string')) {
+                return `${this.state_folder}/${end.socket}`;
+            }
+            return this.end_text(Object.assign({socket: null, host: null}, end));
+        },
         end_text: function (end) {
             if (end.socket !== null) {
                 return end.socket;
@@ -272,7 +310,7 @@ const forwards_section = {
             }
             const fresh = Object.assign({}, this.fresh, {name: ((this.fresh.name === '') ? this.name_auto : this.fresh.name)});
             const from = forward_end_parse(fresh.from_remote, fresh.from);
-            const to = forward_end_parse(fresh.to_remote, fresh.to);
+            const to = ((fresh.to_remote === HERE) ? forward_here_parse(fresh.to) : forward_end_parse(fresh.to_remote, fresh.to));
             if (typeof from === 'string') {
                 this.report(`from: ${from}`, true);
                 return;
@@ -302,7 +340,7 @@ const forwards_section = {
         },
         edit: function (item) {
             this.editing = item;
-            this.fresh = {name: item.name, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: item.to.remote, to: this.end_text(item.to)};
+            this.fresh = {name: item.name, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: (item.to.here ? HERE : item.to.remote), to: this.end_text(item.to)};
             this.report('', false);
         },
         clear: function () {
@@ -373,6 +411,23 @@ function end_says(remote, text, title, listens)
     return {text: `port ${end.port} on the loopback of ${machine}`, bad: false};
 }
 
+// Where it shows up on serviceman itself, as typed, in words: where the socket lands on the
+// host, or the port, or what is wrong with it
+function here_says(text, folder)
+{
+    if (text === '') {
+        return {text: `a socket file in serviceman's state dir, ${folder}/, or a port on its loopback`, bad: false};
+    }
+    const end = forward_here_parse(text);
+    if (typeof end === 'string') {
+        return {text: end, bad: true};
+    }
+    if (end.socket !== undefined) {
+        return {text: `the socket file ${folder}/${end.socket}, 0600, for the owner of ${folder}/`, bad: false};
+    }
+    return {text: `port ${end.port} on serviceman's own loopback — under docker, inside its container`, bad: false};
+}
+
 // An end as typed, in words: a bare number is a port, the rest reads as it is
 function end_words(text)
 {
@@ -381,6 +436,10 @@ function end_words(text)
     }
     return text;
 }
+
+// The picker's value for serviceman itself, a name no machine is given in practice: machines
+// are named in words, and the empty value is "a machine…"
+const HERE = ':here';
 
 // The 5-second buckets the server keeps for a forward: ten minutes
 const HISTORY_LENGTH = 120;

@@ -11,6 +11,7 @@ const file_log_from_env = require('./src/helpers/file_log_from_env');
 const forward_totals_apply = require('./src/helpers/forward_totals_apply');
 const forward_totals_read = require('./src/helpers/forward_totals_read');
 const forward_totals_write = require('./src/helpers/forward_totals_write');
+const forwards_here = require('./src/helpers/forwards_here');
 const forwards_sample = require('./src/helpers/forwards_sample');
 const forwards_tell = require('./src/helpers/forwards_tell');
 const image_prepull_start = require('./src/helpers/image_prepull_start');
@@ -90,6 +91,8 @@ async function main()
             counters_apply(service, saved[service.name]);
         }
         forward_totals_apply(app, forward_totals_read(app));
+        // The forwards that show up on serviceman itself listen as soon as it does
+        forwards_here(app);
         await probe_all(app);
         start_always(app);
         image_prepull_start(app);
@@ -120,8 +123,9 @@ async function main()
             });
             // Where a service runs moves as it starts and stops; the doors follow within the minute
             doors_tell(app);
-            // A forward that could not listen is tried again
+            // A forward that could not listen is tried again, on a machine or here
             forwards_tell(app);
+            forwards_here(app);
         }, LOGLINE_INTERVAL_MS);
         watch_signals(app);
     });
