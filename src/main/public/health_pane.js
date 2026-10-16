@@ -35,7 +35,7 @@ const health_pane = {
             <table class="health-table">
                 <thead>
                     <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
+                        <th v-if="caret_shown(area, fold.folded)" class="fold-caret"></th>
                         <th>{{ name_head(area.key) }}</th>
                         <th v-for="column of columns_of(area)" :key="column" :data-fold="column">{{ column }}</th>
                     </tr>
@@ -43,7 +43,7 @@ const health_pane = {
                 <tbody>
                     <template v-for="row of area.rows" :key="row.key">
                         <tr :class="{foldable: has_more(row, fold.folded), open: is_open(row)}" @click="row_click(row, fold.folded, $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg v-if="has_more(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
+                            <td v-if="caret_shown(area, fold.folded)" class="fold-caret"><svg v-if="has_more(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
                             <td class="wraps health-name" :class="('state-' + row.state)">
                                 <span class="dot" :class="dot_of(row.state)"/>
                                 <button v-if="(row.service !== null)" type="button" class="link" :title="('The page of ' + row.service)" @click="$emit('select', row.service)">{{ row.name }}</button>
@@ -58,7 +58,7 @@ const health_pane = {
                             </td>
                         </tr>
                         <tr v-if="is_open(row)" class="fold-more">
-                            <td :colspan="(fold.span || (columns_of(area).length + 1))">
+                            <td :colspan="((fold.folded.length > 0) ? fold.span : (columns_of(area).length + (caret_shown(area, fold.folded) ? 2 : 1)))">
                                 <dl class="fold-details">
                                     <template v-for="check of more_of(row, fold.folded)" :key="('more-' + check.key)">
                                         <dt>{{ check.label }}</dt>
@@ -179,6 +179,10 @@ const health_pane = {
         },
         has_more: function (row, folded) {
             return (this.more_of(row, folded).length > 0);
+        },
+        // The open-and-close mark has a column when any row opens: a row that opens says so
+        caret_shown: function (area, folded) {
+            return ((folded.length > 0) || area.rows.some(v => this.has_more(v, folded)));
         },
         is_open: function (row) {
             return (this.opened[row.key] === true);
