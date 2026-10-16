@@ -86,6 +86,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
         assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" has no right to this'], `${method} ${asked}`);
     }
     assert.strictEqual(running.app.log_lines.some(v => /\[control_token_used\] token="the notes agent" method=GET path=\/api\/v1\/status/.test(v)), true);
+    assert.strictEqual(running.app.log_lines.some(v => /\[control_token_used\] token="the notes agent" method=GET path=\/api\/v1\/remotes\/vps1\/metrics\?range=1h/.test(v)), true, 'what it asked for is kept');
     assert.strictEqual(running.app.log_lines.some(v => v.includes(made.token)), false, 'no token is written in the log');
 
     // The list says when it was used; revoked, it stops at once

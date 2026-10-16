@@ -214,7 +214,7 @@ async function control_answer(app, req, res)
     // A HEAD asks, it changes nothing — a player probing a file is not a change. Nor is each
     // part of a file sent in parts: the file is written down once, when it is in.
     if ((req.method !== 'GET') && (req.method !== 'HEAD') && (RE_UPLOAD_PART.test(url.pathname) === false)) {
-        log_event(app, 'control_change', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url)});
+        log_event(app, 'control_change', {client: req.socket.remoteAddress, method: req.method, path: req.url});
     }
     if (url.pathname === '/api/v1/status') {
         send_json(res, 200, state_from_app(app));
@@ -1764,7 +1764,9 @@ function token_allowed(app, req, res, url, token)
     token.used_at = new Date().toISOString();
     // The routes it goes on to keep it within what it may: the file manager within its folder
     req.control_token = token;
-    log_event(app, 'control_token_used', {token: token.label, method: req.method, path: url_logged(req.url)});
+    // A token let in asks serviceman's own API, whose query is a folder or a machine, never a
+    // secret: the line keeps it, since what was read is what the line is for
+    log_event(app, 'control_token_used', {token: token.label, method: req.method, path: req.url});
     if (right.right === 'status') {
         send_json(res, 200, control_token_status(app, token));
         return false;

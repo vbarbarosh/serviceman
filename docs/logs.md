@@ -451,7 +451,9 @@ list, in a bar under its header and first on its Health page.
 - **No secrets.** A remote token or a token of the control door never appears, not even the
   wrong one somebody tried.
 - **No query values.** `path=/report?token=***` keeps the shape of the request and drops what
-  was in it, because a query can carry a visitor's password.
+  was in it, because a query can carry a visitor's password. `control_token_used` and
+  `control_change` keep theirs: they are calls to serviceman's own API by the owner or a token
+  let in, whose query is a folder or a machine (`path=/home/user/navplace`), never a secret.
 - **No bodies and no headers.** What a service and its visitor say to each other is theirs.
 - **No reads of the control page.** It polls every second; only what it *changes* is written.
 

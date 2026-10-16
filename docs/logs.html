@@ -1615,7 +1615,9 @@ list, in a bar under its header and first on its Health page.</p>
 <li><strong>No secrets.</strong> A remote token or a token of the control door never appears, not even the
 wrong one somebody tried.</li>
 <li><strong>No query values.</strong> <code>path=/report?token=***</code> keeps the shape of the request and drops what
-was in it, because a query can carry a visitor&#39;s password.</li>
+was in it, because a query can carry a visitor&#39;s password. <code>control_token_used</code> and
+<code>control_change</code> keep theirs: they are calls to serviceman&#39;s own API by the owner or a token
+let in, whose query is a folder or a machine (<code>path=/home/user/navplace</code>), never a secret.</li>
 <li><strong>No bodies and no headers.</strong> What a service and its visitor say to each other is theirs.</li>
 <li><strong>No reads of the control page.</strong> It polls every second; only what it <em>changes</em> is written.</li>
 </ul>
