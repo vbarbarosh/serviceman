@@ -110,7 +110,7 @@ remote tokens. So it answers **the machine serviceman runs on** and nobody else:
 anywhere else, over either port, it is a 404 like any unknown address. Reach it through an ssh
 tunnel, or set `"exposed": true` and put your own wall in front — serviceman says that out
 loud at startup when you do. Even then every caller brings a token: the owner's, which
-`bin/owner-token` prints, or a reader's made on the **Tokens** tab
+`bin/owner-token` prints, or an agent's made on the **Tokens** tab
 ([A token for every caller](deploy.md#a-token-for-every-caller)).
 
 `control.names` only widens which hostnames it answers by, never which callers. A caller that

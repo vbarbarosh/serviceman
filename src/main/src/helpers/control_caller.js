@@ -7,7 +7,7 @@ const COOKIE = 'serviceman_token';
 
 // Who is asking the control door, by the token it brings: as Authorization: Bearer <token>,
 // or in the cookie the page is given when its owner signs in. {owner: true} for the owner's,
-// {owner: false, token} for one made for a reader, null for no token or one nobody holds.
+// {owner: false, token} for one made for an agent, null for no token or one nobody holds.
 function control_caller(app, req)
 {
     const given = token_given(req);

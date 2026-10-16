@@ -755,8 +755,9 @@ or ends it as above, and then the socket closes from the far end.</li>
 <h2 id="who-may-connect"><a class="anchor" href="#who-may-connect" aria-hidden="true" tabindex="-1">#</a>Who may connect</h2>
 <p>The control page answers only the machine it runs on: a program there connects; one on another
 machine is refused (<code>control.exposed</code> opens it, behind a wall of your own). It wants the
-owner&#39;s token, as <code>Authorization: Bearer &lt;token&gt;</code> (<code>bin/owner-token</code> prints it): a reader&#39;s
-token never opens a terminal. It also refuses a websocket a browser page opens from another
+owner&#39;s token, as <code>Authorization: Bearer &lt;token&gt;</code> (<code>bin/owner-token</code> prints it), or an agent&#39;s
+token with the <code>terminals</code> right on that machine, made on the <strong>Tokens</strong> tab: such a token joins
+and makes kept terminals of its machines and opens no other shell. It also refuses a websocket a browser page opens from another
 site, so a page on the internet cannot reach your terminals through your browser.</p>
 <p>For an Electron app such as Visual Notes this means: <strong>connect from the main process</strong>, not
 from a page. Node sends no <code>Origin</code>, and passes; a page loaded from <code>file://</code> or its own

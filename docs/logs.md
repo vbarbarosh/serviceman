@@ -413,8 +413,8 @@ keeps its own copy, so a machine with no link still writes its log.
 | `control_cross_site_refused` | A change sent from a page on another site was turned away.                |
 | `control_error`              | An action asked from the page failed.                                     |
 | `control_token_refused`      | A request with no token, one nobody holds, or one asking past its rights. |
-| `control_token_read`         | A reader's token read something, by its label.                            |
-| `control_token_made`         | A reader's token was made: its label, machines and reads.                 |
+| `control_token_used`         | An agent's token was used, by its label, and for what.                    |
+| `control_token_made`         | An agent's token was made: its label, machines and rights.                |
 | `control_token_revoked`      | One was taken back.                                                       |
 | `control_signed_in`          | The page was signed in with the owner's token.                            |
 | `control_sign_in_refused`    | A token that is not the owner's was tried at the sign-in.                 |

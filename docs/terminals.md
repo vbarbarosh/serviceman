@@ -55,8 +55,9 @@ terminal window does; whoever has it open sees it close. Typing `exit` in it doe
 
 The control page answers only the machine it runs on: a program there connects; one on another
 machine is refused (`control.exposed` opens it, behind a wall of your own). It wants the
-owner's token, as `Authorization: Bearer <token>` (`bin/owner-token` prints it): a reader's
-token never opens a terminal. It also refuses a websocket a browser page opens from another
+owner's token, as `Authorization: Bearer <token>` (`bin/owner-token` prints it), or an agent's
+token with the `terminals` right on that machine, made on the **Tokens** tab: such a token joins
+and makes kept terminals of its machines and opens no other shell. It also refuses a websocket a browser page opens from another
 site, so a page on the internet cannot reach your terminals through your browser.
 
 For an Electron app such as Visual Notes this means: **connect from the main process**, not

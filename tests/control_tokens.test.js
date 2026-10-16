@@ -32,7 +32,7 @@ test('the control door wants a token: none, or one nobody holds, gets the sign-i
     assert.strictEqual(running.app.log_lines.some(v => v.includes(running.owner)), false, 'no token is written in the log');
 });
 
-test('the page signs in once with the owner\'s token and gets a cookie; a reader\'s is not signed in; signing out ends it', async function (t) {
+test('the page signs in once with the owner\'s token and gets a cookie; an agent\'s is not signed in; signing out ends it', async function (t) {
     const running = await serviceman_start(t);
     const wrong = await call(running, 'POST', '/api/v1/session', {token: 'sm_nobody'}, null);
     assert.deepStrictEqual([wrong.status, JSON.parse(wrong.body).error], [401, 'That is not the owner\'s token']);
@@ -44,30 +44,30 @@ test('the page signs in once with the owner\'s token and gets a cookie; a reader
     assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, null, {cookie: pair})).status, 200);
     assert.strictEqual((await call(running, 'GET', '/', null, null, {cookie: `other=1; ${pair}`, accept: 'text/html'})).status, 200);
 
-    const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], reads: ['status']});
+    const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], rights: ['status']});
     const refused = await call(running, 'POST', '/api/v1/session', {token: reader.token}, null);
-    assert.deepStrictEqual([refused.status, JSON.parse(refused.body).error], [401, 'A reader\'s token is sent with each request, not signed in']);
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body).error], [401, 'An agent\'s token is sent with each request, not signed in']);
     const signed_out = await call(running, 'DELETE', '/api/v1/session', null, null);
     assert.match(signed_out.headers['set-cookie'][0], /^serviceman_token=; Path=\/; Max-Age=0;/);
 });
 
-test('a reader\'s token reads its machines alone, only what it was given, and stops at once when taken back', async function (t) {
+test('an agent\'s token sees its machines alone, does only what it was given, and stops at once when taken back', async function (t) {
     const running = await serviceman_start(t);
-    const bad = await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['nowhere'], reads: ['status']}, running.owner);
+    const bad = await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['nowhere'], rights: ['status']}, running.owner);
     assert.deepStrictEqual([bad.status, JSON.parse(bad.body).error], [400, 'no remote named "nowhere"']);
-    assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['vps1'], reads: ['shell']}, running.owner)).status, 400);
-    assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: '', remotes: ['vps1'], reads: ['status']}, running.owner)).status, 400);
-    const made = await token_make(running, {label: 'the notes agent', remotes: ['vps1'], reads: ['status', 'metrics']});
+    assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['vps1'], rights: ['shell']}, running.owner)).status, 400);
+    assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: '', remotes: ['vps1'], rights: ['status']}, running.owner)).status, 400);
+    const made = await token_make(running, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics']});
     assert.match(made.token, /^sm_[A-Za-z0-9_-]{43}$/);
     const kept = fs.readFileSync(path.join(running.app.state_dir, 'control_tokens.json'), 'utf8');
     assert.strictEqual(kept.includes(made.token), false, 'only a hash is kept');
     assert.strictEqual(fs.statSync(path.join(running.app.state_dir, 'control_tokens.json')).mode & 0o777, 0o600);
 
-    // The status is its own: its machine, its reads, nothing of the config
+    // The status is its own: its machine, its rights, nothing of the config
     const status = JSON.parse((await call(running, 'GET', '/api/v1/status', null, made.token)).body);
     assert.deepStrictEqual(Object.keys(status).sort(), ['now', 'remotes', 'services', 'started_at', 'token']);
     assert.deepStrictEqual(status.remotes.map(v => v.name), ['vps1']);
-    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], reads: ['status', 'metrics']});
+    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics']});
     assert.strictEqual(JSON.stringify(status).includes(TOKEN), false);
 
     // A read of its machine goes on to the route; another machine, another read, any write is refused
@@ -76,17 +76,19 @@ test('a reader\'s token reads its machines alone, only what it was given, and st
     const other = await call(running, 'GET', '/api/v1/remotes/vps2/metrics', null, made.token);
     assert.deepStrictEqual([other.status, JSON.parse(other.body).error], [403, 'the token "the notes agent" may not see vps2']);
     const read = await call(running, 'GET', '/api/v1/remotes/vps1/processes', null, made.token);
-    assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [403, 'the token "the notes agent" may not read processes']);
-    for (const [method, asked] of [['GET', '/api/v1/config'], ['GET', '/api/v1/secrets'], ['GET', '/api/v1/tokens'], ['POST', '/api/v1/services/x/start'], ['POST', '/api/v1/tokens'], ['GET', '/api/v1/remotes/vps1/fs?path=/'], ['GET', '/api/v1/remotes/vps1/terminals'], ['GET', '/']]) {
+    assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [403, 'the token "the notes agent" may not read the processes']);
+    const terminals = await call(running, 'GET', '/api/v1/remotes/vps1/terminals', null, made.token);
+    assert.deepStrictEqual([terminals.status, JSON.parse(terminals.body).error], [403, 'the token "the notes agent" may not use the terminals']);
+    for (const [method, asked] of [['GET', '/api/v1/config'], ['GET', '/api/v1/secrets'], ['GET', '/api/v1/tokens'], ['POST', '/api/v1/services/x/start'], ['POST', '/api/v1/tokens'], ['GET', '/api/v1/remotes/vps1/fs?path=/'], ['POST', '/api/v1/remotes/vps1/metrics'], ['GET', '/']]) {
         const answer = await call(running, method, asked, null, made.token);
-        assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" only reads, and this is not one'], `${method} ${asked}`);
+        assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" has no right to this'], `${method} ${asked}`);
     }
-    assert.strictEqual(running.app.log_lines.some(v => /\[control_token_read\] token="the notes agent" path=\/api\/v1\/status/.test(v)), true);
+    assert.strictEqual(running.app.log_lines.some(v => /\[control_token_used\] token="the notes agent" method=GET path=\/api\/v1\/status/.test(v)), true);
     assert.strictEqual(running.app.log_lines.some(v => v.includes(made.token)), false, 'no token is written in the log');
 
     // The list says when it was used; taken back, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.reads, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'terminals']);
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);
     assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${made.item.id}`, null, running.owner)).status, 200);
@@ -112,12 +114,29 @@ test('without SERVICEMAN_OWNER_TOKEN the owner\'s token is made once, kept in ow
     assert.strictEqual(control_owner_token(again), made);
 });
 
-test('a shell opens for the owner\'s token alone', async function (t) {
+test('a token with terminals uses the kept terminals of its machines and opens no other shell; the owner\'s opens any', async function (t) {
     const running = await serviceman_start(t);
-    const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], reads: ['status']});
-    assert.strictEqual(await shell_answer(running, null), 'closed');
-    assert.strictEqual(await shell_answer(running, reader.token), 'closed');
-    assert.match(await shell_answer(running, running.owner), /^HTTP\/1.1 101/);
+    const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], rights: ['status']});
+    const terminals = await token_make(running, {label: 'the notes app', remotes: ['vps1'], rights: ['terminals']});
+    const term = '/api/v1/shell?remote=vps1&term=work';
+    assert.strictEqual(await shell_answer(running, null, term), 'closed');
+    assert.strictEqual(await shell_answer(running, reader.token, term), 'closed');
+    assert.match(await shell_answer(running, terminals.token, term), /^HTTP\/1.1 101/);
+    for (const other of ['/api/v1/shell?remote=vps2&term=work', '/api/v1/shell?remote=vps1', '/api/v1/shell?remote=vps1&term=work&container=abc', '/api/v1/shell?service=x&slot=1']) {
+        assert.strictEqual(await shell_answer(running, terminals.token, other), 'closed', other);
+    }
+    assert.match(await shell_answer(running, running.owner, '/api/v1/shell?remote=vps1'), /^HTTP\/1.1 101/);
+    assert.strictEqual(running.app.log_lines.some(v => /\[shell_refused\] .*token="the notes app" reason="may not see vps2"/.test(v)), true);
+
+    // Its calls go on to the routes of its machine, the machine being away here; another's are refused
+    for (const [method, asked] of [['GET', '/api/v1/remotes/vps1/terminals'], ['POST', '/api/v1/remotes/vps1/terminals'], ['POST', '/api/v1/remotes/vps1/terminals/work/end'], ['POST', '/api/v1/remotes/vps1/terminals/work/signal']]) {
+        const answer = await call(running, method, asked, {name: 'work', signal: 'SIGINT'}, terminals.token);
+        assert.strictEqual([401, 403].includes(answer.status), false, `${method} ${asked}: ${answer.status} ${answer.body}`);
+    }
+    const other = await call(running, 'POST', '/api/v1/remotes/vps2/terminals', {name: 'work'}, terminals.token);
+    assert.deepStrictEqual([other.status, JSON.parse(other.body).error], [403, 'the token "the notes app" may not see vps2']);
+    const status = await call(running, 'GET', '/api/v1/status', null, terminals.token);
+    assert.deepStrictEqual([status.status, JSON.parse(status.body).error], [403, 'the token "the notes app" may not read the status']);
 });
 
 // A serviceman of its own state dir, so its owner's token and tokens are this test's alone
@@ -161,14 +180,14 @@ function call(running, method, asked, body, token, headers)
 }
 
 // The first line the shell door answers, or closed when it hangs up without a word
-function shell_answer(running, token)
+function shell_answer(running, token, asked)
 {
     return new Promise(function (resolve) {
         const socket = net.connect(running.port, '127.0.0.1');
         let said = '';
         socket.on('connect', function () {
             const auth = ((token === null) ? '' : `Authorization: Bearer ${token}\r\n`);
-            socket.write(`GET /api/v1/shell?remote=vps1 HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n${auth}\r\n`);
+            socket.write(`GET ${asked} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n${auth}\r\n`);
         });
         socket.on('data', function (chunk) {
             said += chunk.toString('latin1');

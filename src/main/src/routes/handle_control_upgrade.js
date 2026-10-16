@@ -2,6 +2,7 @@ const control_allowed = require('../control_allowed');
 const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
 const control_same_origin = require('../control_same_origin');
+const control_token_refusal = require('../helpers/control_token_refusal');
 const docker_container_name = require('../helpers/docker_container_name');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
 const docker_exec_open = require('../helpers/docker_exec_open');
@@ -51,14 +52,22 @@ function handle_control_upgrade(app, req, socket, head)
         socket.destroy();
         return;
     }
-    // A shell is the owner's alone: a reader's token never opens one
+    // A shell is the owner's, and a kept terminal of a machine also an agent's whose token has
+    // the terminals right on that machine
     const caller = control_caller(app, req);
-    if ((caller === null) || (caller.owner === false)) {
+    const refused = shell_refusal(caller, url);
+    if (refused !== null) {
         log_group_from(socket.log_group, function () {
-            log_event(app, 'shell_refused', {from: socket.remoteAddress, reason: ((caller === null) ? 'no_token' : 'not_the_owner')});
+            log_event(app, 'shell_refused', {from: socket.remoteAddress, token: (((caller === null) || caller.owner) ? null : caller.token.label), reason: refused});
         });
         socket.destroy();
         return;
+    }
+    if (caller.owner === false) {
+        caller.token.used_at = new Date().toISOString();
+        log_group_from(socket.log_group, function () {
+            log_event(app, 'control_token_used', {token: caller.token.label, method: 'GET', path: `/api/v1/shell?remote=${url.searchParams.get('remote')}&term=${url.searchParams.get('term')}`});
+        });
     }
     if (app.config.control.shell === false) {
         socket.destroy();
@@ -83,6 +92,21 @@ function handle_control_upgrade(app, req, socket, head)
             });
         });
     });
+}
+
+// Why this caller may not open this shell, or null when it may: no token, or one of an agent
+// asking for anything but a kept terminal of its own machine
+function shell_refusal(caller, url)
+{
+    if (caller === null) {
+        return 'no_token';
+    }
+    if (caller.owner) {
+        return null;
+    }
+    const remote = url.searchParams.get('remote');
+    const kept = ((remote !== null) && (url.searchParams.get('term') !== null) && (url.searchParams.get('container') === null) && (url.searchParams.get('service') === null));
+    return control_token_refusal(kept ? {right: 'terminals', said: 'use the terminals', remote} : null, caller.token);
 }
 
 // GET /api/v1/shell (query)

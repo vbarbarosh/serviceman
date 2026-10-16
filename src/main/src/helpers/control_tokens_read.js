@@ -3,10 +3,11 @@ const fs = require('fs');
 
 // Every token made for a caller of the control door, the owner's aside:
 //
-//     {id, label, sha256, remotes, reads, made_at}
+//     {id, label, sha256, remotes, rights, made_at}
 //
 // remotes  the machines it sees, by name
-// reads    what it may read of them: status, logs, metrics, processes
+// rights   what it may do with them: the reads, status and metrics among them, and terminals
+//          (control_route_right)
 //
 // Read once and kept on the app; a file that is missing or not a list is no tokens at all.
 function control_tokens_read(app)
@@ -27,7 +28,7 @@ function control_tokens_read(app)
 
 function token_valid(token)
 {
-    return (token !== null) && (typeof token === 'object') && (typeof token.id === 'string') && (typeof token.sha256 === 'string') && Array.isArray(token.remotes) && Array.isArray(token.reads);
+    return (token !== null) && (typeof token === 'object') && (typeof token.id === 'string') && (typeof token.sha256 === 'string') && Array.isArray(token.remotes) && Array.isArray(token.rights);
 }
 
 module.exports = control_tokens_read;

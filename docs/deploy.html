@@ -924,18 +924,20 @@ keeps it in <code>data/owner.token</code>, readable by you alone; <code>bin/owne
 <code>SERVICEMAN_OWNER_TOKEN</code> gives one of your own instead, and then no file is written. The page
 asks for it once and keeps it in a cookie only its own requests carry; <strong>Sign out</strong> is
 <code>DELETE /api/v1/session</code>.</li>
-<li><strong>A reader&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
-label, the machines it sees, and what it may read of them — <code>status</code>, <code>metrics</code>,
-<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code>, <code>containers</code>. It is shown once, and only its hash
-is kept, in <code>data/control_tokens.json</code>. It cannot start, stop or change anything, open a
-shell, read the config or a secret, or see another machine; taken back, it stops at once.</li>
+<li><strong>An agent&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
+label, the machines it sees, and its rights on them. The reads are <code>status</code>, <code>metrics</code>,
+<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code> and <code>containers</code>; <code>terminals</code> lists, makes, joins,
+signals and ends the kept terminals of its machines, a shell on each of them, so treat such a
+token like an ssh key to them. It is shown once, and only its hash is kept, in
+<code>data/control_tokens.json</code>. It never touches the config, a secret, a service or another
+machine, and opens no other shell; taken back, it stops at once.</li>
 </ul>
 <p>A caller sends its token with every request:</p>
 <pre><code>curl --unix-socket data/serviceman.sock -H &quot;Authorization: Bearer $TOKEN&quot; http://localhost/api/v1/status
 </code></pre>
-<p>A reader&#39;s status is its own: its machines and what runs on them, nothing of the config. Every
-route says which read it is in one table (<code>control_route_right.js</code>); a route that says none,
-one added later included, is the owner&#39;s alone. The agent file, the installer and an agent
+<p>An agent&#39;s status is its own: its machines and what runs on them, nothing of the config. Every
+route says which right it needs in one table (<code>control_route_right.js</code>); a route that says
+none, one added later included, is the owner&#39;s alone. The agent file, the installer and an agent
 dialling in with its remote token need no token of the control door.</p>
 <p>Reach it from your laptop with an SSH tunnel:</p>
 <pre><code>ssh -L 8081:127.0.0.1:8081 you@the-host

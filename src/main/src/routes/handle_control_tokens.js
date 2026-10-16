@@ -17,8 +17,8 @@ const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
 
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
-// GET /api/v1/tokens                 the tokens made for readers, and the reads there are
-// POST /api/v1/tokens (body)         one more: {label, remotes, reads}, said once
+// GET /api/v1/tokens                 the tokens made, and the rights there are
+// POST /api/v1/tokens (body)         one more: {label, remotes, rights}, said once
 // DELETE /api/v1/tokens/<id>         taken back, at once
 //
 // True when the request was one of these. Signing in is open to any caller of the control
@@ -37,7 +37,7 @@ async function handle_control_tokens(app, req, res, url)
         }
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'GET')) {
-        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), reads: control_route_right.READS, remotes: app.remotes.map(v => v.name)});
+        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name)});
         return true;
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'POST')) {
@@ -74,7 +74,7 @@ async function session_open(app, req, res)
     const caller = control_caller(app, {headers: {authorization: `Bearer ${token}`}});
     if ((caller === null) || (caller.owner === false)) {
         log_event(app, 'control_sign_in_refused', {client: req.socket.remoteAddress, reason: ((caller === null) ? 'unknown_token' : 'not_the_owner')});
-        send_json(res, 401, {error: ((caller === null) ? 'That is not the owner\'s token' : 'A reader\'s token is sent with each request, not signed in')});
+        send_json(res, 401, {error: ((caller === null) ? 'That is not the owner\'s token' : 'An agent\'s token is sent with each request, not signed in')});
         return;
     }
     log_event(app, 'control_signed_in', {client: req.socket.remoteAddress});
@@ -104,23 +104,23 @@ async function token_make(app, req, res)
         send_json(res, 400, {error: `no remote named ${unknown.map(v => JSON.stringify(v)).join(', ')}`});
         return;
     }
-    const reads = (Array.isArray(asked.reads) ? Array.from(new Set(asked.reads.map(String))) : []);
-    const wrong = reads.filter(v => (control_route_right.READS.includes(v) === false));
-    if ((reads.length === 0) || (wrong.length > 0)) {
-        send_json(res, 400, {error: `a token reads some of ${control_route_right.READS.join(', ')}`});
+    const rights = (Array.isArray(asked.rights) ? Array.from(new Set(asked.rights.map(String))) : []);
+    const wrong = rights.filter(v => (control_route_right.RIGHTS.includes(v) === false));
+    if ((rights.length === 0) || (wrong.length > 0)) {
+        send_json(res, 400, {error: `a token has some of the rights ${control_route_right.RIGHTS.join(', ')}`});
         return;
     }
     const token = control_token_new();
-    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, reads, made_at: new Date().toISOString()};
+    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, rights, made_at: new Date().toISOString()};
     control_tokens_write(app, control_tokens_read(app).concat([item]));
-    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), reads: reads.join(',')});
+    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), rights: rights.join(',')});
     send_json(res, 200, {token, item: token_view(item)});
 }
 
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, reads: token.reads, made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,

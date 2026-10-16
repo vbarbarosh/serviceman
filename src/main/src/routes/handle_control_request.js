@@ -9,9 +9,10 @@ const container_disk = require('../../../../modules/docker/server/container_disk
 const control_allowed = require('../control_allowed');
 const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
-const control_reader_status = require('../helpers/control_reader_status');
 const control_route_right = require('../helpers/control_route_right');
 const control_same_origin = require('../control_same_origin');
+const control_token_refusal = require('../helpers/control_token_refusal');
+const control_token_status = require('../helpers/control_token_status');
 const crypto = require('crypto');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
 const docker_serve = require('../../../../modules/docker/server/docker_serve');
@@ -191,14 +192,14 @@ async function control_answer(app, req, res)
         }
         return;
     }
-    // Every other request brings a token. The owner's may do everything; a reader's may do the
-    // reads it was given, of its own machines, and nothing else.
+    // Every other request brings a token. The owner's may do everything; an agent's may do what
+    // its rights allow, of its own machines, and nothing else.
     const caller = control_caller(app, req);
     if (caller === null) {
         token_refuse(app, req, res, url);
         return;
     }
-    if ((caller.owner === false) && (reader_allowed(app, req, res, url, caller.token) === false)) {
+    if ((caller.owner === false) && (token_allowed(app, req, res, url, caller.token) === false)) {
         return;
     }
     // Every change asked of the control page is written down: what it was, and from where.
@@ -1696,40 +1697,25 @@ function token_refuse(app, req, res, url)
     send_json(res, 401, {error: 'the control door wants a token: Authorization: Bearer <token>'});
 }
 
-// A reader's token goes on only with one of its reads, of one of its machines; otherwise it
+// An agent's token goes on only with one of its rights, on one of its machines; otherwise it
 // gets a 403 that says which right was missing. The status it gets is its own, cut down to its
 // machines, and answered here.
-function reader_allowed(app, req, res, url, token)
+function token_allowed(app, req, res, url, token)
 {
     const right = control_route_right(req.method, url.pathname);
-    const refused = reader_refusal(right, token);
+    const refused = control_token_refusal(right, token);
     if (refused !== null) {
         log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, token: token.label, method: req.method, path: url_logged(req.url), reason: refused});
         send_json(res, 403, {error: `the token ${JSON.stringify(token.label)} ${refused}`});
         return false;
     }
     token.used_at = new Date().toISOString();
-    log_event(app, 'control_token_read', {token: token.label, path: url_logged(req.url)});
-    if (right.read === 'status') {
-        send_json(res, 200, control_reader_status(app, token));
+    log_event(app, 'control_token_used', {token: token.label, method: req.method, path: url_logged(req.url)});
+    if (right.right === 'status') {
+        send_json(res, 200, control_token_status(app, token));
         return false;
     }
     return true;
-}
-
-// Why a reader may not ask this, or null when it may
-function reader_refusal(right, token)
-{
-    if (right === null) {
-        return 'only reads, and this is not one';
-    }
-    if (token.reads.includes(right.read) === false) {
-        return `may not read ${right.read}`;
-    }
-    if ((right.remote !== null) && (token.remotes.includes(right.remote) === false)) {
-        return `may not see ${right.remote}`;
-    }
-    return null;
 }
 
 // A machine's files under their own address are the owner's: the page's cookie is sent there

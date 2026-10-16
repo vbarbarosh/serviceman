@@ -177,19 +177,21 @@ Even on this machine, and through the control socket, nothing gets in without a 
   `SERVICEMAN_OWNER_TOKEN` gives one of your own instead, and then no file is written. The page
   asks for it once and keeps it in a cookie only its own requests carry; **Sign out** is
   `DELETE /api/v1/session`.
-- **A reader's token** is made on the page's **Tokens** tab, for an agent or a program: a
-  label, the machines it sees, and what it may read of them — `status`, `metrics`,
-  `processes`, `ports`, `disks`, `packages`, `containers`. It is shown once, and only its hash
-  is kept, in `data/control_tokens.json`. It cannot start, stop or change anything, open a
-  shell, read the config or a secret, or see another machine; taken back, it stops at once.
+- **An agent's token** is made on the page's **Tokens** tab, for an agent or a program: a
+  label, the machines it sees, and its rights on them. The reads are `status`, `metrics`,
+  `processes`, `ports`, `disks`, `packages` and `containers`; `terminals` lists, makes, joins,
+  signals and ends the kept terminals of its machines, a shell on each of them, so treat such a
+  token like an ssh key to them. It is shown once, and only its hash is kept, in
+  `data/control_tokens.json`. It never touches the config, a secret, a service or another
+  machine, and opens no other shell; taken back, it stops at once.
 
 A caller sends its token with every request:
 
     curl --unix-socket data/serviceman.sock -H "Authorization: Bearer $TOKEN" http://localhost/api/v1/status
 
-A reader's status is its own: its machines and what runs on them, nothing of the config. Every
-route says which read it is in one table (`control_route_right.js`); a route that says none,
-one added later included, is the owner's alone. The agent file, the installer and an agent
+An agent's status is its own: its machines and what runs on them, nothing of the config. Every
+route says which right it needs in one table (`control_route_right.js`); a route that says
+none, one added later included, is the owner's alone. The agent file, the installer and an agent
 dialling in with its remote token need no token of the control door.
 
 Reach it from your laptop with an SSH tunnel:
