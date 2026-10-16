@@ -352,8 +352,7 @@ it works but wants a look, red when it does not, grey when there is nothing to s
 wrong comes first, one card each: where it is, since when, why, and what mends it; a red bar
 under the page's header says so on every page and opens it. A problem shows once it is seen
 twice in a row, so a blip of a second is not one, and leaves on its own once it is mended. Each
-is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)). The old
-address `/problems` opens Health.
+is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)).
 
 | It looks for                                       | How                                                                                                                  |
 |----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|

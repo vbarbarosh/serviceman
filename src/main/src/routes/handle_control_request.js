@@ -123,7 +123,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'problems', 'authwall', 'load-tests'];
+const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');

@@ -2976,8 +2976,7 @@ const app = {
                 this.logline_open = true;
                 return;
             }
-            // The Problems page became a part of Health: an old address still finds them
-            if ((route.kind === 'health') || (route.kind === 'problems')) {
+            if (route.kind === 'health') {
                 this.health_open = true;
                 return;
             }
