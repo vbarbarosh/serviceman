@@ -110,7 +110,8 @@ const health_pane = {
             if (counts.warn > 0) {
                 items.push(`${counts.warn} to look at`);
             }
-            if ((items.length === 0) && (counts.ok === 0)) {
+            // Nothing set up: no machine, service or forward; Logline alone may say it is not
+            if ((items.length === 0) && this.health.areas.every(v => (v.key === 'logline') || (v.rows.length === 0))) {
                 return {state: 'muted', text: 'Nothing set up yet'};
             }
             if (items.length === 0) {

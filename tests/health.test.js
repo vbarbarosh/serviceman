@@ -54,7 +54,7 @@ test('a container problem turns the machine\'s Docker red, in the problem\'s wor
     assert.match(docker.detail, /docker start logline-clickstack-1/);
 });
 
-test('a sleeping service is well; a failed one and one that does not answer are not', function () {
+test('a sleeping service is grey, not broken; a failed one and one that does not answer are red', function () {
     const asleep = service('docs', {phase: 'stopped'});
     const failed = service('api', {phase: 'failed', error: 'exit 1'});
     const silent = service('viewer', {phase: 'running', instances: [{slot: 1, phase: 'running', remote: 'vps1'}]});
@@ -62,7 +62,7 @@ test('a sleeping service is well; a failed one and one that does not answer are 
     const problem = {key: 'service_silent:viewer:1', kind: 'service', remote: 'vps1', service: 'viewer', subject: 'viewer does not answer', cause: 'nothing answers at 127.0.0.1:8081 on vps1: connect ECONNREFUSED', fix: 'Restart it'};
     const health = health_from_views(views({services: [asleep, failed, silent, answering], problems: [problem]}), seen({'service:echo:1': ok('in 3 ms')}));
     const rows = area(health, 'services').rows;
-    assert.deepStrictEqual(rows.map(v => v.state), ['ok', 'bad', 'bad', 'ok']);
+    assert.deepStrictEqual(rows.map(v => v.state), ['none', 'bad', 'bad', 'ok']);
     assert.strictEqual(rows[0].checks[0].text, 'asleep');
     assert.strictEqual(rows[2].checks[1].text, 'not on vps1');
     assert.strictEqual(rows[3].checks[1].text, 'in 3 ms');

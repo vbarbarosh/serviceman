@@ -180,7 +180,8 @@ function service_row(service, seen, problems)
     return row(`service:${service.name}`, service.title || service.name, {service: service.name}, checks);
 }
 
-// A service that is stopped is asleep, not broken: it starts on the next visit
+// A service that is stopped is asleep, not broken: it starts on the next visit. Grey, as on its
+// own page: green is a running one
 function phase_check(service)
 {
     const phase = service.phase;
@@ -195,7 +196,7 @@ function phase_check(service)
         return check('phase', 'State', 'ok', `running${up}`, null);
     }
     if (phase === 'stopped') {
-        return check('phase', 'State', 'ok', 'asleep', ((service.type === 'external') ? null : 'Starts on the next visit.'));
+        return check('phase', 'State', 'none', 'asleep', ((service.type === 'external') ? null : 'Starts on the next visit.'));
     }
     return check('phase', 'State', 'none', phase, null);
 }
