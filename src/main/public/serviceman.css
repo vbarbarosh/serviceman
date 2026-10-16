@@ -493,15 +493,6 @@ table.procs .caret.open {
     overflow-wrap: anywhere;
 }
 
-/* A forward's label wraps inside its own width, measured or not, so a long one never folds the
-   rest of its row away */
-.fold-room > table > * > tr > .wraps > .fwd-label {
-    display: inline-block;
-    max-width: 16rem;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
 .fold-room > table.fold-measure > * > tr > * {
     white-space: nowrap;
     overflow-wrap: normal;
@@ -677,6 +668,141 @@ table.procs .caret.open {
 
 .fold-room > table.doors-of > * > tr > .fold-caret {
     padding-right: 0;
+}
+
+/* The one table of every page (data_table.js): no frame and no rounding, hairline rows, small
+   headers; the state of a row is a straight stripe at its start, the state of a cell its dot
+   and its colour; actions last, every one a link of the same look. */
+.data-table-room {
+    margin: 1rem 0;
+    /* Its width is its container's, never its table's: measured at its widest, a table that
+       made its box wider would always seem to fit */
+    contain: inline-size;
+}
+
+.data-table-room > .fold-room {
+    margin: 0;
+}
+
+.data-table-empty {
+    margin: 0;
+}
+
+.fold-room > table.data-table > * > tr > .dt-stripe {
+    padding-left: .6rem;
+    border-left: 3px solid var(--line);
+    transition: border-color .2s ease;
+}
+
+.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-ok {
+    border-left-color: var(--run);
+}
+
+.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-warn {
+    border-left-color: var(--busy);
+}
+
+.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-bad {
+    border-left-color: var(--bad);
+}
+
+/* A name that may wrap asks for no more than 16rem while measured, so a long one wraps rather
+   than folding the rest of its row away */
+.fold-room > table.data-table.fold-measure > * > tr > .wraps {
+    max-width: 16rem;
+    overflow: hidden;
+}
+
+.fold-room > table.data-table > * > tr > .dt-tick {
+    width: 1.5rem;
+    text-align: center;
+}
+
+.fold-room > table.data-table > * > tr > .dt-tick input {
+    width: auto;
+    margin: 0;
+}
+
+.data-table button.dt-sort {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    transition: color .12s ease;
+}
+
+.data-table button.dt-sort:hover,
+.data-table button.dt-sort.on {
+    color: var(--fg);
+}
+
+.fold-room > table.data-table > * > tr > .dt-actions {
+    text-align: right;
+}
+
+.data-table .dt-actions button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    transition: color .12s ease;
+}
+
+.data-table .dt-actions button:hover {
+    background: none;
+    text-decoration: underline;
+}
+
+.data-table .dt-actions button.danger {
+    color: var(--bad);
+}
+
+.data-table .dt-actions > * + * {
+    margin-left: .75rem;
+}
+
+.data-table .dt-actions label {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    color: var(--muted);
+}
+
+.data-table .dt-actions input[type=checkbox] {
+    width: auto;
+    margin: 0;
+}
+
+.data-table dd.dt-actions {
+    text-align: left;
+}
+
+/* A cell that says a state: its dot, then its words in the state's colour */
+.dt-state .dot {
+    display: inline-block;
+    margin-right: .4rem;
+    vertical-align: .05em;
+}
+
+.dt-state.bad {
+    color: var(--bad);
+}
+
+.dt-state.warn {
+    color: var(--busy);
+}
+
+.dt-state.none {
+    color: var(--muted);
+}
+
+.dt-detail {
+    display: block;
+    color: var(--muted);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 /* What folded out of a row, under it: one line each, its label and its value */
@@ -3067,55 +3193,3 @@ table.procs tr.dim .meter {
     text-transform: uppercase;
 }
 
-.health-area .health-empty {
-    margin: 0;
-}
-
-.health-table .health-name {
-    border-left: 3px solid var(--line);
-    padding-left: .6rem;
-}
-
-.health-table .health-name.state-bad {
-    border-left-color: var(--bad);
-}
-
-.health-table .health-name.state-warn {
-    border-left-color: var(--busy);
-}
-
-.health-table .health-name.state-ok {
-    border-left-color: var(--run);
-}
-
-.health-table .health-name .dot {
-    margin-right: .45rem;
-}
-
-.health-table .health-name button.link {
-    text-align: left;
-}
-
-.health-cell .dot {
-    display: inline-block;
-    margin-right: .4rem;
-    vertical-align: .05em;
-}
-
-.health-cell.state-bad {
-    color: var(--bad);
-}
-
-.health-cell.state-warn {
-    color: var(--busy);
-}
-
-.health-cell.state-none {
-    color: var(--muted);
-}
-
-.health-detail {
-    display: block;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}

@@ -10,13 +10,15 @@
 //   span           the columns shown now, for a details cell's colspan
 //   is_open(key)   whether that row's details are open
 //   toggle(key, event)  a click on the row; a click on a link, a button or a box inside it is theirs
+// `caret_kept` says the chevron's column is there whether anything folds or not: it is
+// measured as part of the table, not added when the first column folds.
 const fold_table = {
     template: `
 <div ref="room" class="fold-room">
     <slot :folded="folded" :span="span" :is_open="is_open" :toggle="toggle"/>
 </div>
 `,
-    props: ['order'],
+    props: ['order', 'caret_kept'],
     emits: [],
     data: function () {
         // `opened` is the rows whose details are shown, by the key the slot gives
@@ -70,7 +72,8 @@ const fold_table = {
             }
             table.classList.add('fold-measure');
             const caret = head.querySelector('.fold-caret');
-            const caret_width = ((caret === null) ? 0 : caret.offsetWidth);
+            const kept = ((caret !== null) && (this.caret_kept === true));
+            const caret_width = (((caret === null) || kept) ? 0 : caret.offsetWidth);
             let width = (table.offsetWidth - caret_width);
             const widths = {};
             for (const cell of head.querySelectorAll('[data-fold]')) {
@@ -82,7 +85,7 @@ const fold_table = {
                 if (width <= room.clientWidth) {
                     break;
                 }
-                if (folded.length === 0) {
+                if ((folded.length === 0) && (kept === false)) {
                     width += ((caret === null) ? CARET_WIDTH : caret_width);
                 }
                 folded.push(name);

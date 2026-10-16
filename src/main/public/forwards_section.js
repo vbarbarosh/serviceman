@@ -1,4 +1,4 @@
-import fold_table from './fold_table.js';
+import data_table from './data_table.js';
 import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
@@ -58,83 +58,26 @@ const forwards_section = {
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </div>
     </div>
-    <fold-table v-slot="fold" :order="['acts', 'problem', 'through', 'speed', 'to', 'from']">
-        <table>
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Label</th>
-                    <th data-fold="from">From</th>
-                    <th data-fold="to">Shows up on</th>
-                    <th>Now</th>
-                    <th v-if="wrongs" data-fold="problem">What is wrong</th>
-                    <th data-fold="speed">Speed</th>
-                    <th data-fold="through">Through it</th>
-                    <th data-fold="acts" class="tick">On</th>
-                    <th data-fold="acts"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="item of forwards" :key="item.label">
-                    <tr :class="{off: item.off, foldable: (fold.folded.length > 0), open: fold.is_open(item.label)}" @click="fold.toggle(item.label, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><span class="fwd-label">{{ item.label }}</span></td>
-                        <td data-fold="from"><span class="muted">{{ title_of(item.from.remote) }} · </span><code>{{ end_text(item.from) }}</code></td>
-                        <td data-fold="to"><span class="muted">{{ place_of(item.to) }} · </span><code :title="(item.at === null ? '' : item.at)">{{ landed_text(item.to) }}</code></td>
-                        <td><span class="dot-name" :class="{bad: bad_of(item)}"><span class="dot" :class="dot_of(item)"/>{{ word_of(item) }}</span></td>
-                        <td v-if="wrongs" data-fold="problem" :class="(problem_of(item) === null ? 'muted' : 'bad')">{{ wrong_text(item) }}</td>
-                        <td data-fold="speed"><span class="fwd-speed" :class="{muted: idle(item)}">{{ speed_text(item) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(item) + ' minutes')"><polyline class="back" :points="spark(item, item.history_back)"/><polyline class="sent" :points="spark(item, item.history_sent)"/></svg></td>
-                        <td data-fold="through" class="muted">{{ through_text(item) }}</td>
-                        <td data-fold="acts" class="tick"><input type="checkbox" title="Listening, or set aside for now" :checked="(item.off === false)" :disabled="busy" @change="turn(item, $event.target.checked)"></td>
-                        <td data-fold="acts">
-                            <button type="button" class="link" :disabled="busy" @click="edit(item)">edit</button>
-                            <button type="button" class="link" :disabled="busy" @click="drop(item)">forget it</button>
-                        </td>
-                    </tr>
-                    <tr v-if="fold.is_open(item.label)" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('from')">
-                                    <dt>From</dt>
-                                    <dd>{{ title_of(item.from.remote) }} · <code>{{ end_text(item.from) }}</code></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('to')">
-                                    <dt>Shows up on</dt>
-                                    <dd>{{ place_of(item.to) }} · <code :title="(item.at === null ? '' : item.at)">{{ landed_text(item.to) }}</code></dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('problem') && wrong_text(item) !== '')">
-                                    <dt>What is wrong</dt>
-                                    <dd :class="(problem_of(item) === null ? 'muted' : 'bad')">{{ wrong_text(item) }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('speed')">
-                                    <dt>Speed</dt>
-                                    <dd><span class="fwd-speed" :class="{muted: idle(item)}">{{ speed_text(item) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none"><polyline class="back" :points="spark(item, item.history_back)"/><polyline class="sent" :points="spark(item, item.history_sent)"/></svg></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('through')">
-                                    <dt>Through it</dt>
-                                    <dd class="muted">{{ through_text(item) }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('acts')">
-                                    <dt>On</dt>
-                                    <dd class="fold-actions">
-                                        <label><input type="checkbox" :checked="(item.off === false)" :disabled="busy" @change="turn(item, $event.target.checked)"> Listening</label>
-                                        <button type="button" class="link" :disabled="busy" @click="edit(item)">edit</button>
-                                        <button type="button" class="link" :disabled="busy" @click="drop(item)">forget it</button>
-                                    </dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(forwards.length === 0)">
-                    <td class="muted wraps" colspan="8">No forwards yet — <button type="button" class="link" :disabled="making" @click="begin">add the first one</button>: a socket on the laptop, say, answered by a port on a server.</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="columns" :rows="forwards" row_key="label" :row_state="state_of" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
+        <template #cell="{row, column}">
+            <template v-if="(column.key === 'label')">{{ row.label }}</template>
+            <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
+            <template v-else-if="(column.key === 'to')"><span class="muted">{{ place_of(row.to) }} · </span><code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
+            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}</span>
+            <span v-else-if="(column.key === 'problem')" :class="(problem_of(row) === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
+            <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
+            <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
+        </template>
+        <template #actions="{row}">
+            <label title="Listening, or set aside for now"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)">listening</label>
+            <button type="button" :disabled="busy" @click="edit(row)">edit</button>
+            <button type="button" class="danger" :disabled="busy" @click="drop(row)">forget it</button>
+        </template>
+        <template #empty>No forwards yet — <button type="button" class="link" :disabled="making" @click="begin">add the first one</button>: a socket on the laptop, say, answered by a port on a server.</template>
+    </data-table>
 </div>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: [],
     data: function () {
@@ -149,6 +92,20 @@ const forwards_section = {
         // Whether any forward has something wrong to tell, now or last time: else no column for it
         wrongs: function () {
             return this.forwards.some(v => this.wrong_text(v) !== '');
+        },
+        // The table's columns, each that may fold with when: what is wrong first, where it is from last
+        columns: function () {
+            const out = [
+                {key: 'label', label: 'Label', wraps: true},
+                {key: 'from', label: 'From', fold: 6},
+                {key: 'to', label: 'Shows up on', fold: 5},
+                {key: 'now', label: 'Now'},
+            ];
+            if (this.wrongs) {
+                out.push({key: 'problem', label: 'What is wrong', fold: 2, hide: v => (this.wrong_text(v) === '')});
+            }
+            out.push({key: 'speed', label: 'Speed', fold: 4}, {key: 'through', label: 'Through it', fold: 3});
+            return out;
         },
         machines: function () {
             return ((this.state === null) ? [] : this.state.remotes);
@@ -226,6 +183,13 @@ const forwards_section = {
                 to_offline: `${this.title_of(item.to.remote)} offline`,
             };
             return ((words[item.state] === undefined) ? item.state : words[item.state]);
+        },
+        // The row's stripe: green when it carries, grey when set aside or on its way, red otherwise
+        state_of: function (item) {
+            if (item.state === 'ready') {
+                return 'ok';
+            }
+            return (this.bad_of(item) ? 'bad' : 'none');
         },
         dot_of: function (item) {
             if (item.state === 'ready') {

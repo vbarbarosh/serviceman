@@ -1,4 +1,4 @@
-import fold_table from './fold_table.js';
+import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 
 // The dot of each state, as the rail draws a service: a filled disc is alive, an empty ring has
@@ -30,61 +30,28 @@ const health_pane = {
     </section>
     <section v-for="area of areas" :key="area.key" class="health-area">
         <h2>{{ area.title }}</h2>
-        <p v-if="(area.rows.length === 0)" class="muted health-empty">{{ empty_text(area.key) }}</p>
-        <fold-table v-else v-slot="fold" :order="columns_of(area).slice().reverse()">
-            <table class="health-table">
-                <thead>
-                    <tr>
-                        <th v-if="caret_shown(area, fold.folded)" class="fold-caret"></th>
-                        <th>{{ name_head(area.key) }}</th>
-                        <th v-for="column of columns_of(area)" :key="column" :data-fold="column">{{ column }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="row of area.rows" :key="row.key">
-                        <tr :class="{foldable: has_more(row, fold.folded), open: is_open(row)}" @click="row_click(row, fold.folded, $event)">
-                            <td v-if="caret_shown(area, fold.folded)" class="fold-caret"><svg v-if="has_more(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="wraps health-name" :class="('state-' + row.state)">
-                                <span class="dot" :class="dot_of(row.state)"/>
-                                <button v-if="(row.service !== null)" type="button" class="link" :title="('The page of ' + row.service)" @click="$emit('select', row.service)">{{ row.name }}</button>
-                                <button v-else-if="(row.remote !== null)" type="button" class="link" :title="('The page of ' + row.remote)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
-                                <b v-else>{{ row.name }}</b>
-                            </td>
-                            <td v-for="column of columns_of(area)" :key="column" :data-fold="column" :title="cell_title(row, column)">
-                                <span v-if="(checks_in(row, column).length === 0)" class="muted">—</span>
-                                <div v-for="check of checks_in(row, column)" :key="check.key" class="health-cell" :class="('state-' + check.state)">
-                                    <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="is_open(row)" class="fold-more">
-                            <td :colspan="((fold.folded.length > 0) ? fold.span : (columns_of(area).length + (caret_shown(area, fold.folded) ? 2 : 1)))">
-                                <dl class="fold-details">
-                                    <template v-for="check of more_of(row, fold.folded)" :key="('more-' + check.key)">
-                                        <dt>{{ check.label }}</dt>
-                                        <dd class="health-cell" :class="('state-' + check.state)">
-                                            <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}<span v-if="(check.detail !== null)" class="muted health-detail">{{ check.detail }}</span>
-                                        </dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </fold-table>
+        <data-table :columns="columns_of(area)" :rows="area.rows" :empty="empty_text(area.key)" :more="more" :row_state="v => v.state">
+            <template #cell="{row, column, more}">
+                <template v-if="(column.key === 'name')">
+                    <span class="dt-state" :class="row.state"><span class="dot" :class="dot_of(row.state)"/></span>
+                    <button v-if="(row.service !== null)" type="button" class="link" :title="('The page of ' + row.service)" @click="$emit('select', row.service)">{{ row.name }}</button>
+                    <button v-else-if="(row.remote !== null)" type="button" class="link" :title="('The page of ' + row.remote)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
+                    <b v-else>{{ row.name }}</b>
+                </template>
+                <template v-else>
+                    <span v-if="(checks_in(row, column.key).length === 0)" class="muted">—</span>
+                    <div v-for="check of checks_in(row, column.key)" :key="check.key" class="dt-state" :class="check.state" :title="((more || (check.detail === null)) ? '' : check.detail)">
+                        <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}<span v-if="(more && (check.detail !== null))" class="dt-detail">{{ check.detail }}</span>
+                    </div>
+                </template>
+            </template>
+        </data-table>
     </section>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: ['remote', 'select'],
-    data: function () {
-        return {
-            // The rows whose details are open, by row key
-            opened: {},
-        };
-    },
     computed: {
         problems: function () {
             return ((this.state.problems === undefined) ? [] : this.state.problems);
@@ -155,44 +122,25 @@ const health_pane = {
         name_head: function (key) {
             return {machines: 'Machine', services: 'Service', logline: '', lines: 'Machine', forwards: 'Forward'}[key] || '';
         },
-        // The area's columns: every check's label, in the order the rows first name them
+        // The area's columns: the thing's name, then every check's label in the order the rows
+        // first name them; the last folds first on a narrow screen
         columns_of: function (area) {
-            const out = [];
+            const labels = [];
             for (const row of area.rows) {
                 for (const check of row.checks) {
-                    if (out.includes(check.label) === false) {
-                        out.push(check.label);
+                    if (labels.includes(check.label) === false) {
+                        labels.push(check.label);
                     }
                 }
             }
-            return out;
+            return [{key: 'name', label: this.name_head(area.key), wraps: true}].concat(labels.map((v, i) => ({key: v, label: v, fold: (labels.length - i)})));
         },
-        checks_in: function (row, column) {
-            return row.checks.filter(v => v.label === column);
+        checks_in: function (row, label) {
+            return row.checks.filter(v => v.label === label);
         },
-        cell_title: function (row, column) {
-            return this.checks_in(row, column).map(v => v.detail).filter(v => v !== null).join('\n');
-        },
-        // What a row's details show: the checks folded away, and every check with more to say
-        more_of: function (row, folded) {
-            return row.checks.filter(v => (folded.includes(v.label) || (v.detail !== null)));
-        },
-        has_more: function (row, folded) {
-            return (this.more_of(row, folded).length > 0);
-        },
-        // The open-and-close mark has a column when any row opens: a row that opens says so
-        caret_shown: function (area, folded) {
-            return ((folded.length > 0) || area.rows.some(v => this.has_more(v, folded)));
-        },
-        is_open: function (row) {
-            return (this.opened[row.key] === true);
-        },
-        // A click on the row opens what stands behind it; a click on its name is the name's
-        row_click: function (row, folded, event) {
-            if ((this.has_more(row, folded) === false) || (event.target.closest('a, button') !== null)) {
-                return;
-            }
-            this.opened = Object.assign({}, this.opened, {[row.key]: (this.opened[row.key] !== true)});
+        // A check has more to say when it has a detail: its row opens to say it
+        more: function (row, label) {
+            return this.checks_in(row, label).some(v => v.detail !== null);
         },
     },
 };
