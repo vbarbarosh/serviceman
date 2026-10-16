@@ -35,6 +35,9 @@
         <lines>
             <password></password>
             <networks>
+                <!-- lines runs on the machine's own network and comes in by 127.0.0.1:8123 -->
+                <ip>127.0.0.1</ip>
+                <ip>::1</ip>
                 <ip>10.0.0.0/8</ip>
                 <ip>172.16.0.0/12</ip>
                 <ip>192.168.0.0/16</ip>

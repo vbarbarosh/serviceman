@@ -9,7 +9,8 @@ cli(main);
 // Everything it needs comes from the environment, as a container is given it:
 //
 //   PORT         where it listens, 3000
-//   BIND         the address it listens on, every one by default; docker decides who reaches it
+//   BIND         the address it listens on, every one by default; docker-compose.yml gives the
+//                tailnet address alone
 //   ADMIN_TOKEN  what serviceman shows to issue and revoke tokens
 //   ADMIN_IPS    where serviceman may ask from: addresses and ranges, comma-separated
 //                Without both, no token is issued; the ones already issued go on working.

@@ -148,7 +148,10 @@ serviceman asks for the tokens and hands them to its machines; the design is in 
 
 `POST /tokens` and `DELETE` need `ADMIN_TOKEN`, from an address in `ADMIN_IPS`. Set both in
 `.env`, with `TAILSCALE_IP` — port 3000 is opened on that address and nowhere else, with nothing
-in front of it, so every caller arrives with its own address. See
+in front of it, so every caller arrives with its own address: `lines` runs on the machine's own
+network, not behind Docker's, whose rules a Tailscale update can put out of order (then every
+machine arrives from Docker's address and every token is refused). The firewall lets the port in
+on the tailnet: `sudo ufw allow in on tailscale0 to any port 3000 proto tcp`. See
 [`config/docker.env.example`](config/docker.env.example). None of the three is needed for the
 rest of the stack: without them `lines` listens on this machine alone and issues no tokens.
 

@@ -11,6 +11,9 @@ services:
 #      - "127.0.0.1:4317:4317" # OTLP over gRPC
 #      - "127.0.0.1:4318:4318" # OTLP over HTTP
 #      - "127.0.0.1:8123:8123" # ClickHouse HTTP API and Play UI
+    # ClickHouse for lines, which runs on this machine's own network (below): this machine alone
+    ports:
+      - "127.0.0.1:8123:8123"
     volumes:
       - clickstack_app_data:/data/db
       - clickhouse_data:/var/lib/clickhouse
@@ -48,22 +51,27 @@ services:
       retries: 5
 
   # The one door machines send their lines to: POST /lines, with a token bound to the address
-  # it was issued for. Published on this machine's tailnet address only, with nothing in front
-  # of it, so every caller arrives with its own address and its token can be checked against it.
+  # it was issued for. It runs on this machine's own network and listens on its tailnet address
+  # only, with nothing in front of it, so every caller arrives with its own address and its
+  # token can be checked against it. Published through Docker instead, a Tailscale update here
+  # put Docker's rules behind Tailscale's, every machine arrived from Docker's own address, and
+  # every token was refused (401) until Docker was restarted. The firewall has to let the port in
+  # on the tailnet: sudo ufw allow in on tailscale0 to any port 3000 proto tcp.
   # Until .env says TAILSCALE_IP it listens on this machine alone, and until it says ADMIN_TOKEN
   # and ADMIN_IPS it issues no tokens; the rest of the stack runs either way.
   lines:
     build: ./lines
     restart: unless-stopped
+    network_mode: host
     depends_on:
       clickstack:
         condition: service_healthy
-    ports:
-      - "${TAILSCALE_IP:-127.0.0.1}:3000:3000"
     environment:
+      BIND: ${TAILSCALE_IP:-127.0.0.1}
+      PORT: 3000
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       ADMIN_IPS: ${ADMIN_IPS:-}
-      CLICKHOUSE: http://lines:@clickstack:8123
+      CLICKHOUSE: http://lines:@127.0.0.1:8123
     volumes:
       - lines_data:/app/data
 
