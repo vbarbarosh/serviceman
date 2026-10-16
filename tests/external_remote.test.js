@@ -57,11 +57,23 @@ test('an external service on a remote is reached through that remote\'s link, an
     assert.strictEqual(there.body, 'viewer saw /search?q=x for logline.test');
     assert.strictEqual(app.service_by_name['logline-ui'].state.instances[0].phase, 'running', 'nothing to start, nothing lost');
 
+    // The viewer stops over there: the refusal names the machine, since its address is that
+    // machine's loopback and not this one's
+    const viewer_port = viewer.address().port;
+    viewer.close();
+    viewer.closeAllConnections();
+    const refused = await fetch_host({port, host: 'logline.test', path: '/'});
+    assert.strictEqual(refused.status, 502);
+    // A connection kept open from the last request hangs up instead of being refused
+    assert.match(refused.body, new RegExp(`(ECONNREFUSED 127\\.0\\.0\\.1:${viewer_port}|socket hang up), on vps1`));
+
     // The link drops: not lost, not restarted, just not answering until the link is back
     agent.kill('SIGKILL');
     await until(() => remote.state.phase !== 'online');
     assert.strictEqual(app.service_by_name['logline-ui'].state.instances[0].phase, 'running');
-    assert.strictEqual((await fetch_host({port, host: 'logline.test', path: '/'})).status, 502);
+    const offline = await fetch_host({port, host: 'logline.test', path: '/'});
+    assert.strictEqual(offline.status, 502);
+    assert.strictEqual(offline.body.split('vps1').length - 1, 1, 'the machine is named once');
 });
 
 test('an external service names at most the one machine it is on', function () {

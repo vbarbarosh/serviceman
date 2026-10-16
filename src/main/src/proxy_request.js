@@ -38,16 +38,16 @@ function proxy_request(app, service, instance, req, res, deadline)
         }
         catch (error) {
             // No way to it at all: an external service on a machine whose link is down
-            log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, upstream: `${upstream.host}:${upstream.port}`, reason: error.message});
-            render_error_page(res, 502, 'The service did not answer', error_detail(app, req, error.message), {retry: wants_html(req)});
+            log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message});
+            render_error_page(res, 502, 'The service did not answer', error_detail(app, req, where_said(instance, error.message)), {retry: wants_html(req)});
             resolve();
             return;
         }
         if (deadline !== null) {
             proxy_req.setTimeout(Math.max(1, deadline - Date.now()), function () {
-                log_event(app, 'request_timeout', {service: service.name, instance: instance.slot, limit: format_seconds(service.policy.request_timeout_ms)});
+                log_event(app, 'request_timeout', {service: service.name, instance: instance.slot, remote: instance.remote, limit: format_seconds(service.policy.request_timeout_ms)});
                 proxy_req.destroy();
-                render_error_page(res, 504, 'The service did not answer in time', `${service.title} took longer than ${Math.round(service.policy.request_timeout_ms/1000)}s`, {retry: wants_html(req)});
+                render_error_page(res, 504, 'The service did not answer in time', where_said(instance, `${service.title} took longer than ${Math.round(service.policy.request_timeout_ms/1000)}s`), {retry: wants_html(req)});
             });
         }
         proxy_req.on('error', log_bind(function (error) {
@@ -56,7 +56,7 @@ function proxy_request(app, service, instance, req, res, deadline)
                 return;
             }
             if (DEAD_UPSTREAM_CODES.includes(error.code)) {
-                log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, upstream: `${upstream.host}:${upstream.port}`, reason: error.message, hint: port_hint(service, error)});
+                log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message, hint: port_hint(service, error)});
                 instance.last_error = error.message;
                 agent_reset(app, service, instance);
                 // An external service is not ours to start again, so its address stays what it is
@@ -64,7 +64,7 @@ function proxy_request(app, service, instance, req, res, deadline)
                     instance_stopped(instance);
                 }
             }
-            render_error_page(res, 502, 'The service did not answer', error_detail(app, req, error.message), {retry: wants_html(req)});
+            render_error_page(res, 502, 'The service did not answer', error_detail(app, req, where_said(instance, error.message)), {retry: wants_html(req)});
             resolve();
         }));
         req.on('aborted', function () {
@@ -88,6 +88,16 @@ function port_hint(service, error)
         return null;
     }
     return `nothing inside answers on port ${service.port}, check publish.port`;
+}
+
+// What went wrong, and on which machine: 127.0.0.1:8081 is an address on that machine, not
+// here. A text that names the machine already is left as it is.
+function where_said(instance, text)
+{
+    if ((instance.remote === null) || text.includes(instance.remote)) {
+        return text;
+    }
+    return `${text}, on ${instance.remote}`;
 }
 
 module.exports = proxy_request;
