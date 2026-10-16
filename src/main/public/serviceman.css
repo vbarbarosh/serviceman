@@ -779,6 +779,84 @@ table.procs .caret.open {
     text-align: left;
 }
 
+/* Every cell reads from the top, so a row whose cells wrap stays lined up on its first line */
+.fold-room > table.data-table > * > tr > th,
+.fold-room > table.data-table > * > tr > td {
+    vertical-align: top;
+}
+
+.fold-room > table.data-table .fold-caret svg {
+    margin-top: .35rem;
+}
+
+/* A table with no row of headers: the row stays, to measure the columns by, and takes no room */
+.fold-room > table.data-table.dt-bare > thead > tr > th {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+    font-size: 0;
+    line-height: 0;
+    visibility: hidden;
+}
+
+.fold-room > table.data-table > tbody > tr.chosen {
+    background: var(--hover);
+}
+
+.fold-room > table.data-table > tbody > tr.dt-group > td {
+    padding-top: .9rem;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: normal;
+}
+
+.fold-room > table.data-table > tbody > tr.dt-below > td,
+.fold-room > table.data-table > tbody > tr.dt-more > td {
+    white-space: normal;
+}
+
+/* A branch's mark in a tree, turned down while it is open; a leaf keeps its room */
+.data-table button.dt-branch {
+    display: inline-flex;
+    width: 1rem;
+    margin-right: .25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    vertical-align: -.1em;
+}
+
+.data-table button.dt-branch svg {
+    transition: transform .12s ease;
+}
+
+.data-table button.dt-branch.open svg {
+    transform: rotate(90deg);
+}
+
+.data-table .dt-branch-none {
+    display: inline-block;
+    width: 1.25rem;
+}
+
+/* An icon before a name, on its line */
+.data-table .dt-icon {
+    margin-right: .4rem;
+    vertical-align: -.15em;
+}
+
+/* A question in place of a row's actions: the question, then yes, then Cancel */
+.data-table .dt-confirm {
+    color: var(--fg);
+}
+
+.data-table .dt-confirm button {
+    margin-left: .75rem;
+}
+
 /* A cell that says a state: its dot, then its words in the state's colour */
 .dt-state .dot {
     display: inline-block;
