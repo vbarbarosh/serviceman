@@ -16,7 +16,7 @@ const RIGHTS_SAID = {
 
 // The tokens of the control door: each one for an agent or a program, with the machines it
 // sees and what it may do with them. A token is shown once, when it is made; only its hash is
-// kept, so a lost one is taken back and made again.
+// kept, so a lost one is revoked and made again.
 const tokens_form = {
     template: `
 <article id="detail" class="form">
@@ -29,11 +29,11 @@ const tokens_form = {
             <dd class="tk-row">
                 <span class="muted">{{ item.remotes.length === 0 ? 'no machine' : item.remotes.join(', ') }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template> · {{ used_text(item) }}</span>
                 <template v-if="(going !== item.id)">
-                    <button type="button" @click="going = item.id">Take it back…</button>
+                    <button type="button" @click="going = item.id">Revoke…</button>
                 </template>
                 <template v-else>
-                    <span>Take {{ item.label }} back? It stops working at once.</span>
-                    <button type="button" class="danger" :disabled="busy" @click="revoke(item)">Take it back</button>
+                    <span>Revoke {{ item.label }}? It stops working at once, and whoever uses it is refused.</span>
+                    <button type="button" class="danger" :disabled="busy" @click="revoke(item)">Revoke</button>
                     <button type="button" @click="going = ''">Keep it</button>
                 </template>
             </dd>
@@ -88,7 +88,7 @@ const tokens_form = {
             // The token just made, the one time it is shown: {label, token}
             made: null,
             copied: false,
-            // The one whose "Take it back" has been pressed and not yet answered for
+            // The one whose "Revoke" has been pressed and not yet answered for
             going: '',
             busy: false,
             bad: false,
@@ -155,7 +155,7 @@ const tokens_form = {
                     this.note = (await answer.json()).error;
                     return;
                 }
-                this.note = `${item.label} is taken back`;
+                this.note = `${item.label} is revoked`;
                 this.going = '';
                 await this.load();
             }

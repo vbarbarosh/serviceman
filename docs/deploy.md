@@ -188,7 +188,7 @@ Even on this machine, and through the control socket, nothing gets in without a 
   machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
   to them. It is shown once, and only its hash is kept, in
   `data/control_tokens.json`. It never touches the config, a secret, a service or another
-  machine, and opens no other shell; taken back, it stops at once.
+  machine, and opens no other shell; revoked, it stops at once.
 
 A caller sends its token with every request:
 

@@ -51,7 +51,7 @@ test('the page signs in once with the owner\'s token and gets a cookie; an agent
     assert.match(signed_out.headers['set-cookie'][0], /^serviceman_token=; Path=\/; Max-Age=0;/);
 });
 
-test('an agent\'s token sees its machines alone, does only what it was given, and stops at once when taken back', async function (t) {
+test('an agent\'s token sees its machines alone, does only what it was given, and stops at once when revoked', async function (t) {
     const running = await serviceman_start(t);
     const bad = await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['nowhere'], rights: ['status']}, running.owner);
     assert.deepStrictEqual([bad.status, JSON.parse(bad.body).error], [400, 'no remote named "nowhere"']);
@@ -88,7 +88,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     assert.strictEqual(running.app.log_lines.some(v => /\[control_token_used\] token="the notes agent" method=GET path=\/api\/v1\/status/.test(v)), true);
     assert.strictEqual(running.app.log_lines.some(v => v.includes(made.token)), false, 'no token is written in the log');
 
-    // The list says when it was used; taken back, it stops at once
+    // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
     assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'files', 'terminals']);
     assert.strictEqual(listed.tokens[0].sha256, undefined);

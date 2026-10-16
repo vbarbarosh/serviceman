@@ -935,7 +935,7 @@ Copies between machines stay the owner&#39;s. <code>terminals</code> lists, make
 machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
 to them. It is shown once, and only its hash is kept, in
 <code>data/control_tokens.json</code>. It never touches the config, a secret, a service or another
-machine, and opens no other shell; taken back, it stops at once.</li>
+machine, and opens no other shell; revoked, it stops at once.</li>
 </ul>
 <p>A caller sends its token with every request:</p>
 <pre><code>curl --unix-socket data/serviceman.sock -H &quot;Authorization: Bearer $TOKEN&quot; http://localhost/api/v1/status
