@@ -20,11 +20,14 @@ const TYPES = {
     '.mjs': 'text/javascript; charset=utf-8',
 };
 
+// The control page's files every module's tables are drawn with
+const SHARED = ['/data_table.js', '/fold_table.js'];
+
 // GET /                         the page
 // GET /api/modules              [{key, title}]
 // GET /api/machine              {hostname, addresses}
 // *   /api/<key>...             the module's API
-// GET /_/{app,vendor,<key>}/:file, GET /_/serviceman.css
+// GET /_/{app,vendor,<key>}/:file, GET /_/serviceman.css, GET /data_table.js, GET /fold_table.js
 async function request_answer(req, res)
 {
     if (request_allowed(req) === false) {
@@ -56,6 +59,12 @@ async function request_answer(req, res)
     }
     if (pathname === '/_/serviceman.css') {
         file_send(res, path.join(DIRS.main, 'serviceman.css'));
+        return;
+    }
+    // The page's one table, which every module's tables are drawn with: a module asks for it
+    // beside itself, as it is served on the control page
+    if (SHARED.includes(pathname)) {
+        file_send(res, path.join(DIRS.main, pathname.slice(1)));
         return;
     }
     const file = /^\/_\/([a-z_]+)\/([a-z0-9_-][a-z0-9_.-]*)$/.exec(pathname);

@@ -1,3 +1,4 @@
+import data_table from '../../data_table.js';
 import data_transfer_read from './data_transfer_read.js';
 import upload_queue from './upload_queue.js';
 
@@ -78,7 +79,8 @@ addEventListener('drop', function (event) {
 
 // One folder at a time, read from the API under `base` when asked and kept nowhere, and
 // files from here copied into the open folder. The host page gives the API, the colours
-// (--bg, --panel, --fg, --muted, --line, --hover, --accent) and its usual classes.
+// (--bg, --panel, --fg, --muted, --line, --hover, --accent) and its usual classes; its one
+// table, data-table, is imported from the page beside it.
 const file_manager = {
     template: `
 <article class="fm" @dragover="drag_over" @dragleave="drag_leave" @drop="dropped">
@@ -261,38 +263,19 @@ const file_manager = {
             <span v-else class="bad" :title="(transfer_where(item) + ' · ' + item.said)">{{ transfer_where(item) }} · {{ item.said }}</span>
         </div>
     </div>
-    <div class="card fm-list">
-        <table class="list-table fm-table">
-            <thead>
-                <tr>
-                    <th class="fm-pick"><input type="checkbox" aria-label="Tick every name shown" :checked="all_chosen" :disabled="(items_shown.length === 0)" @change="choose_all($event.target.checked)"></th>
-                    <th v-for="column of columns" :key="column.key" :class="column.key">
-                        <button type="button" class="fm-sort" :class="{on: (sort === column.key)}" @click="sort_by(column.key)">{{ column.label }}<span v-if="(sort === column.key)">{{ sort_desc ? ' ↓' : ' ↑' }}</span></button>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- The whole row is the control: a folder opens, a file takes the tick. The
-                     checkbox cell keeps clicks to itself, or a tick would also walk. -->
-                <tr v-for="item of items_shown" :key="item.name" class="pick" :class="{chosen: (chosen[item.name] === true)}" @click="row_click(item)">
-                    <td class="fm-pick" @click.stop><input type="checkbox" :aria-label="('Tick ' + item.name)" :checked="(chosen[item.name] === true)" @change="choose(item, $event.target.checked)"></td>
-                    <td class="name">
-                        <span class="row-of">
-                            <svg v-if="(item.kind === 'dir')" class="fm-dir" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
-                            <svg v-else class="fm-file" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9z"/><path d="M13 3v6h6"/></svg>
-                            <b v-if="(item.kind === 'dir')">{{ item.name }}</b>
-                            <a v-else :href="file_url(item)" target="_blank" rel="noreferrer" :title="(is_editable(item) ? 'Open it here — Ctrl-click opens it in a tab' : 'Open it in a tab of its own')" @click.stop="name_click(item, $event)">{{ item.name }}</a>
-                        </span>
-                    </td>
-                    <td class="size">{{ (item.kind === 'dir' ? '—' : (item.size === null ? '' : format_bytes(item.size))) }}</td>
-                    <td class="mtime muted" :title="mtime_title(item)">{{ (item.mtime_ms === null ? '' : format_ms_ago(now - item.mtime_ms)) }}</td>
-                </tr>
-                <tr v-if="(path !== null && items_shown.length === 0)">
-                    <td colspan="4" class="muted fm-empty">{{ empty_text }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <!-- The whole row is the control: a folder opens, a file takes the tick -->
+    <data-table v-if="(path !== null)" class="fm-table" :columns="columns" :rows="items_shown" row_key="name" :empty="empty_text" :sort="{key: sort, down: sort_desc}" :selected="chosen_names" :chosen="row_chosen" :on_row="row_click" @sort="sort_by" @selected="chosen_set">
+        <template #cell="{row, column}">
+            <template v-if="(column.key === 'name')">
+                <svg v-if="(row.kind === 'dir')" class="dt-icon fm-dir" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
+                <svg v-else class="dt-icon fm-file" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9z"/><path d="M13 3v6h6"/></svg>
+                <b v-if="(row.kind === 'dir')">{{ row.name }}</b>
+                <a v-else :href="file_url(row)" target="_blank" rel="noreferrer" :title="(is_editable(row) ? 'Open it here — Ctrl-click opens it in a tab' : 'Open it in a tab of its own')" @click.stop="name_click(row, $event)">{{ row.name }}</a>
+            </template>
+            <template v-else-if="(column.key === 'size')">{{ (row.kind === 'dir' ? '—' : (row.size === null ? '' : format_bytes(row.size))) }}</template>
+            <span v-else class="muted" :title="mtime_title(row)">{{ (row.mtime_ms === null ? '' : format_ms_ago(now - row.mtime_ms)) }}</span>
+        </template>
+    </data-table>
     <p v-if="(path !== null)" class="muted fm-foot">{{ summary }} · drop files or folders here, or paste them with Ctrl+V, to copy them in</p>
     </template>
     <!-- One file of the folder, read into an editor in place of the list -->
@@ -348,6 +331,7 @@ const file_manager = {
     // transfers  where the host's copies between disks are; none, and no file is copied away
     // disk       this disk's name among them
     // targets    the other disks a file may be copied to: [{value, label}]
+    components: {'data-table': data_table},
     props: ['base', 'theme', 'offline', 'open_base', 'title', 'user', 'home_title', 'start', 'transfers', 'disk', 'targets'],
     // path       the folder now shown, each time another one is, for the host to keep: in the
     //            address, say, where a reload finds it and gives it back as `start`
@@ -477,7 +461,7 @@ const file_manager = {
             return ((this.crumbs.length === 0) ? '' : this.crumbs[this.crumbs.length - 1].label);
         },
         columns: function () {
-            return [{key: 'name', label: 'Name'}, {key: 'size', label: 'Size'}, {key: 'mtime', label: 'Modified'}];
+            return [{key: 'name', label: 'Name', sort: true, wraps: true}, {key: 'size', label: 'Size', sort: true, fold: 2, align: 'right'}, {key: 'mtime', label: 'Modified', sort: true, fold: 1}];
         },
         dot_count: function () {
             return this.items.filter(v => v.name.startsWith('.')).length;
@@ -653,9 +637,6 @@ const file_manager = {
         // Ticks on names the dot-files toggle has hidden do not count
         chosen_names: function () {
             return this.items_shown.filter(v => this.chosen[v.name] === true).map(v => v.name);
-        },
-        all_chosen: function () {
-            return (this.items_shown.length > 0) && (this.chosen_names.length === this.items_shown.length);
         },
         // One chosen file comes as itself; a folder, or several names, come as one tar. The
         // saving stays on this origin: the download attribute holds there and nowhere else.
@@ -1136,6 +1117,15 @@ const file_manager = {
                 delete this.chosen[item.name];
             }
         },
+        row_chosen: function (item) {
+            return (this.chosen[item.name] === true);
+        },
+        // The names ticked in the list; a name the filter hides keeps its tick
+        chosen_set: function (names) {
+            const shown = this.items_shown.map(v => v.name);
+            const kept = Object.keys(this.chosen).filter(v => (shown.includes(v) === false));
+            this.chosen = Object.fromEntries(kept.concat(names).map(v => [v, true]));
+        },
         row_click: function (item) {
             if (item.kind === 'dir') {
                 this.open(`${this.path}/${item.name}`);
@@ -1147,14 +1137,6 @@ const file_manager = {
         // whole path is the address, so a page finds its style.css one name over.
         file_url: function (item) {
             return `${this.open_root}${url_path(`${this.path}/${item.name}`)}`;
-        },
-        choose_all: function (on) {
-            this.chosen = {};
-            if (on) {
-                for (const item of this.items_shown) {
-                    this.chosen[item.name] = true;
-                }
-            }
         },
         rename: function () {
             return this.acts([['rename', {from: `${this.path}/${this.chosen_names[0]}`, to: `${this.path}/${this.new_name}`}]], 'renamed');

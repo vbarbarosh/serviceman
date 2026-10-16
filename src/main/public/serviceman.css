@@ -260,40 +260,6 @@ button:disabled:hover {
     border: 1px solid var(--line);
 }
 
-/* One service as one page: the tab bar is the page's header, so it stays put while the tab's
-   own article scrolls under it */
-/* The process tree: the first column is indented by how deep the process sits, and the caret
-   turns where a branch is open. A command line is as long as somebody made it, so the column
-   ends in an ellipsis and the whole of it is the row's title. */
-table.procs tr.folds {
-    cursor: pointer;
-}
-
-table.procs tbody tr:hover td {
-    background: var(--panel);
-}
-
-/* A branch opens on its own small square, apart from the click that opens a row's details */
-table.procs .caret {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-right: .3rem;
-    padding: 1px;
-    border-radius: 4px;
-    vertical-align: -3px;
-    color: var(--muted);
-    transition: transform .12s ease, background .12s ease, border-color .12s ease;
-}
-
-table.procs .caret svg {
-    display: block;
-}
-
-table.procs .caret.open {
-    transform: rotate(90deg);
-}
-
 /* The line that writes a rule: the three parts of it side by side, and not one to a row the
    way a form's own fields stand */
 .form .rule-add {
@@ -555,97 +521,7 @@ table.procs .caret.open {
     contain: inline-size;
 }
 
-/* A list-table in a fold-table keeps its own look: its padding, its headers, a hover that
-   shows in a card */
-.fold-room > table.list-table > * > tr > th,
-.fold-room > table.list-table > * > tr > td {
-    padding: .55rem .9rem;
-}
-
-.fold-room > table.list-table > thead > tr > th {
-    font-size: .75rem;
-    font-weight: 500;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-}
-
-.fold-room > table.list-table > * > tr > .fold-caret {
-    padding-right: 0;
-    padding-left: .6rem;
-}
-
-.fold-room > table.list-table > tbody > tr.fold-more > td {
-    padding: 0 .9rem .75rem calc(24px + .9rem);
-}
-
-.fold-room > table.list-table > tbody > tr.foldable:hover {
-    background: var(--hover);
-}
-
-/* The process tree in a fold-room: the command takes the room the other columns leave and ends
-   in an ellipsis; measured, it asks for 16rem */
-.fold-room > table.procs > tbody > tr > td.tree {
-    width: 100%;
-    max-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.fold-room > table.procs.fold-measure > tbody > tr > td.tree {
-    width: auto;
-    max-width: 16rem;
-}
-
-/* A disk's and a package's lines read from the top, the chevron on the first */
-.fold-room > table.disks-table > tbody > tr > td,
-.fold-room > table.packages-table > tbody > tr > td {
-    vertical-align: top;
-}
-
-.fold-room > table.disks-table .fold-caret svg,
-.fold-room > table.packages-table .fold-caret svg {
-    margin-top: .3rem;
-}
-
-/* What a package is wraps in its column as it always has; measured, it asks for 16rem */
-.fold-room > table.packages-table.fold-measure > tbody > tr > td.package-summary {
-    max-width: 16rem;
-    overflow: hidden;
-}
-
-/* The other places a disk is mounted: a line, cut where it is long, the whole list its title */
-.disk-also {
-    max-width: 20rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.fold-room > table.list-table > * > tr.group > td {
-    padding: .4rem .9rem;
-}
-
-/* A list-table's message stays on one line too: a long one folds its column, not the row's height */
-.fold-room > table.list-table > * > tr > td.bad {
-    white-space: nowrap;
-}
-
 /* On a phone a list-table's cells come closer, so a short name keeps its line */
-@media (max-width: 560px) {
-    .fold-room > table.list-table > * > tr > th,
-    .fold-room > table.list-table > * > tr > td {
-        padding-left: .6rem;
-        padding-right: .6rem;
-    }
-}
-
-/* A message as long as a paragraph: one line, cut, the whole of it in its title and its details */
-.fold-room .cut-line {
-    display: inline-block;
-    max-width: 28rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-}
 
 /* A name of many parts wraps between them, and a tag stays whole */
 .fold-room > table > * > tr > .wraps > .row-of {
@@ -659,15 +535,6 @@ table.procs .caret.open {
 /* A service's public addresses sit tight in their card, little room around the cells */
 .svc-doors .fold-room {
     margin: 0;
-}
-
-.fold-room > table.doors-of > * > tr > th,
-.fold-room > table.doors-of > * > tr > td {
-    padding: .35rem .8rem .35rem 0;
-}
-
-.fold-room > table.doors-of > * > tr > .fold-caret {
-    padding-right: 0;
 }
 
 /* The one table of every page (data_table.js): no frame and no rounding, hairline rows, small
@@ -843,6 +710,24 @@ table.procs .caret.open {
 }
 
 /* An icon before a name, on its line */
+.data-table .dt-right {
+    text-align: right;
+}
+
+/* One line cut with …; the cell takes what is left of the row and no more */
+.data-table td.dt-clip {
+    width: 100%;
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A row shown for its place in a tree, not for itself */
+.data-table tr.dim > td {
+    opacity: .55;
+}
+
 .data-table .dt-icon {
     margin-right: .4rem;
     vertical-align: -.15em;
@@ -925,13 +810,6 @@ table.procs .caret.open {
         grid-template-columns: max-content minmax(0, 1fr);
         gap: .3rem .6rem;
     }
-}
-
-/* A name with its dot beside it, outside the rail: a dot has a size only as a flex item */
-.dot-name {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
 }
 
 /* A run that prints hundreds of lines gets a window of its own inside the page */
@@ -1866,55 +1744,6 @@ button.chip.on {
     background: var(--panel);
 }
 
-table.list-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-table.list-table th {
-    padding: .55rem .9rem;
-    border-bottom: 1px solid var(--line);
-    color: var(--muted);
-    font-size: .75rem;
-    font-weight: 500;
-    letter-spacing: .04em;
-    text-align: left;
-    text-transform: uppercase;
-}
-
-table.list-table td {
-    padding: .55rem .9rem;
-    border-bottom: 1px solid var(--line);
-    white-space: nowrap;
-}
-
-table.list-table tbody tr:last-child td {
-    border-bottom: 0;
-}
-
-table.list-table tr.group td {
-    padding: .4rem .9rem;
-    background: var(--bg);
-    font-size: .9rem;
-}
-
-table.list-table tr.pick {
-    cursor: pointer;
-}
-
-table.list-table tr.pick:hover td {
-    background: var(--hover);
-}
-
-table.list-table tr.off code {
-    color: var(--muted);
-    text-decoration: line-through;
-}
-
-table.list-table td.bad {
-    white-space: normal;
-}
-
 .tag {
     display: inline-block;
     padding: 0 .45rem;
@@ -2237,27 +2066,8 @@ a.button:hover {
     background: var(--bad);
 }
 
-.disks-table tr.muted td {
-    color: var(--muted);
-}
-
 .disk-lock {
     margin-left: .4rem;
-}
-
-/* A machine's packages: one line each where the width allows, what it is last */
-.packages-table td.package-summary {
-    min-width: 16rem;
-    white-space: normal;
-}
-
-.packages-table th.package-size,
-.packages-table td.package-size {
-    text-align: right;
-}
-
-.packages-table .tag {
-    margin-left: .3rem;
 }
 
 .package-next {
@@ -2266,10 +2076,6 @@ a.button:hover {
 }
 
 .package-security {
-    color: var(--bad);
-}
-
-.packages-table .tag.bad {
     color: var(--bad);
 }
 
@@ -2880,14 +2686,6 @@ article.rf .actions {
     margin: 0;
 }
 
-table.procs tr.dim td {
-    color: var(--muted);
-}
-
-table.procs tr.dim .meter {
-    opacity: .5;
-}
-
 /* The Map: a column for each kind of thing, the lines between them drawn underneath. Pointing
    at a node dims everything it is not joined to. */
 .map-legend {
@@ -3059,12 +2857,6 @@ table.procs tr.dim .meter {
     margin: 0;
 }
 
-/* A service's public addresses: its door names, each with its switch */
-
-.svc-doors table.doors-of tr.off td {
-    color: var(--muted);
-}
-
 .door-problem {
     white-space: nowrap;
 }
@@ -3113,19 +2905,6 @@ table.procs tr.dim .meter {
     background: none;
 }
 
-.load-tests table.list-table td {
-    transition: background-color .2s ease;
-}
-
-.load-tests table.list-table tr.on td {
-    background: var(--hover);
-}
-
-.load-tests td.lt-act {
-    width: 1%;
-    text-align: right;
-}
-
 .lt-last {
     display: inline-flex;
     gap: .5rem;
@@ -3160,13 +2939,6 @@ table.procs tr.dim .meter {
 
 .load-tests tr.lt-log pre {
     max-height: 28rem;
-}
-
-.load-tests tr.lt-notes td {
-    padding-top: 0;
-    white-space: normal;
-    font-size: .85rem;
-    overflow-wrap: anywhere;
 }
 
 /* What is wrong: a row of its own under the header, on every page, until it is mended */

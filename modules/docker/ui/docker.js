@@ -1,3 +1,4 @@
+import data_table from '../../data_table.js';
 import file_manager from 'file_manager/file_manager.js';
 import terminal from 'terminal/terminal.js';
 
@@ -5,7 +6,8 @@ import terminal from 'terminal/terminal.js';
 // image, on which ports, since when — and the few things done to it most often. A project is
 // updated the way it is by hand in its folder, its output shown as it comes; a container
 // opens in place, its files in the File Manager and a shell in the Terminal. The host page
-// gives the API, the colours and its usual classes: card, list-head, list-table, dot, muted, bad.
+// gives the API, the colours and its usual classes: card, list-head, dot, muted, bad; its one
+// table, data-table, is imported from the page beside it.
 const docker = {
     template: `
 <article class="dk">
@@ -65,347 +67,98 @@ const docker = {
             </div>
             <pre v-show="run.log" ref="output" class="dk-output">{{ run.text }}</pre>
         </div>
-        <template v-if="(tab === 'containers')">
-        <div v-for="group of groups" :key="group.key" class="card dk-group">
-            <div class="list-head dk-group-head">
-                <b>{{ group.title }}</b>
-                <span class="muted" :title="group.dir">{{ group.counts }}{{ (group.dir === null ? '' : ' · ' + group.dir) }}</span>
-                <div v-if="(group.project !== null && group.dir !== null)" class="list-acts">
-                    <template v-if="(asking === group.project)">
-                        <span class="bad">Take every container of {{ group.project }} down, then up again?</span>
-                        <button type="button" class="danger" @click="project_act(group.project, 'recreate')">Down and up</button>
-                        <button type="button" @click="asking = ''">Cancel</button>
-                    </template>
-                    <template v-else>
-                        <button type="button" class="primary" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, then up -d: only what changed is made again" @click="project_act(group.project, 'update')">Update</button>
-                        <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, down, up -d: every container is made again" @click="asking = group.project">Down and up…</button>
-                    </template>
+        <!-- Containers, each compose project together under a row of its own: its name, its
+             folder, and Update or Down and up for the whole project -->
+        <data-table v-if="((tab === 'containers') && (containers !== null))" class="dk-table" :columns="CONTAINER_COLUMNS" :rows="container_rows" row_key="id" :head="false" :group="container_group" :row_state="container_state" empty="No containers on this machine, running or not." actions_label="Change">
+            <template #group_head="{group}">
+                <div class="dk-group-head">
+                    <b>{{ group_of(group).title }}</b>
+                    <span class="muted" :title="group_of(group).dir">{{ group_of(group).counts }}{{ (group_of(group).dir === null ? '' : ' · ' + group_of(group).dir) }}</span>
+                    <div v-if="(group_of(group).project !== null && group_of(group).dir !== null)" class="list-acts">
+                        <template v-if="(asking === group_of(group).project)">
+                            <span class="bad">Take every container of {{ group_of(group).project }} down, then up again?</span>
+                            <button type="button" class="danger" @click="project_act(group_of(group).project, 'recreate')">Down and up</button>
+                            <button type="button" @click="asking = ''">Cancel</button>
+                        </template>
+                        <template v-else>
+                            <button type="button" class="primary" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, then up -d: only what changed is made again" @click="project_act(group_of(group).project, 'update')">Update</button>
+                            <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, down, up -d: every container is made again" @click="asking = group_of(group).project">Down and up…</button>
+                        </template>
+                    </div>
                 </div>
-            </div>
-            <fold-table v-slot="fold" :order="['acts', 'ports', 'image']">
-                <table class="list-table dk-table">
-                    <!-- No titles, as before: the row only gives the columns for the measuring -->
-                    <thead class="dk-bare">
-                        <tr>
-                            <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                            <th></th>
-                            <th data-fold="image"></th>
-                            <th data-fold="ports"></th>
-                            <th></th>
-                            <th data-fold="acts"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="item of group.containers" :key="item.id">
-                            <tr :class="{foldable: (fold.folded.length > 0), open: shown(fold, item.id, 'container:' + item.id)}" @click="fold.toggle(item.id, $event)">
-                                <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                                <td class="dk-name wraps">
-                                    <span class="dot" :class="dot_of(item)"/>
-                                    <b>{{ (item.service === null ? item.name : item.service) }}</b>
-                                    <span v-if="(item.service !== null)" class="muted dk-cut" :title="item.name">{{ item.name }}</span>
-                                </td>
-                                <td data-fold="image" class="dk-image muted"><span class="dk-cut" :title="item.image">{{ item.image }}</span></td>
-                                <td data-fold="ports" class="muted">{{ item.ports.join(', ') }}</td>
-                                <td><span :class="{bad: (dot_of(item) === 'failed')}">{{ item.status }}</span></td>
-                                <td data-fold="acts" class="dk-acts">
-                                    <template v-if="(item.state === 'running')">
-                                        <button v-if="files_able" type="button" :disabled="running_now" @click="container_open(item, 'files')">Files</button>
-                                        <button v-if="shell_able" type="button" :disabled="running_now" @click="container_open(item, 'shell')">Shell</button>
-                                    </template>
-                                    <span v-if="item.own" class="muted" title="Started and stopped by its service">run by its service</span>
-                                    <template v-else>
-                                        <template v-if="(item.state !== 'running' && asking === 'container:' + item.id)">
-                                            <span class="bad">Remove it?</span>
-                                            <button type="button" class="danger" @click="container_act(item, 'remove')">Remove</button>
-                                            <button type="button" @click="asking = ''">Cancel</button>
-                                        </template>
-                                        <template v-else-if="(item.state !== 'running')">
-                                            <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'start')">Start</button>
-                                            <button type="button" :disabled="(acting !== '' || running_now || offline)" title="Take the container away; its image and volumes stay" @click="asking = 'container:' + item.id">Remove…</button>
-                                        </template>
-                                        <template v-else>
-                                            <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'restart')">Restart</button>
-                                            <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'stop')">Stop</button>
-                                        </template>
-                                    </template>
-                                </td>
-                            </tr>
-                            <tr v-if="shown(fold, item.id, 'container:' + item.id)" class="fold-more">
-                                <td :colspan="fold.span">
-                                    <dl class="fold-details">
-                                        <template v-if="fold.folded.includes('image')">
-                                            <dt>Image</dt>
-                                            <dd class="muted">{{ item.image }}</dd>
-                                        </template>
-                                        <template v-if="(fold.folded.includes('ports') && item.ports.length > 0)">
-                                            <dt>Ports</dt>
-                                            <dd class="muted">{{ item.ports.join(', ') }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('acts')">
-                                            <dt>Change</dt>
-                                            <dd class="fold-actions">
-                                                <template v-if="(item.state === 'running')">
-                                                    <button v-if="files_able" type="button" :disabled="running_now" @click="container_open(item, 'files')">Files</button>
-                                                    <button v-if="shell_able" type="button" :disabled="running_now" @click="container_open(item, 'shell')">Shell</button>
-                                                </template>
-                                                <span v-if="item.own" class="muted" title="Started and stopped by its service">run by its service</span>
-                                                <template v-else>
-                                                    <template v-if="(item.state !== 'running' && asking === 'container:' + item.id)">
-                                                        <span class="bad">Remove it?</span>
-                                                        <button type="button" class="danger" @click="container_act(item, 'remove')">Remove</button>
-                                                        <button type="button" @click="asking = ''">Cancel</button>
-                                                    </template>
-                                                    <template v-else-if="(item.state !== 'running')">
-                                                        <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'start')">Start</button>
-                                                        <button type="button" :disabled="(acting !== '' || running_now || offline)" title="Take the container away; its image and volumes stay" @click="asking = 'container:' + item.id">Remove…</button>
-                                                    </template>
-                                                    <template v-else>
-                                                        <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'restart')">Restart</button>
-                                                        <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(item, 'stop')">Stop</button>
-                                                    </template>
-                                                </template>
-                                            </dd>
-                                        </template>
-                                    </dl>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </fold-table>
-        </div>
-        <p v-if="(containers !== null && containers.length === 0)" class="muted">No containers on this machine, running or not.</p>
-        </template>
+            </template>
+            <template #cell="{row, column, more}">
+                <template v-if="(column.key === 'name')">
+                    <span class="dot" :class="dot_of(row)"/>
+                    <b>{{ (row.service === null ? row.name : row.service) }}</b>
+                    <span v-if="(row.service !== null)" class="muted dk-cut" :title="row.name">{{ row.name }}</span>
+                </template>
+                <span v-else-if="(column.key === 'image')" class="muted" :class="{'dk-cut': (more === false)}" :title="row.image">{{ row.image }}</span>
+                <span v-else-if="(column.key === 'ports')" class="muted">{{ row.ports.join(', ') }}</span>
+                <span v-else :class="{bad: (dot_of(row) === 'failed')}">{{ row.status }}</span>
+            </template>
+            <template #actions="{row, ask}">
+                <template v-if="(row.state === 'running')">
+                    <button v-if="files_able" type="button" :disabled="running_now" @click="container_open(row, 'files')">Files</button>
+                    <button v-if="shell_able" type="button" :disabled="running_now" @click="container_open(row, 'shell')">Shell</button>
+                </template>
+                <span v-if="row.own" class="muted" title="Started and stopped by its service">run by its service</span>
+                <template v-else-if="(row.state !== 'running')">
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(row, 'start')">Start</button>
+                    <button type="button" class="danger" :disabled="(acting !== '' || running_now || offline)" title="Take the container away; its image and volumes stay" @click="ask('Remove it?', 'Remove', () => container_act(row, 'remove'))">Remove…</button>
+                </template>
+                <template v-else>
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(row, 'restart')">Restart</button>
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" @click="container_act(row, 'stop')">Stop</button>
+                </template>
+            </template>
+        </data-table>
         <!-- Images: what each is called, how big, how old, which containers were made from it -->
-        <div v-else-if="(tab === 'images')" class="card dk-group">
-            <fold-table v-slot="fold" :order="['acts', 'id', 'users', 'created', 'size']">
-                <table class="list-table dk-table">
-                    <thead>
-                        <tr>
-                            <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                            <th>Image</th>
-                            <th data-fold="id">Id</th>
-                            <th data-fold="size" class="size">Size</th>
-                            <th data-fold="created">Created</th>
-                            <th data-fold="users">Used by</th>
-                            <th data-fold="acts"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="item of images_sorted" :key="item.id">
-                            <tr :class="{foldable: (fold.folded.length > 0), open: shown(fold, item.id, 'image:' + item.id)}" @click="fold.toggle(item.id, $event)">
-                                <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                                <td class="dk-name wraps"><b class="dk-cut" :title="item.tags.join(', ')">{{ (item.tags.length === 0 ? '<none>' : item.tags.join(', ')) }}</b></td>
-                                <td data-fold="id" class="muted">{{ short_id(item.id) }}</td>
-                                <td data-fold="size" class="size">{{ format_bytes(item.size) }}</td>
-                                <td data-fold="created" class="muted">{{ ago(item.created_ms) }}</td>
-                                <td data-fold="users" class="dk-users" :class="{muted: (item.used_by.length === 0)}"><span class="dk-cut" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}{{ (item.read_only ? ' · read-only' : '') }}</span></td>
-                                <td data-fold="acts" class="dk-acts">
-                                    <template v-if="(asking === 'image:' + item.id)">
-                                        <span class="bad">Remove it?</span>
-                                        <button type="button" class="danger" @click="remove('images', bare_id(item.id))">Remove</button>
-                                        <button type="button" @click="asking = ''">Cancel</button>
-                                    </template>
-                                    <template v-else>
-                                        <button v-if="(item.tags.length > 0)" type="button" :disabled="(acting !== '' || running_now || offline)" :title="('docker pull ' + item.tags[0])" @click="pull(item)">Pull</button>
-                                        <button type="button" :disabled="(item.used_by.length > 0 || item.read_only || acting !== '' || running_now || offline)" :title="(item.read_only ? 'In a store this engine may only read' : (item.used_by.length > 0 ? 'A container was made from it' : 'Take it off the machine'))" @click="asking = 'image:' + item.id">Remove…</button>
-                                    </template>
-                                </td>
-                            </tr>
-                            <tr v-if="shown(fold, item.id, 'image:' + item.id)" class="fold-more">
-                                <td :colspan="fold.span">
-                                    <dl class="fold-details">
-                                        <template v-if="fold.folded.includes('id')">
-                                            <dt>Id</dt>
-                                            <dd class="muted">{{ short_id(item.id) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('size')">
-                                            <dt>Size</dt>
-                                            <dd>{{ format_bytes(item.size) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('created')">
-                                            <dt>Created</dt>
-                                            <dd class="muted">{{ ago(item.created_ms) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('users')">
-                                            <dt>Used by</dt>
-                                            <dd :class="{muted: (item.used_by.length === 0)}">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}{{ (item.read_only ? ' · read-only' : '') }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('acts')">
-                                            <dt>Change</dt>
-                                            <dd class="fold-actions">
-                                                <template v-if="(asking === 'image:' + item.id)">
-                                                    <span class="bad">Remove it?</span>
-                                                    <button type="button" class="danger" @click="remove('images', bare_id(item.id))">Remove</button>
-                                                    <button type="button" @click="asking = ''">Cancel</button>
-                                                </template>
-                                                <template v-else>
-                                                    <button v-if="(item.tags.length > 0)" type="button" :disabled="(acting !== '' || running_now || offline)" :title="('docker pull ' + item.tags[0])" @click="pull(item)">Pull</button>
-                                                    <button type="button" :disabled="(item.used_by.length > 0 || item.read_only || acting !== '' || running_now || offline)" :title="(item.read_only ? 'In a store this engine may only read' : (item.used_by.length > 0 ? 'A container was made from it' : 'Take it off the machine'))" @click="asking = 'image:' + item.id">Remove…</button>
-                                                </template>
-                                            </dd>
-                                        </template>
-                                    </dl>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </fold-table>
-            <p v-if="(images !== null && images.length === 0)" class="muted dk-empty">No images on this machine.</p>
-        </div>
+        <data-table v-else-if="((tab === 'images') && (images !== null))" class="dk-table" :columns="IMAGE_COLUMNS" :rows="images_sorted" row_key="id" empty="No images on this machine." actions_label="Change">
+            <template #cell="{row, column, more}">
+                <b v-if="(column.key === 'name')" class="dk-cut" :title="row.tags.join(', ')">{{ (row.tags.length === 0 ? '<none>' : row.tags.join(', ')) }}</b>
+                <span v-else-if="(column.key === 'id')" class="muted">{{ short_id(row.id) }}</span>
+                <span v-else-if="(column.key === 'size')">{{ format_bytes(row.size) }}</span>
+                <span v-else-if="(column.key === 'created')" class="muted">{{ ago(row.created_ms) }}</span>
+                <span v-else :class="{muted: (row.used_by.length === 0), 'dk-cut': (more === false)}" :title="row.used_by.join(', ')">{{ (row.used_by.length === 0 ? 'unused' : row.used_by.join(', ')) }}{{ (row.read_only ? ' · read-only' : '') }}</span>
+            </template>
+            <template #actions="{row, ask}">
+                <button v-if="(row.tags.length > 0)" type="button" :disabled="(acting !== '' || running_now || offline)" :title="('docker pull ' + row.tags[0])" @click="pull(row)">Pull</button>
+                <button type="button" class="danger" :disabled="(row.used_by.length > 0 || row.read_only || acting !== '' || running_now || offline)" :title="(row.read_only ? 'In a store this engine may only read' : (row.used_by.length > 0 ? 'A container was made from it' : 'Take it off the machine'))" @click="ask('Remove it?', 'Remove', () => remove('images', bare_id(row.id)))">Remove…</button>
+            </template>
+        </data-table>
         <!-- Volumes: whose they are, and which containers mount them -->
-        <div v-else-if="(tab === 'volumes')" class="card dk-group">
-            <fold-table v-slot="fold" :order="['acts', 'driver', 'created', 'project', 'users']">
-                <table class="list-table dk-table">
-                    <thead>
-                        <tr>
-                            <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                            <th>Volume</th>
-                            <th data-fold="project">Project</th>
-                            <th data-fold="driver">Driver</th>
-                            <th data-fold="created">Created</th>
-                            <th data-fold="users">Mounted by</th>
-                            <th data-fold="acts"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="item of volumes_sorted" :key="item.name">
-                            <tr :class="{foldable: (fold.folded.length > 0), open: shown(fold, item.name, 'volume:' + item.name)}" @click="fold.toggle(item.name, $event)">
-                                <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                                <td class="dk-name wraps"><b class="dk-cut" :title="item.name">{{ volume_label(item.name) }}</b></td>
-                                <td data-fold="project" class="dk-project muted"><span class="dk-cut" :title="(item.project === null ? '' : item.project)">{{ (item.project === null ? '' : item.project) }}</span></td>
-                                <td data-fold="driver" class="muted">{{ item.driver }}</td>
-                                <td data-fold="created" class="muted">{{ (item.created_ms === null ? '' : ago(item.created_ms)) }}</td>
-                                <td data-fold="users" class="dk-users" :class="{muted: (item.used_by.length === 0)}"><span class="dk-cut" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}</span></td>
-                                <td data-fold="acts" class="dk-acts">
-                                    <button v-if="(volume_way(item) !== null)" type="button" :disabled="(opening !== '' || running_now || offline)" :title="volume_way(item).subtitle" @click="volume_open(item)">{{ (opening === item.name ? 'opening…' : 'Files') }}</button>
-                                    <template v-if="(asking === 'volume:' + item.name)">
-                                        <span class="bad">Remove it, and what is in it?</span>
-                                        <button type="button" class="danger" @click="remove('volumes', item.name)">Remove</button>
-                                        <button type="button" @click="asking = ''">Cancel</button>
-                                    </template>
-                                    <button v-else type="button" :disabled="(item.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(item.used_by.length > 0 ? 'A container mounts it' : 'Take it off the machine, with what is in it')" @click="asking = 'volume:' + item.name">Remove…</button>
-                                </td>
-                            </tr>
-                            <tr v-if="shown(fold, item.name, 'volume:' + item.name)" class="fold-more">
-                                <td :colspan="fold.span">
-                                    <dl class="fold-details">
-                                        <template v-if="(fold.folded.includes('project') && item.project !== null)">
-                                            <dt>Project</dt>
-                                            <dd class="muted">{{ item.project }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('driver')">
-                                            <dt>Driver</dt>
-                                            <dd class="muted">{{ item.driver }}</dd>
-                                        </template>
-                                        <template v-if="(fold.folded.includes('created') && item.created_ms !== null)">
-                                            <dt>Created</dt>
-                                            <dd class="muted">{{ ago(item.created_ms) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('users')">
-                                            <dt>Mounted by</dt>
-                                            <dd :class="{muted: (item.used_by.length === 0)}">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('acts')">
-                                            <dt>Change</dt>
-                                            <dd class="fold-actions">
-                                                <button v-if="(volume_way(item) !== null)" type="button" :disabled="(opening !== '' || running_now || offline)" :title="volume_way(item).subtitle" @click="volume_open(item)">{{ (opening === item.name ? 'opening…' : 'Files') }}</button>
-                                                <template v-if="(asking === 'volume:' + item.name)">
-                                                    <span class="bad">Remove it, and what is in it?</span>
-                                                    <button type="button" class="danger" @click="remove('volumes', item.name)">Remove</button>
-                                                    <button type="button" @click="asking = ''">Cancel</button>
-                                                </template>
-                                                <button v-else type="button" :disabled="(item.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(item.used_by.length > 0 ? 'A container mounts it' : 'Take it off the machine, with what is in it')" @click="asking = 'volume:' + item.name">Remove…</button>
-                                            </dd>
-                                        </template>
-                                    </dl>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </fold-table>
-            <p v-if="(volumes !== null && volumes.length === 0)" class="muted dk-empty">No volumes on this machine.</p>
-        </div>
+        <data-table v-else-if="((tab === 'volumes') && (volumes !== null))" class="dk-table" :columns="VOLUME_COLUMNS" :rows="volumes_sorted" row_key="name" empty="No volumes on this machine." actions_label="Change">
+            <template #cell="{row, column, more}">
+                <b v-if="(column.key === 'name')" class="dk-cut" :title="row.name">{{ volume_label(row.name) }}</b>
+                <span v-else-if="(column.key === 'project')" class="muted" :class="{'dk-cut': (more === false)}" :title="(row.project === null ? '' : row.project)">{{ (row.project === null ? '' : row.project) }}</span>
+                <span v-else-if="(column.key === 'driver')" class="muted">{{ row.driver }}</span>
+                <span v-else-if="(column.key === 'created')" class="muted">{{ (row.created_ms === null ? '' : ago(row.created_ms)) }}</span>
+                <span v-else :class="{muted: (row.used_by.length === 0), 'dk-cut': (more === false)}" :title="row.used_by.join(', ')">{{ (row.used_by.length === 0 ? 'unused' : row.used_by.join(', ')) }}</span>
+            </template>
+            <template #actions="{row, ask}">
+                <button v-if="(volume_way(row) !== null)" type="button" :disabled="(opening !== '' || running_now || offline)" :title="volume_way(row).subtitle" @click="volume_open(row)">{{ (opening === row.name ? 'opening…' : 'Files') }}</button>
+                <button type="button" class="danger" :disabled="(row.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(row.used_by.length > 0 ? 'A container mounts it' : 'Take it off the machine, with what is in it')" @click="ask('Remove it, and what is in it?', 'Remove', () => remove('volumes', row.name))">Remove…</button>
+            </template>
+        </data-table>
         <!-- Networks: whose they are, their addresses, and which containers are on them -->
-        <div v-else class="card dk-group">
-            <fold-table v-slot="fold" :order="['acts', 'driver', 'subnet', 'project', 'users']">
-                <table class="list-table dk-table">
-                    <thead>
-                        <tr>
-                            <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                            <th>Network</th>
-                            <th data-fold="project">Project</th>
-                            <th data-fold="driver">Driver</th>
-                            <th data-fold="subnet">Subnet</th>
-                            <th data-fold="users">Containers</th>
-                            <th data-fold="acts"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="item of networks_sorted" :key="item.id">
-                            <tr :class="{foldable: (fold.folded.length > 0), open: shown(fold, item.id, 'network:' + item.id)}" @click="fold.toggle(item.id, $event)">
-                                <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                                <td class="dk-name wraps"><b class="dk-cut" :title="item.name">{{ item.name }}</b></td>
-                                <td data-fold="project" class="dk-project muted"><span class="dk-cut" :title="(item.project === null ? '' : item.project)">{{ (item.project === null ? '' : item.project) }}</span></td>
-                                <td data-fold="driver" class="muted">{{ item.driver }}</td>
-                                <td data-fold="subnet" class="dk-subnet muted"><span class="dk-cut" :title="item.subnet">{{ item.subnet }}</span></td>
-                                <td data-fold="users" class="dk-users" :class="{muted: (item.used_by.length === 0)}"><span class="dk-cut" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'none' : item.used_by.join(', ')) }}</span></td>
-                                <td data-fold="acts" class="dk-acts">
-                                    <span v-if="item.builtin" class="muted">built in</span>
-                                    <template v-else-if="(asking === 'network:' + item.id)">
-                                        <span class="bad">Remove it?</span>
-                                        <button type="button" class="danger" @click="remove('networks', item.id)">Remove</button>
-                                        <button type="button" @click="asking = ''">Cancel</button>
-                                    </template>
-                                    <button v-else type="button" :disabled="(item.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(item.used_by.length > 0 ? 'A container is on it' : 'Take it off the machine')" @click="asking = 'network:' + item.id">Remove…</button>
-                                </td>
-                            </tr>
-                            <tr v-if="shown(fold, item.id, 'network:' + item.id)" class="fold-more">
-                                <td :colspan="fold.span">
-                                    <dl class="fold-details">
-                                        <template v-if="(fold.folded.includes('project') && item.project !== null)">
-                                            <dt>Project</dt>
-                                            <dd class="muted">{{ item.project }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('driver')">
-                                            <dt>Driver</dt>
-                                            <dd class="muted">{{ item.driver }}</dd>
-                                        </template>
-                                        <template v-if="(fold.folded.includes('subnet') && item.subnet !== '')">
-                                            <dt>Subnet</dt>
-                                            <dd class="muted">{{ item.subnet }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('users')">
-                                            <dt>Containers</dt>
-                                            <dd :class="{muted: (item.used_by.length === 0)}">{{ (item.used_by.length === 0 ? 'none' : item.used_by.join(', ')) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('acts')">
-                                            <dt>Change</dt>
-                                            <dd class="fold-actions">
-                                                <span v-if="item.builtin" class="muted">built in</span>
-                                                <template v-else-if="(asking === 'network:' + item.id)">
-                                                    <span class="bad">Remove it?</span>
-                                                    <button type="button" class="danger" @click="remove('networks', item.id)">Remove</button>
-                                                    <button type="button" @click="asking = ''">Cancel</button>
-                                                </template>
-                                                <button v-else type="button" :disabled="(item.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(item.used_by.length > 0 ? 'A container is on it' : 'Take it off the machine')" @click="asking = 'network:' + item.id">Remove…</button>
-                                            </dd>
-                                        </template>
-                                    </dl>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </fold-table>
-            <p v-if="(networks !== null && networks.length === 0)" class="muted dk-empty">No networks on this machine.</p>
-        </div>
+        <data-table v-else-if="((tab === 'networks') && (networks !== null))" class="dk-table" :columns="NETWORK_COLUMNS" :rows="networks_sorted" row_key="id" empty="No networks on this machine." actions_label="Change">
+            <template #cell="{row, column, more}">
+                <b v-if="(column.key === 'name')" class="dk-cut" :title="row.name">{{ row.name }}</b>
+                <span v-else-if="(column.key === 'project')" class="muted" :class="{'dk-cut': (more === false)}" :title="(row.project === null ? '' : row.project)">{{ (row.project === null ? '' : row.project) }}</span>
+                <span v-else-if="(column.key === 'driver')" class="muted">{{ row.driver }}</span>
+                <span v-else-if="(column.key === 'subnet')" class="muted" :class="{'dk-cut': (more === false)}" :title="row.subnet">{{ row.subnet }}</span>
+                <span v-else :class="{muted: (row.used_by.length === 0), 'dk-cut': (more === false)}" :title="row.used_by.join(', ')">{{ (row.used_by.length === 0 ? 'none' : row.used_by.join(', ')) }}</span>
+            </template>
+            <template #actions="{row, ask}">
+                <span v-if="row.builtin" class="muted">built in</span>
+                <button v-else type="button" class="danger" :disabled="(row.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(row.used_by.length > 0 ? 'A container is on it' : 'Take it off the machine')" @click="ask('Remove it?', 'Remove', () => remove('networks', row.id))">Remove…</button>
+            </template>
+        </data-table>
     </template>
 </article>
 `,
-    components: {'file-manager': file_manager, terminal},
+    components: {'data-table': data_table, 'file-manager': file_manager, terminal},
     // base        where the API is: GET base/containers, POST base/containers/<id>/<action>…
     // offline     true greys out everything that asks the machine
     // theme       light or dark, for the File Manager's editor and the Terminal
@@ -416,6 +169,10 @@ const docker = {
         return {
             TABS,
             PRUNE_ASKS,
+            CONTAINER_COLUMNS,
+            IMAGE_COLUMNS,
+            VOLUME_COLUMNS,
+            NETWORK_COLUMNS,
             tab: tab_kept(),
             containers: null,
             images: null,
@@ -428,8 +185,8 @@ const docker = {
             bad: false,
             // The container being started, stopped or restarted, by id
             acting: '',
-            // The project whose "down and up" is being asked about, or the row whose removal is
-            // ("image:<id>", "volume:<name>", "network:<id>")
+            // The project whose "down and up" is being asked about; a row's removal is asked in
+            // its own actions (data-table's ask)
             asking: '',
             // The long action under way or last done: {title, phase, said, text, log, progress,
             // step, began, ms}
@@ -507,6 +264,10 @@ const docker = {
             }
             const up = this.containers.filter(v => v.state === 'running').length;
             return `${this.containers.length} ${plural(this.containers.length, 'container', 'containers')}, ${up} running`;
+        },
+        // Every container in the order of its group, each knowing its group's key
+        container_rows: function () {
+            return this.groups.flatMap(v => v.containers.map(vv => Object.assign({}, vv, {group: v.key})));
         },
         // Each compose project by its name, then everything that belongs to none
         groups: function () {
@@ -862,10 +623,16 @@ const docker = {
         volume_label: function (name) {
             return (/^[0-9a-f]{64}$/.test(name) ? `${name.slice(0, 12)}…` : name);
         },
-        // A row's details are shown when opened by a click, and while its removal is asked about
-        // with its buttons folded: the question goes where the buttons went
-        shown: function (fold, key, asked) {
-            return (fold.is_open(key) || (fold.folded.includes('acts') && (this.asking === asked)));
+        container_group: function (row) {
+            return row.group;
+        },
+        group_of: function (key) {
+            return this.groups.find(v => v.key === key);
+        },
+        // A container's stripe: running, failed, or neither
+        container_state: function (row) {
+            const dot = this.dot_of(row);
+            return ((dot === 'running') ? 'ok' : ((dot === 'failed') ? 'bad' : ((dot === 'starting') ? 'warn' : 'none')));
         },
         dot_of: function (item) {
             if (item.state === 'running') {
@@ -904,6 +671,35 @@ let tab_last = null;
 const ACTION_LABELS = {update: 'update', recreate: 'down and up'};
 
 // The four lists of a machine's docker, as the tabs show them
+// The columns of each list, the first to fold the lowest; the actions fold before them all
+const CONTAINER_COLUMNS = [
+    {key: 'name', label: 'Container', wraps: true},
+    {key: 'image', label: 'Image', fold: 2},
+    {key: 'ports', label: 'Ports', fold: 1, hide: v => (v.ports.length === 0)},
+    {key: 'status', label: 'Status'},
+];
+const IMAGE_COLUMNS = [
+    {key: 'name', label: 'Image', wraps: true},
+    {key: 'id', label: 'Id', fold: 1},
+    {key: 'size', label: 'Size', fold: 4},
+    {key: 'created', label: 'Created', fold: 3},
+    {key: 'users', label: 'Used by', fold: 2},
+];
+const VOLUME_COLUMNS = [
+    {key: 'name', label: 'Volume', wraps: true},
+    {key: 'project', label: 'Project', fold: 3, hide: v => (v.project === null)},
+    {key: 'driver', label: 'Driver', fold: 1},
+    {key: 'created', label: 'Created', fold: 2, hide: v => (v.created_ms === null)},
+    {key: 'users', label: 'Mounted by', fold: 4},
+];
+const NETWORK_COLUMNS = [
+    {key: 'name', label: 'Network', wraps: true},
+    {key: 'project', label: 'Project', fold: 3, hide: v => (v.project === null)},
+    {key: 'driver', label: 'Driver', fold: 1},
+    {key: 'subnet', label: 'Subnet', fold: 2, hide: v => (v.subnet === '')},
+    {key: 'users', label: 'Containers', fold: 4},
+];
+
 const TABS = [
     {value: 'containers', label: 'Containers'},
     {value: 'images', label: 'Images'},

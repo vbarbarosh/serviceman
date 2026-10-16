@@ -1,6 +1,6 @@
+import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
-import fold_table from './fold_table.js';
 
 // The one wall the fleet signs in through
 const WALL_NAME = 'authwall';
@@ -39,108 +39,33 @@ const authwall_pane = {
             </div>
         </div>
         <h2>What it guards</h2>
-        <fold-table v-slot="fold" :order="['acts', 'service', 'machine']">
-            <table>
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Name</th>
-                        <th data-fold="machine">Door of</th>
-                        <th data-fold="service">Answered by</th>
-                        <th data-fold="acts"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="rule of guarded" :key="rule_key(rule)">
-                        <tr :class="{off: rule.off, foldable: (fold.folded.length > 0), open: fold.is_open(rule_key(rule))}" @click="fold.toggle(rule_key(rule), $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="wraps"><code class="name">{{ rule.host }}</code><span v-if="rule.off" class="muted"> · set aside</span></td>
-                            <td data-fold="machine">{{ rule.title }}</td>
-                            <td data-fold="service"><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></td>
-                            <td data-fold="acts"><button type="button" :disabled="busy" @click="guard(rule, null)">Stop guarding</button></td>
-                        </tr>
-                        <tr v-if="fold.is_open(rule_key(rule))" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('machine')">
-                                        <dt>Door of</dt>
-                                        <dd>{{ rule.title }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('service')">
-                                        <dt>Answered by</dt>
-                                        <dd><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('acts')">
-                                        <dt>Change</dt>
-                                        <dd class="fold-actions"><button type="button" :disabled="busy" @click="guard(rule, null)">Stop guarding</button></dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr v-if="(guarded.length === 0)">
-                        <td class="muted wraps" colspan="4">Nothing yet — pick a name below.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </fold-table>
+        <data-table :columns="guarded_columns" :rows="guarded" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" empty="Nothing yet — pick a name below.">
+            <template #cell="{row, column}">
+                <template v-if="(column.key === 'host')"><code class="name">{{ row.host }}</code><span v-if="row.off" class="muted"> · set aside</span></template>
+                <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
+                <button v-else-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.service)">{{ row.service }}</button>
+            </template>
+            <template #actions="{row}">
+                <button type="button" :disabled="busy" @click="guard(row, null)">Stop guarding</button>
+            </template>
+        </data-table>
         <h2>Not behind it</h2>
-        <fold-table v-slot="fold" :order="['acts', 'behind', 'service', 'machine']">
-            <table>
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Name</th>
-                        <th data-fold="machine">Door of</th>
-                        <th data-fold="service">Answered by</th>
-                        <th data-fold="behind">Behind</th>
-                        <th data-fold="acts"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="rule of open" :key="rule_key(rule)">
-                        <tr :class="{off: rule.off, foldable: (fold.folded.length > 0), open: fold.is_open(rule_key(rule))}" @click="fold.toggle(rule_key(rule), $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="wraps"><code class="name">{{ rule.host }}</code><span v-if="rule.off" class="muted"> · set aside</span></td>
-                            <td data-fold="machine">{{ rule.title }}</td>
-                            <td data-fold="service"><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></td>
-                            <td data-fold="behind" :class="{muted: (rule.auth === null)}">{{ behind_text(rule) }}</td>
-                            <td data-fold="acts"><button type="button" :disabled="busy" @click="guard(rule, wall)">Guard with {{ wall }}</button></td>
-                        </tr>
-                        <tr v-if="fold.is_open(rule_key(rule))" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('machine')">
-                                        <dt>Door of</dt>
-                                        <dd>{{ rule.title }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('service')">
-                                        <dt>Answered by</dt>
-                                        <dd><button type="button" class="link" @click="$emit('select', rule.service)">{{ rule.service }}</button></dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('behind')">
-                                        <dt>Behind</dt>
-                                        <dd :class="{muted: (rule.auth === null)}">{{ behind_text(rule) }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('acts')">
-                                        <dt>Change</dt>
-                                        <dd class="fold-actions"><button type="button" :disabled="busy" @click="guard(rule, wall)">Guard with {{ wall }}</button></dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr v-if="(open.length === 0)">
-                        <td class="muted wraps" colspan="5">Every name a door answers is behind {{ wall }}.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </fold-table>
+        <data-table :columns="open_columns" :rows="open" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" :empty="('Every name a door answers is behind ' + wall + '.')">
+            <template #cell="{row, column}">
+                <template v-if="(column.key === 'host')"><code class="name">{{ row.host }}</code><span v-if="row.off" class="muted"> · set aside</span></template>
+                <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
+                <button v-else-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.service)">{{ row.service }}</button>
+                <span v-else-if="(column.key === 'behind')" :class="{muted: (row.auth === null)}">{{ behind_text(row) }}</span>
+            </template>
+            <template #actions="{row}">
+                <button type="button" :disabled="busy" @click="guard(row, wall)">Guard with {{ wall }}</button>
+            </template>
+        </data-table>
     </template>
     <p :class="(bad ? 'bad' : 'muted')">{{ note }} <template v-if="(note === '')">A name is given to a door on the <button type="button" class="link" @click="$emit('doors')">Doors</button> page.</template></p>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: ['create', 'doors', 'select'],
     data: function () {
@@ -148,6 +73,22 @@ const authwall_pane = {
         return {picked: null, busy: false, note: '', bad: false};
     },
     computed: {
+        // The tables' columns, each that may fold with when
+        guarded_columns: function () {
+            return [
+                {key: 'host', label: 'Name', wraps: true},
+                {key: 'machine', label: 'Door of', fold: 2},
+                {key: 'service', label: 'Answered by', fold: 1},
+            ];
+        },
+        open_columns: function () {
+            return [
+                {key: 'host', label: 'Name', wraps: true},
+                {key: 'machine', label: 'Door of', fold: 3},
+                {key: 'service', label: 'Answered by', fold: 2},
+                {key: 'behind', label: 'Behind', fold: 1},
+            ];
+        },
         // Every name a machine's door answers, with the wall in front of it
         rules: function () {
             const out = [];

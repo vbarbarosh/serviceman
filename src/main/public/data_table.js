@@ -9,10 +9,12 @@ import {Comment} from 'vue';
 // say. Actions sit last, one style for all, and fold into the details on a narrow screen.
 //
 // Props
-//     columns    [{key, label, fold, wraps, sort, hide}]: fold a number, the lowest folds first,
-//                or absent for a column that never folds; wraps for a name that may wrap; sort
-//                for a header that sorts on a click; hide(row) for a cell with nothing to say,
-//                left out of the details when its column folds
+//     columns    [{key, label, fold, wraps, clip, align, sort, hide}]: fold a number, the lowest
+//                folds first, or absent for a column that never folds; wraps for a name that may
+//                wrap; clip for one line cut with … (the whole text opens under the row); align
+//                'right' for figures; sort for a header that sorts on a click; hide(row) for a
+//                cell with nothing to say, left out of the details when its column folds
+//                A row_class of dim fades the row: a row shown for its place, not for itself
 //     rows       the things, one a row, already in their order (and by group, when grouped)
 //     row_key    the field that names a row, or a function of the row
 //     empty      the line shown in the table's place when there is no row (or slot empty)
@@ -56,7 +58,7 @@ const data_table = {
                 <tr>
                     <th v-if="caret_shown(fold.folded)" class="fold-caret"></th>
                     <th v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick every row" :checked="all_ticked" @change="tick_all($event.target.checked)"></th>
-                    <th v-for="column of columns" :key="column.key" :data-fold="fold_name(column)" :class="{wraps: (column.wraps === true)}">
+                    <th v-for="column of columns" :key="column.key" :data-fold="fold_name(column)" :class="{wraps: (column.wraps === true), 'dt-right': (column.align === 'right')}">
                         <button v-if="(column.sort === true)" type="button" class="dt-sort" :class="{on: sorted_by(column)}" @click="$emit('sort', column.key)">{{ column.label }}<span v-if="sorted_by(column)">{{ (sort.down ? ' ↓' : ' ↑') }}</span></button>
                         <template v-else>{{ column.label }}</template>
                     </th>
@@ -232,7 +234,7 @@ const data_table = {
         },
         // The first column carries the row's state as a straight stripe at its start
         cell_classes: function (row, column, i) {
-            const out = {wraps: (column.wraps === true)};
+            const out = {wraps: (column.wraps === true), 'dt-clip': (column.clip === true), 'dt-right': (column.align === 'right')};
             if ((i === 0) && (this.row_state !== null)) {
                 out['dt-stripe'] = true;
                 out[`dt-state-${this.row_state(row)}`] = true;

@@ -3,6 +3,7 @@ import agent_current from './agent_current.js';
 import authwall_pane from './authwall_pane.js';
 import command_copy from './command_copy.js';
 import config_read from './config_read.js';
+import data_table from './data_table.js';
 import file_manager from 'file_manager/file_manager.js';
 import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
@@ -906,6 +907,22 @@ const PROC_VIEWS = [
     {value: 'rss', label: 'Top memory'},
 ];
 
+// The process list's columns: Command and State never fold, the rest where the pane is narrow,
+// User first and CPU last
+const PROC_COLUMNS = [
+    {key: 'command', label: 'Command', clip: true},
+    {key: 'pid', label: 'PID', fold: 2},
+    {key: 'user', label: 'User', fold: 1},
+    {key: 'cpu', label: 'CPU', fold: 6},
+    {key: 'memory', label: 'Memory', fold: 5},
+    {key: 'rss', label: 'RSS', fold: 4},
+    {key: 'running', label: 'Running', fold: 3},
+    {key: 'state', label: 'State'},
+];
+// A command line is as long as somebody made it: its row shows what fits, and one this long
+// most likely does not fit, so it reads whole in the opened row too
+const COMMAND_LONG = 40;
+
 // Whether a process is what was typed: its command, its user or its pid
 function proc_matches(item, query)
 {
@@ -969,100 +986,30 @@ const remote_processes = {
             <span>RSS {{ format_bytes(rss_total) }}</span>
             <span v-if="(query !== '')">{{ matched_count }} {{ plural(matched_count, 'match', 'matches') }}</span>
         </div>
-        <!-- Command and State never fold; the rest fold where the pane is narrow, CPU last -->
-        <fold-table v-if="(rows.length > 0)" v-slot="fold" :order="['user', 'pid', 'running', 'rss', 'memory', 'cpu']">
-            <table class="procs">
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Command</th>
-                        <th data-fold="pid">PID</th>
-                        <th data-fold="user">User</th>
-                        <th data-fold="cpu">CPU</th>
-                        <th data-fold="memory">Memory</th>
-                        <th data-fold="rss">RSS</th>
-                        <th data-fold="running">Running</th>
-                        <th>State</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="row of rows" :key="row.item.pid">
-                        <!-- The row opens what folded; with nothing folded it opens its branch, as the caret does -->
-                        <tr :class="{folds: (row.children > 0 && foldable && fold.folded.length === 0), dim: row.dim, foldable: (fold.folded.length > 0), open: fold.is_open(row.item.pid)}" @click="row_click(row, fold, $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="tree" :style="{paddingLeft: ((row.depth*1.1) + 'rem')}" :title="row.item.command">
-                                <button v-if="(row.children > 0 && foldable)" type="button" class="caret" :class="{open: (closed[row.item.pid] !== true)}" :title="((closed[row.item.pid] === true) ? 'Unfold this branch' : 'Fold this branch')" @click.stop="branch_toggle(row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
-                                <span v-else-if="(view_by === 'tree')" class="caret"></span>
-                                <code>{{ row.item.command }}</code>
-                                <span v-if="(row.hidden > 0)" class="muted"> +{{ row.hidden }}</span>
-                            </td>
-                            <td data-fold="pid">{{ row.item.pid }}</td>
-                            <td data-fold="user">{{ row.item.user }}</td>
-                            <td data-fold="cpu">
-                                <span class="load">
-                                    <span class="meter" :class="load_level(row.item.cpu/100)"><i :style="{width: (Math.max(2, Math.min(100, row.item.cpu)) + '%')}"></i></span>
-                                    {{ row.item.cpu.toFixed(1) }}%
-                                </span>
-                            </td>
-                            <td data-fold="memory">
-                                <span class="load">
-                                    <span class="meter" :class="load_level(row.item.mem/25)"><i :style="{width: (Math.max(2, Math.min(100, row.item.mem*4)) + '%')}"></i></span>
-                                    {{ row.item.mem.toFixed(1) }}%
-                                </span>
-                            </td>
-                            <td data-fold="rss">{{ format_bytes(row.item.rss) }}</td>
-                            <td data-fold="running">{{ format_ms(row.item.elapsed_ms) }}</td>
-                            <td class="muted">{{ row.item.state }}</td>
-                        </tr>
-                        <tr v-if="fold.is_open(row.item.pid)" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('pid')">
-                                        <dt>PID</dt>
-                                        <dd>{{ row.item.pid }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('user')">
-                                        <dt>User</dt>
-                                        <dd>{{ row.item.user }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('cpu')">
-                                        <dt>CPU</dt>
-                                        <dd>
-                                            <span class="load">
-                                                <span class="meter" :class="load_level(row.item.cpu/100)"><i :style="{width: (Math.max(2, Math.min(100, row.item.cpu)) + '%')}"></i></span>
-                                                {{ row.item.cpu.toFixed(1) }}%
-                                            </span>
-                                        </dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('memory')">
-                                        <dt>Memory</dt>
-                                        <dd>
-                                            <span class="load">
-                                                <span class="meter" :class="load_level(row.item.mem/25)"><i :style="{width: (Math.max(2, Math.min(100, row.item.mem*4)) + '%')}"></i></span>
-                                                {{ row.item.mem.toFixed(1) }}%
-                                            </span>
-                                        </dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('rss')">
-                                        <dt>RSS</dt>
-                                        <dd>{{ format_bytes(row.item.rss) }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('running')">
-                                        <dt>Running</dt>
-                                        <dd>{{ format_ms(row.item.elapsed_ms) }}</dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </fold-table>
-        <p v-else-if="(items.length > 0)" class="muted">Nothing matches “{{ query }}”.</p>
+        <!-- Command and State never fold; the rest fold where the pane is narrow, CPU last. A
+             branch opens and closes on its own mark; a click on the row opens what folded. -->
+        <data-table v-if="(items.length > 0)" :columns="proc_columns" :rows="rows" :row_key="v => v.item.pid" :empty="('Nothing matches “' + query + '”.')" :more="proc_more" :row_class="v => (v.dim ? 'dim' : [])" :depth="v => v.depth" :branch="((view_by === 'tree') ? branch_of : null)" @branch="branch_toggle">
+            <template #cell="{row, column, more}">
+                <span v-if="(column.key === 'command')" :title="row.item.command"><code>{{ row.item.command }}</code><span v-if="(row.hidden > 0)" class="muted"> +{{ row.hidden }}</span></span>
+                <span v-else-if="(column.key === 'pid')">{{ row.item.pid }}</span>
+                <span v-else-if="(column.key === 'user')">{{ row.item.user }}</span>
+                <span v-else-if="(column.key === 'cpu')" class="load">
+                    <span class="meter" :class="load_level(row.item.cpu/100)"><i :style="{width: (Math.max(2, Math.min(100, row.item.cpu)) + '%')}"></i></span>
+                    {{ row.item.cpu.toFixed(1) }}%
+                </span>
+                <span v-else-if="(column.key === 'memory')" class="load">
+                    <span class="meter" :class="load_level(row.item.mem/25)"><i :style="{width: (Math.max(2, Math.min(100, row.item.mem*4)) + '%')}"></i></span>
+                    {{ row.item.mem.toFixed(1) }}%
+                </span>
+                <span v-else-if="(column.key === 'rss')">{{ format_bytes(row.item.rss) }}</span>
+                <span v-else-if="(column.key === 'running')">{{ format_ms(row.item.elapsed_ms) }}</span>
+                <span v-else-if="(column.key === 'state')" class="muted">{{ row.item.state }}</span>
+            </template>
+        </data-table>
     </template>
 </article>
 `,
-    components: {'command-copy': command_copy},
+    components: {'command-copy': command_copy, 'data-table': data_table},
     props: ['view'],
     data: function () {
         // What is folded, by pid. A read that brings the same tree back keeps the folds it had.
@@ -1127,6 +1074,9 @@ const remote_processes = {
         rss_total: function () {
             return this.items.reduce((sum, item) => sum + item.rss, 0);
         },
+        proc_columns: function () {
+            return PROC_COLUMNS;
+        },
     },
     watch: {
         // An old agent updates itself while this pane is open; the first read follows by itself
@@ -1177,14 +1127,16 @@ const remote_processes = {
             this.note = note;
             this.bad = bad;
         },
-        // With columns folded, a click on the row opens what folded and the caret opens the
-        // branch; with none folded, the whole row opens the branch
-        row_click: function (row, fold, event) {
-            if (fold.folded.length > 0) {
-                fold.toggle(row.item.pid, event);
-                return;
+        // A branch's mark: open or closed where it can fold, none where it cannot
+        branch_of: function (row) {
+            if ((row.children === 0) || (this.foldable === false)) {
+                return null;
             }
-            this.branch_toggle(row);
+            return ((this.closed[row.item.pid] === true) ? 'closed' : 'open');
+        },
+        // A command too long for its row reads whole in the row's details
+        proc_more: function (row, key) {
+            return ((key === 'command') && (row.item.command.length > COMMAND_LONG));
         },
         branch_toggle: function (row) {
             if ((row.children === 0) || (this.foldable === false)) {
@@ -1220,6 +1172,18 @@ const remote_processes = {
 
 // Every filesystem of a machine: the room each has, and the files it may still hold. A disk
 // out of inodes refuses new files with space to spare, so the two stand side by side.
+// A machine's disks' columns: Disk and Space used never fold, the rest where the pane is
+// narrow, Inodes free first and Free last
+const DISK_COLUMNS = [
+    {key: 'device', label: 'Disk', wraps: true},
+    {key: 'mounted', label: 'Mounted at', fold: 4},
+    {key: 'type', label: 'Type', fold: 3},
+    {key: 'used', label: 'Space used'},
+    {key: 'free', label: 'Free', fold: 5},
+    {key: 'inodes_used', label: 'Inodes used', fold: 2},
+    {key: 'inodes_free', label: 'Inodes free', fold: 1},
+];
+
 const remote_disks = {
     template: `
 <article id="detail" class="list">
@@ -1239,99 +1203,40 @@ const remote_disks = {
             </span>
         </div>
         <!-- Disk and Space used never fold; the rest fold where the pane is narrow, Free last -->
-        <fold-table v-if="(rows.length > 0)" v-slot="fold" class="card" :order="['inodes_free', 'inodes_used', 'type', 'mounted', 'free']">
-            <table class="list-table disks-table">
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Disk</th>
-                        <th data-fold="mounted">Mounted at</th>
-                        <th data-fold="type">Type</th>
-                        <th>Space used</th>
-                        <th data-fold="free">Free</th>
-                        <th data-fold="inodes_used">Inodes used</th>
-                        <th data-fold="inodes_free">Inodes free</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="item of rows" :key="row_key(item)">
-                        <tr :class="{muted: (item.disk === false), foldable: (fold.folded.length > 0), open: fold.is_open(row_key(item))}" @click="fold.toggle(row_key(item), $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="wraps"><code>{{ item.device }}</code></td>
-                            <td data-fold="mounted">
-                                <code>{{ item.mounts[0] }}</code>
-                                <div v-if="(item.mounts.length > 1)" class="muted disk-also" :title="item.mounts.slice(1).join(', ')">also at {{ item.mounts.slice(1, 4).join(', ') }}{{ item.mounts.length > 4 ? ' and ' + (item.mounts.length - 4) + ' more' : '' }}</div>
-                                <div v-if="(item.key_of !== undefined && item.key_of !== null)" class="muted">holds the key of {{ item.key_of }}</div>
-                            </td>
-                            <td data-fold="type">{{ item.type }}<span v-if="item.encrypted" class="tag disk-lock">encrypted</span></td>
-                            <td>
-                                <div class="disk-use">
-                                    <span class="meter" :class="level_of(item.used, item.total)"><i :style="{width: (percent_of(item.used, item.total) + '%')}"/></span>
-                                    <span>{{ percent_of(item.used, item.total) }}%</span>
-                                </div>
-                                <div class="muted">{{ format_bytes(item.used) }} of {{ format_bytes(item.total) }}</div>
-                            </td>
-                            <td data-fold="free">{{ format_bytes(item.free) }}</td>
-                            <td data-fold="inodes_used">
-                                <template v-if="(item.inodes_total !== null)">
-                                    <div class="disk-use">
-                                        <span class="meter" :class="level_of(item.inodes_used, item.inodes_total)"><i :style="{width: (percent_of(item.inodes_used, item.inodes_total) + '%')}"/></span>
-                                        <span>{{ percent_of(item.inodes_used, item.inodes_total) }}%</span>
-                                    </div>
-                                    <div class="muted">{{ count_text(item.inodes_used) }} of {{ count_text(item.inodes_total) }}</div>
-                                </template>
-                                <span v-else class="muted">not counted</span>
-                            </td>
-                            <td data-fold="inodes_free">{{ item.inodes_total === null ? '' : count_text(item.inodes_free) }}</td>
-                        </tr>
-                        <tr v-if="fold.is_open(row_key(item))" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('mounted')">
-                                        <dt>Mounted at</dt>
-                                        <dd>
-                                            <code>{{ item.mounts[0] }}</code>
-                                            <div v-if="(item.mounts.length > 1)" class="muted">also at {{ item.mounts.slice(1).join(', ') }}</div>
-                                            <div v-if="(item.key_of !== undefined && item.key_of !== null)" class="muted">holds the key of {{ item.key_of }}</div>
-                                        </dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('type')">
-                                        <dt>Type</dt>
-                                        <dd>{{ item.type }}<span v-if="item.encrypted" class="tag disk-lock">encrypted</span></dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('free')">
-                                        <dt>Free</dt>
-                                        <dd>{{ format_bytes(item.free) }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('inodes_used')">
-                                        <dt>Inodes used</dt>
-                                        <dd>
-                                            <template v-if="(item.inodes_total !== null)">
-                                                <div class="disk-use">
-                                                    <span class="meter" :class="level_of(item.inodes_used, item.inodes_total)"><i :style="{width: (percent_of(item.inodes_used, item.inodes_total) + '%')}"/></span>
-                                                    <span>{{ percent_of(item.inodes_used, item.inodes_total) }}%</span>
-                                                </div>
-                                                <div class="muted">{{ count_text(item.inodes_used) }} of {{ count_text(item.inodes_total) }}</div>
-                                            </template>
-                                            <span v-else class="muted">not counted</span>
-                                        </dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('inodes_free')">
-                                        <dt>Inodes free</dt>
-                                        <dd :class="{muted: (item.inodes_total === null)}">{{ item.inodes_total === null ? 'not counted' : count_text(item.inodes_free) }}</dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
+        <data-table v-if="(items.length > 0)" :columns="disk_columns" :rows="rows" :row_key="row_key" :more="disk_more" empty="No disks of its own — everything mounted here is tmpfs, overlay or a loop image. The chip above shows them.">
+            <template #cell="{row, column, more}">
+                <code v-if="(column.key === 'device')" :class="{muted: (row.disk === false)}">{{ row.device }}</code>
+                <template v-else-if="(column.key === 'mounted')">
+                    <code :class="{muted: (row.disk === false)}">{{ row.mounts[0] }}</code>
+                    <div v-if="(row.mounts.length > 1)" class="muted" :title="row.mounts.slice(1).join(', ')">also at {{ (more ? row.mounts.slice(1).join(', ') : also_text(row.mounts)) }}</div>
+                    <div v-if="(row.key_of !== undefined && row.key_of !== null)" class="muted">holds the key of {{ row.key_of }}</div>
+                </template>
+                <span v-else-if="(column.key === 'type')" :class="{muted: (row.disk === false)}">{{ row.type }}<span v-if="row.encrypted" class="tag disk-lock">encrypted</span></span>
+                <template v-else-if="(column.key === 'used')">
+                    <div class="disk-use" :class="{muted: (row.disk === false)}">
+                        <span class="meter" :class="level_of(row.used, row.total)"><i :style="{width: (percent_of(row.used, row.total) + '%')}"/></span>
+                        <span>{{ percent_of(row.used, row.total) }}%</span>
+                    </div>
+                    <div class="muted">{{ format_bytes(row.used) }} of {{ format_bytes(row.total) }}</div>
+                </template>
+                <span v-else-if="(column.key === 'free')" :class="{muted: (row.disk === false)}">{{ format_bytes(row.free) }}</span>
+                <template v-else-if="(column.key === 'inodes_used')">
+                    <template v-if="(row.inodes_total !== null)">
+                        <div class="disk-use" :class="{muted: (row.disk === false)}">
+                            <span class="meter" :class="level_of(row.inodes_used, row.inodes_total)"><i :style="{width: (percent_of(row.inodes_used, row.inodes_total) + '%')}"/></span>
+                            <span>{{ percent_of(row.inodes_used, row.inodes_total) }}%</span>
+                        </div>
+                        <div class="muted">{{ count_text(row.inodes_used) }} of {{ count_text(row.inodes_total) }}</div>
                     </template>
-                </tbody>
-            </table>
-        </fold-table>
-        <p v-else-if="(busy === false && items.length > 0)" class="muted">No disks of its own — everything mounted here is tmpfs, overlay or a loop image. The chip above shows them.</p>
+                    <span v-else class="muted">not counted</span>
+                </template>
+                <span v-else-if="(column.key === 'inodes_free')" :class="{muted: ((row.disk === false) || (row.inodes_total === null))}">{{ ((row.inodes_total === null) ? 'not counted' : count_text(row.inodes_free)) }}</span>
+            </template>
+        </data-table>
     </template>
 </article>
 `,
-    components: {'command-copy': command_copy},
+    components: {'command-copy': command_copy, 'data-table': data_table},
     props: ['view'],
     data: function () {
         return {items: [], commands: undefined, show_all: false, note: '', bad: false, busy: false};
@@ -1346,6 +1251,9 @@ const remote_disks = {
         disk_able: function () {
             const machine = this.view.machine;
             return (machine !== null) && (machine.can !== null) && machine.can.includes('disk_list');
+        },
+        disk_columns: function () {
+            return DISK_COLUMNS;
         },
         rows: function () {
             return (this.show_all ? this.items : this.items.filter(v => v.disk));
@@ -1410,6 +1318,14 @@ const remote_disks = {
             this.note = note;
             this.bad = bad;
         },
+        // A device mounted in more places than its row names reads them all in its details
+        disk_more: function (row, key) {
+            return ((key === 'mounted') && (row.mounts.length > 4));
+        },
+        // The other places a device is mounted at, the first three, as its row says them
+        also_text: function (mounts) {
+            return `${mounts.slice(1, 4).join(', ')}${(mounts.length > 4) ? ` and ${mounts.length - 4} more` : ''}`;
+        },
         // A device may be mounted twice and a tmpfs is mounted everywhere: the two name a row
         row_key: function (item) {
             return `${item.device} ${item.mounts[0]}`;
@@ -1443,6 +1359,17 @@ const remote_disks = {
 // Every package dpkg keeps on a machine: what each is, how much room it takes, which were
 // asked for by name, and which an upgrade would move on. A machine carries a few thousand,
 // so a filter comes first and the table shows a screenful until asked for the rest.
+// A machine's packages' columns: Package never folds; the rest where the pane is narrow, What
+// it is first and Size last
+const PACKAGE_COLUMNS = [
+    {key: 'name', label: 'Package'},
+    {key: 'version', label: 'Version', fold: 4},
+    {key: 'size', label: 'Size', fold: 5, align: 'right', hide: v => (v.size === null)},
+    {key: 'section', label: 'Section', fold: 2},
+    {key: 'installed', label: 'Installed', fold: 3},
+    {key: 'summary', label: 'What it is', fold: 1, wraps: true},
+];
+
 const remote_packages = {
     template: `
 <article id="detail" class="list">
@@ -1469,81 +1396,33 @@ const remote_packages = {
             </span>
         </div>
         <p v-if="(note !== '' || summary !== '')" :class="(bad ? 'bad' : 'muted')">{{ (note !== '' ? note : summary) }}</p>
-        <!-- Package never folds, nor its held and half installed; the rest fold where the pane is narrow, Size last -->
-        <fold-table v-if="(shown.length > 0)" v-slot="fold" class="card" :order="['summary', 'section', 'installed', 'version', 'size']">
-            <table class="list-table packages-table">
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Package</th>
-                        <th data-fold="version">Version</th>
-                        <th data-fold="size" class="package-size">Size</th>
-                        <th data-fold="section">Section</th>
-                        <th data-fold="installed">Installed</th>
-                        <th data-fold="summary">What it is</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="item of shown" :key="row_key(item)">
-                        <tr :class="{foldable: (fold.folded.length > 0), open: fold.is_open(row_key(item))}" @click="fold.toggle(row_key(item), $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <!-- What it is wraps beside it; the name only once Size, the last, has folded too -->
-                            <td :class="{wraps: fold.folded.includes('size')}">
-                                <code>{{ item.name }}</code><span v-if="(item.arch !== native && item.arch !== 'all')" class="muted">:{{ item.arch }}</span>
-                                <span v-if="item.held" class="tag" title="apt-mark hold: an upgrade leaves it where it is">held</span>
-                                <span v-if="item.broken" class="tag bad" title="dpkg did not finish with it; sudo dpkg --configure -a finishes what was interrupted">half installed</span>
-                            </td>
-                            <td data-fold="version">
-                                <code>{{ item.version }}</code>
-                                <div v-if="(item.update !== null)" class="package-next">→ <code>{{ item.update.version }}</code><span v-if="item.update.security" class="tag package-security">security</span></div>
-                            </td>
-                            <td data-fold="size" class="package-size">{{ (item.size === null ? '' : format_bytes(item.size)) }}</td>
-                            <td data-fold="section" class="muted">{{ item.section }}</td>
-                            <td data-fold="installed" :class="{muted: (item.manual === false)}">{{ (item.manual ? 'by hand' : 'as a need') }}</td>
-                            <td data-fold="summary" class="package-summary">{{ item.summary }}</td>
-                        </tr>
-                        <tr v-if="fold.is_open(row_key(item))" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('version')">
-                                        <dt>Version</dt>
-                                        <dd>
-                                            <code>{{ item.version }}</code>
-                                            <div v-if="(item.update !== null)" class="package-next">→ <code>{{ item.update.version }}</code><span v-if="item.update.security" class="tag package-security">security</span></div>
-                                        </dd>
-                                    </template>
-                                    <template v-if="(fold.folded.includes('size') && item.size !== null)">
-                                        <dt>Size</dt>
-                                        <dd>{{ format_bytes(item.size) }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('section')">
-                                        <dt>Section</dt>
-                                        <dd class="muted">{{ item.section }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('installed')">
-                                        <dt>Installed</dt>
-                                        <dd :class="{muted: (item.manual === false)}">{{ (item.manual ? 'by hand' : 'as a need') }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('summary')">
-                                        <dt>What it is</dt>
-                                        <dd>{{ item.summary }}</dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </fold-table>
-        <p v-else-if="(busy === false && items.length > 0)" class="muted">No package here matches.</p>
-        <p v-if="(matching.length > shown.length)"><button type="button" @click="limit = matching.length">Show the other {{ matching.length - shown.length }}</button></p>
+        <!-- Package never folds, nor its held and half installed; the rest fold where the pane is
+             narrow, Size last. A screenful first: the table shows the rest when asked, and a new
+             filter starts from a screenful again. -->
+        <data-table v-if="(items.length > 0)" :key="(filter + ' ' + show + ' ' + order)" :columns="package_columns" :rows="matching" :row_key="row_key" :limit="at_once" empty="No package here matches.">
+            <template #cell="{row, column}">
+                <template v-if="(column.key === 'name')">
+                    <code>{{ row.name }}</code><span v-if="(row.arch !== native && row.arch !== 'all')" class="muted">:{{ row.arch }}</span>
+                    <span v-if="row.held" class="tag" title="apt-mark hold: an upgrade leaves it where it is">held</span>
+                    <span v-if="row.broken" class="tag bad" title="dpkg did not finish with it; sudo dpkg --configure -a finishes what was interrupted">half installed</span>
+                </template>
+                <template v-else-if="(column.key === 'version')">
+                    <code>{{ row.version }}</code>
+                    <div v-if="(row.update !== null)" class="package-next">→ <code>{{ row.update.version }}</code><span v-if="row.update.security" class="tag package-security">security</span></div>
+                </template>
+                <template v-else-if="(column.key === 'size')">{{ ((row.size === null) ? '' : format_bytes(row.size)) }}</template>
+                <span v-else-if="(column.key === 'section')" class="muted">{{ row.section }}</span>
+                <span v-else-if="(column.key === 'installed')" :class="{muted: (row.manual === false)}">{{ (row.manual ? 'by hand' : 'as a need') }}</span>
+                <template v-else-if="(column.key === 'summary')">{{ row.summary }}</template>
+            </template>
+        </data-table>
     </template>
 </article>
 `,
-    components: {'command-copy': command_copy},
+    components: {'command-copy': command_copy, 'data-table': data_table},
     props: ['view'],
     data: function () {
-        return {items: [], commands: undefined, filter: '', show: 'all', order: 'name', limit: PACKAGES_AT_ONCE, manual_known: true, updates_known: true, note: '', bad: false, busy: false};
+        return {items: [], commands: undefined, filter: '', show: 'all', order: 'name', at_once: PACKAGES_AT_ONCE, manual_known: true, updates_known: true, note: '', bad: false, busy: false};
     },
     computed: {
         offline: function () {
@@ -1600,8 +1479,8 @@ const remote_packages = {
             }
             return out;
         },
-        shown: function () {
-            return this.matching.slice(0, this.limit);
+        package_columns: function () {
+            return PACKAGE_COLUMNS;
         },
         summary: function () {
             if (this.items.length === 0) {
@@ -1642,12 +1521,6 @@ const remote_packages = {
             if (this.bad && this.package_able && (this.view.phase === 'online')) {
                 this.read();
             }
-        },
-        filter: function () {
-            this.limit = PACKAGES_AT_ONCE;
-        },
-        show: function () {
-            this.limit = PACKAGES_AT_ONCE;
         },
     },
     methods: {

@@ -1,4 +1,4 @@
-import fold_table from './fold_table.js';
+import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
 
@@ -30,84 +30,34 @@ const services_pane = {
             </span>
         </span>
     </div>
-    <fold-table v-slot="fold" class="card" :order="['detail', 'type', 'address']">
-        <table class="list-table">
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Service</th>
-                    <th data-fold="address">Address</th>
-                    <th data-fold="type">Kind</th>
-                    <th>State</th>
-                    <th data-fold="detail">Detail</th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="group of groups" :key="group.key">
-                    <tr v-if="grouped" class="group">
-                        <td class="wraps" colspan="6">
-                            <span class="row-of">
-                                <b>{{ group.title }}</b>
-                                <span v-if="(group.phase !== null)" class="dot" :class="group.phase"/>
-                                <span class="muted">{{ group.text }}</span>
-                                <a v-if="(group.phase !== null && logs_url('remote', group.key) !== null)" class="tag" :href="logs_url('remote', group.key)" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
-                            </span>
-                        </td>
-                    </tr>
-                    <template v-for="row of group.rows" :key="row.name">
-                        <tr class="pick" :class="{foldable: more_of(row, fold.folded), open: fold.is_open(row.name)}" @click="row_click(row, fold, $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg v-if="more_of(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td class="wraps">
-                                <span class="row-of">
-                                    <span class="dot" :class="row.phase"/>
-                                    <button v-if="(fold.folded.length > 0)" type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
-                                    <b v-else>{{ row.title }}</b>
-                                    <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
-                                    <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
-                                </span>
-                            </td>
-                            <td data-fold="address">
-                                <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.host }}</code></a>
-                                <span v-else class="muted">no address</span>
-                                <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
-                            </td>
-                            <td data-fold="type">{{ row.type }}</td>
-                            <td>{{ row.state }}</td>
-                            <td data-fold="detail" :class="(row.bad ? 'bad' : 'muted')"><span class="cut-line" :title="row.detail">{{ row.detail }}</span></td>
-                        </tr>
-                        <tr v-if="fold.is_open(row.name)" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('address')">
-                                        <dt>Address</dt>
-                                        <dd>
-                                            <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
-                                            <span v-else class="muted">no address</span>
-                                            <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
-                                        </dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('type')">
-                                        <dt>Kind</dt>
-                                        <dd>{{ row.type }}</dd>
-                                    </template>
-                                    <template v-if="(fold.folded.includes('detail') && row.detail !== '')">
-                                        <dt>Detail</dt>
-                                        <dd :class="(row.bad ? 'bad' : 'muted')">{{ row.detail }}</dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                </template>
-                <tr v-if="(groups.length === 0)">
-                    <td class="muted wraps" colspan="6">{{ services.length === 0 ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.' }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="columns" :rows="rows" row_key="name" :row_state="state_of" :group="(grouped ? (v => v.group) : null)" :empty="((services.length === 0) ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.')">
+        <template #group_head="{group}">
+            <span class="row-of">
+                <b>{{ group_by_key[group].title }}</b>
+                <span v-if="(group_by_key[group].phase !== null)" class="dot" :class="group_by_key[group].phase"/>
+                <span class="muted">{{ group_by_key[group].text }}</span>
+                <a v-if="((group_by_key[group].phase !== null) && (logs_url('remote', group) !== null))" class="tag" :href="logs_url('remote', group)" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">logs ↗</a>
+            </span>
+        </template>
+        <template #cell="{row, column}">
+            <span v-if="(column.key === 'name')" class="row-of">
+                <button type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
+                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+                <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">logs ↗</a>
+            </span>
+            <template v-else-if="(column.key === 'address')">
+                <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
+                <span v-else class="muted">no address</span>
+                <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
+            </template>
+            <template v-else-if="(column.key === 'type')">{{ row.type }}</template>
+            <span v-else-if="(column.key === 'state')" class="dt-state"><span class="dot" :class="row.phase"/>{{ row.state }}</span>
+            <span v-else-if="(column.key === 'detail')" :class="(row.bad ? 'bad' : 'muted')" :title="row.detail">{{ row.detail }}</span>
+        </template>
+    </data-table>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],
@@ -141,6 +91,23 @@ const services_pane = {
                 {value: 'stopped', label: 'Stopped', phase: 'stopped', count: services.filter(v => v.phase === 'stopped').length},
                 {value: 'attention', label: 'Needs attention', phase: 'failed', count: services.filter(v => this.is_attention(v)).length},
             ];
+        },
+        // The table's columns, each that may fold with when: the detail first, the address last
+        columns: function () {
+            return [
+                {key: 'name', label: 'Service', wraps: true},
+                {key: 'address', label: 'Address', fold: 3},
+                {key: 'type', label: 'Kind', fold: 2},
+                {key: 'state', label: 'State'},
+                {key: 'detail', label: 'Detail', fold: 1, hide: v => (v.detail === '')},
+            ];
+        },
+        // Every row shown, each with the group it is under
+        rows: function () {
+            return this.groups.flatMap(v => v.rows.map(vv => Object.assign({group: v.key}, vv)));
+        },
+        group_by_key: function () {
+            return Object.fromEntries(this.groups.map(v => [v.key, v]));
         },
         // One group per machine, in the order the config lists the machines; a service that
         // names a tag or nothing at all gets a group of its own after them
@@ -181,18 +148,15 @@ const services_pane = {
         },
     },
     methods: {
-        // With nothing folded a row opens its service, as it always has; with columns folded it
-        // opens what folded, and the service's name is the link to it
-        row_click: function (row, fold, event) {
-            if (this.more_of(row, fold.folded) === false) {
-                this.$emit('select', row.name);
-                return;
+        // How the row stands, as its stripe: running well, broken, on its way, or asleep
+        state_of: function (row) {
+            if (row.bad || (row.phase === 'failed') || (row.phase === 'lost')) {
+                return 'bad';
             }
-            fold.toggle(row.name, event);
-        },
-        // Whether anything folded out of this row has a value to show under it
-        more_of: function (row, folded) {
-            return (folded.includes('address') || folded.includes('type') || (folded.includes('detail') && (row.detail !== '')));
+            if ((row.phase === 'starting') || (row.phase === 'stopping')) {
+                return 'warn';
+            }
+            return ((row.phase === 'running') ? 'ok' : 'none');
         },
         logs_url: function (kind, name) {
             return logline_link(this.state.logline, kind, name);

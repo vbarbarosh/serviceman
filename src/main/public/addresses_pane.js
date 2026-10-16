@@ -1,6 +1,6 @@
+import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
-import fold_table from './fold_table.js';
 
 // Every name a request can arrive on, one row each, and the service that answers it — through
 // serviceman's own door, or through the door of a machine. The doors themselves are set up on
@@ -23,69 +23,28 @@ const addresses_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
-    <fold-table v-slot="fold" class="card" :order="['behind', 'through', 'service']">
-        <table class="list-table">
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Address</th>
-                    <th data-fold="service">Goes to</th>
-                    <th data-fold="through">Arrives through</th>
-                    <th data-fold="behind">Behind</th>
-                    <th>On</th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="row of rows" :key="row.key">
-                    <tr class="pick" :class="{off: row.off, foldable: (fold.folded.length > 0), open: fold.is_open(row.key)}" @click="row_click(row, fold, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps">
-                            <a :href="row.url" target="_blank" rel="noopener" @click.stop><code>{{ row.address }}</code></a>
-                            <span v-if="(row.note !== '')" class="muted"> · {{ row.note }}</span>
-                        </td>
-                        <td data-fold="service">
-                            <button v-if="(fold.folded.length > 0)" type="button" class="link row-of" title="The service's page" @click="$emit('select', row.service)"><span class="dot" :class="row.phase"/>{{ row.service_title }}</button>
-                            <span v-else class="row-of"><span class="dot" :class="row.phase"/>{{ row.service_title }}</span>
-                        </td>
-                        <td data-fold="through" :class="{muted: (row.remote === null)}">{{ row.through }}</td>
-                        <td data-fold="behind" :class="{muted: (row.behind === null)}">{{ row.behind === null ? '—' : row.behind }}</td>
-                        <td @click.stop>
-                            <span v-if="(row.remote === null)" class="pill running" title="serviceman answers its own addresses for as long as the service is in the config">on</span>
-                            <span v-else class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
-                                <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
-                                <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
-                            </span>
-                        </td>
-                    </tr>
-                    <tr v-if="fold.is_open(row.key)" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('service')">
-                                    <dt>Goes to</dt>
-                                    <dd><button type="button" class="link row-of" title="The service's page" @click="$emit('select', row.service)"><span class="dot" :class="row.phase"/>{{ row.service_title }}</button></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('through')">
-                                    <dt>Arrives through</dt>
-                                    <dd :class="{muted: (row.remote === null)}">{{ row.through }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('behind')">
-                                    <dt>Behind</dt>
-                                    <dd :class="{muted: (row.behind === null)}">{{ row.behind === null ? 'nothing — anyone may reach it' : row.behind }}</dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(rows.length === 0)">
-                    <td class="muted wraps" colspan="6">{{ rows_all.length === 0 ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.' }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="columns" :rows="rows" row_key="key" :row_state="state_of" :row_class="v => (v.off ? 'off' : [])" :empty="((rows_all.length === 0) ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.')">
+        <template #cell="{row, column, more}">
+            <template v-if="(column.key === 'address')">
+                <a :href="row.url" target="_blank" rel="noopener"><code>{{ row.address }}</code></a>
+                <span v-if="(row.note !== '')" class="muted"> · {{ row.note }}</span>
+            </template>
+            <button v-else-if="(column.key === 'service')" type="button" class="link dt-state" title="The service's page" @click="$emit('select', row.service)"><span class="dot" :class="row.phase"/>{{ row.service_title }}</button>
+            <span v-else-if="(column.key === 'through')" :class="{muted: (row.remote === null)}">{{ row.through }}</span>
+            <span v-else-if="(column.key === 'behind')" :class="{muted: (row.behind === null)}">{{ (row.behind !== null) ? row.behind : (more ? 'nothing — anyone may reach it' : '—') }}</span>
+            <template v-else-if="(column.key === 'on')">
+                <span v-if="(row.remote === null)" class="pill running" title="serviceman answers its own addresses for as long as the service is in the config">on</span>
+                <span v-else class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
+                    <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
+                    <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
+                </span>
+            </template>
+        </template>
+    </data-table>
     <p v-if="(note !== '')" class="bad">{{ note }}</p>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     // remote: the one machine whose door names the list is narrowed to, or null for every address
     props: ['state', 'remote'],
     emits: ['doors', 'only', 'select'],
@@ -93,6 +52,16 @@ const addresses_pane = {
         return {filter: '', show: 'all', busy: false, note: ''};
     },
     computed: {
+        // The table's columns, each that may fold with when: what stands in front first
+        columns: function () {
+            return [
+                {key: 'address', label: 'Address', wraps: true},
+                {key: 'service', label: 'Goes to', fold: 3},
+                {key: 'through', label: 'Arrives through', fold: 2},
+                {key: 'behind', label: 'Behind', fold: 1},
+                {key: 'on', label: 'On'},
+            ];
+        },
         // Sorted by the name itself, the way one is looked for
         rows_all: function () {
             const out = [];
@@ -145,12 +114,15 @@ const addresses_pane = {
     methods: {
         // With nothing folded a row opens its service, as it always has; with columns folded it
         // opens what folded, and the service is a link of its own
-        row_click: function (row, fold, event) {
-            if (fold.folded.length === 0) {
-                this.$emit('select', row.service);
-                return;
+        // How the row stands, as its stripe: the state of the service it goes to, grey when set aside
+        state_of: function (row) {
+            if (row.off) {
+                return 'none';
             }
-            fold.toggle(row.key, event);
+            if ((row.phase === 'failed') || (row.phase === 'lost')) {
+                return 'bad';
+            }
+            return ((row.phase === 'running') ? 'ok' : 'none');
         },
         // A door name set aside, or put back; the rest of the rule stays as it is written
         turn: async function (row, on) {

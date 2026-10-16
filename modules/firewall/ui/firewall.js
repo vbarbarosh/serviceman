@@ -1,12 +1,26 @@
+import data_table from '../../data_table.js';
 import firewall_ports from './firewall_ports.js';
 
 // The firewall of one machine, ufw, with the ports it listens on: first the ports, each with
 // how far its address reaches and what the firewall does to it, Allow or Close from its row;
 // then the rules as ufw keeps them, a row to add one and × to delete one, with Undo. A change
 // shows at once, marked while the machine makes it. The host page gives the API, the colours
-// and its usual classes: card, list-head, list-acts, list-table, dot, pill, muted, bad,
-// primary, link; and its fold-table, which folds a table's columns into its rows on a narrow
-// screen.
+// and its usual classes: card, list-head, list-acts, dot, pill, muted, bad, primary, link; its
+// one table, data-table, is imported from the page beside it.
+// The columns of each list, the first to fold the lowest; the actions fold before them all
+const PORT_COLUMNS = [
+    {key: 'port', label: 'Port'},
+    {key: 'reach', label: 'Reachable from · address', fold: 2},
+    {key: 'firewall', label: 'Firewall', wraps: true},
+    {key: 'held', label: 'Held by', fold: 1, hide: v => (v.held === '')},
+];
+const RULE_COLUMNS = [
+    {key: 'action', label: 'Action'},
+    {key: 'port', label: 'Port'},
+    {key: 'from', label: 'From', fold: 3},
+    {key: 'to', label: 'To', fold: 2},
+    {key: 'comment', label: 'Comment', fold: 1, hide: v => ((v.comment || '') === '')},
+];
 const ACTIONS = [
     {value: 'allow', label: 'Allow'},
     {value: 'deny', label: 'Deny'},
@@ -92,128 +106,39 @@ const firewall = {
                 <input v-model="query" type="search" placeholder="Filter by port or program" spellcheck="false" aria-label="Filter ports">
                 <button v-for="option of SHOWS" :key="option.value" type="button" class="chip" :class="{on: (show === option.value)}" @click="show = option.value">{{ option.label }}</button>
             </div>
-            <fold-table v-slot="fold" class="card fw-rules" :order="['acts', 'held', 'reach']">
-                <table class="list-table fw-ports">
-                    <thead>
-                        <tr>
-                            <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                            <th>Port</th>
-                            <th data-fold="reach">Reachable from · address</th>
-                            <th>Firewall</th>
-                            <th data-fold="held">Held by</th>
-                            <th data-fold="acts"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="row of shown" :key="row.key">
-                            <tr :class="[('fw-' + row.reach.exposure + (row.verdict.kind === 'closed' && row.verdict.now ? ' fw-shut' : '')), {foldable: (fold.folded.length > 0), open: fold.is_open(row.key)}]" @click="fold.toggle(row.key, $event)">
-                                <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                                <td class="fw-port-cell">{{ (row.port === 0 ? '*' : row.port) }}<span class="muted">/{{ row.proto }}</span></td>
-                                <td data-fold="reach"><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></td>
-                                <td class="wraps"><span :class="verdict_class(row)" :title="(row.verdict.rule === null ? '' : ('ufw ' + row.verdict.rule.command))">{{ row.verdict.text }}</span></td>
-                                <td data-fold="held" class="muted">{{ row.held }}</td>
-                                <td data-fold="acts" class="fw-acts">
-                                    <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
-                                    <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
-                                    <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
-                                    <span v-else-if="(row.verdict.kind === 'open')" class="muted" title="Let in by the default policy or by a wider rule: change the rules below">by a rule below</span>
-                                </td>
-                            </tr>
-                            <tr v-if="fold.is_open(row.key)" class="fold-more">
-                                <td :colspan="fold.span">
-                                    <dl class="fold-details">
-                                        <template v-if="fold.folded.includes('reach')">
-                                            <dt>Reachable from</dt>
-                                            <dd><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></dd>
-                                        </template>
-                                        <template v-if="(fold.folded.includes('held') && row.held !== '')">
-                                            <dt>Held by</dt>
-                                            <dd class="muted">{{ row.held }}</dd>
-                                        </template>
-                                        <template v-if="(fold.folded.includes('acts') && port_acts_shown(row))">
-                                            <dt>Change</dt>
-                                            <dd class="fold-actions">
-                                                <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
-                                                <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
-                                                <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
-                                                <span v-else class="muted">let in by the default policy or by a wider rule: change the rules below</span>
-                                            </dd>
-                                        </template>
-                                    </dl>
-                                </td>
-                            </tr>
-                        </template>
-                        <tr v-if="(shown.length === 0)">
-                            <td :colspan="fold.span" class="muted"><div class="fw-empty">{{ (port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.') }}</div></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </fold-table>
+            <data-table class="fw-ports" :columns="PORT_COLUMNS" :rows="shown" row_key="key" :row_class="port_class" :row_state="port_state" :empty="(port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.')" actions_label="Change">
+                <template #cell="{row, column}">
+                    <template v-if="(column.key === 'port')">{{ (row.port === 0 ? '*' : row.port) }}<span class="muted">/{{ row.proto }}</span></template>
+                    <template v-else-if="(column.key === 'reach')"><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></template>
+                    <span v-else-if="(column.key === 'firewall')" :class="verdict_class(row)" :title="(row.verdict.rule === null ? '' : ('ufw ' + row.verdict.rule.command))">{{ row.verdict.text }}</span>
+                    <span v-else class="muted">{{ row.held }}</span>
+                </template>
+                <template #actions="{row}">
+                    <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
+                    <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
+                    <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
+                    <span v-else-if="(row.verdict.kind === 'open')" class="muted" title="Let in by the default policy or by a wider rule: change the rules below">by a rule below</span>
+                </template>
+            </data-table>
             <details v-if="(ports.commands !== undefined && ports.commands.length > 0)" class="fw-how">
                 <summary class="muted">How the ports were read</summary>
                 <code v-for="command of ports.commands" :key="command">{{ command }}</code>
             </details>
         </template>
         <h3 class="fw-title">Rules <span class="muted">{{ rules.length }}</span></h3>
-        <fold-table v-slot="fold" class="card fw-rules" :order="['acts', 'comment', 'to', 'from']">
-            <table class="list-table">
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>Action</th>
-                        <th>Port</th>
-                        <th data-fold="from">From</th>
-                        <th data-fold="to">To</th>
-                        <th data-fold="comment">Comment</th>
-                        <th data-fold="acts"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="rule of rules" :key="rule.command">
-                        <tr :class="{'fw-pending': rule.pending, foldable: (fold.folded.length > 0), open: fold.is_open(rule.command)}" :title="('ufw ' + rule.command)" @click="fold.toggle(rule.command, $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td><span class="fw-action" :class="('fw-' + rule.action)">{{ rule.action }}</span> <span v-if="(rule.direction === 'out')" class="muted">out</span></td>
-                            <td>{{ port_text(rule) }}</td>
-                            <td data-fold="from">{{ from_text(rule) }}</td>
-                            <td data-fold="to" class="muted">{{ to_text(rule) }}</td>
-                            <td data-fold="comment" class="muted">{{ rule.comment }}</td>
-                            <td data-fold="acts" class="fw-acts">
-                                <span v-if="rule.pending" class="muted">{{ rule.pending }}</span>
-                                <button v-else type="button" class="link" :aria-label="('Delete ' + rule.command)" title="Delete this rule" :disabled="(busy || offline)" @click="remove(rule)">×</button>
-                            </td>
-                        </tr>
-                        <tr v-if="fold.is_open(rule.command)" class="fold-more">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="fold.folded.includes('from')">
-                                        <dt>From</dt>
-                                        <dd>{{ from_text(rule) }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('to')">
-                                        <dt>To</dt>
-                                        <dd class="muted">{{ to_text(rule) }}</dd>
-                                    </template>
-                                    <template v-if="(fold.folded.includes('comment') && (rule.comment || '') !== '')">
-                                        <dt>Comment</dt>
-                                        <dd class="muted">{{ rule.comment }}</dd>
-                                    </template>
-                                    <template v-if="fold.folded.includes('acts')">
-                                        <dt>Change</dt>
-                                        <dd class="fold-actions">
-                                            <span v-if="rule.pending" class="muted">{{ rule.pending }}</span>
-                                            <button v-else type="button" class="link" :aria-label="('Delete ' + rule.command)" :disabled="(busy || offline)" @click="remove(rule)">delete this rule</button>
-                                        </dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr v-if="(rules.length === 0)">
-                        <td :colspan="fold.span" class="muted"><div class="fw-empty">No rules. {{ (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.') }}</div></td>
-                    </tr>
-                </tbody>
-            </table>
-        </fold-table>
+        <data-table class="fw-rules" :columns="RULE_COLUMNS" :rows="rules" row_key="command" :row_class="rule_class" :empty="('No rules. ' + (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.'))" actions_label="Change">
+            <template #cell="{row, column}">
+                <template v-if="(column.key === 'action')"><span class="fw-action" :class="('fw-' + row.action)" :title="('ufw ' + row.command)">{{ row.action }}</span> <span v-if="(row.direction === 'out')" class="muted">out</span></template>
+                <template v-else-if="(column.key === 'port')">{{ port_text(row) }}</template>
+                <template v-else-if="(column.key === 'from')">{{ from_text(row) }}</template>
+                <span v-else-if="(column.key === 'to')" class="muted">{{ to_text(row) }}</span>
+                <span v-else class="muted">{{ row.comment }}</span>
+            </template>
+            <template #actions="{row}">
+                <span v-if="row.pending" class="muted">{{ row.pending }}</span>
+                <button v-else type="button" class="danger" :aria-label="('Delete ' + row.command)" :title="('Delete ufw ' + row.command)" :disabled="(busy || offline)" @click="remove(row)">Delete</button>
+            </template>
+        </data-table>
         <form class="card fw-add" @submit.prevent="add">
             <select v-model="form.action" aria-label="Action"><option v-for="item of ACTIONS" :key="item.value" :value="item.value">{{ item.label }}</option></select>
             <select v-model="form.direction" aria-label="Direction"><option v-for="item of DIRECTIONS" :key="item.value" :value="item.value">{{ item.label }}</option></select>
@@ -226,6 +151,7 @@ const firewall = {
     </template>
 </article>
 `,
+    components: {'data-table': data_table},
     props: {
         base: {type: String, required: true},
         offline: {type: Boolean, default: false},
@@ -237,6 +163,8 @@ const firewall = {
     },
     data: function () {
         return {
+            PORT_COLUMNS,
+            RULE_COLUMNS,
             ACTIONS,
             DIRECTIONS,
             PROTOS,
@@ -352,9 +280,20 @@ const firewall = {
             const rule = row.verdict.rule;
             return ((rule !== null) && (rule.from === 'any') && (rule.app === null) && (rule.port === String(row.port)));
         },
-        // Whether the row's last cell has something to do or say: a local port has nothing
-        port_acts_shown: function (row) {
-            return ((this.pending[row.key] !== undefined) || (row.verdict.kind === 'closed') || (row.verdict.kind === 'open'));
+        // A port's row tinted by how far it reaches, and marked when the firewall shuts it now
+        port_class: function (row) {
+            return [`fw-${row.reach.exposure}`].concat(((row.verdict.kind === 'closed') && row.verdict.now) ? ['fw-shut'] : []);
+        },
+        // A port's stripe: red when the internet reaches it, amber a network; none when only
+        // this machine does, or the firewall shuts it
+        port_state: function (row) {
+            if ((row.reach.exposure === 'local') || (row.verdict.kind === 'closed')) {
+                return 'none';
+            }
+            return ((row.reach.exposure === 'open') ? 'bad' : 'warn');
+        },
+        rule_class: function (rule) {
+            return (rule.pending ? ['fw-pending'] : []);
         },
         verdict_class: function (row) {
             if ((row.verdict.kind === 'open') && (row.reach.exposure === 'open')) {

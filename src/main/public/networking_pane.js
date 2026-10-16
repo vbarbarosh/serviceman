@@ -1,6 +1,6 @@
+import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
-import fold_table from './fold_table.js';
 
 // Every machine's door, and what comes in through it.
 //
@@ -19,65 +19,19 @@ const networking_pane = {
     <h2>What the doors answer</h2>
     <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
     <p class="muted"><b>Behind</b> is a service asked before anything else is touched — an authwall. The door asks it <code>/auth/sidecar</code>, carries its <code>X-Auth-User</code> to the service on a yes, and on a no sends the visitor to <code>/auth/sign-in</code> on the name they asked for; a wall that cannot be asked lets nothing through. One wall stands in front of as many names as point at it, and serviceman writes nothing into it: whose email may pass is the wall's own business.</p>
-    <fold-table v-slot="fold" :order="['acts', 'behind', 'machine', 'service']">
-        <table>
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Name</th>
-                    <th data-fold="machine">Door of</th>
-                    <th data-fold="service">Answered by</th>
-                    <th data-fold="behind">Behind</th>
-                    <th class="tick">On</th>
-                    <th data-fold="acts"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="rule of rules" :key="rule_key(rule)">
-                    <tr :class="{off: rule.off, foldable: (fold.folded.length > 0), open: fold.is_open(rule_key(rule))}" @click="fold.toggle(rule_key(rule), $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><span class="dot-name"><span class="dot" :class="rule_dot(rule)"/><code class="name">{{ rule.host }}</code></span></td>
-                        <td data-fold="machine">{{ rule.title }}</td>
-                        <td data-fold="service">{{ rule.service }}<span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></td>
-                        <td data-fold="behind" :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing' : rule.auth) }}</td>
-                        <td class="tick"><input type="checkbox" title="Answering, or set aside for now" :checked="(rule.off === false)" :disabled="busy" @change="turn(rule, $event.target.checked)"></td>
-                        <td data-fold="acts">
-                            <button type="button" class="link" :disabled="busy" @click="edit(rule)">edit</button>
-                            <button type="button" class="link" :disabled="busy" @click="drop(rule)">forget it</button>
-                        </td>
-                    </tr>
-                    <tr v-if="fold.is_open(rule_key(rule))" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('machine')">
-                                    <dt>Door of</dt>
-                                    <dd>{{ rule.title }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('service')">
-                                    <dt>Answered by</dt>
-                                    <dd>{{ rule.service }}<span v-if="(known(rule.service) === false)" class="bad"> — no such service</span></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('behind')">
-                                    <dt>Behind</dt>
-                                    <dd :class="{muted: (rule.auth === null)}">{{ (rule.auth === null ? 'nothing — anyone may reach it' : rule.auth) }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('acts')">
-                                    <dt>Change</dt>
-                                    <dd class="fold-actions">
-                                        <button type="button" class="link" :disabled="busy" @click="edit(rule)">edit</button>
-                                        <button type="button" class="link" :disabled="busy" @click="drop(rule)">forget it</button>
-                                    </dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(rules.length === 0)">
-                    <td class="muted" colspan="6">No door answers anything yet.</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="rule_columns" :rows="rules" :row_key="rule_key" :row_state="rule_state" :row_class="v => (v.off ? 'off' : [])" actions_label="On" empty="No door answers anything yet.">
+        <template #cell="{row, column, more}">
+            <span v-if="(column.key === 'host')" class="dt-state"><span class="dot" :class="rule_dot(row)"/><code class="name">{{ row.host }}</code></span>
+            <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
+            <template v-else-if="(column.key === 'service')">{{ row.service }}<span v-if="(known(row.service) === false)" class="bad"> — no such service</span></template>
+            <span v-else-if="(column.key === 'behind')" :class="{muted: (row.auth === null)}">{{ (row.auth !== null) ? row.auth : (more ? 'nothing — anyone may reach it' : 'nothing') }}</span>
+        </template>
+        <template #actions="{row}">
+            <label title="Answering, or set aside for now"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)">answering</label>
+            <button type="button" :disabled="busy" @click="edit(row)">edit</button>
+            <button type="button" class="danger" :disabled="busy" @click="drop(row)">forget it</button>
+        </template>
+    </data-table>
     <div class="rule-add">
         <select v-model="fresh.machine">
             <option value="">which machine</option>
@@ -101,57 +55,19 @@ const networking_pane = {
     <pre class="tail">SERVICEMAN_HTTP_SOCKET_MODE=0660
 
 bin/restart</pre>
-    <fold-table v-slot="fold" :order="['path', 'streams', 'door']">
-        <table>
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Machine</th>
-                    <th data-fold="door">Door</th>
-                    <th>Routes</th>
-                    <th data-fold="streams">Riding now</th>
-                    <th data-fold="path">Where it is</th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="item of machines" :key="item.name">
-                    <tr :class="{foldable: (fold.folded.length > 0), open: fold.is_open(item.name)}" @click="fold.toggle(item.name, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><span class="dot-name"><span class="dot" :class="(item.phase === 'online' ? 'running' : '')"/><span class="name">{{ item.title || item.name }}</span></span></td>
-                        <td data-fold="door" :class="{muted: (door_open(item) === false)}">{{ door_text(item) }}</td>
-                        <td :class="routes_of(item).tone" :title="routes_of(item).hint">{{ routes_of(item).text }}</td>
-                        <td data-fold="streams" class="muted">{{ streams_text(item) }}</td>
-                        <td data-fold="path" class="muted"><code>{{ door_path(item) }}</code></td>
-                    </tr>
-                    <tr v-if="fold.is_open(item.name)" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('door')">
-                                    <dt>Door</dt>
-                                    <dd :class="{muted: (door_open(item) === false)}">{{ door_text(item) }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('streams')">
-                                    <dt>Riding now</dt>
-                                    <dd class="muted">{{ (item.streams === 0 ? 'nothing' : streams_text(item)) }}</dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('path') && door_path(item) !== '')">
-                                    <dt>Where it is</dt>
-                                    <dd><code>{{ door_path(item) }}</code></dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(machines.length === 0)">
-                    <td class="muted" colspan="5">No machines yet. A door is a machine's own — add a remote first.</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="door_columns" :rows="machines" row_key="name" :row_state="v => ((v.phase === 'online') ? 'ok' : 'none')" empty="No machines yet. A door is a machine's own — add a remote first.">
+        <template #cell="{row, column, more}">
+            <span v-if="(column.key === 'name')" class="dt-state"><span class="dot" :class="((row.phase === 'online') ? 'running' : '')"/><span class="name">{{ row.title || row.name }}</span></span>
+            <span v-else-if="(column.key === 'door')" :class="{muted: (door_open(row) === false)}">{{ door_text(row) }}</span>
+            <span v-else-if="(column.key === 'routes')" :class="routes_of(row).tone" :title="routes_of(row).hint">{{ routes_of(row).text }}</span>
+            <span v-else-if="(column.key === 'streams')" class="muted">{{ ((more && (row.streams === 0)) ? 'nothing' : streams_text(row)) }}</span>
+            <code v-else-if="(column.key === 'path')" class="muted">{{ door_path(row) }}</code>
+        </template>
+    </data-table>
     <p class="muted">Then point that machine's web server at the file, keeping the <code>Host</code> header as it came — the door answers by that name and nothing else.</p>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: [],
     data: function () {
@@ -160,6 +76,24 @@ bin/restart</pre>
         return {fresh: {machine: '', host: '', service: '', auth: ''}, editing: null, note: '', bad: false, busy: false};
     },
     computed: {
+        // The tables' columns, each that may fold with when
+        rule_columns: function () {
+            return [
+                {key: 'host', label: 'Name', wraps: true},
+                {key: 'machine', label: 'Door of', fold: 3},
+                {key: 'service', label: 'Answered by', fold: 4},
+                {key: 'behind', label: 'Behind', fold: 2},
+            ];
+        },
+        door_columns: function () {
+            return [
+                {key: 'name', label: 'Machine', wraps: true},
+                {key: 'door', label: 'Door', fold: 3},
+                {key: 'routes', label: 'Routes'},
+                {key: 'streams', label: 'Riding now', fold: 2},
+                {key: 'path', label: 'Where it is', fold: 1, hide: v => (this.door_path(v) === '')},
+            ];
+        },
         machines: function () {
             return ((this.state === null) ? [] : this.state.remotes);
         },
@@ -196,6 +130,10 @@ bin/restart</pre>
             return `${rule.machine} ${rule.host}`;
         },
         // Answering, set aside, or answered by a service that is not there
+        // How a name stands, as its stripe: answered, set aside, or sent to no service
+        rule_state: function (rule) {
+            return ({failed: 'bad', running: 'ok'}[this.rule_dot(rule)] || 'none');
+        },
         rule_dot: function (rule) {
             if (this.known(rule.service) === false) {
                 return 'failed';

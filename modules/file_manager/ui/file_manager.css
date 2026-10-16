@@ -125,49 +125,7 @@ p.fm-note {
     margin: 0;
 }
 
-.fm-list {
-    position: relative;
-    overflow: auto;
-}
-
-.fm-table th.fm-pick,
-.fm-table td.fm-pick {
-    width: 2.4rem;
-    padding-right: 0;
-}
-
-.fm-table th.size,
-.fm-table td.size {
-    width: 8rem;
-    text-align: right;
-}
-
-.fm-table th.mtime,
-.fm-table td.mtime {
-    width: 10rem;
-}
-
-button.fm-sort {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    letter-spacing: inherit;
-    text-transform: inherit;
-}
-
-button.fm-sort:hover,
-button.fm-sort.on {
-    background: none;
-    color: var(--fg);
-}
-
-.fm-table tr.chosen td {
-    background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-
-.fm-table td.name b {
+.fm-table b {
     font-weight: 600;
 }
 
@@ -177,12 +135,6 @@ button.fm-sort.on {
 
 .fm-table svg.fm-file {
     color: var(--muted);
-}
-
-.fm-table td.fm-empty {
-    padding: 2rem .9rem;
-    text-align: center;
-    white-space: normal;
 }
 
 .fm-drop {

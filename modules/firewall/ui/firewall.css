@@ -1,6 +1,6 @@
 /* The UFW module's own rules. The host page gives the colours (--panel, --line, --muted, --fg,
-   --accent) and the classes the module shares with it: card, list-head, list-acts, list-table,
-   fold-table, dot, muted, bad, primary, link. */
+   --accent) and the classes the module shares with it: card, list-head, list-acts, dot, muted,
+   bad, primary, link; its tables are the page's data-table. */
 
 /* The parts one under another, each keeping its own height */
 .fw {
@@ -73,30 +73,7 @@
     color: var(--bad, #c0392b);
 }
 
-/* A table's card, the table to its edges: the host's fold-table, which scrolls it inside the
-   card only when nothing more can fold */
-.fw > .fw-rules {
-    margin: 0;
-    padding: 0;
-}
-
-/* The line of an empty list wraps in the table's width and never widens it */
-.fw-empty {
-    contain: inline-size;
-    white-space: normal;
-}
-
-.fw-rules .fw-acts {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.fw-acts button.link {
-    font-size: 1.1rem;
-    line-height: 1;
-}
-
-.fw-pending td {
+.fw-rules tr.fw-pending td {
     opacity: .55;
 }
 
@@ -232,35 +209,19 @@
     border-color: var(--accent);
 }
 
-.fw-port-cell {
+/* A port others can reach stands out: its stripe is red for the internet, amber for a
+   network (data-table), and its number is bold; one the firewall keeps out does not */
+.fw-ports td.dt-stripe {
     font-variant-numeric: tabular-nums;
 }
 
-/* A port others can reach is marked at its left edge, red for the internet and amber for a
-   network; one the firewall keeps out is not */
-.fw-ports tr.fw-open td:first-child {
-    box-shadow: inset 3px 0 0 var(--bad);
-}
-
-.fw-ports tr.fw-network td:first-child {
-    box-shadow: inset 3px 0 0 var(--busy);
-}
-
-.fw-ports tr.fw-shut td:first-child {
-    box-shadow: none;
-}
-
-.fw-ports tr.fw-open:not(.fw-shut) .fw-port-cell,
-.fw-ports tr.fw-network:not(.fw-shut) .fw-port-cell {
+.fw-ports tr.fw-open:not(.fw-shut) td.dt-stripe,
+.fw-ports tr.fw-network:not(.fw-shut) td.dt-stripe {
     font-weight: 700;
 }
 
 .fw-ok {
     color: var(--run, #1e9e63);
-}
-
-.fw-acts button:not(.link) {
-    font-size: inherit;
 }
 
 .fw-how {

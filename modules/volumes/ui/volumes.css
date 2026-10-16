@@ -46,32 +46,10 @@
     display: block;
 }
 
-.vol .vol-acts {
-    text-align: right;
-}
-
-.vol-acts button + button {
-    margin-left: .4rem;
-}
-
-/* The line of an empty list wraps in the table's width and never widens it */
-.vol-empty {
-    contain: inline-size;
-    white-space: normal;
-}
-
 /* A row's form or refusal, under it, across the table: it wraps in the table's width and never
    widens it */
-table.list-table tr.vol-sub td {
-    white-space: normal;
-}
-
-table.list-table tr.vol-sub td > * {
+.vol-table .dt-below td > * {
     contain: inline-size;
-}
-
-.vol table.list-table > tbody > tr.vol-sub > td .bad {
-    white-space: normal;
 }
 
 .vol-grow,

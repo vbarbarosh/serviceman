@@ -1,4 +1,4 @@
-import fold_table from './fold_table.js';
+import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 
 // Load tests: k6 sent at a service. A test is a number of users asking for one address for a
@@ -67,71 +67,26 @@ const load_tests_pane = {
             </div>
         </div>
     </template>
-    <fold-table v-slot="fold" class="card" :order="['acts', 'remote', 'load', 'service']">
-        <table class="list-table">
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Test</th>
-                    <th data-fold="service">Service</th>
-                    <th data-fold="remote">From</th>
-                    <th data-fold="load">Load</th>
-                    <th>Last run</th>
-                    <th data-fold="acts"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="test of tests" :key="test.name">
-                    <tr class="pick" :class="{on: (test.name === picked_name), foldable: (fold.folded.length > 0), open: fold.is_open(test.name)}" @click="picked = test.name; fold.toggle(test.name, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><b>{{ test.name }}</b></td>
-                        <td data-fold="service"><button type="button" class="link" @click.stop="$emit('select', test.service)">{{ test.service }}</button></td>
-                        <td data-fold="remote"><button type="button" class="link" @click.stop="$emit('remote', test.remote)">{{ remote_title(test.remote) }}</button></td>
-                        <td data-fold="load">{{ load_text(test) }}</td>
-                        <td>
-                            <span v-if="(last_of(test.name) !== null)" class="lt-last">
-                                <span class="pill" :class="pill_of(last_of(test.name))">{{ phase_text(last_of(test.name)) }}</span>
-                                <span class="muted">{{ result_text(last_of(test.name)) }}</span>
-                            </span>
-                            <span v-else class="muted">never run</span>
-                        </td>
-                        <td data-fold="acts" class="lt-act">
-                            <button v-if="(going_of(test.name) === null)" type="button" :disabled="busy" @click.stop="run(test)">Run</button>
-                            <button v-else type="button" :disabled="(busy || (going_of(test.name).phase === 'stopping'))" @click.stop="stop(test)">Stop</button>
-                        </td>
-                    </tr>
-                    <tr v-if="fold.is_open(test.name)" class="fold-more" :class="{on: (test.name === picked_name)}">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('service')">
-                                    <dt>Service</dt>
-                                    <dd><button type="button" class="link" @click.stop="$emit('select', test.service)">{{ test.service }}</button></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('remote')">
-                                    <dt>From</dt>
-                                    <dd><button type="button" class="link" @click.stop="$emit('remote', test.remote)">{{ remote_title(test.remote) }}</button></dd>
-                                </template>
-                                <template v-if="fold.folded.includes('load')">
-                                    <dt>Load</dt>
-                                    <dd>{{ load_text(test) }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('acts')">
-                                    <dt>Run</dt>
-                                    <dd class="fold-actions">
-                                        <button v-if="(going_of(test.name) === null)" type="button" :disabled="busy" @click.stop="run(test)">Run</button>
-                                        <button v-else type="button" :disabled="(busy || (going_of(test.name).phase === 'stopping'))" @click.stop="stop(test)">Stop</button>
-                                    </dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(tests.length === 0)">
-                    <td class="muted wraps" colspan="6">No tests yet — <button type="button" class="link" @click="form_begin(null)">make the first one</button>.</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="test_columns" :rows="tests" row_key="name" :chosen="v => (v.name === picked_name)" :on_row="v => (picked = v.name)" actions_label="Run">
+        <template #cell="{row, column}">
+            <b v-if="(column.key === 'name')">{{ row.name }}</b>
+            <button v-else-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.service)">{{ row.service }}</button>
+            <button v-else-if="(column.key === 'remote')" type="button" class="link" @click="$emit('remote', row.remote)">{{ remote_title(row.remote) }}</button>
+            <template v-else-if="(column.key === 'load')">{{ load_text(row) }}</template>
+            <template v-else-if="(column.key === 'last')">
+                <span v-if="(last_of(row.name) !== null)" class="lt-last">
+                    <span class="pill" :class="pill_of(last_of(row.name))">{{ phase_text(last_of(row.name)) }}</span>
+                    <span class="muted">{{ result_text(last_of(row.name)) }}</span>
+                </span>
+                <span v-else class="muted">never run</span>
+            </template>
+        </template>
+        <template #actions="{row}">
+            <button v-if="(going_of(row.name) === null)" type="button" :disabled="busy" @click="run(row)">Run</button>
+            <button v-else type="button" :disabled="(busy || (going_of(row.name).phase === 'stopping'))" @click="stop(row)">Stop</button>
+        </template>
+        <template #empty>No tests yet — <button type="button" class="link" @click="form_begin(null)">make the first one</button>.</template>
+    </data-table>
     <p v-if="((form === null) && (note !== ''))" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
     <template v-if="(test_now !== null)">
         <div class="list-head lt-head">
@@ -164,108 +119,37 @@ const load_tests_pane = {
             <div class="meter"><i :style="{width: (Math.round(live_ratio(going)*100) + '%')}"/></div>
             <pre v-if="(going.lines.length > 0)" class="lt-lines">{{ going.lines.slice(-12).join('\\n') }}</pre>
         </div>
-        <fold-table v-slot="fold" class="card" :order="['acts', 'wake', 'max', 'p95', 'reqs', 'errors', 'rps', 'med']">
-            <table class="list-table">
-                <thead>
-                    <tr>
-                        <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                        <th>When</th>
-                        <th>Result</th>
-                        <th data-fold="reqs">Answers</th>
-                        <th data-fold="rps">Per second</th>
-                        <th data-fold="med">Median</th>
-                        <th data-fold="p95">95%</th>
-                        <th data-fold="max">Slowest</th>
-                        <th data-fold="errors">Errors</th>
-                        <th data-fold="wake">Woke in</th>
-                        <th data-fold="acts"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="item of runs_now" :key="item.id">
-                        <tr :class="{'lt-noted': (has_notes(item) || (log_id === item.id)), foldable: (fold.folded.length > 0), open: fold.is_open(item.id)}" @click="fold.toggle(item.id, $event)">
-                            <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                            <td :title="new Date(item.started_at).toLocaleString()">{{ ago(item.started_at) }} ago</td>
-                            <td><span class="pill" :class="pill_of(item)">{{ phase_text(item) }}</span></td>
-                            <template v-if="(item.result !== null)">
-                                <td data-fold="reqs">{{ item.result.reqs.toLocaleString() }}</td>
-                                <td data-fold="rps">{{ Math.round(item.result.rps).toLocaleString() }}</td>
-                                <td data-fold="med">{{ ms_text(item.result.med_ms) }}</td>
-                                <td data-fold="p95" :class="{bad: (item.result.p95_passed === false)}">{{ ms_text(item.result.p95_ms) }}</td>
-                                <td data-fold="max">{{ ms_text(item.result.max_ms) }}</td>
-                                <td data-fold="errors" :class="{bad: (item.result.errors_passed === false)}">{{ pct_text(item.result.errors) }}</td>
-                            </template>
-                            <td v-else-if="(result_span(fold.folded) > 0)" class="muted" :colspan="result_span(fold.folded)">—</td>
-                            <td data-fold="wake">{{ wake_text(item) }}</td>
-                            <td data-fold="acts" class="lt-act"><button v-if="(item.log_kept === true)" type="button" @click="log_toggle(item)">{{ (log_id === item.id) ? 'Hide log' : 'Log' }}</button></td>
-                        </tr>
-                        <tr v-if="fold.is_open(item.id)" class="fold-more" :class="{'lt-noted': (has_notes(item) || (log_id === item.id))}">
-                            <td :colspan="fold.span">
-                                <dl class="fold-details">
-                                    <template v-if="(item.result !== null)">
-                                        <template v-if="fold.folded.includes('reqs')">
-                                            <dt>Answers</dt>
-                                            <dd>{{ item.result.reqs.toLocaleString() }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('rps')">
-                                            <dt>Per second</dt>
-                                            <dd>{{ Math.round(item.result.rps).toLocaleString() }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('med')">
-                                            <dt>Median</dt>
-                                            <dd>{{ ms_text(item.result.med_ms) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('p95')">
-                                            <dt>95%</dt>
-                                            <dd :class="{bad: (item.result.p95_passed === false)}">{{ ms_text(item.result.p95_ms) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('max')">
-                                            <dt>Slowest</dt>
-                                            <dd>{{ ms_text(item.result.max_ms) }}</dd>
-                                        </template>
-                                        <template v-if="fold.folded.includes('errors')">
-                                            <dt>Errors</dt>
-                                            <dd :class="{bad: (item.result.errors_passed === false)}">{{ pct_text(item.result.errors) }}</dd>
-                                        </template>
-                                    </template>
-                                    <template v-if="(fold.folded.includes('wake') && (item.wake_ms !== null))">
-                                        <dt>Woke in</dt>
-                                        <dd>{{ wake_text(item) }}</dd>
-                                    </template>
-                                    <template v-if="(fold.folded.includes('acts') && (item.log_kept === true))">
-                                        <dt>Log</dt>
-                                        <dd class="fold-actions"><button type="button" @click="log_toggle(item)">{{ (log_id === item.id) ? 'Hide log' : 'Log' }}</button></dd>
-                                    </template>
-                                </dl>
-                            </td>
-                        </tr>
-                        <tr v-if="has_notes(item)" class="lt-notes" :class="{'lt-noted': (log_id === item.id)}">
-                            <td class="wraps" :colspan="fold.span">
-                                <div class="lt-room">
-                                    <div v-if="(item.error !== null)" class="bad">{{ item.error }}</div>
-                                    <div v-for="note of (item.said || [])" :key="note.text" class="muted">{{ note.count.toLocaleString() }} {{ (note.users ? ((note.count === 1) ? 'user got' : 'users got') : '×') }} {{ note.text }}</div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="(log_id === item.id)" class="lt-log">
-                            <td class="wraps" :colspan="fold.span">
-                                <div class="lt-room">
-                                    <p v-if="(log_text === null)" :class="(log_bad ? 'bad' : 'muted')">{{ log_note }}</p>
-                                    <pre v-else class="lt-lines">{{ log_text }}</pre>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr v-if="(runs_now.length === 0)">
-                        <td class="muted" colspan="10">Not run yet.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </fold-table>
+        <data-table :columns="run_columns" :rows="runs_now" row_key="id" :row_class="v => ((has_notes(v) || (log_id === v.id)) ? 'lt-noted' : [])" actions_label="Log" empty="Not run yet.">
+            <template #cell="{row, column}">
+                <span v-if="(column.key === 'when')" :title="new Date(row.started_at).toLocaleString()">{{ ago(row.started_at) }} ago</span>
+                <span v-else-if="(column.key === 'result')" class="pill" :class="pill_of(row)">{{ phase_text(row) }}</span>
+                <span v-else-if="(column.key === 'wake')">{{ wake_text(row) }}</span>
+                <span v-else-if="(row.result === null)" class="muted">—</span>
+                <template v-else-if="(column.key === 'reqs')">{{ row.result.reqs.toLocaleString() }}</template>
+                <template v-else-if="(column.key === 'rps')">{{ Math.round(row.result.rps).toLocaleString() }}</template>
+                <template v-else-if="(column.key === 'med')">{{ ms_text(row.result.med_ms) }}</template>
+                <span v-else-if="(column.key === 'p95')" :class="{bad: (row.result.p95_passed === false)}">{{ ms_text(row.result.p95_ms) }}</span>
+                <template v-else-if="(column.key === 'max')">{{ ms_text(row.result.max_ms) }}</template>
+                <span v-else-if="(column.key === 'errors')" :class="{bad: (row.result.errors_passed === false)}">{{ pct_text(row.result.errors) }}</span>
+            </template>
+            <template #actions="{row}">
+                <button v-if="(row.log_kept === true)" type="button" @click="log_toggle(row)">{{ (log_id === row.id) ? 'Hide log' : 'Log' }}</button>
+            </template>
+            <template #below="{row}">
+                <div v-if="has_notes(row)" class="lt-room">
+                    <div v-if="(row.error !== null)" class="bad">{{ row.error }}</div>
+                    <div v-for="note of (row.said || [])" :key="note.text" class="muted">{{ note.count.toLocaleString() }} {{ (note.users ? ((note.count === 1) ? 'user got' : 'users got') : '×') }} {{ note.text }}</div>
+                </div>
+                <div v-if="(log_id === row.id)" class="lt-room">
+                    <p v-if="(log_text === null)" :class="(log_bad ? 'bad' : 'muted')">{{ log_note }}</p>
+                    <pre v-else class="lt-lines">{{ log_text }}</pre>
+                </div>
+            </template>
+        </data-table>
     </template>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
@@ -273,6 +157,32 @@ const load_tests_pane = {
         return {picked: null, form: null, busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
     },
     computed: {
+        // The tables' columns, each that may fold with when
+        test_columns: function () {
+            return [
+                {key: 'name', label: 'Test', wraps: true},
+                {key: 'service', label: 'Service', fold: 3},
+                {key: 'remote', label: 'From', fold: 1},
+                {key: 'load', label: 'Load', fold: 2},
+                {key: 'last', label: 'Last run'},
+            ];
+        },
+        run_columns: function () {
+            function result(run) {
+                return (run.result === null);
+            }
+            return [
+                {key: 'when', label: 'When'},
+                {key: 'result', label: 'Result'},
+                {key: 'reqs', label: 'Answers', fold: 6, hide: result},
+                {key: 'rps', label: 'Per second', fold: 7, hide: result},
+                {key: 'med', label: 'Median', fold: 8, hide: result},
+                {key: 'p95', label: '95%', fold: 4, hide: result},
+                {key: 'max', label: 'Slowest', fold: 3, hide: result},
+                {key: 'errors', label: 'Errors', fold: 5, hide: result},
+                {key: 'wake', label: 'Woke in', fold: 2, hide: v => (v.wake_ms === null)},
+            ];
+        },
         tests: function () {
             return (this.state.load_tests === undefined) ? [] : this.state.load_tests;
         },
@@ -380,9 +290,6 @@ const load_tests_pane = {
             return (item.live === null) ? 0 : Math.min(1, item.live.ms/item.duration_ms);
         },
         // The result's columns still on top: a run with no result draws one dash across them
-        result_span: function (folded) {
-            return ['reqs', 'rps', 'med', 'p95', 'max', 'errors'].filter(v => (folded.includes(v) === false)).length;
-        },
         wake_text: function (item) {
             if (item.wake_ms === null) {
                 return '—';

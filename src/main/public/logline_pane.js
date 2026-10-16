@@ -1,4 +1,4 @@
-import fold_table from './fold_table.js';
+import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import logline_stage from './logline_stage.js';
 
@@ -41,55 +41,18 @@ const logline_pane = {
         <p v-if="((run !== null) && (updating === false))" :class="((run.phase === 'done') ? 'muted' : 'bad')">{{ run.said }}</p>
     </div>
     <h2>Remotes</h2>
-    <fold-table v-slot="fold" :order="['acts', 'sent', 'waiting']">
-        <table>
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Remote</th>
-                    <th>Its logs</th>
-                    <th data-fold="sent">Sent</th>
-                    <th data-fold="waiting">Waiting</th>
-                    <th>Last sent</th>
-                    <th data-fold="acts"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="row of rows" :key="row.name">
-                    <tr :class="{foldable: more_of(row, fold.folded), open: fold.is_open(row.name)}" @click="row_click(row, fold, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg v-if="more_of(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><button type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button></td>
-                        <td :title="row.stage.detail"><span class="pill" :class="row.stage.pill">{{ row.stage.text }}</span></td>
-                        <td data-fold="sent">{{ row.sent }}</td>
-                        <td data-fold="waiting" :class="{busy: row.behind}">{{ row.waiting }}</td>
-                        <td :class="{bad: row.held}">{{ row.last }}</td>
-                        <td data-fold="acts"><button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></td>
-                    </tr>
-                    <tr v-if="fold.is_open(row.name)" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="(fold.folded.includes('sent') && row.sent !== '')">
-                                    <dt>Sent</dt>
-                                    <dd>{{ row.sent }}</dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('waiting') && row.waiting !== '')">
-                                    <dt>Waiting</dt>
-                                    <dd :class="{busy: row.behind}">{{ row.waiting }}</dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('acts') && row.off)">
-                                    <dt>Change</dt>
-                                    <dd class="fold-actions"><button type="button" :disabled="busy" @click="send(row.name)">Send its logs</button></dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(rows.length === 0)">
-                    <td class="muted wraps" colspan="7">No remotes yet. Logs come from remotes, where an agent runs — add a remote first.</td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table :columns="columns" :rows="rows" row_key="name" :row_state="state_of" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs — add a remote first.">
+        <template #cell="{row, column}">
+            <button v-if="(column.key === 'name')" type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button>
+            <span v-else-if="(column.key === 'stage')" class="pill" :class="row.stage.pill" :title="row.stage.detail">{{ row.stage.text }}</span>
+            <template v-else-if="(column.key === 'sent')">{{ row.sent }}</template>
+            <span v-else-if="(column.key === 'waiting')" :class="{busy: row.behind}">{{ row.waiting }}</span>
+            <span v-else-if="(column.key === 'last')" :class="{bad: row.held}">{{ row.last }}</span>
+        </template>
+        <template #actions="{row}">
+            <button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button>
+        </template>
+    </data-table>
     <p :class="(bad ? 'bad' : 'muted')">{{ note || 'A remote is switched off on its own Logs tab, where it is asked twice: what is written while it is off is never sent.' }}</p>
     <h2>Where Logline is</h2>
     <div class="card svc-status">
@@ -136,7 +99,7 @@ const logline_pane = {
     </div>
 </article>
 `,
-    components: {'fold-table': fold_table},
+    components: {'data-table': data_table},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
@@ -156,6 +119,16 @@ const logline_pane = {
         };
     },
     computed: {
+        // The Remotes table's columns, each that may fold with when
+        columns: function () {
+            return [
+                {key: 'name', label: 'Remote', wraps: true},
+                {key: 'stage', label: 'Its logs'},
+                {key: 'sent', label: 'Sent', fold: 1, hide: v => (v.sent === '')},
+                {key: 'waiting', label: 'Waiting', fold: 2, hide: v => (v.waiting === '')},
+                {key: 'last', label: 'Last sent'},
+            ];
+        },
         place_changed: function () {
             return (((this.place === null) || (this.place.files === undefined)) ? [] : this.place.files.filter(v => (v.state !== 'same')));
         },
@@ -264,14 +237,15 @@ const logline_pane = {
             }
             await this.place_read();
         },
-        // Whether anything folded out of this row has a value to show under it
-        more_of: function (row, folded) {
-            return ((folded.includes('sent') && (row.sent !== '')) || (folded.includes('waiting') && (row.waiting !== '')) || (folded.includes('acts') && row.off));
-        },
-        row_click: function (row, fold, event) {
-            if (this.more_of(row, fold.folded)) {
-                fold.toggle(row.name, event);
+        // How a remote's sending stands, as its stripe
+        state_of: function (row) {
+            if (row.held) {
+                return 'bad';
             }
+            if (row.off) {
+                return 'none';
+            }
+            return (row.behind ? 'warn' : ((row.last === '') ? 'none' : 'ok'));
         },
         viewer_open: function () {
             window.open(this.logline.ui, '_blank', 'noopener');

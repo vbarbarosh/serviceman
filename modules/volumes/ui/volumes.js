@@ -1,13 +1,23 @@
+import data_table from '../../data_table.js';
+
 // The encrypted volumes of several machines in one list: each one's file, the folder it opens
 // at, open or closed, and how full. Close and Grow from its row, Open with a passphrase, Delete
 // on a closed one with Undo for a few seconds before the machine is asked; New volume makes one
 // with a passphrase a person types, kept nowhere. Visual Agents makes and opens its own with keys
 // it holds. A change shows at once, marked while the machine makes it. The
 // host page gives the API of each machine, the colours and its usual classes: card, form, grid,
-// list-head, list-acts, list-table, dot, muted, bad, alert, primary, link; and its fold-table,
-// which folds a table's columns into its rows on a narrow screen.
+// list-head, list-acts, dot, muted, bad, alert, primary, link; its one table, data-table, is
+// imported from the page beside it.
 const PASSPHRASE_MIN = 16;
 const UNDO_SECONDS = 10;
+// The columns of the list, the first to fold the lowest; the actions fold before them all
+const COLUMNS = [
+    {key: 'name', label: 'Volume', wraps: true},
+    {key: 'on', label: 'On', fold: 2},
+    {key: 'folder', label: 'Folder', fold: 1},
+    {key: 'state', label: 'State'},
+    {key: 'used', label: 'Used', fold: 3, hide: v => (v.size === null)},
+];
 const STATES = {
     open: {text: 'Open', note: ''},
     closed: {text: 'Closed', note: 'waits for its key'},
@@ -74,124 +84,63 @@ const volumes = {
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <fold-table v-slot="fold" class="card" :order="['acts', 'folder', 'on', 'used']">
-        <table class="list-table vol-table">
-            <thead>
-                <tr>
-                    <th v-if="(fold.folded.length > 0)" class="fold-caret"></th>
-                    <th>Volume</th>
-                    <th data-fold="on">On</th>
-                    <th data-fold="folder">Folder</th>
-                    <th>State</th>
-                    <th data-fold="used">Used</th>
-                    <th data-fold="acts"/>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="item of items" :key="item.key">
-                    <tr :class="{foldable: (fold.folded.length > 0), open: fold.is_open(item.key)}" @click="fold.toggle(item.key, $event)">
-                        <td v-if="(fold.folded.length > 0)" class="fold-caret"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
-                        <td class="wraps"><code>{{ item.name }}</code></td>
-                        <td data-fold="on">{{ item.machine_title }}</td>
-                        <td data-fold="folder"><code>{{ item.target }}</code></td>
-                        <td>
-                            <span class="vol-state">
-                                <span class="dot" :class="{running: (item.state === 'open'), failed: (item.state === 'missing')}"/>
-                                {{ state_of(item).text }}
-                            </span>
-                            <small v-if="(state_of(item).note !== '')" class="muted vol-line">{{ state_of(item).note }}</small>
-                        </td>
-                        <td data-fold="used" class="vol-numbers">
-                            {{ used_text(item) }}
-                            <small v-if="(item.on_disk !== null)" class="muted vol-line">{{ bytes_text(item.on_disk) }} on disk</small>
-                        </td>
-                        <td data-fold="acts" class="vol-acts">
-                            <span v-if="(pending[item.key] !== undefined)" class="muted">{{ pending[item.key] }}</span>
-                            <template v-else-if="(item.state === 'open')">
-                                <button type="button" :disabled="item.offline" @click="grow_show(item)">Grow…</button>
-                                <button type="button" :disabled="item.offline" @click="close(item)">Close</button>
-                            </template>
-                            <template v-else-if="((item.state === 'closed') || (item.state === 'missing'))">
-                                <button v-if="((item.state === 'closed') && (item.passphrase === true))" type="button" :disabled="item.offline" @click="open_show(item)">Open…</button>
-                                <button type="button" :disabled="item.offline" @click="delete_start(item)">Delete</button>
-                            </template>
-                        </td>
-                    </tr>
-                    <tr v-if="fold.is_open(item.key)" class="fold-more">
-                        <td :colspan="fold.span">
-                            <dl class="fold-details">
-                                <template v-if="fold.folded.includes('on')">
-                                    <dt>On</dt>
-                                    <dd>{{ item.machine_title }}</dd>
-                                </template>
-                                <template v-if="fold.folded.includes('folder')">
-                                    <dt>Folder</dt>
-                                    <dd><code>{{ item.target }}</code></dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('used') && item.size !== null)">
-                                    <dt>Used</dt>
-                                    <dd class="vol-numbers">{{ used_text(item) }}<span v-if="(item.on_disk !== null)" class="muted"> · {{ bytes_text(item.on_disk) }} on disk</span></dd>
-                                </template>
-                                <template v-if="(fold.folded.includes('acts') && acts_shown(item))">
-                                    <dt>Change</dt>
-                                    <dd class="fold-actions">
-                                        <span v-if="(pending[item.key] !== undefined)" class="muted">{{ pending[item.key] }}</span>
-                                        <template v-else-if="(item.state === 'open')">
-                                            <button type="button" :disabled="item.offline" @click="grow_show(item)">Grow…</button>
-                                            <button type="button" :disabled="item.offline" @click="close(item)">Close</button>
-                                        </template>
-                                        <template v-else>
-                                            <button v-if="((item.state === 'closed') && (item.passphrase === true))" type="button" :disabled="item.offline" @click="open_show(item)">Open…</button>
-                                            <button type="button" :disabled="item.offline" @click="delete_start(item)">Delete</button>
-                                        </template>
-                                    </dd>
-                                </template>
-                            </dl>
-                        </td>
-                    </tr>
-                    <tr v-if="(grow_key === item.key)" class="vol-sub">
-                        <td :colspan="fold.span">
-                            <form class="vol-grow" @submit.prevent="grow(item)">
-                                <span class="muted">Now {{ bytes_text(item.size) }}. New size:</span>
-                                <input v-model.trim="grow_size" placeholder="40G" aria-label="New size" required>
-                                <button type="submit" class="primary" :disabled="(grow_size === '')">Grow</button>
-                                <button type="button" class="link" @click="grow_key = null">Cancel</button>
-                            </form>
-                        </td>
-                    </tr>
-                    <tr v-if="(open_key === item.key)" class="vol-sub">
-                        <td :colspan="fold.span">
-                            <form class="vol-grow" @submit.prevent="open_volume(item)">
-                                <span class="muted">Passphrase of {{ item.name }}:</span>
-                                <input v-model="open_passphrase" class="vol-pass" type="password" autocomplete="current-password" aria-label="Passphrase" required>
-                                <button type="submit" class="primary" :disabled="((open_passphrase === '') || (key_safe_here === false))">Open</button>
-                                <button type="button" class="link" @click="open_key = null">Cancel</button>
-                                <span v-if="(key_safe_here === false)" class="bad">Only over https or from a page on this machine.</span>
-                            </form>
-                        </td>
-                    </tr>
-                    <tr v-if="(said[item.key] !== undefined)" class="vol-sub">
-                        <td :colspan="fold.span">
-                            <div class="vol-said">
-                                <span v-if="(said[item.key].note !== undefined)" class="muted">{{ said[item.key].note }}</span>
-                                <span v-else class="bad">{{ said[item.key].error }}</span>
-                                <button type="button" class="link" aria-label="Close" @click="said_clear(item)">×</button>
-                            </div>
-                            <ul v-if="(said[item.key].users !== undefined)" class="vol-users">
-                                <li v-for="user of said[item.key].users" :key="user.pid">
-                                    <code>{{ user.command }}</code>
-                                    <span class="muted">{{ ((user.terminal === null) || (user.terminal === undefined)) ? '' : 'terminal ' + user.terminal + ' · ' }}pid {{ user.pid }} · {{ user.user }} · {{ user.how }}</span>
-                                </li>
-                            </ul>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-if="(items.length === 0)">
-                    <td class="muted" :colspan="fold.span"><div class="vol-empty">{{ (reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.') }}</div></td>
-                </tr>
-            </tbody>
-        </table>
-    </fold-table>
+    <data-table class="vol-table" :columns="COLUMNS" :rows="items" row_key="key" :row_state="row_state" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
+        <template #cell="{row, column}">
+            <code v-if="((column.key === 'name') || (column.key === 'folder'))">{{ ((column.key === 'name') ? row.name : row.target) }}</code>
+            <template v-else-if="(column.key === 'on')">{{ row.machine_title }}</template>
+            <template v-else-if="(column.key === 'state')">
+                <span class="vol-state">
+                    <span class="dot" :class="{running: (row.state === 'open'), failed: (row.state === 'missing')}"/>
+                    {{ state_of(row).text }}
+                </span>
+                <small v-if="(state_of(row).note !== '')" class="muted vol-line">{{ state_of(row).note }}</small>
+            </template>
+            <span v-else class="vol-numbers">
+                {{ used_text(row) }}
+                <small v-if="(row.on_disk !== null)" class="muted vol-line">{{ bytes_text(row.on_disk) }} on disk</small>
+            </span>
+        </template>
+        <template #actions="{row}">
+            <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
+            <template v-else-if="(row.state === 'open')">
+                <button type="button" :disabled="row.offline" @click="grow_show(row)">Grow…</button>
+                <button type="button" :disabled="row.offline" @click="close(row)">Close</button>
+            </template>
+            <template v-else-if="((row.state === 'closed') || (row.state === 'missing'))">
+                <button v-if="((row.state === 'closed') && (row.passphrase === true))" type="button" :disabled="row.offline" @click="open_show(row)">Open…</button>
+                <button type="button" class="danger" :disabled="row.offline" @click="delete_start(row)">Delete</button>
+            </template>
+        </template>
+        <!-- Under a volume: the form that grows or opens it, and what the machine said -->
+        <template #below="{row}">
+            <form v-if="(grow_key === row.key)" class="vol-grow" @submit.prevent="grow(row)">
+                <span class="muted">Now {{ bytes_text(row.size) }}. New size:</span>
+                <input v-model.trim="grow_size" placeholder="40G" aria-label="New size" required>
+                <button type="submit" class="primary" :disabled="(grow_size === '')">Grow</button>
+                <button type="button" class="link" @click="grow_key = null">Cancel</button>
+            </form>
+            <form v-if="(open_key === row.key)" class="vol-grow" @submit.prevent="open_volume(row)">
+                <span class="muted">Passphrase of {{ row.name }}:</span>
+                <input v-model="open_passphrase" class="vol-pass" type="password" autocomplete="current-password" aria-label="Passphrase" required>
+                <button type="submit" class="primary" :disabled="((open_passphrase === '') || (key_safe_here === false))">Open</button>
+                <button type="button" class="link" @click="open_key = null">Cancel</button>
+                <span v-if="(key_safe_here === false)" class="bad">Only over https or from a page on this machine.</span>
+            </form>
+            <template v-if="(said[row.key] !== undefined)">
+                <div class="vol-said">
+                    <span v-if="(said[row.key].note !== undefined)" class="muted">{{ said[row.key].note }}</span>
+                    <span v-else class="bad">{{ said[row.key].error }}</span>
+                    <button type="button" class="link" aria-label="Close" @click="said_clear(row)">×</button>
+                </div>
+                <ul v-if="(said[row.key].users !== undefined)" class="vol-users">
+                    <li v-for="user of said[row.key].users" :key="user.pid">
+                        <code>{{ user.command }}</code>
+                        <span class="muted">{{ ((user.terminal === null) || (user.terminal === undefined)) ? '' : 'terminal ' + user.terminal + ' · ' }}pid {{ user.pid }} · {{ user.user }} · {{ user.how }}</span>
+                    </li>
+                </ul>
+            </template>
+        </template>
+    </data-table>
     <ul v-if="(notes.length > 0)" class="vol-notes">
         <li v-for="note of notes" :key="note.machine">
             <b>{{ note.title }}</b>
@@ -200,6 +149,7 @@ const volumes = {
     </ul>
 </section>
 `,
+    components: {'data-table': data_table},
     props: {
         // [{name, title, base, offline, user}]: each machine, the base of its volumes API and
         // the user its agent runs as, who owns a volume made here
@@ -207,6 +157,7 @@ const volumes = {
     },
     data: function () {
         return {
+            COLUMNS,
             items: [],
             notes: [],
             reading: false,
@@ -458,9 +409,9 @@ const volumes = {
                 delete this.pending[item.key];
             }
         },
-        // Whether the row's last cell has something: a volume being made has no button yet
-        acts_shown: function (item) {
-            return ((this.pending[item.key] !== undefined) || ['open', 'closed', 'missing'].includes(item.state));
+        // A volume's stripe: open, missing, or neither
+        row_state: function (item) {
+            return ((item.state === 'open') ? 'ok' : ((item.state === 'missing') ? 'bad' : 'none'));
         },
         state_of: function (item) {
             if ((item.state === 'closed') && (item.passphrase === true)) {
