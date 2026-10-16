@@ -555,24 +555,6 @@ button:disabled:hover {
     margin: 0;
 }
 
-.fold-room > table.data-table > * > tr > .dt-stripe {
-    padding-left: .6rem;
-    border-left: 3px solid var(--line);
-    transition: border-color .2s ease;
-}
-
-.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-ok {
-    border-left-color: var(--run);
-}
-
-.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-warn {
-    border-left-color: var(--busy);
-}
-
-.fold-room > table.data-table > * > tr > .dt-stripe.dt-state-bad {
-    border-left-color: var(--bad);
-}
-
 /* A name that may wrap asks for no more than 16rem while measured, so a long one wraps rather
    than folding the rest of its row away */
 .fold-room > table.data-table.fold-measure > * > tr > .wraps {
@@ -2985,15 +2967,13 @@ article.rf .actions {
     color: var(--bad);
 }
 
-/* The Health page: what is wrong first, one card each, the subject and where it is on one
-   line, why and what mends it below; then a table per kind of thing. Every edge is straight:
-   a coloured stripe on a rounded box bends at its corners. */
+/* The Health page: what is wrong first, one card each, its red dot, the subject and where it
+   is on one line, why and what mends it below; then a table per kind of thing */
 .health .problem {
     display: grid;
     gap: .35rem;
     margin-bottom: .75rem;
     padding: .7rem .9rem;
-    border-left: 3px solid var(--bad);
     border-radius: 0;
 }
 

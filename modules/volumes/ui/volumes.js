@@ -84,7 +84,7 @@ const volumes = {
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <data-table class="vol-table" :columns="COLUMNS" :rows="items" row_key="key" :row_state="row_state" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
+    <data-table class="vol-table" :columns="COLUMNS" :rows="items" row_key="key" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
         <template #cell="{row, column}">
             <code v-if="((column.key === 'name') || (column.key === 'folder'))">{{ ((column.key === 'name') ? row.name : row.target) }}</code>
             <template v-else-if="(column.key === 'on')">{{ row.machine_title }}</template>
@@ -408,10 +408,6 @@ const volumes = {
             finally {
                 delete this.pending[item.key];
             }
-        },
-        // A volume's stripe: open, missing, or neither
-        row_state: function (item) {
-            return ((item.state === 'open') ? 'ok' : ((item.state === 'missing') ? 'bad' : 'none'));
         },
         state_of: function (item) {
             if ((item.state === 'closed') && (item.passphrase === true)) {

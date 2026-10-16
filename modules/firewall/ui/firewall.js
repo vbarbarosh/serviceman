@@ -106,9 +106,9 @@ const firewall = {
                 <input v-model="query" type="search" placeholder="Filter by port or program" spellcheck="false" aria-label="Filter ports">
                 <button v-for="option of SHOWS" :key="option.value" type="button" class="chip" :class="{on: (show === option.value)}" @click="show = option.value">{{ option.label }}</button>
             </div>
-            <data-table class="fw-ports" :columns="PORT_COLUMNS" :rows="shown" row_key="key" :row_class="port_class" :row_state="port_state" :empty="(port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.')" actions_label="Change">
+            <data-table class="fw-ports" :columns="PORT_COLUMNS" :rows="shown" row_key="key" :row_class="port_class" :empty="(port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.')" actions_label="Change">
                 <template #cell="{row, column}">
-                    <template v-if="(column.key === 'port')">{{ (row.port === 0 ? '*' : row.port) }}<span class="muted">/{{ row.proto }}</span></template>
+                    <template v-if="(column.key === 'port')"><span class="fw-port">{{ (row.port === 0 ? '*' : row.port) }}</span><span class="muted">/{{ row.proto }}</span></template>
                     <template v-else-if="(column.key === 'reach')"><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></template>
                     <span v-else-if="(column.key === 'firewall')" :class="verdict_class(row)" :title="(row.verdict.rule === null ? '' : ('ufw ' + row.verdict.rule.command))">{{ row.verdict.text }}</span>
                     <span v-else class="muted">{{ row.held }}</span>
@@ -283,14 +283,6 @@ const firewall = {
         // A port's row tinted by how far it reaches, and marked when the firewall shuts it now
         port_class: function (row) {
             return [`fw-${row.reach.exposure}`].concat(((row.verdict.kind === 'closed') && row.verdict.now) ? ['fw-shut'] : []);
-        },
-        // A port's stripe: red when the internet reaches it, amber a network; none when only
-        // this machine does, or the firewall shuts it
-        port_state: function (row) {
-            if ((row.reach.exposure === 'local') || (row.verdict.kind === 'closed')) {
-                return 'none';
-            }
-            return ((row.reach.exposure === 'open') ? 'bad' : 'warn');
         },
         rule_class: function (rule) {
             return (rule.pending ? ['fw-pending'] : []);

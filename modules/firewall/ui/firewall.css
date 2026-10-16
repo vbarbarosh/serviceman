@@ -209,14 +209,14 @@
     border-color: var(--accent);
 }
 
-/* A port others can reach stands out: its stripe is red for the internet, amber for a
-   network (data-table), and its number is bold; one the firewall keeps out does not */
-.fw-ports td.dt-stripe {
+/* A port others can reach stands out: its number is bold, its pill says how far it reaches;
+   one the firewall keeps out does not */
+.fw-ports .fw-port {
     font-variant-numeric: tabular-nums;
 }
 
-.fw-ports tr.fw-open:not(.fw-shut) td.dt-stripe,
-.fw-ports tr.fw-network:not(.fw-shut) td.dt-stripe {
+.fw-ports tr.fw-open:not(.fw-shut) .fw-port,
+.fw-ports tr.fw-network:not(.fw-shut) .fw-port {
     font-weight: 700;
 }
 

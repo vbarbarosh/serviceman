@@ -20,7 +20,6 @@ import {Comment} from 'vue';
 //     empty      the line shown in the table's place when there is no row (or slot empty)
 //     more       (row, key) => whether that cell has more to say in the details
 //     opens      (row) => whether the row has details of its own (slot details)
-//     row_state  (row) => ok | warn | bad | none, drawn as the stripe at the row's start
 //     row_class  (row) => classes of the row, such as off
 //     chosen     (row) => whether the row is the one picked, drawn highlighted
 //     group      (row) => the group the row is in: a row of its own (slot group_head) begins
@@ -73,7 +72,7 @@ const data_table = {
                     <tr :class="row_classes(row, fold.folded)" @click="row_click(row, fold.folded, $event)">
                         <td v-if="caret_shown(fold.folded)" class="fold-caret" @click.stop="toggle(row, fold.folded)"><svg v-if="opens_now(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
                         <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
-                        <td v-for="(column, i) of columns" :key="column.key" :data-fold="fold_name(column)" :class="cell_classes(row, column, i)" :style="((i === 0) ? indent_of(row) : null)">
+                        <td v-for="(column, i) of columns" :key="column.key" :data-fold="fold_name(column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
@@ -121,7 +120,6 @@ const data_table = {
         empty: {type: String, default: 'Nothing here yet.'},
         more: {type: Function, default: null},
         opens: {type: Function, default: null},
-        row_state: {type: Function, default: null},
         row_class: {type: Function, default: null},
         chosen: {type: Function, default: null},
         group: {type: Function, default: null},
@@ -232,14 +230,8 @@ const data_table = {
             }
             return out;
         },
-        // The first column carries the row's state as a straight stripe at its start
-        cell_classes: function (row, column, i) {
-            const out = {wraps: (column.wraps === true), 'dt-clip': (column.clip === true), 'dt-right': (column.align === 'right')};
-            if ((i === 0) && (this.row_state !== null)) {
-                out['dt-stripe'] = true;
-                out[`dt-state-${this.row_state(row)}`] = true;
-            }
-            return out;
+        cell_classes: function (column) {
+            return {wraps: (column.wraps === true), 'dt-clip': (column.clip === true), 'dt-right': (column.align === 'right')};
         },
         // The columns shown now, for a full-width cell to span them all
         span_of: function (folded) {

@@ -19,7 +19,7 @@ const networking_pane = {
     <h2>What the doors answer</h2>
     <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
     <p class="muted"><b>Behind</b> is a service asked before anything else is touched — an authwall. The door asks it <code>/auth/sidecar</code>, carries its <code>X-Auth-User</code> to the service on a yes, and on a no sends the visitor to <code>/auth/sign-in</code> on the name they asked for; a wall that cannot be asked lets nothing through. One wall stands in front of as many names as point at it, and serviceman writes nothing into it: whose email may pass is the wall's own business.</p>
-    <data-table :columns="rule_columns" :rows="rules" :row_key="rule_key" :row_state="rule_state" :row_class="v => (v.off ? 'off' : [])" actions_label="On" empty="No door answers anything yet.">
+    <data-table :columns="rule_columns" :rows="rules" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="On" empty="No door answers anything yet.">
         <template #cell="{row, column, more}">
             <span v-if="(column.key === 'host')" class="dt-state"><span class="dot" :class="rule_dot(row)"/><code class="name">{{ row.host }}</code></span>
             <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
@@ -55,7 +55,7 @@ const networking_pane = {
     <pre class="tail">SERVICEMAN_HTTP_SOCKET_MODE=0660
 
 bin/restart</pre>
-    <data-table :columns="door_columns" :rows="machines" row_key="name" :row_state="v => ((v.phase === 'online') ? 'ok' : 'none')" empty="No machines yet. A door is a machine's own — add a remote first.">
+    <data-table :columns="door_columns" :rows="machines" row_key="name" empty="No machines yet. A door is a machine's own — add a remote first.">
         <template #cell="{row, column, more}">
             <span v-if="(column.key === 'name')" class="dt-state"><span class="dot" :class="((row.phase === 'online') ? 'running' : '')"/><span class="name">{{ row.title || row.name }}</span></span>
             <span v-else-if="(column.key === 'door')" :class="{muted: (door_open(row) === false)}">{{ door_text(row) }}</span>
@@ -128,11 +128,6 @@ bin/restart</pre>
         },
         rule_key: function (rule) {
             return `${rule.machine} ${rule.host}`;
-        },
-        // Answering, set aside, or answered by a service that is not there
-        // How a name stands, as its stripe: answered, set aside, or sent to no service
-        rule_state: function (rule) {
-            return ({failed: 'bad', running: 'ok'}[this.rule_dot(rule)] || 'none');
         },
         rule_dot: function (rule) {
             if (this.known(rule.service) === false) {

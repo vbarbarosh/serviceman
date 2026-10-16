@@ -41,7 +41,7 @@ const logline_pane = {
         <p v-if="((run !== null) && (updating === false))" :class="((run.phase === 'done') ? 'muted' : 'bad')">{{ run.said }}</p>
     </div>
     <h2>Remotes</h2>
-    <data-table :columns="columns" :rows="rows" row_key="name" :row_state="state_of" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs — add a remote first.">
+    <data-table :columns="columns" :rows="rows" row_key="name" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs — add a remote first.">
         <template #cell="{row, column}">
             <button v-if="(column.key === 'name')" type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button>
             <span v-else-if="(column.key === 'stage')" class="pill" :class="row.stage.pill" :title="row.stage.detail">{{ row.stage.text }}</span>
@@ -236,16 +236,6 @@ const logline_pane = {
                 run.said = 'the answer never came back';
             }
             await this.place_read();
-        },
-        // How a remote's sending stands, as its stripe
-        state_of: function (row) {
-            if (row.held) {
-                return 'bad';
-            }
-            if (row.off) {
-                return 'none';
-            }
-            return (row.behind ? 'warn' : ((row.last === '') ? 'none' : 'ok'));
         },
         viewer_open: function () {
             window.open(this.logline.ui, '_blank', 'noopener');

@@ -58,7 +58,7 @@ const forwards_section = {
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </div>
     </div>
-    <data-table :columns="columns" :rows="forwards" row_key="label" :row_state="state_of" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
+    <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'label')">{{ row.label }}</template>
             <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
@@ -183,13 +183,6 @@ const forwards_section = {
                 to_offline: `${this.title_of(item.to.remote)} offline`,
             };
             return ((words[item.state] === undefined) ? item.state : words[item.state]);
-        },
-        // The row's stripe: green when it carries, grey when set aside or on its way, red otherwise
-        state_of: function (item) {
-            if (item.state === 'ready') {
-                return 'ok';
-            }
-            return (this.bad_of(item) ? 'bad' : 'none');
         },
         dot_of: function (item) {
             if (item.state === 'ready') {

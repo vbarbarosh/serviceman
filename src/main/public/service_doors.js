@@ -15,7 +15,7 @@ const service_doors = {
         <b>Public addresses</b>
         <span class="muted">names a machine's door answers for this service, on that machine's public side</span>
     </div>
-    <data-table v-if="(rules.length > 0)" :columns="columns" :rows="rules" :row_key="rule_key" :row_state="state_of" :row_class="v => (v.off ? 'off' : [])" actions_label="Change">
+    <data-table v-if="(rules.length > 0)" :columns="columns" :rows="rules" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change">
         <template #cell="{row, column, more}">
             <template v-if="(column.key === 'host')">
                 <a v-if="(row.host.startsWith('*') === false)" :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
@@ -98,13 +98,6 @@ const service_doors = {
         },
     },
     methods: {
-        // How an address stands, as its stripe: answering, set aside, or its door or wall missing
-        state_of: function (rule) {
-            if ((rule.door_problem !== null) || ((rule.auth !== null) && (this.known(rule.auth) === false))) {
-                return 'bad';
-            }
-            return (rule.off ? 'none' : 'ok');
-        },
         rule_key: function (rule) {
             return `${rule.machine} ${rule.host}`;
         },

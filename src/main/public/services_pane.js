@@ -30,7 +30,7 @@ const services_pane = {
             </span>
         </span>
     </div>
-    <data-table :columns="columns" :rows="rows" row_key="name" :row_state="state_of" :group="(grouped ? (v => v.group) : null)" :empty="((services.length === 0) ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.')">
+    <data-table :columns="columns" :rows="rows" row_key="name" :group="(grouped ? (v => v.group) : null)" :empty="((services.length === 0) ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.')">
         <template #group_head="{group}">
             <span class="row-of">
                 <b>{{ group_by_key[group].title }}</b>
@@ -148,16 +148,6 @@ const services_pane = {
         },
     },
     methods: {
-        // How the row stands, as its stripe: running well, broken, on its way, or asleep
-        state_of: function (row) {
-            if (row.bad || (row.phase === 'failed') || (row.phase === 'lost')) {
-                return 'bad';
-            }
-            if ((row.phase === 'starting') || (row.phase === 'stopping')) {
-                return 'warn';
-            }
-            return ((row.phase === 'running') ? 'ok' : 'none');
-        },
         logs_url: function (kind, name) {
             return logline_link(this.state.logline, kind, name);
         },

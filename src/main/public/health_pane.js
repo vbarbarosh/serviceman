@@ -20,6 +20,7 @@ const health_pane = {
     <p class="muted">Looked at every minute: whether each machine is here and has room, its agent, updates, Docker and firewall; whether each service answers the way a visitor's request reaches it; whether Logline takes every machine's lines; whether each forward listens. A problem shows once it is seen twice in a row, and goes once it is mended.</p>
     <section v-for="item of problems" :key="item.key" class="card problem">
         <div class="problem-head">
+            <span class="dot failed"/>
             <b class="problem-subject">{{ item.subject }}</b>
             <button v-if="(item.remote !== null)" type="button" class="tag" :title="('The page of ' + item.remote)" @click="$emit('remote', item.remote)">{{ item.remote }}</button>
             <button v-if="(item.service !== null)" type="button" class="tag" :title="('The page of ' + item.service)" @click="$emit('select', item.service)">{{ item.service }}</button>
@@ -30,7 +31,7 @@ const health_pane = {
     </section>
     <section v-for="area of areas" :key="area.key" class="health-area">
         <h2>{{ area.title }}</h2>
-        <data-table :columns="columns_of(area)" :rows="area.rows" :empty="empty_text(area.key)" :more="more" :row_state="v => v.state">
+        <data-table :columns="columns_of(area)" :rows="area.rows" :empty="empty_text(area.key)" :more="more">
             <template #cell="{row, column, more}">
                 <template v-if="(column.key === 'name')">
                     <span class="dt-state" :class="row.state"><span class="dot" :class="dot_of(row.state)"/></span>

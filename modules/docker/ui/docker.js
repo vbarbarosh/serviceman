@@ -69,7 +69,7 @@ const docker = {
         </div>
         <!-- Containers, each compose project together under a row of its own: its name, its
              folder, and Update or Down and up for the whole project -->
-        <data-table v-if="((tab === 'containers') && (containers !== null))" class="dk-table" :columns="CONTAINER_COLUMNS" :rows="container_rows" row_key="id" :head="false" :group="container_group" :row_state="container_state" empty="No containers on this machine, running or not." actions_label="Change">
+        <data-table v-if="((tab === 'containers') && (containers !== null))" class="dk-table" :columns="CONTAINER_COLUMNS" :rows="container_rows" row_key="id" :head="false" :group="container_group" empty="No containers on this machine, running or not." actions_label="Change">
             <template #group_head="{group}">
                 <div class="dk-group-head">
                     <b>{{ group_of(group).title }}</b>
@@ -628,11 +628,6 @@ const docker = {
         },
         group_of: function (key) {
             return this.groups.find(v => v.key === key);
-        },
-        // A container's stripe: running, failed, or neither
-        container_state: function (row) {
-            const dot = this.dot_of(row);
-            return ((dot === 'running') ? 'ok' : ((dot === 'failed') ? 'bad' : ((dot === 'starting') ? 'warn' : 'none')));
         },
         dot_of: function (item) {
             if (item.state === 'running') {

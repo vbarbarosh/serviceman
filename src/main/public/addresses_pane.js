@@ -23,7 +23,7 @@ const addresses_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
-    <data-table :columns="columns" :rows="rows" row_key="key" :row_state="state_of" :row_class="v => (v.off ? 'off' : [])" :empty="((rows_all.length === 0) ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.')">
+    <data-table :columns="columns" :rows="rows" row_key="key" :row_class="v => (v.off ? 'off' : [])" :empty="((rows_all.length === 0) ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.')">
         <template #cell="{row, column, more}">
             <template v-if="(column.key === 'address')">
                 <a :href="row.url" target="_blank" rel="noopener"><code>{{ row.address }}</code></a>
@@ -112,18 +112,6 @@ const addresses_pane = {
         },
     },
     methods: {
-        // With nothing folded a row opens its service, as it always has; with columns folded it
-        // opens what folded, and the service is a link of its own
-        // How the row stands, as its stripe: the state of the service it goes to, grey when set aside
-        state_of: function (row) {
-            if (row.off) {
-                return 'none';
-            }
-            if ((row.phase === 'failed') || (row.phase === 'lost')) {
-                return 'bad';
-            }
-            return ((row.phase === 'running') ? 'ok' : 'none');
-        },
         // A door name set aside, or put back; the rest of the rule stays as it is written
         turn: async function (row, on) {
             if (row.off === (on === false)) {
