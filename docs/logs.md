@@ -406,22 +406,29 @@ keeps its own copy, so a machine with no link still writes its log.
 
 ### The control page
 
-| Sender                       | What it says                                                 |
-|------------------------------|--------------------------------------------------------------|
-| `control_change`             | Something was changed, by whom, and where.                   |
-| `control_refused`            | A caller that is not this machine was turned away.           |
-| `control_cross_site_refused` | A change sent from a page on another site was turned away.   |
-| `control_error`              | An action asked from the page failed.                        |
-| `config_saved`               | The config was written, with the hash of what went in.       |
-| `config_change`              | What the new config did to the running services.             |
-| `shell_begin`                | A shell was opened inside a container.                       |
-| `shell_end_ok`               | It was closed.                                               |
-| `shell_refused`              | A shell was asked for from somewhere it may not be asked.    |
-| `shell_cross_site_refused`   | A shell asked for by a page on another site was turned away. |
+| Sender                       | What it says                                                              |
+|------------------------------|---------------------------------------------------------------------------|
+| `control_change`             | Something was changed, by whom, and where.                                |
+| `control_refused`            | A caller that is not this machine was turned away.                        |
+| `control_cross_site_refused` | A change sent from a page on another site was turned away.                |
+| `control_error`              | An action asked from the page failed.                                     |
+| `control_token_refused`      | A request with no token, one nobody holds, or one asking past its rights. |
+| `control_token_read`         | A reader's token read something, by its label.                            |
+| `control_token_made`         | A reader's token was made: its label, machines and reads.                 |
+| `control_token_revoked`      | One was taken back.                                                       |
+| `control_signed_in`          | The page was signed in with the owner's token.                            |
+| `control_sign_in_refused`    | A token that is not the owner's was tried at the sign-in.                 |
+| `config_saved`               | The config was written, with the hash of what went in.                    |
+| `config_change`              | What the new config did to the running services.                          |
+| `shell_begin`                | A shell was opened inside a container.                                    |
+| `shell_end_ok`               | It was closed.                                                            |
+| `shell_refused`              | A shell was asked for from somewhere it may not be asked.                 |
+| `shell_cross_site_refused`   | A shell asked for by a page on another site was turned away.              |
 
 ## What is never written
 
-- **No secrets.** A remote token never appears, not even the wrong one somebody tried.
+- **No secrets.** A remote token or a token of the control door never appears, not even the
+  wrong one somebody tried.
 - **No query values.** `path=/report?token=***` keeps the shape of the request and drops what
   was in it, because a query can carry a visitor's password.
 - **No bodies and no headers.** What a service and its visitor say to each other is theirs.

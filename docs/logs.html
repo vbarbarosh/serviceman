@@ -1497,6 +1497,30 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td>An action asked from the page failed.</td>
 </tr>
 <tr>
+<td><code>control_token_refused</code></td>
+<td>A request with no token, one nobody holds, or one asking past its rights.</td>
+</tr>
+<tr>
+<td><code>control_token_read</code></td>
+<td>A reader&#39;s token read something, by its label.</td>
+</tr>
+<tr>
+<td><code>control_token_made</code></td>
+<td>A reader&#39;s token was made: its label, machines and reads.</td>
+</tr>
+<tr>
+<td><code>control_token_revoked</code></td>
+<td>One was taken back.</td>
+</tr>
+<tr>
+<td><code>control_signed_in</code></td>
+<td>The page was signed in with the owner&#39;s token.</td>
+</tr>
+<tr>
+<td><code>control_sign_in_refused</code></td>
+<td>A token that is not the owner&#39;s was tried at the sign-in.</td>
+</tr>
+<tr>
 <td><code>config_saved</code></td>
 <td>The config was written, with the hash of what went in.</td>
 </tr>
@@ -1524,7 +1548,8 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 </div>
 <h2 id="what-is-never-written"><a class="anchor" href="#what-is-never-written" aria-hidden="true" tabindex="-1">#</a>What is never written</h2>
 <ul>
-<li><strong>No secrets.</strong> A remote token never appears, not even the wrong one somebody tried.</li>
+<li><strong>No secrets.</strong> A remote token or a token of the control door never appears, not even the
+wrong one somebody tried.</li>
 <li><strong>No query values.</strong> <code>path=/report?token=***</code> keeps the shape of the request and drops what
 was in it, because a query can carry a visitor&#39;s password.</li>
 <li><strong>No bodies and no headers.</strong> What a service and its visitor say to each other is theirs.</li>

@@ -335,6 +335,9 @@ async function remotes_load()
     if (said.answered === false) {
         note(`serviceman does not answer at ${said.url}`);
     }
+    else if (said.refused !== null) {
+        note(said.refused);
+    }
     else if (said.remotes.length === 0) {
         note('serviceman lists no machines yet');
     }

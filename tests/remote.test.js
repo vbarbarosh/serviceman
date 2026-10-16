@@ -514,7 +514,7 @@ test('an agent from before machine shells is not asked for one, and its link sur
         // What an old agent's hello looks like: no word about what it can be asked for
         delete remote.state.resources.can;
 
-        client = new ws.WebSocket(`ws://127.0.0.1:${running.control_port}/api/v1/shell?remote=ui1`);
+        client = new ws.WebSocket(`ws://127.0.0.1:${running.control_port}/api/v1/shell?remote=ui1`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
         let note = '';
         client.on('message', function (data) {
             const message = JSON.parse(data.toString('utf8'));
@@ -1006,7 +1006,7 @@ test('a machine shell runs as the agent user, in a real pty', async function () 
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
 
-        client = new ws.WebSocket(`ws://127.0.0.1:${running.control_port}/api/v1/shell?remote=ui1`);
+        client = new ws.WebSocket(`ws://127.0.0.1:${running.control_port}/api/v1/shell?remote=ui1`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
         let text = '';
         client.on('message', function (data) {
             text += data.toString('utf8');
@@ -1036,9 +1036,9 @@ test('a terminal kept on a machine outlives its page and its agent, and its tab 
     const remote = running.app.remote_by_name.ui1;
     try {
         await wait_until(() => remote.state.phase === 'online');
-        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1'})).items, []);
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items, []);
 
-        const first = terminal_connect({url, remote: 'ui1', name: 'work', cols: 100, rows: 30});
+        const first = terminal_connect({url, remote: 'ui1', name: 'work', cols: 100, rows: 30, token: fetch_host.OWNER_TOKEN});
         let screen = '';
         first.on('data', v => screen += v.toString('utf8'));
         const note = await new Promise(v => first.on('note', v));
@@ -1046,7 +1046,7 @@ test('a terminal kept on a machine outlives its page and its agent, and its tab 
         first.write('echo kept-$((40+2)); stty size\r');
         await wait_until(() => screen.includes('kept-42'), 8000);
         await wait_until(() => screen.includes('30 100'), 8000);
-        const listed = (await terminals_list({url, remote: 'ui1'})).items;
+        const listed = (await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items;
         assert.deepStrictEqual(listed.map(v => [v.name, v.attached]), [['work', 1]]);
         assert.match(listed[0].command, /^socat -,raw,echo=0 UNIX-CONNECT:.+\/terminals\/work\.sock$/);
 
@@ -1058,21 +1058,21 @@ test('a terminal kept on a machine outlives its page and its agent, and its tab 
         await wait_until(() => remote.state.phase !== 'online');
         agent = agent_start(running.control_port, TOKEN);
         await wait_until(() => remote.state.phase === 'online');
-        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1'})).items.map(v => [v.name, v.attached]), [['work', 0]]);
-        const second = terminal_connect({url, remote: 'ui1', name: 'work'});
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items.map(v => [v.name, v.attached]), [['work', 0]]);
+        const second = terminal_connect({url, remote: 'ui1', name: 'work', token: fetch_host.OWNER_TOKEN});
         let again = '';
         second.on('data', v => again += v.toString('utf8'));
         await wait_until(() => again.includes('kept-42'), 8000);
 
         // Its tab's ×: the shell is hung up, whoever had it open sees it close, and it is gone
         const closed = new Promise(v => second.on('close', v));
-        const ended = await fetch(`${url}/api/v1/remotes/ui1/terminals/work/end`, {method: 'POST'});
+        const ended = await control_fetch(`${url}/api/v1/remotes/ui1/terminals/work/end`, {method: 'POST'});
         assert.deepStrictEqual(await ended.json(), {ended: true});
         await closed;
-        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1'})).items, []);
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items, []);
     }
     finally {
-        await fetch(`${url}/api/v1/remotes/ui1/terminals/work/end`, {method: 'POST'}).catch(() => null);
+        await control_fetch(`${url}/api/v1/remotes/ui1/terminals/work/end`, {method: 'POST'}).catch(() => null);
         agent.kill('SIGKILL');
         await running.close();
     }
@@ -1088,10 +1088,10 @@ test('a terminal is made without joining it, says its folder, and takes signals'
         await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
         assert.deepStrictEqual(await post('', {}), {name: '1', created: true});
         assert.deepStrictEqual(await post('', {name: '1'}), {name: '1', created: false});
-        const made = (await terminals_list({url, remote: 'ui1'})).items;
+        const made = (await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items;
         assert.deepStrictEqual(made.map(v => [v.name, v.attached, v.cwd]), [['1', 0, os.homedir()]]);
 
-        const terminal = terminal_connect({url, remote: 'ui1', name: '1'});
+        const terminal = terminal_connect({url, remote: 'ui1', name: '1', token: fetch_host.OWNER_TOKEN});
         let screen = '';
         terminal.on('data', v => screen += v.toString('utf8'));
         await new Promise(v => terminal.on('open', v));
@@ -1099,7 +1099,7 @@ test('a terminal is made without joining it, says its folder, and takes signals'
         let cwd = null;
         for (let i = 0; (i < 80) && (cwd !== '/tmp'); i++) {
             await timers.setTimeout(100);
-            cwd = (await terminals_list({url, remote: 'ui1'})).items[0].cwd;
+            cwd = (await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items[0].cwd;
         }
         assert.strictEqual(cwd, '/tmp', 'the folder follows cd');
 
@@ -1114,22 +1114,22 @@ test('a terminal is made without joining it, says its folder, and takes signals'
         await wait_until(() => screen.includes('after-21'), 5000);
         assert.ok(Date.now() - time0 < 5000);
 
-        assert.match((await fetch(`${url}/api/v1/remotes/ui1/terminals/1/signal`, {method: 'POST', body: JSON.stringify({signal: 'SIGNOPE'})}).then(v => v.json())).error, /a signal is one of/);
+        assert.match((await control_fetch(`${url}/api/v1/remotes/ui1/terminals/1/signal`, {method: 'POST', body: JSON.stringify({signal: 'SIGNOPE'})}).then(v => v.json())).error, /a signal is one of/);
 
         // SIGKILL to the shell ends the terminal: whoever had it open sees it close
         const closed = new Promise(v => terminal.on('close', v));
         await post('/1/signal', {signal: 'SIGKILL'});
         await closed;
-        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1'})).items, []);
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items, []);
     }
     finally {
-        await fetch(`${url}/api/v1/remotes/ui1/terminals/1/end`, {method: 'POST'}).catch(() => null);
+        await control_fetch(`${url}/api/v1/remotes/ui1/terminals/1/end`, {method: 'POST'}).catch(() => null);
         agent.kill('SIGKILL');
         await running.close();
     }
 
     async function post(path, body) {
-        const answer = await fetch(`${url}/api/v1/remotes/ui1/terminals${path}`, {method: 'POST', body: JSON.stringify(body)});
+        const answer = await control_fetch(`${url}/api/v1/remotes/ui1/terminals${path}`, {method: 'POST', body: JSON.stringify(body)});
         return await answer.json();
     }
 });
@@ -1146,7 +1146,7 @@ test('a folder on a machine is watched through serviceman, and what changes in i
     try {
         await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
         assert.ok(running.app.remote_by_name.ui1.state.resources.can.includes('fs_watch'));
-        const answer = await fetch(`${url}/api/v1/remotes/ui1/fs/watch?path=${encodeURIComponent(dir)}&tree=1&skip=node_modules`, {signal: stop.signal});
+        const answer = await control_fetch(`${url}/api/v1/remotes/ui1/fs/watch?path=${encodeURIComponent(dir)}&tree=1&skip=node_modules`, {signal: stop.signal});
         assert.deepStrictEqual([answer.status, answer.headers.get('content-type')], [200, 'text/event-stream; charset=utf-8']);
         const events = [];
         const reading = (async function () {
@@ -1173,7 +1173,7 @@ test('a folder on a machine is watched through serviceman, and what changes in i
         await reading;
         await wait_until(() => running.app.log_lines.some(vv => /\[folder_watched\] remote=ui1 path=.+ tree=true events=3 ms=\d+/.test(vv)));
 
-        const missing = await fetch(`${url}/api/v1/remotes/ui1/fs/watch?path=${encodeURIComponent(path.join(dir, 'nothing'))}`);
+        const missing = await control_fetch(`${url}/api/v1/remotes/ui1/fs/watch?path=${encodeURIComponent(path.join(dir, 'nothing'))}`);
         assert.deepStrictEqual([missing.status, /ENOENT/.test((await missing.json()).error)], [502, true]);
     }
     finally {
@@ -1209,7 +1209,7 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
         }
 
         // One request: every folder and file, sizes and times as stat says, end last
-        const listed = await (await fetch(ask)).json();
+        const listed = await (await control_fetch(ask)).json();
         assert.deepStrictEqual([listed.length, listed.at(-1)], [6001, {type: 'end'}]);
         for (const item of listed.slice(0, -1)) {
             const stat = fs.lstatSync(path.join(dir, item.path));
@@ -1220,33 +1220,33 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
 
         // With hashes: each one sha256sum's, and a second walk reads no file again
         running.app.log_lines.length = 0;
-        const hashed = await (await fetch(`${ask}&hash=sha256`)).json();
+        const hashed = await (await control_fetch(`${ask}&hash=sha256`)).json();
         const summed = child_process.execFileSync('find', [dir, '-name', 'f.txt', '-exec', 'sha256sum', '{}', '+'], {encoding: 'utf8', maxBuffer: 64*1024*1024});
         const by_path = new Map(summed.trim().split('\n').map(v => [path.relative(dir, v.slice(66)), v.slice(0, 64)]));
         assert.strictEqual(by_path.size, 3000);
         assert.strictEqual(hashed.filter(v => v.type === 'file').every(v => (v.sha256 === by_path.get(v.path))), true);
         await hashed_last(3000);
-        const again = await (await fetch(`${ask}&hash=sha256`)).json();
+        const again = await (await control_fetch(`${ask}&hash=sha256`)).json();
         assert.deepStrictEqual(JSON.stringify(again), JSON.stringify(hashed));
         await hashed_last(0);
         fs.writeFileSync(path.join(dir, 'd7', 'f.txt'), 'changed');
-        const changed = await (await fetch(`${ask}&hash=sha256`)).json();
+        const changed = await (await control_fetch(`${ask}&hash=sha256`)).json();
         assert.strictEqual(changed.find(v => v.path === 'd7/f.txt').sha256, crypto.createHash('sha256').update('changed').digest('hex'));
         await hashed_last(1);
 
         // The same walk as events: one plain data line an object, the very objects of the JSON
-        const answer = await fetch(ask, {headers: {accept: 'text/event-stream'}});
+        const answer = await control_fetch(ask, {headers: {accept: 'text/event-stream'}});
         assert.deepStrictEqual([answer.status, answer.headers.get('content-type')], [200, 'text/event-stream; charset=utf-8']);
         const sent = (await answer.text()).split('\n\n').filter(v => v.startsWith('data: ')).map(v => v.slice(6));
         assert.deepStrictEqual([sent.length, sent.at(-1)], [6001, '{"type":"end"}']);
-        assert.deepStrictEqual(sent.slice(0, -1).sort(), (await (await fetch(ask)).json()).slice(0, -1).map(v => JSON.stringify(v)).sort());
+        assert.deepStrictEqual(sent.slice(0, -1).sort(), (await (await control_fetch(ask)).json()).slice(0, -1).map(v => JSON.stringify(v)).sort());
 
-        const missing = await fetch(`${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(path.join(dir, 'nothing'))}&tree=1`);
+        const missing = await control_fetch(`${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(path.join(dir, 'nothing'))}&tree=1`);
         assert.deepStrictEqual([missing.status, /ENOENT/.test((await missing.json()).error)], [502, true]);
 
         // An agent from before the typed tree is told to update, not asked
         remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_tree_typed');
-        const old = await fetch(ask);
+        const old = await control_fetch(ask);
         assert.deepStrictEqual([old.status, /from before a whole tree is listed by type/.test((await old.json()).error)], [400, true]);
     }
     finally {
@@ -1265,7 +1265,7 @@ test('a terminal joined again gets its history without the questions programs as
     const url = `http://127.0.0.1:${running.control_port}`;
     try {
         await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
-        const first = terminal_connect({url, remote: 'ui1', name: 'asks'});
+        const first = terminal_connect({url, remote: 'ui1', name: 'asks', token: fetch_host.OWNER_TOKEN});
         let screen = '';
         first.on('data', v => screen += v.toString('latin1'));
         await new Promise(v => first.on('open', v));
@@ -1275,7 +1275,7 @@ test('a terminal joined again gets its history without the questions programs as
         first.close();
         await new Promise(v => first.on('close', v));
 
-        const second = terminal_connect({url, remote: 'ui1', name: 'asks'});
+        const second = terminal_connect({url, remote: 'ui1', name: 'asks', token: fetch_host.OWNER_TOKEN});
         let replay = '';
         second.on('data', v => replay += v.toString('latin1'));
         await wait_until(() => replay.includes('green-marker'), 5000);
@@ -1285,7 +1285,7 @@ test('a terminal joined again gets its history without the questions programs as
         second.close();
     }
     finally {
-        await fetch(`${url}/api/v1/remotes/ui1/terminals/asks/end`, {method: 'POST'}).catch(() => null);
+        await control_fetch(`${url}/api/v1/remotes/ui1/terminals/asks/end`, {method: 'POST'}).catch(() => null);
         agent.kill('SIGKILL');
         await running.close();
     }
@@ -1521,7 +1521,7 @@ test('many files reach a machine as one tar through serviceman, with their times
         await wait_until(() => remote.state.phase === 'online');
         assert.ok(remote.state.resources.can.includes('tar_put'));
 
-        const answer = await fetch(ask, {method: 'POST', body: tarred});
+        const answer = await control_fetch(ask, {method: 'POST', body: tarred});
         assert.deepStrictEqual([answer.status, await answer.json()], [200, {files: 300, bytes: 44850}]);
         assert.strictEqual(fs.readFileSync(path.join(to, 'in', 'd3', 'f293.txt'), 'utf8'), 'x'.repeat(293));
         assert.strictEqual(fs.readdirSync(path.join(to, 'in'), {recursive: true}).filter(v => v.endsWith('.txt')).length, 300);
@@ -1533,12 +1533,12 @@ test('many files reach a machine as one tar through serviceman, with their times
         walked.write('../out\0', 0);
         walked.write('        ', 148);
         walked.write(`${walked.subarray(0, 512).reduce((v, vv) => v + vv, 0).toString(8).padStart(6, '0')}\0 `, 148);
-        const refused = await fetch(ask, {method: 'POST', body: walked});
+        const refused = await control_fetch(ask, {method: 'POST', body: walked});
         assert.deepStrictEqual([refused.status, (await refused.json()).error], [400, '"../out" walks out of the folder the tar is sent to']);
 
         // An agent from before the tar is not asked: the page sends the files apart
         remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'tar_put');
-        const old = await fetch(ask, {method: 'POST', body: tarred});
+        const old = await control_fetch(ask, {method: 'POST', body: tarred});
         assert.deepStrictEqual([old.status, /from before files come in one tar/.test((await old.json()).error)], [501, true]);
     }
     finally {
@@ -1561,7 +1561,7 @@ test('a machine says the room left on the disk of a folder, made or not yet; an 
         assert.ok(remote.state.resources.can.includes('fs_room'));
 
         // A folder not made yet is measured at the nearest one that is, and is not made
-        const answer = await fetch(ask);
+        const answer = await control_fetch(ask);
         const room = await answer.json();
         assert.deepStrictEqual([answer.status, Object.keys(room)], [200, ['bytes_free', 'inodes_free']]);
         assert.ok(room.bytes_free > 0);
@@ -1570,7 +1570,7 @@ test('a machine says the room left on the disk of a folder, made or not yet; an 
 
         // An agent from before the room is said is not asked: the page uploads unchecked
         remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'fs_room');
-        const old = await fetch(ask);
+        const old = await control_fetch(ask);
         assert.deepStrictEqual([old.status, /from before a disk says its room/.test((await old.json()).error)], [501, true]);
     }
     finally {
@@ -2120,6 +2120,14 @@ test('a machine may not open a stream this host would be using, and the link liv
     }
 });
 
+// fetch, with the owner's token the signed-in page brings
+function control_fetch(url, init)
+{
+    const asked = Object.assign({}, init);
+    asked.headers = Object.assign({authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}, asked.headers);
+    return fetch(url, asked);
+}
+
 // A request into a socket file, the way whatever stands in front of that machine makes one
 function fetch_socket(file, host, path_asked, headers)
 {
@@ -2290,7 +2298,7 @@ async function state_read(running)
 function socket_get(socket_path, path)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({socketPath: socket_path, path, headers: {host: 'localhost'}}, function (res) {
+        const req = http.request({socketPath: socket_path, path, headers: {host: 'localhost', authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}}, function (res) {
             const chunks = [];
             res.on('data', function (chunk) {
                 chunks.push(chunk);

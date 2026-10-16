@@ -2085,7 +2085,7 @@ function shell_talk(control_port, name, lines, query)
 {
     return new Promise(function (resolve) {
         const heard = {notes: [], text: '', closed_without_answer: true};
-        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?${((query === undefined) ? `service=${encodeURIComponent(name)}&slot=1` : query)}`);
+        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?${((query === undefined) ? `service=${encodeURIComponent(name)}&slot=1` : query)}`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
         function done() {
             resolve(heard);
         }

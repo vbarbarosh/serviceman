@@ -4,9 +4,11 @@ const ws = require('ws');
 // Joins the terminal `name` on the machine `remote`, the same one the Shell tab shows: made
 // when it is not running, left running when the socket closes. What the terminal prints comes
 // as `data` (a Buffer, escapes and all, for xterm or a real tty to draw); `note` is the line
-// serviceman says first; `close` is the terminal gone or the socket closed.
+// serviceman says first; `close` is the terminal gone or the socket closed. `token` is the
+// owner's, sent as Authorization: Bearer: without it serviceman closes the socket at once, and
+// `error` says "socket hang up".
 //
-//     options = {url, remote, name, cols, rows}
+//     options = {url, token, remote, name, cols, rows}
 //     out.write(text)          types into the terminal
 //     out.resize(cols, rows)   the terminal takes this size
 //     out.close()              leaves the terminal, which keeps running
@@ -14,7 +16,11 @@ function terminal_connect(options)
 {
     const url = new URL(`/api/v1/shell?remote=${encodeURIComponent(options.remote)}&term=${encodeURIComponent(options.name)}`, options.url);
     url.protocol = ((url.protocol === 'https:') ? 'wss:' : 'ws:');
-    const socket = new ws.WebSocket(url);
+    const headers = {};
+    if ((typeof options.token === 'string') && (options.token !== '')) {
+        headers.authorization = `Bearer ${options.token}`;
+    }
+    const socket = new ws.WebSocket(url, {headers});
     const out = new EventEmitter();
     out.write = function (text) {
         send({type: 'input', data: text});

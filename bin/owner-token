@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# Prints the owner's token of the control page, which serviceman writes the first time it
+# starts: paste it once into the page; it is the state dir's owner.token
+file="${SERVICEMAN_STATE_DIR:-data}/owner.token"
+if [ ! -f "$file" ]; then
+    echo "$scriptname: $file is not there yet: start serviceman once (bin/run), then ask again" >&2
+    exit 1
+fi
+cat "$file"

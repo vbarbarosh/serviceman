@@ -17,11 +17,13 @@ cd $scriptdir/..
 # logs and what it notes down. No docker socket is given to it: that socket is root on this
 # machine, and the containers of a service are started by an agent, on the machine that is
 # meant to carry them. TS_AUTHKEY from the environment joins the tailnet by itself; without it,
-# the log has the link to open.
+# the log has the link to open. SERVICEMAN_OWNER_TOKEN, when set, is the control page's owner
+# token; without it serviceman makes one in data/owner.token, which bin/owner-token prints.
 docker run --rm --init \
     -p 127.0.0.1:3000:3000 \
     -p 127.0.0.1:3001:3001 \
     -v $PWD/data:/app/data \
     -e TS_AUTHKEY=${TS_AUTHKEY:-} \
+    -e SERVICEMAN_OWNER_TOKEN=${SERVICEMAN_OWNER_TOKEN:-} \
     -v serviceman-tailscale:/var/lib/tailscale \
     serviceman

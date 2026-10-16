@@ -28,7 +28,9 @@ const SERVICEMAN_PLACES = [
 //     node demos/terminal-web/server.js
 //
 // Nothing has to be set: it finds serviceman, opens on its first machine, and says at start
-// what it settled on. PORT, URL and ?remote=<machine> choose otherwise.
+// what it settled on. PORT, URL and ?remote=<machine> choose otherwise. SERVICEMAN_TOKEN is
+// the token serviceman wants, which bin/owner-token prints; this server sends it on every
+// request there, and never the page's own cookie.
 cli(main);
 
 async function main()
@@ -46,9 +48,13 @@ async function main()
     console.log('terminal-web');
     console.log(`    page        http://127.0.0.1:${port}/    (${(process.env.PORT === undefined) ? 'PORT, 8090 by default' : 'PORT'})`);
     console.log(`    serviceman  ${target.url}    (${target.how})`);
+    console.log(`    token       ${token_given() ? 'given' : 'none'}    (SERVICEMAN_TOKEN${token_given() ? '' : '; bin/owner-token prints the owner\'s'})`);
     console.log(`    machine     ${(target.remote === null) ? 'none listed yet' : target.remote}    (${(target.remotes.length > 1) ? `the first of ${target.remotes.join(', ')}; ` : ''}?remote=<name> opens another)`);
     if (target.answered === false) {
         console.log('    nothing answers there yet: the page waits for serviceman to start');
+    }
+    if (target.refused) {
+        console.log(`    ${token_wanted()}`);
     }
     await new Promise(v => server.on('close', v));
 }
@@ -69,17 +75,20 @@ async function serviceman_find()
     return Object.assign({url: SERVICEMAN_PLACES[0].url, how: `not found at ${SERVICEMAN_PLACES.map(v => v.url).join(' or ')}; URL= to name it`}, await serviceman_ask(SERVICEMAN_PLACES[0].url));
 }
 
-// Whether serviceman answers there, and the machines it knows
+// Whether serviceman answers there, whether it refused the token, and the machines it knows
 async function serviceman_ask(url)
 {
     try {
-        const answer = await fetch(new URL('/api/v1/status', url), {signal: AbortSignal.timeout(2000)});
+        const answer = await fetch(new URL('/api/v1/status', url), {headers: token_headers({}), signal: AbortSignal.timeout(2000)});
+        if (answer.status === 401) {
+            return {answered: true, refused: true, remotes: [], remote: null};
+        }
         const body = await answer.json();
         const remotes = (Array.isArray(body.remotes) ? body.remotes.map(v => v.name) : []);
-        return {answered: Array.isArray(body.remotes), remotes, remote: ((remotes.length === 0) ? null : remotes[0])};
+        return {answered: Array.isArray(body.remotes), refused: false, remotes, remote: ((remotes.length === 0) ? null : remotes[0])};
     }
     catch {
-        return {answered: false, remotes: [], remote: null};
+        return {answered: false, refused: false, remotes: [], remote: null};
     }
 }
 
@@ -89,7 +98,7 @@ async function serviceman_ask(url)
 // POST /end?remote=&name=         ends one
 async function handle(target, req, res)
 {
-    if (target.answered === false) {
+    if ((target.answered === false) || target.refused) {
         Object.assign(target, await serviceman_find());
     }
     const url = target.url;
@@ -106,13 +115,13 @@ async function handle(target, req, res)
     }
     const remote = address.searchParams.get('remote');
     if ((address.pathname === '/terminals') && (req.method === 'GET')) {
-        send_json(res, 200, await terminals_list({url, remote}));
+        send_json(res, 200, await terminals_list({url, token: process.env.SERVICEMAN_TOKEN, remote}));
         return;
     }
     if ((address.pathname === '/end') && (req.method === 'POST')) {
         const name = address.searchParams.get('name');
-        const answer = await fetch(new URL(`/api/v1/remotes/${encodeURIComponent(remote)}/terminals/${encodeURIComponent(name)}/end`, url), {method: 'POST'});
-        send_json(res, answer.status, await answer.json());
+        const answer = await fetch(new URL(`/api/v1/remotes/${encodeURIComponent(remote)}/terminals/${encodeURIComponent(name)}/end`, url), {method: 'POST', headers: token_headers({})});
+        send_json(res, answer.status, ((answer.status === 401) ? {error: token_wanted()} : await answer.json()));
         return;
     }
     send_json(res, 404, {error: `no such page: ${address.pathname}`});
@@ -124,7 +133,7 @@ async function handle(target, req, res)
 function join(url, client, req)
 {
     const address = new URL(req.url, 'http://x');
-    const terminal = terminal_connect({url, remote: address.searchParams.get('remote'), name: address.searchParams.get('name')});
+    const terminal = terminal_connect({url, token: process.env.SERVICEMAN_TOKEN, remote: address.searchParams.get('remote'), name: address.searchParams.get('name')});
     terminal.on('data', v => client.send(v));
     terminal.on('note', v => client.send(JSON.stringify({type: 'note', text: v})));
     terminal.on('close', () => client.close());
@@ -161,14 +170,42 @@ function join(url, client, req)
     }
 }
 
-// What fetch says when nothing answers is "fetch failed"; the reason is in its cause
+// What fetch says when nothing answers is "fetch failed"; the reason is in its cause. A 401,
+// or a shell socket closed at once with no token given, is the token serviceman wants.
 function unreachable(url, error)
 {
+    if ((error.status === 401) || ((error.code === 'ECONNRESET') && (token_given() === false))) {
+        return token_wanted();
+    }
     const reason = ((error.cause === undefined) ? error.message : (error.cause.code || error.cause.message));
     if ((reason === 'ECONNREFUSED') || (reason === 'ENOTFOUND') || (error.message === 'fetch failed')) {
         return `serviceman does not answer at ${url} (${reason}): start it, or set URL to its control page`;
     }
     return error.message;
+}
+
+// Whether SERVICEMAN_TOKEN is set
+function token_given()
+{
+    return ((process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== ''));
+}
+
+// The headers of a request to serviceman, with SERVICEMAN_TOKEN when it is set
+function token_headers(headers)
+{
+    if (token_given() === false) {
+        return headers;
+    }
+    return Object.assign({}, headers, {authorization: `Bearer ${process.env.SERVICEMAN_TOKEN}`});
+}
+
+// What a 401 from serviceman means: no token given, or one it does not know
+function token_wanted()
+{
+    if (token_given()) {
+        return 'serviceman does not know the token in SERVICEMAN_TOKEN: bin/owner-token prints the owner\'s';
+    }
+    return 'serviceman wants a token: SERVICEMAN_TOKEN=… (bin/owner-token prints the owner\'s)';
 }
 
 function send_json(res, status, body)

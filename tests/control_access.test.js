@@ -174,7 +174,7 @@ test('the log says what happened without keeping what was said', async function 
 function shell_open(url, headers)
 {
     return new Promise(function (resolve) {
-        const client = new ws.WebSocket(url, {headers});
+        const client = new ws.WebSocket(url, {headers: Object.assign({authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}, headers)});
         client.on('open', function () {
             client.terminate();
             resolve('open');

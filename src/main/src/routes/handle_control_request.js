@@ -7,7 +7,10 @@ const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
 const container_disk = require('../../../../modules/docker/server/container_disk');
 const control_allowed = require('../control_allowed');
+const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
+const control_reader_status = require('../helpers/control_reader_status');
+const control_route_right = require('../helpers/control_route_right');
 const control_same_origin = require('../control_same_origin');
 const crypto = require('crypto');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
@@ -20,6 +23,7 @@ const from_loopback_page = require('../helpers/from_loopback_page');
 const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
 const fs_host_of = require('../helpers/fs_host_of');
+const handle_control_tokens = require('./handle_control_tokens');
 const load_test_log_path = require('../helpers/load_test_log_path');
 const load_test_run = require('../helpers/load_test_run');
 const load_test_stop = require('../helpers/load_test_stop');
@@ -36,6 +40,7 @@ const remote_tags = require('../helpers/remote_tags');
 const remote_update_call = require('../helpers/remote_update_call');
 const render_error_page = require('../helpers/render_error_page');
 const render_index_collection = require('../render_index_collection');
+const render_sign_in_page = require('../helpers/render_sign_in_page');
 const secrets_read = require('../helpers/secrets_read');
 const secrets_write = require('../helpers/secrets_write');
 const send_json = require('../helpers/send_json');
@@ -56,6 +61,7 @@ const view_from_remote = require('../helpers/view_from_remote');
 const view_from_service = require('../helpers/view_from_service');
 const volumes_of_app = require('../helpers/volumes_of_app');
 const volumes_serve = require('../../../../modules/volumes/server/volumes_serve');
+const wants_html = require('../wants_html');
 
 const BODY_LIMIT_BYTES = 1024*1024;
 
@@ -111,7 +117,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
+const PAGE_PANES = ['services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -148,6 +154,9 @@ async function control_answer(app, req, res)
             control_refuse(app, req, res);
             return;
         }
+        if (control_owner_or_refuse(app, req, res) === false) {
+            return;
+        }
         if ((req.method !== 'GET') && (req.method !== 'HEAD')) {
             render_error_page(res, 405, 'Only GET is served here', `${fs_host} is a machine's files`);
             return;
@@ -175,6 +184,23 @@ async function control_answer(app, req, res)
         cross_site_refuse(app, req, res);
         return;
     }
+    // Signing in is how a token is brought, so it is the one door open without one
+    if (url.pathname === '/api/v1/session') {
+        if (await handle_control_tokens(app, req, res, url) === false) {
+            send_json(res, 405, {error: 'the session is opened with POST and closed with DELETE'});
+        }
+        return;
+    }
+    // Every other request brings a token. The owner's may do everything; a reader's may do the
+    // reads it was given, of its own machines, and nothing else.
+    const caller = control_caller(app, req);
+    if (caller === null) {
+        token_refuse(app, req, res, url);
+        return;
+    }
+    if ((caller.owner === false) && (reader_allowed(app, req, res, url, caller.token) === false)) {
+        return;
+    }
     // Every change asked of the control page is written down: what it was, and from where.
     // A HEAD asks, it changes nothing — a player probing a file is not a change. Nor is each
     // part of a file sent in parts: the file is written down once, when it is in.
@@ -183,6 +209,9 @@ async function control_answer(app, req, res)
     }
     if (url.pathname === '/api/v1/status') {
         send_json(res, 200, state_from_app(app));
+        return;
+    }
+    if (await handle_control_tokens(app, req, res, url)) {
         return;
     }
     if ((url.pathname === '/navplace') && (req.method === 'GET')) {
@@ -1653,6 +1682,66 @@ function config_refused(text, base_dir)
 function text_hash(text)
 {
     return crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
+}
+
+// No token, or one nobody holds: a browser gets the page that asks for the owner's, anything
+// else a 401 that says what is wanted
+function token_refuse(app, req, res, url)
+{
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: ((req.headers.authorization === undefined) && (req.headers.cookie === undefined) ? 'no_token' : 'unknown_token')});
+    if (wants_html(req) && (url.pathname.startsWith('/api/') === false)) {
+        render_sign_in_page(res);
+        return;
+    }
+    send_json(res, 401, {error: 'the control door wants a token: Authorization: Bearer <token>'});
+}
+
+// A reader's token goes on only with one of its reads, of one of its machines; otherwise it
+// gets a 403 that says which right was missing. The status it gets is its own, cut down to its
+// machines, and answered here.
+function reader_allowed(app, req, res, url, token)
+{
+    const right = control_route_right(req.method, url.pathname);
+    const refused = reader_refusal(right, token);
+    if (refused !== null) {
+        log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, token: token.label, method: req.method, path: url_logged(req.url), reason: refused});
+        send_json(res, 403, {error: `the token ${JSON.stringify(token.label)} ${refused}`});
+        return false;
+    }
+    token.used_at = new Date().toISOString();
+    log_event(app, 'control_token_read', {token: token.label, path: url_logged(req.url)});
+    if (right.read === 'status') {
+        send_json(res, 200, control_reader_status(app, token));
+        return false;
+    }
+    return true;
+}
+
+// Why a reader may not ask this, or null when it may
+function reader_refusal(right, token)
+{
+    if (right === null) {
+        return 'only reads, and this is not one';
+    }
+    if (token.reads.includes(right.read) === false) {
+        return `may not read ${right.read}`;
+    }
+    if ((right.remote !== null) && (token.remotes.includes(right.remote) === false)) {
+        return `may not see ${right.remote}`;
+    }
+    return null;
+}
+
+// A machine's files under their own address are the owner's: the page's cookie is sent there
+function control_owner_or_refuse(app, req, res)
+{
+    const caller = control_caller(app, req);
+    if ((caller !== null) && caller.owner) {
+        return true;
+    }
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: ((caller === null) ? 'no_token' : 'not_the_owner')});
+    render_error_page(res, ((caller === null) ? 401 : 403), 'Sign in first', 'Open the control page and sign in with the owner\'s token');
+    return false;
 }
 
 function state_from_app(app)

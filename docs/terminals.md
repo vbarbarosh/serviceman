@@ -53,10 +53,11 @@ terminal window does; whoever has it open sees it close. Typing `exit` in it doe
 
 ## Who may connect
 
-The control page asks for no password, so it answers only the machine it runs on: a program
-there connects; one on another machine is refused (`control.exposed` opens it, behind a wall
-of your own). It also refuses a websocket a browser page opens from another site, so a page
-on the internet cannot reach your terminals through your browser.
+The control page answers only the machine it runs on: a program there connects; one on another
+machine is refused (`control.exposed` opens it, behind a wall of your own). It wants the
+owner's token, as `Authorization: Bearer <token>` (`bin/owner-token` prints it): a reader's
+token never opens a terminal. It also refuses a websocket a browser page opens from another
+site, so a page on the internet cannot reach your terminals through your browser.
 
 For an Electron app such as Visual Notes this means: **connect from the main process**, not
 from a page. Node sends no `Origin`, and passes; a page loaded from `file://` or its own
@@ -65,7 +66,7 @@ bytes to the page that draws them:
 
     // main process
     const terminal_connect = require('./terminal_connect');
-    const terminal = terminal_connect({url: 'http://127.0.0.1:8081', remote: 'laptop', name: 'work', cols: 120, rows: 40});
+    const terminal = terminal_connect({url: 'http://127.0.0.1:8081', token: process.env.SERVICEMAN_TOKEN, remote: 'laptop', name: 'work', cols: 120, rows: 40});
     terminal.on('data', v => window.webContents.send('terminal-data', v));
     ipcMain.on('terminal-input', (event, text) => terminal.write(text));
     ipcMain.on('terminal-resize', (event, size) => terminal.resize(size.cols, size.rows));
@@ -85,7 +86,9 @@ talks to it alone, so the page may be opened from anywhere that server answers.
 
 Nothing has to be set. It looks for serviceman where bin/run publishes it (127.0.0.1:3001),
 then on its config default (127.0.0.1:8081), opens on serviceman's first machine, and prints
-what it settled on. `PORT`, `URL` and `?remote=<machine>` choose otherwise.
+what it settled on. `SERVICEMAN_TOKEN` is the owner's token (`bin/owner-token` prints it),
+without which serviceman answers nothing; `PORT`, `URL` and `?remote=<machine>` choose
+otherwise.
 
 Tabs as in the Shell tab (`1 · Shell ×`, `+`), the terminal over the rest of the window, the
 one shown in the address, light or dark.
@@ -133,6 +136,7 @@ terminals, for a developer to see how the files API is used:
     node demos/terminal-client/attach.js laptop            # its terminals
     node demos/terminal-client/attach.js laptop work       # joins work here; Ctrl-] leaves it running
 
+`SERVICEMAN_TOKEN=$(bin/owner-token)` brings the owner's token, which it needs;
 `URL=http://127.0.0.1:8081` points it at another control port.
 
 ## Checked by

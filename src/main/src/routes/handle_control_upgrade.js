@@ -1,4 +1,5 @@
 const control_allowed = require('../control_allowed');
+const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
 const control_same_origin = require('../control_same_origin');
 const docker_container_name = require('../helpers/docker_container_name');
@@ -46,6 +47,15 @@ function handle_control_upgrade(app, req, socket, head)
     if (control_same_origin(req) === false) {
         log_group_from(socket.log_group, function () {
             log_event(app, 'shell_cross_site_refused', {from: socket.remoteAddress, origin: req.headers.origin});
+        });
+        socket.destroy();
+        return;
+    }
+    // A shell is the owner's alone: a reader's token never opens one
+    const caller = control_caller(app, req);
+    if ((caller === null) || (caller.owner === false)) {
+        log_group_from(socket.log_group, function () {
+            log_event(app, 'shell_refused', {from: socket.remoteAddress, reason: ((caller === null) ? 'no_token' : 'not_the_owner')});
         });
         socket.destroy();
         return;

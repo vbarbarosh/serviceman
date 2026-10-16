@@ -30,6 +30,7 @@ import service_shell from './service_shell.js';
 import services_pane from './services_pane.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
+import tokens_form from './tokens_form.js';
 import volumes_pane from './volumes_pane.js';
 
 import {createApp} from 'vue';
@@ -2433,6 +2434,10 @@ const app = {
                 <span class="name"><code>{{ name }}</code></span>
             </button>
         </div>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'tokens'), open: (kind_now === 'tokens')}" title="Who else may read this serviceman: a token for each agent, the machines it sees" @click="tokens_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/></svg>
+            <span class="name">Tokens</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'logline'), open: (kind_now === 'logline')}" title="Where every line of every machine flows" @click="logline_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/><path d="M17 15v6M14.5 18.5L17 21l2.5-2.5"/></svg>
             <span class="name">Logline</span>
@@ -2462,6 +2467,7 @@ const app = {
         <config-editor v-if="editor_open" :theme="theme" @close="editor_open = false" @saved="poll"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
+        <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
@@ -2480,7 +2486,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2517,6 +2523,7 @@ const app = {
             remote_form_key: 0,
             join_form_open: false,
             secrets_open: false,
+            tokens_open: false,
             logline_open: false,
             authwall_open: false,
             load_tests_open: false,
@@ -2587,6 +2594,9 @@ const app = {
             if (this.secrets_open) {
                 return '/secrets';
             }
+            if (this.tokens_open) {
+                return '/tokens';
+            }
             if (this.networking_open) {
                 return '/networking';
             }
@@ -2644,6 +2654,9 @@ const app = {
             }
             if (this.secrets_open) {
                 return 'secrets';
+            }
+            if (this.tokens_open) {
+                return 'tokens';
             }
             if (this.networking_open) {
                 return 'doors';
@@ -2905,6 +2918,10 @@ const app = {
                 this.secrets_open = true;
                 return;
             }
+            if (route.kind === 'tokens') {
+                this.tokens_open = true;
+                return;
+            }
             if (route.kind === 'networking') {
                 this.networking_open = true;
                 return;
@@ -2941,6 +2958,11 @@ const app = {
         poll: async function () {
             try {
                 const answer = await fetch('/api/v1/status', {cache: 'no-store'});
+                // Signed out, or the owner's token changed: the page itself asks for it again
+                if (answer.status === 401) {
+                    window.location.reload();
+                    return;
+                }
                 const loaded = await answer.json();
                 if (Array.isArray(loaded.services) === false) {
                     throw new Error('the answer carries no services');
@@ -3007,6 +3029,10 @@ const app = {
         secrets_show: function () {
             this.panes_close();
             this.secrets_open = true;
+        },
+        tokens_show: function () {
+            this.panes_close();
+            this.tokens_open = true;
         },
         logline_show: function () {
             this.panes_close();
@@ -3127,6 +3153,7 @@ const app = {
             this.editor_open = false;
             this.join_form_open = false;
             this.secrets_open = false;
+            this.tokens_open = false;
             this.volumes_open = false;
             this.form_open = false;
             this.remote_form_open = false;

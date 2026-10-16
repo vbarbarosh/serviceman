@@ -127,8 +127,9 @@ object of one shape, its keys always in this order:
   a tree (a container's) answers 501; a machine whose agent is from before this shape, a 400.
 - Without `tree`, the answer is the one folder, as above.
 
-`node demos/tree-web/server.js` is a page for trying it on serviceman's machines: a folder, a
-hash and names to skip, then One JSON or As events, with the counts, the list and each request.
+`SERVICEMAN_TOKEN=$(bin/owner-token) node demos/tree-web/server.js` is a page for trying it on
+serviceman's machines: a folder, a hash and names to skip, then One JSON or As events, with the
+counts, the list and each request.
 `tree` and `tree_events` in `demos/files-web/fs_client.mjs` are the calls to copy.
 
 ### A folder watched

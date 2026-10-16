@@ -1,4 +1,5 @@
 const connection_group = require('./connection_group');
+const control_owner_token = require('./control_owner_token');
 const fs = require('fs');
 const handle_control_request = require('../routes/handle_control_request');
 const handle_control_upgrade = require('../routes/handle_control_upgrade');
@@ -20,6 +21,10 @@ async function server_start(app)
     const out = {server, service_socket: null, control: null, socket: null};
     if (app.config.listen.socket !== null) {
         out.service_socket = await file_open(app, service_server(app), app.config.listen.socket, app.config.listen.socket_mode);
+    }
+    // The owner's token is there before the first request, for bin/owner-token to print
+    if ((app.config.control.port !== null) || (app.config.control.socket !== null)) {
+        control_owner_token(app);
     }
     if (app.config.control.port !== null) {
         out.control = await control_open(app, app.config.control.port, app.config.control.bind);

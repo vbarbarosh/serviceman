@@ -1,0 +1,135 @@
+const body_read = require('../body_read');
+const control_caller = require('../helpers/control_caller');
+const control_route_right = require('../helpers/control_route_right');
+const control_token_hash = require('../helpers/control_token_hash');
+const control_token_new = require('../helpers/control_token_new');
+const control_tokens_read = require('../helpers/control_tokens_read');
+const control_tokens_write = require('../helpers/control_tokens_write');
+const crypto = require('crypto');
+const log_event = require('../helpers/log_event');
+const send_json = require('../helpers/send_json');
+
+const BODY_LIMIT_BYTES = 16*1024;
+const LABEL_MAX = 100;
+// A year: the page stays signed in until its owner signs out or the token changes
+const COOKIE_MAX_AGE_S = 365*24*60*60;
+const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
+
+// POST /api/v1/session (body)        the owner signs the page in: {token}
+// DELETE /api/v1/session             and out
+// GET /api/v1/tokens                 the tokens made for readers, and the reads there are
+// POST /api/v1/tokens (body)         one more: {label, remotes, reads}, said once
+// DELETE /api/v1/tokens/<id>         taken back, at once
+//
+// True when the request was one of these. Signing in is open to any caller of the control
+// door, since it is how a token is brought; the rest is the owner's, checked before this.
+async function handle_control_tokens(app, req, res, url)
+{
+    if (url.pathname === '/api/v1/session') {
+        if (req.method === 'POST') {
+            await session_open(app, req, res);
+            return true;
+        }
+        if (req.method === 'DELETE') {
+            res.writeHead(200, {'content-type': 'application/json; charset=utf-8', 'set-cookie': cookie_of(req, '', 0), 'cache-control': 'no-store'});
+            res.end('{}');
+            return true;
+        }
+    }
+    if ((url.pathname === '/api/v1/tokens') && (req.method === 'GET')) {
+        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), reads: control_route_right.READS, remotes: app.remotes.map(v => v.name)});
+        return true;
+    }
+    if ((url.pathname === '/api/v1/tokens') && (req.method === 'POST')) {
+        await token_make(app, req, res);
+        return true;
+    }
+    const one = RE_TOKEN.exec(url.pathname);
+    if ((one !== null) && (req.method === 'DELETE')) {
+        const tokens = control_tokens_read(app);
+        const found = tokens.find(v => v.id === one[1]);
+        if (found === undefined) {
+            send_json(res, 404, {error: `no token ${one[1]}`});
+            return true;
+        }
+        control_tokens_write(app, tokens.filter(v => v !== found));
+        log_event(app, 'control_token_revoked', {id: found.id, label: found.label});
+        send_json(res, 200, {});
+        return true;
+    }
+    return false;
+}
+
+async function session_open(app, req, res)
+{
+    let body;
+    try {
+        body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    }
+    catch (error) {
+        send_json(res, 400, {error: error.message});
+        return;
+    }
+    const token = (((body !== null) && (typeof body.token === 'string')) ? body.token.trim() : '');
+    const caller = control_caller(app, {headers: {authorization: `Bearer ${token}`}});
+    if ((caller === null) || (caller.owner === false)) {
+        log_event(app, 'control_sign_in_refused', {client: req.socket.remoteAddress, reason: ((caller === null) ? 'unknown_token' : 'not_the_owner')});
+        send_json(res, 401, {error: ((caller === null) ? 'That is not the owner\'s token' : 'A reader\'s token is sent with each request, not signed in')});
+        return;
+    }
+    log_event(app, 'control_signed_in', {client: req.socket.remoteAddress});
+    res.writeHead(200, {'content-type': 'application/json; charset=utf-8', 'set-cookie': cookie_of(req, token, COOKIE_MAX_AGE_S), 'cache-control': 'no-store'});
+    res.end('{}');
+}
+
+async function token_make(app, req, res)
+{
+    let body;
+    try {
+        body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    }
+    catch (error) {
+        send_json(res, 400, {error: error.message});
+        return;
+    }
+    const asked = (((body === null) || (typeof body !== 'object')) ? {} : body);
+    const label = ((typeof asked.label === 'string') ? asked.label.trim() : '');
+    if ((label === '') || (label.length > LABEL_MAX) || /[\r\n]/.test(label)) {
+        send_json(res, 400, {error: `a token has a label: one line, up to ${LABEL_MAX} characters`});
+        return;
+    }
+    const remotes = (Array.isArray(asked.remotes) ? Array.from(new Set(asked.remotes.map(String))) : []);
+    const unknown = remotes.filter(v => (app.remote_by_name[v] === undefined));
+    if (unknown.length > 0) {
+        send_json(res, 400, {error: `no remote named ${unknown.map(v => JSON.stringify(v)).join(', ')}`});
+        return;
+    }
+    const reads = (Array.isArray(asked.reads) ? Array.from(new Set(asked.reads.map(String))) : []);
+    const wrong = reads.filter(v => (control_route_right.READS.includes(v) === false));
+    if ((reads.length === 0) || (wrong.length > 0)) {
+        send_json(res, 400, {error: `a token reads some of ${control_route_right.READS.join(', ')}`});
+        return;
+    }
+    const token = control_token_new();
+    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, reads, made_at: new Date().toISOString()};
+    control_tokens_write(app, control_tokens_read(app).concat([item]));
+    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), reads: reads.join(',')});
+    send_json(res, 200, {token, item: token_view(item)});
+}
+
+// A token as the page sees it: everything but its hash
+function token_view(token)
+{
+    return {id: token.id, label: token.label, remotes: token.remotes, reads: token.reads, made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
+}
+
+// The page's cookie: for this page alone and its machine-files addresses under the same name,
+// never sent by another site, never read by a script
+function cookie_of(req, value, max_age_s)
+{
+    const host = String((req.headers.host === undefined) ? '' : req.headers.host).replace(/:\d+$/, '');
+    const named = (/^[a-z0-9.-]+$/i.test(host) && host.includes('.') && (/^[0-9.]+$/.test(host) === false));
+    return `${control_caller.COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${max_age_s}; HttpOnly; SameSite=Strict${named ? `; Domain=${host}` : ''}`;
+}
+
+module.exports = handle_control_tokens;

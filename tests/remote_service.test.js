@@ -560,7 +560,7 @@ function shell_talk(control_port, name, lines)
     const ws = require('ws');
     return new Promise(function (resolve) {
         const heard = {notes: [], text: ''};
-        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?service=${encodeURIComponent(name)}&slot=1`);
+        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?service=${encodeURIComponent(name)}&slot=1`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
         client.on('message', function (raw, binary) {
             if (binary) {
                 heard.text += raw.toString('utf8');

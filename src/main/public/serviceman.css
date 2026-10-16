@@ -1198,6 +1198,57 @@ pre {
     width: auto;
 }
 
+/* The Tokens page: a list of ticks each on its line, and the token just made, shown once */
+.tk-checks {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+/* A long machine name or a read's words wrap on a phone, the box staying on the first line */
+.tk-checks .check {
+    align-items: baseline;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.tk-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .6rem;
+    align-items: center;
+}
+
+.tk-row > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tk-made {
+    margin-top: 1rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+}
+
+.tk-made p {
+    margin: 0 0 .5rem;
+}
+
+.tk-made-row {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+}
+
+.tk-made-row code {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
 /* Save stays put while a long form scrolls under it; the negative margins carry the bar out
    to the edges of the pane, so nothing slides past it at the sides */
 /* Sticks to the very bottom of the pane: the pane's own padding is under the bar, not beside

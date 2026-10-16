@@ -108,12 +108,13 @@ nothing itself, so it needs no docker socket and no docker command.
 | `/var/lib/tailscale`  | The tailscale identity of this machine. Keep it.          |
 | `/var/run/serviceman` | The control socket, for an agent on the machine itself    |
 
-| Variable       | What it does                                                              |
-|----------------|----------------------------------------------------------------------------|
-| `TS_AUTHKEY`   | Joins the tailnet with no hands. Without it, `docker logs` has the link.   |
-| `TS_HOSTNAME`  | The name on the tailnet. Default `serviceman`.                             |
-| `TS_SERVE`     | `1` puts `tailscale serve` in front, so the address is **https**.          |
-| `TS_EXTRA_ARGS`| More for `tailscale up` — `--advertise-tags=tag:server`, and the rest.     |
+| Variable                 | What it does                                                             |
+|--------------------------|--------------------------------------------------------------------------|
+| `TS_AUTHKEY`             | Joins the tailnet with no hands. Without it, `docker logs` has the link. |
+| `SERVICEMAN_OWNER_TOKEN` | The owner's token of the control page, instead of `data/owner.token`.    |
+| `TS_HOSTNAME`            | The name on the tailnet. Default `serviceman`.                           |
+| `TS_SERVE`               | `1` puts `tailscale serve` in front, so the address is **https**.        |
+| `TS_EXTRA_ARGS`          | More for `tailscale up` — `--advertise-tags=tag:server`, and the rest.   |
 
 A first run writes `data/serviceman.json` if there is none; after that the file is yours and
 nothing here writes over it. Every start reads it and says what will not work in a container —
@@ -163,9 +164,33 @@ To serve the public, widen the service port and put TLS in front:
 ```
 
 The control page stays closed to the outside even then. It starts and stops services, edits
-the config, holds the remote tokens and **opens a shell on every machine with an agent**, and it
-has no password — so it answers the machine serviceman runs on and nobody else. Asked from
-anywhere else it is a 404, over either port, exactly like an address no service claims.
+the config, holds the remote tokens and **opens a shell on every machine with an agent**, so it
+answers the machine serviceman runs on and nobody else. Asked from anywhere else it is a 404,
+over either port, exactly like an address no service claims.
+
+### A token for every caller
+
+Even on this machine, and through the control socket, nothing gets in without a token:
+
+- **The owner's token** may do everything. serviceman makes it the first time it starts and
+  keeps it in `data/owner.token`, readable by you alone; `bin/owner-token` prints it.
+  `SERVICEMAN_OWNER_TOKEN` gives one of your own instead, and then no file is written. The page
+  asks for it once and keeps it in a cookie only its own requests carry; **Sign out** is
+  `DELETE /api/v1/session`.
+- **A reader's token** is made on the page's **Tokens** tab, for an agent or a program: a
+  label, the machines it sees, and what it may read of them — `status`, `metrics`,
+  `processes`, `ports`, `disks`, `packages`, `containers`. It is shown once, and only its hash
+  is kept, in `data/control_tokens.json`. It cannot start, stop or change anything, open a
+  shell, read the config or a secret, or see another machine; taken back, it stops at once.
+
+A caller sends its token with every request:
+
+    curl --unix-socket data/serviceman.sock -H "Authorization: Bearer $TOKEN" http://localhost/api/v1/status
+
+A reader's status is its own: its machines and what runs on them, nothing of the config. Every
+route says which read it is in one table (`control_route_right.js`); a route that says none,
+one added later included, is the owner's alone. The agent file, the installer and an agent
+dialling in with its remote token need no token of the control door.
 
 Reach it from your laptop with an SSH tunnel:
 
@@ -188,8 +213,8 @@ Set `"control": {"host": null, "port": null}` to switch it off completely, or
 ## The control API
 
 Everything the control page does, it does through these. They all answer this machine only,
-and they all live under `/api/v1/` — on the control port, or on the control hostname over the
-service port.
+they all want a token (above), and they all live under `/api/v1/` — on the control port, or on
+the control hostname over the service port.
 
 | Call                                     | What it does                                    |
 |------------------------------------------|-------------------------------------------------|

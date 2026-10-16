@@ -106,10 +106,12 @@ the control page and nothing else. Set either to `null` to close that door.
 | `shell`       | `true`      | `false` keeps the page and takes the **Shell** button away.                  |
 
 The control page reads and writes the config, opens shells inside containers and holds the
-remote tokens, and it asks for no password. So it answers **the machine serviceman runs on**
-and nobody else: asked from anywhere else, over either port, it is a 404 like any unknown
-address. Reach it through an ssh tunnel, or set `"exposed": true` and put your own wall in
-front — serviceman says that out loud at startup when you do.
+remote tokens. So it answers **the machine serviceman runs on** and nobody else: asked from
+anywhere else, over either port, it is a 404 like any unknown address. Reach it through an ssh
+tunnel, or set `"exposed": true` and put your own wall in front — serviceman says that out
+loud at startup when you do. Even then every caller brings a token: the owner's, which
+`bin/owner-token` prints, or a reader's made on the **Tokens** tab
+([A token for every caller](deploy.md#a-token-for-every-caller)).
 
 `control.names` only widens which hostnames it answers by, never which callers. A caller that
 is not this machine is still refused.

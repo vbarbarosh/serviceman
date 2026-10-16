@@ -753,17 +753,18 @@ terminal starts at 80×24.</li>
 or ends it as above, and then the socket closes from the far end.</li>
 </ul>
 <h2 id="who-may-connect"><a class="anchor" href="#who-may-connect" aria-hidden="true" tabindex="-1">#</a>Who may connect</h2>
-<p>The control page asks for no password, so it answers only the machine it runs on: a program
-there connects; one on another machine is refused (<code>control.exposed</code> opens it, behind a wall
-of your own). It also refuses a websocket a browser page opens from another site, so a page
-on the internet cannot reach your terminals through your browser.</p>
+<p>The control page answers only the machine it runs on: a program there connects; one on another
+machine is refused (<code>control.exposed</code> opens it, behind a wall of your own). It wants the
+owner&#39;s token, as <code>Authorization: Bearer &lt;token&gt;</code> (<code>bin/owner-token</code> prints it): a reader&#39;s
+token never opens a terminal. It also refuses a websocket a browser page opens from another
+site, so a page on the internet cannot reach your terminals through your browser.</p>
 <p>For an Electron app such as Visual Notes this means: <strong>connect from the main process</strong>, not
 from a page. Node sends no <code>Origin</code>, and passes; a page loaded from <code>file://</code> or its own
 scheme is another site, and is refused. The main process holds the socket and passes the
 bytes to the page that draws them:</p>
 <pre><code>// main process
 const terminal_connect = require(&#39;./terminal_connect&#39;);
-const terminal = terminal_connect({url: &#39;http://127.0.0.1:8081&#39;, remote: &#39;laptop&#39;, name: &#39;work&#39;, cols: 120, rows: 40});
+const terminal = terminal_connect({url: &#39;http://127.0.0.1:8081&#39;, token: process.env.SERVICEMAN_TOKEN, remote: &#39;laptop&#39;, name: &#39;work&#39;, cols: 120, rows: 40});
 terminal.on(&#39;data&#39;, v =&gt; window.webContents.send(&#39;terminal-data&#39;, v));
 ipcMain.on(&#39;terminal-input&#39;, (event, text) =&gt; terminal.write(text));
 ipcMain.on(&#39;terminal-resize&#39;, (event, size) =&gt; terminal.resize(size.cols, size.rows));
@@ -781,7 +782,9 @@ talks to it alone, so the page may be opened from anywhere that server answers.<
 </code></pre>
 <p>Nothing has to be set. It looks for serviceman where bin/run publishes it (127.0.0.1:3001),
 then on its config default (127.0.0.1:8081), opens on serviceman&#39;s first machine, and prints
-what it settled on. <code>PORT</code>, <code>URL</code> and <code>?remote=&lt;machine&gt;</code> choose otherwise.</p>
+what it settled on. <code>SERVICEMAN_TOKEN</code> is the owner&#39;s token (<code>bin/owner-token</code> prints it),
+without which serviceman answers nothing; <code>PORT</code>, <code>URL</code> and <code>?remote=&lt;machine&gt;</code> choose
+otherwise.</p>
 <p>Tabs as in the Shell tab (<code>1 · Shell ×</code>, <code>+</code>), the terminal over the rest of the window, the
 one shown in the address, light or dark.</p>
 <h3 id="with-an-ssh-key"><a class="anchor" href="#with-an-ssh-key" aria-hidden="true" tabindex="-1">#</a>With an ssh key</h3>
@@ -824,7 +827,8 @@ the whole new path), Delete, Download (a folder as one tar).</li>
 <pre><code>node demos/terminal-client/attach.js laptop            # its terminals
 node demos/terminal-client/attach.js laptop work       # joins work here; Ctrl-] leaves it running
 </code></pre>
-<p><code>URL=http://127.0.0.1:8081</code> points it at another control port.</p>
+<p><code>SERVICEMAN_TOKEN=$(bin/owner-token)</code> brings the owner&#39;s token, which it needs;
+<code>URL=http://127.0.0.1:8081</code> points it at another control port.</p>
 <h2 id="checked-by"><a class="anchor" href="#checked-by" aria-hidden="true" tabindex="-1">#</a>Checked by</h2>
 <p><code>tests/remote.test.js</code>, &quot;a terminal kept on a machine outlives its page and its agent, and its tab ends it&quot;: a real agent; the client lists, joins,
 types, leaves, the agent is killed and started again, and joined again the terminal hands back

@@ -826,6 +826,10 @@ nothing itself, so it needs no docker socket and no docker command.</p>
 <td>Joins the tailnet with no hands. Without it, <code>docker logs</code> has the link.</td>
 </tr>
 <tr>
+<td><code>SERVICEMAN_OWNER_TOKEN</code></td>
+<td>The owner&#39;s token of the control page, instead of <code>data/owner.token</code>.</td>
+</tr>
+<tr>
 <td><code>TS_HOSTNAME</code></td>
 <td>The name on the tailnet. Default <code>serviceman</code>.</td>
 </tr>
@@ -909,9 +913,30 @@ the agents that dial in again.</p>
 <pre><code class="language-json">&quot;listen&quot;: {&quot;host&quot;: &quot;0.0.0.0&quot;, &quot;port&quot;: 8080}
 </code></pre>
 <p>The control page stays closed to the outside even then. It starts and stops services, edits
-the config, holds the remote tokens and <strong>opens a shell on every machine with an agent</strong>, and it
-has no password — so it answers the machine serviceman runs on and nobody else. Asked from
-anywhere else it is a 404, over either port, exactly like an address no service claims.</p>
+the config, holds the remote tokens and <strong>opens a shell on every machine with an agent</strong>, so it
+answers the machine serviceman runs on and nobody else. Asked from anywhere else it is a 404,
+over either port, exactly like an address no service claims.</p>
+<h3 id="a-token-for-every-caller"><a class="anchor" href="#a-token-for-every-caller" aria-hidden="true" tabindex="-1">#</a>A token for every caller</h3>
+<p>Even on this machine, and through the control socket, nothing gets in without a token:</p>
+<ul>
+<li><strong>The owner&#39;s token</strong> may do everything. serviceman makes it the first time it starts and
+keeps it in <code>data/owner.token</code>, readable by you alone; <code>bin/owner-token</code> prints it.
+<code>SERVICEMAN_OWNER_TOKEN</code> gives one of your own instead, and then no file is written. The page
+asks for it once and keeps it in a cookie only its own requests carry; <strong>Sign out</strong> is
+<code>DELETE /api/v1/session</code>.</li>
+<li><strong>A reader&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
+label, the machines it sees, and what it may read of them — <code>status</code>, <code>metrics</code>,
+<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code>, <code>containers</code>. It is shown once, and only its hash
+is kept, in <code>data/control_tokens.json</code>. It cannot start, stop or change anything, open a
+shell, read the config or a secret, or see another machine; taken back, it stops at once.</li>
+</ul>
+<p>A caller sends its token with every request:</p>
+<pre><code>curl --unix-socket data/serviceman.sock -H &quot;Authorization: Bearer $TOKEN&quot; http://localhost/api/v1/status
+</code></pre>
+<p>A reader&#39;s status is its own: its machines and what runs on them, nothing of the config. Every
+route says which read it is in one table (<code>control_route_right.js</code>); a route that says none,
+one added later included, is the owner&#39;s alone. The agent file, the installer and an agent
+dialling in with its remote token need no token of the control door.</p>
 <p>Reach it from your laptop with an SSH tunnel:</p>
 <pre><code>ssh -L 8081:127.0.0.1:8081 you@the-host
 </code></pre>
@@ -926,8 +951,8 @@ answers its own names only.</p>
 <code>&quot;control&quot;: {&quot;shell&quot;: false}</code> to keep the page and close the shell door alone.</p>
 <h2 id="the-control-api"><a class="anchor" href="#the-control-api" aria-hidden="true" tabindex="-1">#</a>The control API</h2>
 <p>Everything the control page does, it does through these. They all answer this machine only,
-and they all live under <code>/api/v1/</code> — on the control port, or on the control hostname over the
-service port.</p>
+they all want a token (above), and they all live under <code>/api/v1/</code> — on the control port, or on
+the control hostname over the service port.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
