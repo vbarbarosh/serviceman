@@ -7,6 +7,7 @@ const control_tokens_read = require('../helpers/control_tokens_read');
 const control_tokens_write = require('../helpers/control_tokens_write');
 const crypto = require('crypto');
 const log_event = require('../helpers/log_event');
+const path = require('path');
 const send_json = require('../helpers/send_json');
 
 const BODY_LIMIT_BYTES = 16*1024;
@@ -16,12 +17,15 @@ const FOLDERS_MAX = 20;
 // A year: the page stays signed in until its owner signs out or the token changes
 const COOKIE_MAX_AGE_S = 365*24*60*60;
 const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
+const RE_TOKEN_RENEW = /^\/api\/v1\/tokens\/([0-9a-f]+)\/renew$/;
 
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
 // GET /api/v1/tokens                 the tokens made, and the rights there are
 // POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders}, said once
-// DELETE /api/v1/tokens/<id>         taken back, at once
+// PUT /api/v1/tokens/<id> (body)     the same fields, changed; the token itself stays
+// POST /api/v1/tokens/<id>/renew     a new value, said once; the old one is refused at once
+// DELETE /api/v1/tokens/<id>         revoked, at once
 //
 // True when the request was one of these. Signing in is open to any caller of the control
 // door, since it is how a token is brought; the rest is the owner's, checked before this.
@@ -39,7 +43,7 @@ async function handle_control_tokens(app, req, res, url)
         }
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'GET')) {
-        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name)});
+        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name), socket: socket_shown(app), port: control_port(app), owner_token_file: ((String(process.env.SERVICEMAN_OWNER_TOKEN || '').trim() === '') ? 'data/owner.token' : null)});
         return true;
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'POST')) {
@@ -47,6 +51,15 @@ async function handle_control_tokens(app, req, res, url)
         return true;
     }
     const one = RE_TOKEN.exec(url.pathname);
+    if ((one !== null) && (req.method === 'PUT')) {
+        await token_change(app, req, res, one[1]);
+        return true;
+    }
+    const renew = RE_TOKEN_RENEW.exec(url.pathname);
+    if ((renew !== null) && (req.method === 'POST')) {
+        token_renew(app, res, renew[1]);
+        return true;
+    }
     if ((one !== null) && (req.method === 'DELETE')) {
         const tokens = control_tokens_read(app);
         const found = tokens.find(v => v.id === one[1]);
@@ -86,49 +99,124 @@ async function session_open(app, req, res)
 
 async function token_make(app, req, res)
 {
+    const fields = await fields_read(app, req, res);
+    if (fields === null) {
+        return;
+    }
+    const token = control_token_new();
+    const item = Object.assign({id: crypto.randomBytes(8).toString('hex'), sha256: control_token_hash(token)}, fields, {made_at: new Date().toISOString()});
+    control_tokens_write(app, control_tokens_read(app).concat([item]));
+    log_event(app, 'control_token_made', fields_logged(item));
+    send_json(res, 200, {token, item: token_view(item)});
+}
+
+// What the token may do, changed; the token itself stays, so whoever holds it goes on with it
+async function token_change(app, req, res, id)
+{
+    const found = control_tokens_read(app).find(v => v.id === id);
+    if (found === undefined) {
+        send_json(res, 404, {error: `no token ${id}`});
+        return;
+    }
+    const fields = await fields_read(app, req, res);
+    if (fields === null) {
+        return;
+    }
+    const item = Object.assign({}, found, fields);
+    control_tokens_write(app, control_tokens_read(app).map(v => ((v.id === id) ? item : v)));
+    log_event(app, 'control_token_changed', fields_logged(item));
+    send_json(res, 200, {item: token_view(item)});
+}
+
+// A new value for a token that was lost or seen: the same rights, said once, the old value
+// refused from now on
+function token_renew(app, res, id)
+{
+    const found = control_tokens_read(app).find(v => v.id === id);
+    if (found === undefined) {
+        send_json(res, 404, {error: `no token ${id}`});
+        return;
+    }
+    const token = control_token_new();
+    const item = Object.assign({}, found, {sha256: control_token_hash(token), renewed_at: new Date().toISOString()});
+    delete item.used_at;
+    control_tokens_write(app, control_tokens_read(app).map(v => ((v.id === id) ? item : v)));
+    log_event(app, 'control_token_renewed', {id: item.id, label: item.label});
+    send_json(res, 200, {token, item: token_view(item)});
+}
+
+// The label, machines, rights and folders a request asks a token to have, checked, or null
+// with the 400 that says what is wrong already sent. A machine of `*` is every machine,
+// those added later too.
+async function fields_read(app, req, res)
+{
     let body;
     try {
         body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
     }
     catch (error) {
         send_json(res, 400, {error: error.message});
-        return;
+        return null;
     }
     const asked = (((body === null) || (typeof body !== 'object')) ? {} : body);
     const label = ((typeof asked.label === 'string') ? asked.label.trim() : '');
     if ((label === '') || (label.length > LABEL_MAX) || /[\r\n]/.test(label)) {
         send_json(res, 400, {error: `a token has a label: one line, up to ${LABEL_MAX} characters`});
-        return;
+        return null;
     }
-    const remotes = (Array.isArray(asked.remotes) ? Array.from(new Set(asked.remotes.map(String))) : []);
-    const unknown = remotes.filter(v => (app.remote_by_name[v] === undefined));
+    const named = (Array.isArray(asked.remotes) ? Array.from(new Set(asked.remotes.map(String))) : []);
+    const remotes = (named.includes('*') ? ['*'] : named);
+    const unknown = remotes.filter(v => ((v !== '*') && (app.remote_by_name[v] === undefined)));
     if (unknown.length > 0) {
         send_json(res, 400, {error: `no remote named ${unknown.map(v => JSON.stringify(v)).join(', ')}`});
-        return;
+        return null;
     }
     const rights = (Array.isArray(asked.rights) ? Array.from(new Set(asked.rights.map(String))) : []);
     const wrong = rights.filter(v => (control_route_right.RIGHTS.includes(v) === false));
     if ((rights.length === 0) || (wrong.length > 0)) {
         send_json(res, 400, {error: `a token has some of the rights ${control_route_right.RIGHTS.join(', ')}`});
-        return;
+        return null;
     }
     // The files right is of some folders, the same paths on each of its machines, ~ their homes
     const folders = ((Array.isArray(asked.folders) && rights.includes('files')) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : []);
     if (rights.includes('files') && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => ((v.length > FOLDER_MAX) || /[\r\n\0]/.test(v))))) {
         send_json(res, 400, {error: `the files right is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
-        return;
+        return null;
     }
-    const token = control_token_new();
-    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, rights, folders, made_at: new Date().toISOString()};
-    control_tokens_write(app, control_tokens_read(app).concat([item]));
-    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), rights: rights.join(','), folders: folders.join(',')});
-    send_json(res, 200, {token, item: token_view(item)});
+    return {label, remotes, rights, folders};
+}
+
+function fields_logged(item)
+{
+    return {id: item.id, label: item.label, remotes: item.remotes.join(','), rights: item.rights.join(','), folders: item.folders.join(',')};
+}
+
+// The control socket as it is named from serviceman's own folder, data/serviceman.sock, the
+// way a line copied from the page is typed on that machine; null without one
+function socket_shown(app)
+{
+    const socket = app.config.control.socket;
+    if ((typeof socket !== 'string') || (socket === '')) {
+        return null;
+    }
+    const base = path.dirname(app.state_dir);
+    const full = path.resolve(base, socket);
+    return (full.startsWith(`${base}${path.sep}`) ? path.relative(base, full) : full);
+}
+
+// The control port as it is listened on, the config's 0 being whichever was free; null without one
+function control_port(app)
+{
+    if ((app.servers !== undefined) && (app.servers.control !== null) && (app.servers.control !== undefined)) {
+        return app.servers.control.address().port;
+    }
+    return app.config.control.port;
 }
 
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, renewed_at: ((token.renewed_at === undefined) ? null : token.renewed_at), used_at: ((token.used_at === undefined) ? null : token.used_at)};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,

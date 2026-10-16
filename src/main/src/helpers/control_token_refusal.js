@@ -8,7 +8,7 @@ function control_token_refusal(right, token)
     if (token.rights.includes(right.right) === false) {
         return `may not ${right.said}`;
     }
-    if ((right.remote !== null) && (token.remotes.includes(right.remote) === false)) {
+    if ((right.remote !== null) && (token.remotes.includes('*') === false) && (token.remotes.includes(right.remote) === false)) {
         return `may not see ${right.remote}`;
     }
     return null;

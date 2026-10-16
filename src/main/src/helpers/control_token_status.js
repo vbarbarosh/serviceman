@@ -6,7 +6,7 @@ const view_from_service = require('./view_from_service');
 function control_token_status(app, token)
 {
     const now = Date.now();
-    const seen = new Set(token.remotes);
+    const seen = new Set(token.remotes.includes('*') ? app.remotes.map(v => v.name) : token.remotes);
     const remotes = app.remotes.filter(v => seen.has(v.name)).map(v => view_from_remote(v, now, app.config.logline));
     const services = [];
     for (const service of app.services) {

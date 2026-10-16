@@ -1212,6 +1212,16 @@ pre {
     overflow-wrap: anywhere;
 }
 
+/* A machine ticked by "every machine" already */
+.tk-checks .check.off {
+    opacity: .55;
+}
+
+.tk-made > p:not(:first-child) {
+    margin: .75rem 0 .35rem;
+    color: var(--muted);
+}
+
 .tk-row {
     display: flex;
     flex-wrap: wrap;

@@ -116,6 +116,39 @@ test('without SERVICEMAN_OWNER_TOKEN the owner\'s token is made once, kept in ow
     assert.strictEqual(control_owner_token(again), made);
 });
 
+test('a token is changed in place and goes on working; a new value refuses the old one; every machine is every machine', async function (t) {
+    const running = await serviceman_start(t);
+    const made = await token_make(running, {label: 'visual-agency', remotes: ['vps1'], rights: ['files'], folders: ['~/wrong']});
+
+    // Changed: the same token, its new rights from the next request
+    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, made.token)).status, 403);
+    const changed = await call(running, 'PUT', `/api/v1/tokens/${made.item.id}`, {label: 'visual-agency', remotes: ['vps1'], rights: ['files', 'status'], folders: ['~/visual-agency', '~/notes']}, running.owner);
+    assert.strictEqual(changed.status, 200, changed.body);
+    assert.deepStrictEqual(JSON.parse(changed.body).item.folders, ['~/visual-agency', '~/notes']);
+    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, made.token)).status, 200);
+    assert.strictEqual((await call(running, 'PUT', `/api/v1/tokens/${made.item.id}`, {label: '', remotes: [], rights: ['status']}, running.owner)).status, 400);
+    assert.strictEqual((await call(running, 'PUT', '/api/v1/tokens/abcdef', {label: 'x', remotes: [], rights: ['status']}, running.owner)).status, 404);
+    assert.strictEqual((await call(running, 'PUT', `/api/v1/tokens/${made.item.id}`, {label: 'x', remotes: [], rights: ['status']}, made.token)).status, 403, 'a token does not change itself');
+    assert.strictEqual(running.app.log_lines.some(v => /\[control_token_changed\] .*folders=~\/visual-agency,~\/notes/.test(v)), true);
+
+    // A new value: the old one refused at once, the new one with the same rights
+    const renewed = JSON.parse((await call(running, 'POST', `/api/v1/tokens/${made.item.id}/renew`, null, running.owner)).body);
+    assert.notStrictEqual(renewed.token, made.token);
+    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, made.token)).status, 401);
+    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, renewed.token)).status, 200);
+    assert.deepStrictEqual([renewed.item.rights, renewed.item.folders], [['files', 'status'], ['~/visual-agency', '~/notes']]);
+
+    // Every machine, those added later too
+    const every = await token_make(running, {label: 'all', remotes: ['*', 'vps1'], rights: ['status', 'metrics']});
+    assert.deepStrictEqual(every.item.remotes, ['*']);
+    assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/api/v1/status', null, every.token)).body).remotes.map(v => v.name), ['vps1', 'vps2']);
+    assert.notStrictEqual((await call(running, 'GET', '/api/v1/remotes/vps2/metrics?range=1h', null, every.token)).status, 403);
+
+    // The page is told how a token is used here
+    const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
+    assert.deepStrictEqual([listed.socket, listed.port], [null, running.port]);
+});
+
 test('a token with terminals uses the kept terminals of its machines and opens no other shell; the owner\'s opens any', async function (t) {
     const running = await serviceman_start(t);
     const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], rights: ['status']});
