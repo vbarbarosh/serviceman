@@ -33,6 +33,10 @@ function app_from_config(config)
         // reason: it was taken away, so it can stop and take itself off that machine.
         removed: [],
         started_at: Date.now(),
+        // What is wrong now, by key, as the last check found it (problems_check), and the check
+        // in progress: a second one asked meanwhile waits for it instead
+        problems: new Map(),
+        problems_check: null,
         // Where the service door ended up, once it is open
         listen_port: null,
         // What went through each forward, by label: since this serviceman started, and the

@@ -404,6 +404,21 @@ keeps its own copy, so a machine with no link still writes its log.
 | `logline_revoke_error`  | Logline could not be reached to take it back; tried again every minute. |
 | `logline_sweep_error`   | The minute's round of telling broke before it began.                    |
 
+### Problems
+
+What is wrong, looked at every minute and after every upgrade; the control page shows the same
+list, in a bar under its header and on its Problems page.
+
+| Sender                   | What it says                                                            |
+|--------------------------|-------------------------------------------------------------------------|
+| `problem_begin`          | Something is wrong, seen twice a check apart: where, what, and why.     |
+| `problem_end`            | It is mended, and how long it lasted.                                   |
+| `problems_check_error`   | A machine could not be looked at, and why; what was wrong there stays.  |
+| `apt_containers_ok`      | After an upgrade, everything that ran before runs again; `started=` names the ones serviceman started. |
+| `apt_containers_down`    | After an upgrade, `down=` names what ran before and cannot start now; the upgrade's own lines say why. |
+| `apt_containers_unknown` | What ran before the upgrade could not be read, so nothing is brought back after it. |
+| `apt_containers_error`   | Bringing them back broke, and why.                                      |
+
 ### The control page
 
 | Sender                       | What it says                                                              |

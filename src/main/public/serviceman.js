@@ -17,6 +17,7 @@ import logline_stage from './logline_stage.js';
 import map_pane from './map_pane.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
+import problems_pane from './problems_pane.js';
 import remote_docker from './remote_docker.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
@@ -518,6 +519,8 @@ const remote_configure = {
             <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
             <p v-if="(apt.phase === 'cancelled')" class="muted">Stopped where it stood. A run stopped in the middle of installing may leave a package half-set-up: <code>sudo dpkg --configure -a</code> on that machine finishes what was interrupted, and the Shell tab is one click away.</p>
             <p v-if="(apt.phase === 'error')" class="bad">{{ apt.error }}</p>
+            <p v-if="(apt.containers && apt.containers.down.length > 0)" class="alert">{{ apt.containers.down.length }} {{ plural(apt.containers.down.length, 'container', 'containers') }} ran before the upgrade and cannot start now: {{ apt.containers.down.map(v => v.name).join(', ') }}. The lines below say why, and so does the Problems page.</p>
+            <p v-if="(apt.containers && apt.containers.started.length > 0)" class="muted">Started again after the upgrade: {{ apt.containers.started.join(', ') }}.</p>
             <template v-if="sudo_wanted">
                 <p class="muted">apt-get has to be root, and sudo on that machine asked for a password — there is nobody here to type one. Give {{ view.name }} a root agent and the question goes away for good: it is the same file, kept up by the system's systemd, dialling nowhere and answering one socket that only {{ agent_user }} may open.</p>
                 <snip :text="root_install_text"/>
@@ -2366,6 +2369,13 @@ const app = {
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5"/></svg>
     </button>
 </header>
+<!-- What is wrong, above everything else on every page: a row of its own under the header -->
+<button v-if="(problems.length > 0)" type="button" id="problems-bar" :title="problems.map(v => v.subject).join('\\n')" @click="problems_show">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+    <b>{{ problems.length }} {{ (problems.length === 1) ? 'problem' : 'problems' }}</b>
+    <span class="problems-first">{{ problems[0].subject }}<span v-if="(problems.length > 1)" class="muted"> and {{ problems.length - 1 }} more</span></span>
+    <span class="problems-open">See them →</span>
+</button>
 <main v-if="(state !== null)">
     <!-- One row per kind of thing, never one per thing: the rail stays the same length however
          many services there are, and each row is always where it was -->
@@ -2470,6 +2480,7 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
+        <problems-pane v-else-if="problems_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
         <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
@@ -2486,7 +2497,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'problems-pane': problems_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2525,6 +2536,7 @@ const app = {
             secrets_open: false,
             tokens_open: false,
             logline_open: false,
+            problems_open: false,
             authwall_open: false,
             load_tests_open: false,
             secrets_count: '',
@@ -2559,6 +2571,10 @@ const app = {
         };
     },
     computed: {
+        // What is wrong now, as the last look found it (problems_check), the oldest first
+        problems: function () {
+            return (((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems);
+        },
         summary: function () {
             if (this.answering === false) {
                 return 'serviceman is not answering';
@@ -2605,6 +2621,9 @@ const app = {
             }
             if (this.logline_open) {
                 return '/logline';
+            }
+            if (this.problems_open) {
+                return '/problems';
             }
             if (this.authwall_open) {
                 return '/authwall';
@@ -2666,6 +2685,9 @@ const app = {
             }
             if (this.logline_open) {
                 return 'logline';
+            }
+            if (this.problems_open) {
+                return 'problems';
             }
             if (this.authwall_open) {
                 return 'authwall';
@@ -2934,6 +2956,10 @@ const app = {
                 this.logline_open = true;
                 return;
             }
+            if (route.kind === 'problems') {
+                this.problems_open = true;
+                return;
+            }
             if (route.kind === 'authwall') {
                 this.authwall_open = true;
                 return;
@@ -3037,6 +3063,10 @@ const app = {
         logline_show: function () {
             this.panes_close();
             this.logline_open = true;
+        },
+        problems_show: function () {
+            this.panes_close();
+            this.problems_open = true;
         },
         authwall_show: function () {
             this.panes_close();
@@ -3160,6 +3190,7 @@ const app = {
             this.networking_open = false;
             this.forwards_open = false;
             this.logline_open = false;
+            this.problems_open = false;
             this.authwall_open = false;
             this.load_tests_open = false;
             this.remotes_open = false;

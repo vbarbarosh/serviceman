@@ -292,6 +292,11 @@ when it comes from a security archive. Held and half-installed packages say so. 
 reads the lists the last `apt-get update` left, so "to update" is as fresh as those; the
 Configure tab installs them.
 
+An upgrade can restart Docker, and Docker does not bring back every container it stopped.
+Before it starts, serviceman notes the containers that run; once it is over, it waits for
+Docker to answer and starts again each one that is not running. What cannot start is named at
+the end of the upgrade's lines, with Docker's reason, and on the Problems page.
+
 ## Its ports and its firewall
 
 The **Firewall** tab of a remote is what the machine listens on and what its firewall, ufw,
@@ -337,6 +342,22 @@ cost cryptsetup measures on the machine. Visual Agents makes and opens its own t
 with keys it holds. The work is the machine's root half's, and a key travels only over TLS, a
 socket file, the same machine, a page loaded from this machine's `localhost` or the tailnet. The
 module is `modules/volumes`, and its README has the API.
+
+## When something is wrong
+
+Every minute serviceman looks for what is wrong, and shows it in a red bar under the page's
+header, on every page; the bar opens the **Problems** page, one card each: where it is, since
+when, why, and what mends it. A problem shows once it is seen twice in a row, so a blip of a
+second is not one, and leaves on its own once it is mended. Each is written to the log too,
+`problem_begin` and `problem_end` ([The log](logs.md)).
+
+| It looks for                                       | How                                                                                                                  |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| A machine that was here and went offline           | Its link.                                                                                                            |
+| A copy of a service that does not answer           | A request to it, the way a visitor's goes.                                                                           |
+| A container Docker was meant to keep running, down | Its restart policy, and how it exited: a container stopped by hand is not one.                                       |
+| A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart.  |
+| Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
 
 ## When the machine is away
 

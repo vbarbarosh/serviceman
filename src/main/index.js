@@ -22,6 +22,7 @@ const log_trunk = require('./src/helpers/log_trunk');
 const log_within = require('./src/helpers/log_within');
 const logline_sweep = require('./src/helpers/logline_sweep');
 const path = require('path');
+const problems_check = require('./src/helpers/problems_check');
 const profile_from_db = require('./src/helpers/profile_from_db');
 const reap_idle = require('./src/helpers/reap_idle');
 const remote_tags = require('./src/helpers/remote_tags');
@@ -48,6 +49,10 @@ const FORWARD_TOTALS_INTERVAL_MS = 30000;
 // How soon a machine hears about Logline again after the telling failed — Logline away, a
 // token that could not be issued — and a token that could not be taken back is tried again
 const LOGLINE_INTERVAL_MS = 60000;
+// How often everything is looked at for what is wrong, and how soon after the start the first
+// look is: by then the machines that are up have dialled in
+const PROBLEMS_INTERVAL_MS = 60000;
+const PROBLEMS_FIRST_MS = 15000;
 
 const USAGE = `serviceman [serviceman.json] [--check]
 
@@ -127,7 +132,20 @@ async function main()
             forwards_tell(app);
             forwards_here(app);
         }, LOGLINE_INTERVAL_MS);
+        setTimeout(function () {
+            problems_tick(app);
+        }, PROBLEMS_FIRST_MS);
+        setInterval(function () {
+            problems_tick(app);
+        }, PROBLEMS_INTERVAL_MS);
         watch_signals(app);
+    });
+}
+
+function problems_tick(app)
+{
+    problems_check(app).catch(function (error) {
+        log_event(app, 'problems_check_error', {reason: error.message});
     });
 }
 

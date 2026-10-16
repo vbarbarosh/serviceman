@@ -154,6 +154,8 @@ agent_logline.status = function () {
         dir_errors: ((state.files === null) ? {} : state.files.errors()),
         sent: {lines: ((stats === null) ? 0 : stats.sent_lines), batches: ((stats === null) ? 0 : stats.sent_batches), bytes: ((stats === null) ? 0 : stats.sent_bytes)},
         waiting: {lines: ((spool === null) ? 0 : spool.waiting_lines), bytes: ((spool === null) ? 0 : spool.waiting_bytes), oldest: ((spool === null) ? null : spool.oldest_at)},
+        // What may wait at most: past it, collecting stops until there is room again
+        cap_bytes: ((spool === null) ? null : spool.cap_bytes),
         last_sent_at: ((stats === null) ? null : stats.last_sent_at),
         last_answer: ((stats === null) ? null : stats.last_answer),
     };

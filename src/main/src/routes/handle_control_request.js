@@ -2,6 +2,7 @@ const agent_bundle = require('../../../agent/bundler/agent_bundle');
 const agent_install_sh = require('../helpers/agent_install_sh');
 const app_apply_config = require('../helpers/app_apply_config');
 const apt_lane = require('../helpers/apt_lane');
+const apt_said = require('../helpers/apt_said');
 const body_read = require('../body_read');
 const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
@@ -33,8 +34,11 @@ const log_event = require('../helpers/log_event');
 const log_within = require('../helpers/log_within');
 const logline_from_json = require('../helpers/logline_from_json');
 const path = require('path');
+const problems_check = require('../helpers/problems_check');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
+const remote_containers_restore = require('../helpers/remote_containers_restore');
+const remote_containers_running = require('../helpers/remote_containers_running');
 const remote_disk = require('../helpers/remote_disk');
 const remote_removed_add = require('../helpers/remote_removed_add');
 const remote_tags = require('../helpers/remote_tags');
@@ -118,7 +122,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
+const PAGE_PANES = ['services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'problems', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -818,24 +822,50 @@ async function handle_apt(app, res, name, action)
     }
     // The run outlives this request by minutes: the answer says it began, and the page reads
     // how it is going from the door above
-    remote.state.apt = {phase: 'running', lines: [], started_at: Date.now(), ended_at: null, error: null};
+    remote.state.apt = {phase: 'running', lines: [], started_at: Date.now(), ended_at: null, error: null, containers: null};
     log_event(app, 'apt_begin', {remote: remote.name});
+    // What runs now has to run after: an upgrade of Docker restarts every container, and the
+    // ones Docker does not bring back are started again once it is over
+    let before = null;
+    try {
+        before = await remote_containers_running(app, remote);
+    }
+    catch (error) {
+        log_event(app, 'apt_containers_unknown', {remote: remote.name, reason: error.message});
+    }
     const promise = remote_call(app, remote, 'apt_upgrade', {service: apt_lane}, APT_TIMEOUT_MS);
     promise.then(function (answer) {
-        apt_ended(app, remote, (answer.cancelled ? 'cancelled' : (answer.ok ? 'ok' : 'error')), (answer.ok ? null : last_line_of(answer)));
+        return apt_ended(app, remote, before, (answer.cancelled ? 'cancelled' : (answer.ok ? 'ok' : 'error')), (answer.ok ? null : last_line_of(answer)));
     }, function (error) {
-        apt_ended(app, remote, 'error', error.message);
+        return apt_ended(app, remote, before, 'error', error.message);
+    }).catch(function (error) {
+        log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
     });
     send_json(res, 202, {started: true});
 }
 
-function apt_ended(app, remote, phase, error)
+async function apt_ended(app, remote, before, phase, error)
 {
     const run = remote.state.apt;
+    if (before !== null) {
+        apt_said(remote, 'serviceman: the upgrade is over; every container that ran before it is to run again');
+        run.containers = await remote_containers_restore(app, remote, before);
+        for (const name of run.containers.started) {
+            apt_said(remote, `serviceman: ${name} had stopped, and is started again`);
+        }
+        for (const item of run.containers.down) {
+            apt_said(remote, `serviceman: ${item.name} ran before the upgrade and cannot start now: ${item.reason}`);
+        }
+        log_event(app, ((run.containers.down.length === 0) ? 'apt_containers_ok' : 'apt_containers_down'), {remote: remote.name, ran: before.length, started: run.containers.started, down: run.containers.down.map(v => v.name)});
+    }
     run.phase = phase;
     run.ended_at = Date.now();
     run.error = error;
     log_event(app, ((phase === 'ok') ? 'apt_end_ok' : 'apt_end_error'), {remote: remote.name, lines: run.lines.length, reason: ((error === null) ? undefined : error)});
+    // What the upgrade left wrong is on the page now, not at the next look a minute away
+    problems_check(app).catch(function (error) {
+        log_event(app, 'problems_check_error', {reason: error.message});
+    });
     // What is waiting has just changed, and the page is looking at it: the machine is asked
     // again now rather than at the next heartbeat half a minute from here
     const promise = remote_call(app, remote, 'stats');
@@ -1742,6 +1772,22 @@ function control_owner_or_refuse(app, req, res)
     return false;
 }
 
+// One problem as the page shows it: since when it is known, the moment it began where that is
+// known and the moment it was first seen where not
+function view_from_problem(problem)
+{
+    return {
+        key: problem.key,
+        kind: problem.kind,
+        remote: problem.remote,
+        service: ((problem.service === undefined) ? null : problem.service),
+        subject: problem.subject,
+        cause: problem.cause,
+        fix: problem.fix,
+        since: ((problem.since === null) ? problem.first_seen : problem.since),
+    };
+}
+
 function state_from_app(app)
 {
     const now = Date.now();
@@ -1771,6 +1817,8 @@ function state_from_app(app)
         }),
         services,
         remotes,
+        // What is wrong now, the oldest first: what the last check found and has seen twice
+        problems: Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since)),
         forwards: app.config.forwards.map(v => view_from_forward(app, v)),
         // Where a forward that shows up on serviceman itself puts its socket file
         state_dir: app.state_dir,

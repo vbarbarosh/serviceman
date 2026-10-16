@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
 </ul>
@@ -950,6 +950,10 @@ size, whether it was installed by hand or came along as another package&#39;s ne
 when it comes from a security archive. Held and half-installed packages say so. The dry run
 reads the lists the last <code>apt-get update</code> left, so &quot;to update&quot; is as fresh as those; the
 Configure tab installs them.</p>
+<p>An upgrade can restart Docker, and Docker does not bring back every container it stopped.
+Before it starts, serviceman notes the containers that run; once it is over, it waits for
+Docker to answer and starts again each one that is not running. What cannot start is named at
+the end of the upgrade&#39;s lines, with Docker&#39;s reason, and on the Problems page.</p>
 <h2 id="its-ports-and-its-firewall"><a class="anchor" href="#its-ports-and-its-firewall" aria-hidden="true" tabindex="-1">#</a>Its ports and its firewall</h2>
 <p>The <strong>Firewall</strong> tab of a remote is what the machine listens on and what its firewall, ufw,
 lets through. (It was two tabs, Ports and Firewall; an old <code>/ports</code> address opens it.)</p>
@@ -989,6 +993,41 @@ cost cryptsetup measures on the machine. Visual Agents makes and opens its own t
 with keys it holds. The work is the machine&#39;s root half&#39;s, and a key travels only over TLS, a
 socket file, the same machine, a page loaded from this machine&#39;s <code>localhost</code> or the tailnet. The
 module is <code>modules/volumes</code>, and its README has the API.</p>
+<h2 id="when-something-is-wrong"><a class="anchor" href="#when-something-is-wrong" aria-hidden="true" tabindex="-1">#</a>When something is wrong</h2>
+<p>Every minute serviceman looks for what is wrong, and shows it in a red bar under the page&#39;s
+header, on every page; the bar opens the <strong>Problems</strong> page, one card each: where it is, since
+when, why, and what mends it. A problem shows once it is seen twice in a row, so a blip of a
+second is not one, and leaves on its own once it is mended. Each is written to the log too,
+<code>problem_begin</code> and <code>problem_end</code> (<a href="logs.html">The log</a>).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>It looks for</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A machine that was here and went offline</td>
+<td>Its link.</td>
+</tr>
+<tr>
+<td>A copy of a service that does not answer</td>
+<td>A request to it, the way a visitor&#39;s goes.</td>
+</tr>
+<tr>
+<td>A container Docker was meant to keep running, down</td>
+<td>Its restart policy, and how it exited: a container stopped by hand is not one.</td>
+</tr>
+<tr>
+<td>A running container whose mounted files are gone</td>
+<td>Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart.</td>
+</tr>
+<tr>
+<td>Lines Logline does not take</td>
+<td>What Logline answered the machine last, how long nothing went while lines wait, and how full the machine&#39;s store is.</td>
+</tr>
+</tbody></table>
+</div>
 <h2 id="when-the-machine-is-away"><a class="anchor" href="#when-the-machine-is-away" aria-hidden="true" tabindex="-1">#</a>When the machine is away</h2>
 <div class="table-wrap"><table>
 <thead>

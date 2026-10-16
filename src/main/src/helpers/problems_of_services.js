@@ -1,0 +1,68 @@
+const http = require('http');
+
+const TIMEOUT_MS = 5000;
+
+// Every copy that is meant to be up, asked whether it answers, the way a visitor's request
+// reaches it: through its machine's link, at its upstream. Any answer at all is an answer; only
+// a connection that is refused, dropped or never made is a problem. A copy on a machine that is
+// offline is left to that machine's own problem.
+async function problems_of_services(app)
+{
+    const all = [];
+    for (const service of app.services) {
+        for (const instance of service.state.instances) {
+            if ((instance.phase !== 'running') || (instance.upstream === null) || (instance.upstream === undefined)) {
+                continue;
+            }
+            const remote = ((instance.remote === null) ? null : app.remote_by_name[instance.remote]);
+            if ((remote !== null) && ((remote === undefined) || (remote.state.phase !== 'online'))) {
+                continue;
+            }
+            all.push(probe(service, instance));
+        }
+    }
+    return (await Promise.all(all)).filter(v => v !== null);
+}
+
+function probe(service, instance)
+{
+    const upstream = instance.upstream;
+    const where = `${upstream.host}:${upstream.port}${(instance.remote === null) ? '' : ` on ${instance.remote}`}`;
+    return new Promise(function (resolve) {
+        let req;
+        try {
+            req = http.request({host: upstream.host, port: upstream.port, method: 'HEAD', path: '/', agent: instance.agent, timeout: TIMEOUT_MS}, function (res) {
+                res.resume();
+                resolve(null);
+            });
+        }
+        catch {
+            // No way to it at all: the link went between the look at the machine and now
+            resolve(null);
+            return;
+        }
+        req.on('timeout', function () {
+            req.destroy(Object.assign(new Error(`no answer in ${TIMEOUT_MS/1000}s`), {code: 'ETIMEDOUT'}));
+        });
+        req.on('error', function (error) {
+            if ((typeof error.code === 'string') && error.code.startsWith('HPE_')) {
+                // It answered, in something that is not HTTP: it is there
+                resolve(null);
+                return;
+            }
+            resolve({
+                key: `service_silent:${service.name}:${instance.slot}`,
+                kind: 'service',
+                remote: instance.remote,
+                service: service.name,
+                subject: `${service.title || service.name} does not answer`,
+                cause: `nothing answers at ${where}: ${error.message}`,
+                fix: ((service.type === 'external') ? `It is not serviceman's to start: see that it runs ${(instance.remote === null) ? 'here' : `on ${instance.remote}`}.` : 'Restart it from its page; its log says why it stopped answering.'),
+                since: null,
+            });
+        });
+        req.end();
+    });
+}
+
+module.exports = problems_of_services;

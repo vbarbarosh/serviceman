@@ -2939,3 +2939,84 @@ table.procs tr.dim .meter {
     font-size: .85rem;
     overflow-wrap: anywhere;
 }
+
+/* What is wrong: a row of its own under the header, on every page, until it is mended */
+#app:has(> #problems-bar) {
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+#problems-bar {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    min-width: 0;
+    padding: .45rem 1rem;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+    background: color-mix(in srgb, var(--bad) 12%, var(--panel));
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .15s ease-out;
+}
+
+#problems-bar:hover {
+    background: color-mix(in srgb, var(--bad) 20%, var(--panel));
+}
+
+#problems-bar svg,
+#problems-bar b {
+    flex: none;
+    color: var(--bad);
+}
+
+#problems-bar .problems-first {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#problems-bar .problems-open {
+    flex: none;
+    color: var(--bad);
+}
+
+/* The Problems page: one card each, the subject and where it is on one line, why and what mends it below */
+.problems .problem {
+    display: grid;
+    gap: .35rem;
+    margin-bottom: .75rem;
+    padding: .7rem .9rem;
+    border-left: 3px solid var(--bad);
+}
+
+.problems .problems-none {
+    padding: .7rem .9rem;
+}
+
+.problems .problem-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.problems .problem-subject {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.problems .problem-since {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.problems .problem-cause,
+.problems .problem-fix {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
