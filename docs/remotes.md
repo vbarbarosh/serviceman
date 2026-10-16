@@ -361,9 +361,12 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | A container Docker was meant to keep running, down | Its restart policy, and how it exited: a container stopped by hand is not one.                                       |
 | A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart.  |
 | Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
-| Logline, or its viewer, not answering              | A request to its endpoint and to its viewer, the way a machine's lines and Open Logline go.                          |
+| Logline's viewer not answering                     | A request to it, the way Open Logline goes.                                                                          |
 
-Health shows the rest beside them, said but not counted as problems:
+Health shows the rest beside them, said but not counted as problems, one table per part with a
+column per check; a click on a row opens every check's detail under it. Logline's store counts as
+working while the machines' lines are taken: its address is theirs to reach, and serviceman may
+not be able to look it up.
 
 | Check            | Orange or red when                                                                                     |
 |------------------|--------------------------------------------------------------------------------------------------------|

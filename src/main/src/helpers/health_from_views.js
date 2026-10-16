@@ -5,6 +5,7 @@ const DISK_LOW = 0.10;
 const DISK_OUT = 0.03;
 const MEM_LOW = 0.05;
 const CPU_BUSY = 0.90;
+const STORE_QUIET_MS = 10*60*1000;
 
 // How everything is, one row per thing and one check per thing it does: the machines and their
 // agents, disks, updates, Docker and firewall; the services and whether they answer; Logline
@@ -21,7 +22,8 @@ function health_from_views(views, seen)
     const areas = [
         {key: 'machines', title: 'Machines', rows: views.remotes.map(v => machine_row(v, views, seen, problems))},
         {key: 'services', title: 'Services', rows: views.services.map(v => service_row(v, seen, problems))},
-        {key: 'logs', title: 'Logs', rows: logs_rows(views, seen, problems)},
+        {key: 'logline', title: 'Logline', rows: [logline_row(views, seen)]},
+        {key: 'lines', title: 'Lines per machine', rows: lines_rows(views, problems)},
         {key: 'forwards', title: 'Forwards', rows: views.forwards.map(forward_row)},
     ];
     const counts = {bad: 0, warn: 0, none: 0, ok: 0};
@@ -173,7 +175,7 @@ function service_row(service, seen, problems)
             continue;
         }
         const answer = seen_check(key, 'Answers', `service:${service.name}:${instance.slot}`, seen);
-        checks.push(Object.assign(answer, {text: `${answer.text}${where}`}));
+        checks.push((answer.state === 'none') ? answer : Object.assign(answer, {text: `${answer.text}${where}`}));
     }
     return row(`service:${service.name}`, service.title || service.name, {service: service.name}, checks);
 }
@@ -198,20 +200,43 @@ function phase_check(service)
     return check('phase', 'State', 'none', phase, null);
 }
 
-// Logline itself, its two doors asked as a visitor would, then each machine's lines on their way
-function logs_rows(views, seen, problems)
+// Logline itself: whether it takes lines, said by what the machines hear back from it (its
+// endpoint is their way in, a name serviceman may not resolve), and its viewer, asked as a
+// visitor would
+function logline_row(views, seen)
 {
-    const out = [];
     if (views.logline === null) {
-        out.push(row('logline', 'Logline', {}, [check('store', 'Store', 'none', 'not set up', 'serviceman sends nobody\'s lines anywhere: the config has no logline.')]));
-        return out;
+        return row('logline', 'Logline', {}, [check('store', 'Store', 'none', 'not set up', 'serviceman sends nobody\'s lines anywhere: the config has no logline.')]);
     }
-    const checks = [seen_check('store', 'Store', 'logline:endpoint', seen)];
+    const checks = [store_check(views)];
     if (views.logline.ui !== null) {
         checks.push(seen_check('viewer', 'Viewer', 'logline:ui', seen));
     }
     checks.push(views.logline.admin_kept ? check('admin', 'Admin token', 'ok', 'kept', null) : check('admin', 'Admin token', 'warn', 'not kept', 'Machines get no Logline token without it: Logline\'s page, Admin token.'));
-    out.push(row('logline', 'Logline', {}, checks));
+    return row('logline', 'Logline', {}, checks);
+}
+
+// Logline takes lines when a machine had them taken lately; it refuses when every machine that
+// sends is refused
+function store_check(views)
+{
+    const sending = views.remotes.filter(v => (v.phase === 'online') && (v.logline.status !== null) && (v.logline.status.collecting === true));
+    const taken = sending.filter(v => (v.logline.status.last_answer === 'ok') && (v.logline.status.last_sent_at !== null) && (views.now - Date.parse(v.logline.status.last_sent_at) < STORE_QUIET_MS));
+    if (taken.length > 0) {
+        const last = Math.min(...taken.map(v => views.now - Date.parse(v.logline.status.last_sent_at)));
+        return check('store', 'Store', 'ok', `takes lines, last ${format_duration_ms(last)} ago`, `${taken.length} of ${sending.length} ${plural(sending.length, 'machine', 'machines')} had their lines taken in the last ${STORE_QUIET_MS/60000} minutes`);
+    }
+    const refused = sending.filter(v => (v.logline.status.last_answer !== null) && (v.logline.status.last_answer !== 'ok'));
+    if ((refused.length > 0) && (refused.length === sending.length)) {
+        return check('store', 'Store', 'bad', 'refuses every machine', refused.map(v => `${v.name}: ${v.logline.status.last_answer}`).join('\n'));
+    }
+    return check('store', 'Store', 'none', 'nothing sent lately', 'No machine had lines taken in the last 10 minutes.');
+}
+
+// Each machine's lines on their way to Logline
+function lines_rows(views, problems)
+{
+    const out = [];
     for (const remote of views.remotes) {
         if (remote.logline.logs === 'off') {
             continue;
@@ -246,12 +271,12 @@ function lines_checks(remote, now, problems)
     }
     const full = problems.get(`logline_full:${name}`);
     if (full !== undefined) {
-        const lines = status.waiting.lines.toLocaleString('en-US');
-        out.push(Object.assign(from_problem('waiting', 'Waiting', full, `${lines} lines, near the limit`), {state: 'warn'}));
+        const lines = status.waiting.lines;
+        out.push(Object.assign(from_problem('waiting', 'Waiting', full, `${lines.toLocaleString('en-US')} ${plural(lines, 'line', 'lines')}, near the limit`), {state: 'warn'}));
     }
     else {
         const lines = status.waiting.lines;
-        out.push(check('waiting', 'Waiting', 'ok', ((lines === 0) ? 'nothing' : `${lines.toLocaleString('en-US')} lines`), (Number.isFinite(status.cap_bytes) ? `${mb(status.waiting.bytes)} of ${mb(status.cap_bytes)} kept on the machine` : null)));
+        out.push(check('waiting', 'Waiting', 'ok', ((lines === 0) ? 'nothing' : `${lines.toLocaleString('en-US')} ${plural(lines, 'line', 'lines')}`), (Number.isFinite(status.cap_bytes) ? `${mb(status.waiting.bytes)} of ${mb(status.cap_bytes)} kept on the machine` : null)));
     }
     const dirs = Object.keys(status.dir_errors || {});
     if (dirs.length > 0) {

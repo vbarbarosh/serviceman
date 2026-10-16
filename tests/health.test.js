@@ -76,20 +76,33 @@ test('Logline down, a machine it refuses, and one near its cap', function () {
         {key: 'logline_refused:vps1', kind: 'logline', remote: 'vps1', subject: 'Logline does not take vps1\'s lines', cause: 'it answers "401"', fix: 'restart Docker there'},
         {key: 'logline_full:vps2', kind: 'logline', remote: 'vps2', subject: 'vps2\'s lines near the limit', cause: '906 MB of 954 MB', fix: 'let Logline take them'},
     ];
-    const health = health_from_views(views({remotes: [refused, full, quiet], problems}), seen({'logline:endpoint': ok('answers in 4 ms'), 'logline:ui': {state: 'bad', text: 'does not answer', detail: 'ECONNREFUSED'}}));
-    const rows = area(health, 'logs').rows;
-    assert.deepStrictEqual(rows.map(v => v.key), ['logline', 'logs:vps1', 'logs:vps2'], 'a machine that sends no lines has no row');
-    assert.strictEqual(check_of(rows[0], 'viewer').state, 'bad');
-    assert.strictEqual(rows[0].state, 'bad');
-    assert.strictEqual(check_of(rows[1], 'sending').state, 'bad');
-    assert.strictEqual(check_of(rows[2], 'waiting').state, 'warn');
-    assert.strictEqual(check_of(rows[2], 'sending').state, 'ok');
+    const health = health_from_views(views({remotes: [refused, full, quiet], problems}), seen({'logline:ui': {state: 'bad', text: 'does not answer', detail: 'ECONNREFUSED'}}));
+    const logline = area(health, 'logline').rows[0];
+    assert.strictEqual(check_of(logline, 'viewer').state, 'bad');
+    assert.strictEqual(check_of(logline, 'store').state, 'ok', 'vps2 had its lines taken a moment ago');
+    assert.strictEqual(logline.state, 'bad');
+    const rows = area(health, 'lines').rows;
+    assert.deepStrictEqual(rows.map(v => v.key), ['logs:vps1', 'logs:vps2'], 'a machine that sends no lines has no row');
+    assert.strictEqual(check_of(rows[0], 'sending').state, 'bad');
+    assert.strictEqual(check_of(rows[1], 'waiting').state, 'warn');
+    assert.strictEqual(check_of(rows[1], 'waiting').text, '2,144,009 lines, near the limit');
+    assert.strictEqual(check_of(rows[1], 'sending').state, 'ok');
+});
+
+test('Logline\'s store is judged by what the machines hear, not asked from here', function () {
+    const sending = remote('vps1');
+    const refused = remote('vps2', {logline: logline_of({last_answer: '401 not from an address this token was issued for'})});
+    assert.strictEqual(check_of(area(health_from_views(views({remotes: [sending, refused]}), seen({})), 'logline').rows[0], 'store').state, 'ok');
+    const all_refused = health_from_views(views({remotes: [refused]}), seen({}));
+    assert.strictEqual(check_of(area(all_refused, 'logline').rows[0], 'store').text, 'refuses every machine');
+    const one = remote('vps1', {logline: logline_of({waiting: {lines: 1, bytes: 300, oldest: null}})});
+    assert.strictEqual(check_of(area(health_from_views(views({remotes: [one]}), seen({})), 'lines').rows[0], 'waiting').text, '1 line');
 });
 
 test('nothing set up is said, not counted as broken', function () {
     const health = health_from_views(views({logline: null}), seen({}));
-    assert.deepStrictEqual(health.areas.map(v => [v.key, v.rows.length]), [['machines', 0], ['services', 0], ['logs', 1], ['forwards', 0]]);
-    assert.strictEqual(area(health, 'logs').rows[0].state, 'none');
+    assert.deepStrictEqual(health.areas.map(v => [v.key, v.rows.length]), [['machines', 0], ['services', 0], ['logline', 1], ['lines', 0], ['forwards', 0]]);
+    assert.strictEqual(area(health, 'logline').rows[0].state, 'none');
     assert.deepStrictEqual(health.counts, {bad: 0, warn: 0, none: 1, ok: 0});
     assert.strictEqual(health.checked_at, null);
 });

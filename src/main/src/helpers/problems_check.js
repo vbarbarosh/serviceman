@@ -81,14 +81,14 @@ async function check(app)
     }));
     asked.push(health_of_logline(app.config.logline).then(function (list) {
         seen.push(...list);
-        // Logline away is every machine's lines going nowhere, or Open Logline refused
+        // Logline's viewer away is Open Logline refused
         for (const [key, item] of list) {
             if (item.state === 'bad') {
                 found.push({
                     key: key.replace(/^logline:/, 'logline_down:'),
                     kind: 'logline',
                     remote: null,
-                    subject: ((key === 'logline:ui') ? 'Logline\'s viewer does not answer' : 'Logline does not answer'),
+                    subject: 'Logline\'s viewer does not answer',
                     cause: item.cause,
                     fix: 'See that Logline runs on its machine: its containers on that machine\'s Docker tab.',
                     since: null,
