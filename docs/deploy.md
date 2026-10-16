@@ -188,9 +188,9 @@ Even on this machine, and through the control socket, nothing gets in without a 
   machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
   to them. It is shown once, and only its hash is kept, in
   `data/control_tokens.json`. It never touches the config, a secret, a service or another
-  machine, and opens no other shell. **Change…** changes its label, machines (**every
+  machine, and opens no other shell. **Edit…** changes its label, machines (**every
   machine**, those added later too, is one tick), rights and folders in place, the token
-  staying the same; **New value…** gives it another, shown once, the old one refused at once;
+  staying the same; **Rotate…** gives it a new value, shown once, the old one refused at once;
   **Revoke…** ends it.
 
 A caller sends its token with every request:

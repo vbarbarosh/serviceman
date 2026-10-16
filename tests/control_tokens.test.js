@@ -116,7 +116,7 @@ test('without SERVICEMAN_OWNER_TOKEN the owner\'s token is made once, kept in ow
     assert.strictEqual(control_owner_token(again), made);
 });
 
-test('a token is changed in place and goes on working; a new value refuses the old one; every machine is every machine', async function (t) {
+test('a token is edited in place and goes on working; rotated, the old value is refused; every machine is every machine', async function (t) {
     const running = await serviceman_start(t);
     const made = await token_make(running, {label: 'visual-agency', remotes: ['vps1'], rights: ['files'], folders: ['~/wrong']});
 
@@ -131,12 +131,12 @@ test('a token is changed in place and goes on working; a new value refuses the o
     assert.strictEqual((await call(running, 'PUT', `/api/v1/tokens/${made.item.id}`, {label: 'x', remotes: [], rights: ['status']}, made.token)).status, 403, 'a token does not change itself');
     assert.strictEqual(running.app.log_lines.some(v => /\[control_token_changed\] .*folders=~\/visual-agency,~\/notes/.test(v)), true);
 
-    // A new value: the old one refused at once, the new one with the same rights
-    const renewed = JSON.parse((await call(running, 'POST', `/api/v1/tokens/${made.item.id}/renew`, null, running.owner)).body);
-    assert.notStrictEqual(renewed.token, made.token);
+    // Rotated: the old value refused at once, the new one with the same rights
+    const rotated = JSON.parse((await call(running, 'POST', `/api/v1/tokens/${made.item.id}/rotate`, null, running.owner)).body);
+    assert.notStrictEqual(rotated.token, made.token);
     assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, made.token)).status, 401);
-    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, renewed.token)).status, 200);
-    assert.deepStrictEqual([renewed.item.rights, renewed.item.folders], [['files', 'status'], ['~/visual-agency', '~/notes']]);
+    assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, rotated.token)).status, 200);
+    assert.deepStrictEqual([rotated.item.rights, rotated.item.folders], [['files', 'status'], ['~/visual-agency', '~/notes']]);
 
     // Every machine, those added later too
     const every = await token_make(running, {label: 'all', remotes: ['*', 'vps1'], rights: ['status', 'metrics']});

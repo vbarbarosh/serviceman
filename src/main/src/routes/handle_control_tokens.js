@@ -17,14 +17,14 @@ const FOLDERS_MAX = 20;
 // A year: the page stays signed in until its owner signs out or the token changes
 const COOKIE_MAX_AGE_S = 365*24*60*60;
 const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
-const RE_TOKEN_RENEW = /^\/api\/v1\/tokens\/([0-9a-f]+)\/renew$/;
+const RE_TOKEN_ROTATE = /^\/api\/v1\/tokens\/([0-9a-f]+)\/rotate$/;
 
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
 // GET /api/v1/tokens                 the tokens made, and the rights there are
 // POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders}, said once
 // PUT /api/v1/tokens/<id> (body)     the same fields, changed; the token itself stays
-// POST /api/v1/tokens/<id>/renew     a new value, said once; the old one is refused at once
+// POST /api/v1/tokens/<id>/rotate    a new value, said once; the old one is refused at once
 // DELETE /api/v1/tokens/<id>         revoked, at once
 //
 // True when the request was one of these. Signing in is open to any caller of the control
@@ -55,9 +55,9 @@ async function handle_control_tokens(app, req, res, url)
         await token_change(app, req, res, one[1]);
         return true;
     }
-    const renew = RE_TOKEN_RENEW.exec(url.pathname);
-    if ((renew !== null) && (req.method === 'POST')) {
-        token_renew(app, res, renew[1]);
+    const rotate = RE_TOKEN_ROTATE.exec(url.pathname);
+    if ((rotate !== null) && (req.method === 'POST')) {
+        token_rotate(app, res, rotate[1]);
         return true;
     }
     if ((one !== null) && (req.method === 'DELETE')) {
@@ -128,9 +128,9 @@ async function token_change(app, req, res, id)
     send_json(res, 200, {item: token_view(item)});
 }
 
-// A new value for a token that was lost or seen: the same rights, said once, the old value
-// refused from now on
-function token_renew(app, res, id)
+// A token rotated, for one that was lost or seen: a new value with the same rights, said once,
+// the old one refused from now on
+function token_rotate(app, res, id)
 {
     const found = control_tokens_read(app).find(v => v.id === id);
     if (found === undefined) {
@@ -138,10 +138,10 @@ function token_renew(app, res, id)
         return;
     }
     const token = control_token_new();
-    const item = Object.assign({}, found, {sha256: control_token_hash(token), renewed_at: new Date().toISOString()});
+    const item = Object.assign({}, found, {sha256: control_token_hash(token), rotated_at: new Date().toISOString()});
     delete item.used_at;
     control_tokens_write(app, control_tokens_read(app).map(v => ((v.id === id) ? item : v)));
-    log_event(app, 'control_token_renewed', {id: item.id, label: item.label});
+    log_event(app, 'control_token_rotated', {id: item.id, label: item.label});
     send_json(res, 200, {token, item: token_view(item)});
 }
 
@@ -216,7 +216,7 @@ function control_port(app)
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, renewed_at: ((token.renewed_at === undefined) ? null : token.renewed_at), used_at: ((token.used_at === undefined) ? null : token.used_at)};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, rotated_at: ((token.rotated_at === undefined) ? null : token.rotated_at), used_at: ((token.used_at === undefined) ? null : token.used_at)};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,

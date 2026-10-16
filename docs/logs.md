@@ -416,7 +416,7 @@ keeps its own copy, so a machine with no link still writes its log.
 | `control_token_used`         | An agent's token was used, by its label, and for what.                    |
 | `control_token_made`         | An agent's token was made: its label, machines and rights.                |
 | `control_token_changed`      | Its label, machines, rights or folders were changed; the token stayed.    |
-| `control_token_renewed`      | It was given a new value; the old one is refused from then on.            |
+| `control_token_rotated`      | It was given a new value; the old one is refused from then on.            |
 | `control_token_revoked`      | One was revoked.                                                          |
 | `control_signed_in`          | The page was signed in with the owner's token.                            |
 | `control_sign_in_refused`    | A token that is not the owner's was tried at the sign-in.                 |

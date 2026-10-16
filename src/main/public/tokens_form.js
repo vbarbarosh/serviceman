@@ -16,7 +16,8 @@ const RIGHTS_SAID = {
 
 // The tokens of the control door: each one for an agent or a program, with the machines it
 // sees and what it may do with them. A token is shown once, when it is made or given a new
-// value; only its hash is kept. What it may do is changed in place, the token staying the same.
+// value by a rotation; only its hash is kept. What it may do is edited in place, the token
+// staying the same.
 const tokens_form = {
     template: `
 <article id="detail" class="form">
@@ -33,13 +34,13 @@ const tokens_form = {
             <dd class="tk-row">
                 <span class="muted">{{ machines_text(item) }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template> · {{ used_text(item) }}</span>
                 <template v-if="(asking.id !== item.id)">
-                    <button type="button" :disabled="busy" @click="change_open(item)">Change…</button>
-                    <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'renew'}">New value…</button>
+                    <button type="button" :disabled="busy" @click="edit_open(item)">Edit…</button>
+                    <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'rotate'}">Rotate…</button>
                     <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'revoke'}">Revoke…</button>
                 </template>
-                <template v-else-if="(asking.what === 'renew')">
-                    <span>A new value for {{ item.label }}? The one it has now stops working at once; its rights stay.</span>
-                    <button type="button" class="primary" :disabled="busy" @click="renew(item)">Make a new value</button>
+                <template v-else-if="(asking.what === 'rotate')">
+                    <span>Rotate {{ item.label }}? It gets a new value with the same rights, and the one it has now stops working at once.</span>
+                    <button type="button" class="primary" :disabled="busy" @click="rotate(item)">Rotate</button>
                     <button type="button" @click="asking = {id: '', what: ''}">Keep it</button>
                 </template>
                 <template v-else>
@@ -52,7 +53,7 @@ const tokens_form = {
     </dl>
     <p v-else class="muted">None yet.</p>
 
-    <h2 ref="form">{{ (editing === null) ? 'A new token' : ('Change ' + editing.label) }}</h2>
+    <h2 ref="form">{{ (editing === null) ? 'A new token' : ('Edit ' + editing.label) }}</h2>
     <p v-if="(editing !== null)" class="muted">The token stays the same: whoever holds it goes on with what is ticked here from the next request.</p>
     <div class="grid">
         <label for="tk-label">Label</label>
@@ -115,7 +116,7 @@ const tokens_form = {
             remotes_chosen: [],
             rights_chosen: ['status'],
             folders: '',
-            // The token just made or given a new value, the one time it is shown: {label, token}
+            // The token just made or rotated, the one time it is shown: {label, token}
             made: null,
             copied: '',
             // The question a token's button asked and is not answered yet: {id, what}
@@ -171,7 +172,7 @@ const tokens_form = {
             return `used ${format_ms_ago(Date.now() - Date.parse(item.used_at))}`;
         },
         // The form takes the token's fields, and the page goes to it
-        change_open: function (item) {
+        edit_open: function (item) {
             this.editing = item;
             this.label = item.label;
             this.every = item.remotes.includes('*');
@@ -200,12 +201,12 @@ const tokens_form = {
             }
             this.made = ((editing === null) ? {label: loaded.item.label, token: loaded.token} : null);
             this.copied = '';
-            this.note = ((editing === null) ? '' : `${loaded.item.label} is changed`);
+            this.note = ((editing === null) ? '' : `${loaded.item.label} is saved`);
             this.form_reset();
             await this.load();
         },
-        renew: async function (item) {
-            const loaded = await this.call(`/api/v1/tokens/${item.id}/renew`, 'POST', null);
+        rotate: async function (item) {
+            const loaded = await this.call(`/api/v1/tokens/${item.id}/rotate`, 'POST', null);
             if (loaded === null) {
                 return;
             }
