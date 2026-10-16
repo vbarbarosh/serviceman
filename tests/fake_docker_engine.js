@@ -72,7 +72,7 @@ function route(engine, req, res)
     const one = /^\/containers\/([^/]+)\/json$/.exec(url.pathname);
     const logs = /^\/containers\/([^/]+)\/logs$/.exec(url.pathname);
     if (url.pathname === '/containers/json') {
-        json_send(res, 200, [...engine.containers.values()].map(v => ({Id: v.id})));
+        json_send(res, 200, [...engine.containers.values()].map(v => ({Id: v.id, Names: [`/${v.name}`], Image: v.image, Labels: v.labels, State: (v.running ? 'running' : 'exited')})));
         return;
     }
     if (one !== null) {

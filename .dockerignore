@@ -8,3 +8,5 @@ docs
 *.log
 *.png
 *.zip
+logline/lines/node_modules
+logline/lines/data

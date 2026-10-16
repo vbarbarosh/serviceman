@@ -1470,6 +1470,22 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>logline_sweep_error</code></td>
 <td>The minute&#39;s round of telling broke before it began.</td>
 </tr>
+<tr>
+<td><code>logline_update_begin</code></td>
+<td>Update Logline was pressed on Logline&#39;s page.</td>
+</tr>
+<tr>
+<td><code>logline_update_put</code></td>
+<td>The files that differed were put in Logline&#39;s folder on its machine; <code>files=</code> how many.</td>
+</tr>
+<tr>
+<td><code>logline_update_ok</code></td>
+<td>Its project was started again; <code>restarted=</code> the services that mount a file that was put.</td>
+</tr>
+<tr>
+<td><code>logline_update_error</code></td>
+<td>The update stopped, and why: Logline&#39;s machine not found, a file not put, docker failing.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="problems"><a class="anchor" href="#problems" aria-hidden="true" tabindex="-1">#</a>Problems</h3>

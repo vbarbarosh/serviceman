@@ -33,7 +33,10 @@ const load_test_stop = require('../helpers/load_test_stop');
 const load_test_url = require('../helpers/load_test_url');
 const log_event = require('../helpers/log_event');
 const log_within = require('../helpers/log_within');
+const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
+const logline_place = require('../helpers/logline_place');
+const logline_update = require('../helpers/logline_update');
 const path = require('path');
 const problems_check = require('../helpers/problems_check');
 const remote_call = require('../helpers/remote_call');
@@ -266,6 +269,14 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/logline') && (req.method === 'PUT')) {
         await logline_put(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/logline/place') && (req.method === 'GET')) {
+        await logline_place_answer(app, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/logline/update') && (req.method === 'POST')) {
+        await logline_update_answer(app, res);
         return;
     }
     if ((url.pathname === '/api/v1/secrets') && (req.method === 'POST')) {
@@ -1771,6 +1782,50 @@ function control_owner_or_refuse(app, req, res)
     log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: ((caller === null) ? 'no_token' : 'not_the_owner')});
     render_error_page(res, ((caller === null) ? 401 : 403), 'Sign in first', 'Open the control page and sign in with the owner\'s token');
     return false;
+}
+
+// GET /api/v1/logline/place
+// Where Logline runs, and which of its files there are not the ones this serviceman carries;
+// what keeps it from being found, said as the error
+async function logline_place_answer(app, res)
+{
+    let place;
+    let files;
+    try {
+        place = await logline_place(app);
+        files = await logline_compare(app, place);
+    }
+    catch (error) {
+        send_json(res, 409, {error: error.message});
+        return;
+    }
+    send_json(res, 200, {
+        remote: place.remote.name,
+        project: place.project,
+        dir: place.dir,
+        files: files.map(v => ({path: v.path, state: v.state})),
+        differs: files.filter(v => v.state !== 'same').length,
+    });
+}
+
+// POST /api/v1/logline/update
+// Logline on its machine made the same as here, answered as it goes: one JSON object a line,
+// {step, steps, name, text} or {text}, and last {end: done | failed, said}, as the Docker
+// module's long actions answer
+async function logline_update_answer(app, res)
+{
+    res.writeHead(200, {'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff'});
+    log_event(app, 'logline_update_begin', {});
+    try {
+        const done = await logline_update(app, function (value) {
+            res.write(`${JSON.stringify(value)}\n`);
+        });
+        res.end(`${JSON.stringify({end: 'done', said: done.said})}\n`);
+    }
+    catch (error) {
+        log_event(app, 'logline_update_error', {reason: error.message});
+        res.end(`${JSON.stringify({end: 'failed', said: error.message})}\n`);
+    }
 }
 
 // One problem as the page shows it: since when it is known, the moment it began where that is

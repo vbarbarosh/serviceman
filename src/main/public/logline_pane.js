@@ -20,6 +20,26 @@ const logline_pane = {
             <button v-if="(service !== null)" type="button" @click="$emit('select', service.name)">Its service page</button>
         </div>
     </div>
+    <!-- Logline on its machine, kept the same as the one serviceman carries: no terminal needed -->
+    <div class="card logline-place">
+        <div class="row-of">
+            <b>On its machine</b>
+            <span v-if="(place === null)" class="muted">looking…</span>
+            <span v-else-if="(place.error !== undefined)" class="bad">{{ place.error }}</span>
+            <span v-else-if="(place.differs === 0)" class="muted">{{ place.dir }} on {{ place.remote }}: the same as here</span>
+            <span v-else class="busy">{{ place.dir }} on {{ place.remote }}: {{ place.differs }} {{ (place.differs === 1) ? 'file differs' : 'files differ' }} from here</span>
+        </div>
+        <ul v-if="((place !== null) && (place.differs > 0))" class="logline-files">
+            <li v-for="item of place_changed.slice(0, 8)" :key="item.path"><code>{{ item.path }}</code> <span class="muted">{{ (item.state === 'missing') ? 'not there' : 'older there' }}</span></li>
+            <li v-if="(place_changed.length > 8)" class="muted">and {{ place_changed.length - 8 }} more</li>
+        </ul>
+        <div class="actions">
+            <button type="button" class="primary" :disabled="update_off" :title="update_title" @click="update">{{ (updating ? 'Updating…' : 'Update Logline') }}</button>
+            <span v-if="((run !== null) && (run.step !== null) && updating)" class="muted">{{ run.step.at }} of {{ run.step.of }}: {{ run.step.name }}</span>
+        </div>
+        <pre v-if="((run !== null) && (run.text !== ''))" class="logline-run">{{ run.text }}</pre>
+        <p v-if="((run !== null) && (updating === false))" :class="((run.phase === 'done') ? 'muted' : 'bad')">{{ run.said }}</p>
+    </div>
     <h2>Remotes</h2>
     <fold-table v-slot="fold" :order="['acts', 'sent', 'waiting']">
         <table>
@@ -129,9 +149,28 @@ const logline_pane = {
             form: {endpoint: '', admin_token: '', ui: ''},
             form_note: '',
             form_bad: false,
+            // Where Logline runs and how its files there compare ({error} when it is not found),
+            // and the update going or last made
+            place: null,
+            run: null,
         };
     },
     computed: {
+        place_changed: function () {
+            return (((this.place === null) || (this.place.files === undefined)) ? [] : this.place.files.filter(v => (v.state !== 'same')));
+        },
+        updating: function () {
+            return ((this.run !== null) && (this.run.phase === 'running'));
+        },
+        update_off: function () {
+            return (this.updating || (this.place === null) || (this.place.error !== undefined) || (this.place.differs === 0));
+        },
+        update_title: function () {
+            if ((this.place !== null) && (this.place.differs === 0)) {
+                return 'Logline on its machine is the same as here: nothing to update';
+            }
+            return 'Put the files that differ on Logline\'s machine and start it again there';
+        },
         logline: function () {
             return ((this.state.logline === undefined) ? null : this.state.logline);
         },
@@ -177,7 +216,54 @@ const logline_pane = {
             });
         },
     },
+    mounted: function () {
+        this.place_read();
+    },
     methods: {
+        place_read: async function () {
+            try {
+                const answer = await fetch('/api/v1/logline/place');
+                const body = await answer.json();
+                this.place = (answer.ok ? body : {error: body.error});
+            }
+            catch {
+                this.place = {error: 'serviceman did not answer'};
+            }
+        },
+        // The update as it goes: one JSON object a line, {step, steps, name, text}, {text} and
+        // last {end, said}
+        update: async function () {
+            this.run = {phase: 'running', step: null, text: '', said: ''};
+            const run = this.run;
+            try {
+                const answer = await fetch('/api/v1/logline/update', {method: 'POST'});
+                const reader = answer.body.getReader();
+                const decoder = new TextDecoder();
+                let held = '';
+                for (;;) {
+                    const part = await reader.read();
+                    if (part.done) {
+                        break;
+                    }
+                    held += decoder.decode(part.value, {stream: true});
+                    const lines = held.split('\n');
+                    held = lines.pop();
+                    for (const line of lines) {
+                        run_line(run, line);
+                    }
+                }
+                run_line(run, held);
+                if (run.phase === 'running') {
+                    run.phase = 'failed';
+                    run.said = 'the answer stopped before the end';
+                }
+            }
+            catch {
+                run.phase = 'failed';
+                run.said = 'the answer never came back';
+            }
+            await this.place_read();
+        },
         // Whether anything folded out of this row has a value to show under it
         more_of: function (row, folded) {
             return ((folded.includes('sent') && (row.sent !== '')) || (folded.includes('waiting') && (row.waiting !== '')) || (folded.includes('acts') && row.off));
@@ -266,6 +352,24 @@ function remote_title(remotes, names)
     const name = ((Array.isArray(names) && (names.length > 0)) ? names[0] : null);
     const found = remotes.find(v => v.name === name);
     return ((found === undefined) ? (name || '') : (found.title || found.name));
+}
+
+function run_line(run, line)
+{
+    if (line.trim() === '') {
+        return;
+    }
+    const item = JSON.parse(line);
+    if (item.step !== undefined) {
+        run.step = {at: item.step, of: item.steps, name: item.name};
+    }
+    if (item.text !== undefined) {
+        run.text += `${item.text}\n`;
+    }
+    if (item.end !== undefined) {
+        run.phase = item.end;
+        run.said = item.said;
+    }
 }
 
 export default logline_pane;

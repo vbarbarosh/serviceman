@@ -33,6 +33,8 @@ COPY config ./config
 COPY src ./src
 # The modules (File Manager, Terminal, Docker), which src/ requires and the control page imports
 COPY modules ./modules
+# Logline as serviceman puts it on the machine that runs it (Update Logline on its page)
+COPY logline ./logline
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 # On the volume, not in the image: it holds tokens, .dockerignore keeps it out of the build, and
 # what the control page writes into it has to outlive a --rm container

@@ -403,6 +403,10 @@ keeps its own copy, so a machine with no link still writes its log.
 | `logline_token_revoked` | A remote that left the config had its token taken back.                 |
 | `logline_revoke_error`  | Logline could not be reached to take it back; tried again every minute. |
 | `logline_sweep_error`   | The minute's round of telling broke before it began.                    |
+| `logline_update_begin`  | Update Logline was pressed on Logline's page.                           |
+| `logline_update_put`    | The files that differed were put in Logline's folder on its machine; `files=` how many. |
+| `logline_update_ok`     | Its project was started again; `restarted=` the services that mount a file that was put. |
+| `logline_update_error`  | The update stopped, and why: Logline's machine not found, a file not put, docker failing. |
 
 ### Problems
 

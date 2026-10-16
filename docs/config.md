@@ -208,6 +208,15 @@ admin token and the viewer — and written here; the admin token goes to the Sec
 | `admin`    | The name of a secret in the **Secrets** library holding Logline's `ADMIN_TOKEN`. The value is never in the config. |
 | `ui`       | Where Logline's viewer is, such as `http://logline:8081/`. Optional: the **Logline** button on a machine's **Logs** tab opens it. |
 
+Logline itself runs on one machine, as a compose project. serviceman carries its files in its
+image and keeps that machine's copy the same: **Update Logline** on Logline's page compares
+every file by sha256, puts the ones that differ in the project's folder, runs
+`docker compose up -d --build` there, and starts again each service that mounts a file that was
+put (a file is replaced whole, and a container keeps the old one until it starts again). The
+machine is the one the service named `logline` is on, and the folder is the one its containers
+were started from; `.env` and what Logline keeps are the machine's and stay. Logline has to be
+started there once by hand, the first time.
+
 A remote with `"logs": "all"` is told the endpoint and a token of its own. Logline binds that
 token to the machine's addresses, which the agent says when it dials in; the token works from
 those addresses and nowhere else. serviceman keeps the tokens it was given in
