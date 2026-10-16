@@ -1400,7 +1400,8 @@ test('a folder is copied from one machine to another whole: files at any depth, 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-folder-'));
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
     const first = agent_start(running.control_port, TOKEN);
-    const second = agent_start(running.control_port, TOKEN2, [], {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-'))});
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-home-'));
+    const second = agent_start(running.control_port, TOKEN2, [], {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), HOME: home});
     try {
         await wait_until(() => running.app.remote_by_name.vps1.state.phase === 'online');
         await wait_until(() => running.app.remote_by_name.vps2.state.phase === 'online');
@@ -1437,6 +1438,14 @@ test('a folder is copied from one machine to another whole: files at any depth, 
         assert.strictEqual(fs.readlinkSync(path.join(to, 'lib')), 'src');
         assert.deepStrictEqual(fs.readdirSync(to).sort(), ['-rf', 'empty', 'empty.txt', 'film.bin', 'lib', 'run.sh', 'src', 'привет.txt']);
         assert.strictEqual(running.app.log_lines.some(v => /\[transfer_end_ok\] .*files=1206/.test(v)), true);
+
+        // A folder named without a root, and not there yet, is made under that machine's home
+        fs.rmSync(path.join(from, 'src'), {recursive: true});
+        const relative = await control(running, 'POST', '/api/v1/transfers', {from: {disk: 'vps1', path: from}, to: {disk: 'vps2', dir: 'ggg/new'}});
+        await wait_until(() => ['ok', 'error'].includes(item_of(running, relative.body.id).phase), 60000);
+        assert.deepStrictEqual([item_of(running, relative.body.id).phase, item_of(running, relative.body.id).said], ['ok', '']);
+        assert.strictEqual(fs.readFileSync(path.join(home, 'ggg', 'new', 'proj', 'run.sh'), 'utf8'), 'echo hi\n');
+        assert.strictEqual(fs.existsSync(path.join(process.cwd(), 'ggg')), false, 'nothing made in the folder the agent was started in');
     }
     finally {
         first.kill('SIGKILL');
