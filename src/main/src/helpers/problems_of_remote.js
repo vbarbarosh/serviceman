@@ -9,6 +9,8 @@ const SOURCES_SKIPPED = /^\/(proc|sys|dev|run|var\/run|var\/lib\/docker)(\/|$)/;
 // What is wrong with one connected machine's containers, asked of its Docker and its disk: the
 // containers that are not running, inspected, and the files the running ones mount, each
 // looked for. A machine with no Docker its agent can reach has nothing to say here.
+//
+//     out   {problems, seen}: seen [[key, {state, text, detail}]], the containers counted
 async function problems_of_remote(app, remote)
 {
     let connect;
@@ -16,7 +18,7 @@ async function problems_of_remote(app, remote)
         connect = docker_exec_connect(app, remote);
     }
     catch {
-        return [];
+        return {problems: [], seen: []};
     }
     const list = await engine_json(connect, 'GET', '/containers/json?all=1');
     const inspect = {};
@@ -35,7 +37,10 @@ async function problems_of_remote(app, remote)
             }
         }
     }
-    return problems_from_containers(remote.name, list, inspect, gone);
+    const running = list.filter(v => v.State === 'running').length;
+    const rest = list.length - running;
+    const text = `${running} running${(rest === 0) ? '' : `, ${rest} not`}`;
+    return {problems: problems_from_containers(remote.name, list, inspect, gone), seen: [[`docker:${remote.name}`, {state: 'ok', text, detail: 'Every container Docker is meant to keep running runs, and the files they mount are there.'}]]};
 }
 
 // Only a name that is not there counts: one the agent may not open is somebody else's

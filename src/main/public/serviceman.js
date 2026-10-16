@@ -9,6 +9,7 @@ import fold_table from './fold_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import forwards_section from './forwards_section.js';
+import health_pane from './health_pane.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -17,7 +18,6 @@ import logline_stage from './logline_stage.js';
 import map_pane from './map_pane.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
-import problems_pane from './problems_pane.js';
 import remote_docker from './remote_docker.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
@@ -2370,7 +2370,7 @@ const app = {
     </button>
 </header>
 <!-- What is wrong, above everything else on every page: a row of its own under the header -->
-<button v-if="(problems.length > 0)" type="button" id="problems-bar" :title="problems.map(v => v.subject).join('\\n')" @click="problems_show">
+<button v-if="(problems.length > 0)" type="button" id="problems-bar" :title="problems.map(v => v.subject).join('\\n')" @click="health_show">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>
     <b>{{ problems.length }} {{ (problems.length === 1) ? 'problem' : 'problems' }}</b>
     <span class="problems-first">{{ problems[0].subject }}<span v-if="(problems.length > 1)" class="muted"> and {{ problems.length - 1 }} more</span></span>
@@ -2380,6 +2380,11 @@ const app = {
     <!-- One row per kind of thing, never one per thing: the rail stays the same length however
          many services there are, and each row is always where it was -->
     <nav id="rail" ref="rail">
+        <button type="button" class="row kind" :class="{on: (kind_now === 'health'), open: (kind_now === 'health')}" title="How everything is: machines, services, logs, forwards" @click="health_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg>
+            <span class="name">Health</span>
+            <span :class="health_tally.state" :title="health_tally.title">{{ health_tally.text }}</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'services' && selected_name === null), open: (kind_now === 'services')}" @click="home_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
             <span class="name">Services</span>
@@ -2480,7 +2485,7 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <problems-pane v-else-if="problems_open" :state="state" @remote="remote_select_named" @select="select_named"/>
+        <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
         <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
@@ -2497,7 +2502,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'problems-pane': problems_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2536,7 +2541,7 @@ const app = {
             secrets_open: false,
             tokens_open: false,
             logline_open: false,
-            problems_open: false,
+            health_open: false,
             authwall_open: false,
             load_tests_open: false,
             secrets_count: '',
@@ -2574,6 +2579,21 @@ const app = {
         // What is wrong now, as the last look found it (problems_check), the oldest first
         problems: function () {
             return (((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems);
+        },
+        // The Health row's word: what is wrong, else what to look at, else that all is well
+        health_tally: function () {
+            const counts = (((this.state === null) || (this.state.health === undefined)) ? null : this.state.health.counts);
+            const warn = ((counts === null) ? 0 : counts.warn);
+            if (this.problems.length > 0) {
+                return {state: 'bad', text: `${this.problems.length} ${(this.problems.length === 1) ? 'problem' : 'problems'}`, title: this.problems.map(v => v.subject).join('\n')};
+            }
+            if (warn > 0) {
+                return {state: 'warn', text: `${warn} to look at`, title: `${warn} ${(warn === 1) ? 'thing works' : 'things work'}, but ${(warn === 1) ? 'asks' : 'ask'} for a look`};
+            }
+            if ((counts === null) || (counts.ok === 0)) {
+                return {state: 'muted', text: '', title: 'Nothing set up yet'};
+            }
+            return {state: 'muted', text: 'all well', title: 'Nothing is wrong that serviceman can see'};
         },
         summary: function () {
             if (this.answering === false) {
@@ -2622,8 +2642,8 @@ const app = {
             if (this.logline_open) {
                 return '/logline';
             }
-            if (this.problems_open) {
-                return '/problems';
+            if (this.health_open) {
+                return '/health';
             }
             if (this.authwall_open) {
                 return '/authwall';
@@ -2686,8 +2706,8 @@ const app = {
             if (this.logline_open) {
                 return 'logline';
             }
-            if (this.problems_open) {
-                return 'problems';
+            if (this.health_open) {
+                return 'health';
             }
             if (this.authwall_open) {
                 return 'authwall';
@@ -2956,8 +2976,9 @@ const app = {
                 this.logline_open = true;
                 return;
             }
-            if (route.kind === 'problems') {
-                this.problems_open = true;
+            // The Problems page became a part of Health: an old address still finds them
+            if ((route.kind === 'health') || (route.kind === 'problems')) {
+                this.health_open = true;
                 return;
             }
             if (route.kind === 'authwall') {
@@ -3064,9 +3085,9 @@ const app = {
             this.panes_close();
             this.logline_open = true;
         },
-        problems_show: function () {
+        health_show: function () {
             this.panes_close();
-            this.problems_open = true;
+            this.health_open = true;
         },
         authwall_show: function () {
             this.panes_close();
@@ -3190,7 +3211,7 @@ const app = {
             this.networking_open = false;
             this.forwards_open = false;
             this.logline_open = false;
-            this.problems_open = false;
+            this.health_open = false;
             this.authwall_open = false;
             this.load_tests_open = false;
             this.remotes_open = false;

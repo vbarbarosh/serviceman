@@ -26,6 +26,7 @@ const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
+const health_from_views = require('../helpers/health_from_views');
 const load_test_log_path = require('../helpers/load_test_log_path');
 const load_test_run = require('../helpers/load_test_run');
 const load_test_stop = require('../helpers/load_test_stop');
@@ -122,7 +123,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'problems', 'authwall', 'load-tests'];
+const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'problems', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -1799,27 +1800,33 @@ function state_from_app(app)
     for (const remote of app.remotes) {
         remotes.push(view_from_remote(remote, now, app.config.logline));
     }
+    const logline = ((app.config.logline === null) ? null : {
+        endpoint: app.config.logline.endpoint,
+        ui: app.config.logline.ui,
+        admin: app.config.logline.admin,
+        admin_kept: secrets_read(app).global[app.config.logline.admin] !== undefined,
+    });
+    const problems = Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since));
+    const forwards = app.config.forwards.map(v => view_from_forward(app, v));
+    const agent_built = agent_bundle.built_at();
     return {
         now,
         started_at: app.started_at,
         // The agent this host serves: a machine running an older one is a machine to update
-        agent_built: agent_bundle.built_at(),
+        agent_built,
         listen: app.config.listen,
         control: app.config.control,
         // Whether a machine may add itself, and what it may claim — never the token itself
         join: ((app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix}),
         // Where Logline is, and whether its admin token is kept — never the token itself
-        logline: ((app.config.logline === null) ? null : {
-            endpoint: app.config.logline.endpoint,
-            ui: app.config.logline.ui,
-            admin: app.config.logline.admin,
-            admin_kept: secrets_read(app).global[app.config.logline.admin] !== undefined,
-        }),
+        logline,
         services,
         remotes,
         // What is wrong now, the oldest first: what the last check found and has seen twice
-        problems: Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since)),
-        forwards: app.config.forwards.map(v => view_from_forward(app, v)),
+        problems,
+        // How everything is, the good with the bad: the Health page
+        health: health_from_views({now, agent_built, logline, services, remotes, forwards, problems}, app.health_seen),
+        forwards,
         // Where a forward that shows up on serviceman itself puts its socket file
         state_dir: app.state_dir,
         // What k6 is sent at, each with the address it asks, and the runs so far, oldest first

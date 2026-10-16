@@ -295,7 +295,7 @@ Configure tab installs them.
 An upgrade can restart Docker, and Docker does not bring back every container it stopped.
 Before it starts, serviceman notes the containers that run; once it is over, it waits for
 Docker to answer and starts again each one that is not running. What cannot start is named at
-the end of the upgrade's lines, with Docker's reason, and on the Problems page.
+the end of the upgrade's lines, with Docker's reason, and on the Health page.
 
 ## Its ports and its firewall
 
@@ -345,11 +345,15 @@ module is `modules/volumes`, and its README has the API.
 
 ## When something is wrong
 
-Every minute serviceman looks for what is wrong, and shows it in a red bar under the page's
-header, on every page; the bar opens the **Problems** page, one card each: where it is, since
-when, why, and what mends it. A problem shows once it is seen twice in a row, so a blip of a
-second is not one, and leaves on its own once it is mended. Each is written to the log too,
-`problem_begin` and `problem_end` ([The log](logs.md)).
+Every minute serviceman looks at everything it runs and knows, and the **Health** page, first
+in the rail, shows what it found: one row per thing (a machine, a service, Logline and each
+machine's lines, a forward), and one check per thing it does, green when it works, orange when
+it works but wants a look, red when it does not, grey when there is nothing to say yet. What is
+wrong comes first, one card each: where it is, since when, why, and what mends it; a red bar
+under the page's header says so on every page and opens it. A problem shows once it is seen
+twice in a row, so a blip of a second is not one, and leaves on its own once it is mended. Each
+is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)). The old
+address `/problems` opens Health.
 
 | It looks for                                       | How                                                                                                                  |
 |----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
@@ -358,6 +362,19 @@ second is not one, and leaves on its own once it is mended. Each is written to t
 | A container Docker was meant to keep running, down | Its restart policy, and how it exited: a container stopped by hand is not one.                                       |
 | A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart.  |
 | Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
+| Logline, or its viewer, not answering              | A request to its endpoint and to its viewer, the way a machine's lines and Open Logline go.                          |
+
+Health shows the rest beside them, said but not counted as problems:
+
+| Check            | Orange or red when                                                                                     |
+|------------------|--------------------------------------------------------------------------------------------------------|
+| Agent            | It runs an older agent than serviceman serves, or will not update (it says why).                       |
+| Disk             | Under 10% of the disk is free; red under 3%.                                                           |
+| Memory, CPU      | Under 5% of the memory is free; the CPU is 90% busy or more.                                           |
+| Updates          | Security updates wait, or the machine wants a restart after an upgrade.                                |
+| Firewall         | ufw is installed and off. Asked every five minutes, one `ufw status`; grey where ufw is not there.     |
+| Doors            | The machine did not take its door table.                                                               |
+| Forwards         | A forward cannot listen, or one of its two machines is away.                                           |
 
 ## When the machine is away
 

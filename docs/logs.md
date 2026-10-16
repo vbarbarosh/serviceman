@@ -407,7 +407,7 @@ keeps its own copy, so a machine with no link still writes its log.
 ### Problems
 
 What is wrong, looked at every minute and after every upgrade; the control page shows the same
-list, in a bar under its header and on its Problems page.
+list, in a bar under its header and first on its Health page.
 
 | Sender                   | What it says                                                            |
 |--------------------------|-------------------------------------------------------------------------|

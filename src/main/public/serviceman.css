@@ -1010,6 +1010,10 @@ code {
     white-space: pre-wrap;
 }
 
+.warn {
+    color: var(--busy);
+}
+
 pre {
     overflow: auto;
     margin: 0;
@@ -2984,8 +2988,9 @@ table.procs tr.dim .meter {
     color: var(--bad);
 }
 
-/* The Problems page: one card each, the subject and where it is on one line, why and what mends it below */
-.problems .problem {
+/* The Health page: what is wrong first, one card each, the subject and where it is on one
+   line, why and what mends it below; then a row per thing, its checks as chips that wrap */
+.health .problem {
     display: grid;
     gap: .35rem;
     margin-bottom: .75rem;
@@ -2993,11 +2998,7 @@ table.procs tr.dim .meter {
     border-left: 3px solid var(--bad);
 }
 
-.problems .problems-none {
-    padding: .7rem .9rem;
-}
-
-.problems .problem-head {
+.health .problem-head {
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
@@ -3005,18 +3006,161 @@ table.procs tr.dim .meter {
     min-width: 0;
 }
 
-.problems .problem-subject {
+.health .problem-subject {
     min-width: 0;
     overflow-wrap: anywhere;
 }
 
-.problems .problem-since {
+.health .problem-since {
     margin-left: auto;
     white-space: nowrap;
 }
 
-.problems .problem-cause,
-.problems .problem-fix {
+.health .problem-cause,
+.health .problem-fix {
     margin: 0;
     overflow-wrap: anywhere;
+}
+
+.health .list-head {
+    flex-wrap: wrap;
+}
+
+.health .health-checked {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.health .ok-text {
+    color: var(--run);
+}
+
+.health-area h2 {
+    margin: 1.2rem 0 .5rem;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.health-area .health-empty {
+    margin: 0;
+}
+
+.health-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+    gap: .35rem .9rem;
+    align-items: start;
+    margin-bottom: .45rem;
+    padding: .5rem .75rem;
+    border-left: 3px solid var(--line);
+}
+
+.health-row.state-bad {
+    border-left-color: var(--bad);
+}
+
+.health-row.state-warn {
+    border-left-color: var(--busy);
+}
+
+.health-row.state-ok {
+    border-left-color: var(--run);
+}
+
+.health-name {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    min-width: 0;
+    padding-top: .2rem;
+}
+
+.health-name button.link,
+.health-name b {
+    min-width: 0;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.health-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    min-width: 0;
+}
+
+.health-check {
+    display: inline-block;
+    max-width: 100%;
+    padding: .15rem .5rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: .85rem;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition: background-color .15s ease-out, border-color .15s ease-out;
+}
+
+/* Inline, so a chip too long for the row wraps inside itself rather than being cut */
+.health-check .dot {
+    display: inline-block;
+    margin-right: .4rem;
+    vertical-align: .05em;
+}
+
+.health-check:hover:not(.plain),
+.health-check.open {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.health-check.plain {
+    cursor: default;
+}
+
+.health-check.state-bad {
+    border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+    background: color-mix(in srgb, var(--bad) 8%, var(--panel));
+}
+
+.health-check.state-warn {
+    border-color: color-mix(in srgb, var(--busy) 45%, var(--line));
+    background: color-mix(in srgb, var(--busy) 8%, var(--panel));
+}
+
+.health-check.state-none {
+    color: var(--muted);
+}
+
+.health-label {
+    margin-right: .35rem;
+    color: var(--muted);
+}
+
+.health-detail {
+    grid-column: 2;
+    margin: 0;
+    color: var(--muted);
+    font-size: .85rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+    .health-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .health-detail {
+        grid-column: 1;
+    }
 }

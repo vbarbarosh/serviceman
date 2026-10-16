@@ -37,6 +37,8 @@ function app_from_config(config)
         // in progress: a second one asked meanwhile waits for it instead
         problems: new Map(),
         problems_check: null,
+        // What the last check asked and heard, the good with the bad, by key (health_from_views)
+        health_seen: {checked_at: null, items: new Map()},
         // Where the service door ended up, once it is open
         listen_port: null,
         // What went through each forward, by label: since this serviceman started, and the

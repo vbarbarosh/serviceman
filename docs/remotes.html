@@ -953,7 +953,7 @@ Configure tab installs them.</p>
 <p>An upgrade can restart Docker, and Docker does not bring back every container it stopped.
 Before it starts, serviceman notes the containers that run; once it is over, it waits for
 Docker to answer and starts again each one that is not running. What cannot start is named at
-the end of the upgrade&#39;s lines, with Docker&#39;s reason, and on the Problems page.</p>
+the end of the upgrade&#39;s lines, with Docker&#39;s reason, and on the Health page.</p>
 <h2 id="its-ports-and-its-firewall"><a class="anchor" href="#its-ports-and-its-firewall" aria-hidden="true" tabindex="-1">#</a>Its ports and its firewall</h2>
 <p>The <strong>Firewall</strong> tab of a remote is what the machine listens on and what its firewall, ufw,
 lets through. (It was two tabs, Ports and Firewall; an old <code>/ports</code> address opens it.)</p>
@@ -994,11 +994,15 @@ with keys it holds. The work is the machine&#39;s root half&#39;s, and a key tra
 socket file, the same machine, a page loaded from this machine&#39;s <code>localhost</code> or the tailnet. The
 module is <code>modules/volumes</code>, and its README has the API.</p>
 <h2 id="when-something-is-wrong"><a class="anchor" href="#when-something-is-wrong" aria-hidden="true" tabindex="-1">#</a>When something is wrong</h2>
-<p>Every minute serviceman looks for what is wrong, and shows it in a red bar under the page&#39;s
-header, on every page; the bar opens the <strong>Problems</strong> page, one card each: where it is, since
-when, why, and what mends it. A problem shows once it is seen twice in a row, so a blip of a
-second is not one, and leaves on its own once it is mended. Each is written to the log too,
-<code>problem_begin</code> and <code>problem_end</code> (<a href="logs.html">The log</a>).</p>
+<p>Every minute serviceman looks at everything it runs and knows, and the <strong>Health</strong> page, first
+in the rail, shows what it found: one row per thing (a machine, a service, Logline and each
+machine&#39;s lines, a forward), and one check per thing it does, green when it works, orange when
+it works but wants a look, red when it does not, grey when there is nothing to say yet. What is
+wrong comes first, one card each: where it is, since when, why, and what mends it; a red bar
+under the page&#39;s header says so on every page and opens it. A problem shows once it is seen
+twice in a row, so a blip of a second is not one, and leaves on its own once it is mended. Each
+is written to the log too, <code>problem_begin</code> and <code>problem_end</code> (<a href="logs.html">The log</a>). The old
+address <code>/problems</code> opens Health.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -1025,6 +1029,48 @@ second is not one, and leaves on its own once it is mended. Each is written to t
 <tr>
 <td>Lines Logline does not take</td>
 <td>What Logline answered the machine last, how long nothing went while lines wait, and how full the machine&#39;s store is.</td>
+</tr>
+<tr>
+<td>Logline, or its viewer, not answering</td>
+<td>A request to its endpoint and to its viewer, the way a machine&#39;s lines and Open Logline go.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Health shows the rest beside them, said but not counted as problems:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Orange or red when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Agent</td>
+<td>It runs an older agent than serviceman serves, or will not update (it says why).</td>
+</tr>
+<tr>
+<td>Disk</td>
+<td>Under 10% of the disk is free; red under 3%.</td>
+</tr>
+<tr>
+<td>Memory, CPU</td>
+<td>Under 5% of the memory is free; the CPU is 90% busy or more.</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td>Security updates wait, or the machine wants a restart after an upgrade.</td>
+</tr>
+<tr>
+<td>Firewall</td>
+<td>ufw is installed and off. Asked every five minutes, one <code>ufw status</code>; grey where ufw is not there.</td>
+</tr>
+<tr>
+<td>Doors</td>
+<td>The machine did not take its door table.</td>
+</tr>
+<tr>
+<td>Forwards</td>
+<td>A forward cannot listen, or one of its two machines is away.</td>
 </tr>
 </tbody></table>
 </div>
