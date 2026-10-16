@@ -10,6 +10,7 @@ const RIGHTS_SAID = {
     disks: 'its disks and how full they are',
     packages: 'what is installed, and what waits to be',
     containers: 'its docker containers',
+    files: 'the file manager, within the folders below and nothing above them',
     terminals: 'list, make, join and end its kept terminals: a shell on the machine',
 };
 
@@ -26,7 +27,7 @@ const tokens_form = {
         <template v-for="item of tokens" :key="item.id">
             <dt>{{ item.label }}</dt>
             <dd class="tk-row">
-                <span class="muted">{{ item.remotes.length === 0 ? 'no machine' : item.remotes.join(', ') }} · {{ item.rights.join(', ') }} · {{ used_text(item) }}</span>
+                <span class="muted">{{ item.remotes.length === 0 ? 'no machine' : item.remotes.join(', ') }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template> · {{ used_text(item) }}</span>
                 <template v-if="(going !== item.id)">
                     <button type="button" @click="going = item.id">Take it back…</button>
                 </template>
@@ -53,6 +54,13 @@ const tokens_form = {
         <div class="tk-checks">
             <label v-for="right of rights" :key="right" class="check"><input type="checkbox" :value="right" v-model="rights_chosen"> <span><b>{{ right }}</b> {{ said_of(right) }}</span></label>
         </div>
+        <template v-if="rights_chosen.includes('files')">
+            <label for="tk-folders">Folders</label>
+            <div>
+                <textarea id="tk-folders" v-model="folders" rows="3" placeholder="~/visual-agency&#10;~/notes" spellcheck="false"></textarea>
+                <p class="muted">One a line, the same on each of its machines; <code>~</code> is that machine's home. A folder not there yet is made when something is first written into it. A link inside that leads out is refused too.</p>
+            </div>
+        </template>
     </div>
     <div v-if="(made !== null)" class="tk-made">
         <p><b>{{ made.label }}</b>: copy it now, it is not shown again.</p>
@@ -62,7 +70,7 @@ const tokens_form = {
         </div>
     </div>
     <div class="actions">
-        <button type="button" class="primary" :disabled="(busy || label === '' || rights_chosen.length === 0)" @click="make">Make the token</button>
+        <button type="button" class="primary" :disabled="(busy || label === '' || rights_chosen.length === 0 || (rights_chosen.includes('files') && folders_list.length === 0))" @click="make">Make the token</button>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
 </article>
@@ -76,6 +84,7 @@ const tokens_form = {
             label: '',
             remotes_chosen: [],
             rights_chosen: ['status'],
+            folders: '',
             // The token just made, the one time it is shown: {label, token}
             made: null,
             copied: false,
@@ -85,6 +94,11 @@ const tokens_form = {
             bad: false,
             note: '',
         };
+    },
+    computed: {
+        folders_list: function () {
+            return this.folders.split('\n').map(v => v.trim()).filter(v => (v !== ''));
+        },
     },
     methods: {
         load: async function () {
@@ -109,7 +123,7 @@ const tokens_form = {
             this.note = '';
             this.made = null;
             try {
-                const answer = await fetch('/api/v1/tokens', {method: 'POST', body: JSON.stringify({label: this.label, remotes: this.remotes_chosen, rights: this.rights_chosen})});
+                const answer = await fetch('/api/v1/tokens', {method: 'POST', body: JSON.stringify({label: this.label, remotes: this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list})});
                 const loaded = await answer.json();
                 if (answer.ok === false) {
                     this.bad = true;
@@ -120,6 +134,7 @@ const tokens_form = {
                 this.copied = false;
                 this.label = '';
                 this.remotes_chosen = [];
+                this.folders = '';
                 await this.load();
             }
             catch (error) {

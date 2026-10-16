@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
+const agent_fs_path = require('./agent_fs_path');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 // What a file may land under: a name of its own, and nothing that walks out of the folder
@@ -19,11 +19,11 @@ function agent_file_put(target)
     if ((RE_NAME.test(name) === false) || (name === '.') || (name === '..')) {
         throw new Error(`a file lands under a name of its own, and ${JSON.stringify(name)} is not one`);
     }
-    const dir = dir_resolved(String((target.dir === undefined) ? '~' : target.dir));
+    const dir = agent_fs_path(String((target.dir === undefined) ? '~' : target.dir), target.root);
     // A folder that is not there is made: the host asks for a place, not for a place that
     // somebody has already been to
     fs.mkdirSync(dir, {recursive: true});
-    const full = path.join(dir, name);
+    const full = agent_fs_path(path.join(dir, name), target.root);
     const replaced = fs.existsSync(full);
     // A file that is there is written over as itself: through a link to the file the link
     // points at, and with the permissions it had — an edited script stays runnable
@@ -79,12 +79,4 @@ function agent_file_put(target)
 // Where a folder the host names is on this machine. `~` is the home of the user the agent
 // runs as, and a folder written without a root is under it — the reading a person sitting at
 // this machine would give it.
-function dir_resolved(text)
-{
-    if ((text === '~') || text.startsWith('~/')) {
-        return path.join(os.homedir(), text.slice(1));
-    }
-    return path.resolve(os.homedir(), text);
-}
-
 module.exports = agent_file_put;

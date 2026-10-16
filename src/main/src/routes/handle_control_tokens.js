@@ -11,6 +11,8 @@ const send_json = require('../helpers/send_json');
 
 const BODY_LIMIT_BYTES = 16*1024;
 const LABEL_MAX = 100;
+const FOLDER_MAX = 500;
+const FOLDERS_MAX = 20;
 // A year: the page stays signed in until its owner signs out or the token changes
 const COOKIE_MAX_AGE_S = 365*24*60*60;
 const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
@@ -18,7 +20,7 @@ const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
 // GET /api/v1/tokens                 the tokens made, and the rights there are
-// POST /api/v1/tokens (body)         one more: {label, remotes, rights}, said once
+// POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders}, said once
 // DELETE /api/v1/tokens/<id>         taken back, at once
 //
 // True when the request was one of these. Signing in is open to any caller of the control
@@ -110,17 +112,23 @@ async function token_make(app, req, res)
         send_json(res, 400, {error: `a token has some of the rights ${control_route_right.RIGHTS.join(', ')}`});
         return;
     }
+    // The files right is of some folders, the same paths on each of its machines, ~ their homes
+    const folders = ((Array.isArray(asked.folders) && rights.includes('files')) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : []);
+    if (rights.includes('files') && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => ((v.length > FOLDER_MAX) || /[\r\n\0]/.test(v))))) {
+        send_json(res, 400, {error: `the files right is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
+        return;
+    }
     const token = control_token_new();
-    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, rights, made_at: new Date().toISOString()};
+    const item = {id: crypto.randomBytes(8).toString('hex'), label, sha256: control_token_hash(token), remotes, rights, folders, made_at: new Date().toISOString()};
     control_tokens_write(app, control_tokens_read(app).concat([item]));
-    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), rights: rights.join(',')});
+    log_event(app, 'control_token_made', {id: item.id, label, remotes: remotes.join(','), rights: rights.join(','), folders: folders.join(',')});
     send_json(res, 200, {token, item: token_view(item)});
 }
 
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, used_at: ((token.used_at === undefined) ? null : token.used_at)};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,

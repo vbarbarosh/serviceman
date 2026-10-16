@@ -67,7 +67,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     const status = JSON.parse((await call(running, 'GET', '/api/v1/status', null, made.token)).body);
     assert.deepStrictEqual(Object.keys(status).sort(), ['now', 'remotes', 'services', 'started_at', 'token']);
     assert.deepStrictEqual(status.remotes.map(v => v.name), ['vps1']);
-    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics']});
+    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics'], folders: []});
     assert.strictEqual(JSON.stringify(status).includes(TOKEN), false);
 
     // A read of its machine goes on to the route; another machine, another read, any write is refused
@@ -79,7 +79,9 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [403, 'the token "the notes agent" may not read the processes']);
     const terminals = await call(running, 'GET', '/api/v1/remotes/vps1/terminals', null, made.token);
     assert.deepStrictEqual([terminals.status, JSON.parse(terminals.body).error], [403, 'the token "the notes agent" may not use the terminals']);
-    for (const [method, asked] of [['GET', '/api/v1/config'], ['GET', '/api/v1/secrets'], ['GET', '/api/v1/tokens'], ['POST', '/api/v1/services/x/start'], ['POST', '/api/v1/tokens'], ['GET', '/api/v1/remotes/vps1/fs?path=/'], ['POST', '/api/v1/remotes/vps1/metrics'], ['GET', '/']]) {
+    const files = await call(running, 'GET', '/api/v1/remotes/vps1/fs?path=/', null, made.token);
+    assert.deepStrictEqual([files.status, JSON.parse(files.body).error], [403, 'the token "the notes agent" may not use the files']);
+    for (const [method, asked] of [['GET', '/api/v1/config'], ['GET', '/api/v1/secrets'], ['GET', '/api/v1/tokens'], ['POST', '/api/v1/services/x/start'], ['POST', '/api/v1/tokens'], ['GET', '/api/v1/remotes/vps1/docker/containers/abc/fs?path=/'], ['POST', '/api/v1/transfers'], ['POST', '/api/v1/remotes/vps1/metrics'], ['GET', '/']]) {
         const answer = await call(running, method, asked, null, made.token);
         assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" has no right to this'], `${method} ${asked}`);
     }
@@ -88,7 +90,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
 
     // The list says when it was used; taken back, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'terminals']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'files', 'terminals']);
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);
     assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${made.item.id}`, null, running.owner)).status, 200);

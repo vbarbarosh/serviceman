@@ -927,6 +927,9 @@ list; list again after <code>resync</code>, and after the stream ends and is ope
 </code></pre>
 <p>The four part calls are optional: without <code>part_write</code> the page sends every file in one piece.
 <code>watch</code> is optional too: without it the watch door answers 501.</p>
+<p>A disk made for a token of the control door keeps every call within the token&#39;s folders: the
+machine&#39;s agent resolves each path, links included, and refuses with EACCES whatever lies
+outside them. A folder of the token not there yet lists empty; the first write makes it.</p>
 <p>The calls that answer with an object may return a promise. <code>read</code> and <code>tar</code> return the stream
 itself and may throw at once.</p>
 <h2 id="copies-between-disks"><a class="anchor" href="#copies-between-disks" aria-hidden="true" tabindex="-1">#</a>Copies between disks</h2>

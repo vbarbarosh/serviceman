@@ -182,6 +182,10 @@ counts, the list and each request.
 The four part calls are optional: without `part_write` the page sends every file in one piece.
 `watch` is optional too: without it the watch door answers 501.
 
+A disk made for a token of the control door keeps every call within the token's folders: the
+machine's agent resolves each path, links included, and refuses with EACCES whatever lies
+outside them. A folder of the token not there yet lists empty; the first write makes it.
+
 The calls that answer with an object may return a promise. `read` and `tar` return the stream
 itself and may throw at once.
 

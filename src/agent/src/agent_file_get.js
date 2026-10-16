@@ -14,7 +14,7 @@ function agent_file_get(target)
     if (typeof target.end === 'number') {
         slice.end = target.end;
     }
-    const file = fs.createReadStream(agent_fs_path(target.path), slice);
+    const file = fs.createReadStream(agent_fs_path(target.path, target.root), slice);
     const out = new EventEmitter();
     out.destroyed = false;
     out.setNoDelay = function () {};

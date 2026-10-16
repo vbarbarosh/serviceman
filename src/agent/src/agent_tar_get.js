@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const agent_fs_path = require('./agent_fs_path');
+const path = require('path');
 const {spawn} = require('child_process');
 
 // What a chosen name may be: a name of the folder itself, nothing that walks out of it
@@ -25,7 +26,12 @@ function agent_tar_get(target)
             throw new Error(`a name of the folder itself is wanted, and ${JSON.stringify(name)} is not one`);
         }
     }
-    const child = spawn('tar', ['-cf', '-', '-C', agent_fs_path(target.dir)].concat(names.map(v => `./${v}`)));
+    const dir = agent_fs_path(target.dir, target.root);
+    // A name may lead out of the folder through a link on its way; tar would follow it there
+    for (const name of names) {
+        agent_fs_path(path.join(dir, name), target.root);
+    }
+    const child = spawn('tar', ['-cf', '-', '-C', dir].concat(names.map(v => `./${v}`)));
     const said = [];
     const out = new EventEmitter();
     out.destroyed = false;

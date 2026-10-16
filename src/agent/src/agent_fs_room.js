@@ -6,7 +6,7 @@ const path = require('path');
 // inodes, null on a filesystem that counts none (btrfs says 0 of 0)
 async function agent_fs_room(params)
 {
-    let at = agent_fs_path(params.path);
+    let at = agent_fs_path(params.path, params.root);
     while ((fs.existsSync(at) === false) && (at !== path.dirname(at))) {
         at = path.dirname(at);
     }

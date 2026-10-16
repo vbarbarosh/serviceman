@@ -53,7 +53,7 @@ agent_fs_tree.reads = 0;
 async function* lines(target)
 {
     const time0 = Date.now();
-    const root = agent_fs_path(target.path);
+    const root = agent_fs_path(target.path, target.root);
     const hash = (target.hash === true);
     const skip = new Set(Array.isArray(target.skip) ? target.skip.map(String) : []);
     const stat = await fs.promises.stat(root);

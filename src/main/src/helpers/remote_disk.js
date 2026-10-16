@@ -9,8 +9,14 @@ const FS_TIMEOUT_MS = 15000;
 // The disk of one machine as the File Manager module asks for it. Every call goes over the
 // link its agent dialled, and the bytes are kept nowhere on this host. The agent answers as
 // its own user, and ~ is that user's home.
-function remote_disk(app, remote)
+//
+// options.root, the folders a token of the control door is kept within, goes with every call:
+// the agent refuses whatever lies outside them, and a path written without a root, or the
+// starting folder, is under the first.
+function remote_disk(app, remote, options)
 {
+    const root = (((options === undefined) || (Array.isArray(options.root) === false)) ? undefined : options.root);
+    const home = ((root === undefined) ? '~' : '');
     return {
         // Whether this machine's agent does that already: an older one copies a folder in
         // plainer steps
@@ -18,60 +24,60 @@ function remote_disk(app, remote)
             return remote_can(remote, feature);
         },
         list: function (asked) {
-            return remote_call(app, remote, 'fs_list', {path: (((asked === null) || (asked === '')) ? '~' : asked)}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_list', {path: (((asked === null) || (asked === '')) ? home : asked), root}, FS_TIMEOUT_MS);
         },
         stat: function (asked) {
-            return remote_call(app, remote, 'fs_stat', {path: asked}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_stat', {path: asked, root}, FS_TIMEOUT_MS);
         },
         read: function (asked, range) {
-            return tunnel_open(remote, {read: Object.assign({path: asked}, ((range === null) ? {} : {start: range.start, end: range.end}))});
+            return tunnel_open(remote, {read: Object.assign({path: asked, root}, ((range === null) ? {} : {start: range.start, end: range.end}))});
         },
-        tar: function (dir, names, options) {
-            return tunnel_open(remote, {tar: {dir: ((dir === '') ? '~' : dir), names, paths: ((options !== undefined) && (options.paths === true))}});
+        tar: function (dir, names, asked) {
+            return tunnel_open(remote, {tar: {dir: ((dir === '') ? home : dir), names, paths: ((asked !== undefined) && (asked.paths === true)), root}});
         },
-        tree: function (dir, options) {
-            return tunnel_open(remote, {tree: {path: (((dir === null) || (dir === '')) ? '~' : dir), hash: options.hash, skip: options.skip}});
+        tree: function (dir, asked) {
+            return tunnel_open(remote, {tree: {path: (((dir === null) || (dir === '')) ? home : dir), hash: asked.hash, skip: asked.skip, root}});
         },
-        watch: function (dir, options) {
-            return tunnel_open(remote, {watch: {path: (((dir === null) || (dir === '')) ? '~' : dir), tree: options.tree, skip: options.skip}});
+        watch: function (dir, asked) {
+            return tunnel_open(remote, {watch: {path: (((dir === null) || (dir === '')) ? home : dir), tree: asked.tree, skip: asked.skip, root}});
         },
         write: async function (dir, name, req) {
             try {
-                return await file_send(remote, {file: {dir, name}}, req);
+                return await file_send(remote, {file: {dir, name, root}}, req);
             }
             catch (error) {
                 throw new Error(`${remote.name}: ${error.message}`);
             }
         },
         rename: function (from, to) {
-            return remote_call(app, remote, 'fs_rename', {from, to}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_rename', {from, to, root}, FS_TIMEOUT_MS);
         },
         remove: function (asked) {
-            return remote_call(app, remote, 'fs_delete', {path: asked}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_delete', {path: asked, root}, FS_TIMEOUT_MS);
         },
         mkdir: function (asked) {
-            return remote_call(app, remote, 'dir_create', {path: asked}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'dir_create', {path: asked, root}, FS_TIMEOUT_MS);
         },
         room: function (dir) {
-            return remote_call(app, remote, 'fs_room', {path: (((dir === null) || (dir === '')) ? '~' : dir)}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_room', {path: (((dir === null) || (dir === '')) ? home : dir), root}, FS_TIMEOUT_MS);
         },
         write_tar: function (dir, source) {
-            return file_send(remote, {tar_put: {dir}}, source);
+            return file_send(remote, {tar_put: {dir, root}}, source);
         },
         part_stat: function (dir, name, id) {
-            return remote_call(app, remote, 'file_part_stat', {dir, name, id}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'file_part_stat', {dir, name, id, root}, FS_TIMEOUT_MS);
         },
         part_write: function (dir, name, id, offset, source) {
-            return file_send(remote, {part: {dir, name, id, offset}}, source);
+            return file_send(remote, {part: {dir, name, id, offset, root}}, source);
         },
         part_finish: function (dir, name, id, size, mode) {
-            return remote_call(app, remote, 'file_part_finish', {dir, name, id, size, mode}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'file_part_finish', {dir, name, id, size, mode, root}, FS_TIMEOUT_MS);
         },
         link_create: function (asked, target) {
-            return remote_call(app, remote, 'link_create', {path: asked, target}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'link_create', {path: asked, target, root}, FS_TIMEOUT_MS);
         },
         part_remove: function (dir, name, id) {
-            return remote_call(app, remote, 'file_part_remove', {dir, name, id}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'file_part_remove', {dir, name, id, root}, FS_TIMEOUT_MS);
         },
     };
 }

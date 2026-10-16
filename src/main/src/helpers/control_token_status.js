@@ -18,7 +18,7 @@ function control_token_status(app, token)
         }
         services.push(Object.assign(view, {instances, instances_running: instances.filter(v => v.phase === 'running').length}));
     }
-    return {now, started_at: app.started_at, token: {label: token.label, remotes: token.remotes, rights: token.rights}, services, remotes};
+    return {now, started_at: app.started_at, token: {label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : [])}, services, remotes};
 }
 
 module.exports = control_token_status;

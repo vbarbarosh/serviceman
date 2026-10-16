@@ -612,8 +612,18 @@ async function handle_fs(app, req, res, name, tail)
         send_json(res, 400, {error: `the agent on ${name} is from before the file manager — its page says how it updates`});
         return;
     }
+    // An agent's token is kept within its folders by the machine's agent, which an older one cannot
+    const token = req.control_token;
+    if ((token !== undefined) && ((Array.isArray(token.folders) === false) || (token.folders.length === 0))) {
+        send_json(res, 403, {error: `the token ${JSON.stringify(token.label)} names no folder for its files`});
+        return;
+    }
+    if ((token !== undefined) && (remote_can(remote, 'fs_root') === false)) {
+        send_json(res, 409, {error: `the agent on ${name} is from before a token is kept within its folder — its page says how it updates`});
+        return;
+    }
     await file_manager_serve(req, res, {
-        disk: remote_disk(app, remote),
+        disk: remote_disk(app, remote, ((token === undefined) ? undefined : {root: token.folders})),
         tail,
         name: remote.name,
         log: function (event, fields) {
@@ -1710,6 +1720,8 @@ function token_allowed(app, req, res, url, token)
         return false;
     }
     token.used_at = new Date().toISOString();
+    // The routes it goes on to keep it within what it may: the file manager within its folder
+    req.control_token = token;
     log_event(app, 'control_token_used', {token: token.label, method: req.method, path: url_logged(req.url)});
     if (right.right === 'status') {
         send_json(res, 200, control_token_status(app, token));

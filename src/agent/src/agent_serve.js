@@ -419,10 +419,10 @@ async function method_run(options, state, method, params, say, group)
         return await shell_stream(((params.pty === true) ? shell_pty_argv(line) : line), {}, say);
     }
     if (method === 'dir_create') {
-        return await agent_dir_create(params.path);
+        return await agent_dir_create(params.path, params.root);
     }
     if (method === 'fs_list') {
-        return await agent_fs_list(params.path);
+        return await agent_fs_list(params.path, params.root);
     }
     if (method === 'proc_list') {
         return await agent_proc_list();

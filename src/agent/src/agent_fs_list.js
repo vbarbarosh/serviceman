@@ -3,10 +3,15 @@ const fs = require('fs');
 const path = require('path');
 
 // One folder of this machine, read as the agent's own user: what that user may not open,
-// this cannot show. Folders first, then files, each half by name.
-async function agent_fs_list(asked)
+// this cannot show. Folders first, then files, each half by name. A folder of a token that is
+// not there yet is an empty one: it is made when something is first written into it.
+async function agent_fs_list(asked, root)
 {
-    const dir = agent_fs_path(asked);
+    const dir = agent_fs_path(asked, root);
+    const roots = (Array.isArray(root) ? root : [root]).filter(v => ((typeof v === 'string') && (v !== ''))).map(v => agent_fs_path(v));
+    if (roots.includes(dir) && (fs.existsSync(dir) === false)) {
+        return {path: dir, items: []};
+    }
     const found = await fs.promises.readdir(dir, {withFileTypes: true});
     const items = [];
     for (const entry of found) {

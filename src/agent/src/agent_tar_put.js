@@ -14,7 +14,7 @@ const tar_parser = require('../../../modules/file_manager/server/tar_parser');
 // files that were whole, and never half a file under the name of a whole one.
 function agent_tar_put(target)
 {
-    const dir = agent_fs_path(target.dir);
+    const dir = agent_fs_path(target.dir, target.root);
     fs.mkdirSync(dir, {recursive: true});
     const parser = tar_parser();
     const out = new EventEmitter();
@@ -86,7 +86,7 @@ function agent_tar_put(target)
                 return;
             }
             if (event.type === 'dir') {
-                fs.mkdirSync(path.join(dir, event.name), {recursive: true});
+                fs.mkdirSync(agent_fs_path(path.join(dir, event.name), target.root), {recursive: true});
             }
             else if (event.type === 'file') {
                 await file_open(event);
@@ -101,7 +101,8 @@ function agent_tar_put(target)
     }
 
     async function file_open(event) {
-        const full = path.join(dir, event.name);
+        // A name of the tar may lead out of the folder through a link already there
+        const full = agent_fs_path(path.join(dir, event.name), target.root);
         fs.mkdirSync(path.dirname(full), {recursive: true});
         const replaced = fs.existsSync(full);
         // A file that is there is written over as itself: through a link to the file the link

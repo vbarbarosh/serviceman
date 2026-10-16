@@ -179,9 +179,14 @@ Even on this machine, and through the control socket, nothing gets in without a 
   `DELETE /api/v1/session`.
 - **An agent's token** is made on the page's **Tokens** tab, for an agent or a program: a
   label, the machines it sees, and its rights on them. The reads are `status`, `metrics`,
-  `processes`, `ports`, `disks`, `packages` and `containers`; `terminals` lists, makes, joins,
-  signals and ends the kept terminals of its machines, a shell on each of them, so treat such a
-  token like an ssh key to them. It is shown once, and only its hash is kept, in
+  `processes`, `ports`, `disks`, `packages` and `containers`. `files` is the file manager of
+  its machines within **its folders** (`~/visual-agency`, `~/notes`, the same on each, `~` that
+  machine's home; the first is where it starts): the machine's agent resolves every path, links
+  included, and refuses whatever lies outside them, so neither `../` nor a link that leads out
+  gets past it. A folder not there yet lists empty and is made by the first write into it.
+  Copies between machines stay the owner's. `terminals` lists, makes, joins, signals and ends the kept terminals of its
+  machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
+  to them. It is shown once, and only its hash is kept, in
   `data/control_tokens.json`. It never touches the config, a secret, a service or another
   machine, and opens no other shell; taken back, it stops at once.
 

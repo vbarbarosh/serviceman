@@ -8,7 +8,7 @@ const path = require('path');
 //     params = {path, target}
 async function agent_link_create(params)
 {
-    const full = agent_fs_path(String(params.path));
+    const full = agent_fs_path(String(params.path), params.root);
     const target = String(params.target);
     if (target === '') {
         throw new Error('a link points somewhere, and its target is empty');

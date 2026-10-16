@@ -19,8 +19,10 @@ function agent_part_path(target)
     if (RE_ID.test(id) === false) {
         throw new Error(`an upload is named by letters and digits, and ${JSON.stringify(id)} is not that`);
     }
-    const dir = agent_fs_path((target.dir === undefined) ? '~' : target.dir);
-    return {dir, full: path.join(dir, name), part: path.join(dir, `.${name}.${id}.part`)};
+    const dir = agent_fs_path((target.dir === undefined) ? '~' : target.dir, target.root);
+    // The file itself too: a link of that name inside the folder may lead out of it
+    const full = agent_fs_path(path.join(dir, name), target.root);
+    return {dir, full, part: path.join(dir, `.${name}.${id}.part`)};
 }
 
 module.exports = agent_part_path;

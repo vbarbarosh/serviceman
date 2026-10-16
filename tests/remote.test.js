@@ -1454,6 +1454,75 @@ test('a folder is copied from one machine to another whole: files at any depth, 
     }
 });
 
+test('an agent\'s token with the files right is kept within its folder by the machine\'s agent itself, links included', async function () {
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-token-home-')));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, [], {HOME: home});
+    try {
+        await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
+        await wait_until(() => running.app.remote_by_name.ui1.state.resources.can.includes('fs_root'));
+        const notes = path.join(home, 'notes');
+        fs.mkdirSync(path.join(notes, 'inner'), {recursive: true});
+        fs.writeFileSync(path.join(notes, 'a.txt'), 'mine');
+        fs.writeFileSync(path.join(home, 'secret.txt'), 'not yours');
+        fs.symlinkSync(home, path.join(notes, 'out'));
+        const missing = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files']});
+        assert.deepStrictEqual([missing.status, missing.body.error], [400, 'the files right is of 1 to 20 folders, such as ~/notes or /srv/data, each one line of up to 500 characters']);
+        const made = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files'], folders: ['~/notes', '~/visual-agency']});
+        assert.strictEqual(made.status, 200);
+        // The file manager of ui1, asked with that token
+        function as_token(method, asked, body) {
+            return fetch_host({port: running.control_port, host: '127.0.0.1', method, path: `/api/v1/remotes/ui1/fs${asked}`, token: made.body.token, body}).then(v => ({status: v.status, body: v.body}));
+        }
+
+        // Its folder is where it starts, and what is in it is its own
+        const start = await as_token('GET', '');
+        assert.strictEqual(start.status, 200, start.body);
+        assert.deepStrictEqual([JSON.parse(start.body).path, JSON.parse(start.body).items.map(v => v.name).sort()], [notes, ['a.txt', 'inner', 'out']]);
+        assert.strictEqual((await as_token('GET', `/file${encodeURIComponent(path.join(notes, 'a.txt')).replace(/%2F/g, '/')}`)).body, 'mine');
+        assert.strictEqual((await as_token('POST', `/upload?dir=${encodeURIComponent('inner')}&name=new.txt`, 'new')).status, 200);
+        assert.strictEqual(fs.readFileSync(path.join(notes, 'inner', 'new.txt'), 'utf8'), 'new');
+
+        // A folder of it not there yet lists empty and is not made; the first write makes it
+        const later = path.join(home, 'visual-agency');
+        assert.deepStrictEqual(JSON.parse((await as_token('GET', `?path=${encodeURIComponent('~/visual-agency')}`)).body), {path: later, items: []});
+        assert.strictEqual(fs.existsSync(later), false);
+        assert.strictEqual((await as_token('POST', `/upload?dir=${encodeURIComponent('~/visual-agency/messages')}&name=first.md`, 'hello')).status, 200);
+        assert.strictEqual(fs.readFileSync(path.join(later, 'messages', 'first.md'), 'utf8'), 'hello');
+
+        // Nothing above it, however it is asked, and nothing through a link that leads out
+        for (const [method, asked, body] of [
+            ['GET', `?path=${encodeURIComponent('/')}`],
+            ['GET', `?path=${encodeURIComponent('..')}`],
+            ['GET', `?path=${encodeURIComponent('out')}`],
+            ['GET', `/file${home}/secret.txt`],
+            ['GET', `/file${notes}/out/secret.txt`],
+            ['POST', `/upload?dir=${encodeURIComponent(home)}&name=planted.txt`, 'planted'],
+            ['POST', `/upload?dir=${encodeURIComponent('out')}&name=planted.txt`, 'planted'],
+            ['POST', '/rename', JSON.stringify({from: path.join(notes, 'a.txt'), to: path.join(home, 'stolen.txt')})],
+            ['POST', '/delete', JSON.stringify({path: path.join(home, 'secret.txt')})],
+            ['POST', '/mkdir', JSON.stringify({path: path.join(home, 'made')})],
+        ]) {
+            const answer = await as_token(method, asked, body);
+            assert.strictEqual(answer.status >= 400, true, `${method} ${asked}: ${answer.status} ${answer.body}`);
+            assert.match(answer.body, /outside the folders this token may use/, `${method} ${asked}`);
+        }
+        for (const name of ['planted.txt', 'stolen.txt', 'made']) {
+            assert.strictEqual(fs.existsSync(path.join(home, name)), false, name);
+        }
+        assert.strictEqual(fs.readFileSync(path.join(home, 'secret.txt'), 'utf8'), 'not yours');
+        assert.strictEqual(fs.existsSync(path.join(notes, 'a.txt')), true);
+
+        // The owner's token goes anywhere, as before
+        const owner = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/ui1/fs?path=${encodeURIComponent(home)}`});
+        assert.strictEqual(owner.status, 200);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('a file too big for one request lands in parts, and a part sent again is written over', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-parts-'));
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);

@@ -28,7 +28,7 @@ const watches = new Map();
 // changed.
 function agent_fs_watch(target)
 {
-    const dir = agent_fs_path(((target.path === undefined) || (target.path === null) || (target.path === '')) ? '~' : String(target.path));
+    const dir = agent_fs_path(((target.path === undefined) || (target.path === null) || (target.path === '')) ? '~' : String(target.path), target.root);
     const tree = (target.tree === true);
     const skip = (Array.isArray(target.skip) ? target.skip.map(String) : []).sort();
     const key = JSON.stringify([dir, tree, skip]);

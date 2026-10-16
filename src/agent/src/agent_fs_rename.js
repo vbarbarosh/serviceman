@@ -5,7 +5,7 @@ const fs = require('fs');
 // disk carries it in one step; another disk refuses, and the refusal is the answer.
 async function agent_fs_rename(params)
 {
-    await fs.promises.rename(agent_fs_path(params.from), agent_fs_path(params.to));
+    await fs.promises.rename(agent_fs_path(params.from, params.root), agent_fs_path(params.to, params.root));
     return {};
 }
 

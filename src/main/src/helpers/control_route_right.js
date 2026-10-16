@@ -14,6 +14,8 @@ const RIGHTS = [
     {right: 'disks', said: 'read the disks', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/disks$/},
     {right: 'packages', said: 'read the packages', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/packages$/},
     {right: 'containers', said: 'read the containers', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/docker\/containers$/},
+    // The file manager of its machine, kept within the token's folder by the agent itself
+    {right: 'files', said: 'use the files', methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'], re: /^\/api\/v1\/remotes\/([^/]+)\/fs(?:\/.*)?$/},
     // A kept terminal is a shell on its machine: listed, made, signalled, ended here, and
     // joined through the shell door (handle_control_upgrade)
     {right: 'terminals', said: 'use the terminals', methods: ['GET', 'HEAD', 'POST'], re: /^\/api\/v1\/remotes\/([^/]+)\/terminals$/},

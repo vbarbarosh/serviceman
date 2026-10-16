@@ -926,9 +926,14 @@ asks for it once and keeps it in a cookie only its own requests carry; <strong>S
 <code>DELETE /api/v1/session</code>.</li>
 <li><strong>An agent&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
 label, the machines it sees, and its rights on them. The reads are <code>status</code>, <code>metrics</code>,
-<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code> and <code>containers</code>; <code>terminals</code> lists, makes, joins,
-signals and ends the kept terminals of its machines, a shell on each of them, so treat such a
-token like an ssh key to them. It is shown once, and only its hash is kept, in
+<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code> and <code>containers</code>. <code>files</code> is the file manager of
+its machines within <strong>its folders</strong> (<code>~/visual-agency</code>, <code>~/notes</code>, the same on each, <code>~</code> that
+machine&#39;s home; the first is where it starts): the machine&#39;s agent resolves every path, links
+included, and refuses whatever lies outside them, so neither <code>../</code> nor a link that leads out
+gets past it. A folder not there yet lists empty and is made by the first write into it.
+Copies between machines stay the owner&#39;s. <code>terminals</code> lists, makes, joins, signals and ends the kept terminals of its
+machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
+to them. It is shown once, and only its hash is kept, in
 <code>data/control_tokens.json</code>. It never touches the config, a secret, a service or another
 machine, and opens no other shell; taken back, it stops at once.</li>
 </ul>
