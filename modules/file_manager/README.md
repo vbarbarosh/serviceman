@@ -158,9 +158,9 @@ hash and names to skip, then One JSON or As events, with the counts, the list an
 
     {
         list(path)              -> {path, items}         path is null or '' for the starting folder
-        stat(path)              -> {kind, size, mtime_ms}
+        stat(path)              -> {kind, size, mtime_ms, mode}
         read(path, range)       -> a readable stream     range is null or {start, end}
-        tar(dir, names)         -> a readable stream
+        tar(dir, names, {paths}) -> a readable stream    paths: names may be a/b/c under dir
         write(dir, name, req)   -> {path, bytes, replaced}
         rename(from, to)        -> {}
         remove(path)            -> {}
@@ -168,8 +168,12 @@ hash and names to skip, then One JSON or As events, with the counts, the list an
 
         part_stat(dir, name, id)                  -> {received}
         part_write(dir, name, id, offset, source) -> {received}   source is a readable stream
-        part_finish(dir, name, id, size)          -> {path, bytes, replaced}
+        part_finish(dir, name, id, size, mode)    -> {path, bytes, replaced}   a new file takes mode's run bits
         part_remove(dir, name, id)                -> {}
+
+        tree(path, {hash, skip})                  -> a readable stream of JSON lines
+        link_create(path, target)                 -> {created}
+        can(feature)                              -> true when the disk does it: folder_copy, tar_put
 
         watch(path, {tree, skip})                 -> a readable stream of JSON lines
     }
@@ -182,11 +186,27 @@ itself and may throw at once.
 
 ## Copies between disks
 
-A file goes from one disk to another through the server, which runs the copy: a page that
-closes does not stop it. The copy reads the file in ranges from one disk and writes it in
-parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries on
-from where the other disk says it stands. One copy runs at a time, in the order they were
-asked for. Folders are not copied yet.
+A file or a folder goes from one disk to another through the server, which runs the copy: a
+page that closes does not stop it. The copy reads a file in ranges from one disk and writes it
+in parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries
+on from where the other disk says it stands. One copy runs at a time, in the order they were
+asked for.
+
+A folder is walked on its disk first (`tree`), then copied in steps, each carried on from
+after a drop:
+
+- its files up to 8 MB in tars of up to 64 MB or 1000 names, with the folders that are empty;
+  a tar that fails goes file by file the next time;
+- each bigger file in parts, as a file alone;
+- its links last, made as they were (`link_create`), so no file of the copy is written through
+  one of them.
+
+It lands as `<dir>/<its name>`. A folder there already is added to, and a file of the same name
+is written over, as a file copied alone is. A new file takes the run bits it had, so a script
+stays runnable. A file that cannot be read, a socket or a device is left out, and the copy
+says how many and which. A disk without `can('folder_copy')` (an older agent) gets every file
+in parts and the empty folders made one by one; when it is the one copied to, the links are
+left out and said. A folder is never copied into itself.
 
     const queue = transfer_queue({
         disk_of: function (name) {

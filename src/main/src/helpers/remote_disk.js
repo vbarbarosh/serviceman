@@ -1,4 +1,5 @@
 const remote_call = require('./remote_call');
+const remote_can = require('./remote_can');
 const tunnel_open = require('./tunnel_open');
 
 // A folder is a handful of names over a link that is already up; the wait is for a machine
@@ -11,6 +12,11 @@ const FS_TIMEOUT_MS = 15000;
 function remote_disk(app, remote)
 {
     return {
+        // Whether this machine's agent does that already: an older one copies a folder in
+        // plainer steps
+        can: function (feature) {
+            return remote_can(remote, feature);
+        },
         list: function (asked) {
             return remote_call(app, remote, 'fs_list', {path: (((asked === null) || (asked === '')) ? '~' : asked)}, FS_TIMEOUT_MS);
         },
@@ -20,8 +26,8 @@ function remote_disk(app, remote)
         read: function (asked, range) {
             return tunnel_open(remote, {read: Object.assign({path: asked}, ((range === null) ? {} : {start: range.start, end: range.end}))});
         },
-        tar: function (dir, names) {
-            return tunnel_open(remote, {tar: {dir: ((dir === '') ? '~' : dir), names}});
+        tar: function (dir, names, options) {
+            return tunnel_open(remote, {tar: {dir: ((dir === '') ? '~' : dir), names, paths: ((options !== undefined) && (options.paths === true))}});
         },
         tree: function (dir, options) {
             return tunnel_open(remote, {tree: {path: (((dir === null) || (dir === '')) ? '~' : dir), hash: options.hash, skip: options.skip}});
@@ -58,8 +64,11 @@ function remote_disk(app, remote)
         part_write: function (dir, name, id, offset, source) {
             return file_send(remote, {part: {dir, name, id, offset}}, source);
         },
-        part_finish: function (dir, name, id, size) {
-            return remote_call(app, remote, 'file_part_finish', {dir, name, id, size}, FS_TIMEOUT_MS);
+        part_finish: function (dir, name, id, size, mode) {
+            return remote_call(app, remote, 'file_part_finish', {dir, name, id, size, mode}, FS_TIMEOUT_MS);
+        },
+        link_create: function (asked, target) {
+            return remote_call(app, remote, 'link_create', {path: asked, target}, FS_TIMEOUT_MS);
         },
         part_remove: function (dir, name, id) {
             return remote_call(app, remote, 'file_part_remove', {dir, name, id}, FS_TIMEOUT_MS);

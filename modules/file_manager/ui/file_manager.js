@@ -149,7 +149,7 @@ const file_manager = {
             <a class="button" :href="download_url" download>Download</a>
             <button v-if="(chosen_names.length === 1)" type="button" :disabled="offline" @click="mode_open('rename')">Rename</button>
             <button type="button" :disabled="offline" @click="mode_open('move')">Move to…</button>
-            <button v-if="copy_able" type="button" :disabled="(offline || chosen_dirs > 0)" :title="(chosen_dirs > 0 ? 'Folders are not copied to another machine yet' : 'Copy to another machine')" @click="mode_open('copy')">Copy to…</button>
+            <button v-if="copy_able" type="button" :disabled="offline" title="Copy to another machine" @click="mode_open('copy')">Copy to…</button>
             <button type="button" class="danger" :disabled="offline" @click="mode_open('delete')">Delete…</button>
             <span class="list-right"><button type="button" @click="chosen = {}">Clear</button></span>
         </template>
@@ -256,8 +256,8 @@ const file_manager = {
                 <span class="meter"><i :style="{width: (Math.max(2, Math.round(transfer_ratio(item) * 100)) + '%')}"/></span>
                 <span class="fm-copy-acts" :class="(item.phase === 'retrying' ? 'bad' : 'muted')"><span :title="transfer_line(item)">{{ transfer_line(item) }}</span><button type="button" class="link" @click="transfer_cancel(item)">Cancel</button></span>
             </template>
-            <span v-else-if="(item.phase === 'ok')" class="muted">{{ transfer_where(item) }} · {{ format_bytes(item.size) }} · done</span>
-            <span v-else-if="(item.phase === 'cancelled')" class="muted">{{ transfer_where(item) }} · stopped — nothing landed</span>
+            <span v-else-if="(item.phase === 'ok')" :title="transfer_done_title(item)"><span class="muted">{{ transfer_done(item) }}</span><span v-if="(item.said !== '')" class="bad"> · {{ item.said }}</span></span>
+            <span v-else-if="(item.phase === 'cancelled')" class="muted">{{ transfer_where(item) }} · stopped — {{ (item.kind === 'dir') ? item.said : 'nothing landed' }}</span>
             <span v-else class="bad" :title="(transfer_where(item) + ' · ' + item.said)">{{ transfer_where(item) }} · {{ item.said }}</span>
         </div>
     </div>
@@ -423,9 +423,6 @@ const file_manager = {
         },
         copy_able: function () {
             return Boolean(this.transfers) && Array.isArray(this.targets) && (this.targets.length > 0);
-        },
-        chosen_dirs: function () {
-            return this.items.filter(v => (this.chosen[v.name] === true) && (v.kind === 'dir')).length;
         },
         transfers_here: function () {
             return this.transfer_items.filter(v => (v.from.disk === this.disk) || (v.to.disk === this.disk));
@@ -1313,8 +1310,8 @@ const file_manager = {
             const why = await this.queue.folders_make(path, made);
             this.act_report(((why === '') ? `${made.length} ${plural(made.length, 'folder', 'folders')} made` : why), (why !== ''));
         },
-        // One copy for each file ticked, into the folder named on the machine picked; the host
-        // runs them one after another
+        // One copy for each file or folder ticked, into the folder named on the machine picked;
+        // the host runs them one after another
         copy_start: async function () {
             this.acting = true;
             this.act_report('asking for the copies…', false);
@@ -1387,10 +1384,16 @@ const file_manager = {
         },
         // What has gone over, how fast this run carried it, and what that leaves
         transfer_detail: function (item) {
+            if ((item.size === null) && (item.kind === 'dir')) {
+                return `${this.transfer_where(item)} · reading the folder…`;
+            }
             if (item.size === null) {
                 return `${this.transfer_where(item)} · weighing the file…`;
             }
             const said = [this.transfer_where(item), `${format_bytes(item.received)} of ${format_bytes(item.size)}`];
+            if (item.kind === 'dir') {
+                said.splice(1, 0, `${item.files_done} of ${item.files} ${plural(item.files, 'file', 'files')}`);
+            }
             const before = ((item.began_at === null) ? 0 : item.began_at);
             const ms = item.ms;
             const sent = item.received - before;
@@ -1402,6 +1405,20 @@ const file_manager = {
                 said.push(`~${format_ms((item.size - item.received)*ms/sent)} left`);
             }
             return said.join(' · ');
+        },
+        // A copy that is over: where it went and how much; for a folder, how many files
+        transfer_done: function (item) {
+            const said = [this.transfer_where(item)];
+            if (item.kind === 'dir') {
+                said.push(`${item.files_done} ${plural(item.files_done, 'file', 'files')}`);
+            }
+            said.push(format_bytes(item.size), 'done');
+            return said.join(' · ');
+        },
+        // The same, with what a folder's copy left out, each name and why, a line each
+        transfer_done_title: function (item) {
+            const names = (((item.left === undefined) || (item.left === null)) ? [] : item.left.names);
+            return [this.transfer_done(item)].concat((item.said === '') ? [] : [item.said], names.map(v => `${v.path}: ${v.said}`)).join('\n');
         },
         // A copy under way, or why it waits to try again
         transfer_line: function (item) {

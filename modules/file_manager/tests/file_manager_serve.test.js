@@ -164,6 +164,101 @@ test('a copy between two disks goes in parts, waits for a disk that is away, and
     assert.deepStrictEqual(queue.items, []);
 });
 
+test('a folder goes whole: small files in a tar, a big one in parts across a drop, empty folders, run bits and links', async function () {
+    const big = 'b'.repeat(45);
+    const a = disk_that_copies_folders({
+        '/a/proj/run.sh': 'echo hi\n',
+        '/a/proj/src/deep/x.js': 'x',
+        '/a/proj/src/y.js': '',
+        '/a/proj/big.bin': big,
+        '/a/proj/empty/': '',
+        '/a/proj/-rf': 'a name like an option',
+    });
+    a.modes['/a/proj/run.sh'] = 0o755;
+    a.links['/a/proj/lib'] = 'src';
+    const b = disk_that_copies_folders({'/b/proj/keep.txt': 'kept', '/b/proj/src/y.js': 'old'});
+    const logged = [];
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event, fields) => logged.push([event, fields]), part_bytes: 10, small_bytes: 20});
+
+    // The big file's second part fails as a dropped link, and the copy carries on from there
+    const write = b.part_write;
+    let parts = 0;
+    b.part_write = function (...args) {
+        parts++;
+        if (parts === 2) {
+            return Promise.reject(new Error('the link dropped'));
+        }
+        return write(...args);
+    };
+    const item = queue.add({disk: 'a', path: '/a/proj/'}, {disk: 'b', dir: '/b'});
+    await until(() => (item.phase === 'ok') || (item.phase === 'error'), 10000);
+    assert.deepStrictEqual([item.phase, item.said, item.name, item.path], ['ok', '', 'proj', '/b/proj']);
+    assert.deepStrictEqual([item.files, item.files_done, item.size, item.received], [5, 5, 8 + 1 + 0 + 45 + 21, 75]);
+    assert.strictEqual(b.files['/b/proj/big.bin'], big);
+    assert.strictEqual(b.files['/b/proj/src/deep/x.js'], 'x');
+    assert.strictEqual(b.files['/b/proj/-rf'], 'a name like an option');
+    assert.strictEqual(b.files['/b/proj/src/y.js'], '', 'a file there already is written over');
+    assert.strictEqual(b.files['/b/proj/keep.txt'], 'kept', 'a folder there already is added to, not emptied');
+    assert.strictEqual(b.files['/b/proj/empty/'], '');
+    assert.strictEqual(b.modes['/b/proj/run.sh'], 0o755);
+    assert.deepStrictEqual(b.links, {'/b/proj/lib': 'src'});
+    assert.deepStrictEqual(b.tars, ['/b', '/b']);
+    assert.ok(parts > 5, 'every part of the big file, the failed one sent again');
+    assert.deepStrictEqual(b.parts, {});
+    assert.deepStrictEqual(logged.map(v => v[0]), ['transfer_begin', 'transfer_end_ok']);
+    assert.deepStrictEqual(logged[1][1], {id: item.id, path: '/b/proj', files: 5, bytes: 75, left: 0});
+    assert.strictEqual(item.walk, null, 'the walk is let go once the copy is over');
+
+    // Agents of before: every file alone, empty folders made one by one, the links left out
+    // and said; a file that cannot be read is left out, and the rest lands
+    const c = disk_that_copies_folders({});
+    c.can = function () {
+        return false;
+    };
+    a.can = function () {
+        return false;
+    };
+    const read = a.read;
+    a.read = function (asked, range) {
+        if (asked === '/a/proj/src/deep/x.js') {
+            throw new Error('EACCES: permission denied');
+        }
+        return read(asked, range);
+    };
+    const old = queue.add({disk: 'a', path: '/a/proj'}, {disk: 'c', dir: '/c'});
+    const queue_old = transfer_queue({disk_of: v => ({a, c}[v]), part_bytes: 10});
+    queue.cancel(old.id);
+    const plain = queue_old.add({disk: 'a', path: '/a/proj'}, {disk: 'c', dir: '/c'});
+    await until(() => (plain.phase === 'ok') || (plain.phase === 'error'), 10000);
+    assert.deepStrictEqual([plain.phase, plain.files_done, c.tars], ['ok', 4, []]);
+    assert.strictEqual(plain.said, "1 name could not be copied · 1 link left out: c's agent makes no links yet");
+    assert.deepStrictEqual(plain.left.names, [{path: 'src/deep/x.js', said: 'EACCES: permission denied'}]);
+    assert.strictEqual(c.files['/c/proj/run.sh'], 'echo hi\n');
+    assert.strictEqual(c.files['/c/proj/empty/'], '');
+    assert.deepStrictEqual(c.links, {});
+
+    // A folder into itself never starts; one given up halfway says how many files landed
+    const itself = queue_old.add({disk: 'a', path: '/a/proj'}, {disk: 'a', dir: '/a/proj/src'});
+    await until(() => itself.phase === 'error');
+    assert.strictEqual(itself.said, 'a folder is not copied into itself');
+    // The part on its way when Cancel comes hangs, as a link that went quiet does; Cancel ends it
+    const c_write = c.part_write;
+    let written = 0;
+    c.part_write = function (dir, name, id, offset, source) {
+        written++;
+        if (written > 3) {
+            return new Promise((resolve, reject) => source.on('error', reject));
+        }
+        return c_write(dir, name, id, offset, source);
+    };
+    const stopped = queue_old.add({disk: 'a', path: '/a/proj'}, {disk: 'c', dir: '/d'});
+    await until(() => written > 3);
+    queue_old.cancel(stopped.id);
+    await until(() => stopped.phase === 'cancelled');
+    assert.match(stopped.said, /^[1-4] of 5 files landed$/);
+    assert.deepStrictEqual(c.parts, {}, 'the part on its way is taken away');
+});
+
 test('the copies API lists, starts, cancels and clears; a copy names known disks only', async function (t) {
     const a = disk_in_memory({'/a/film.bin': 'film'});
     const b = disk_in_memory({});
@@ -490,7 +585,10 @@ function disk_in_memory(files)
     const measured = [];
     const times = {};
     const tars = [];
-    const out = {files: held, parts, measured, times, tars};
+    // The mode each file was given, and every link made: {path: target}
+    const modes = {};
+    const links = {};
+    const out = {files: held, parts, measured, times, tars, modes, links};
     function folder_has(dir) {
         return Object.keys(held).some(v => v.startsWith(`${(dir === '/') ? '' : dir}/`));
     }
@@ -567,7 +665,7 @@ function disk_in_memory(files)
                     held[`${dir}/${event.name}/`] = '';
                 }
                 if (event.type === 'file') {
-                    file = {full: `${dir}/${event.name}`, mtime_s: event.mtime_s, chunks: []};
+                    file = {full: `${dir}/${event.name}`, mtime_s: event.mtime_s, mode: event.mode, chunks: []};
                 }
                 if (event.type === 'data') {
                     file.chunks.push(Buffer.from(event.bytes));
@@ -576,6 +674,7 @@ function disk_in_memory(files)
                 if (event.type === 'file_end') {
                     held[file.full] = Buffer.concat(file.chunks).toString('utf8');
                     times[file.full] = file.mtime_s;
+                    modes[file.full] = file.mode;
                     out.files += 1;
                 }
             }
@@ -605,7 +704,7 @@ function disk_in_memory(files)
         parts[id] = had.slice(0, offset) + Buffer.concat(chunks).toString('utf8');
         return {received: parts[id].length};
     };
-    out.part_finish = async function (dir, name, id, size) {
+    out.part_finish = async function (dir, name, id, size, mode) {
         const have = ((parts[id] === undefined) ? '' : parts[id]);
         if (have.length !== size) {
             throw new Error(`the file has ${have.length} bytes so far, not ${size}`);
@@ -613,6 +712,7 @@ function disk_in_memory(files)
         const full = `${dir}/${name}`;
         const replaced = (held[full] !== undefined);
         held[full] = have;
+        modes[full] = mode;
         delete parts[id];
         return {path: full, bytes: size, replaced};
     };
@@ -623,7 +723,66 @@ function disk_in_memory(files)
     return out;
 }
 
-// A tar written by hand, entry by entry: {name, prefix, type, text, mtime}, then its end
+// A disk in memory that does what an up to date agent does: a folder walked, a tar of paths, a
+// link made. A key that ends with / is a folder; a file's mode is in modes, a link's target in
+// links.
+function disk_that_copies_folders(files)
+{
+    const out = disk_in_memory(files);
+    const held = out.files;
+    const modes = out.modes;
+    const links = out.links;
+    out.can = function (feature) {
+        return ['folder_copy', 'tar_put'].includes(feature);
+    };
+    out.tree = function (dir) {
+        const lines = [{type: 'start', path: dir}];
+        const names = Object.keys(held).concat(Object.keys(links)).filter(v => v.startsWith(`${dir}/`)).sort();
+        const dirs = new Set();
+        for (const full of names) {
+            const rel = full.slice(dir.length + 1).replace(/\/$/, '');
+            const parts = rel.split('/');
+            for (let i = 1; i < parts.length; i++) {
+                dirs.add(parts.slice(0, i).join('/'));
+            }
+            if (full.endsWith('/')) {
+                dirs.add(rel);
+            }
+            else if (links[full] !== undefined) {
+                lines.push({type: 'link', path: rel, size: null, mtime_ms: 0, target: links[full]});
+            }
+            else {
+                lines.push({type: 'file', path: rel, size: Buffer.byteLength(held[full]), mtime_ms: 0, mode: ((modes[full] === undefined) ? 0o644 : modes[full])});
+            }
+        }
+        for (const rel of dirs) {
+            lines.push({type: 'dir', path: rel, size: null, mtime_ms: 0});
+        }
+        lines.push({type: 'end', hashed: 0, ms: 0});
+        return stream.Readable.from([Buffer.from(lines.map(v => `${JSON.stringify(v)}\n`).join(''))]);
+    };
+    const tar_names = out.tar;
+    out.tar = function (dir, names, options) {
+        if ((options === undefined) || (options.paths !== true)) {
+            return tar_names(dir, names);
+        }
+        const entries = names.map(function (name) {
+            const full = `${dir}/${name}`;
+            if (held[`${full}/`] !== undefined) {
+                return {name: `./${name}/`, type: '5'};
+            }
+            return {name: `./${name}`, text: held[full], mode: modes[full]};
+        });
+        return stream.Readable.from([tar_of(entries)]);
+    };
+    out.link_create = async function (asked, target) {
+        links[asked] = target;
+        return {created: true};
+    };
+    return out;
+}
+
+// A tar written by hand, entry by entry: {name, prefix, type, text, mtime, mode}, then its end
 function tar_of(entries)
 {
     const blocks = [];
@@ -631,7 +790,7 @@ function tar_of(entries)
         const data = Buffer.from((entry.text === undefined) ? '' : entry.text);
         const header = Buffer.alloc(512);
         header.write(entry.name, 0, 100, 'utf8');
-        header.write('0000644\0', 100, 'latin1');
+        header.write(`${((entry.mode === undefined) ? 0o644 : entry.mode).toString(8).padStart(7, '0')}\0`, 100, 'latin1');
         header.write('0000000\0', 108, 'latin1');
         header.write('0000000\0', 116, 'latin1');
         header.write(`${data.length.toString(8).padStart(11, '0')}\0`, 124, 'latin1');

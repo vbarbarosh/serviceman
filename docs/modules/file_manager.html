@@ -904,9 +904,9 @@ list; list again after <code>resync</code>, and after the stream ends and is ope
 <h2 id="the-disk"><a class="anchor" href="#the-disk" aria-hidden="true" tabindex="-1">#</a>The disk</h2>
 <pre><code>{
     list(path)              -&gt; {path, items}         path is null or &#39;&#39; for the starting folder
-    stat(path)              -&gt; {kind, size, mtime_ms}
+    stat(path)              -&gt; {kind, size, mtime_ms, mode}
     read(path, range)       -&gt; a readable stream     range is null or {start, end}
-    tar(dir, names)         -&gt; a readable stream
+    tar(dir, names, {paths}) -&gt; a readable stream    paths: names may be a/b/c under dir
     write(dir, name, req)   -&gt; {path, bytes, replaced}
     rename(from, to)        -&gt; {}
     remove(path)            -&gt; {}
@@ -914,8 +914,12 @@ list; list again after <code>resync</code>, and after the stream ends and is ope
 
     part_stat(dir, name, id)                  -&gt; {received}
     part_write(dir, name, id, offset, source) -&gt; {received}   source is a readable stream
-    part_finish(dir, name, id, size)          -&gt; {path, bytes, replaced}
+    part_finish(dir, name, id, size, mode)    -&gt; {path, bytes, replaced}   a new file takes mode&#39;s run bits
     part_remove(dir, name, id)                -&gt; {}
+
+    tree(path, {hash, skip})                  -&gt; a readable stream of JSON lines
+    link_create(path, target)                 -&gt; {created}
+    can(feature)                              -&gt; true when the disk does it: folder_copy, tar_put
 
     watch(path, {tree, skip})                 -&gt; a readable stream of JSON lines
 }
@@ -925,11 +929,26 @@ list; list again after <code>resync</code>, and after the stream ends and is ope
 <p>The calls that answer with an object may return a promise. <code>read</code> and <code>tar</code> return the stream
 itself and may throw at once.</p>
 <h2 id="copies-between-disks"><a class="anchor" href="#copies-between-disks" aria-hidden="true" tabindex="-1">#</a>Copies between disks</h2>
-<p>A file goes from one disk to another through the server, which runs the copy: a page that
-closes does not stop it. The copy reads the file in ranges from one disk and writes it in
-parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries on
-from where the other disk says it stands. One copy runs at a time, in the order they were
-asked for. Folders are not copied yet.</p>
+<p>A file or a folder goes from one disk to another through the server, which runs the copy: a
+page that closes does not stop it. The copy reads a file in ranges from one disk and writes it
+in parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries
+on from where the other disk says it stands. One copy runs at a time, in the order they were
+asked for.</p>
+<p>A folder is walked on its disk first (<code>tree</code>), then copied in steps, each carried on from
+after a drop:</p>
+<ul>
+<li>its files up to 8 MB in tars of up to 64 MB or 1000 names, with the folders that are empty;
+a tar that fails goes file by file the next time;</li>
+<li>each bigger file in parts, as a file alone;</li>
+<li>its links last, made as they were (<code>link_create</code>), so no file of the copy is written through
+one of them.</li>
+</ul>
+<p>It lands as <code>&lt;dir&gt;/&lt;its name&gt;</code>. A folder there already is added to, and a file of the same name
+is written over, as a file copied alone is. A new file takes the run bits it had, so a script
+stays runnable. A file that cannot be read, a socket or a device is left out, and the copy
+says how many and which. A disk without <code>can(&#39;folder_copy&#39;)</code> (an older agent) gets every file
+in parts and the empty folders made one by one; when it is the one copied to, the links are
+left out and said. A folder is never copied into itself.</p>
 <pre><code>const queue = transfer_queue({
     disk_of: function (name) {
         // the disk of that name, or null while it cannot be reached

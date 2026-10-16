@@ -421,6 +421,11 @@ p.fm-foot {
     margin: 0;
 }
 
+/* What a folder's copy left out goes on the same line, in the colour of an error */
+.fm-copy > span > .bad {
+    white-space: inherit;
+}
+
 .fm-copy > span:not(.meter):only-of-type {
     grid-column: 2 / 4;
 }

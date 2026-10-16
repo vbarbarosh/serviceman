@@ -6,8 +6,9 @@ const BLOCK = 512;
 // a file's bytes run across as many as they like. push(chunk) answers what the chunk finished:
 //
 //     {type: 'dir', name}                  a folder
-//     {type: 'file', name, size, mtime_s}  a file begins, its time in seconds as the header
-//                                          says; its bytes follow as data, then file_end
+//     {type: 'file', name, size, mtime_s, mode}
+//                                          a file begins, its time in seconds and its mode as
+//                                          the header says; its bytes follow as data, then file_end
 //     {type: 'data', bytes}                some bytes of the file, a slice of the chunk
 //     {type: 'file_end'}
 //     {type: 'other', name}                a link, a device, anything else, its data read past;
@@ -151,7 +152,7 @@ function header_read(state, block, out)
             throw tar_error('ETARNAME', 'a file in the tar has no name');
         }
         state.entries++;
-        out.push({type: 'file', name, size, mtime_s});
+        out.push({type: 'file', name, size, mtime_s, mode: (number_read(block, 100, 8) & 0o7777)});
         if (size === 0) {
             out.push({type: 'file_end'});
             return;

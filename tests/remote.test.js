@@ -1396,6 +1396,55 @@ test('a file is copied from one machine to another in parts, and carries on when
     }
 });
 
+test('a folder is copied from one machine to another whole: files at any depth, empty folders, run bits and links', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-folder-'));
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
+    const first = agent_start(running.control_port, TOKEN);
+    const second = agent_start(running.control_port, TOKEN2, [], {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-'))});
+    try {
+        await wait_until(() => running.app.remote_by_name.vps1.state.phase === 'online');
+        await wait_until(() => running.app.remote_by_name.vps2.state.phase === 'online');
+        await wait_until(() => running.app.remote_by_name.vps2.state.resources.can.includes('folder_copy'));
+        const from = path.join(dir, 'a', 'proj');
+        fs.mkdirSync(path.join(from, 'src', 'deep'), {recursive: true});
+        fs.mkdirSync(path.join(from, 'empty', 'inner'), {recursive: true});
+        fs.writeFileSync(path.join(from, 'src', 'deep', 'x.js'), 'x');
+        fs.writeFileSync(path.join(from, 'run.sh'), 'echo hi\n', {mode: 0o755});
+        fs.writeFileSync(path.join(from, 'empty.txt'), '');
+        fs.writeFileSync(path.join(from, '-rf'), 'a name like an option');
+        fs.writeFileSync(path.join(from, 'привет.txt'), 'hi');
+        const film = crypto.randomBytes(12*1024*1024);
+        fs.writeFileSync(path.join(from, 'film.bin'), film);
+        fs.symlinkSync('src', path.join(from, 'lib'));
+        for (let i = 0; i < 1200; i++) {
+            fs.writeFileSync(path.join(from, 'src', `f${i}.txt`), `file ${i}`);
+        }
+
+        const started = await control(running, 'POST', '/api/v1/transfers', {from: {disk: 'vps1', path: from}, to: {disk: 'vps2', dir: path.join(dir, 'b')}});
+        assert.strictEqual(started.status, 200);
+        await wait_until(() => ['ok', 'error'].includes(item_of(running, started.body.id).phase), 60000);
+        const done = item_of(running, started.body.id);
+        assert.deepStrictEqual([done.phase, done.said, done.kind, done.files, done.files_done], ['ok', '', 'dir', 1206, 1206]);
+        const to = path.join(dir, 'b', 'proj');
+        assert.strictEqual(Buffer.compare(fs.readFileSync(path.join(to, 'film.bin')), film), 0);
+        assert.strictEqual(fs.readFileSync(path.join(to, 'src', 'deep', 'x.js'), 'utf8'), 'x');
+        assert.strictEqual(fs.readFileSync(path.join(to, 'src', 'f1199.txt'), 'utf8'), 'file 1199');
+        assert.strictEqual(fs.readFileSync(path.join(to, '-rf'), 'utf8'), 'a name like an option');
+        assert.strictEqual(fs.readFileSync(path.join(to, 'привет.txt'), 'utf8'), 'hi');
+        assert.strictEqual(fs.statSync(path.join(to, 'empty.txt')).size, 0);
+        assert.strictEqual(fs.statSync(path.join(to, 'empty', 'inner')).isDirectory(), true);
+        assert.notStrictEqual(fs.statSync(path.join(to, 'run.sh')).mode & 0o100, 0);
+        assert.strictEqual(fs.readlinkSync(path.join(to, 'lib')), 'src');
+        assert.deepStrictEqual(fs.readdirSync(to).sort(), ['-rf', 'empty', 'empty.txt', 'film.bin', 'lib', 'run.sh', 'src', 'привет.txt']);
+        assert.strictEqual(running.app.log_lines.some(v => /\[transfer_end_ok\] .*files=1206/.test(v)), true);
+    }
+    finally {
+        first.kill('SIGKILL');
+        second.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('a file too big for one request lands in parts, and a part sent again is written over', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-parts-'));
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);

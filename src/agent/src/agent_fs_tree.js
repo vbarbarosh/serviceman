@@ -26,7 +26,7 @@ const hashes = new Map();
 //
 //     target = {path, hash, skip}
 //     {"type": "start", "path"}                                         the folder, in full
-//     {"type": "file", "path", "size", "mtime_ms", "sha256"?}           sha256 with hash: true
+//     {"type": "file", "path", "size", "mtime_ms", "mode", "sha256"?}   mode as chmod takes it; sha256 with hash: true
 //     {"type": "dir" | "other", "path", "size": null, "mtime_ms"}
 //     {"type": "link", "path", "size": null, "mtime_ms", "target"}
 //     {"type": "error", "path", "error"}                                a folder or a name it could not read
@@ -147,7 +147,7 @@ function folder_read(root, rel, skip)
             out.push({type: 'dir', path: item_path, size: null, mtime_ms});
         }
         else if (stat.isFile()) {
-            out.push({type: 'file', path: item_path, size: stat.size, mtime_ms, full, stat});
+            out.push({type: 'file', path: item_path, size: stat.size, mtime_ms, mode: (stat.mode & 0o7777), full, stat});
         }
         else if (stat.isSymbolicLink()) {
             try {

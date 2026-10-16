@@ -14,6 +14,7 @@ const agent_fs_rename = require('./agent_fs_rename');
 const agent_fs_room = require('./agent_fs_room');
 const agent_fs_stat = require('./agent_fs_stat');
 const agent_link = require('./agent_link');
+const agent_link_create = require('./agent_link_create');
 const agent_logline = require('./agent_logline');
 const agent_logline_set = require('./agent_logline_set');
 const agent_metrics_read = require('./agent_metrics_read');
@@ -350,6 +351,9 @@ function asked_words(message)
     if (message.method === 'fs_delete') {
         return {path: params.path};
     }
+    if (message.method === 'link_create') {
+        return {path: params.path, target: params.target};
+    }
     if ((message.method === 'file_part_finish') || (message.method === 'file_part_remove')) {
         return {dir: params.dir, name: params.name, id: params.id};
     }
@@ -464,6 +468,9 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'file_part_remove') {
         return await agent_file_part_remove(params);
+    }
+    if (method === 'link_create') {
+        return await agent_link_create(params);
     }
     if (method === 'screenshot') {
         return await agent_screenshot(options);

@@ -1,9 +1,11 @@
+const agent_exec_bits = require('./agent_exec_bits');
 const agent_part_path = require('./agent_part_path');
 const fs = require('fs');
 
 // The last part is in: the parts become the file, under its own name. Only a whole file does —
 // one byte short, and the name is left as it was. A file that is there is written over as
-// itself: through a link to the file the link points at, and with the permissions it had.
+// itself: through a link to the file the link points at, and with the permissions it had; a
+// new one takes the run bits of params.mode, the mode it had where it came from.
 async function agent_file_part_finish(params)
 {
     const where = agent_part_path(params);
@@ -19,6 +21,9 @@ async function agent_file_part_finish(params)
     const written = (replaced ? fs.realpathSync(where.full) : where.full);
     if (replaced) {
         fs.chmodSync(where.part, fs.statSync(written).mode & 0o7777);
+    }
+    else {
+        agent_exec_bits(where.part, params.mode);
     }
     try {
         fs.renameSync(where.part, written);

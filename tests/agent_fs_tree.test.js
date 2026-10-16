@@ -46,7 +46,7 @@ test('a tree says every name at any depth by its type, a link as a link, and lea
     assert.deepStrictEqual(items.find(v => v.path === 'a/to-outside').target, outside, 'a link is said, never followed');
     assert.deepStrictEqual(items.find(v => v.path === 'broken').target, 'nowhere');
     const stat = fs.statSync(path.join(dir, 'a', 'b', 'c', 'deep.txt'));
-    assert.deepStrictEqual(items.find(v => v.path === 'a/b/c/deep.txt'), {type: 'file', path: 'a/b/c/deep.txt', size: 4, mtime_ms: Math.round(stat.mtimeMs)});
+    assert.deepStrictEqual(items.find(v => v.path === 'a/b/c/deep.txt'), {type: 'file', path: 'a/b/c/deep.txt', size: 4, mtime_ms: Math.round(stat.mtimeMs), mode: stat.mode & 0o7777});
     assert.deepStrictEqual(Object.keys(items.find(v => v.path === 'a/to-outside')), ['type', 'path', 'size', 'mtime_ms', 'target']);
     assert.deepStrictEqual(items.find(v => v.path === 'empty'), {type: 'dir', path: 'empty', size: null, mtime_ms: Math.round(fs.lstatSync(path.join(dir, 'empty')).mtimeMs)});
     assert.deepStrictEqual([said.at(-1).type, said.at(-1).hashed], ['end', 0]);

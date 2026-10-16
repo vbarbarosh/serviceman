@@ -6,7 +6,13 @@ const {spawn} = require('child_process');
 const RE_NAME = /^[^/\\]+$/;
 
 // Several names of one folder, answered as one tar the machine writes on the way out. tar
-// itself walks what it is given, so a chosen folder comes whole.
+// itself walks what it is given, so a chosen folder comes whole. With `paths`, a name may be a
+// path under the folder, `a/b/c.txt`, and never one that walks out of it.
+//
+//     target = {dir, names, paths}
+//
+// Each name goes to tar as ./<name>, so a file called -x or --to-command is a file to tar and
+// never one of its options.
 function agent_tar_get(target)
 {
     const names = (Array.isArray(target.names) ? target.names.map(String) : []);
@@ -14,11 +20,12 @@ function agent_tar_get(target)
         throw new Error('nothing is named to take');
     }
     for (const name of names) {
-        if ((RE_NAME.test(name) === false) || (name === '.') || (name === '..')) {
+        const parts = ((target.paths === true) ? name.split('/') : [name]);
+        if (parts.some(v => (RE_NAME.test(v) === false) || (v === '.') || (v === '..'))) {
             throw new Error(`a name of the folder itself is wanted, and ${JSON.stringify(name)} is not one`);
         }
     }
-    const child = spawn('tar', ['-cf', '-', '-C', agent_fs_path(target.dir)].concat(names));
+    const child = spawn('tar', ['-cf', '-', '-C', agent_fs_path(target.dir)].concat(names.map(v => `./${v}`)));
     const said = [];
     const out = new EventEmitter();
     out.destroyed = false;

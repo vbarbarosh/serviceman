@@ -31,7 +31,7 @@ async function file_manager_transfers_serve(req, res, options)
         const from = (((body === null) || (typeof body.from !== 'object') || (body.from === null)) ? {} : body.from);
         const to = (((body === null) || (typeof body.to !== 'object') || (body.to === null)) ? {} : body.to);
         if ((options.disk_known(from.disk) === false) || (typeof from.path !== 'string') || (from.path === '')) {
-            send_json(res, 400, {error: 'a copy comes from a file of a disk: from.disk, from.path'});
+            send_json(res, 400, {error: 'a copy comes from a file or a folder of a disk: from.disk, from.path'});
             return;
         }
         if ((options.disk_known(to.disk) === false) || (typeof to.dir !== 'string') || (to.dir.trim() === '')) {
@@ -61,7 +61,9 @@ async function file_manager_transfers_serve(req, res, options)
 }
 
 // A copy as the page sees it: no timers, no flags of the queue's own. `ms` is how long it has
-// run, on this host's clock, so a page with a clock of its own can still tell the rate.
+// run, on this host's clock, so a page with a clock of its own can still tell the rate. A
+// folder's size and received are of all its files; files and files_done count them, and left
+// says what was not copied: {links, others, unread, names: [{path, said}]}.
 function item_view(item)
 {
     return {
@@ -69,7 +71,11 @@ function item_view(item)
         from: item.from,
         to: item.to,
         name: item.name,
+        kind: item.kind,
         size: item.size,
+        files: item.files,
+        files_done: item.files_done,
+        left: item.left,
         received: item.received,
         began_at: item.began_at,
         ms: ((item.began_ms === null) ? 0 : Date.now() - item.began_ms),

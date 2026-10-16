@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const agent_exec_bits = require('./agent_exec_bits');
 const agent_fs_path = require('./agent_fs_path');
 const fs = require('fs');
 const path = require('path');
@@ -9,7 +10,7 @@ const tar_parser = require('../../../modules/file_manager/server/tar_parser');
 // the one line it says back is what was written: {path, files, bytes}.
 //
 // Each file goes to a name of its own beside the real one until its last byte is in, then
-// takes the real name and the time the tar gives it. A stream that stops halfway leaves the
+// takes the real name and the time the tar gives it; a new one takes its run bits too. A stream that stops halfway leaves the
 // files that were whole, and never half a file under the name of a whole one.
 function agent_tar_put(target)
 {
@@ -17,7 +18,7 @@ function agent_tar_put(target)
     fs.mkdirSync(dir, {recursive: true});
     const parser = tar_parser();
     const out = new EventEmitter();
-    // The file being written: {full, written, part, mode, mtime_s, handle}
+    // The file being written: {full, written, part, mode, mode_there, mtime_s, handle}
     let file = null;
     let files = 0;
     let bytes = 0;
@@ -107,7 +108,7 @@ function agent_tar_put(target)
         // points at, and with the permissions it had
         const written = (replaced ? fs.realpathSync(full) : full);
         const part = path.join(path.dirname(written), `.${path.basename(written)}.part`);
-        file = {written, part, mode: (replaced ? fs.statSync(written).mode & 0o7777 : null), mtime_s: event.mtime_s, handle: null};
+        file = {written, part, mode: (replaced ? fs.statSync(written).mode & 0o7777 : null), mode_there: event.mode, mtime_s: event.mtime_s, handle: null};
         file.handle = await fs.promises.open(part, 'w');
     }
 
@@ -130,6 +131,9 @@ function agent_tar_put(target)
         }
         if (file.mode !== null) {
             fs.chmodSync(file.part, file.mode);
+        }
+        else {
+            agent_exec_bits(file.part, file.mode_there);
         }
         fs.renameSync(file.part, file.written);
         fs.utimesSync(file.written, file.mtime_s, file.mtime_s);
