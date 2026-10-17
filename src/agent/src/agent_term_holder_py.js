@@ -41,7 +41,6 @@ def meta_write():
 
 pid, fd = pty.fork()
 if pid == 0:
-    os.chdir(os.path.expanduser('~'))
     os.execvp(sys.argv[4], sys.argv[4:])
 signal.signal(signal.SIGHUP, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, lambda signum, frame: os.kill(pid, signal.SIGHUP))

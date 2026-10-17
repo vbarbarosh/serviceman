@@ -730,13 +730,25 @@ terminals_list.js, terminal_connect.js and terminal_call.js (create, signal, end
 <p><code>attached</code> counts who has it open now, from anywhere. <code>command</code> is the line that joins it by
 hand, over ssh: the holder&#39;s socket carries the terminal as it is.</p>
 <p><code>cwd</code> is the folder the terminal&#39;s shell is in now; it follows every <code>cd</code>.</p>
-<p><strong>Create:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals</code> with <code>{name, cols, rows}</code> (all optional)
-makes a terminal without joining it, the lowest free number when no name is given, and answers
-<code>{name, created}</code>; <code>created</code> is false when it was running already.</p>
+<p><strong>Create:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals</code> with <code>{name, cols, rows, env, cwd}</code> (all
+optional) makes a terminal without joining it, the lowest free number when no name is given, and
+answers <code>{name, created}</code>; <code>created</code> is false when it was running already, and it keeps the
+variables and the folder it was made with.</p>
+<ul>
+<li><code>env</code>: variables for its shell, <code>{&quot;API_URL&quot;: &quot;https://example.com&quot;}</code>, over those the shell gets
+anyway (the agent&#39;s own, and <code>TERM=xterm-256color</code>). A name is letters, digits and <code>_</code>, a value
+text. They are in the shell&#39;s environment, which programs of the same user can read: right for
+settings, weaker for a secret.</li>
+<li><code>cwd</code>: the folder it starts in, absolute or under the home folder; the home folder when it is
+not given. A folder that is not there is refused.</li>
+<li>For an agent from before them, serviceman refuses both, rather than have the terminal made
+without them.</li>
+</ul>
 <p><strong>Signal:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/signal</code> with <code>{signal, to}</code> sends one
-of <code>SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT</code>: to the shell
+of <code>SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT SIGWINCH</code>: to the shell
 (<code>to: &quot;shell&quot;</code>, the default; SIGKILL or SIGHUP there ends the terminal), or to what runs in it in
-front (<code>to: &quot;foreground&quot;</code>; SIGINT there is Ctrl-C).</p>
+front (<code>to: &quot;foreground&quot;</code>; SIGINT there is Ctrl-C, SIGWINCH tells a full-screen program to draw
+itself again).</p>
 <p><strong>End:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/end</code> hangs the shell up, as closing a
 terminal window does; whoever has it open sees it close. Typing <code>exit</code> in it does the same.</p>
 <p><strong>Join:</strong> a websocket on <code>/api/v1/shell?remote=&lt;remote&gt;&amp;term=&lt;name&gt;</code></p>
@@ -834,6 +846,9 @@ node demos/terminal-client/attach.js laptop work       # joins work here; Ctrl-]
 <p><code>tests/remote.test.js</code>, &quot;a terminal kept on a machine outlives its page and its agent, and its tab ends it&quot;: a real agent; the client lists, joins,
 types, leaves, the agent is killed and started again, and joined again the terminal hands back
 what it printed; ended, it closes for whoever had it open and leaves the list.</p>
+<p>The same file, &quot;a terminal is made with the variables and the folder asked for&quot;: the shell has them, a terminal
+running already keeps its own, a bad name, a value that is not text and a missing folder are
+refused without repeating the value, and so is an agent from before them.</p>
 
 <footer class="foot">This page is built from <a href="https://github.com/vbarbarosh/serviceman/blob/main/docs/terminals.md">its source on GitHub</a>. serviceman is MIT licensed.</footer>
 </main>

@@ -62,6 +62,7 @@ const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
+const term_create_refusal = require('../../../helpers/term_create_refusal');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const transfer_queue = require('../../../../modules/file_manager/server/transfer_queue');
 const url_logged = require('../helpers/url_logged');
@@ -932,12 +933,18 @@ async function handle_remote_metrics(app, res, name, range)
     }
 }
 
-// POST /api/v1/remotes/<name>/terminals (body: {name, cols, rows})
+// POST /api/v1/remotes/<name>/terminals (body: {name, cols, rows, env, cwd})
 // A terminal kept on the machine, made without joining it: the name asked for, or the lowest
-// number no terminal has. Answers {name, created}; created is false when it was running already.
+// number no terminal has. Its shell gets the variables of `env` and starts in `cwd`. Answers
+// {name, created}; created is false when it was running already, with what it had.
 async function handle_terminal_create(app, req, res, name)
 {
     const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    const refused = term_create_refusal(body.env, body.cwd);
+    if (refused !== null) {
+        send_json(res, 400, {error: refused});
+        return;
+    }
     const remote = app.remote_by_name[name];
     let term = body.name;
     if (((term === undefined) || (term === null)) && (remote !== undefined) && (remote.state.phase === 'online')) {
@@ -948,7 +955,7 @@ async function handle_terminal_create(app, req, res, name)
         }
         term = String(n);
     }
-    await handle_terminal_call(app, res, name, 'term_create', {name: term, cols: body.cols, rows: body.rows});
+    await handle_terminal_call(app, res, name, 'term_create', {name: term, cols: body.cols, rows: body.rows, env: (body.env || undefined), cwd: (body.cwd || undefined)});
 }
 
 // POST /api/v1/remotes/<name>/terminals/<term>/signal (body: {signal, to})
@@ -976,6 +983,11 @@ async function handle_terminal_call(app, res, name, method, params)
     }
     if ((remote_can(remote, 'term_list') === false) || ((method !== 'term_end') && (remote_can(remote, 'term_signal') === false))) {
         send_json(res, 400, {error: `the agent on ${name} is from before ${(method === 'term_end') ? 'kept terminals' : 'creating and signalling terminals'} — its page says how it updates`});
+        return;
+    }
+    // An older agent would start the shell without them, and answer as if it had not
+    if (((params.env !== undefined) || (params.cwd !== undefined)) && (remote_can(remote, 'term_env') === false)) {
+        send_json(res, 400, {error: `the agent on ${name} is from before env and cwd for a new terminal — its page says how it updates`});
         return;
     }
     if (term_name_valid(params.name) === false) {

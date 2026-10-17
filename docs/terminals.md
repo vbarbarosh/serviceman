@@ -26,14 +26,25 @@ hand, over ssh: the holder's socket carries the terminal as it is.
 
 `cwd` is the folder the terminal's shell is in now; it follows every `cd`.
 
-**Create:** `POST /api/v1/remotes/<remote>/terminals` with `{name, cols, rows}` (all optional)
-makes a terminal without joining it, the lowest free number when no name is given, and answers
-`{name, created}`; `created` is false when it was running already.
+**Create:** `POST /api/v1/remotes/<remote>/terminals` with `{name, cols, rows, env, cwd}` (all
+optional) makes a terminal without joining it, the lowest free number when no name is given, and
+answers `{name, created}`; `created` is false when it was running already, and it keeps the
+variables and the folder it was made with.
+
+- `env`: variables for its shell, `{"API_URL": "https://example.com"}`, over those the shell gets
+  anyway (the agent's own, and `TERM=xterm-256color`). A name is letters, digits and `_`, a value
+  text. They are in the shell's environment, which programs of the same user can read: right for
+  settings, weaker for a secret.
+- `cwd`: the folder it starts in, absolute or under the home folder; the home folder when it is
+  not given. A folder that is not there is refused.
+- For an agent from before them, serviceman refuses both, rather than have the terminal made
+  without them.
 
 **Signal:** `POST /api/v1/remotes/<remote>/terminals/<name>/signal` with `{signal, to}` sends one
-of `SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT`: to the shell
+of `SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT SIGWINCH`: to the shell
 (`to: "shell"`, the default; SIGKILL or SIGHUP there ends the terminal), or to what runs in it in
-front (`to: "foreground"`; SIGINT there is Ctrl-C).
+front (`to: "foreground"`; SIGINT there is Ctrl-C, SIGWINCH tells a full-screen program to draw
+itself again).
 
 **End:** `POST /api/v1/remotes/<remote>/terminals/<name>/end` hangs the shell up, as closing a
 terminal window does; whoever has it open sees it close. Typing `exit` in it does the same.
@@ -145,3 +156,7 @@ terminals, for a developer to see how the files API is used:
 `tests/remote.test.js`, "a terminal kept on a machine outlives its page and its agent, and its tab ends it": a real agent; the client lists, joins,
 types, leaves, the agent is killed and started again, and joined again the terminal hands back
 what it printed; ended, it closes for whoever had it open and leaves the list.
+
+The same file, "a terminal is made with the variables and the folder asked for": the shell has them, a terminal
+running already keeps its own, a bad name, a value that is not text and a missing folder are
+refused without repeating the value, and so is an agent from before them.

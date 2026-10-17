@@ -2,8 +2,9 @@ const agent_term_read = require('./agent_term_read');
 const fs = require('fs');
 const term_name_valid = require('../../helpers/term_name_valid');
 
-// The signals a terminal may be sent by name; anything else is refused
-const SIGNALS = ['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM', 'SIGKILL', 'SIGUSR1', 'SIGUSR2', 'SIGSTOP', 'SIGCONT'];
+// The signals a terminal may be sent by name; anything else is refused. SIGWINCH to the
+// foreground is "the window changed": a full-screen program draws itself again.
+const SIGNALS = ['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM', 'SIGKILL', 'SIGUSR1', 'SIGUSR2', 'SIGSTOP', 'SIGCONT', 'SIGWINCH'];
 
 // Sends `signal` into the terminal `name`: to its shell (`to: 'shell'`, the default), which a
 // SIGKILL or SIGHUP ends and the terminal with it, or to whatever runs in it in front

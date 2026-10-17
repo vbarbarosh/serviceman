@@ -372,6 +372,17 @@ function asked_words(message)
     if (message.method === 'program_remove') {
         return {cwd: params.cwd};
     }
+    if (message.method === 'term_create') {
+        // The variables' names, never their values
+        const out = {name: params.name};
+        if (typeof params.cwd === 'string') {
+            out.cwd = params.cwd;
+        }
+        if ((params.env !== undefined) && (params.env !== null)) {
+            out.env = Object.keys(params.env).join(' ');
+        }
+        return out;
+    }
     if (message.method === 'volume') {
         // Never the key
         return {action: params.action, name: params.name};
@@ -482,7 +493,7 @@ async function method_run(options, state, method, params, say, group)
         return await agent_term_end(params);
     }
     if (method === 'term_create') {
-        return await agent_term_start(params.name, params.cols || 80, params.rows || 24);
+        return await agent_term_start(params.name, params.cols || 80, params.rows || 24, params.env, params.cwd);
     }
     if (method === 'term_signal') {
         return await agent_term_signal(params);

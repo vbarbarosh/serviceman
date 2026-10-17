@@ -1114,6 +1114,12 @@ test('a terminal is made without joining it, says its folder, and takes signals'
         await wait_until(() => screen.includes('after-21'), 5000);
         assert.ok(Date.now() - time0 < 5000);
 
+        // SIGWINCH to the foreground is how a program is told to draw itself again
+        terminal.write(`sh -c 'trap "echo winch-\\$((40+2)); exit" WINCH; while :; do sleep 0.1; done'\r`);
+        await timers.setTimeout(500);
+        await post('/1/signal', {signal: 'SIGWINCH', to: 'foreground'});
+        await wait_until(() => screen.includes('winch-42'), 5000);
+
         assert.match((await control_fetch(`${url}/api/v1/remotes/ui1/terminals/1/signal`, {method: 'POST', body: JSON.stringify({signal: 'SIGNOPE'})}).then(v => v.json())).error, /a signal is one of/);
 
         // SIGKILL to the shell ends the terminal: whoever had it open sees it close
@@ -1131,6 +1137,64 @@ test('a terminal is made without joining it, says its folder, and takes signals'
     async function post(path, body) {
         const answer = await control_fetch(`${url}/api/v1/remotes/ui1/terminals${path}`, {method: 'POST', body: JSON.stringify(body)});
         return await answer.json();
+    }
+});
+
+// A program that makes a terminal for its own work gives it its variables and its folder; an
+// agent from before them is refused, never left to start the shell without them
+test('a terminal is made with the variables and the folder asked for', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const url = `http://127.0.0.1:${running.control_port}`;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-term-cwd-'));
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        assert.deepStrictEqual(await post({name: 'env', env: {WORK_KEY: 'k-41', TERM: 'xterm-256color'}, cwd: dir}), {status: 200, body: {name: 'env', created: true}});
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items.map(v => [v.name, v.cwd]), [['env', dir]]);
+
+        const terminal = terminal_connect({url, remote: 'ui1', name: 'env', token: fetch_host.OWNER_TOKEN});
+        let screen = '';
+        terminal.on('data', v => screen += v.toString('utf8'));
+        await new Promise(v => terminal.on('open', v));
+        terminal.write('echo "key=$WORK_KEY at=$(pwd)"\r');
+        await wait_until(() => screen.includes(`key=k-41 at=${dir}`), 5000);
+        terminal.close();
+
+        // Running already, it keeps what it was made with
+        assert.deepStrictEqual(await post({name: 'env', env: {WORK_KEY: 'other'}}), {status: 200, body: {name: 'env', created: false}});
+
+        // A value is never repeated in a refusal: it may be a secret
+        const bad_name = await post({name: 'bad', env: {'1X': 'secret-value'}});
+        assert.strictEqual(bad_name.status, 400);
+        assert.match(bad_name.body.error, /a variable's name is letters, digits and _/);
+        const bad_value = await post({name: 'bad', env: {X: 41}});
+        assert.strictEqual(bad_value.status, 400);
+        assert.doesNotMatch(JSON.stringify(bad_value.body), /41/);
+        const no_folder = await post({name: 'bad', cwd: path.join(dir, 'none')});
+        assert.strictEqual(no_folder.status, 400);
+        assert.match(no_folder.body.error, /no folder .+\/none on this machine/);
+        assert.deepStrictEqual((await terminals_list({url, remote: 'ui1', token: fetch_host.OWNER_TOKEN})).items.map(v => v.name), ['env']);
+
+        // What an older agent says it can do: no word about env and cwd
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'term_env');
+        const old = await post({name: 'old', cwd: dir});
+        assert.strictEqual(old.status, 400);
+        assert.match(old.body.error, /from before env and cwd/);
+        assert.deepStrictEqual(await post({name: 'old'}), {status: 200, body: {name: 'old', created: true}}, 'without them it is made as before');
+    }
+    finally {
+        for (const name of ['env', 'old']) {
+            await control_fetch(`${url}/api/v1/remotes/ui1/terminals/${name}/end`, {method: 'POST'}).catch(() => null);
+        }
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+
+    async function post(body) {
+        const answer = await control_fetch(`${url}/api/v1/remotes/ui1/terminals`, {method: 'POST', body: JSON.stringify(body)});
+        return {status: answer.status, body: await answer.json()};
     }
 });
 
