@@ -2923,29 +2923,41 @@ article.rf .actions {
     max-height: 28rem;
 }
 
-/* What is wrong: a row of its own under the header, on every page, until it is mended */
+/* What is wrong: a row of its own under the header, on every page, until it is mended or
+   closed; the close button is a square of its own at its right end */
 #app:has(> #problems-bar) {
     grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 #problems-bar {
     display: flex;
-    gap: .6rem;
-    align-items: center;
     min-width: 0;
-    padding: .45rem 1rem;
-    border: 0;
     border-bottom: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
     background: color-mix(in srgb, var(--bad) 12%, var(--panel));
+}
+
+#problems-bar button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--fg);
     font: inherit;
-    text-align: left;
     cursor: pointer;
     transition: background-color .15s ease-out;
 }
 
-#problems-bar:hover {
+#problems-bar button:hover {
     background: color-mix(in srgb, var(--bad) 20%, var(--panel));
+}
+
+#problems-bar .problems-show {
+    display: flex;
+    flex: 1;
+    gap: .6rem;
+    align-items: center;
+    min-width: 0;
+    padding: .45rem 1rem;
+    text-align: left;
 }
 
 #problems-bar svg,
@@ -2960,6 +2972,14 @@ article.rf .actions {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+#problems-bar .problems-close {
+    display: flex;
+    flex: none;
+    align-items: center;
+    padding: 0 1rem;
+    border-left: 1px solid color-mix(in srgb, var(--bad) 25%, transparent);
 }
 
 #problems-bar .problems-open {

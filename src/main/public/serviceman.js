@@ -2242,13 +2242,19 @@ const app = {
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M19.1 4.9l-1.5 1.5M6.4 17.6l-1.5 1.5"/></svg>
     </button>
 </header>
-<!-- What is wrong, above everything else on every page: a row of its own under the header -->
-<button v-if="(problems.length > 0)" type="button" id="problems-bar" :title="problems.map(v => v.subject).join('\\n')" @click="health_show">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>
-    <b>{{ problems.length }} {{ (problems.length === 1) ? 'problem' : 'problems' }}</b>
-    <span class="problems-first">{{ problems[0].subject }}<span v-if="(problems.length > 1)" class="muted"> and {{ problems.length - 1 }} more</span></span>
-    <span class="problems-open">See them →</span>
-</button>
+<!-- What is wrong, above everything else on every page: a row of its own under the header,
+     until it is closed; a problem not seen yet brings it back -->
+<div v-if="(problems_unseen.length > 0)" id="problems-bar">
+    <button type="button" class="problems-show" :title="problems.map(v => v.subject).join('\\n')" @click="health_show">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+        <b>{{ problems.length }} {{ (problems.length === 1) ? 'problem' : 'problems' }}</b>
+        <span class="problems-first">{{ problems_unseen[0].subject }}<span v-if="(problems.length > 1)" class="muted"> and {{ problems.length - 1 }} more</span></span>
+        <span class="problems-open">See them →</span>
+    </button>
+    <button type="button" class="problems-close" title="Seen: hide the bar until a new problem" @click="problems_close">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+</div>
 <main v-if="(state !== null)">
     <!-- One row per kind of thing, never one per thing: the rail stays the same length however
          many services there are, and each row is always where it was -->
@@ -2386,6 +2392,8 @@ const app = {
             skin: (localStorage.getItem('serviceman.skin') || ''),
             skins: [],
             skin_menu: false,
+            // The problems the bar was closed on, as problem_seen_key; read once, kept on close
+            problems_seen: problems_seen_read(),
             editor_open: false,
             form_open: false,
             // A service the new-service form starts from — the Clone button fills it
@@ -2452,6 +2460,10 @@ const app = {
         // What is wrong now, as the last look found it (problems_check), the oldest first
         problems: function () {
             return (((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems);
+        },
+        // The problems the bar was not closed on: any one of them shows the bar again
+        problems_unseen: function () {
+            return this.problems.filter(v => (this.problems_seen.includes(problem_seen_key(v)) === false));
         },
         // The Health row's word: what is wrong, else what to look at, else that all is well
         health_tally: function () {
@@ -2961,6 +2973,11 @@ const app = {
             this.panes_close();
             this.health_open = true;
         },
+        // Closing the bar keeps only what is wrong now: one that is mended and comes back is new
+        problems_close: function () {
+            this.problems_seen = this.problems.map(problem_seen_key);
+            localStorage.setItem('serviceman.problems_seen', JSON.stringify(this.problems_seen));
+        },
         authwall_show: function () {
             this.panes_close();
             this.authwall_open = true;
@@ -3374,4 +3391,22 @@ function icon_html(name)
         return '';
     }
     return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">${overview_icons[name]}</svg>`;
+}
+
+// A problem as the bar remembers it was seen: the same thing wrong since the same moment
+function problem_seen_key(problem)
+{
+    return `${problem.key} ${problem.since}`;
+}
+
+// The problems the bar was closed on, kept in this browser; anything unreadable is none
+function problems_seen_read()
+{
+    try {
+        const seen = JSON.parse(localStorage.getItem('serviceman.problems_seen'));
+        return (Array.isArray(seen) ? seen : []);
+    }
+    catch {
+        return [];
+    }
 }
