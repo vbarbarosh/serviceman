@@ -104,34 +104,73 @@ function pressure_read()
 
 // The root and every mount of a real block device, one line per file
 // system: a bind mount or a container's overlay shows the same numbers.
-// /proc/mounts writes a space in a path as \040; a mount gone before it is
-// read is left out.
+// A ZFS pool is one line too, though its folders (datasets) are mounted
+// apart: they share the pool's free room, so the line is their used space
+// added up and that room once, at the first of their paths, with the pool
+// named. /proc/mounts writes a space in a path as \040; a mount gone before
+// it is read is left out.
 function mounts_read()
 {
-    const mount_paths = ['/'];
+    const mount_paths = [];
+    const datasets_by_pool = {};
     for (const line of fs.readFileSync('/proc/mounts', 'utf8').split('\n')) {
-        const [source, target] = line.split(' ');
-        if (source && source.startsWith('/dev/') && !source.startsWith('/dev/loop')) {
-            mount_paths.push(target.replace(/\\([0-7]{3})/g, (_, v) => String.fromCharCode(parseInt(v, 8))));
+        const [source, target, type] = line.split(' ');
+        if (!source) {
+            continue;
         }
+        const mount_path = target.replace(/\\([0-7]{3})/g, (_, v) => String.fromCharCode(parseInt(v, 8)));
+        if ((type === 'zfs') && !source.includes('@')) {
+            const pool = source.split('/')[0];
+            datasets_by_pool[pool] = datasets_by_pool[pool] || new Map();
+            if (!datasets_by_pool[pool].has(source)) {
+                datasets_by_pool[pool].set(source, mount_path);
+            }
+        }
+        else if ((mount_path === '/') || (source.startsWith('/dev/') && !source.startsWith('/dev/loop'))) {
+            mount_paths.push(mount_path);
+        }
+    }
+    // The root first, so a disk it shares with a bind mount is named "/"
+    const pools = Object.keys(datasets_by_pool);
+    if (!pools.some(v => [...datasets_by_pool[v].values()].includes('/'))) {
+        mount_paths.splice(0, mount_paths.length, '/', ...mount_paths.filter(v => v !== '/'));
     }
     const out = [];
     const seen_keys = new Set();
     for (const mount_path of mount_paths) {
-        let stat;
-        try {
-            stat = fs.statfsSync(mount_path);
-        }
-        catch {
-            continue;
-        }
-        const key = `${stat.blocks}:${stat.files}:${stat.ffree}`;
-        if (!seen_keys.has(key)) {
+        const stat = statfs_read(mount_path);
+        const key = (stat && `${stat.blocks}:${stat.files}:${stat.ffree}`);
+        if (stat && !seen_keys.has(key)) {
             seen_keys.add(key);
             out.push({path: mount_path, size: stat.blocks*stat.bsize, free: stat.bavail*stat.bsize});
         }
     }
+    for (const pool of pools) {
+        const paths = [...datasets_by_pool[pool].values()].sort((a, b) => a.length - b.length);
+        let used = 0;
+        let free = null;
+        for (const dataset_path of paths) {
+            const stat = statfs_read(dataset_path);
+            if (stat) {
+                used += (stat.blocks - stat.bfree)*stat.bsize;
+                free = stat.bavail*stat.bsize;
+            }
+        }
+        if (free !== null) {
+            out.push({path: paths[0], pool, size: used + free, free});
+        }
+    }
     return out;
+}
+
+function statfs_read(mount_path)
+{
+    try {
+        return fs.statfsSync(mount_path);
+    }
+    catch {
+        return null;
+    }
 }
 
 // Physical disks only (those with a device/ in /sys/block): no loop, ram
@@ -351,7 +390,7 @@ function json_from_snapshots(prev, next)
         mem_total: next.mem.total,
         swap_used: next.mem.swap_used,
         wait: next.pressure,
-        mounts: next.mounts.map(v => ({path: v.path, used: v.size - v.free, size: v.size})),
+        mounts: next.mounts.map(v => Object.assign({path: v.path, used: v.size - v.free, size: v.size}, v.pool ? {pool: v.pool} : {})),
         disks,
         nets,
         tcp: {open: next.tcp.open, half_open: next.tcp.half_open, refused: prev ? (next.tcp.refused - prev.tcp.refused) : null},

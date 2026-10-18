@@ -288,7 +288,8 @@ against the others. An agent before 1.9 has no charts, and the pane says how to 
 
 **servermon** is the one thing that reads the machine, second by second, and the night it
 stopped answering is in it too: CPU and steal, load, memory and swap, how long tasks waited for
-the CPU, memory and disk, every disk's space, busy time and bytes read and written, network in,
+the CPU, memory and disk, every disk's space (a ZFS pool counted once: its folders' used space
+and the pool's free room), busy time and bytes read and written, network in,
 out, drops and errors, open and half-open tcp connections, connections refused at a full queue,
 the conntrack table, temperature, battery, and pings to the gateway and to two internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
 30 days kept, read on the machine with `tail` and `jq`. It is `src/servermon/servermon.js`, one
