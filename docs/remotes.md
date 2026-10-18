@@ -93,7 +93,6 @@ root, `~/serviceman-agent` otherwise:
 
     agent.js       the agent, one file, node and nothing else
     servermon.js   the machine's load every second, written and kept running by the agent
-    servermon.json the servermon that runs now, its pid and start time
     env            where the host is, and the token. Mode 600.
     status         what the agent is doing right now, rewritten every few seconds
     logs/agent/    the agent's log, one file a day: logs/agent/20260823.txt
@@ -291,8 +290,9 @@ connections refused at a full queue, the conntrack table, and pings to the gatew
 internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
 30 days kept, read on the machine with `tail` and `jq`. It is `src/servermon/servermon.js`, one
 file with node and nothing else; the agent writes it into its folder and starts it on its own,
-so a restart or an update of the agent leaves it running. The agent looks every minute: one
-that is gone, an older text, or one silent for half a minute is started again
+so a restart or an update of the agent leaves it running, and finds it again by its command
+line. The agent looks every minute: one that is gone, an older text, or one silent for half a
+minute is started again
 (`servermon_begin`). `bin/uninstall` stops it. A machine whose agent keeps no log folder
 (`SERVICEMAN_LOG_DIR` unset or `none`) has none, and `bin/status` says so.
 

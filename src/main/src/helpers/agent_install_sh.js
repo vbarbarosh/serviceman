@@ -148,7 +148,6 @@ port is open here and no address is needed.
 
     agent.js       the agent, one file, node and nothing else
     servermon.js   the machine's load every second, written here and kept running by the agent
-    servermon.json the servermon that runs now: its pid, for the agent to find it again
     env            where the host is, and the token that says which machine this is. Mode 600.
     status.sock    where the agent answers what it is doing right now
     logs/agent/    the agent's log, one file a day, in the same shape as the host's log
@@ -314,13 +313,13 @@ else
     echo "serviceman: no systemd here — stop it however it was started"
 fi
 
-# servermon runs on its own, so that a restart of the agent leaves it running: it is stopped here
-if [ -f "\\$prefix/servermon.json" ]; then
-    pid=\\$(sed -n 's/.*"pid":\\([0-9]*\\).*/\\1/p' "\\$prefix/servermon.json")
-    if [ -n "\\$pid" ] && grep -q servermon.js "/proc/\\$pid/cmdline" 2>/dev/null; then
-        kill "\\$pid" && echo "serviceman: servermon is stopped"
+# servermon runs on its own, so that a restart of the agent leaves it running: it is stopped here,
+# found by its command line
+for proc in /proc/[0-9]*; do
+    if tr '\\0' '\\n' < "\\$proc/cmdline" 2>/dev/null | grep -qx "\\$prefix/servermon.js"; then
+        kill "\\\${proc#/proc/}" && echo "serviceman: servermon is stopped"
     fi
-fi
+done
 
 echo "serviceman: the host still has this machine in its config. Take it out there too."
 if [ -d "\\$prefix/services" ] && [ -n "\\$(ls -A "\\$prefix/services" 2>/dev/null)" ]; then

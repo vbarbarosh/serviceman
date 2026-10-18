@@ -10,7 +10,8 @@ const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 
 // The agent writes servermon.js beside itself and starts it; servermon writes a line a second
 // into logs/servermon/. The agent's own log is logs/agent/<day>.txt, and the days an older agent
-// left in logs/ are moved in there. A restart of the agent takes the same servermon back.
+// left in logs/ are moved in there. A restart of the agent finds the same servermon again, by
+// its command line, with no file of its own to say which one it is.
 test('the agent starts servermon, keeps it across its own restart, and logs into logs/agent', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-servermon-'));
     const logs = path.join(dir, 'logs');
@@ -21,12 +22,13 @@ test('the agent starts servermon, keeps it across its own restart, and logs into
     let agent = child_process.spawn(process.execPath, argv, {stdio: 'ignore', env});
     let pid = null;
     try {
-        const record = await record_wait(path.join(dir, 'servermon.json'));
-        pid = record.pid;
+        pid = Number((await status_wait(env)).match(/^servermon pid (\d+),/m)[1]);
         const day_files = await day_files_wait(path.join(logs, 'servermon'));
         const line = JSON.parse(fs.readFileSync(path.join(logs, 'servermon', day_files[0]), 'utf8').split('\n')[0]);
         assert.deepStrictEqual(Object.keys(line).slice(0, 3), ['time', 'cpu', 'steal']);
         assert.ok(fs.existsSync(path.join(dir, 'servermon.js')), 'servermon.js is written beside the agent');
+        assert.deepStrictEqual(fs.readdirSync(dir).filter(v => v.startsWith('servermon')), ['servermon.js'], 'and nothing beside it');
+        assert.strictEqual(fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0')[1], path.join(dir, 'servermon.js'));
         assert.strictEqual(fs.readFileSync(path.join(logs, 'agent', '20260101.txt'), 'utf8'), 'a line of an older agent\n');
         assert.ok(fs.readdirSync(path.join(logs, 'agent')).some(v => /^\d{8}\.txt$/.test(v) && (v !== '20260101.txt')), 'today has a file of its own');
         assert.strictEqual(fs.existsSync(path.join(logs, '20260101.log')), false);
@@ -45,18 +47,6 @@ test('the agent starts servermon, keeps it across its own restart, and logs into
         fs.rmSync(dir, {recursive: true, force: true});
     }
 });
-
-async function record_wait(file)
-{
-    const until = Date.now() + 8000;
-    while (Date.now() < until) {
-        if (fs.existsSync(file)) {
-            return JSON.parse(fs.readFileSync(file, 'utf8'));
-        }
-        await timers.setTimeout(100);
-    }
-    throw new Error(`${file} was not written`);
-}
 
 // What the agent says it is doing, once it answers
 async function status_wait(env)

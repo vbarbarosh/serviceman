@@ -801,7 +801,6 @@ ssh vps1 /opt/serviceman/bin/serviceman-agent --url … --token …
 root, <code>~/serviceman-agent</code> otherwise:</p>
 <pre><code>agent.js       the agent, one file, node and nothing else
 servermon.js   the machine&#39;s load every second, written and kept running by the agent
-servermon.json the servermon that runs now, its pid and start time
 env            where the host is, and the token. Mode 600.
 status         what the agent is doing right now, rewritten every few seconds
 logs/agent/    the agent&#39;s log, one file a day: logs/agent/20260823.txt
@@ -951,8 +950,9 @@ connections refused at a full queue, the conntrack table, and pings to the gatew
 internet hosts. One JSON line a second into <code>logs/servermon/&lt;yyyymmdd&gt;.jsonl</code> beside the agent,
 30 days kept, read on the machine with <code>tail</code> and <code>jq</code>. It is <code>src/servermon/servermon.js</code>, one
 file with node and nothing else; the agent writes it into its folder and starts it on its own,
-so a restart or an update of the agent leaves it running. The agent looks every minute: one
-that is gone, an older text, or one silent for half a minute is started again
+so a restart or an update of the agent leaves it running, and finds it again by its command
+line. The agent looks every minute: one that is gone, an older text, or one silent for half a
+minute is started again
 (<code>servermon_begin</code>). <code>bin/uninstall</code> stops it. A machine whose agent keeps no log folder
 (<code>SERVICEMAN_LOG_DIR</code> unset or <code>none</code>) has none, and <code>bin/status</code> says so.</p>
 <p>One more thing its page reads on the spot and keeps nowhere. <strong>Processes</strong> is every process
