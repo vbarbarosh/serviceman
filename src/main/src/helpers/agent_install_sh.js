@@ -9,12 +9,20 @@
 // What it does is small enough to read before running it, which is the least a script piped
 // into a shell owes anybody: fetch one file, write one env file, and — where systemd is — one
 // unit that keeps it up. No package manager, no repository, nothing installed but the agent.
+// The node a machine without one is told to fetch: the same as the install page shows
+const NODE_VERSION = 'v24.19.0';
+
 function agent_install_sh(url)
 {
     return `#!/bin/sh
 # serviceman agent installer. Reads: --token, --url, --tag, --machine, --dir, --docker,
 # --prefix, --root.
 set -eu
+
+# All of it is one function, called on the last line: a shell reading this from curl reads it
+# to the end before it runs a line of it, so a download cut short runs nothing, and an early exit
+# no longer leaves curl writing into a closed pipe ("curl: (23) Failure writing output")
+main() {
 
 url='${url}'
 token=''
@@ -38,13 +46,6 @@ while [ $# -gt 0 ]; do
         *) echo "serviceman: $1 means nothing here" >&2; exit 1;;
     esac
 done
-
-# The root half is installed by root, and this runs as you: the password is asked for once,
-# here, before anything is written — so a no costs nothing and a yes is not asked again below
-if [ -n "$root_half" ] && [ "$(id -u)" != 0 ]; then
-    echo 'serviceman: --root installs the root half of this machine, which needs sudo once'
-    sudo true
-fi
 
 # /opt belongs to root; a person who is not root gets a folder they can write, and the agent
 # works the same from either
@@ -70,9 +71,32 @@ for candidate in "$HOME/bin/node" "$HOME/.local/bin/node" "\${SUDO_USER:+/home/$
     [ -x "$candidate" ] && node_bin=$candidate
 done
 
+# Said first and plainly, before the password and before anything is written: node is one file,
+# and the command that puts it in ~/bin is given for this machine's own processor
 if [ -z "$node_bin" ]; then
-    echo "serviceman: node is not on this machine, and the agent is a node program — looked on PATH ($PATH), in ~/bin, ~/.local/bin, /usr/local/bin and /opt/node/bin" >&2
+    case "$(uname -m)" in
+        x86_64|amd64) arch=x64;;
+        aarch64|arm64) arch=arm64;;
+        armv7l) arch=armv7l;;
+        ppc64le) arch=ppc64le;;
+        s390x) arch=s390x;;
+        *) arch=$(uname -m);;
+    esac
+    echo 'serviceman: no node on this machine — the agent needs it. Nothing was installed.' >&2
+    echo 'serviceman: looked on PATH, in ~/bin, ~/.local/bin, /usr/local/bin and /opt/node/bin' >&2
+    echo 'serviceman: node is one file; this puts it in ~/bin:' >&2
+    echo '' >&2
+    echo "    mkdir -p ~/bin && v=${NODE_VERSION} && curl -fsSL https://nodejs.org/dist/\\$v/node-\\$v-linux-$arch.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-\\$v-linux-$arch/bin/node" >&2
+    echo '' >&2
+    echo 'serviceman: then run the same install line again' >&2
     exit 1
+fi
+
+# The root half is installed by root, and this runs as you: the password is asked for once,
+# here, before anything is written — so a no costs nothing and a yes is not asked again below
+if [ -n "$root_half" ] && [ "$(id -u)" != 0 ]; then
+    echo 'serviceman: --root installs the root half of this machine, which needs sudo once'
+    sudo true
 fi
 
 mkdir -p "$prefix/bin" "$prefix/logs" "$prefix/services"
@@ -461,6 +485,10 @@ if [ -n "$root_half" ]; then
 fi
 
 exec "$prefix/bin/install"
+
+}
+
+main "$@"
 `;
 }
 

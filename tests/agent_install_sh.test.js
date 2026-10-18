@@ -61,10 +61,36 @@ test('one install line keeps the XDG_RUNTIME_DIR a login gave it', function () {
     assert.doesNotMatch(run.calls(), /XDG=\/run\/user\//);
 });
 
+// A machine with no node is told so first: before the password --root asks for, before anything
+// is written, with the command that puts node in ~/bin for its own processor
+test('one install line with no node says so before sudo, writes nothing, and gives the node line', function () {
+    const run = make_machine({systemd: 'running', node: false});
+    const said = child_process.spawnSync('sh', ['-s', '--', '--token', 't', '--prefix', run.prefix, '--root'], {input: run.script, env: run.env, encoding: 'utf8'});
+    assert.strictEqual(said.status, 1);
+    assert.match(said.stderr, /^serviceman: no node on this machine — the agent needs it\. Nothing was installed\./);
+    assert.match(said.stderr, /mkdir -p ~\/bin && v=v\d+\.\d+\.\d+ && curl -fsSL https:\/\/nodejs\.org\/dist\/\$v\/node-\$v-linux-\w+\.tar\.xz \| tar -xJ -C ~\/bin/);
+    assert.doesNotMatch(said.stdout, /sudo/);
+    assert.strictEqual(run.calls(), '', 'no sudo, no systemctl');
+    assert.ok(!fs.existsSync(run.prefix));
+
+    // The node that line puts in ~/bin is found by the same install line, run again
+    fs.mkdirSync(path.join(run.env.HOME, 'bin'));
+    fake(path.join(run.env.HOME, 'bin'), 'node', 'exit 0');
+    assert.match(run('sh', [run.installer, '--token', 't', '--prefix', run.prefix]), /the agent is up/);
+});
+
+// Piped from curl, the shell reads the whole script before running a line of it: an early exit
+// no longer closes the pipe under curl ("curl: (23) Failure writing output")
+test('install.sh runs nothing until it is read to the end', function () {
+    const lines = agent_install_sh('http://127.0.0.1:9').trimEnd().split('\n');
+    assert.strictEqual(lines.at(-1), 'main "$@"');
+    assert.ok(lines.indexOf('main() {') < lines.findIndex(v => v.startsWith('url=')));
+});
+
 // A machine of fakes. systemctl answers --user only at BUS_AT, and only while the user's systemd
 // runs: a login started it, or lingering did. loginctl turns lingering on only under sudo. sudo
 // asks for a password (so -n fails), or refuses.
-function make_machine({systemd, linger = false, sudo = 'password', xdg})
+function make_machine({systemd, linger = false, sudo = 'password', xdg, node = true})
 {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-install-'));
     const bin = path.join(dir, 'bin');
@@ -97,12 +123,21 @@ function make_machine({systemd, linger = false, sudo = 'password', xdg})
     ].join('\n'));
     fake(bin, 'sleep', 'exit 0');
 
+    // With no node, the absolute places it is looked for on a real machine are taken out of the
+    // script, and PATH holds the fakes and the few tools the script runs: nothing else
+    let script = agent_install_sh('http://127.0.0.1:9');
+    if (!node) {
+        script = script.replace(' /usr/local/bin/node /opt/node/bin/node;', ';');
+        for (const tool of ['sh', 'id', 'uname', 'mkdir', 'mv', 'grep', 'cat', 'chmod', 'stat', 'wc']) {
+            fs.symlinkSync(child_process.execFileSync('sh', ['-c', `command -v ${tool}`], {encoding: 'utf8'}).trim(), path.join(bin, tool));
+        }
+    }
     const installer = path.join(dir, 'install.sh');
-    fs.writeFileSync(installer, agent_install_sh('http://127.0.0.1:9'));
+    fs.writeFileSync(installer, script);
 
     const env = {
         HOME: home,
-        PATH: [bin, path.dirname(process.execPath), '/usr/bin', '/bin'].join(':'),
+        PATH: (node ? [bin, path.dirname(process.execPath), '/usr/bin', '/bin'] : [bin]).join(':'),
         LOG: log,
         LINGER: linger_file,
         SYSTEMD: systemd,
@@ -118,6 +153,7 @@ function make_machine({systemd, linger = false, sudo = 'password', xdg})
     }
     run.env = env;
     run.installer = installer;
+    run.script = script;
     run.prefix = path.join(dir, 'agent');
     run.unit_file = path.join(home, '.config', 'systemd', 'user', 'serviceman-agent.service');
     run.calls = function () {

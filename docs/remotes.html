@@ -733,7 +733,10 @@ agent on that machine, filled in with its name, this host&#39;s address and its 
 ]
 </code></pre>
 <h2 id="put-the-agent-on-the-machine"><a class="anchor" href="#put-the-agent-on-the-machine" aria-hidden="true" tabindex="-1">#</a>Put the agent on the machine</h2>
-<p>Three ways to the same agent. It needs node and nothing else — no npm install, no build.</p>
+<p>Three ways to the same agent. It needs node and nothing else — no npm install, no build.
+On a machine with no node, the install line says so before anything else, before the
+password <code>--root</code> asks for, and prints the command that puts node, one file, in <code>~/bin</code>; the
+same install line run again finds it there.</p>
 <h3 id="one-file"><a class="anchor" href="#one-file" aria-hidden="true" tabindex="-1">#</a>One file</h3>
 <pre><code>curl -fsSL https://serviceman.example.com/api/v1/agent.js -o serviceman-agent.js
 node serviceman-agent.js --url https://serviceman.example.com --token 0c0f…a91b

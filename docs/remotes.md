@@ -32,6 +32,9 @@ By hand it is the same thing, with a secret of your own:
 ## Put the agent on the machine
 
 Three ways to the same agent. It needs node and nothing else — no npm install, no build.
+On a machine with no node, the install line says so before anything else, before the
+password `--root` asks for, and prints the command that puts node, one file, in `~/bin`; the
+same install line run again finds it there.
 
 ### One file
 

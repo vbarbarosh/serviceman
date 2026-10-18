@@ -42,8 +42,9 @@ const POLL_MS = 1000;
 const PACKAGES_AT_ONCE = 300;
 
 // A machine with no node cannot run the agent, and the whole of node it needs is one file.
-// Vladimir's line: the archive is unpacked as it arrives and only bin/node is kept.
-const NODE_TEXT = 'v=v24.19.0; curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | pv | tar -xJ --strip-components=2 node-$v-linux-x64/bin/node';
+// The archive is unpacked as it arrives and only bin/node is kept, in ~/bin; the install line
+// prints the same command, for the machine's own processor, when it finds no node.
+const NODE_TEXT = 'mkdir -p ~/bin && v=v24.19.0 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
 
 const dot = {
     template: `<span class="dot" :class="phase"/>`,
