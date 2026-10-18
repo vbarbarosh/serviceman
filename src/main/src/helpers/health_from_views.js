@@ -45,6 +45,7 @@ function machine_row(remote, views, seen, problems)
         checks.push(disk_check(machine));
         checks.push(mem_check(machine));
         checks.push(cpu_check(machine));
+        checks.push(servermon_check(machine));
         checks.push(updates_check(machine));
         checks.push(docker_check(name, machine, seen, problems));
         checks.push(seen_check('firewall', 'Firewall', `firewall:${name}`, seen));
@@ -114,6 +115,23 @@ function cpu_check(machine)
     }
     const load = (Number.isFinite(machine.load) ? `, load ${machine.load.toFixed(2)}` : '');
     return check('cpu', 'CPU', ((machine.cpu_busy >= CPU_BUSY) ? 'warn' : 'ok'), `${Math.round(machine.cpu_busy*100)}% busy`, `${Math.round(machine.cpu_busy*100)}% busy${load}`);
+}
+
+// The numbers above are servermon's: a silent one is a machine whose numbers are not known
+function servermon_check(machine)
+{
+    const servermon = machine.servermon;
+    if ((servermon === null) || (servermon === undefined)) {
+        return null;
+    }
+    if (servermon.state === 'running') {
+        return check('servermon', 'servermon', 'ok', 'a line a second', null);
+    }
+    if (servermon.state === 'off') {
+        return check('servermon', 'servermon', 'warn', 'off', 'The agent keeps no log folder (SERVICEMAN_LOG_DIR), so servermon does not run and the machine\'s numbers are not known.');
+    }
+    const since = ((servermon.last_at === null) ? 'has written nothing yet' : `silent since ${servermon.last_at.replace('T', ' ').slice(0, 19)}`);
+    return check('servermon', 'servermon', 'warn', since, `servermon ${since}: the machine's numbers are not known. The agent starts it again within a minute.`);
 }
 
 function updates_check(machine)

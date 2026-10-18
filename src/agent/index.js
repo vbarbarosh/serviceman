@@ -161,7 +161,7 @@ async function main()
     // settings are on its disk, and so are the lines until Logline has them
     agent_logline(options);
     // And so do its numbers: the charts of the hours serviceman was away are kept here
-    agent_metrics(options, boot);
+    agent_metrics(boot);
     // And so does servermon, the machine's load every second, written beside the agent and kept
     // running by it: it is read after the machine stopped answering, the agent included
     agent_servermon(status, boot);

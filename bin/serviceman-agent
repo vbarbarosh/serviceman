@@ -13,5 +13,7 @@ cd $scriptdir/..
 # Runs on a VPS, not on the serviceman host; it needs node and nothing from npm
 # An agent run from the repo keeps its state in data/agent, not beside its file in src/
 export SERVICEMAN_AGENT_DIR=${SERVICEMAN_AGENT_DIR:-data/agent}
+# And its logs beside it, servermon's among them: the machine's numbers come from servermon
+export SERVICEMAN_LOG_DIR=${SERVICEMAN_LOG_DIR:-data/agent/logs}
 
 exec node src/agent "$@"

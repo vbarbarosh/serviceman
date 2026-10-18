@@ -260,9 +260,12 @@ Nothing is placed for you, and nothing moves on its own: a service runs where yo
 ## What the host knows about a remote
 
 The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
-docker version, node version — and repeats the numbers that move every 30 seconds: among them
-how busy its cores were since the last time, which is cpu use as top counts it, beside the load
-average, which counts what waits on disk and network too and so is no share of the cores. This host
+docker version, node version — and repeats the numbers that move every 5 seconds: among them
+how busy its cores were, which is cpu use as top counts it, beside the load average, which
+counts what waits on disk and network too and so is no share of the cores. They are
+servermon's last line (below), read from its file: the agent measures nothing itself. While
+servermon is off or silent (its last line older than 5 seconds) the numbers are none, and the
+Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in `/api/v1/status`.
 
@@ -275,7 +278,7 @@ It is `src/main/public/remote_overview.js`.
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
 connections and ping, over the last hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
-30 seconds for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
+30 seconds made from servermon's lines of that half minute, for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
 the time from each of its beats to serviceman's answer. The page reads a range when it opens
 and every half minute after, from `GET /api/v1/remotes/<name>/metrics?range=1h|24h|7d|30d`,
 which asks the agent and keeps nothing but the last answer for each range: that answer is shown
@@ -283,18 +286,20 @@ while the machine is offline, marked with the time it was read. The minutes a ma
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it.
 
-**servermon** is the same machine second by second, for the night it stopped answering: CPU and
-steal, load, memory and swap, how long tasks waited for the CPU, memory and disk, every disk's
-space and busy time, network in, out, drops and errors, open and half-open tcp connections,
-connections refused at a full queue, the conntrack table, and pings to the gateway and to two
-internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
+**servermon** is the one thing that reads the machine, second by second, and the night it
+stopped answering is in it too: CPU and steal, load, memory and swap, how long tasks waited for
+the CPU, memory and disk, every disk's space, busy time and bytes read and written, network in,
+out, drops and errors, open and half-open tcp connections, connections refused at a full queue,
+the conntrack table, temperature, battery, and pings to the gateway and to two internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
 30 days kept, read on the machine with `tail` and `jq`. It is `src/servermon/servermon.js`, one
 file with node and nothing else; the agent writes it into its folder and starts it on its own,
 so a restart or an update of the agent leaves it running, and finds it again by its command
 line. The agent looks every minute: one that is gone, an older text, or one silent for half a
 minute is started again
-(`servermon_begin`). `bin/uninstall` stops it. A machine whose agent keeps no log folder
-(`SERVICEMAN_LOG_DIR` unset or `none`) has none, and `bin/status` says so.
+(`servermon_begin`). `bin/uninstall` stops it. It runs wherever the agent keeps a log folder:
+the install line, `bin/serviceman-agent` and the agent's docker image all give it one. An agent
+with `SERVICEMAN_LOG_DIR` unset or `none` has no servermon and so no numbers; `bin/status`, the
+Overview and Health say so.
 
 One more thing its page reads on the spot and keeps nowhere. **Processes** is every process
 on that machine, as the tree it is: each one under the one that started it, and a branch folds

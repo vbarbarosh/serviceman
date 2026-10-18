@@ -153,7 +153,7 @@ On the other machine, with node installed:
     serviceman-agent --url https://serviceman.example.com --token 0c0f…a91b
 
 The agent says what the machine has — cpu, memory, free disk, docker version — and repeats
-the numbers that move every 30 seconds. This host pings it every 30 seconds for the delay,
+the numbers that move every 5 seconds, from servermon's last line. This host pings it every 30 seconds for the delay,
 and sends a megabyte there and back every ten minutes for the speed. A link that stops
 answering is dropped; the agent dials in again, waiting 1s, then 2s, up to 30s.
 

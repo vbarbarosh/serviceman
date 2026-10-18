@@ -33,6 +33,7 @@ const remote_overview = {
         <p v-if="(view.machine === null)" class="alert">This machine has not connected since serviceman last started, so nothing is known about it yet. A running agent dials in by itself; a machine without one needs it: <button type="button" class="link" @click="$emit('tab', 'install')">Install the agent →</button></p>
         <p v-else-if="(view.phase !== 'online')" class="alert">The agent on this machine is not connected. What is below is what it last said.</p>
         <p v-if="view.error" class="alert"><strong>Last error</strong> · {{ view.error }}</p>
+        <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <div v-if="(view.machine !== null)" class="ov-tiles">
             <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note">{{ tile.text }}</overview-tile>
         </div>
@@ -173,6 +174,21 @@ const remote_overview = {
             }
             return out;
         },
+        // The numbers come from servermon on that machine: when they cannot, it says why, above them
+        servermon_text: function () {
+            const machine = this.view.machine;
+            if ((this.view.phase !== 'online') || (machine === null) || (machine.servermon === null)) {
+                return null;
+            }
+            if (machine.servermon.state === 'off') {
+                return 'No numbers: servermon does not run here, as the agent keeps no log folder (SERVICEMAN_LOG_DIR).';
+            }
+            if (machine.servermon.state === 'silent') {
+                const last_at = machine.servermon.last_at;
+                return `No numbers: servermon ${(last_at === null) ? 'has written nothing yet' : `has been silent since ${last_at.replace('T', ' ').slice(0, 19)}`}. The agent starts it again within a minute.`;
+            }
+            return null;
+        },
         tiles: function () {
             const view = this.view;
             const machine = view.machine;
@@ -183,8 +199,8 @@ const remote_overview = {
             const mem_used = ((mem.free === null) ? null : 1 - mem.free/mem.total);
             out.push({icon: 'memory', label: 'Memory', text: ((mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`), value: ((mem_used === null) ? 0 : mem_used), note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
             const disk = machine.disk;
-            const disk_used = 1 - disk.free/disk.total;
-            out.push({icon: 'database', label: 'Disk', text: `${Math.round(disk_used*100)}%`, value: disk_used, note: `${format_bytes(disk.free)} free of ${format_bytes(disk.total)} on ${disk.path}`});
+            const disk_used = ((disk.free === null) ? null : 1 - disk.free/disk.total);
+            out.push({icon: 'database', label: 'Disk', text: ((disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`), value: ((disk_used === null) ? 0 : disk_used), note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`});
             if (machine.temperature !== null) {
                 out.push({icon: 'thermometer', label: 'Temperature', text: `${machine.temperature.c}°C`, value: machine.temperature.c/100, note: machine.temperature.of});
             }

@@ -1,5 +1,6 @@
 const agent_dir = require('./agent_dir');
 const agent_say = require('./agent_say');
+const agent_servermon_dir = require('./agent_servermon_dir');
 const agent_servermon_text = require('./agent_servermon_text');
 const child_process = require('child_process');
 const file_write_synced = require('./file_write_synced');
@@ -18,14 +19,14 @@ const SILENT_MS = 30*1000;
 // has none.
 function agent_servermon(status, group)
 {
-    const log_dir = process.env.SERVICEMAN_LOG_DIR || '';
-    if ((log_dir === '') || (log_dir === 'none')) {
+    const dir = agent_servermon_dir();
+    if (dir === null) {
         status.servermon = {state: 'off', pid: null, dir: null, error: null};
         return;
     }
     const ctx = {
         file: path.join(agent_dir(), 'servermon.js'),
-        dir: path.join(path.resolve(log_dir), 'servermon'),
+        dir,
         started_at: 0,
     };
     // Where agent 1.20.0 kept its pid

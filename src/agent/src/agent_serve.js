@@ -60,9 +60,10 @@ const shell_pty_argv = require('../../helpers/shell_pty_argv');
 const shell_stream = require('../../helpers/shell_stream');
 
 const AGENT_VERSION = agent_version.version;
-// How often the machine says its numbers again, and what it can be asked for now. The env
-// name is for a test that cannot wait half a minute for a machine to change under it.
-const STATS_EVERY_MS = parseInt(process.env.SERVICEMAN_STATS_MS || '30000', 10);
+// How often the machine says its numbers again, and what it can be asked for now: servermon's
+// last line, which costs a read of a file's end, so the page is never more than a few seconds
+// behind. The env name is for a test that cannot wait for a machine to change under it.
+const STATS_EVERY_MS = parseInt(process.env.SERVICEMAN_STATS_MS || '5000', 10);
 // And how often it says nothing more than "still here". Being alive is the machine's own to
 // report: a host that has heard this has no reason to ask anything.
 const BEAT_EVERY_MS = parseInt(process.env.SERVICEMAN_BEAT_MS || '10000', 10);

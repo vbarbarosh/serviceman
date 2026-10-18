@@ -55,6 +55,8 @@ async function snapshot_take()
         mounts: mounts_read(),
         disks: disks_read(),
         nets: nets_read(),
+        temperature: temperature_read(),
+        battery: battery_read(),
         tcp: tcp_read(),
         conntrack: conntrack_read(),
         pings: await pings,
@@ -133,7 +135,8 @@ function mounts_read()
 }
 
 // Physical disks only (those with a device/ in /sys/block): no loop, ram
-// or device-mapper. busy_ms is the time the disk spent doing I/O.
+// or device-mapper. busy_ms is the time the disk spent doing I/O; read and written are bytes,
+// counted in sectors of 512 bytes whatever the disk's own.
 function disks_read()
 {
     const names = fs.readdirSync('/sys/block').filter(v => fs.existsSync(`/sys/block/${v}/device`));
@@ -141,7 +144,7 @@ function disks_read()
     for (const line of fs.readFileSync('/proc/diskstats', 'utf8').split('\n')) {
         const fields = line.trim().split(/\s+/);
         if (names.includes(fields[2])) {
-            out.push({name: fields[2], busy_ms: Number(fields[12])});
+            out.push({name: fields[2], busy_ms: Number(fields[12]), read: Number(fields[5])*512, written: Number(fields[9])*512});
         }
     }
     return out;
@@ -166,6 +169,52 @@ function nets_read()
         });
     }
     return out;
+}
+
+// The hottest sensor that reads sanely, in °C, and what it is; null with none
+function temperature_read()
+{
+    let out = null;
+    for (const name of names_read('/sys/class/thermal').filter(v => v.startsWith('thermal_zone'))) {
+        const c = Math.round(Number(line_read(`/sys/class/thermal/${name}/temp`))/1000);
+        if (Number.isFinite(c) && (c > 0) && (c <= 150) && ((out === null) || (c > out.c))) {
+            out = {c, of: line_read(`/sys/class/thermal/${name}/type`) || name};
+        }
+    }
+    return out;
+}
+
+// The first battery: percent charged and charging, discharging or full; null with none
+function battery_read()
+{
+    for (const name of names_read('/sys/class/power_supply')) {
+        const dir = `/sys/class/power_supply/${name}`;
+        const percent = Number.parseInt(line_read(`${dir}/capacity`), 10);
+        if ((line_read(`${dir}/type`) === 'Battery') && Number.isFinite(percent)) {
+            return {percent, status: (line_read(`${dir}/status`) || 'unknown').toLowerCase()};
+        }
+    }
+    return null;
+}
+
+function names_read(dir)
+{
+    try {
+        return fs.readdirSync(dir).sort();
+    }
+    catch {
+        return [];
+    }
+}
+
+function line_read(file)
+{
+    try {
+        return fs.readFileSync(file, 'utf8').trim();
+    }
+    catch {
+        return '';
+    }
 }
 
 // open: established now; half_open: SYN received, the handshake not
@@ -260,16 +309,25 @@ function logs_prune(time)
 }
 
 // One object: the time in TZ with its offset, then plain numbers: percents
-// 0-100, sizes in bytes, network in bytes per second, pings in ms. The
-// first line has no line before it: what is counted over the interval (cpu,
-// steal, busy, in, out, drops, errors, refused) is null there.
+// 0-100, sizes in bytes, disks and network in bytes per second, pings in ms.
+// The first line has no line before it: what is counted over the interval
+// (cpu, steal, busy, read, write, in, out, drops, errors, refused) is null
+// there.
 function json_from_snapshots(prev, next)
 {
     const seconds = prev ? ((next.time - prev.time)/1000) : null;
     const cpu_total = prev ? (next.cpu.total - prev.cpu.total) : 0;
     const disks = next.disks.map(function (disk) {
         const before = prev && prev.disks.find(v => v.name === disk.name);
-        return {name: disk.name, busy: before ? percent_from_ratio((disk.busy_ms - before.busy_ms)/(seconds*1000)) : null};
+        if (!before) {
+            return {name: disk.name, busy: null, read: null, write: null};
+        }
+        return {
+            name: disk.name,
+            busy: percent_from_ratio((disk.busy_ms - before.busy_ms)/(seconds*1000)),
+            read: Math.round((disk.read - before.read)/seconds),
+            write: Math.round((disk.written - before.written)/seconds),
+        };
     });
     const nets = next.nets.map(function (net) {
         const before = prev && prev.nets.find(v => v.name === net.name);
@@ -298,6 +356,8 @@ function json_from_snapshots(prev, next)
         nets,
         tcp: {open: next.tcp.open, half_open: next.tcp.half_open, refused: prev ? (next.tcp.refused - prev.tcp.refused) : null},
         conntrack: next.conntrack,
+        temperature: next.temperature,
+        battery: next.battery,
         pings: next.pings,
     });
 }

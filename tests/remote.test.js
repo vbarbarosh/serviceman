@@ -29,11 +29,18 @@ const JOIN_TOKEN = 'aaaabbbbccccddddeeeeffff00001111';
 
 // Every agent this file spawns keeps its state here — never beside its own file in src/
 process.env.SERVICEMAN_AGENT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-'));
+// The machine's numbers are servermon's: an agent given this log folder starts it, and the
+// servermon it started outlives it, so the file stops it at the end
+const LOGS_ENV = {SERVICEMAN_LOG_DIR: path.join(process.env.SERVICEMAN_AGENT_DIR, 'logs')};
+
+test.after(function () {
+    servermon_stop(path.join(process.env.SERVICEMAN_AGENT_DIR, 'servermon.js'));
+});
 
 test('an agent dials in, says what its machine is, and is measured', async function () {
     const running = await serviceman_start([{name: 'vps1', title: 'the first box', token: TOKEN}]);
     const remote = running.app.remote_by_name.vps1;
-    const agent = agent_start(running.control_port, TOKEN);
+    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_STATS_MS: '200'}, LOGS_ENV));
     try {
         assert.strictEqual(remote.state.phase, 'offline');
 
@@ -46,7 +53,9 @@ test('an agent dials in, says what its machine is, and is measured', async funct
         assert.strictEqual(remote.state.resources.cpu.count > 0, true);
         assert.strictEqual(remote.state.resources.mem.total > 0, true);
         assert.strictEqual(remote.state.resources.disk.free > 0, true);
-        assert.strictEqual(remote.state.stats.mem_free > 0, true);
+        // From servermon's last line, once it has written one
+        await wait_until(() => remote.state.stats.mem_free > 0);
+        assert.strictEqual(remote.state.stats.servermon.state, 'running');
         // The field is always there — what update-notifier says, or null where there is none
         assert.strictEqual(remote.state.stats.updates !== undefined, true);
         // The same for the battery: a number and a word on a laptop, null on everything else
@@ -1921,7 +1930,7 @@ async function machine_read(running, name, what)
 test('a machine keeps its own numbers, the page reads them, and sees the last of them while it is away', async function () {
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
     // A sample every 300ms and a beat every 100ms: a test cannot wait half a minute
-    const agent = agent_start(running.control_port, TOKEN, [], {SERVICEMAN_METRICS_MS: '300', SERVICEMAN_BEAT_MS: '100'});
+    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_METRICS_MS: '300', SERVICEMAN_BEAT_MS: '100'}, LOGS_ENV));
     try {
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
@@ -2390,6 +2399,21 @@ function fake_socket()
             this.destroyed = true;
         },
     };
+}
+
+// Every servermon running this file: node with it as its first argument
+function servermon_stop(file)
+{
+    for (const name of fs.readdirSync('/proc').filter(v => /^\d+$/.test(v))) {
+        try {
+            if (fs.readFileSync(`/proc/${name}/cmdline`, 'utf8').split('\0')[1] === file) {
+                process.kill(Number(name), 'SIGKILL');
+            }
+        }
+        catch {
+            // gone already
+        }
+    }
 }
 
 function agent_start(control_port, token, extra, env)

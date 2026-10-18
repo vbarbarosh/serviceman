@@ -1,16 +1,10 @@
-const agent_cpu_times = require('./agent_cpu_times');
-const agent_disk_bytes = require('./agent_disk_bytes');
-const agent_disks = require('./agent_disks');
-const agent_mem_free = require('./agent_mem_free');
 const agent_metrics_average = require('./agent_metrics_average');
 const agent_metrics_dir = require('./agent_metrics_dir');
 const agent_metrics_rounded = require('./agent_metrics_rounded');
 const agent_metrics_state = require('./agent_metrics_state');
-const agent_net_bytes = require('./agent_net_bytes');
 const agent_say = require('./agent_say');
-const agent_tcp_count = require('./agent_tcp_count');
+const agent_servermon_lines = require('./agent_servermon_lines');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 // How often a sample is taken. The env name is for a test that cannot wait half a minute.
@@ -22,31 +16,36 @@ const RAW_KEEP_DAYS = 3;
 const AVERAGE_KEEP_DAYS = 91;
 const RE_FILE = /^(30s|5m)-(\d{4}-\d{2}-\d{2})\.jsonl$/;
 
-const state = {cpu: null, net: null, disk: null, taken_at: null, bucket: null, rows: [], day: null, failing: false, busy: false};
+const state = {taken_at: null, bucket: null, rows: [], day: null, failing: false, busy: false};
 
 // The machine's numbers, written down on the machine every half minute whether serviceman is
 // there or not: a chart of the hours the link was down is a chart of what the machine did then.
+// They are servermon's lines of that half minute made into one, never measured here.
 // What is kept and how long: see agent_metrics_read.
-function agent_metrics(options, group)
+function agent_metrics(group)
 {
-    counters_take();
     // The clock never keeps the agent up by itself: --once ends with its link
     const clock = setInterval(function () {
         if (state.busy) {
             return;
         }
         state.busy = true;
-        sample_write(options, group).finally(function () {
+        sample_write(group).finally(function () {
             state.busy = false;
         });
     }, SAMPLE_EVERY_MS);
     clock.unref();
 }
 
-async function sample_write(options, group)
+async function sample_write(group)
 {
     try {
-        const sample = await sample_take(options);
+        const sample = sample_take();
+        // servermon wrote nothing since the last one: the chart has a gap there, as it has for
+        // the hours the machine was off
+        if (sample === null) {
+            return;
+        }
         const dir = agent_metrics_dir();
         fs.mkdirSync(dir, {recursive: true});
         const day = day_of(sample.at);
@@ -77,61 +76,47 @@ async function sample_write(options, group)
     }
 }
 
-// One line: what the machine carries now, and the rates since the last line
-async function sample_take(options)
+// One line: servermon's lines since the last one, the rates and the cpu as their mean, the
+// rest as the last of them says; null when there are none
+function sample_take()
 {
-    const before = {cpu: state.cpu, net: state.net, disk: state.disk, at: state.taken_at};
-    counters_take();
-    const seconds = ((before.at === null) ? 0 : (state.taken_at - before.at)/1000);
-    const disks = await agent_disks(options.dir);
-    const mem_total = os.totalmem();
+    const since = ((state.taken_at === null) ? (Date.now() - SAMPLE_EVERY_MS) : state.taken_at);
+    const rows = agent_servermon_lines().filter(v => v.at > since);
+    if (rows.length === 0) {
+        return null;
+    }
+    // Taken only with a line to go in: the beats' pings wait for the next one
     const pings = agent_metrics_state.pings.splice(0);
+    const last = rows[rows.length - 1];
+    state.taken_at = last.at;
     return agent_metrics_rounded({
-        at: state.taken_at,
-        cpu: cpu_busy(before.cpu, state.cpu),
-        load: os.loadavg()[0],
-        mem: mem_total - agent_mem_free(),
-        mem_total,
-        disk: ((disks === null) ? null : disks.used),
-        disk_total: ((disks === null) ? null : disks.total),
-        disk_read: rate(before.disk, state.disk, 'read', seconds),
-        disk_write: rate(before.disk, state.disk, 'written', seconds),
-        net_in: rate(before.net, state.net, 'rx', seconds),
-        net_out: rate(before.net, state.net, 'tx', seconds),
-        tcp: agent_tcp_count(),
-        ping: ((pings.length === 0) ? null : pings.reduce((a, b) => a + b, 0)/pings.length),
+        at: Date.now(),
+        cpu: mean(rows.map(v => ((v.cpu === null) ? null : v.cpu/100))),
+        load: last.load,
+        mem: last.mem_used,
+        mem_total: last.mem_total,
+        disk: sum_of(last.mounts, 'used'),
+        disk_total: sum_of(last.mounts, 'size'),
+        disk_read: mean(rows.map(v => sum_of(v.disks, 'read'))),
+        disk_write: mean(rows.map(v => sum_of(v.disks, 'write'))),
+        net_in: mean(rows.map(v => sum_of(v.nets, 'in'))),
+        net_out: mean(rows.map(v => sum_of(v.nets, 'out'))),
+        tcp: last.tcp.open,
+        ping: mean(pings),
     });
 }
 
-function counters_take()
+// The items' values added up; null when none of them has one
+function sum_of(items, key)
 {
-    state.cpu = agent_cpu_times();
-    state.net = agent_net_bytes();
-    state.disk = agent_disk_bytes();
-    state.taken_at = Date.now();
+    const values = items.map(v => v[key]).filter(v => (typeof v === 'number'));
+    return ((values.length === 0) ? null : values.reduce((a, b) => a + b, 0));
 }
 
-function cpu_busy(before, now)
+function mean(values)
 {
-    if (before === null) {
-        return null;
-    }
-    const total = now.total - before.total;
-    if (total <= 0) {
-        return null;
-    }
-    return Math.min(1, Math.max(0, 1 - (now.idle - before.idle)/total));
-}
-
-// Bytes a second between two readings of a counter. A counter that went back (a reboot, a card
-// taken out) says nothing about the time between.
-function rate(before, now, key, seconds)
-{
-    if ((before === null) || (now === null) || (seconds <= 0)) {
-        return null;
-    }
-    const delta = now[key] - before[key];
-    return ((delta < 0) ? null : delta/seconds);
+    const found = values.filter(v => (typeof v === 'number'));
+    return ((found.length === 0) ? null : found.reduce((a, b) => a + b, 0)/found.length);
 }
 
 function files_prune(dir, now)

@@ -89,6 +89,9 @@ function machine_of(state)
         cpu_busy: (((stats === null) || (stats.cpu_busy === undefined)) ? null : stats.cpu_busy),
         battery: (((stats === null) || (stats.battery === undefined)) ? null : stats.battery),
         temperature: (((stats === null) || (stats.temperature === undefined)) ? null : stats.temperature),
+        // Where the numbers above come from: servermon running, off or silent. null from an
+        // agent that measured them itself
+        servermon: (((stats === null) || (stats.servermon === undefined)) ? null : stats.servermon),
         updates: (((stats === null) || (stats.updates === undefined)) ? null : stats.updates),
         // The door on that machine: where it is and who may knock, as the file says right now.
         // null is no door — an agent from before them, or one whose link is not up.
