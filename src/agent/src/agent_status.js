@@ -13,6 +13,7 @@ function agent_status(status, at)
         `host ${status.url}`,
         link_text(status, now),
         root_text(status),
+        servermon_text(status),
     ];
     const keys = Object.keys(status.programs);
     lines.push((keys.length === 0) ? 'programs none' : 'programs');
@@ -36,6 +37,18 @@ function root_text(status)
         return `root answers at ${status.root_socket}`;
     }
     return `root none — nothing answers at ${status.root_socket}`;
+}
+
+function servermon_text(status)
+{
+    const servermon = status.servermon;
+    if ((servermon === null) || (servermon === undefined) || (servermon.state === 'off')) {
+        return 'servermon off — the agent keeps no log folder (SERVICEMAN_LOG_DIR)';
+    }
+    if (servermon.state === 'failed') {
+        return `servermon not running — ${servermon.error}`;
+    }
+    return `servermon pid ${servermon.pid}, a line a second into ${servermon.dir}`;
 }
 
 function link_text(status, now)

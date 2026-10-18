@@ -92,9 +92,12 @@ One folder, and everything about that machine's half is inside it — `/opt/serv
 root, `~/serviceman-agent` otherwise:
 
     agent.js       the agent, one file, node and nothing else
+    servermon.js   the machine's load every second, written and kept running by the agent
+    servermon.json the servermon that runs now, its pid and start time
     env            where the host is, and the token. Mode 600.
     status         what the agent is doing right now, rewritten every few seconds
-    logs/          one file a day: logs/20260823.log
+    logs/agent/    the agent's log, one file a day: logs/agent/20260823.txt
+    logs/servermon/  servermon's, a JSON line a second, one file a day: logs/servermon/20260823.jsonl
     services/      everything the host asked this machine to install, a folder each
     bin/install    puts it under systemd, or says how to run it. Safe to run again.
     bin/restart    starts it again — what a line added to env needs to take
@@ -280,6 +283,18 @@ which asks the agent and keeps nothing but the last answer for each range: that 
 while the machine is offline, marked with the time it was read. The minutes a machine was off
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it.
+
+**servermon** is the same machine second by second, for the night it stopped answering: CPU and
+steal, load, memory and swap, how long tasks waited for the CPU, memory and disk, every disk's
+space and busy time, network in, out, drops and errors, open and half-open tcp connections,
+connections refused at a full queue, the conntrack table, and pings to the gateway and to two
+internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
+30 days kept, read on the machine with `tail` and `jq`. It is `src/servermon/servermon.js`, one
+file with node and nothing else; the agent writes it into its folder and starts it on its own,
+so a restart or an update of the agent leaves it running. The agent looks every minute: one
+that is gone, an older text, or one silent for half a minute is started again
+(`servermon_begin`). `bin/uninstall` stops it. A machine whose agent keeps no log folder
+(`SERVICEMAN_LOG_DIR` unset or `none`) has none, and `bin/status` says so.
 
 One more thing its page reads on the spot and keeps nowhere. **Processes** is every process
 on that machine, as the tree it is: each one under the one that started it, and a branch folds

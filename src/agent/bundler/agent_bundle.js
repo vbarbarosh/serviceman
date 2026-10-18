@@ -6,6 +6,9 @@ const path = require('path');
 
 const ENTRY = 'agent/index';
 const HOUSE = '@vbarbarosh/node-helpers/';
+// Modules that are a file of another part as text, for the agent to write out on its machine:
+// the key, and the file from src/ it holds
+const TEXTS = {'agent/src/agent_servermon_text': 'servermon/servermon.js'};
 const VERSION = agent_version.version;
 // The file the version itself is kept in, which the fingerprint of the sources leaves out
 const VERSION_KEY = 'agent/version.json';
@@ -31,12 +34,16 @@ function agent_bundle()
 
 function built_at(sources)
 {
-    return agent_built_at(Object.keys(sources).map(file_from_key));
+    return agent_built_at([...Object.keys(sources).map(file_from_key), ...Object.values(TEXTS).map(v => path.resolve(__dirname, '..', '..', v))]);
 }
 
 function module_read(key, sources)
 {
     if (sources[key] !== undefined) {
+        return;
+    }
+    if (TEXTS[key] !== undefined) {
+        sources[key] = `module.exports = ${JSON.stringify(fs.readFileSync(path.resolve(__dirname, '..', '..', TEXTS[key]), 'utf8'))};`;
         return;
     }
     const text = fs.readFileSync(file_from_key(key), 'utf8');

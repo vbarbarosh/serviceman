@@ -147,9 +147,12 @@ program, carry the requests for it. Nothing listens on this machine — the link
 port is open here and no address is needed.
 
     agent.js       the agent, one file, node and nothing else
+    servermon.js   the machine's load every second, written here and kept running by the agent
+    servermon.json the servermon that runs now: its pid, for the agent to find it again
     env            where the host is, and the token that says which machine this is. Mode 600.
     status.sock    where the agent answers what it is doing right now
-    logs/          one file a day, in the same shape as the host's log
+    logs/agent/    the agent's log, one file a day, in the same shape as the host's log
+    logs/servermon/  servermon's, a JSON line a second, one file a day, 30 days kept
     services/      everything the host asked this machine to install, a folder each
     bin/install    puts the agent under systemd, or says how to run it. Safe to run again.
     bin/install-root  sudo it to give this machine a root half — the same file, run by the
@@ -163,7 +166,8 @@ port is open here and no address is needed.
 ## The everyday things
 
     bin/status                                  what it is doing
-    tail -f logs/$(date +%Y%m%d).log            what it has done today
+    tail -f logs/agent/$(date +%Y%m%d).txt      what it has done today
+    tail -n 60 logs/servermon/$(date +%Y%m%d).jsonl  the machine's last minute
     systemctl status serviceman-agent           when it is kept up by the system's systemd
     systemctl --user status serviceman-agent    when it is kept up by your own
 
@@ -308,6 +312,14 @@ if command -v systemctl >/dev/null 2>&1; then
     fi
 else
     echo "serviceman: no systemd here — stop it however it was started"
+fi
+
+# servermon runs on its own, so that a restart of the agent leaves it running: it is stopped here
+if [ -f "\\$prefix/servermon.json" ]; then
+    pid=\\$(sed -n 's/.*"pid":\\([0-9]*\\).*/\\1/p' "\\$prefix/servermon.json")
+    if [ -n "\\$pid" ] && grep -q servermon.js "/proc/\\$pid/cmdline" 2>/dev/null; then
+        kill "\\$pid" && echo "serviceman: servermon is stopped"
+    fi
 fi
 
 echo "serviceman: the host still has this machine in its config. Take it out there too."

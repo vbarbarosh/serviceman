@@ -1156,8 +1156,9 @@ config is shortened, because the real one was a scratch folder.</p>
 <h3 id="the-agent"><a class="anchor" href="#the-agent" aria-hidden="true" tabindex="-1">#</a>The agent</h3>
 <p>The agent on a remote machine writes the same shape of line, with a group for every attempt to
 reach the host — so one dial-in reads as one story on both ends. <code>SERVICEMAN_LOG_DIR</code> gives it
-daily files of its own — <code>logs/20260823.log</code> beside the agent, because a machine kept up by
-systemd has nobody watching its stdout. Its <code>status</code> file says what it is doing right now.</p>
+daily files of its own — <code>logs/agent/20260823.txt</code> beside the agent, because a machine kept up
+by systemd has nobody watching its stdout; an agent before 1.20 wrote <code>logs/20260823.log</code>, and
+moves those days in there when it starts. Its <code>status</code> file says what it is doing right now.</p>
 <pre><code>[2026-08-23T00:05:29.424Z][ce0b2bi6rr4b][agent_begin] agent=1.0.0 built=2026-08-22T23:04:46.633Z node=v24.14.1 machine=laptop url=http://serviceman:3001
 [2026-08-23T00:05:29.426Z][cqylf7b4xvwt][agent_connect_begin] url=http://serviceman:3001
 [2026-08-23T00:05:29.431Z][cqylf7b4xvwt][agent_connect_end_ok] remote=laptop
@@ -1334,6 +1335,24 @@ minute, and they would bury the rest.</p>
 <tr>
 <td><code>agent_metrics_ok</code></td>
 <td>Samples are written again after the error above.</td>
+</tr>
+</tbody></table>
+</div>
+<p>And about servermon, the machine&#39;s load every second (the <a href="remotes.html">remotes</a> page):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Sender</th>
+<th>What it says</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>servermon_begin</code></td>
+<td>It was started: its pid, why (none, gone, new version, silent), its folder.</td>
+</tr>
+<tr>
+<td><code>servermon_begin_error</code></td>
+<td>It could not be started, and why; tried again in a minute.</td>
 </tr>
 </tbody></table>
 </div>

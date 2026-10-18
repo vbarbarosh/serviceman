@@ -14,6 +14,7 @@ const agent_root_serve = require('./src/agent_root_serve');
 const agent_root_socket = require('./src/agent_root_socket');
 const agent_say = require('./src/agent_say');
 const agent_serve = require('./src/agent_serve');
+const agent_servermon = require('./src/agent_servermon');
 const agent_sleep_watch = require('./src/agent_sleep_watch');
 const agent_status_ask = require('./src/agent_status_ask');
 const agent_status_serve = require('./src/agent_status_serve');
@@ -150,6 +151,8 @@ async function main()
         // Whether this machine has a root half, asked again whenever the status is
         root: false,
         root_socket: agent_root_socket(options),
+        // servermon's state: running, off, failed, with its pid and folder (agent_servermon)
+        servermon: null,
     };
     agent_status_serve(status, options);
     // What an agent before this one started goes on running; it is taken back, not started again
@@ -159,6 +162,9 @@ async function main()
     agent_logline(options);
     // And so do its numbers: the charts of the hours serviceman was away are kept here
     agent_metrics(options, boot);
+    // And so does servermon, the machine's load every second, written beside the agent and kept
+    // running by it: it is read after the machine stopped answering, the agent included
+    agent_servermon(status, boot);
     // And so does its door: the table it routes by is on its disk, and the door and the way its
     // peers reach it stand for the life of the agent, not of a link
     agent_doors_state.table = agent_doors_read();

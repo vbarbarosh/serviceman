@@ -277,8 +277,9 @@ config is shortened, because the real one was a scratch folder.
 
 The agent on a remote machine writes the same shape of line, with a group for every attempt to
 reach the host — so one dial-in reads as one story on both ends. `SERVICEMAN_LOG_DIR` gives it
-daily files of its own — `logs/20260823.log` beside the agent, because a machine kept up by
-systemd has nobody watching its stdout. Its `status` file says what it is doing right now.
+daily files of its own — `logs/agent/20260823.txt` beside the agent, because a machine kept up
+by systemd has nobody watching its stdout; an agent before 1.20 wrote `logs/20260823.log`, and
+moves those days in there when it starts. Its `status` file says what it is doing right now.
 
     [2026-08-23T00:05:29.424Z][ce0b2bi6rr4b][agent_begin] agent=1.0.0 built=2026-08-22T23:04:46.633Z node=v24.14.1 machine=laptop url=http://serviceman:3001
     [2026-08-23T00:05:29.426Z][cqylf7b4xvwt][agent_connect_begin] url=http://serviceman:3001
@@ -357,6 +358,13 @@ What an agent says about keeping its machine's numbers for the charts:
 |------------------------|--------------------------------------------------------------------|
 | `agent_metrics_error`  | A sample could not be written, and why; said once, not every 30s.  |
 | `agent_metrics_ok`     | Samples are written again after the error above.                   |
+
+And about servermon, the machine's load every second (the [remotes](remotes.md) page):
+
+| Sender                  | What it says                                                          |
+|-------------------------|-----------------------------------------------------------------------|
+| `servermon_begin`       | It was started: its pid, why (none, gone, new version, silent), its folder. |
+| `servermon_begin_error` | It could not be started, and why; tried again in a minute.            |
 
 **Everything an agent says, the host says too.** A line written on a machine is sent up its
 link and written again here — **keeping its uid**, because that is what a uid is for: one group
