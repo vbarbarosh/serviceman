@@ -74,7 +74,7 @@ async function events_watch(run)
                 const lines = rest.split('\n');
                 rest = lines.pop();
                 for (const line of lines) {
-                    const event = ((line.trim() === '') ? null : JSON.parse(line));
+                    const event = (line.trim() === '') ? null : JSON.parse(line);
                     if ((event !== null) && (event.id !== undefined)) {
                         container_consider(run, event.id);
                     }
@@ -118,7 +118,7 @@ async function container_consider(run, id)
                 }
                 throw error;
             }
-            const labels = (((found.Config === undefined) || (found.Config.Labels === null)) ? {} : found.Config.Labels);
+            const labels = ((found.Config === undefined) || (found.Config.Labels === null)) ? {} : found.Config.Labels;
             if (labels.logline === 'off') {
                 run.skipped.add(id);
                 return;
@@ -126,8 +126,8 @@ async function container_consider(run, id)
             const container = {
                 id: found.Id,
                 name: String(found.Name || '').replace(/^\//, ''),
-                image: ((found.Config === undefined) ? '' : found.Config.Image),
-                tty: ((found.Config !== undefined) && (found.Config.Tty === true)),
+                image: (found.Config === undefined) ? '' : found.Config.Image,
+                tty: (found.Config !== undefined) && (found.Config.Tty === true),
                 labels,
             };
             const ended = await logline_follow(run, container);

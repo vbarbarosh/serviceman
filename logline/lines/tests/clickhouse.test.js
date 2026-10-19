@@ -12,7 +12,7 @@ const test = require('node:test');
 const CLICKHOUSE = process.env.CLICKHOUSE;
 const ADMIN_TOKEN = crypto.randomBytes(32).toString('hex');
 
-test('lines go in once however often they are sent, only with a token from its own address', {skip: ((CLICKHOUSE === undefined) ? 'CLICKHOUSE is not set' : false)}, async function (t) {
+test('lines go in once however often they are sent, only with a token from its own address', {skip: (CLICKHOUSE === undefined) ? 'CLICKHOUSE is not set' : false}, async function (t) {
     const table = `default.lines_test_${crypto.randomBytes(4).toString('hex')}`;
     const ddl = fs.readFileSync(path.join(__dirname, 'otel_logs.sql'), 'utf8').replace('{table}', table);
     await clickhouse_query(CLICKHOUSE, ddl);
@@ -84,7 +84,7 @@ async function call(running, method, pathname, token, body)
     const answer = await fetch(`http://127.0.0.1:${running.port}${pathname}`, {
         method,
         headers: {authorization: `Bearer ${token}`},
-        body: ((body === undefined) ? undefined : JSON.stringify(body)),
+        body: (body === undefined) ? undefined : JSON.stringify(body),
     });
     return {status: answer.status, body: await answer.json()};
 }

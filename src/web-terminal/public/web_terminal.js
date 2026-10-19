@@ -37,7 +37,7 @@ const web_terminal = {
             return location.pathname.replace(/^\/|\/$/g, '');
         },
         title: function () {
-            return ((this.name === '') ? 'A terminal of its own' : this.name);
+            return (this.name === '') ? 'A terminal of its own' : this.name;
         },
     },
     methods: {
@@ -51,7 +51,7 @@ const web_terminal = {
             }
         },
         theme_toggle: function () {
-            this.theme = ((this.theme === 'dark') ? 'light' : 'dark');
+            this.theme = (this.theme === 'dark') ? 'light' : 'dark';
             document.documentElement.dataset.theme = this.theme;
             try {
                 localStorage.setItem('web-terminal.theme', this.theme);
@@ -62,7 +62,7 @@ const web_terminal = {
         },
     },
     mounted: function () {
-        document.title = ((this.name === '') ? 'Terminal' : `${this.name} · Terminal`);
+        document.title = (this.name === '') ? 'Terminal' : `${this.name} · Terminal`;
         this.sessions_load();
         this.timer = setInterval(() => this.sessions_load(), SESSIONS_EVERY_MS);
     },

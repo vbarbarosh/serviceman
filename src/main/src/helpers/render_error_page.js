@@ -50,14 +50,14 @@ async function ask() {
 // The only other page serviceman serves in its own name
 function render_error_page(res, status, title, detail, options)
 {
-    const asked = ((options === undefined) ? {} : options);
+    const asked = (options === undefined) ? {} : options;
     const retry = (asked.retry === true);
     // What the machine said while it was trying. A reason is one line; this is the work that
     // produced it, and it is the difference between "it did not start" and knowing why.
-    const said = ((Array.isArray(asked.said) && (asked.said.length > 0)) ? `<pre id="said">${html_escape(asked.said.join('\n'))}</pre>` : '');
+    const said = (Array.isArray(asked.said) && (asked.said.length > 0)) ? `<pre id="said">${html_escape(asked.said.join('\n'))}</pre>` : '';
     const body = `<h1>${html_escape(title)}</h1>
 <p class="error">${html_escape(detail)}</p>${said}${retry ? RETRY_BODY : ''}`;
-    const html = render_page({title, body, script: (retry ? RETRY_SCRIPT : '')});
+    const html = render_page({title, body, script: retry ? RETRY_SCRIPT : ''});
     if (res.headersSent) {
         res.destroy();
         return;

@@ -287,7 +287,7 @@ async function engine_start(t)
         res.end(JSON.stringify({message: 'No such container'}));
     });
     await new Promise(v => server.listen(socket, v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     return out;
 }
 
@@ -299,7 +299,7 @@ async function serve(t, options)
         docker_serve(req, res, Object.assign({tail: pathname.slice('/docker'.length)}, options));
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     return {port: server.address().port};
 }
 

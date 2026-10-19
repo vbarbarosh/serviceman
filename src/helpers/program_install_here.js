@@ -19,7 +19,7 @@ async function program_install_here(dir, install, update, mark, env, look, made,
     }
     // A folder that is already something gets the update line when there is one: the install
     // line is for an empty folder, and running it over a working copy is a different thing
-    const step = (((found === null) || (update === null) || (update === undefined)) ? 'install' : 'update');
+    const step = ((found === null) || (update === null) || (update === undefined)) ? 'install' : 'update';
     // Asked what it would do, and not to do it: the host says a line is about to run before it
     // runs, and says nothing at all when nothing needs running
     if (look === true) {
@@ -38,7 +38,7 @@ async function program_install_here(dir, install, update, mark, env, look, made,
         }
         fs.mkdirSync(dir, {recursive: true});
     }
-    const line = ((step === 'install') ? install : update);
+    const line = (step === 'install') ? install : update;
     const answer = await shell_stream(program_line_argv(line, dir, image, env, docker_bin, user, secrets), {
         cwd: dir,
         env: Object.assign({}, process.env, secrets_env(secrets), env || {}),

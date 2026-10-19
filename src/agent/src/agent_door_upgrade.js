@@ -5,7 +5,7 @@ const net = require('net');
 // ways once the far end is reached. `extra` is headers set on the way.
 function agent_door_upgrade(req, socket, head, target, extra)
 {
-    const where = ((target.socket === undefined) ? {host: target.host, port: target.port} : {path: target.socket});
+    const where = (target.socket === undefined) ? {host: target.host, port: target.port} : {path: target.socket};
     const far = net.connect(where);
     // Away is told as quickly as for a request: the same time to connect
     far.setTimeout(agent_door_proxy.connect_ms, function () {

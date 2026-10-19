@@ -294,7 +294,7 @@ const load_tests_pane = {
             if (item.wake_ms === null) {
                 return '—';
             }
-            return ((item.wake_ms < 50) ? 'was up' : this.ms_text(item.wake_ms));
+            return (item.wake_ms < 50) ? 'was up' : this.ms_text(item.wake_ms);
         },
         ms_text: function (ms) {
             if (ms === null) {
@@ -311,7 +311,7 @@ const load_tests_pane = {
         form_begin: function (test) {
             this.report('', false);
             if (test !== null) {
-                this.form = {original: test.name, name: test.name, service: test.service, url: (test.url || ''), remote: test.remote, vus: test.vus, duration: test.duration, p95_ms: test.p95_ms, errors_pct: test.errors_pct};
+                this.form = {original: test.name, name: test.name, service: test.service, url: test.url || '', remote: test.remote, vus: test.vus, duration: test.duration, p95_ms: test.p95_ms, errors_pct: test.errors_pct};
                 return;
             }
             const service = (this.test_now === null) ? this.state.services[0] : this.state.services.find(v => v.name === this.test_now.service);
@@ -328,9 +328,9 @@ const load_tests_pane = {
         name_free: function (base) {
             const name = base.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
             for (let i = 1; ; i++) {
-                const out = (i === 1) ? name : `${name}-${i}`;
-                if (this.tests.some(v => v.name === out) === false) {
-                    return out;
+                const candidate = (i === 1) ? name : `${name}-${i}`;
+                if (this.tests.some(v => v.name === candidate) === false) {
+                    return candidate;
                 }
             }
         },

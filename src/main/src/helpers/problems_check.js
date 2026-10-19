@@ -50,7 +50,7 @@ async function check(app)
             continue;
         }
         const stats = state.stats;
-        found.push(...problems_from_logline(remote.name, (((stats === null) || (stats === undefined)) ? null : stats.logline), now));
+        found.push(...problems_from_logline(remote.name, ((stats === null) || (stats === undefined)) ? null : stats.logline, now));
         asked.push(problems_of_remote(app, remote).then(function (answer) {
             found.push(...answer.problems);
             seen.push(...answer.seen);

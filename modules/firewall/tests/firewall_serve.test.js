@@ -99,7 +99,7 @@ test('every shape of rule ufw lists is read into its parts', async function (t) 
         'ufw limit from 192.168.1.0/24 to any port 2222 proto tcp',
         'ufw allow from 2001:db8::/32 to any port 443 proto tcp comment \'v6, with a comma\'',
     ].join('\n');
-    const running = await serve(t, v => ({ok: true, code: 0, stdout: ((v[0] === 'show') ? added : 'Status: inactive\n'), stderr: ''}));
+    const running = await serve(t, v => ({ok: true, code: 0, stdout: (v[0] === 'show') ? added : 'Status: inactive\n', stderr: ''}));
     const rules = (await call(running, 'GET', '/firewall')).body.rules;
     const parts = rules.map(v => [v.action, v.direction, v.port, v.proto, v.app, v.from, v.on, v.comment]);
     assert.deepStrictEqual(parts, [
@@ -149,7 +149,7 @@ async function serve(t, run, ports)
     const ufw = run || function (argv) {
         return new Promise(function (resolve) {
             child_process.execFile(UFW, argv, {env: Object.assign({}, process.env, {FAKE_UFW_STATE: state, LC_ALL: 'C'})}, function (error, stdout, stderr) {
-                resolve({ok: (error === null), code: ((error === null) ? 0 : error.code), stdout, stderr});
+                resolve({ok: (error === null), code: (error === null) ? 0 : error.code, stdout, stderr});
             });
         });
     };
@@ -158,7 +158,7 @@ async function serve(t, run, ports)
         firewall_serve(req, res, {run: ufw, ports, tail: pathname.slice('/firewall'.length)});
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     return {port: server.address().port};
 }
 

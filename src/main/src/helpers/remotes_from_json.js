@@ -18,7 +18,7 @@ function remotes_from_json(json, label)
             title: json[i].title || json[i].name || '',
             token: json[i].token,
             tags: tags_from_json(json[i].tags, `${label}[${i}].tags`),
-            machine: ((json[i].machine === undefined) ? null : String(json[i].machine)),
+            machine: (json[i].machine === undefined) ? null : String(json[i].machine),
             inbound: inbound_from_json(json[i].inbound, `${label}[${i}].inbound`),
             logs: logs_from_json(json[i].logs, `${label}[${i}].logs`),
             log_dirs: log_dirs_from_json(json[i].log_dirs, `${label}[${i}].log_dirs`),
@@ -84,7 +84,7 @@ function rule_from_json(json, label)
     if ((json.auth !== undefined) && ((typeof json.auth !== 'string') || (json.auth === ''))) {
         throw new Error(`${label}.auth: the name of the service that stands in front of it — an authwall`);
     }
-    return {service: json.service, off: json.off === true, auth: ((json.auth === undefined) ? null : json.auth)};
+    return {service: json.service, off: json.off === true, auth: (json.auth === undefined) ? null : json.auth};
 }
 
 // Whether this machine sends the output of its containers to Logline: "all" of them, or none.
@@ -114,7 +114,7 @@ function log_dirs_from_json(json, label)
     }
     const out = [];
     for (let i = 0; i < json.length; i++) {
-        const item = ((typeof json[i] === 'string') ? {path: json[i]} : json[i]);
+        const item = (typeof json[i] === 'string') ? {path: json[i]} : json[i];
         if ((item === null) || (typeof item !== 'object') || (typeof item.path !== 'string') || (/^(\/|~\/)/.test(item.path) === false)) {
             throw new Error(`${label}[${i}].path: a folder on that machine, from / or ~/ (got ${JSON.stringify(((item === null) || (typeof item !== 'object')) ? item : item.path)})`);
         }
@@ -124,7 +124,7 @@ function log_dirs_from_json(json, label)
         if (out.some(v => v.path === item.path)) {
             throw new Error(`${label}[${i}].path: ${JSON.stringify(item.path)} is listed twice`);
         }
-        out.push({path: item.path, service: ((item.service === undefined) ? null : item.service)});
+        out.push({path: item.path, service: (item.service === undefined) ? null : item.service});
     }
     return out;
 }

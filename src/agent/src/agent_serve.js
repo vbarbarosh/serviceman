@@ -120,7 +120,7 @@ async function agent_serve(options, socket, group, status)
     // even ones, so neither end ever chooses a number the other is using
     // The programs are the agent's, not the link's: a link that drops and is dialled again
     // finds them as they were. The status file reads the same object the methods write to.
-    const state = {link: socket, streams: {}, programs: ((status === undefined) ? {} : status.programs), next_stream_id: -1, heard_at: Date.now()};
+    const state = {link: socket, streams: {}, programs: (status === undefined) ? {} : status.programs, next_stream_id: -1, heard_at: Date.now()};
     // The link's one clock: the beat and the stats go when their time comes. A tick that
     // itself ran half a minute late means the machine slept; the slept-on link is closed and
     // dialled fresh.
@@ -266,13 +266,13 @@ function call_run(options, state, socket, message, group)
     const time0 = Date.now();
     // A look is a question, not work: the host asks what an install would do before it asks
     // for it to be done, and a question that changes nothing has nothing to say
-    const params = (((message.params === undefined) || (message.params === null)) ? {} : message.params);
+    const params = ((message.params === undefined) || (message.params === null)) ? {} : message.params;
     // A docker command is loud only when the host names the service somebody is waiting on —
     // a run, a start, a pull. The rest are questions: an inspect, a port, the logs a pane
     // reads every two seconds, and every line those print would be a log of the log.
     const loud = (QUIET.includes(message.method) === false) && (params.look !== true) && ((message.method !== 'docker') || (typeof params.service === 'string'));
     const slow = SLOW.includes(message.method);
-    const call = (slow ? log_uid() : group);
+    const call = slow ? log_uid() : group;
     if (loud && slow) {
         agent_say(call, 'group_spawn', {parent: group});
         agent_say(call, 'agent_call_begin', Object.assign({method: message.method}, asked_words(message)));
@@ -282,22 +282,22 @@ function call_run(options, state, socket, message, group)
     function say(stream, text) {
         // What the command printed, as it printed it. The sender says which stream it is and
         // the group says which work — repeating the method on every line says nothing new.
-        agent_say(call, ((stream === 'stdout') ? 'agent_call_stdout' : 'agent_call_stderr'), text, params.service);
+        agent_say(call, (stream === 'stdout') ? 'agent_call_stdout' : 'agent_call_stderr', text, params.service);
     }
-    const promise = method_run(options, state, message.method, message.params, (loud ? say : undefined), call);
+    const promise = method_run(options, state, message.method, message.params, loud ? say : undefined, call);
     promise.then(function (value) {
         if (loud) {
             // A command that failed is a value here, not an exception — so the answer decides
             // which line this is. `ok=true` beside a sender that already says ok is nothing.
-            const failed = ((value !== null) && (value !== undefined) && (value.ok === false));
+            const failed = (value !== null) && (value !== undefined) && (value.ok === false);
             agent_say(call, sender_of(slow, failed), end_words(message, value, slow, failed, Date.now() - time0));
         }
         link_send_message(socket, {type: 'reply', id: message.id, ok: true, value});
     }, function (error) {
-        const words = (slow
+        const words = slow
             ? `${format_seconds(Date.now() - time0)} ${error.message}`
-            : Object.assign({method: message.method}, asked_words(message), {reason: error.message, took: format_seconds(Date.now() - time0)}));
-        agent_say(call, (slow ? 'agent_call_end_error' : 'agent_call_error'), words);
+            : Object.assign({method: message.method}, asked_words(message), {reason: error.message, took: format_seconds(Date.now() - time0)});
+        agent_say(call, slow ? 'agent_call_end_error' : 'agent_call_error', words);
         link_send_message(socket, {type: 'reply', id: message.id, ok: false, error: error.message});
     });
 }
@@ -313,35 +313,35 @@ function end_words(message, value, slow, failed, ms)
             {method: message.method},
             asked_words(message),
             answered_words(message, value),
-            (failed ? {reason: failed_reason(value)} : {}),
+            failed ? {reason: failed_reason(value)} : {},
             {took: time}
         );
     }
     const answered = log_words(answered_words(message, value));
-    const said = [time, answered, (failed ? failed_reason(value) : '')].filter(v => v !== '');
+    const said = [time, answered, failed ? failed_reason(value) : ''].filter(v => v !== '');
     return said.join(' ');
 }
 
 // A refusal says its reason in words; a command that failed said it on stderr
 function failed_reason(value)
 {
-    return ((typeof value.error === 'string') ? value.error : last_line(value.stderr));
+    return (typeof value.error === 'string') ? value.error : last_line(value.stderr);
 }
 
 function sender_of(slow, failed)
 {
     if (slow) {
-        return (failed ? 'agent_call_end_error' : 'agent_call_end_ok');
+        return failed ? 'agent_call_end_error' : 'agent_call_end_ok';
     }
-    return (failed ? 'agent_call_error' : 'agent_call_ok');
+    return failed ? 'agent_call_error' : 'agent_call_ok';
 }
 
 // The part of the question worth reading back: what was run, where, and for which service
 function asked_words(message)
 {
-    const params = (((message.params === undefined) || (message.params === null)) ? {} : message.params);
+    const params = ((message.params === undefined) || (message.params === null)) ? {} : message.params;
     if (message.method === 'docker') {
-        return {argv: ((params.argv === undefined) ? '' : params.argv.join(' '))};
+        return {argv: (params.argv === undefined) ? '' : params.argv.join(' ')};
     }
     if (message.method === 'dir_create') {
         return {path: params.path};
@@ -365,7 +365,7 @@ function asked_words(message)
         return {cwd: params.cwd, line: params.install};
     }
     if (message.method === 'program_start') {
-        return {service: params.name, slot: params.slot, cwd: params.cwd, argv: ((params.argv === undefined) ? '' : params.argv.join(' '))};
+        return {service: params.name, slot: params.slot, cwd: params.cwd, argv: (params.argv === undefined) ? '' : params.argv.join(' ')};
     }
     if ((message.method === 'program_stop') || (message.method === 'program_probe')) {
         return {service: params.name, slot: params.slot};
@@ -394,7 +394,7 @@ function asked_words(message)
 // And the part of the answer worth reading back
 function answered_words(message, value)
 {
-    const answer = (((value === undefined) || (value === null)) ? {} : value);
+    const answer = ((value === undefined) || (value === null)) ? {} : value;
     if (message.method === 'program_start') {
         return {pid: answer.pid, started: answer.started};
     }
@@ -428,7 +428,7 @@ async function method_run(options, state, method, params, say, group)
         const line = [options.docker].concat(params.argv);
         // A pull the host is showing to somebody: docker only draws its progress for a
         // terminal, so it is given one
-        return await shell_stream(((params.pty === true) ? shell_pty_argv(line) : line), {}, say);
+        return await shell_stream((params.pty === true) ? shell_pty_argv(line) : line, {}, say);
     }
     if (method === 'dir_create') {
         return await agent_dir_create(params.path, params.root);

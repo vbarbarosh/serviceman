@@ -24,8 +24,8 @@ function log_line(app, uid, subject, words)
     const head = `[${uid}][${subject}]`;
     // The details are free text when the caller writes them itself, and key=value when it
     // hands over the values and lets this end write them
-    const said = ((typeof words === 'string') ? words : log_words(words));
-    const tail = ((said === '') ? head : `${head} ${log_trim(said, LINE_BYTES - TIME_BYTES - head.length - ROOM)}`);
+    const said = (typeof words === 'string') ? words : log_words(words);
+    const tail = (said === '') ? head : `${head} ${log_trim(said, LINE_BYTES - TIME_BYTES - head.length - ROOM)}`;
     const line = `[${new Date().toISOString()}]${tail}`;
     log_write(app, line);
     app.log_lines.push(line);

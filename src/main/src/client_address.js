@@ -5,7 +5,7 @@
 function client_address(req)
 {
     if (req.socket.tunnel_from === undefined) {
-        return ((req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress);
+        return (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress;
     }
     const real = req.headers['x-real-ip'];
     if (real !== undefined) {

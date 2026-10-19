@@ -33,7 +33,7 @@ function agent_root_serve(options)
     });
     server.listen(path, function () {
         const owner = owner_set(path, options);
-        agent_say(boot, 'root_begin', {socket: path, user: owner, root: ((process.getuid !== undefined) && (process.getuid() === 0))});
+        agent_say(boot, 'root_begin', {socket: path, user: owner, root: (process.getuid !== undefined) && (process.getuid() === 0)});
     });
     for (const signal of ['SIGINT', 'SIGTERM']) {
         process.on(signal, function () {
@@ -48,7 +48,7 @@ function agent_root_serve(options)
 function owner_set(path, options)
 {
     fs.chmodSync(path, SOCKET_MODE);
-    const user = ((options.root_for === '') ? (process.env.SUDO_USER || '') : options.root_for);
+    const user = (options.root_for === '') ? (process.env.SUDO_USER || '') : options.root_for;
     if (user === '') {
         return null;
     }
@@ -144,16 +144,16 @@ function job_run(state, options, socket, job, group)
 async function method_run(state, options, job, say)
 {
     const method = String(job.method);
-    job.params = (((job.params === undefined) || (job.params === null)) ? {} : job.params);
+    job.params = ((job.params === undefined) || (job.params === null)) ? {} : job.params;
     if (method === 'ping') {
         return {
             at: Date.now(),
-            root: ((process.getuid !== undefined) && (process.getuid() === 0)),
+            root: (process.getuid !== undefined) && (process.getuid() === 0),
             built: agent_built,
             // Whether something starts it again when it stops. systemd says so by name, and a
             // copy run by hand from a terminal says no — it is never asked to step aside for a
             // new file, because nothing would bring it back.
-            supervised: ((process.env.INVOCATION_ID !== undefined) && (process.env.SERVICEMAN_ROOT_SUPERVISED !== 'no')),
+            supervised: (process.env.INVOCATION_ID !== undefined) && (process.env.SERVICEMAN_ROOT_SUPERVISED !== 'no'),
         };
     }
     if (method === 'restart') {
@@ -210,7 +210,7 @@ function job_from_line(line)
 {
     try {
         const job = JSON.parse(line);
-        return (((job === null) || (typeof job !== 'object') || (typeof job.method !== 'string')) ? null : job);
+        return ((job === null) || (typeof job !== 'object') || (typeof job.method !== 'string')) ? null : job;
     }
     catch {
         return null;

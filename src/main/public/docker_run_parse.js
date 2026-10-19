@@ -73,15 +73,15 @@ function run_at(words)
 }
 
 // One option and its value, and how many words that took: `-p 80:80`, `-p80:80`, `--publish=80:80`
-function option_at(words, i)
+function option_at(words, at)
 {
-    const word = words[i];
+    const word = words[at];
     const mark = word.indexOf('=');
     if (word.startsWith('--') && (mark !== -1)) {
         return [word.slice(0, mark), word.slice(mark + 1), 1];
     }
     if (TAKES_VALUE.includes(word)) {
-        return [word, ((words[i + 1] === undefined) ? '' : words[i + 1]), 2];
+        return [word, (words[at + 1] === undefined) ? '' : words[at + 1], 2];
     }
     // A short option with its value stuck to it, which docker allows and READMEs use
     if ((word.startsWith('--') === false) && (word.length > 2) && TAKES_VALUE.includes(word.slice(0, 2))) {
@@ -95,7 +95,7 @@ function inside_port(value)
 {
     const parts = value.split('/')[0].split(':');
     const last = parts[parts.length - 1];
-    return (/^\d+$/.test(last) ? last : '');
+    return /^\d+$/.test(last) ? last : '';
 }
 
 // `name:/path`, `/on/this/host:/path:ro`, or a bare `/path` serviceman keeps for itself

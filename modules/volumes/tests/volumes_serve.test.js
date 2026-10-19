@@ -37,7 +37,7 @@ async function serve(answer, key_safe)
 
 async function fetch_json(url, method, body)
 {
-    const answer = await fetch(url, {method, body: ((body === undefined) ? undefined : JSON.stringify(body))});
+    const answer = await fetch(url, {method, body: (body === undefined) ? undefined : JSON.stringify(body)});
     return {status: answer.status, body: await answer.json()};
 }
 

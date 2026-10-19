@@ -10,7 +10,7 @@ const SAID_LINES = 12;
 function view_from_service(service, now)
 {
     const state = service.state;
-    const at = ((now === undefined) ? Date.now() : now);
+    const at = (now === undefined) ? Date.now() : now;
     const phase = service_phase(service);
     const storage = [];
     for (const volume of ((service.volumes === undefined) ? [] : service.volumes)) {
@@ -29,25 +29,25 @@ function view_from_service(service, now)
         remotes: service.remotes,
         publish: {
             hosts: service.hosts,
-            port: ((service.port === undefined) ? null : service.port),
+            port: (service.port === undefined) ? null : service.port,
             strip_prefix: service.strip_prefix,
         },
         phase,
-        redirect: ((service.redirect === undefined) ? null : service.redirect),
+        redirect: (service.redirect === undefined) ? null : service.redirect,
         // The address serviceman keeps for it on its own hostname, for the rules that only
         // accept `localhost` — an OAuth callback above all
-        redir: ((service.hosts.length === 0) ? null : service_redir(service)),
+        redir: (service.hosts.length === 0) ? null : service_redir(service),
         // Whether there is anything to fetch again: a program that puts itself in place
-        installs: ((service.type === 'shell') && (service.lifecycle.install !== null)),
+        installs: (service.type === 'shell') && (service.lifecycle.install !== null),
         // Whether there is an image behind it, and so something a pull could bring
-        image: ((service.type === 'docker') ? service.image : null),
+        image: (service.type === 'docker') ? service.image : null,
         // Work that the phase does not show, and the last of what it printed while doing it,
         // so that a page open on a slow install sees the install rather than a still picture
-        doing: ((state.doing === undefined) ? null : state.doing),
-        progress: ((state.progress === undefined) ? null : state.progress),
-        progress_text: ((state.progress_text === undefined) ? null : state.progress_text),
+        doing: (state.doing === undefined) ? null : state.doing,
+        progress: (state.progress === undefined) ? null : state.progress,
+        progress_text: (state.progress_text === undefined) ? null : state.progress_text,
         said: state.said.slice(-SAID_LINES),
-        upstream: ((running.length > 0) ? running[0].upstream : null),
+        upstream: (running.length > 0) ? running[0].upstream : null,
         started_at: oldest_started_at(state.instances),
         stopped_at: state.stopped_at,
         uptime_ms: null,
@@ -94,8 +94,8 @@ function source_from_service(service)
         return {label: 'Image', text: service.image};
     }
     if (service.type === 'shell') {
-        const line = (((service.command === undefined) || (service.command === null)) ? service.argv.join(' ') : service.command);
-        return {label: 'Command', text: ((service.cwd === null) ? line : `${line} in ${service.cwd}`)};
+        const line = ((service.command === undefined) || (service.command === null)) ? service.argv.join(' ') : service.command;
+        return {label: 'Command', text: (service.cwd === null) ? line : `${line} in ${service.cwd}`};
     }
     return {label: 'Answers at', text: `${service.upstream.host}:${service.upstream.port}`};
 }
@@ -106,9 +106,9 @@ function view_from_instance(instance, at)
         slot: instance.slot,
         phase: instance.phase,
         remote: instance.remote,
-        upstream: ((instance.upstream === null) ? null : `${instance.upstream.host}:${instance.upstream.port}`),
-        uptime_ms: ((instance.started_at === null) ? null : at - instance.started_at),
-        idle_ms: ((instance.last_activity_at === null) ? null : at - instance.last_activity_at),
+        upstream: (instance.upstream === null) ? null : `${instance.upstream.host}:${instance.upstream.port}`,
+        uptime_ms: (instance.started_at === null) ? null : at - instance.started_at,
+        idle_ms: (instance.last_activity_at === null) ? null : at - instance.last_activity_at,
         inflight: instance.inflight,
         requests: instance.requests,
         error: instance.last_error,

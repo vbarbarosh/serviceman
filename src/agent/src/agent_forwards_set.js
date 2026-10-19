@@ -46,7 +46,7 @@ async function agent_forwards_set(forwards, group)
 
 async function listen(item, group)
 {
-    const where = ((item.socket === undefined) ? `127.0.0.1:${item.port}` : agent_path_expand(item.socket));
+    const where = (item.socket === undefined) ? `127.0.0.1:${item.port}` : agent_path_expand(item.socket);
     const out = {key: key_of(item), where, server: null, error: null};
     // Half open, as ssh -L is: a client that says it is done is still sent the answer
     const server = net.createServer({allowHalfOpen: true}, function (socket) {
@@ -137,7 +137,7 @@ function close(found)
 
 function key_of(item)
 {
-    return ((item.socket === undefined) ? `port ${item.port}` : `socket ${item.socket}`);
+    return (item.socket === undefined) ? `port ${item.port}` : `socket ${item.socket}`;
 }
 
 module.exports = agent_forwards_set;

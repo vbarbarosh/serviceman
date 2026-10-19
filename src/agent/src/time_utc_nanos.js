@@ -6,7 +6,7 @@ const RE_ISO = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d{1,9}))?(Z|[+
 // A time with no zone is local time here. Not a real time — a 30th of February — is null.
 function time_utc_nanos(text)
 {
-    const found = ((typeof text === 'string') ? RE_ISO.exec(text) : null);
+    const found = (typeof text === 'string') ? RE_ISO.exec(text) : null;
     if (found === null) {
         return null;
     }
@@ -21,9 +21,9 @@ function time_utc_nanos(text)
         ms = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]).getTime();
     }
     else {
-        const sign = ((zone === 'Z') ? 0 : ((zone[0] === '-') ? -1 : 1));
+        const sign = (zone === 'Z') ? 0 : ((zone[0] === '-') ? -1 : 1);
         const digits = zone.replace(/[^0-9]/g, '');
-        const shift = ((sign === 0) ? 0 : sign*(parseInt(digits.slice(0, 2), 10)*60 + parseInt(digits.slice(2, 4), 10)));
+        const shift = (sign === 0) ? 0 : sign*(parseInt(digits.slice(0, 2), 10)*60 + parseInt(digits.slice(2, 4), 10));
         ms = Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4] - shift, parts[5]);
     }
     return `${new Date(ms).toISOString().slice(0, 19)}.${(found[7] || '').padEnd(9, '0')}Z`;

@@ -19,5 +19,5 @@ test('a page from anywhere else, no Origin, a bad one, or a request through a ma
 
 function request(origin, tunnel_from)
 {
-    return {headers: ((origin === undefined) ? {} : {origin}), socket: {remoteAddress: '172.17.0.1', tunnel_from}};
+    return {headers: (origin === undefined) ? {} : {origin}, socket: {remoteAddress: '172.17.0.1', tunnel_from}};
 }

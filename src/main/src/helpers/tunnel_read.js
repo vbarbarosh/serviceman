@@ -24,7 +24,7 @@ function tunnel_read(remote, kind, body)
 
 function error_from_body(body)
 {
-    const said = ((body.length === 0) ? {} : JSON.parse(body.toString('utf8')));
+    const said = (body.length === 0) ? {} : JSON.parse(body.toString('utf8'));
     if (said.code === undefined) {
         return null;
     }

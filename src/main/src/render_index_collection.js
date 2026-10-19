@@ -69,8 +69,8 @@ function tag_of(text)
 function address_of(host, port)
 {
     const mark = host.indexOf('/');
-    const name = ((mark === -1) ? host : host.slice(0, mark));
-    const path = ((mark === -1) ? '' : host.slice(mark));
+    const name = (mark === -1) ? host : host.slice(0, mark);
+    const path = (mark === -1) ? '' : host.slice(mark);
     return `http://${name}${(port === '') ? '' : `:${port}`}${path}`;
 }
 

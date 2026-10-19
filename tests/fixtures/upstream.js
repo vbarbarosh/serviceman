@@ -13,7 +13,7 @@ function main()
     const boot_ms = parseInt(process.env.SERVICEMAN_TEST_BOOT_MS || '0', 10);
     const server = http.createServer(function (req, res) {
         const slow = /^\/slow\/(\d+)/.exec(req.url);
-        const delay = ((slow === null) ? 0 : parseInt(slow[1], 10));
+        const delay = (slow === null) ? 0 : parseInt(slow[1], 10);
         setTimeout(function () {
             if (req.url === '/cut') {
                 res.writeHead(200, {'content-type': 'text/plain; charset=utf-8', 'content-length': 1000000, 'x-service': name});

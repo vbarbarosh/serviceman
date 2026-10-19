@@ -29,11 +29,11 @@ async function agent_resources(options)
         node: process.version,
         cpu: {
             count: cpus.length,
-            model: ((cpus.length === 0) ? 'unknown' : cpus[0].model.trim()),
+            model: (cpus.length === 0) ? 'unknown' : cpus[0].model.trim(),
         },
         mem: {total: os.totalmem()},
         disk,
-        docker: (docker.ok ? `docker ${docker.stdout}` : null),
+        docker: docker.ok ? `docker ${docker.stdout}` : null,
         // The host reaches this socket through the link when it wants a shell in a container
         docker_socket: docker_socket_path({}, process.env),
         // What this agent can be asked for, by name. The host reads the list before asking:
@@ -49,7 +49,7 @@ async function agent_resources(options)
         logline: logline_said(),
         // Which door table it serves from, so the host sends one only when it differs, and
         // where its peers reach it
-        doors: {version: ((agent_doors_state.table === null) ? null : agent_doors_state.table.version), peer: agent_peer_serve.where()},
+        doors: {version: (agent_doors_state.table === null) ? null : agent_doors_state.table.version, peer: agent_peer_serve.where()},
     };
 }
 
@@ -67,7 +67,7 @@ function logline_said()
     return {
         logs: kept.logs,
         endpoint: kept.endpoint,
-        token_sha: ((kept.token === null) ? null : crypto.createHash('sha256').update(kept.token).digest('hex')),
+        token_sha: (kept.token === null) ? null : crypto.createHash('sha256').update(kept.token).digest('hex'),
         floor: kept.floor,
         dirs: kept.dirs,
     };

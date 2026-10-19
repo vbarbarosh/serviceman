@@ -18,7 +18,7 @@ async function agent_file_part_finish(params)
         throw new Error(`the file has ${have} bytes so far, not ${size}`);
     }
     const replaced = fs.existsSync(where.full);
-    const written = (replaced ? fs.realpathSync(where.full) : where.full);
+    const written = replaced ? fs.realpathSync(where.full) : where.full;
     if (replaced) {
         fs.chmodSync(where.part, fs.statSync(written).mode & 0o7777);
     }

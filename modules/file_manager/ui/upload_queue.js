@@ -166,7 +166,7 @@ async function folders_make(queue, path, folders)
 // A choice whose turn has come: its folders first. Refused, its files fail with the reason.
 async function plan_run(queue, batch)
 {
-    const plan = ((plans[queue.base] === undefined) ? undefined : plans[queue.base][batch]);
+    const plan = (plans[queue.base] === undefined) ? undefined : plans[queue.base][batch];
     if (plan === undefined) {
         return;
     }
@@ -368,7 +368,7 @@ async function part_send(queue, item, received)
             queue.part_bytes = Math.max(PART_MIN_BYTES, Math.floor(queue.part_bytes/2));
             return received;
         }
-        error.lasting = (error.lasting || (error.status === 413));
+        error.lasting = error.lasting || (error.status === 413);
         throw error;
     }
 }
@@ -489,7 +489,7 @@ async function copy_stream(queue, items)
     queue.landed_dirs = Array.from(new Set(items.filter(v => v.phase === 'ok').map(v => v.dir)));
     queue.landed++;
     if ((failed === null) || queue.cancelled || queue.paused || ((failed.aborted === true) && (failed.stalled !== true))) {
-        report(queue, ((failed === null) ? 'copied' : 'stopped'), false);
+        report(queue, (failed === null) ? 'copied' : 'stopped', false);
         return;
     }
     // Something in front of the server takes bodies only so big: smaller streams get through
@@ -508,7 +508,7 @@ async function copy_stream(queue, items)
     const first = items.find(v => v.phase === 'waiting');
     if (first !== undefined) {
         first.phase = 'retrying';
-        first.said = ((failed.stalled === true) ? 'the stream stalled' : failed.message);
+        first.said = (failed.stalled === true) ? 'the stream stalled' : failed.message;
         await wait_out(queue, first, 5);
         first.phase = 'waiting';
     }
@@ -529,7 +529,7 @@ function stream_next(queue, item)
         files.push(next);
         bytes += next.size;
     }
-    return (((files.length > 0) && (files[0] === item)) ? files : [item]);
+    return ((files.length > 0) && (files[0] === item)) ? files : [item];
 }
 
 // Asked once of each disk: a tar of nothing either goes in, or the disk takes no stream
@@ -615,7 +615,7 @@ function folder_common(dirs)
 // broken. A refusal that sending again will not change is `lasting`; the rest is retried.
 function upload_call(queue, method, action, item, query, body, progress)
 {
-    const words = Object.assign({dir: item.dir, name: item.name}, ((action === '') ? {} : {id: item.id}), query);
+    const words = Object.assign({dir: item.dir, name: item.name}, (action === '') ? {} : {id: item.id}, query);
     const where = Object.keys(words).map(v => `${v}=${encodeURIComponent(words[v])}`).join('&');
     const request = new XMLHttpRequest();
     requests[queue.base] = request;
@@ -631,7 +631,7 @@ function upload_call(queue, method, action, item, query, body, progress)
             }
             const error = new Error((outcome === null) ? `the server answered ${request.status}` : outcome.error);
             error.status = request.status;
-            error.lasting = ((request.status === 400) || (request.status === 404) || (request.status === 409) || ((request.status === 413) && (action !== 'part')));
+            error.lasting = (request.status === 400) || (request.status === 404) || (request.status === 409) || ((request.status === 413) && (action !== 'part'));
             reject(error);
         });
         request.addEventListener('error', function () {
@@ -770,7 +770,7 @@ function sampler_start(queue)
         let done = 0;
         for (const item of queue.copies) {
             bytes += item.size;
-            done += ((item.phase === 'ok') ? item.size : item.sent);
+            done += (item.phase === 'ok') ? item.size : item.sent;
         }
         const now = Date.now();
         seen.push([now, done]);

@@ -57,7 +57,7 @@ function proxy_make(tunnels, reaching)
         tunnels.push(req.url);
         const [host, port] = req.url.split(':');
         // What tailscale does for a tailnet name: it knows where it is
-        const line = net.connect(Number(port), ((host === 'logline.tailnet.invalid') ? '127.0.0.1' : host), function () {
+        const line = net.connect(Number(port), (host === 'logline.tailnet.invalid') ? '127.0.0.1' : host, function () {
             socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
             line.pipe(socket);
             socket.pipe(line);

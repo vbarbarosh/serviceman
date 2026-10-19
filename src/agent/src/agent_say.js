@@ -13,7 +13,7 @@ function agent_say(group, sender, details, service)
 {
     // Free text when the caller writes it itself — a line a command printed is already a line,
     // and nothing is gained by wrapping it in a key
-    const words = ((typeof details === 'string') ? details : log_words(details));
+    const words = (typeof details === 'string') ? details : log_words(details);
     const time = new Date().toISOString();
     const tail = `[${group}][${sender}]${(words === '') ? '' : ` ${words}`}`;
     const line = `[${time}]${tail}`;
@@ -41,7 +41,7 @@ function told(group, sender, details, service)
     try {
         // The service travels beside the line, not inside it: the host needs it for the page
         // somebody is waiting on, and a reader needs the line as the command wrote it
-        link_send_message(socket, {type: 'log', group, sender, words: ((details === undefined) ? {} : details), service});
+        link_send_message(socket, {type: 'log', group, sender, words: (details === undefined) ? {} : details, service});
     }
     catch {
         // The link went while this was being written. The line is already in this machine's

@@ -6,7 +6,7 @@ function counters_from_service(service)
     for (const instance of service.state.instances) {
         instances[instance.slot] = {
             requests: instance.requests,
-            started_at: (((instance.phase === 'running') || (instance.phase === 'lost')) ? instance.started_at : null),
+            started_at: ((instance.phase === 'running') || (instance.phase === 'lost')) ? instance.started_at : null,
         };
     }
     return {

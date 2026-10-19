@@ -29,7 +29,7 @@ async function service_reinstall(app, service)
         if (running) {
             await instance_stop(app, service, instance, 'it is being fetched again');
         }
-        const remote = ((instance.remote === null) ? remote_reserve(app, service, instance, []) : remote_from_instance(app, service, instance));
+        const remote = (instance.remote === null) ? remote_reserve(app, service, instance, []) : remote_from_instance(app, service, instance);
         await program_install(app, remote, service, true);
     }
     catch (error) {

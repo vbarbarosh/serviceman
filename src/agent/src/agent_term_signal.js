@@ -18,7 +18,7 @@ async function agent_term_signal(params)
     if (SIGNALS.includes(params.signal) === false) {
         throw new Error(`a signal is one of ${SIGNALS.join(', ')}: ${JSON.stringify(params.signal)}`);
     }
-    const to = ((params.to === undefined) ? 'shell' : params.to);
+    const to = (params.to === undefined) ? 'shell' : params.to;
     if ((to !== 'shell') && (to !== 'foreground')) {
         throw new Error(`a signal goes to shell or foreground: ${JSON.stringify(params.to)}`);
     }

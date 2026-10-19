@@ -16,14 +16,14 @@ async function shell_progress_docker_pull(app, remote, service)
     service.state.progress = null;
     service.state.progress_text = null;
     try {
-        const out = await docker_shell(app, remote, ['pull', service.image], service.name, true);
-        if ((out.ok === false) && no_pty(out)) {
+        const answer = await docker_shell(app, remote, ['pull', service.image], service.name, true);
+        if ((answer.ok === false) && no_pty(answer)) {
             // The machine has no `script`. The pull still works; it just cannot say how far
             // it is, because docker keeps that for a terminal.
             log_event(app, 'docker_pull_no_pty', {service: service.name, remote: remote.name, then: 'the download runs without a progress meter'});
             return await docker_shell(app, remote, ['pull', service.image], service.name);
         }
-        return out;
+        return answer;
     }
     finally {
         service.state.pull = null;

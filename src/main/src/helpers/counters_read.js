@@ -8,7 +8,7 @@ function counters_read(app)
 {
     try {
         const json = JSON.parse(fs.readFileSync(counters_path(app), 'utf8'));
-        return (((json.services === undefined) || (json.services === null)) ? {} : json.services);
+        return ((json.services === undefined) || (json.services === null)) ? {} : json.services;
     }
     catch (error) {
         if (error.code !== 'ENOENT') {

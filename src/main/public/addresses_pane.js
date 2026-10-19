@@ -72,15 +72,15 @@ const addresses_pane = {
             for (const service of this.state.services) {
                 service_by_name[service.name] = service;
                 for (const host of service.publish.hosts) {
-                    const note = ((host.includes('/') && service.publish.strip_prefix) ? 'prefix stripped' : '');
+                    const note = (host.includes('/') && service.publish.strip_prefix) ? 'prefix stripped' : '';
                     out.push(this.row_of(`${service.name} ${host}`, host, this.url_of(host), note, service, null, null, false));
                 }
             }
             for (const remote of this.state.remotes) {
-                const rule_by_host = ((remote.inbound === undefined) ? {} : remote.inbound);
+                const rule_by_host = (remote.inbound === undefined) ? {} : remote.inbound;
                 for (const host of Object.keys(rule_by_host)) {
                     const rule = rule_by_host[host];
-                    const service = (service_by_name[rule.service] || null);
+                    const service = service_by_name[rule.service] || null;
                     out.push(this.row_of(`${remote.name} ${host}`, host, `https://${host}/`, '', service, remote, rule.auth, rule.off));
                 }
             }
@@ -98,8 +98,8 @@ const addresses_pane = {
             return this.rows_here.filter(v => this.is_shown(v, wanted));
         },
         place_title: function () {
-            const found = ((this.state === null) ? undefined : this.state.remotes.find(v => v.name === this.remote));
-            return ((found === undefined) ? null : (found.title || found.name));
+            const found = (this.state === null) ? undefined : this.state.remotes.find(v => v.name === this.remote);
+            return (found === undefined) ? null : (found.title || found.name);
         },
         chips: function () {
             const rows = this.rows_here;
@@ -123,7 +123,7 @@ const addresses_pane = {
                 inbound[row.address] = door_rule_value(row.service, on === false, row.behind);
             });
             this.busy = false;
-            this.note = ((error === null) ? '' : error);
+            this.note = (error === null) ? '' : error;
         },
         row_of: function (key, address, url, note, service, remote, behind, off) {
             const port = this.state.listen.port;
@@ -132,12 +132,12 @@ const addresses_pane = {
                 address,
                 url,
                 note,
-                service: ((service === null) ? '' : service.name),
-                service_title: ((service === null) ? 'no such service' : (service.title || service.name)),
-                phase: ((service === null) ? 'failed' : service.phase),
-                remote: ((remote === null) ? null : remote.name),
-                through: ((remote === null) ? `serviceman :${port}` : `the door of ${remote.title || remote.name}`),
-                behind: ((behind === undefined) ? null : behind),
+                service: (service === null) ? '' : service.name,
+                service_title: (service === null) ? 'no such service' : (service.title || service.name),
+                phase: (service === null) ? 'failed' : service.phase,
+                remote: (remote === null) ? null : remote.name,
+                through: (remote === null) ? `serviceman :${port}` : `the door of ${remote.title || remote.name}`,
+                behind: (behind === undefined) ? null : behind,
                 off,
             };
         },
@@ -160,10 +160,10 @@ const addresses_pane = {
         // Where the address opens: on the service door, with its port unless it is the one a
         // browser leaves out
         url_of: function (host) {
-            const port = ((this.state.listen.port === 80) ? '' : `:${this.state.listen.port}`);
+            const port = (this.state.listen.port === 80) ? '' : `:${this.state.listen.port}`;
             const mark = host.indexOf('/');
-            const name = ((mark === -1) ? host : host.slice(0, mark));
-            const path = ((mark === -1) ? '' : host.slice(mark));
+            const name = (mark === -1) ? host : host.slice(0, mark);
+            const path = (mark === -1) ? '' : host.slice(mark);
             return `http://${name}${port}${path}`;
         },
     },

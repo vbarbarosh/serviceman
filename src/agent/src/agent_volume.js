@@ -27,8 +27,8 @@ async function agent_volume(options, params, say, system)
 {
     const ctx = {
         dir: agent_volumes_dir(options),
-        say: (((say === undefined) || (say === null)) ? function () {} : say),
-        system: ((system === undefined) ? agent_volume_system : system),
+        say: ((say === undefined) || (say === null)) ? function () {} : say,
+        system: (system === undefined) ? agent_volume_system : system,
     };
     const action = String(params.action || '');
     try {
@@ -86,15 +86,15 @@ async function volume_state(ctx, meta)
         return Object.assign({}, meta, {state: 'missing', users: [], size: null, on_disk: null, used: null, free: null});
     }
     const mounted = await ctx.system.mounted(meta.target, files.device);
-    const room = (mounted ? await ctx.system.room_of(meta.target) : null);
+    const room = mounted ? await ctx.system.room_of(meta.target) : null;
     return Object.assign({}, meta, {
-        state: (mounted ? 'open' : 'closed'),
+        state: mounted ? 'open' : 'closed',
         // What holds it open now: a process in it, or a container that has it mounted
-        users: (mounted ? await ctx.system.users_of(meta.target, files.device) : []),
+        users: mounted ? await ctx.system.users_of(meta.target, files.device) : [],
         size: file.size,
         on_disk: file.on_disk,
-        used: ((room === null) ? null : room.used),
-        free: ((room === null) ? null : room.free),
+        used: (room === null) ? null : room.used,
+        free: (room === null) ? null : room.free,
     });
 }
 
@@ -130,7 +130,7 @@ async function volume_create(ctx, params)
         await ctx.system.image_make(ctx.dir, files.image, size);
         made = true;
         ctx.say('stdout', 'formatting it with LUKS2');
-        const pbkdf = ((params.passphrase === true) ? PBKDF_PASSPHRASE : PBKDF);
+        const pbkdf = (params.passphrase === true) ? PBKDF_PASSPHRASE : PBKDF;
         await run_checked(ctx, ['cryptsetup', 'luksFormat', '--type', 'luks2', '--batch-mode'].concat(pbkdf, ['--key-file=-', files.image]), key);
         await mapper_open(ctx, files, key);
         ctx.say('stdout', 'making an ext4 file system inside');
@@ -224,7 +224,7 @@ async function volume_delete(ctx, meta)
     if ((inside !== null) && (inside.length === 0)) {
         await ctx.system.folder_remove(meta.target);
     }
-    const target_left = (((inside === null) || (inside.length === 0)) ? null : meta.target);
+    const target_left = ((inside === null) || (inside.length === 0)) ? null : meta.target;
     return {ok: true, name: meta.name, owner: meta.owner, target: meta.target, target_left};
 }
 
@@ -375,7 +375,7 @@ function target_checked(value, owner)
 function size_checked(value)
 {
     const found = RE_SIZE.exec(String((value === undefined) ? '' : value).trim());
-    const out = ((found === null) ? NaN : parseInt(found[1], 10)*SIZE_UNITS[found[2].toUpperCase()]);
+    const out = (found === null) ? NaN : parseInt(found[1], 10)*SIZE_UNITS[found[2].toUpperCase()];
     if ((Number.isSafeInteger(out) === false) || (out < SIZE_MIN)) {
         throw refusal(400, `a size is bytes, or a number with K, M, G or T, of at least ${size_text(SIZE_MIN)}`);
     }
@@ -420,7 +420,7 @@ function refusal(status, message, extra)
 {
     const out = new Error(message);
     out.status = status;
-    out.extra = ((extra === undefined) ? {} : extra);
+    out.extra = (extra === undefined) ? {} : extra;
     return out;
 }
 

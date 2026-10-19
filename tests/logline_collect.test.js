@@ -46,7 +46,7 @@ test('every line a container writes after the floor reaches Logline once, and no
     assert.strictEqual(rows.some(v => v.ResourceAttributes['container.name'] === 'logline-self'), false);
 
     // The agent's own lines go the same way, the ones it said before collection began included
-    await world.until(() => world.own().some(vv => vv.LogAttributes.sender === 'logline_collect_begin'));
+    await world.until(() => world.own().some(v => v.LogAttributes.sender === 'logline_collect_begin'));
     const own = world.own();
     assert.strictEqual(own.some(v => v.LogAttributes.sender === 'agent_begin'), true, 'said before collection started, kept until it had');
     const begin = own.find(v => v.LogAttributes.sender === 'logline_collect_begin');
@@ -65,7 +65,7 @@ test('killed at any moment, and with Logline away for a while, the agent loses n
         for (let i = 0; writing; i++) {
             const id = ids[i % 2];
             const text = `line ${i} of ${id.slice(0, 1)}`;
-            world.docker.log(id, text, ((i % 7 === 0) ? 'stderr' : 'stdout'));
+            world.docker.log(id, text, (i % 7 === 0) ? 'stderr' : 'stdout');
             written.push(text);
             await timers.setTimeout(2);
         }
@@ -153,8 +153,8 @@ async function world_make(t, env)
         docker,
         agent_dir,
         // What the containers wrote; the agent's own lines are counted apart
-        rows: () => clickhouse.rows.filter(vv => vv.ServiceName !== 'serviceman-agent'),
-        own: () => clickhouse.rows.filter(vv => vv.ServiceName === 'serviceman-agent'),
+        rows: () => clickhouse.rows.filter(v => v.ServiceName !== 'serviceman-agent'),
+        own: () => clickhouse.rows.filter(v => v.ServiceName === 'serviceman-agent'),
         agent_start: function (floor) {
             fs.mkdirSync(path.join(agent_dir, 'logline'), {recursive: true});
             fs.writeFileSync(path.join(agent_dir, 'logline', 'settings.json'), JSON.stringify({endpoint: `http://127.0.0.1:${lines_port}/lines`, token: issued.token, logs: 'all', floor}));

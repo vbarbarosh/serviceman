@@ -8,7 +8,7 @@ const path = require('path');
 function agent_volumes_link(options, folder)
 {
     const target = agent_volumes_dir(options);
-    const link = path.join(((folder === undefined) ? agent_dir() : folder), 'volumes');
+    const link = path.join((folder === undefined) ? agent_dir() : folder, 'volumes');
     try {
         if (fs.existsSync(target) && (fs.lstatSync(link, {throwIfNoEntry: false}) === undefined)) {
             fs.symlinkSync(target, link);

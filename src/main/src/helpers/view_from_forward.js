@@ -7,14 +7,14 @@ function view_from_forward(app, forward)
     const from = app.remote_by_name[forward.from.remote];
     // serviceman itself, for a forward that shows up here: what it listens on is its own
     // (forwards_here), in the same shape as what an agent says back
-    const to = (forward.to.here ? null : app.remote_by_name[forward.to.remote]);
+    const to = forward.to.here ? null : app.remote_by_name[forward.to.remote];
     const said = said_of(app, forward, to);
     const counts = forward_join.counts(app, forward.label);
     const now = now_of(forward, from, to, said);
     return Object.assign({}, forward, {
         // Where the agent listens, its ~ written out, or where serviceman does, inside its
         // state dir; null while it does not
-        at: (((said === undefined) || (said.error !== null)) ? null : said.at),
+        at: ((said === undefined) || (said.error !== null)) ? null : said.at,
         // Where it stands, as a word the page shows on the forward's one line, and in full
         state: now.state,
         problem: now.problem,
@@ -44,12 +44,12 @@ function now_of(forward, from, to, said)
     if (to === null) {
         return now_here(from, said);
     }
-    const can = (((to.state.resources === null) || (to.state.resources.can === undefined)) ? [] : to.state.resources.can);
+    const can = ((to.state.resources === null) || (to.state.resources.can === undefined)) ? [] : to.state.resources.can;
     if ((to.state.phase === 'online') && (can.includes('forwards') === false)) {
         return {state: 'old_agent', problem: `the agent on ${to.name} is older than forwards — update it`};
     }
     if (said === undefined) {
-        return ((to.state.phase === 'online') ? {state: 'telling', problem: `${to.name} is being told`} : {state: 'to_offline', problem: `${to.name} is offline`});
+        return (to.state.phase === 'online') ? {state: 'telling', problem: `${to.name} is being told`} : {state: 'to_offline', problem: `${to.name} is offline`};
     }
     if (said.error !== null) {
         return {state: 'cannot_listen', problem: `${to.name} cannot listen: ${said.error}`};

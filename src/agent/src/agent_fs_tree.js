@@ -126,10 +126,10 @@ function folder_read(root, rel, skip)
         return [{type: 'error', path: rel, error: error_said(error)}];
     }
     const names = entries.map(v => v.name).filter(v => (skip.has(v) === false));
-    names.sort((a, b) => ((a < b) ? -1 : ((a > b) ? 1 : 0)));
+    names.sort((a, b) => (a < b) ? -1 : ((a > b) ? 1 : 0));
     const out = [];
     for (const name of names) {
-        const item_path = ((rel === '') ? name : `${rel}/${name}`);
+        const item_path = (rel === '') ? name : `${rel}/${name}`;
         const full = path.join(root, item_path);
         let stat;
         try {

@@ -209,13 +209,13 @@ const docker = {
             return typeof this.shell_url === 'function';
         },
         images_sorted: function () {
-            return ((this.images === null) ? [] : this.images.slice().sort((a, b) => (a.tags[0] || '~').localeCompare(b.tags[0] || '~') || (b.created_ms - a.created_ms)));
+            return (this.images === null) ? [] : this.images.slice().sort((a, b) => (a.tags[0] || '~').localeCompare(b.tags[0] || '~') || (b.created_ms - a.created_ms));
         },
         volumes_sorted: function () {
-            return ((this.volumes === null) ? [] : this.volumes.slice().sort((a, b) => a.name.localeCompare(b.name)));
+            return (this.volumes === null) ? [] : this.volumes.slice().sort((a, b) => a.name.localeCompare(b.name));
         },
         networks_sorted: function () {
-            return ((this.networks === null) ? [] : this.networks.slice().sort((a, b) => a.name.localeCompare(b.name)));
+            return (this.networks === null) ? [] : this.networks.slice().sort((a, b) => a.name.localeCompare(b.name));
         },
         // What the panel says beside its title: the step it is on and the time so far while it
         // runs, then how it ended
@@ -224,7 +224,7 @@ const docker = {
             if (run.phase !== 'running') {
                 return `${run.said}${(run.ms === undefined) ? '' : ` · ${this.clock_text(run.ms)}`}`;
             }
-            const step = ((run.step === null) ? '' : `step ${run.step.at} of ${run.step.of}: ${run.step.name} · `);
+            const step = (run.step === null) ? '' : `step ${run.step.at} of ${run.step.of}: ${run.step.name} · `;
             return `${step}${this.clock_text(this.now - run.began)}`;
         },
         // How far, as a share; a finished action stands full, whatever its last word said
@@ -233,7 +233,7 @@ const docker = {
             if (this.run.phase === 'done') {
                 return 1;
             }
-            return (((progress === null) || (progress.total === 0)) ? 0 : progress.done/progress.total);
+            return ((progress === null) || (progress.total === 0)) ? 0 : progress.done/progress.total;
         },
         // How far, in what it counts, and the time left at the rate so far
         run_progress_text: function () {
@@ -408,7 +408,7 @@ const docker = {
             }
             if (item.progress !== undefined) {
                 // The first word of progress is where the clock for its rate starts
-                run.progress = Object.assign({since: ((run.progress === null) ? Date.now() : run.progress.since), from: ((run.progress === null) ? item.progress.done : run.progress.from)}, item.progress);
+                run.progress = Object.assign({since: (run.progress === null) ? Date.now() : run.progress.since, from: (run.progress === null) ? item.progress.done : run.progress.from}, item.progress);
             }
             if (item.text !== undefined) {
                 run.text += `${item.text}\n`;
@@ -436,7 +436,7 @@ const docker = {
         // "2m 05s", the short way a clock says it
         clock_text: function (ms) {
             const total = Math.max(0, Math.round(ms/1000));
-            return ((total < 60) ? `${total}s` : `${Math.floor(total/60)}m ${String(total % 60).padStart(2, '0')}s`);
+            return (total < 60) ? `${total}s` : `${Math.floor(total/60)}m ${String(total % 60).padStart(2, '0')}s`;
         },
         tab_open: function (tab) {
             this.tab = tab;
@@ -476,7 +476,7 @@ const docker = {
             this.report(`removing ${(kind === 'images') ? key.slice(0, 12) : key}…`, false);
             try {
                 const answer = await fetch(`${this.base}/${kind}/${encodeURIComponent(key)}/remove`, {method: 'POST'});
-                this.report((answer.ok ? '' : (await answer.json()).error), (answer.ok === false));
+                this.report(answer.ok ? '' : (await answer.json()).error, (answer.ok === false));
             }
             catch {
                 this.report('the answer never came back', true);
@@ -494,7 +494,7 @@ const docker = {
         },
         count_of: function (tab) {
             const list = this[tab];
-            return ((list === null) ? '' : list.length);
+            return (list === null) ? '' : list.length;
         },
         short_id: function (id) {
             return id.replace(/^sha256:/, '').slice(0, 12);
@@ -529,10 +529,10 @@ const docker = {
                 key: item.id,
                 title: item.name,
                 subtitle: item.image,
-                files: (this.files_able ? this.files_base(item) : null),
+                files: this.files_able ? this.files_base(item) : null,
                 start: '',
                 home_title: 'The container\'s working folder',
-                shell: (this.shell_able ? this.shell_url(item) : null),
+                shell: this.shell_able ? this.shell_url(item) : null,
                 what,
             };
         },
@@ -543,7 +543,7 @@ const docker = {
             if (this.files_able === false) {
                 return null;
             }
-            const mount = (Array.isArray(item.mounts) ? item.mounts.find(v => v.running) : undefined);
+            const mount = Array.isArray(item.mounts) ? item.mounts.find(v => v.running) : undefined;
             if (mount === undefined) {
                 return {helper: true, subtitle: `through a helper container, at ${HELPER_PATH}`, mount: null};
             }
@@ -551,8 +551,8 @@ const docker = {
         },
         volume_open: async function (item) {
             const way = this.volume_way(item);
-            let id = ((way.mount === null) ? null : way.mount.id);
-            let start = ((way.mount === null) ? HELPER_PATH : way.mount.destination);
+            let id = (way.mount === null) ? null : way.mount.id;
+            let start = (way.mount === null) ? HELPER_PATH : way.mount.destination;
             if (way.helper) {
                 this.opening = item.name;
                 this.report('starting a helper container that mounts the volume…', false);
@@ -587,9 +587,9 @@ const docker = {
                 subtitle: way.subtitle,
                 files: this.files_base({id}),
                 start,
-                home_title: (way.helper ? 'The helper container\'s root' : `${way.mount.name}'s working folder`),
-                shell: (this.shell_able ? this.shell_url({id}) : null),
-                helper: (way.helper ? item.name : null),
+                home_title: way.helper ? 'The helper container\'s root' : `${way.mount.name}'s working folder`,
+                shell: this.shell_able ? this.shell_url({id}) : null,
+                helper: way.helper ? item.name : null,
                 what: 'files',
             };
         },
@@ -613,7 +613,7 @@ const docker = {
         },
         // The way back to the list; a helper container goes with the volume it was opened for
         close_open: function () {
-            const helper = ((this.open === null) ? null : this.open.helper);
+            const helper = (this.open === null) ? null : this.open.helper;
             this.open = null;
             if ((helper !== null) && (helper !== undefined)) {
                 fetch(`${this.base}/volumes/${encodeURIComponent(helper)}/close`, {method: 'POST'}).catch(function () {});
@@ -621,7 +621,7 @@ const docker = {
         },
         // An anonymous volume's name is 64 characters of hex: the first twelve say it
         volume_label: function (name) {
-            return (/^[0-9a-f]{64}$/.test(name) ? `${name.slice(0, 12)}…` : name);
+            return /^[0-9a-f]{64}$/.test(name) ? `${name.slice(0, 12)}…` : name;
         },
         container_group: function (row) {
             return row.group;
@@ -731,7 +731,7 @@ function tab_kept()
             tab_last = null;
         }
     }
-    return (TABS.some(v => v.value === tab_last) ? tab_last : 'containers');
+    return TABS.some(v => v.value === tab_last) ? tab_last : 'containers';
 }
 
 function tab_keep(tab)
@@ -747,7 +747,7 @@ function tab_keep(tab)
 
 function plural(count, one, many)
 {
-    return ((count === 1) ? one : many);
+    return (count === 1) ? one : many;
 }
 
 // An image's id without its "sha256:", the way the engine takes it in an address too

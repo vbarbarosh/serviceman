@@ -36,7 +36,7 @@ function token_given(req)
         const at = cookie.indexOf('=');
         if ((at !== -1) && (cookie.slice(0, at).trim() === COOKIE)) {
             const value = cookie.slice(at + 1).trim();
-            return ((value === '') ? null : decodeURIComponent(value));
+            return (value === '') ? null : decodeURIComponent(value);
         }
     }
     return null;

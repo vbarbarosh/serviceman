@@ -35,9 +35,9 @@ async function agent_proc_list()
         throw new Error(`ps: ${answer.stderr}`);
     }
     const after = cpu_ticks();
-    const measured = ((before !== null) && (after !== null));
-    const ticks_per_second = (measured ? await clock_ticks() : CLOCK_TICKS_DEFAULT);
-    const seconds = (measured ? Number(after.at - before.at)/1e9 : 0);
+    const measured = (before !== null) && (after !== null);
+    const ticks_per_second = measured ? await clock_ticks() : CLOCK_TICKS_DEFAULT;
+    const seconds = measured ? Number(after.at - before.at)/1e9 : 0;
     const items = [];
     for (const line of answer.stdout.split('\n')) {
         const found = RE_LINE.exec(line);
@@ -54,7 +54,7 @@ async function agent_proc_list()
         if (measured) {
             const was = before.ticks.get(pid);
             const now = after.ticks.get(pid);
-            cpu = (((was === undefined) || (now === undefined) || (seconds <= 0)) ? 0 : Math.max(0, now - was)/ticks_per_second/seconds*100);
+            cpu = ((was === undefined) || (now === undefined) || (seconds <= 0)) ? 0 : Math.max(0, now - was)/ticks_per_second/seconds*100;
         }
         items.push({
             pid,
@@ -70,7 +70,7 @@ async function agent_proc_list()
             command: found[9],
         });
     }
-    return {at: Date.now(), cpu_window_ms: (measured ? Math.round(seconds*1000) : null), items, commands: [argv_line(PS_ARGV)]};
+    return {at: Date.now(), cpu_window_ms: measured ? Math.round(seconds*1000) : null, items, commands: [argv_line(PS_ARGV)]};
 }
 
 // The cpu time of every process, user and system, in clock ticks; null where there is no /proc
@@ -100,7 +100,7 @@ function cpu_ticks()
             // It ended between the listing and the reading
         }
     }
-    return ((ticks.size === 0) ? null : {at, ticks});
+    return (ticks.size === 0) ? null : {at, ticks};
 }
 
 // How many ticks a second of cpu time is: 100 nearly everywhere, and asked once
@@ -109,7 +109,7 @@ async function clock_ticks()
     if (clock.ticks === null) {
         const answer = await agent_shell(['getconf', 'CLK_TCK']);
         const value = parseInt(answer.stdout, 10);
-        clock.ticks = ((answer.ok && (value > 0)) ? value : CLOCK_TICKS_DEFAULT);
+        clock.ticks = (answer.ok && (value > 0)) ? value : CLOCK_TICKS_DEFAULT;
     }
     return clock.ticks;
 }

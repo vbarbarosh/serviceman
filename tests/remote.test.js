@@ -527,7 +527,7 @@ test('an agent from before machine shells is not asked for one, and its link sur
         let note = '';
         client.on('message', function (data) {
             const message = JSON.parse(data.toString('utf8'));
-            note = ((message.type === 'note') ? message.text : note);
+            note = (message.type === 'note') ? message.text : note;
         });
         await new Promise(v => client.on('close', v));
         assert.match(note, /from before machine shells/);
@@ -554,7 +554,7 @@ test('the updates of a machine are installed on a press, said line by line, and 
         assert.strictEqual(began.status, 202);
 
         // The lines arrive while it runs; nobody waits for the end to read the first of them
-        await wait_until(() => remote.state.apt.lines.some(vv => /Unpacking demo-package-1 /.test(vv)), 10000);
+        await wait_until(() => remote.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
         assert.strictEqual(remote.state.apt.phase, 'running');
         assert.strictEqual(remote.state.apt.lines.some(v => /Reading package lists/.test(v)), true);
 
@@ -603,7 +603,7 @@ test('a machine with a root half does its root work there, and says so', async f
         const began = await control(running, 'POST', '/api/v1/remotes/ui1/apt-upgrade', null);
         assert.strictEqual(began.status, 202);
         // The lines come from the root half, through the session agent, over the link
-        await wait_until(() => remote.state.apt.lines.some(vv => /Unpacking demo-package-1 /.test(vv)), 15000);
+        await wait_until(() => remote.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 15000);
         const stopped = await control(running, 'POST', '/api/v1/remotes/ui1/apt-cancel', null);
         assert.strictEqual(stopped.body.stopped, true);
         await wait_until(() => remote.state.apt.phase !== 'running', 15000);
@@ -903,7 +903,7 @@ test('a root half nobody keeps up is left alone, and said out loud', async funct
     try {
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
-        await wait_until(() => running.app.log_lines.some(vv => /root_update_by_hand/.test(vv)), 15000);
+        await wait_until(() => running.app.log_lines.some(v => /root_update_by_hand/.test(v)), 15000);
         assert.strictEqual(root.exitCode, null, 'it is still running — nothing would start it again');
         assert.strictEqual(remote.state.resources.can.includes('root'), true, 'and it still does the root work');
     }
@@ -1236,15 +1236,15 @@ test('a folder on a machine is watched through serviceman, and what changes in i
         fs.writeFileSync(path.join(dir, 'node_modules', 'x.js'), 'x');
         fs.mkdirSync(path.join(dir, 'src'));
         fs.writeFileSync(path.join(dir, 'src', 'a.txt'), 'hello');
-        await wait_until(() => events.some(vv => vv.path === 'src/a.txt'), 5000);
+        await wait_until(() => events.some(v => v.path === 'src/a.txt'), 5000);
         fs.rmSync(path.join(dir, 'src', 'a.txt'));
-        await wait_until(() => events.some(vv => vv.type === 'removed'), 5000);
+        await wait_until(() => events.some(v => v.type === 'removed'), 5000);
         assert.deepStrictEqual(events.slice(1).map(v => `${v.type} ${v.path} ${v.kind} ${v.size}`), ['created src dir null', 'created src/a.txt file 5', 'removed src/a.txt file null']);
 
         // The page goes, and the host says how long the folder was watched
         stop.abort();
         await reading;
-        await wait_until(() => running.app.log_lines.some(vv => /\[folder_watched\] remote=ui1 path=.+ tree=true events=3 ms=\d+/.test(vv)));
+        await wait_until(() => running.app.log_lines.some(v => /\[folder_watched\] remote=ui1 path=.+ tree=true events=3 ms=\d+/.test(v)));
 
         const missing = await control_fetch(`${url}/api/v1/remotes/ui1/fs/watch?path=${encodeURIComponent(path.join(dir, 'nothing'))}`);
         assert.deepStrictEqual([missing.status, /ENOENT/.test((await missing.json()).error)], [502, true]);
@@ -1277,7 +1277,7 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
         const ask = `${url}/api/v1/remotes/ui1/fs?path=${encodeURIComponent(dir)}&tree=1&skip=node_modules`;
         // How many files the agent read for a hash on its last walk, as the host logged it
         async function hashed_last(count) {
-            await wait_until(() => running.app.log_lines.some(vv => new RegExp(`\\[tree_listed\\] remote=ui1 path=.+ hash=true names=6000 hashed=${count} ms=\\d+`).test(vv)));
+            await wait_until(() => running.app.log_lines.some(v => new RegExp(`\\[tree_listed\\] remote=ui1 path=.+ hash=true names=6000 hashed=${count} ms=\\d+`).test(v)));
             running.app.log_lines.length = 0;
         }
 
@@ -1287,7 +1287,7 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
         for (const item of listed.slice(0, -1)) {
             const stat = fs.lstatSync(path.join(dir, item.path));
             assert.deepStrictEqual(Object.keys(item), ['type', 'path', 'size', 'mtime_ms']);
-            assert.deepStrictEqual([item.type, item.size, item.mtime_ms], [(stat.isDirectory() ? 'dir' : 'file'), (stat.isDirectory() ? null : stat.size), Math.round(stat.mtimeMs)]);
+            assert.deepStrictEqual([item.type, item.size, item.mtime_ms], [stat.isDirectory() ? 'dir' : 'file', stat.isDirectory() ? null : stat.size, Math.round(stat.mtimeMs)]);
         }
         assert.deepStrictEqual([listed.filter(v => v.type === 'dir').length, listed.some(v => String(v.path).startsWith('node_modules'))], [3000, false]);
 
@@ -1668,7 +1668,7 @@ test('many files reach a machine as one tar through serviceman, with their times
         assert.strictEqual(fs.readFileSync(path.join(to, 'in', 'd3', 'f293.txt'), 'utf8'), 'x'.repeat(293));
         assert.strictEqual(fs.readdirSync(path.join(to, 'in'), {recursive: true}).filter(v => v.endsWith('.txt')).length, 300);
         assert.strictEqual(fs.statSync(path.join(to, 'in', 'd7', 'f7.txt')).mtimeMs, 1600000000000);
-        await wait_until(() => running.app.log_lines.some(vv => /\[files_copied\] remote=ui1 dir=.+ files=300 bytes=44850 ms=\d+/.test(vv)));
+        await wait_until(() => running.app.log_lines.some(v => /\[files_copied\] remote=ui1 dir=.+ files=300 bytes=44850 ms=\d+/.test(v)));
 
         // A name that walks out is refused before the machine is asked
         const walked = Buffer.from(tarred);
@@ -2368,7 +2368,7 @@ function item_of(running, id)
 
 async function control(running, method, path, value)
 {
-    const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path, method, body: ((value === null) ? undefined : JSON.stringify(value))});
+    const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path, method, body: (value === null) ? undefined : JSON.stringify(value)});
     return {status: answer.status, body: JSON.parse(answer.body)};
 }
 

@@ -7,7 +7,7 @@ const remote_candidates = require('./remote_candidates');
 // takes it. Nothing is moved afterwards: an instance lives where it was reserved.
 function remote_reserve(app, service, instance, refused)
 {
-    const skip = ((refused === undefined) ? [] : refused);
+    const skip = (refused === undefined) ? [] : refused;
     const waiting = [];
     const candidates = remote_candidates(app, service);
     if (candidates.length === 0) {

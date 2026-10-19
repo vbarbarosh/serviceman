@@ -13,7 +13,7 @@ async function agent_program_stop(state, params, group)
         return {stopped: false};
     }
     delete state.programs[key];
-    const ended = await program_kill(found.pid, (((params.grace_ms === null) || (params.grace_ms === undefined)) ? undefined : params.grace_ms));
+    const ended = await program_kill(found.pid, ((params.grace_ms === null) || (params.grace_ms === undefined)) ? undefined : params.grace_ms);
     if (ended.killed) {
         agent_say(group, 'program_killed', `${format_seconds(ended.waited_ms)} service=${params.name} pid=${found.pid} note="it was asked to stop and did not"`);
     }

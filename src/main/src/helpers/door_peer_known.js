@@ -11,7 +11,7 @@ function door_peer_known(app, name, peer)
 {
     const kept = peers_of(app);
     if (peer === undefined) {
-        return ((kept[name] === undefined) ? null : kept[name]);
+        return (kept[name] === undefined) ? null : kept[name];
     }
     if (JSON.stringify(kept[name]) !== JSON.stringify(peer)) {
         kept[name] = peer;

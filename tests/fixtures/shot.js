@@ -10,8 +10,8 @@ const zlib = require('zlib');
 // A picture of a screen, or a screenful of nothing — which is what a machine whose screen is
 // asleep hands back, at the full size of that screen
 const BLANK = process.argv.includes('--blank');
-const WIDTH = (BLANK ? 1920 : 240);
-const HEIGHT = (BLANK ? 1080 : 160);
+const WIDTH = BLANK ? 1920 : 240;
+const HEIGHT = BLANK ? 1080 : 160;
 
 cli(main);
 
@@ -60,8 +60,8 @@ function crc32(buf)
     let crc = 0xffffffff;
     for (const byte of buf) {
         let c = (crc ^ byte) & 0xff;
-        for (let j = 0; j < 8; j++) {
-            c = ((c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1);
+        for (let i = 0; i < 8; i++) {
+            c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
         }
         crc = c ^ (crc >>> 8);
     }

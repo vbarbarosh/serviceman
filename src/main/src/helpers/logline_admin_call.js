@@ -18,7 +18,7 @@ async function logline_admin_call(app, method, url, body)
         throw new Error(`the Secrets library has no ${JSON.stringify(logline.admin)} — the config names it as Logline's ADMIN_TOKEN`);
     }
     const headers = {authorization: `Bearer ${secret}`};
-    const text_body = ((body === undefined) ? undefined : JSON.stringify(body));
+    const text_body = (body === undefined) ? undefined : JSON.stringify(body);
     if (text_body !== undefined) {
         headers['content-type'] = 'application/json';
         headers['content-length'] = Buffer.byteLength(text_body);

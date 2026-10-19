@@ -133,9 +133,9 @@ function dir_make(t)
 
 async function until(ok)
 {
-    const end = Date.now() + 5000;
+    const deadline = Date.now() + 5000;
     while (ok() === false) {
-        if (Date.now() > end) {
+        if (Date.now() > deadline) {
             throw new Error('waited too long');
         }
         await new Promise(v => setTimeout(v, 10));

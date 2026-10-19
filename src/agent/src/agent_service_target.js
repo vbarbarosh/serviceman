@@ -25,7 +25,7 @@ const known = {};
 // exist is serviceman's to make.
 async function agent_service_target(table, name, options)
 {
-    const where = ((table === null) ? undefined : table.services[name]);
+    const where = (table === null) ? undefined : table.services[name];
     if ((where === undefined) || (where.machine === null)) {
         return null;
     }
@@ -100,7 +100,7 @@ async function docker_port(where, options)
     if (Number.isNaN(port)) {
         return null;
     }
-    return {host: (((host === '0.0.0.0') || (host === '::') || (host === '')) ? '127.0.0.1' : host), port};
+    return {host: ((host === '0.0.0.0') || (host === '::') || (host === '')) ? '127.0.0.1' : host, port};
 }
 
 // Whether the program in there answers http before the time is up. A connection taken is not

@@ -63,8 +63,8 @@ async function lines_post(app, req, res)
     const from = req.socket.remoteAddress;
     const item = token_find(app.tokens, bearer_of(req));
     if ((item === null) || (ip_allowed(from, item.ips) === false)) {
-        const reason = ((item === null) ? 'no such token' : 'not from an address this token was issued for');
-        log_say(app.config.uid, 'lines_refused', {from, remote: ((item === null) ? undefined : item.name), reason});
+        const reason = (item === null) ? 'no such token' : 'not from an address this token was issued for';
+        log_say(app.config.uid, 'lines_refused', {from, remote: (item === null) ? undefined : item.name, reason});
         send_json(res, 401, {error: reason});
         return;
     }
@@ -182,7 +182,7 @@ function admin_refused(app, req, res)
 function bearer_of(req)
 {
     const found = /^Bearer (\S+)$/.exec(req.headers.authorization || '');
-    return ((found === null) ? '' : found[1]);
+    return (found === null) ? '' : found[1];
 }
 
 // The whole body, or null once a body too big has been answered

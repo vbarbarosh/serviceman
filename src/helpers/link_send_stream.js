@@ -7,7 +7,7 @@ function link_send_stream(socket, kind, id, body)
 {
     const head = Buffer.allocUnsafe(4);
     head.writeUInt32BE(id, 0);
-    return link_send(socket, kind, [head, ((body === undefined) ? EMPTY : body)]);
+    return link_send(socket, kind, [head, (body === undefined) ? EMPTY : body]);
 }
 
 module.exports = link_send_stream;

@@ -33,7 +33,7 @@ const term_tabs = {
     methods: {
         // The terminals + makes are numbered, and read as a terminal app's tabs do
         label: function (name) {
-            return (/^\d+$/.test(name) ? `${name} · Shell` : name);
+            return /^\d+$/.test(name) ? `${name} · Shell` : name;
         },
     },
 };
@@ -86,7 +86,7 @@ const remote_shell = {
         // What joins the terminal shown by hand, once the list has heard of it
         picked_commands: function () {
             const found = this.items.find(v => v.name === this.pick);
-            return (((found === undefined) || (found.command === undefined)) ? undefined : [found.command]);
+            return ((found === undefined) || (found.command === undefined)) ? undefined : [found.command];
         },
         url: function () {
             if (this.pick === null) {
@@ -99,7 +99,7 @@ const remote_shell = {
         // The address follows the terminal shown; one the page opened by itself, or none left,
         // replaces it
         pick: function (next, prev) {
-            this.$emit('terminal', {name: next, replace: ((prev === null) || (next === null))});
+            this.$emit('terminal', {name: next, replace: (prev === null) || (next === null)});
         },
     },
     methods: {
@@ -150,7 +150,7 @@ const remote_shell = {
             this.gone.push(name);
             this.made = this.made.filter(v => v.name !== name);
             if (this.pick === name) {
-                this.pick = ((rest.length === 0) ? null : rest[Math.min(at, rest.length - 1)].name);
+                this.pick = (rest.length === 0) ? null : rest[Math.min(at, rest.length - 1)].name;
             }
         },
         terminals_load: async function () {

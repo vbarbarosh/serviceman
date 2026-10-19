@@ -56,14 +56,14 @@ const volumes_pane = {
             ];
         },
         show: function () {
-            return (((this.remote === null) || (this.remote === undefined)) ? '' : this.remote);
+            return ((this.remote === null) || (this.remote === undefined)) ? '' : this.remote;
         },
         chips: function () {
             const out = [{value: '', label: 'All remotes', count: this.volumes.length}];
             for (const remote of this.state.remotes) {
                 const count = this.volumes.filter(v => v.machine === remote.name).length;
                 if (count > 0) {
-                    out.push({value: remote.name, label: (remote.title || remote.name), count});
+                    out.push({value: remote.name, label: remote.title || remote.name, count});
                 }
             }
             return out;
@@ -75,8 +75,8 @@ const volumes_pane = {
                 if ((this.show !== '') && (remote.name !== this.show)) {
                     continue;
                 }
-                const machine = (remote.machine || {});
-                out.push({name: remote.name, title: (remote.title || remote.name), base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/volumes`, offline: (remote.phase !== 'online'), user: machine.user});
+                const machine = remote.machine || {};
+                out.push({name: remote.name, title: remote.title || remote.name, base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/volumes`, offline: (remote.phase !== 'online'), user: machine.user});
             }
             return out;
         },
@@ -104,11 +104,11 @@ const volumes_pane = {
             if (item.kind === 'kept') {
                 return 'a folder under the agent';
             }
-            return ((item.kind === 'volume') ? 'a docker volume' : 'a folder');
+            return (item.kind === 'volume') ? 'a docker volume' : 'a folder';
         },
         remote_title: function (name) {
             const found = this.state.remotes.find(v => v.name === name);
-            return ((found === undefined) ? name : (found.title || found.name));
+            return (found === undefined) ? name : (found.title || found.name);
         },
         load: async function () {
             try {

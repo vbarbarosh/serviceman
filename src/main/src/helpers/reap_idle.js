@@ -63,7 +63,7 @@ function sleep_service(app, service, now)
         if (instance.phase !== 'running') {
             continue;
         }
-        const since = ((instance.last_activity_at === null) ? now : instance.last_activity_at);
+        const since = (instance.last_activity_at === null) ? now : instance.last_activity_at;
         if ((idle_ms === null) || (now - since < idle_ms)) {
             idle_ms = now - since;
         }

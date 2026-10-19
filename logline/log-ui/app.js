@@ -386,7 +386,7 @@
             // Picked lines stay picked across searches, so lines from several searches can be gathered
             // into one export; they go out oldest first
             pickedRows: function () {
-                return Object.values(this.picked).sort((left, right) => ((left.time_utc < right.time_utc) ? -1 : ((left.time_utc > right.time_utc) ? 1 : 0)));
+                return Object.values(this.picked).sort((left, right) => (left.time_utc < right.time_utc) ? -1 : ((left.time_utc > right.time_utc) ? 1 : 0));
             },
 
             exportFormatNow: function () {

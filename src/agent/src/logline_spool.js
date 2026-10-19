@@ -30,7 +30,7 @@ function logline_spool(dir, options)
         dir,
         cap_bytes: options.cap_bytes,
         // A segment goes only when all of it is acked, so a small cap gets small segments
-        segment_bytes: ((options.segment_bytes === undefined) ? Math.max(4096, Math.min(SEGMENT_BYTES, Math.floor(options.cap_bytes/8))) : options.segment_bytes),
+        segment_bytes: (options.segment_bytes === undefined) ? Math.max(4096, Math.min(SEGMENT_BYTES, Math.floor(options.cap_bytes/8))) : options.segment_bytes,
         on_data: options.on_data || nothing,
         segments: [],
         buffer: [],
@@ -48,14 +48,14 @@ function logline_spool(dir, options)
     recover(spool);
     spool.timer = setInterval(function () {
         flush(spool);
-    }, ((options.sync_ms === undefined) ? SYNC_MS : options.sync_ms));
+    }, (options.sync_ms === undefined) ? SYNC_MS : options.sync_ms);
     spool.timer.unref();
     return {
         append: v => append(spool, v),
         flush: () => flush(spool),
         batch: (max_items, max_bytes) => batch(spool, max_items, max_bytes),
         ack: v => ack(spool, v),
-        cursor: v => ((spool.cursors[v] === undefined) ? null : spool.cursors[v]),
+        cursor: v => (spool.cursors[v] === undefined) ? null : spool.cursors[v],
         full: () => full(spool),
         room: () => room(spool),
         stats: () => stats(spool),
@@ -131,16 +131,16 @@ function batch(spool, max_items, max_bytes)
     while (at.segment < spool.segments.length) {
         const segment = spool.segments[at.segment];
         // Only as many as could still go in, not the rest of a 16M segment
-        const records = records_read(spool, segment, at.offset, ((wanted === null) ? max_items - items.length : wanted.last - ((last === null) ? spool.reader.seq : last + 1) + 1));
+        const records = records_read(spool, segment, at.offset, (wanted === null) ? max_items - items.length : wanted.last - ((last === null) ? spool.reader.seq : last + 1) + 1);
         let stop = false;
         for (const item of records) {
-            const fits = ((wanted === null) ? ((items.length < max_items) && ((items.length === 0) || (bytes + item.bytes <= max_bytes))) : item.record.seq <= wanted.last);
+            const fits = (wanted === null) ? ((items.length < max_items) && ((items.length === 0) || (bytes + item.bytes <= max_bytes))) : item.record.seq <= wanted.last;
             if (fits === false) {
                 stop = true;
                 break;
             }
             items.push({time: item.record.time, labels: item.record.labels, line: item.record.line});
-            first = ((first === null) ? item.record.seq : first);
+            first = (first === null) ? item.record.seq : first;
             last = item.record.seq;
             bytes += item.bytes;
             at.offset = item.end;
@@ -190,7 +190,7 @@ function ack(spool, cut)
         spool.segments = spool.segments.slice(done);
         // A batch that ended exactly at the end of a segment leaves the reader there; that
         // segment is gone now, and the next record is at the start of the next one
-        spool.reader = ((spool.reader.segment < done) ? {segment: 0, offset: 0, seq: spool.reader.seq} : {segment: spool.reader.segment - done, offset: spool.reader.offset, seq: spool.reader.seq});
+        spool.reader = (spool.reader.segment < done) ? {segment: 0, offset: 0, seq: spool.reader.seq} : {segment: spool.reader.segment - done, offset: spool.reader.offset, seq: spool.reader.seq};
     }
     if (spool.waiting_bytes < spool.cap_bytes*ROOM_AT) {
         const waiters = spool.room_waiters;
@@ -235,7 +235,7 @@ function stats(spool)
     if ((spool.reader !== null) && (spool.reader.segment < spool.segments.length)) {
         const first = records_read(spool, spool.segments[spool.reader.segment], spool.reader.offset, 1)[0];
         // The line's time: a file's lines hold their place as a byte offset, not a moment
-        oldest = ((first === undefined) ? null : (first.record.time || first.record.at));
+        oldest = (first === undefined) ? null : (first.record.time || first.record.at);
     }
     return {
         waiting_lines: spool.next_seq - 1 - spool.acked,

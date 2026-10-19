@@ -182,27 +182,27 @@ const volumes = {
         // without cryptsetup has a line under the list instead
         machine_options: function () {
             const away = this.notes.map(v => v.machine);
-            return this.machines.filter(v => ((v.offline === false) && (away.includes(v.name) === false))).map(v => ({value: v.name, label: (v.title || v.name)}));
+            return this.machines.filter(v => (v.offline === false) && (away.includes(v.name) === false)).map(v => ({value: v.name, label: v.title || v.name}));
         },
         new_machine: function () {
-            const name = ((this.new_model === null) ? null : this.new_model.machine);
-            return (this.machines.find(v => v.name === name) || null);
+            const name = (this.new_model === null) ? null : this.new_model.machine;
+            return this.machines.find(v => v.name === name) || null;
         },
         new_owner: function () {
-            return (((this.new_machine === null) || (this.new_machine.user === undefined)) ? 'its user' : this.new_machine.user);
+            return ((this.new_machine === null) || (this.new_machine.user === undefined)) ? 'its user' : this.new_machine.user;
         },
         new_ready: function () {
             const model = this.new_model;
             if ((model === null) || (this.new_machine === null) || (this.key_safe_here === false)) {
                 return false;
             }
-            return ((model.name !== '') && (model.target !== '') && (model.size !== '') && (model.passphrase.length >= PASSPHRASE_MIN) && (model.again === model.passphrase));
+            return (model.name !== '') && (model.target !== '') && (model.size !== '') && (model.passphrase.length >= PASSPHRASE_MIN) && (model.again === model.passphrase);
         },
         // A key leaves this page only over https or to this machine's loopback, as the server
         // takes it
         key_safe_here: function () {
             const host = location.hostname;
-            return ((location.protocol === 'https:') || (host === 'localhost') || host.endsWith('.localhost') || (host === '127.0.0.1') || (host === '[::1]'));
+            return (location.protocol === 'https:') || (host === 'localhost') || host.endsWith('.localhost') || (host === '127.0.0.1') || (host === '[::1]');
         },
     },
     watch: {
@@ -231,7 +231,7 @@ const volumes = {
             this.reading = false;
         },
         machine_read: async function (machine) {
-            const title = (machine.title || machine.name);
+            const title = machine.title || machine.name;
             if (machine.offline) {
                 return {items: [], note: {machine: machine.name, title, text: 'not connected; its volumes show once it is', bad: false}};
             }
@@ -248,7 +248,7 @@ const volumes = {
             }
         },
         item_of: function (machine, volume) {
-            return Object.assign({}, volume, {key: `${machine.name}/${volume.name}`, machine: machine.name, machine_title: (machine.title || machine.name), base: machine.base, offline: machine.offline});
+            return Object.assign({}, volume, {key: `${machine.name}/${volume.name}`, machine: machine.name, machine_title: machine.title || machine.name, base: machine.base, offline: machine.offline});
         },
         close: async function (item) {
             await this.ask(item, 'close', {}, 'closing…');
@@ -274,7 +274,7 @@ const volumes = {
         },
         new_show: function () {
             const first = this.machine_options[0];
-            this.new_model = {machine: ((first === undefined) ? null : first.value), name: '', target: '', target_typed: false, size: '10G', passphrase: '', again: ''};
+            this.new_model = {machine: (first === undefined) ? null : first.value, name: '', target: '', target_typed: false, size: '10G', passphrase: '', again: ''};
             this.new_said = null;
         },
         new_cancel: function () {
@@ -283,12 +283,12 @@ const volumes = {
         },
         new_target_follow: function () {
             if ((this.new_model !== null) && (this.new_model.target_typed === false)) {
-                this.new_model.target = ((this.new_model.name === '') ? '' : this.new_target_of(this.new_model.name));
+                this.new_model.target = (this.new_model.name === '') ? '' : this.new_target_of(this.new_model.name);
             }
         },
         new_target_of: function (name) {
-            const user = (((this.new_machine === null) || (this.new_machine.user === undefined)) ? 'you' : this.new_machine.user);
-            return ((user === 'root') ? `/root/${name}` : `/home/${user}/${name}`);
+            const user = ((this.new_machine === null) || (this.new_machine.user === undefined)) ? 'you' : this.new_machine.user;
+            return (user === 'root') ? `/root/${name}` : `/home/${user}/${name}`;
         },
         // The row shows at once, marked while the machine makes it; a refusal brings the form
         // back as it was, with what the machine said
@@ -350,7 +350,7 @@ const volumes = {
             this.deleting = this.deleting.filter(v => v !== entry);
             const keys = this.items.map(v => v.key);
             const nearest = entry.above.findLast(v => keys.includes(v));
-            this.items.splice(((nearest === undefined) ? 0 : (keys.indexOf(nearest) + 1)), 0, entry.item);
+            this.items.splice((nearest === undefined) ? 0 : (keys.indexOf(nearest) + 1), 0, entry.item);
         },
         delete_forget: function (entry) {
             this.deleting = this.deleting.filter(v => v !== entry);
@@ -374,7 +374,7 @@ const volumes = {
             }
             catch (error) {
                 this.delete_undo(entry);
-                this.said[item.key] = ((error.reply === undefined) ? {error: error.message} : error.reply);
+                this.said[item.key] = (error.reply === undefined) ? {error: error.message} : error.reply;
             }
         },
         // Leaving the page is taken as no Undo: what waits is sent now
@@ -413,7 +413,7 @@ const volumes = {
             if ((item.state === 'closed') && (item.passphrase === true)) {
                 return {text: 'Closed', note: 'waits for its passphrase'};
             }
-            return (STATES[item.state] || {text: item.state, note: ''});
+            return STATES[item.state] || {text: item.state, note: ''};
         },
         used_text: function (item) {
             if (item.size === null) {

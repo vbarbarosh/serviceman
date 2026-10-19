@@ -37,7 +37,7 @@ function state_from_service(service)
             phase: 'running',
             // On a machine of ours it is reached through that machine's link: its upstream is
             // an address there, not here
-            remote: ((service.remotes.length === 0) ? null : service.remotes[0]),
+            remote: (service.remotes.length === 0) ? null : service.remotes[0],
             upstream: service.upstream,
             started_at: Date.now(),
             last_activity_at: Date.now(),

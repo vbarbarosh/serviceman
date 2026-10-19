@@ -9,7 +9,7 @@ async function shell_probe_on(app, remote, service, instance)
         return null;
     }
     instance.pid = answer.pid;
-    return ((service.port === null) ? null : {host: '127.0.0.1', port: service.port});
+    return (service.port === null) ? null : {host: '127.0.0.1', port: service.port};
 }
 
 module.exports = shell_probe_on;

@@ -37,7 +37,7 @@ const TUNNEL_KINDS = ['d', 'e', 'x', 'r'];
 // what it does in the group of the knock that opened it; nothing new is made for it.
 function remote_attach(app, remote, socket, claimed)
 {
-    return link_join(app, remote, socket, ((claimed === undefined) ? [] : claimed));
+    return link_join(app, remote, socket, (claimed === undefined) ? [] : claimed);
 }
 
 function link_join(app, remote, socket, claimed)
@@ -141,7 +141,7 @@ function message_read(app, remote, message)
         state.agent_version = message.agent;
         // Which build of the agent that machine is running, so a refresh can be seen to have
         // happened: the version alone changes far more rarely than the file does
-        state.agent_built = ((message.built === undefined) ? null : message.built);
+        state.agent_built = (message.built === undefined) ? null : message.built;
         state.resources = message.resources;
         state.stats = message.stats;
         log_event(app, 'remote_online', Object.assign({remote: remote.name, from: state.address, agent: message.agent, tags: remote_tags(remote)}, machine_words(message.resources)));
@@ -151,14 +151,14 @@ function message_read(app, remote, message)
         image_prepull_start(app, remote);
         // What it already knows about Logline, as it says; it is told only what differs
         const said = message.resources.logline;
-        state.logline_told = (((said === undefined) || (said === null)) ? null : logline_tell.mark(said.logs, said.endpoint, said.token_sha, (Array.isArray(said.dirs) ? said.dirs : [])));
-        state.logline_floor = (((said === undefined) || (said === null)) ? null : said.floor);
+        state.logline_told = ((said === undefined) || (said === null)) ? null : logline_tell.mark(said.logs, said.endpoint, said.token_sha, Array.isArray(said.dirs) ? said.dirs : []);
+        state.logline_floor = ((said === undefined) || (said === null)) ? null : said.floor;
         logline_tell(app, remote);
         // The door table it serves, and where its peers reach it — which is every other
         // machine's table changing, so each is told what differs
         const doors = message.resources.doors;
-        state.doors_told = (((doors === undefined) || (doors === null)) ? null : doors.version);
-        state.doors_peer = (((doors === undefined) || (doors === null) || (doors.peer === null)) ? state.doors_peer : door_peer_known(app, remote.name, doors.peer));
+        state.doors_told = ((doors === undefined) || (doors === null)) ? null : doors.version;
+        state.doors_peer = ((doors === undefined) || (doors === null) || (doors.peer === null)) ? state.doors_peer : door_peer_known(app, remote.name, doors.peer);
         doors_tell(app);
         // A new link is told its forwards afresh, whatever the last one was told
         state.forwards_told = null;
@@ -177,7 +177,7 @@ function message_read(app, remote, message)
         return;
     }
     if (message.type === 'reply') {
-        call_answer(remote, message.id, message.ok, (message.ok ? message.value : message.error));
+        call_answer(remote, message.id, message.ok, message.ok ? message.value : message.error);
         return;
     }
     if (message.type === 'log') {
@@ -203,21 +203,21 @@ function message_read(app, remote, message)
 // link it came in on, said once, the first time that group has anything to say here.
 function remote_said(app, remote, message)
 {
-    const text = ((typeof message.words === 'string') ? message.words : null);
-    const words = (((message.words === null) || (typeof message.words !== 'object')) ? {} : message.words);
+    const text = (typeof message.words === 'string') ? message.words : null;
+    const words = ((message.words === null) || (typeof message.words !== 'object')) ? {} : message.words;
     const group = String(message.group);
     if (remote.state.groups.has(group) === false) {
         remote.state.groups.add(group);
         // Where that group hangs here: under the link it came in on. Over there it hangs under
         // whatever caused it on that machine, and that chain is that machine's own business.
         const here = log_scope.getStore();
-        log_line(app, group, 'group_spawn', ((here === undefined) ? undefined : {parent: here.uid}));
+        log_line(app, group, 'group_spawn', (here === undefined) ? undefined : {parent: here.uid});
     }
     if (message.sender === 'group_spawn') {
         // Said once, above, with the parent this end knows about
         return;
     }
-    log_line(app, group, String(message.sender), ((text === null) ? Object.assign({remote: remote.name}, words) : text));
+    log_line(app, group, String(message.sender), (text === null) ? Object.assign({remote: remote.name}, words) : text);
     // Its page says why the update did not take the moment the machine knows
     if ((message.sender === 'agent_update_failed') && (typeof words.reason === 'string')) {
         remote.state.update_refused = words.reason;
@@ -230,7 +230,7 @@ function remote_said(app, remote, message)
         load_test_said(app, message.service, text);
         return;
     }
-    service_said(app, ((text === null) ? words : {service: message.service, text}));
+    service_said(app, (text === null) ? words : {service: message.service, text});
 }
 
 // A request a door carried to a service is work that service did, though it never passed
@@ -302,7 +302,7 @@ function link_gone(app, remote, socket)
     const held = format_duration_ms(Date.now() - state.connected_at);
     // Why it went, in the machine's own words where it said any, and in this end's words when
     // it stopped talking without a word
-    const reason = ((state.leaving === null) ? state.gone_reason : `it said it was ${state.leaving}`);
+    const reason = (state.leaving === null) ? state.gone_reason : `it said it was ${state.leaving}`;
     state.leaving = null;
     state.gone_reason = null;
     state.socket = null;
@@ -322,7 +322,7 @@ function link_gone(app, remote, socket)
         stream_gone(state.streams[id], remote.name);
     }
     state.streams = {};
-    log_event(app, 'remote_offline', {remote: remote.name, held, reason: (((reason === null) || (reason === undefined)) ? undefined : reason)});
+    log_event(app, 'remote_offline', {remote: remote.name, held, reason: ((reason === null) || (reason === undefined)) ? undefined : reason});
     remote_services_lost(app, remote);
 }
 
@@ -363,7 +363,7 @@ function machine_words(resources)
         cpu: resources.cpu.count,
         ram: format_bytes(resources.mem.total),
         disk_free: format_bytes(resources.disk.free),
-        docker: ((resources.docker === null) ? 'none' : resources.docker),
+        docker: (resources.docker === null) ? 'none' : resources.docker,
     };
 }
 

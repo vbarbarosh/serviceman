@@ -93,10 +93,10 @@ const authwall_pane = {
         rules: function () {
             const out = [];
             for (const item of this.state.remotes) {
-                const inbound = ((item.inbound === undefined) ? {} : item.inbound);
+                const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
-                    const rule = ((typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host]);
-                    out.push({machine: item.name, title: (item.title || item.name), host, service: rule.service, off: (rule.off === true), auth: ((rule.auth === undefined) ? null : rule.auth)});
+                    const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
+                    out.push({machine: item.name, title: item.title || item.name, host, service: rule.service, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth});
                 }
             }
             return out;
@@ -114,10 +114,10 @@ const authwall_pane = {
             if (this.state.services.some(v => v.name === WALL_NAME)) {
                 return WALL_NAME;
             }
-            return ((this.walls.length === 0) ? null : this.walls[0].name);
+            return (this.walls.length === 0) ? null : this.walls[0].name;
         },
         wall: function () {
-            return ((this.picked === null) ? this.wall_default : this.picked);
+            return (this.picked === null) ? this.wall_default : this.picked;
         },
         others: function () {
             return this.walls.filter(v => v.name !== this.wall);
@@ -127,13 +127,13 @@ const authwall_pane = {
         },
         head: function () {
             const count = this.guarded.length;
-            const guards = ((count === 0) ? 'guards nothing yet' : `guards ${(count === 1) ? 'one name' : `${count} names`}`);
+            const guards = (count === 0) ? 'guards nothing yet' : `guards ${(count === 1) ? 'one name' : `${count} names`}`;
             if (this.service === null) {
                 return {pill: 'failed', text: 'no such service', detail: `Names are behind ${this.wall}, and no service is called that: a door lets nothing through them.`};
             }
-            const name = ((Array.isArray(this.service.remotes) && (this.service.remotes.length > 0)) ? this.service.remotes[0] : null);
+            const name = (Array.isArray(this.service.remotes) && (this.service.remotes.length > 0)) ? this.service.remotes[0] : null;
             const found = this.state.remotes.find(v => v.name === name);
-            const where = ((found === undefined) ? '' : ` on ${found.title || found.name}`);
+            const where = (found === undefined) ? '' : ` on ${found.title || found.name}`;
             return {pill: this.service.phase, text: this.service.phase, detail: `${this.service.name}${where} · ${guards}`};
         },
         guarded: function () {
@@ -148,7 +148,7 @@ const authwall_pane = {
             return `${rule.machine} ${rule.host}`;
         },
         behind_text: function (rule) {
-            return ((rule.auth === null) ? 'nothing — anyone may reach it' : rule.auth);
+            return (rule.auth === null) ? 'nothing — anyone may reach it' : rule.auth;
         },
         // The wall put in front of a name, or taken away; the name keeps everything else it has
         guard: async function (rule, auth) {

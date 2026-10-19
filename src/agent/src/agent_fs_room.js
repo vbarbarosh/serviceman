@@ -11,7 +11,7 @@ async function agent_fs_room(params)
         at = path.dirname(at);
     }
     const stat = fs.statfsSync(at);
-    return {bytes_free: stat.bavail*stat.bsize, inodes_free: ((stat.files === 0) ? null : stat.ffree)};
+    return {bytes_free: stat.bavail*stat.bsize, inodes_free: (stat.files === 0) ? null : stat.ffree};
 }
 
 module.exports = agent_fs_room;

@@ -5,7 +5,7 @@ const fs = require('fs');
 async function agent_fs_stat(params)
 {
     const stat = await fs.promises.stat(agent_fs_path(params.path, params.root));
-    return {kind: (stat.isDirectory() ? 'dir' : 'file'), size: stat.size, mtime_ms: Math.round(stat.mtimeMs), mode: (stat.mode & 0o7777)};
+    return {kind: stat.isDirectory() ? 'dir' : 'file', size: stat.size, mtime_ms: Math.round(stat.mtimeMs), mode: (stat.mode & 0o7777)};
 }
 
 module.exports = agent_fs_stat;

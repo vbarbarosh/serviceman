@@ -102,8 +102,8 @@ async function serviceman_ask(url)
             return {answered: true, refused: true, remotes: [], remote: null};
         }
         const body = await answer.json();
-        const remotes = (Array.isArray(body.remotes) ? body.remotes.map(v => v.name) : []);
-        return {answered: Array.isArray(body.remotes), refused: false, remotes, remote: ((remotes.length === 0) ? null : remotes[0])};
+        const remotes = Array.isArray(body.remotes) ? body.remotes.map(v => v.name) : [];
+        return {answered: Array.isArray(body.remotes), refused: false, remotes, remote: (remotes.length === 0) ? null : remotes[0]};
     }
     catch {
         return {answered: false, refused: false, remotes: [], remote: null};
@@ -149,7 +149,7 @@ async function handle(target, req, res)
             send_json(res, 400, {error: 'that is not a private key: it starts with -----BEGIN … PRIVATE KEY-----'});
             return;
         }
-        target.key = ((text === '') ? null : `${text}\n`);
+        target.key = (text === '') ? null : `${text}\n`;
         send_json(res, 200, key_said(target.key));
         return;
     }
@@ -165,7 +165,7 @@ async function handle(target, req, res)
     if ((address.pathname === '/end') && (req.method === 'POST')) {
         const name = address.searchParams.get('name');
         const answer = await fetch(new URL(`/api/v1/remotes/${encodeURIComponent(remote)}/terminals/${encodeURIComponent(name)}/end`, url), {method: 'POST', headers: token_headers({})});
-        send_json(res, answer.status, ((answer.status === 401) ? {error: token_wanted()} : await answer.json()));
+        send_json(res, answer.status, (answer.status === 401) ? {error: token_wanted()} : await answer.json());
         return;
     }
     send_json(res, 404, {error: `no such page: ${address.pathname}`});
@@ -322,7 +322,7 @@ function key_said(key)
         return {set: false, kind: null};
     }
     const kind = /^-----BEGIN ([A-Z ]*)PRIVATE KEY-----/.exec(key)[1].trim();
-    return {set: true, kind: ((kind === '') ? 'PKCS#8' : kind)};
+    return {set: true, kind: (kind === '') ? 'PKCS#8' : kind};
 }
 
 function body_read(req)
@@ -342,7 +342,7 @@ function unreachable(url, error)
     if ((error.status === 401) || ((error.code === 'ECONNRESET') && (token_given() === false))) {
         return token_wanted();
     }
-    const reason = ((error.cause === undefined) ? error.message : (error.cause.code || error.cause.message));
+    const reason = (error.cause === undefined) ? error.message : (error.cause.code || error.cause.message);
     if ((reason === 'ECONNREFUSED') || (reason === 'ENOTFOUND') || (error.message === 'fetch failed')) {
         return `serviceman does not answer at ${url} (${reason}): start it, or set URL to its control page`;
     }
@@ -352,7 +352,7 @@ function unreachable(url, error)
 // Whether SERVICEMAN_TOKEN is set
 function token_given()
 {
-    return ((process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== ''));
+    return (process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== '');
 }
 
 // The headers of a request to serviceman, with SERVICEMAN_TOKEN when it is set

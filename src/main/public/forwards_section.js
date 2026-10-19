@@ -87,7 +87,7 @@ const forwards_section = {
     },
     computed: {
         forwards: function () {
-            return (((this.state === null) || (this.state.forwards === undefined)) ? [] : this.state.forwards);
+            return ((this.state === null) || (this.state.forwards === undefined)) ? [] : this.state.forwards;
         },
         // Whether any forward has something wrong to tell, now or last time: else no column for it
         wrongs: function () {
@@ -108,10 +108,10 @@ const forwards_section = {
             return out;
         },
         machines: function () {
-            return ((this.state === null) ? [] : this.state.remotes);
+            return (this.state === null) ? [] : this.state.remotes;
         },
         machine_options: function () {
-            return this.machines.map(v => ({value: v.name, label: ((v.phase === 'online') ? (v.title || v.name) : `${v.title || v.name} · offline`)}));
+            return this.machines.map(v => ({value: v.name, label: (v.phase === 'online') ? (v.title || v.name) : `${v.title || v.name} · offline`}));
         },
         // Each end as typed, said back in words under its box
         from_says: function () {
@@ -144,7 +144,7 @@ const forwards_section = {
         },
         ready: function () {
             const fresh = this.fresh;
-            return ((fresh.from_remote !== '') && (fresh.to_remote !== '') && (fresh.from !== '') && (fresh.to !== '') && (this.from_says.bad === false) && (this.to_says.bad === false));
+            return (fresh.from_remote !== '') && (fresh.to_remote !== '') && (fresh.from !== '') && (fresh.to !== '') && (this.from_says.bad === false) && (this.to_says.bad === false);
         },
         // The whole forward in one sentence, once both ends are there
         summary: function () {
@@ -152,7 +152,7 @@ const forwards_section = {
                 return null;
             }
             const fresh = this.fresh;
-            const to = ((fresh.to_remote === HERE) ? this.landed_text(forward_here_parse(fresh.to)) : fresh.to);
+            const to = (fresh.to_remote === HERE) ? this.landed_text(forward_here_parse(fresh.to)) : fresh.to;
             return `A connection to ${end_words(to)} on ${this.place_title(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
         },
         // The label a forward gets when none is typed: the socket's name, or the machine and port
@@ -182,7 +182,7 @@ const forwards_section = {
                 link_down: `${this.title_of(item.to.remote)} link down`,
                 to_offline: `${this.title_of(item.to.remote)} offline`,
             };
-            return ((words[item.state] === undefined) ? item.state : words[item.state]);
+            return (words[item.state] === undefined) ? item.state : words[item.state];
         },
         dot_of: function (item) {
             if (item.state === 'ready') {
@@ -191,7 +191,7 @@ const forwards_section = {
             if (item.state === 'telling') {
                 return 'starting';
             }
-            return ((item.state === 'aside') ? '' : 'failed');
+            return (item.state === 'aside') ? '' : 'failed';
         },
         bad_of: function (item) {
             return ['ready', 'aside', 'telling'].includes(item.state) === false;
@@ -210,14 +210,14 @@ const forwards_section = {
             if (problem !== null) {
                 return problem;
             }
-            return ((item.error === null) ? '' : `last failure ${this.ago(item.error_at)}: ${item.error}`);
+            return (item.error === null) ? '' : `last failure ${this.ago(item.error_at)}: ${item.error}`;
         },
         idle: function (item) {
-            return ((item.speed_sent === 0) && (item.speed_back === 0));
+            return (item.speed_sent === 0) && (item.speed_back === 0);
         },
         // Each way, now: what went to the service and what came back, a second at a time
         speed_text: function (item) {
-            return (this.idle(item) ? 'idle' : `↑ ${format_bps(item.speed_sent)} ↓ ${format_bps(item.speed_back)}`);
+            return this.idle(item) ? 'idle' : `↑ ${format_bps(item.speed_sent)} ↓ ${format_bps(item.speed_back)}`;
         },
         history_minutes: function (item) {
             return Math.max(1, Math.round(item.history_back.length/12));
@@ -237,14 +237,14 @@ const forwards_section = {
         },
         title_of: function (name) {
             const found = this.machines.find(v => v.name === name);
-            return ((found === undefined) ? name : (found.title || found.name));
+            return (found === undefined) ? name : (found.title || found.name);
         },
         // The machine one end is on, serviceman itself included, as a picker's value names it
         place_title: function (value) {
-            return ((value === HERE) ? 'this host' : this.title_of(value));
+            return (value === HERE) ? 'this host' : this.title_of(value);
         },
         place_of: function (end) {
-            return (end.here ? 'this host' : this.title_of(end.remote));
+            return end.here ? 'this host' : this.title_of(end.remote);
         },
         // An end as the table shows it: a socket of serviceman's own where it lands, in its
         // state dir; the rest as written
@@ -258,7 +258,7 @@ const forwards_section = {
             if (end.socket !== null) {
                 return end.socket;
             }
-            return ((end.host === null) ? String(end.port) : `${end.host}:${end.port}`);
+            return (end.host === null) ? String(end.port) : `${end.host}:${end.port}`;
         },
         bytes: function (value) {
             return format_bytes(value);
@@ -271,9 +271,9 @@ const forwards_section = {
             if (this.ready === false) {
                 return;
             }
-            const fresh = Object.assign({}, this.fresh, {label: ((this.fresh.label === '') ? this.label_auto : this.fresh.label)});
+            const fresh = Object.assign({}, this.fresh, {label: (this.fresh.label === '') ? this.label_auto : this.fresh.label});
             const from = forward_end_parse(fresh.from_remote, fresh.from);
-            const to = ((fresh.to_remote === HERE) ? forward_here_parse(fresh.to) : forward_end_parse(fresh.to_remote, fresh.to));
+            const to = (fresh.to_remote === HERE) ? forward_here_parse(fresh.to) : forward_end_parse(fresh.to_remote, fresh.to);
             if (typeof from === 'string') {
                 this.report(`from: ${from}`, true);
                 return;
@@ -289,8 +289,8 @@ const forwards_section = {
             const editing = this.editing;
             const written = await this.forwards_write(function (forwards) {
                 const at = forwards.findIndex(v => label_of(v) === ((editing === null) ? fresh.label : editing.label));
-                const kept = (((at === -1) || (editing === null)) ? false : (forwards[at].off === true));
-                const forward = Object.assign({label: fresh.label, from, to}, (kept ? {off: true} : {}));
+                const kept = ((at === -1) || (editing === null)) ? false : (forwards[at].off === true);
+                const forward = Object.assign({label: fresh.label, from, to}, kept ? {off: true} : {});
                 if ((editing === null) || (at === -1)) {
                     forwards.push(forward);
                     return;
@@ -312,7 +312,7 @@ const forwards_section = {
         edit: function (item) {
             this.making = true;
             this.editing = item;
-            this.fresh = {label: item.label, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: (item.to.here ? HERE : item.to.remote), to: this.end_text(item.to)};
+            this.fresh = {label: item.label, from_remote: item.from.remote, from: this.end_text(item.from), to_remote: item.to.here ? HERE : item.to.remote, to: this.end_text(item.to)};
             this.report('', false);
             this.form_show();
         },
@@ -376,18 +376,18 @@ const forwards_section = {
 function end_says(remote, text, title, listens)
 {
     if (text === '') {
-        return {text: (listens ? 'a socket file or a port there' : 'a port, an address or a socket there'), bad: false};
+        return {text: listens ? 'a socket file or a port there' : 'a port, an address or a socket there', bad: false};
     }
     const end = forward_end_parse(remote, text);
     if (typeof end === 'string') {
         return {text: end, bad: true};
     }
-    const machine = ((remote === '') ? 'that machine' : title);
+    const machine = (remote === '') ? 'that machine' : title;
     if (end.socket !== undefined) {
-        return {text: (listens ? `a socket file on ${machine}, only its agent's user may open it` : `the socket file ${end.socket} on ${machine}`), bad: false};
+        return {text: listens ? `a socket file on ${machine}, only its agent's user may open it` : `the socket file ${end.socket} on ${machine}`, bad: false};
     }
     if (end.host !== undefined) {
-        return (listens ? {text: 'a port or a socket here: it listens on its loopback, not on an address', bad: true} : {text: `${end.host}:${end.port}, as ${machine} reaches it`, bad: false});
+        return listens ? {text: 'a port or a socket here: it listens on its loopback, not on an address', bad: true} : {text: `${end.host}:${end.port}, as ${machine} reaches it`, bad: false};
     }
     return {text: `port ${end.port} on the loopback of ${machine}`, bad: false};
 }
@@ -433,7 +433,7 @@ function fresh_empty()
 // A forward as the config file has it: one written before labels carries `name`
 function label_of(forward)
 {
-    return ((forward.label === undefined) ? forward.name : forward.label);
+    return (forward.label === undefined) ? forward.name : forward.label;
 }
 
 export default forwards_section;

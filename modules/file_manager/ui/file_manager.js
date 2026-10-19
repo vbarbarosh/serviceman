@@ -416,14 +416,14 @@ const file_manager = {
             return `${done} of ${this.transfers_here.length} copied`;
         },
         open_root: function () {
-            return (this.open_base ? this.open_base : `${this.base}/file`);
+            return this.open_base ? this.open_base : `${this.base}/file`;
         },
         parent: function () {
             if ((this.path === null) || (this.path === '/')) {
                 return null;
             }
             const at = this.path.lastIndexOf('/');
-            return ((at === 0) ? '/' : this.path.slice(0, at));
+            return (at === 0) ? '/' : this.path.slice(0, at);
         },
         // What the editor bar says about the open file, beside its name
         file_meta: function () {
@@ -458,7 +458,7 @@ const file_manager = {
             return out;
         },
         here: function () {
-            return ((this.crumbs.length === 0) ? '' : this.crumbs[this.crumbs.length - 1].label);
+            return (this.crumbs.length === 0) ? '' : this.crumbs[this.crumbs.length - 1].label;
         },
         columns: function () {
             return [{key: 'name', label: 'Name', sort: true, wraps: true}, {key: 'size', label: 'Size', sort: true, fold: 2, align: 'right'}, {key: 'mtime', label: 'Modified', sort: true, fold: 1}];
@@ -470,11 +470,11 @@ const file_manager = {
         items_shown: function () {
             const wanted = this.filter.toLowerCase();
             const out = this.items.filter(v => (this.show_dot_files || (v.name.startsWith('.') === false)) && ((wanted === '') || v.name.toLowerCase().includes(wanted)));
-            const sign = (this.sort_desc ? -1 : 1);
+            const sign = this.sort_desc ? -1 : 1;
             const sort = this.sort;
             out.sort(function (a, b) {
                 if ((a.kind === 'dir') !== (b.kind === 'dir')) {
-                    return ((a.kind === 'dir') ? -1 : 1);
+                    return (a.kind === 'dir') ? -1 : 1;
                 }
                 if ((sort === 'size') && (a.size !== b.size)) {
                     return sign*((a.size || 0) - (b.size || 0));
@@ -489,7 +489,7 @@ const file_manager = {
         },
         chosen_text: function () {
             const count = this.chosen_names.length;
-            return ((count === 1) ? this.chosen_names[0] : `${count} items`);
+            return (count === 1) ? this.chosen_names[0] : `${count} items`;
         },
         empty_text: function () {
             if (this.items.length === 0) {
@@ -506,7 +506,7 @@ const file_manager = {
             const files = this.items_shown.length - dirs;
             let bytes = 0;
             for (const item of this.items_shown) {
-                bytes += (((item.kind === 'dir') || (item.size === null)) ? 0 : item.size);
+                bytes += ((item.kind === 'dir') || (item.size === null)) ? 0 : item.size;
             }
             const said = [`${dirs} ${plural(dirs, 'folder', 'folders')}`, `${files} ${plural(files, 'file', 'files')}`, format_bytes(bytes)];
             const hidden = this.items.length - this.items_shown.length;
@@ -518,10 +518,10 @@ const file_manager = {
         // The bar says what went wrong, or what an action did; reading a folder says nothing
         // when it works, since the list is the answer
         note_shown: function () {
-            return ((this.act_note !== '') ? this.act_note : (this.bad ? this.note : ''));
+            return (this.act_note !== '') ? this.act_note : (this.bad ? this.note : '');
         },
         note_bad: function () {
-            return ((this.act_note !== '') ? this.act_bad : this.bad);
+            return (this.act_note !== '') ? this.act_bad : this.bad;
         },
         // Every upload at once: files and bytes in, and what the copying under way has done since
         // it began, for its rate. Bytes that were in before (a file carried on) are not its work.
@@ -541,11 +541,11 @@ const file_manager = {
                     out.failed++;
                 }
                 if ((item.began >= this.queue.began) && (item.began > 0)) {
-                    out.files_since += ((item.phase === 'ok') ? 1 : 0);
+                    out.files_since += (item.phase === 'ok') ? 1 : 0;
                     out.bytes_since += ((item.phase === 'ok') ? item.size : item.sent) - (((item.began_at === null) || (item.began_at === undefined)) ? 0 : item.began_at);
                 }
             }
-            out.ratio = ((out.bytes === 0) ? ((out.files === 0) ? 0 : out.files_done/out.files) : out.bytes_done/out.bytes);
+            out.ratio = (out.bytes === 0) ? ((out.files === 0) ? 0 : out.files_done/out.files) : out.bytes_done/out.bytes;
             return out;
         },
         // "48% · 1417 of 2940 files · 1.4GB of 2.9GB"; the speed and the time left are under the
@@ -579,14 +579,14 @@ const file_manager = {
                 return '…';
             }
             const by_bytes = (total.bytes - total.bytes_done)*ms/total.bytes_since;
-            const by_files = ((total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0);
+            const by_files = (total.files_since > 0) ? (total.files - total.files_done - total.failed)*ms/total.files_since : 0;
             return `about ${format_ms(Math.max(by_bytes, by_files))}`;
         },
         // The file under way: in a stream, the one whose bytes are going now
         copy_now: function () {
             const going = this.queue.copies.filter(v => (v.phase === 'copying') || (v.phase === 'retrying'));
             const item = going.find(v => (v.sent > 0) && (v.sent < v.size));
-            return ((item !== undefined) ? item : ((going.length > 0) ? going[0] : null));
+            return (item !== undefined) ? item : ((going.length > 0) ? going[0] : null);
         },
         // The file under way, or the last one while none is: what the line under the graph shows
         copy_shown: function () {
@@ -599,11 +599,11 @@ const file_manager = {
             if (this.copy_now !== null) {
                 return this.copy_now;
             }
-            return ((this.copy_last !== null) ? this.copy_last : this.queue.copies[0]);
+            return (this.copy_last !== null) ? this.copy_last : this.queue.copies[0];
         },
         // Paused, Uploads stands still as it was: its figures, its graph, its file line
         copy_said: function () {
-            return ((this.frozen !== null) ? this.frozen.said : {summary: this.copy_summary, left: this.copy_left, files_left: this.copy_files_left});
+            return (this.frozen !== null) ? this.frozen.said : {summary: this.copy_summary, left: this.copy_left, files_left: this.copy_files_left};
         },
         copy_files_left: function () {
             const total = this.copy_total;
@@ -613,7 +613,7 @@ const file_manager = {
         // a little room above it
         copy_graph: function () {
             const samples = this.queue.samples;
-            const out = {done_x: ((this.frozen !== null) ? this.frozen.done_x : Math.round(this.copy_total.ratio*1000)), line: '', area: '', now_y: null, speed: 0};
+            const out = {done_x: (this.frozen !== null) ? this.frozen.done_x : Math.round(this.copy_total.ratio*1000), line: '', area: '', now_y: null, speed: 0};
             if (samples.length === 0) {
                 return out;
             }
@@ -678,7 +678,7 @@ const file_manager = {
         'queue.paused': function (value) {
             if (value) {
                 const shown = this.copy_shown;
-                this.frozen = {said: this.copy_said, done_x: Math.round(this.copy_total.ratio*1000), shown: ((shown === null) ? null : {label: shown.label, sent: shown.sent, size: shown.size, phase: 'copying'})};
+                this.frozen = {said: this.copy_said, done_x: Math.round(this.copy_total.ratio*1000), shown: (shown === null) ? null : {label: shown.label, sent: shown.sent, size: shown.size, phase: 'copying'}};
             }
             else {
                 this.frozen = null;
@@ -833,7 +833,7 @@ const file_manager = {
             return `${this.base}/file${url_path(file.path)}`;
         },
         file_open: async function (item) {
-            const path = ((item.path === undefined) ? `${this.path}/${item.name}` : item.path);
+            const path = (item.path === undefined) ? `${this.path}/${item.name}` : item.path;
             this.editor_destroy();
             this.open_file = {name: item.name, path, size: item.size, mtime_ms: item.mtime_ms, state: 'loading', error: ''};
             this.edit_ask = '';
@@ -1013,7 +1013,7 @@ const file_manager = {
         },
         language_of: function (cm) {
             const make = cm.languages[this.language];
-            return ((make === undefined) ? [] : make());
+            return (make === undefined) ? [] : make();
         },
         editor_look: function () {
             if (this.editor) {
@@ -1031,10 +1031,10 @@ const file_manager = {
             }
         },
         mtime_title: function (item) {
-            return ((item.mtime_ms === null) ? '' : new Date(item.mtime_ms).toLocaleString());
+            return (item.mtime_ms === null) ? '' : new Date(item.mtime_ms).toLocaleString();
         },
         sort_by: function (key) {
-            this.sort_desc = ((this.sort === key) ? this.sort_desc === false : key !== 'name');
+            this.sort_desc = (this.sort === key) ? this.sort_desc === false : key !== 'name';
             this.sort = key;
         },
         // The bar turns into the one question; its field is where the typing goes
@@ -1073,7 +1073,7 @@ const file_manager = {
             });
         },
         edit_start: function () {
-            this.typed = ((this.path === null) ? '' : this.path);
+            this.typed = (this.path === null) ? '' : this.path;
             this.editing = true;
             const self = this;
             this.$nextTick(function () {
@@ -1242,12 +1242,12 @@ const file_manager = {
             let room = null;
             try {
                 const answer = await fetch(`${this.base}/room?path=${encodeURIComponent(path)}`, {cache: 'no-store'});
-                room = (answer.ok ? await answer.json() : null);
+                room = answer.ok ? await answer.json() : null;
             }
             catch {
                 room = null;
             }
-            const inodes_short = ((room !== null) && (room.inodes_free !== null) && (files.length + folders.length > room.inodes_free));
+            const inodes_short = (room !== null) && (room.inodes_free !== null) && (files.length + folders.length > room.inodes_free);
             if ((room === null) || ((bytes <= room.bytes_free) && (inodes_short === false))) {
                 return {files, dirs};
             }
@@ -1263,7 +1263,7 @@ const file_manager = {
                 self.room_resolve = resolve;
             });
             this.room_ask = null;
-            return (yes ? {files: fit.files, dirs: []} : null);
+            return yes ? {files: fit.files, dirs: []} : null;
         },
         room_answer: function (yes) {
             this.room_resolve(yes);
@@ -1276,7 +1276,7 @@ const file_manager = {
         take: async function (files_asked, dirs_asked) {
             const path = this.path;
             const sorted = files_asked.slice().sort((a, b) => file_label(a).localeCompare(file_label(b), undefined, {numeric: true}));
-            const room = (((sorted.length > 1) || (dirs_asked.length > 0)) ? await this.room_check(path, sorted, dirs_asked) : {files: sorted, dirs: dirs_asked});
+            const room = ((sorted.length > 1) || (dirs_asked.length > 0)) ? await this.room_check(path, sorted, dirs_asked) : {files: sorted, dirs: dirs_asked};
             if (room === null) {
                 return;
             }
@@ -1284,13 +1284,13 @@ const file_manager = {
             const dirs = room.dirs;
             const made = folders_deepest(files.map(v => v.dir).concat(dirs).filter(v => v !== ''));
             // A folder's names come in the order the disk keeps them: they go A to Z, by path
-            const list = files.map(v => ({file: v.file, dir: ((v.dir === '') ? path : `${path}/${v.dir}`), label: file_label(v)}));
+            const list = files.map(v => ({file: v.file, dir: (v.dir === '') ? path : `${path}/${v.dir}`, label: file_label(v)}));
             if (list.length > 0) {
                 this.queue.take(list, {path, folders: made});
                 return;
             }
             const why = await this.queue.folders_make(path, made);
-            this.act_report(((why === '') ? `${made.length} ${plural(made.length, 'folder', 'folders')} made` : why), (why !== ''));
+            this.act_report((why === '') ? `${made.length} ${plural(made.length, 'folder', 'folders')} made` : why, (why !== ''));
         },
         // One copy for each file or folder ticked, into the folder named on the machine picked;
         // the host runs them one after another
@@ -1351,8 +1351,8 @@ const file_manager = {
             this.transfers_read();
         },
         target_label: function (name) {
-            const found = (Array.isArray(this.targets) ? this.targets.find(v => v.value === name) : undefined);
-            return ((found === undefined) ? name : found.label);
+            const found = Array.isArray(this.targets) ? this.targets.find(v => v.value === name) : undefined;
+            return (found === undefined) ? name : found.label;
         },
         // Where a copy goes, or where it comes from, in a few words: the folder by its last name
         transfer_where: function (item) {
@@ -1362,7 +1362,7 @@ const file_manager = {
             return `from ${this.target_label(item.from.disk)}`;
         },
         transfer_ratio: function (item) {
-            return (((item.size === null) || (item.size === 0)) ? 0 : item.received/item.size);
+            return ((item.size === null) || (item.size === 0)) ? 0 : item.received/item.size;
         },
         // What has gone over, how fast this run carried it, and what that leaves
         transfer_detail: function (item) {
@@ -1376,7 +1376,7 @@ const file_manager = {
             if (item.kind === 'dir') {
                 said.splice(1, 0, `${item.files_done} of ${item.files} ${plural(item.files, 'file', 'files')}`);
             }
-            const before = ((item.began_at === null) ? 0 : item.began_at);
+            const before = (item.began_at === null) ? 0 : item.began_at;
             const ms = item.ms;
             const sent = item.received - before;
             if (before > 0) {
@@ -1399,7 +1399,7 @@ const file_manager = {
         },
         // The same, with what a folder's copy left out, each name and why, a line each
         transfer_done_title: function (item) {
-            const names = (((item.left === undefined) || (item.left === null)) ? [] : item.left.names);
+            const names = ((item.left === undefined) || (item.left === null)) ? [] : item.left.names;
             return [this.transfer_done(item)].concat((item.said === '') ? [] : [item.said], names.map(v => `${v.path}: ${v.said}`)).join('\n');
         },
         // A copy under way, or why it waits to try again
@@ -1413,7 +1413,7 @@ const file_manager = {
             return `${item.said} — trying again in ${item.wait_s}s · ${format_bytes(item.sent)} of ${format_bytes(item.size)} is in`;
         },
         copy_ratio: function (item) {
-            return ((item.size === 0) ? 1 : item.sent/item.size);
+            return (item.size === 0) ? 1 : item.sent/item.size;
         },
     },
     mounted: function () {
@@ -1473,7 +1473,7 @@ function is_files_drag(event)
 // {file, dir: 'photos/2024'} -> 'photos/2024/a.jpg': a file by its way from the folder taken
 function file_label(item)
 {
-    return ((item.dir === '') ? item.file.name : `${item.dir}/${item.file.name}`);
+    return (item.dir === '') ? item.file.name : `${item.dir}/${item.file.name}`;
 }
 
 // ['a/b/c', 'd'] -> ['a', 'a/b', 'a/b/c', 'd']: every folder on the way, once
@@ -1531,8 +1531,8 @@ function language_of(name)
     if (lower.includes('nginx') && lower.endsWith('.conf')) {
         return 'nginx';
     }
-    const extension = (lower.includes('.') ? lower.slice(lower.lastIndexOf('.') + 1) : '');
-    return ((LANGUAGE_BY_EXTENSION[extension] === undefined) ? 'text' : LANGUAGE_BY_EXTENSION[extension]);
+    const extension = lower.includes('.') ? lower.slice(lower.lastIndexOf('.') + 1) : '';
+    return (LANGUAGE_BY_EXTENSION[extension] === undefined) ? 'text' : LANGUAGE_BY_EXTENSION[extension];
 }
 
 // Whether the text differs from what was read; the length first, so a keystroke in a big file
@@ -1547,7 +1547,7 @@ function editor_changed(doc, original)
 
 function plural(count, one, many)
 {
-    return ((count === 1) ? one : many);
+    return (count === 1) ? one : many;
 }
 
 // A disk path as a url path: each name encoded, the slashes kept

@@ -11,9 +11,9 @@
 // big folder being read; `stop` set to true ends the reading, and nothing comes back.
 async function data_transfer_read(transfer, folders, counter)
 {
-    const entries = Array.from(transfer.items).filter(v => v.kind === 'file').map(v => (v.webkitGetAsEntry ? v.webkitGetAsEntry() : null));
+    const entries = Array.from(transfer.items).filter(v => v.kind === 'file').map(v => v.webkitGetAsEntry ? v.webkitGetAsEntry() : null);
     const loose = Array.from(transfer.files);
-    const found = {files: [], dirs: [], unread: [], counter: ((counter === undefined) ? {files: 0, bytes: 0, stop: false} : counter)};
+    const found = {files: [], dirs: [], unread: [], counter: (counter === undefined) ? {files: 0, bytes: 0, stop: false} : counter};
     if ((entries.length > 0) && entries.every(v => v !== null)) {
         for (const entry of entries) {
             if (entry.isFile || folders) {
@@ -50,7 +50,7 @@ function out_of(read)
 // A name the browser cannot read is named and left out; the rest still goes
 async function entry_read(entry, dir, found)
 {
-    const here = ((dir === '') ? entry.name : `${dir}/${entry.name}`);
+    const here = (dir === '') ? entry.name : `${dir}/${entry.name}`;
     if (found.counter.stop) {
         return;
     }

@@ -9,7 +9,7 @@ function log_words(words)
         if ((value === undefined) || (value === null)) {
             continue;
         }
-        const text = (((typeof value === 'string') && /^[!#-Z^-~]+$/.test(value)) ? value : JSON.stringify(value));
+        const text = ((typeof value === 'string') && /^[!#-Z^-~]+$/.test(value)) ? value : JSON.stringify(value);
         pairs.push(`${key}=${text}`);
     }
     return pairs.join(' ');

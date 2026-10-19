@@ -200,7 +200,7 @@ async function main()
             status.phase = 'the link closed';
         }
         catch (error) {
-            agent_say(group, ((up_at === null) ? 'agent_connect_end_error' : 'agent_link_end_error'), {reason: error.message});
+            agent_say(group, (up_at === null) ? 'agent_connect_end_error' : 'agent_link_end_error', {reason: error.message});
             status.phase = 'not connected';
             status.error = error.message;
             // The host says this machine is no longer part of it. Dialling again would be
@@ -208,7 +208,7 @@ async function main()
             // the machine, which is what nobody being left to manage it means.
             if (error.refused === 'removed') {
                 const uninstalled = await agent_uninstall(options);
-                agent_say(group, (uninstalled.removed ? 'agent_uninstall_ok' : 'agent_uninstall_refused'), uninstalled);
+                agent_say(group, uninstalled.removed ? 'agent_uninstall_ok' : 'agent_uninstall_refused', uninstalled);
                 return;
             }
         }
@@ -265,23 +265,21 @@ function options_from_argv(argv)
 // Every --tag on the line, and SERVICEMAN_TAGS when there is none
 function tags_from_argv(argv, env)
 {
-    const out = [];
+    const tags = [];
     for (let i = 0; i < argv.length; i++) {
         if ((argv[i] === '--tag') && (i + 1 < argv.length)) {
-            out.push(argv[i + 1]);
+            tags.push(argv[i + 1]);
         }
     }
-    if (out.length === 0) {
-        return String(env.SERVICEMAN_TAGS || '').split(',').map(v => v.trim()).filter(v => v !== '');
-    }
-    return out;
+    const tags_env = String(env.SERVICEMAN_TAGS || '').split(',').map(v => v.trim()).filter(v => v !== '');
+    return (tags.length === 0) ? tags_env : tags;
 }
 
 function text_after(argv, name, fallback)
 {
     const at = argv.indexOf(name);
     if ((at === -1) || (at + 1 >= argv.length)) {
-        return ((fallback === undefined) ? '' : fallback);
+        return (fallback === undefined) ? '' : fallback;
     }
     return argv[at + 1];
 }

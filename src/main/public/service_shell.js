@@ -33,7 +33,7 @@ const service_shell = {
 function first_running_slot(view)
 {
     const running = view.instances.filter(v => v.phase === 'running');
-    return ((running.length > 0) ? running[0].slot : 1);
+    return (running.length > 0) ? running[0].slot : 1;
 }
 
 export default service_shell;

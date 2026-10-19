@@ -6,9 +6,9 @@ const cli = require('@vbarbarosh/node-helpers/src/cli');
 const fs = require('fs');
 
 const file = process.env.FAKE_UFW_STATE;
-const state = (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {active: false, rules: []});
+const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {active: false, rules: []};
 const argv = process.argv.slice(2);
-const words = ((argv[0] === '--force') ? argv.slice(1) : argv);
+const words = (argv[0] === '--force') ? argv.slice(1) : argv;
 
 cli(main, report);
 
@@ -25,7 +25,7 @@ function main()
     else if ((words[0] === 'show') && (words[1] === 'added')) {
         console.log('Added user rules (see \'ufw status\' for running firewall):');
         for (const rule of state.rules) {
-            console.log(`ufw ${rule.map(v => (/\s/.test(v) ? `'${v}'` : v)).join(' ')}`);
+            console.log(`ufw ${rule.map(v => /\s/.test(v) ? `'${v}'` : v).join(' ')}`);
         }
     }
     else if (words[0] === 'enable') {

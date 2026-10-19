@@ -3,7 +3,7 @@
 function last_line(text)
 {
     const lines = String(((text === undefined) || (text === null)) ? '' : text).split('\n').filter(v => v.trim() !== '');
-    return ((lines.length === 0) ? 'it said nothing' : lines[lines.length - 1]);
+    return (lines.length === 0) ? 'it said nothing' : lines[lines.length - 1];
 }
 
 module.exports = last_line;

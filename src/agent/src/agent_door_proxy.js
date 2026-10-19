@@ -14,7 +14,7 @@ function agent_door_proxy(req, res, target, extra)
 {
     return new Promise(function (resolve) {
         const headers = headers_of(req.headers, extra);
-        const where = ((target.socket === undefined) ? {host: target.host, port: target.port} : {socketPath: target.socket});
+        const where = (target.socket === undefined) ? {host: target.host, port: target.port} : {socketPath: target.socket};
         const request = http.request(Object.assign(where, {method: req.method, path: req.url, headers, agent: false}), function (answer) {
             const raw = [];
             for (let i = 0; i < answer.rawHeaders.length; i += 2) {

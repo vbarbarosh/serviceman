@@ -28,7 +28,7 @@ async function agent_term_start(name, cols, rows, env, cwd)
     if (agent_term_read(name) !== null) {
         return {name, created: false};
     }
-    const dir = path.resolve(os.homedir(), ((typeof cwd === 'string') ? cwd : '.'));
+    const dir = path.resolve(os.homedir(), (typeof cwd === 'string') ? cwd : '.');
     if ((fs.existsSync(dir) === false) || (fs.statSync(dir).isDirectory() === false)) {
         throw new Error(`no folder ${dir} on this machine`);
     }

@@ -145,19 +145,19 @@ function stop(reason)
 // For the host's Logs tab: whether it collects, and every number its sending moves
 agent_logline.status = function () {
     const stats = state.stats;
-    const spool = ((state.spool === null) ? null : state.spool.stats());
+    const spool = (state.spool === null) ? null : state.spool.stats();
     return {
         collecting: state.collect !== null,
-        containers: ((state.collect === null) ? 0 : state.collect.containers()),
-        files: ((state.files === null) ? 0 : state.files.files()),
+        containers: (state.collect === null) ? 0 : state.collect.containers(),
+        files: (state.files === null) ? 0 : state.files.files(),
         // Folders it could not read, and why: a path that is not there, a folder it may not open
-        dir_errors: ((state.files === null) ? {} : state.files.errors()),
-        sent: {lines: ((stats === null) ? 0 : stats.sent_lines), batches: ((stats === null) ? 0 : stats.sent_batches), bytes: ((stats === null) ? 0 : stats.sent_bytes)},
-        waiting: {lines: ((spool === null) ? 0 : spool.waiting_lines), bytes: ((spool === null) ? 0 : spool.waiting_bytes), oldest: ((spool === null) ? null : spool.oldest_at)},
+        dir_errors: (state.files === null) ? {} : state.files.errors(),
+        sent: {lines: (stats === null) ? 0 : stats.sent_lines, batches: (stats === null) ? 0 : stats.sent_batches, bytes: (stats === null) ? 0 : stats.sent_bytes},
+        waiting: {lines: (spool === null) ? 0 : spool.waiting_lines, bytes: (spool === null) ? 0 : spool.waiting_bytes, oldest: (spool === null) ? null : spool.oldest_at},
         // What may wait at most: past it, collecting stops until there is room again
-        cap_bytes: ((spool === null) ? null : spool.cap_bytes),
-        last_sent_at: ((stats === null) ? null : stats.last_sent_at),
-        last_answer: ((stats === null) ? null : stats.last_answer),
+        cap_bytes: (spool === null) ? null : spool.cap_bytes,
+        last_sent_at: (stats === null) ? null : stats.last_sent_at,
+        last_answer: (stats === null) ? null : stats.last_answer,
     };
 };
 

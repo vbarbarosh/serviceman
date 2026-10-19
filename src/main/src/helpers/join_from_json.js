@@ -22,7 +22,7 @@ function join_from_json(json, label)
     if ((typeof json.token !== 'string') || (json.token.length < SHORTEST_TOKEN)) {
         throw new Error(`${label}.token: a secret of at least ${SHORTEST_TOKEN} characters is required — it lets a machine add itself (openssl rand -hex 32)`);
     }
-    const prefix = ((json.name_prefix === undefined) ? DEFAULT_PREFIX : String(json.name_prefix));
+    const prefix = (json.name_prefix === undefined) ? DEFAULT_PREFIX : String(json.name_prefix);
     if (RE_PREFIX.test(prefix) === false) {
         throw new Error(`${label}.name_prefix: lowercase letters, digits, - and _ (got ${JSON.stringify(prefix)})`);
     }

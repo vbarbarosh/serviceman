@@ -212,7 +212,7 @@ function heard(watch, rel)
     }
     const now = Date.now();
     const found = watch.timers.get(rel);
-    const first = ((found === undefined) ? now : found.first);
+    const first = (found === undefined) ? now : found.first;
     if (found !== undefined) {
         clearTimeout(found.id);
     }
@@ -282,8 +282,8 @@ async function item_read(abs)
     catch {
         return null;
     }
-    const kind = (stat.isDirectory() ? 'dir' : 'file');
-    return {kind, size: ((kind === 'file') ? stat.size : null), mtime_ms: Math.round(stat.mtimeMs)};
+    const kind = stat.isDirectory() ? 'dir' : 'file';
+    return {kind, size: (kind === 'file') ? stat.size : null, mtime_ms: Math.round(stat.mtimeMs)};
 }
 
 function resync(watch, why)

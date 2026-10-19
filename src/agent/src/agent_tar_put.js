@@ -107,9 +107,9 @@ function agent_tar_put(target)
         const replaced = fs.existsSync(full);
         // A file that is there is written over as itself: through a link to the file the link
         // points at, and with the permissions it had
-        const written = (replaced ? fs.realpathSync(full) : full);
+        const written = replaced ? fs.realpathSync(full) : full;
         const part = path.join(path.dirname(written), `.${path.basename(written)}.part`);
-        file = {written, part, mode: (replaced ? fs.statSync(written).mode & 0o7777 : null), mode_there: event.mode, mtime_s: event.mtime_s, handle: null};
+        file = {written, part, mode: replaced ? fs.statSync(written).mode & 0o7777 : null, mode_there: event.mode, mtime_s: event.mtime_s, handle: null};
         file.handle = await fs.promises.open(part, 'w');
     }
 

@@ -82,17 +82,17 @@ const remote_form = {
     data: function () {
         return {
             model: {
-                name: ((this.original === null) ? '' : this.original.name || ''),
-                title: ((this.original === null) ? '' : this.original.title || ''),
-                token: ((this.original === null) ? token_make() : this.original.token || ''),
-                tags: ((this.original === null) ? '' : (this.original.tags || []).join(', ')),
-                machine: ((this.original === null) ? null : this.original.machine || null),
+                name: (this.original === null) ? '' : this.original.name || '',
+                title: (this.original === null) ? '' : this.original.title || '',
+                token: (this.original === null) ? token_make() : this.original.token || '',
+                tags: (this.original === null) ? '' : (this.original.tags || []).join(', '),
+                machine: (this.original === null) ? null : this.original.machine || null,
                 // Not edited here — the Logs tab switches it. Carried so saving this form does not
                 // quietly stop a machine's logs.
-                logs: ((this.original === null) ? 'off' : this.original.logs || 'off'),
+                logs: (this.original === null) ? 'off' : this.original.logs || 'off',
                 // Not edited here — the Networking page owns it. Carried so saving this form
                 // does not quietly take a machine's door away.
-                inbound: ((this.original === null) ? {} : this.original.inbound || {}),
+                inbound: (this.original === null) ? {} : this.original.inbound || {},
             },
             note: '',
             bad: false,
@@ -130,8 +130,8 @@ const remote_form = {
         save: async function () {
             this.busy = true;
             try {
-                const url = ((this.original === null) ? '/api/v1/remotes' : `/api/v1/remotes/${encodeURIComponent(this.original.name)}`);
-                const method = ((this.original === null) ? 'POST' : 'PUT');
+                const url = (this.original === null) ? '/api/v1/remotes' : `/api/v1/remotes/${encodeURIComponent(this.original.name)}`;
+                const method = (this.original === null) ? 'POST' : 'PUT';
                 const answer = await fetch(url, {method, body: JSON.stringify({remote: json_from_remote(this.model)})});
                 const outcome = await answer.json();
                 if (answer.ok === false) {
@@ -144,7 +144,7 @@ const remote_form = {
             catch {
                 this.report('the answer never came back — checking whether it landed…', false);
                 const name = this.model.name;
-                const landed = await settled(async () => (await state_read()).remotes.some(vv => vv.name === name));
+                const landed = await settled(async () => (await state_read()).remotes.some(v => v.name === name));
                 if (landed === false) {
                     this.report('serviceman is not answering', true);
                     return;
@@ -165,7 +165,7 @@ const remote_form = {
                     // It is still there, and the reason is on the page: the buttons go back to
                     // asking rather than standing ready to be pressed again
                     this.removing = false;
-                    this.blockers = (Array.isArray(outcome.services) ? outcome.services : []);
+                    this.blockers = Array.isArray(outcome.services) ? outcome.services : [];
                     this.report(outcome.error, true);
                     return;
                 }
@@ -175,7 +175,7 @@ const remote_form = {
             catch {
                 this.report('the answer never came back — checking whether it landed…', false);
                 const name = this.original.name;
-                const gone = await settled(async () => (await state_read()).remotes.some(vv => vv.name === name) === false);
+                const gone = await settled(async () => (await state_read()).remotes.some(v => v.name === name) === false);
                 if (gone === false) {
                     this.report('serviceman is not answering', true);
                     return;

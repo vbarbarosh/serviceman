@@ -19,7 +19,7 @@ function volumes_from_json(json, base_dir, label, service)
 
 function volume_from_json(json, base_dir, label, service)
 {
-    const parts = ((typeof json === 'string') ? parts_from_text(json, label) : parts_from_object(json, label));
+    const parts = (typeof json === 'string') ? parts_from_text(json, label) : parts_from_object(json, label);
     if (parts.target.startsWith('/') === false) {
         throw new Error(`${label}: the target is the path inside the container, it starts with / (got ${JSON.stringify(parts.target)})`);
     }
@@ -39,13 +39,13 @@ function volume_from_json(json, base_dir, label, service)
             create: true,
         };
     }
-    const kind = ((parts.source.includes('/') || parts.source.startsWith('~')) ? 'path' : 'volume');
+    const kind = (parts.source.includes('/') || parts.source.startsWith('~')) ? 'path' : 'volume';
     return {
         kind,
-        source: ((kind === 'path') ? path.resolve(base_dir, home_expanded(parts.source)) : parts.source),
+        source: (kind === 'path') ? path.resolve(base_dir, home_expanded(parts.source)) : parts.source,
         target: parts.target,
         readonly: parts.readonly,
-        create: ((kind === 'path') && parts.create),
+        create: (kind === 'path') && parts.create,
     };
 }
 
@@ -82,7 +82,7 @@ function parts_from_object(json, label)
         source: json.source,
         target: json.target,
         readonly: json.readonly === true,
-        create: ((json.create === undefined) ? true : json.create === true),
+        create: (json.create === undefined) ? true : json.create === true,
     };
 }
 

@@ -128,7 +128,7 @@ test('a copy between two disks goes in parts, waits for a disk that is away, and
     const b = disk_in_memory({'/b/keep.txt': 'k'});
     const away = {a: false, b: true};
     const logged = [];
-    const queue = transfer_queue({disk_of: v => (away[v] ? null : {a, b}[v]), log: (event, fields) => logged.push(event), part_bytes: 10});
+    const queue = transfer_queue({disk_of: v => away[v] ? null : {a, b}[v], log: v => logged.push(v), part_bytes: 10});
 
     // The disk it goes to is away at first; once back, the third part fails as a dropped link
     const item = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/b'});
@@ -262,13 +262,13 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
 test('the copies API lists, starts, cancels and clears; a copy names known disks only', async function (t) {
     const a = disk_in_memory({'/a/film.bin': 'film'});
     const b = disk_in_memory({});
-    const queue = transfer_queue({disk_of: v => (({a, b}[v] === undefined) ? null : {a, b}[v])});
+    const queue = transfer_queue({disk_of: v => ({a, b}[v] === undefined) ? null : {a, b}[v]});
     const server = http.createServer(function (req, res) {
         const pathname = new URL(req.url, 'http://test.invalid').pathname;
-        file_manager_transfers_serve(req, res, {queue, tail: pathname.slice('/transfers'.length), disk_known: v => ((v === 'a') || (v === 'b'))});
+        file_manager_transfers_serve(req, res, {queue, tail: pathname.slice('/transfers'.length), disk_known: v => (v === 'a') || (v === 'b')});
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     const running = {port: server.address().port};
 
     assert.strictEqual((await call(running, 'POST', '/transfers', JSON.stringify({from: {disk: 'z', path: '/a/film.bin'}, to: {disk: 'b', dir: '/b'}}))).status, 400);
@@ -602,7 +602,7 @@ function disk_in_memory(files)
         throw new Error(`ENOENT: ${full}`);
     }
     out.list = async function (asked) {
-        const dir = (((asked === null) || (asked === '')) ? '/home/me' : asked);
+        const dir = ((asked === null) || (asked === '')) ? '/home/me' : asked;
         const names = new Set();
         for (const key of Object.keys(held)) {
             if (key.startsWith(`${dir}/`)) {
@@ -611,9 +611,9 @@ function disk_in_memory(files)
         }
         const items = Array.from(names).filter(v => v !== '').map(function (name) {
             const stat = stat_of(`${dir}/${name}`);
-            return {name, kind: stat.kind, size: ((stat.kind === 'file') ? stat.size : null), mtime_ms: 0};
+            return {name, kind: stat.kind, size: (stat.kind === 'file') ? stat.size : null, mtime_ms: 0};
         });
-        items.sort((a, b) => ((a.kind === b.kind) ? a.name.localeCompare(b.name) : ((a.kind === 'dir') ? -1 : 1)));
+        items.sort((a, b) => (a.kind === b.kind) ? a.name.localeCompare(b.name) : ((a.kind === 'dir') ? -1 : 1));
         return {path: dir, items};
     };
     out.stat = async function (asked) {
@@ -690,10 +690,10 @@ function disk_in_memory(files)
         return {bytes_free: 5000000000, inodes_free: 300000};
     };
     out.part_stat = async function (dir, name, id) {
-        return {received: ((parts[id] === undefined) ? 0 : parts[id].length)};
+        return {received: (parts[id] === undefined) ? 0 : parts[id].length};
     };
     out.part_write = async function (dir, name, id, offset, source) {
-        const had = ((parts[id] === undefined) ? '' : parts[id]);
+        const had = (parts[id] === undefined) ? '' : parts[id];
         if (offset > had.length) {
             throw new Error(`the file has ${had.length} bytes so far, and a part cannot start at ${offset}`);
         }
@@ -705,7 +705,7 @@ function disk_in_memory(files)
         return {received: parts[id].length};
     };
     out.part_finish = async function (dir, name, id, size, mode) {
-        const have = ((parts[id] === undefined) ? '' : parts[id]);
+        const have = (parts[id] === undefined) ? '' : parts[id];
         if (have.length !== size) {
             throw new Error(`the file has ${have.length} bytes so far, not ${size}`);
         }
@@ -752,7 +752,7 @@ function disk_that_copies_folders(files)
                 lines.push({type: 'link', path: rel, size: null, mtime_ms: 0, target: links[full]});
             }
             else {
-                lines.push({type: 'file', path: rel, size: Buffer.byteLength(held[full]), mtime_ms: 0, mode: ((modes[full] === undefined) ? 0o644 : modes[full])});
+                lines.push({type: 'file', path: rel, size: Buffer.byteLength(held[full]), mtime_ms: 0, mode: (modes[full] === undefined) ? 0o644 : modes[full]});
             }
         }
         for (const rel of dirs) {
@@ -796,7 +796,7 @@ function tar_of(entries)
         header.write(`${data.length.toString(8).padStart(11, '0')}\0`, 124, 'latin1');
         header.write(`${((entry.mtime === undefined) ? 0 : entry.mtime).toString(8).padStart(11, '0')}\0`, 136, 'latin1');
         header.write('        ', 148, 'latin1');
-        header.write(((entry.type === undefined) ? '0' : entry.type), 156, 'latin1');
+        header.write((entry.type === undefined) ? '0' : entry.type, 156, 'latin1');
         header.write('ustar\0', 257, 'latin1');
         header.write('00', 263, 'latin1');
         if (entry.prefix !== undefined) {
@@ -826,7 +826,7 @@ async function serve(t, options)
         file_manager_serve(req, res, Object.assign({tail: pathname.slice('/fs'.length)}, options));
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     return {port: server.address().port};
 }
 
@@ -845,9 +845,9 @@ function call(running, method, path, body, headers)
 
 async function until(ok, timeout_ms)
 {
-    const end = Date.now() + ((timeout_ms === undefined) ? 5000 : timeout_ms);
+    const deadline = Date.now() + ((timeout_ms === undefined) ? 5000 : timeout_ms);
     while (ok() === false) {
-        if (Date.now() > end) {
+        if (Date.now() > deadline) {
             throw new Error('waited too long');
         }
         await new Promise(v => setTimeout(v, 20));

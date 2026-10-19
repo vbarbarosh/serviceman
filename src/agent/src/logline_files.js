@@ -75,7 +75,7 @@ function scan(ctx, run)
         for (const file of found) {
             const id = `${file.stat.dev}:${file.stat.ino}`;
             if (run.seen.files[id] === undefined) {
-                run.seen.files[id] = {start: (first ? file.stat.size : 0), cut: 0};
+                run.seen.files[id] = {start: first ? file.stat.size : 0, cut: 0};
                 changed = true;
             }
             count += 1;
@@ -113,11 +113,11 @@ function key_of(ctx, id, cut)
 function files_of(written)
 {
     // ~/ is the home of whoever runs the agent
-    const pattern = (written.startsWith('~/') ? path.join(os.homedir(), written.slice(2)) : written);
+    const pattern = written.startsWith('~/') ? path.join(os.homedir(), written.slice(2)) : written;
     const base = path.basename(pattern);
     const glob = base.includes('*');
-    const dir = (glob ? path.dirname(pattern) : pattern);
-    const re = (glob ? new RegExp(`^${base.split('*').map(v => v.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`) : null);
+    const dir = glob ? path.dirname(pattern) : pattern;
+    const re = glob ? new RegExp(`^${base.split('*').map(v => v.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`) : null;
     const out = [];
     for (const name of fs.readdirSync(dir)) {
         if (name.startsWith('.') || RE_SKIPPED.test(name) || ((re !== null) && (re.test(name) === false))) {
@@ -136,7 +136,7 @@ function files_of(written)
             out.push({path: full, stat});
         }
     }
-    out.sort((a, b) => ((a.path < b.path) ? -1 : 1));
+    out.sort((a, b) => (a.path < b.path) ? -1 : 1);
     return out;
 }
 
@@ -147,7 +147,7 @@ function file_read(ctx, dir, file, key, start)
     const kept = ctx.spool.cursor(key);
     // Where it stood, and never before where this collection began with it: a cursor from an
     // earlier time the machine was switched on does not bring back what was written while off
-    let offset = Math.max(start, ((kept === null) ? 0 : parseInt(kept.at, 10)));
+    let offset = Math.max(start, (kept === null) ? 0 : parseInt(kept.at, 10));
     if (file.stat.size < offset) {
         ctx.say('logline_file_truncated', {file: file.path, was: offset, now: file.stat.size, then: 'read from its start'});
         return 'truncated';
@@ -195,10 +195,10 @@ function line_keep(ctx, dir, file, key, bytes, end)
         src: key,
         // The offset past the line, padded so offsets compare as text, the way stamps do
         at: String(end).padStart(16, '0'),
-        time: ((stripped.time === null) ? new Date().toISOString() : stripped.time),
+        time: (stripped.time === null) ? new Date().toISOString() : stripped.time,
         labels: {
             host: ctx.host,
-            service: (((dir.service === null) || (dir.service === '')) ? path.basename(dir.path.includes('*') ? path.dirname(dir.path) : dir.path) : dir.service),
+            service: ((dir.service === null) || (dir.service === '')) ? path.basename(dir.path.includes('*') ? path.dirname(dir.path) : dir.path) : dir.service,
             file: file.path,
         },
         line: logline_line_cut(stripped.line),

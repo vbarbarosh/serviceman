@@ -42,14 +42,14 @@ function problems_from_containers(remote, list, inspect, gone)
 function failed(full)
 {
     const state = full.State;
-    const policy = ((full.HostConfig && full.HostConfig.RestartPolicy) ? full.HostConfig.RestartPolicy.Name : '');
+    const policy = (full.HostConfig && full.HostConfig.RestartPolicy) ? full.HostConfig.RestartPolicy.Name : '';
     if (KEEP_RUNNING.includes(policy) === false) {
         return false;
     }
     if (state.Status === 'restarting') {
         return true;
     }
-    return ((state.Status === 'exited') && ((state.Error !== '') || (STOPPED_CODES.includes(state.ExitCode) === false)));
+    return (state.Status === 'exited') && ((state.Error !== '') || (STOPPED_CODES.includes(state.ExitCode) === false));
 }
 
 function problem_failed(remote, name, full)
@@ -63,8 +63,8 @@ function problem_failed(remote, name, full)
         remote,
         subject: `${name} is down on ${remote}`,
         cause: cause_of(state, mount),
-        fix: ((mount !== null) ? `Put ${mount[1]} back (Docker leaves an empty folder where a file was), then: docker start ${name}` : `docker logs ${name} says why; once that is mended: docker start ${name}`),
-        since: ((Number.isFinite(since) && (since > 0)) ? since : null),
+        fix: (mount !== null) ? `Put ${mount[1]} back (Docker leaves an empty folder where a file was), then: docker start ${name}` : `docker logs ${name} says why; once that is mended: docker start ${name}`,
+        since: (Number.isFinite(since) && (since > 0)) ? since : null,
     };
 }
 
@@ -84,12 +84,12 @@ function cause_of(state, mount)
 
 function name_of(item)
 {
-    return ((Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12));
+    return (Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12);
 }
 
 function plural(n, one, many)
 {
-    return ((n === 1) ? one : many);
+    return (n === 1) ? one : many;
 }
 
 module.exports = problems_from_containers;

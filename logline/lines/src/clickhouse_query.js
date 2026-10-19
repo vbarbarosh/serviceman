@@ -15,7 +15,7 @@ async function clickhouse_query(address, sql, body, settings)
     for (const name of Object.keys(settings || {})) {
         url.searchParams.set(name, String(settings[name]));
     }
-    const answer = await fetch(url, {method: 'POST', headers, body: ((body === undefined) ? '' : body)});
+    const answer = await fetch(url, {method: 'POST', headers, body: (body === undefined) ? '' : body});
     const text = await answer.text();
     if (answer.ok === false) {
         throw new Error(`clickhouse ${answer.status}: ${text.trim().split('\n')[0]}`);

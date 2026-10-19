@@ -81,8 +81,8 @@ async function serviceman_ask(url)
             return {answered: true, refused: true, remotes: [], remote: null};
         }
         const body = await answer.json();
-        const remotes = (Array.isArray(body.remotes) ? body.remotes.map(v => v.name) : []);
-        return {answered: Array.isArray(body.remotes), refused: false, remotes, remote: ((remotes.length === 0) ? null : remotes[0])};
+        const remotes = Array.isArray(body.remotes) ? body.remotes.map(v => v.name) : [];
+        return {answered: Array.isArray(body.remotes), refused: false, remotes, remote: (remotes.length === 0) ? null : remotes[0]};
     }
     catch {
         return {answered: false, refused: false, remotes: [], remote: null};
@@ -111,7 +111,7 @@ async function handle(target, req, res)
         return;
     }
     if ((address.pathname === '/defaults') && (req.method === 'GET')) {
-        send_json(res, 200, {answered: target.answered, refused: (target.refused ? token_wanted() : null), url: target.url, remotes: target.remotes, remote: target.remote});
+        send_json(res, 200, {answered: target.answered, refused: target.refused ? token_wanted() : null, url: target.url, remotes: target.remotes, remote: target.remote});
         return;
     }
     send_json(res, 404, {error: `no such page: ${address.pathname}`});
@@ -163,7 +163,7 @@ function unreachable(url, error)
     if ((error.status === 401) || ((error.code === 'ECONNRESET') && (token_given() === false))) {
         return token_wanted();
     }
-    const reason = ((error.cause === undefined) ? error.message : (error.cause.code || error.cause.message));
+    const reason = (error.cause === undefined) ? error.message : (error.cause.code || error.cause.message);
     if ((reason === 'ECONNREFUSED') || (reason === 'ENOTFOUND') || (error.message === 'fetch failed')) {
         return `serviceman does not answer at ${url} (${reason}): start it, or set URL to its control page`;
     }
@@ -173,7 +173,7 @@ function unreachable(url, error)
 // Whether SERVICEMAN_TOKEN is set
 function token_given()
 {
-    return ((process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== ''));
+    return (process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== '');
 }
 
 // The headers of a request to serviceman, with SERVICEMAN_TOKEN when it is set

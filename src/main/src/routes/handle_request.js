@@ -55,19 +55,19 @@ function handle_request(app, req, res)
     let wall = null;
     if (req.socket.tunnel_from !== undefined) {
         const from = app.remote_by_name[req.socket.tunnel_from];
-        const rule = ((from === undefined) ? null : inbound_rule(from, host));
+        const rule = (from === undefined) ? null : inbound_rule(from, host);
         // A name with a wall in front of it: the wall's own pages — its sign-in, its callbacks —
         // are answered by the wall on that same name, and everything else is answered by the
         // service once the wall has said the visitor may pass
-        const walled = (((rule === null) || (rule.auth === null)) ? null : app.service_by_name[rule.auth] || null);
-        const own = ((walled !== null) && wall_ask.own(pathname_of(req)));
-        const named = (own ? rule.auth : ((rule === null) ? null : rule.service));
-        wall = (own ? null : walled);
-        inbound = (((rule === null) || rule.off) ? null : app.service_by_name[named] || null);
+        const walled = ((rule === null) || (rule.auth === null)) ? null : app.service_by_name[rule.auth] || null;
+        const own = (walled !== null) && wall_ask.own(pathname_of(req));
+        const named = own ? rule.auth : ((rule === null) ? null : rule.service);
+        wall = own ? null : walled;
+        inbound = ((rule === null) || rule.off) ? null : app.service_by_name[named] || null;
         if (inbound === null) {
             // A name that is switched off says so, because the answer is the same 404 either
             // way and the difference is the whole of what somebody is looking for
-            const off = (((rule !== null) && rule.off) ? {off: true} : {});
+            const off = ((rule !== null) && rule.off) ? {off: true} : {};
             // Async because what answers a request is a promise here, always: the caller
             // hangs its own error handling off the one it gets back
             return log_group_from(req.socket.log_group, async function () {
@@ -104,7 +104,7 @@ function url_quiet(url)
 function pathname_of(req)
 {
     const mark = req.url.indexOf('?');
-    return ((mark === -1) ? req.url : req.url.slice(0, mark));
+    return (mark === -1) ? req.url : req.url.slice(0, mark);
 }
 
 // `inbound` is the service a machine's door named for this request, where it came in through
@@ -121,14 +121,14 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
             // An http status already says what happened, so the line is neither an ok nor an
             // error. The copy that answered is on the end, because for a pool it is the only
             // place that says which one it was.
-            const outcome = (res.writableEnded ? res.statusCode : 'cut_off');
-            const by = ((answered_by === null) ? '' : ` ${answered_by}`);
+            const outcome = res.writableEnded ? res.statusCode : 'cut_off';
+            const by = (answered_by === null) ? '' : ` ${answered_by}`;
             log_event(app, 'request_end', `${outcome} ${format_seconds(Date.now() - time0)}${by}`);
         }));
     }
     const mark = req.url.indexOf('?');
-    const pathname = ((mark === -1) ? req.url : req.url.slice(0, mark));
-    const query = ((mark === -1) ? '' : req.url.slice(mark));
+    const pathname = (mark === -1) ? req.url : req.url.slice(0, mark);
+    const query = (mark === -1) ? '' : req.url.slice(mark);
     // An address serviceman keeps for a service, on any hostname it answers on
     if (pathname.startsWith(service_redir.prefix)) {
         answered_by = redir_answer(app, req, res, pathname, query);
@@ -150,7 +150,7 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         // that name is gone: this one is the wall's word.
         req.headers['x-auth-user'] = said.user;
     }
-    const route = (((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : {path: '', service: inbound});
+    const route = ((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : {path: '', service: inbound};
     if (route === null) {
         render_error_page(res, 404, 'No service answers on this address', `${host || 'the request carries no Host header'}${pathname}`);
         return;
@@ -189,7 +189,7 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         return;
     }
     // The clock of request_timeout starts on an awake service; a cold start is start_timeout's business
-    const deadline = ((service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms);
+    const deadline = (service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms;
     let instance;
     try {
         instance = await pool_acquire(app, service, deadline);
@@ -227,15 +227,15 @@ function port_asked(req)
 {
     const asked = String(req.headers.host || '');
     const at = asked.lastIndexOf(':');
-    const named = (((at === -1) || (asked.indexOf(']') > at)) ? '' : asked.slice(at + 1));
-    const port = ((named === '') ? String(req.socket.localPort || '') : named);
-    return (((port === '80') || (port === '')) ? '' : `:${port}`);
+    const named = ((at === -1) || (asked.indexOf(']') > at)) ? '' : asked.slice(at + 1);
+    const port = (named === '') ? String(req.socket.localPort || '') : named;
+    return ((port === '80') || (port === '')) ? '' : `:${port}`;
 }
 
 // What the machine said while it was starting, for whoever is trusted with the reason itself
 function said_of(app, req, service)
 {
-    return ((error_detail(app, req, null) === null) ? service.state.said : []);
+    return (error_detail(app, req, null) === null) ? service.state.said : [];
 }
 
 // A cold service: fast starts stay invisible, slow ones show the waiting page to a browser

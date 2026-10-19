@@ -16,11 +16,11 @@ function agent_connect(options)
 {
     return new Promise(function (resolve, reject) {
         const url = new URL(options.url);
-        const carrier = ((url.protocol === 'https:') ? https : http);
+        const carrier = (url.protocol === 'https:') ? https : http;
         const req = carrier.request(Object.assign(where(url), {
             path: `${(url.protocol === 'unix:') ? '' : url.pathname.replace(/\/+$/, '')}${LINK_PATH}`,
             headers: {
-                host: ((url.protocol === 'unix:') ? 'localhost' : url.host),
+                host: (url.protocol === 'unix:') ? 'localhost' : url.host,
                 connection: 'Upgrade',
                 upgrade: 'serviceman',
                 authorization: `Bearer ${options.token}`,

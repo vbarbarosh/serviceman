@@ -27,11 +27,11 @@ function agent_metrics_read(params)
     }
     const to = Date.now();
     const from = to - span_ms;
-    const source_ms = ((span_ms <= RAW_MOST_MS) ? RAW_MS : AVERAGE_MS);
+    const source_ms = (span_ms <= RAW_MOST_MS) ? RAW_MS : AVERAGE_MS;
     const step_ms = Math.max(source_ms, Math.ceil(span_ms/POINTS_MOST/source_ms)*source_ms);
-    let rows = rows_read(((source_ms === RAW_MS) ? '30s' : '5m'), from, to);
+    let rows = rows_read((source_ms === RAW_MS) ? '30s' : '5m', from, to);
     if (source_ms === AVERAGE_MS) {
-        const since = ((rows.length === 0) ? from : rows[rows.length - 1].at + AVERAGE_MS);
+        const since = (rows.length === 0) ? from : rows[rows.length - 1].at + AVERAGE_MS;
         rows = rows.concat(rows_read('30s', since, to));
     }
     return {range: params.range, from, to, step_ms, points: points_of(rows, step_ms)};

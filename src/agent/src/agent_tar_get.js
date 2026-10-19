@@ -16,12 +16,12 @@ const RE_NAME = /^[^/\\]+$/;
 // never one of its options.
 function agent_tar_get(target)
 {
-    const names = (Array.isArray(target.names) ? target.names.map(String) : []);
+    const names = Array.isArray(target.names) ? target.names.map(String) : [];
     if (names.length === 0) {
         throw new Error('nothing is named to take');
     }
     for (const name of names) {
-        const parts = ((target.paths === true) ? name.split('/') : [name]);
+        const parts = (target.paths === true) ? name.split('/') : [name];
         if (parts.some(v => (RE_NAME.test(v) === false) || (v === '.') || (v === '..'))) {
             throw new Error(`a name of the folder itself is wanted, and ${JSON.stringify(name)} is not one`);
         }

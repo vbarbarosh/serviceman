@@ -34,7 +34,7 @@ test('a port is judged by its address and by the first rule for it that holds fo
         rule('limit 2222/tcp', {action: 'limit', port: '2222', proto: 'tcp'}),
     ]};
     const rows = firewall_ports(items, PUBLIC, firewall);
-    const said = Object.fromEntries(rows.map(v => [`${v.port}/${v.proto}`, [v.reach.exposure, v.verdict.kind, v.verdict.text, ((v.verdict.rule === null) ? null : v.verdict.rule.command)]]));
+    const said = Object.fromEntries(rows.map(v => [`${v.port}/${v.proto}`, [v.reach.exposure, v.verdict.kind, v.verdict.text, (v.verdict.rule === null) ? null : v.verdict.rule.command]]));
     assert.deepStrictEqual(said, {
         '22/tcp': ['open', 'open', 'let in', 'allow 22/tcp'],
         '80/tcp': ['open', 'closed', 'kept out', 'deny 80/tcp'],
@@ -78,7 +78,7 @@ test('while the firewall is off, a port says nothing stands in its way, and what
 
 function socket(proto, address, port, name)
 {
-    return {proto, address, port, state: (proto.startsWith('udp') ? 'UNCONN' : 'LISTEN'), users: [{name, pid: 100 + port}]};
+    return {proto, address, port, state: proto.startsWith('udp') ? 'UNCONN' : 'LISTEN', users: [{name, pid: 100 + port}]};
 }
 
 function rule(command, fields)

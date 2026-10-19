@@ -58,7 +58,7 @@ function handle_control_upgrade(app, req, socket, head)
     const refused = shell_refusal(caller, url);
     if (refused !== null) {
         log_group_from(socket.log_group, function () {
-            log_event(app, 'shell_refused', {from: socket.remoteAddress, token: (((caller === null) || caller.owner) ? null : caller.token.label), reason: refused});
+            log_event(app, 'shell_refused', {from: socket.remoteAddress, token: ((caller === null) || caller.owner) ? null : caller.token.label, reason: refused});
         });
         socket.destroy();
         return;
@@ -105,7 +105,7 @@ function shell_refusal(caller, url)
         return null;
     }
     const remote = url.searchParams.get('remote');
-    const kept = ((remote !== null) && (url.searchParams.get('term') !== null) && (url.searchParams.get('container') === null) && (url.searchParams.get('service') === null));
+    const kept = (remote !== null) && (url.searchParams.get('term') !== null) && (url.searchParams.get('container') === null) && (url.searchParams.get('service') === null);
     return control_token_refusal(kept ? {right: 'terminals', said: 'use the terminals', remote} : null, caller.token);
 }
 
@@ -193,7 +193,7 @@ async function machine_join(app, client, name, term)
     if ((term !== null) && (term_name_valid(term) === false)) {
         throw new Error(`a terminal name is letters, digits, - and _, at most 64 of them: ${JSON.stringify(term)}`);
     }
-    const stream = tunnel_open(remote, {shell: ((term === null) ? {cols: 80, rows: 24} : {cols: 80, rows: 24, term})});
+    const stream = tunnel_open(remote, {shell: (term === null) ? {cols: 80, rows: 24} : {cols: 80, rows: 24, term}});
     if (term === null) {
         log_event(app, 'shell_begin', {remote: remote.name, container: 'none — the machine itself'});
     }
@@ -201,7 +201,7 @@ async function machine_join(app, client, name, term)
         log_event(app, 'shell_begin', {remote: remote.name, container: 'none — the machine itself', term});
     }
     terminal_attach(client, stream, {
-        note: ((term === null) ? `a shell on ${remote.name}, as the user its agent runs as` : `the terminal ${term} on ${remote.name}: it keeps running when this page closes`),
+        note: (term === null) ? `a shell on ${remote.name}, as the user its agent runs as` : `the terminal ${term} on ${remote.name}: it keeps running when this page closes`,
         resize: function (size) {
             const promise = remote_call(app, remote, 'shell_resize', {id: stream.id, cols: size.cols, rows: size.rows});
             promise.catch(function () {

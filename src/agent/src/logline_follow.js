@@ -26,7 +26,7 @@ async function logline_follow(ctx, container)
 async function logs_read(ctx, container, follow)
 {
     const kept = ctx.spool.cursor(container.id);
-    const from = (((kept === null) || (kept.at < ctx.floor)) ? {at: ctx.floor, n: 0} : kept);
+    const from = ((kept === null) || (kept.at < ctx.floor)) ? {at: ctx.floor, n: 0} : kept;
     const query = `follow=${follow ? 1 : 0}&stdout=1&stderr=1&timestamps=1&since=${unix_of(from.at)}`;
     const res = await docker_api(ctx.socket, `/containers/${encodeURIComponent(container.id)}/logs?${query}`);
     if (res.statusCode === 404) {
@@ -69,7 +69,7 @@ async function logs_read(ctx, container, follow)
 
 function line_keep(ctx, container, state, item)
 {
-    const at = ((item.at === null) ? state.last_at : item.at);
+    const at = (item.at === null) ? state.last_at : item.at;
     // Already held: before the stamp it resumes from, or one of the lines at that stamp
     if (at < state.from) {
         return;
@@ -83,7 +83,7 @@ function line_keep(ctx, container, state, item)
     ctx.spool.append({
         src: container.id,
         at,
-        time: ((stripped.time === null) ? at : stripped.time),
+        time: (stripped.time === null) ? at : stripped.time,
         labels: labels_of(ctx, container, item.stream),
         line: logline_line_cut(stripped.line),
     });

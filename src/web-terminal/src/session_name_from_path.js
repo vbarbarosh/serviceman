@@ -7,7 +7,7 @@ function session_name_from_path(pathname)
         return '';
     }
     const match = /^\/([a-z0-9][a-z0-9_-]{0,63})\/?$/.exec(pathname);
-    return ((match === null) ? null : match[1]);
+    return (match === null) ? null : match[1];
 }
 
 module.exports = session_name_from_path;

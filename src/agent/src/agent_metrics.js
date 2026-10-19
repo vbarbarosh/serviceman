@@ -80,7 +80,7 @@ async function sample_write(group)
 // rest as the last of them says; null when there are none
 function sample_take()
 {
-    const since = ((state.taken_at === null) ? (Date.now() - SAMPLE_EVERY_MS) : state.taken_at);
+    const since = (state.taken_at === null) ? (Date.now() - SAMPLE_EVERY_MS) : state.taken_at;
     const rows = agent_servermon_lines().filter(v => v.at > since);
     if (rows.length === 0) {
         return null;
@@ -91,7 +91,7 @@ function sample_take()
     state.taken_at = last.at;
     return agent_metrics_rounded({
         at: Date.now(),
-        cpu: mean(rows.map(v => ((v.cpu === null) ? null : v.cpu/100))),
+        cpu: mean(rows.map(v => (v.cpu === null) ? null : v.cpu/100)),
         load: last.load,
         mem: last.mem_used,
         mem_total: last.mem_total,
@@ -110,13 +110,13 @@ function sample_take()
 function sum_of(items, key)
 {
     const values = items.map(v => v[key]).filter(v => (typeof v === 'number'));
-    return ((values.length === 0) ? null : values.reduce((a, b) => a + b, 0));
+    return (values.length === 0) ? null : values.reduce((a, b) => a + b, 0);
 }
 
 function mean(values)
 {
     const found = values.filter(v => (typeof v === 'number'));
-    return ((found.length === 0) ? null : found.reduce((a, b) => a + b, 0)/found.length);
+    return (found.length === 0) ? null : found.reduce((a, b) => a + b, 0)/found.length;
 }
 
 function files_prune(dir, now)
@@ -126,7 +126,7 @@ function files_prune(dir, now)
         if (found === null) {
             continue;
         }
-        const keep_days = ((found[1] === '30s') ? RAW_KEEP_DAYS : AVERAGE_KEEP_DAYS);
+        const keep_days = (found[1] === '30s') ? RAW_KEEP_DAYS : AVERAGE_KEEP_DAYS;
         if (Date.parse(found[2]) <= now - keep_days*DAY_MS) {
             fs.rmSync(path.join(dir, name), {force: true});
         }

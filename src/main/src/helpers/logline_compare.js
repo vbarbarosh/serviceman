@@ -12,7 +12,7 @@ async function logline_compare(app, place)
     const there = await tree_hashes(place.remote, place.dir);
     return logline_files().map(function (item) {
         const found = there.get(item.path);
-        const state = ((found === undefined) ? 'missing' : ((found === item.sha256) ? 'same' : 'differs'));
+        const state = (found === undefined) ? 'missing' : ((found === item.sha256) ? 'same' : 'differs');
         return {path: item.path, abs: item.abs, state};
     });
 }

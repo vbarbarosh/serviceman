@@ -58,16 +58,16 @@ const find_palette = {
             const services = this.state.services;
             const remotes = this.state.remotes;
             for (const remote of remotes) {
-                const machine = (((remote.machine === undefined) || (remote.machine === null)) ? null : remote.machine);
+                const machine = ((remote.machine === undefined) || (remote.machine === null)) ? null : remote.machine;
                 const count = services.filter(v => v.remotes.includes(remote.name)).length;
                 const sub = `${(remote.phase === 'online') ? 'online' : 'offline'} · ${count} ${(count === 1) ? 'service' : 'services'}`;
                 const words = [remote.name, (machine === null) ? '' : machine.hostname].concat(remote.tags);
-                out.push({kind: 'remote', key: `remote ${remote.name}`, text: (remote.title || remote.name), sub, words, phase: ((remote.phase === 'online') ? 'running' : 'failed'), target: {kind: 'remote', name: remote.name}});
+                out.push({kind: 'remote', key: `remote ${remote.name}`, text: remote.title || remote.name, sub, words, phase: (remote.phase === 'online') ? 'running' : 'failed', target: {kind: 'remote', name: remote.name}});
             }
             for (const service of services) {
                 const sub = [service.publish.hosts[0] || '', service.phase].filter(v => v !== '').join(' · ');
                 const words = [service.name, service.type, service.image || ''].concat(service.publish.hosts, service.remotes);
-                out.push({kind: 'service', key: `service ${service.name}`, text: (service.title || service.name), sub, words, phase: service.phase, target: {kind: 'service', name: service.name}});
+                out.push({kind: 'service', key: `service ${service.name}`, text: service.title || service.name, sub, words, phase: service.phase, target: {kind: 'service', name: service.name}});
             }
             for (const service of services) {
                 for (const host of service.publish.hosts) {
@@ -75,7 +75,7 @@ const find_palette = {
                 }
             }
             for (const remote of remotes) {
-                const rule_by_host = ((remote.inbound === undefined) ? {} : remote.inbound);
+                const rule_by_host = (remote.inbound === undefined) ? {} : remote.inbound;
                 for (const host of Object.keys(rule_by_host)) {
                     const service = rule_by_host[host].service;
                     out.push({kind: 'address', key: `address ${remote.name} ${host}`, text: host, sub: `goes to ${service} · door of ${remote.title || remote.name}`, words: [service, remote.name], phase: null, target: {kind: 'service', name: service}});
@@ -84,7 +84,7 @@ const find_palette = {
             for (const volume of this.volumes) {
                 const users = volume.used_by.map(v => v.service);
                 const sub = `on ${volume.machine}${(users.length === 0) ? '' : ` · kept for ${users.join(', ')}`}`;
-                const target = ((users.length === 0) ? {kind: 'storage', name: ''} : {kind: 'service', name: users[0]});
+                const target = (users.length === 0) ? {kind: 'storage', name: ''} : {kind: 'service', name: users[0]};
                 out.push({kind: 'folder', key: `folder ${volume.machine} ${volume.name}`, text: volume.name, sub, words: users.concat([volume.machine]), phase: null, target});
             }
             return out;
@@ -158,7 +158,7 @@ const find_palette = {
         // The text cut where the query matches, so the match can be marked
         parts_of: function (text) {
             const wanted = this.query.trim().toLowerCase();
-            const at = ((wanted === '') ? -1 : text.toLowerCase().indexOf(wanted));
+            const at = (wanted === '') ? -1 : text.toLowerCase().indexOf(wanted);
             if (at === -1) {
                 return [{text, hit: false}];
             }
@@ -189,7 +189,7 @@ const find_palette = {
             if (event.key === 'Tab') {
                 event.preventDefault();
                 const values = ['all'].concat(KINDS.map(v => v.value));
-                const step = (event.shiftKey ? values.length - 1 : 1);
+                const step = event.shiftKey ? values.length - 1 : 1;
                 this.kind = values[(values.indexOf(this.kind) + step) % values.length];
                 return;
             }

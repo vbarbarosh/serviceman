@@ -54,7 +54,7 @@ function token_read(file)
     catch {
         return null;
     }
-    return ((text === '') ? null : text);
+    return (text === '') ? null : text;
 }
 
 module.exports = control_owner_token;

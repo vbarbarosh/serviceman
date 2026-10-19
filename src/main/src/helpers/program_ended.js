@@ -19,8 +19,8 @@ function program_ended(app, remote, message)
     if ((instance === undefined) || (instance.phase === 'stopped')) {
         return;
     }
-    const code = ((message.code === undefined) ? null : message.code);
-    const signal = ((message.signal === undefined) ? null : message.signal);
+    const code = (message.code === undefined) ? null : message.code;
+    const signal = (message.signal === undefined) ? null : message.signal;
     instance.pid = null;
     if ((code === 0) || (signal !== null)) {
         instance_stopped(instance);

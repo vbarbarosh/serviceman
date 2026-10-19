@@ -54,7 +54,7 @@ function agent_program_follow(programs, record, child, group)
     }
     if (child !== null) {
         child.on('exit', function (code, signal) {
-            end(code, signal, ((signal === null) ? `code ${code}` : signal));
+            end(code, signal, (signal === null) ? `code ${code}` : signal);
         });
         // A command that cannot be run at all — no such program, a folder that is not there —
         // ends here instead of exiting, and it ends the same way for the host: as a program

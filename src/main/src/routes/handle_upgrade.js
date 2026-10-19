@@ -20,8 +20,8 @@ async function socket_answer(app, req, socket, head)
 {
     const host = String(req.headers.host || '').toLowerCase().split(':')[0];
     const mark = req.url.indexOf('?');
-    const pathname = ((mark === -1) ? req.url : req.url.slice(0, mark));
-    const query = ((mark === -1) ? '' : req.url.slice(mark));
+    const pathname = (mark === -1) ? req.url : req.url.slice(0, mark);
+    const query = (mark === -1) ? '' : req.url.slice(mark);
 
     const route = route_from_request(app, host, pathname);
     if (route === null) {
@@ -38,7 +38,7 @@ async function socket_answer(app, req, socket, head)
         if (service_phase(service) !== 'running') {
             await service_ensure_running(app, service);
         }
-        const deadline = ((service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms);
+        const deadline = (service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms;
         instance = await pool_acquire(app, service, deadline);
     }
     catch (error) {
@@ -47,7 +47,7 @@ async function socket_answer(app, req, socket, head)
         return;
     }
     const time0 = Date.now();
-    const who = {host, ip: ((req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress)};
+    const who = {host, ip: (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress};
     log_event(app, 'socket_begin', `${req.method} ${url_logged(req.url)} ${JSON.stringify(who)} ${service.name}#${instance.slot}`);
     socket.once('close', log_bind(function () {
         pool_release(app, service, instance);

@@ -11,7 +11,7 @@ const LOGGED = {create: 'volume_created', open: 'volume_opened', close: 'volume_
 //     options = {call, key_safe, tail, log}
 async function volumes_serve(req, res, options)
 {
-    const log = ((options.log === undefined) ? function () {} : options.log);
+    const log = (options.log === undefined) ? function () {} : options.log;
     const tail = options.tail;
     try {
         // GET <base>
@@ -38,7 +38,7 @@ async function volumes_serve(req, res, options)
         send_json(res, 404, {error: `no such door: ${tail}`});
     }
     catch (error) {
-        send_json(res, ((error.status === undefined) ? 502 : error.status), {error: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
     }
 }
 
@@ -50,7 +50,7 @@ async function action_serve(res, options, log, params)
     }
     const value = await options.call(params);
     if (value.ok !== false) {
-        log(LOGGED[params.action], Object.assign({name: value.name, owner: value.owner}, ((params.action === 'grow') ? {size: value.size} : {}), ((value.already === true) ? {already: true} : {})));
+        log(LOGGED[params.action], Object.assign({name: value.name, owner: value.owner}, (params.action === 'grow') ? {size: value.size} : {}, (value.already === true) ? {already: true} : {}));
     }
     answer_send(res, value);
 }

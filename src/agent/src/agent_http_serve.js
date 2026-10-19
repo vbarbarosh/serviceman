@@ -33,7 +33,7 @@ function agent_http_serve(options, group)
     const file = path.join(agent_dir(), SOCKET_NAME);
     const mode = mode_of(options);
     if (mode === null) {
-        const said = ((options === undefined) ? '' : options.http_socket_mode);
+        const said = (options === undefined) ? '' : options.http_socket_mode;
         if ((said !== undefined) && (said !== '')) {
             agent_say(group, 'http_socket_error', {mode: said, reason: 'that is not a file mode, so no door was opened'});
         }
@@ -117,12 +117,12 @@ agent_http_serve.door = function () {
 // The mode that was asked for, or null for a machine that was asked for no door at all
 function mode_of(options)
 {
-    const said = ((options === undefined) ? '' : options.http_socket_mode);
+    const said = (options === undefined) ? '' : options.http_socket_mode;
     if ((said === undefined) || (said === '')) {
         return null;
     }
     const mode = parseInt(said, 8);
-    return (Number.isNaN(mode) ? null : mode);
+    return Number.isNaN(mode) ? null : mode;
 }
 
 module.exports = agent_http_serve;

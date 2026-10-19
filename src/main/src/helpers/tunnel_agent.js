@@ -9,7 +9,7 @@ function tunnel_agent(remote)
 {
     const out = new http.Agent(AGENT_OPTIONS);
     out.createConnection = function (options) {
-        return tunnel_open(remote, {host: (options.host || options.hostname), port: options.port});
+        return tunnel_open(remote, {host: options.host || options.hostname, port: options.port});
     };
     return out;
 }

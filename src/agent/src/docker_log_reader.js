@@ -55,23 +55,23 @@ function docker_log_reader(tty)
 }
 
 // One frame's worth: stamped pieces, each a whole line when it ends in a newline
-function piece_read(open, stream, text, out)
+function piece_read(open, stream, text, lines)
 {
     const parts = text.split('\n');
     const last = parts.pop();
     for (const part of parts) {
-        piece_add(open, stream, part, true, out);
+        piece_add(open, stream, part, true, lines);
     }
     if (last !== '') {
-        piece_add(open, stream, last, false, out);
+        piece_add(open, stream, last, false, lines);
     }
 }
 
-function piece_add(open, stream, part, whole, out)
+function piece_add(open, stream, part, whole, lines)
 {
     const space = part.indexOf(' ');
-    const at = ((space === -1) ? null : time_utc_nanos(part.slice(0, space)));
-    const text = ((at === null) ? part : part.slice(space + 1));
+    const at = (space === -1) ? null : time_utc_nanos(part.slice(0, space));
+    const text = (at === null) ? part : part.slice(space + 1);
     if (open[stream] === null) {
         open[stream] = {stream, at, text};
     }
@@ -79,7 +79,7 @@ function piece_add(open, stream, part, whole, out)
         open[stream].text += text;
     }
     if (whole) {
-        out.push(open[stream]);
+        lines.push(open[stream]);
         open[stream] = null;
     }
 }

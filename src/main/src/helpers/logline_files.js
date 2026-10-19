@@ -14,7 +14,7 @@ const SKIP = ['node_modules', 'tests', 'bin', 'data'];
 //     out   [{path, sha256, abs}], by path
 function logline_files(dir)
 {
-    const root = ((dir === undefined) ? LOGLINE_DIR : dir);
+    const root = (dir === undefined) ? LOGLINE_DIR : dir;
     const files = [];
     for (const part of PARTS) {
         walk(root, part, files);
@@ -22,7 +22,7 @@ function logline_files(dir)
     return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-function walk(root, relative, out)
+function walk(root, relative, files)
 {
     const abs = path.join(root, relative);
     const stat = fs.statSync(abs);
@@ -31,11 +31,11 @@ function walk(root, relative, out)
             if (SKIP.includes(name) || name.endsWith('.test.js')) {
                 continue;
             }
-            walk(root, `${relative}/${name}`, out);
+            walk(root, `${relative}/${name}`, files);
         }
         return;
     }
-    out.push({path: relative, sha256: crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex'), abs});
+    files.push({path: relative, sha256: crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex'), abs});
 }
 
 logline_files.dir = LOGLINE_DIR;

@@ -24,9 +24,9 @@ function docker_spec_hash(service)
         port: service.port,
         env: service.env,
         volumes,
-        network: ((service.network === undefined) ? null : service.network),
-        run_args: ((service.run_args === undefined) ? [] : service.run_args),
-        args: ((service.args === undefined) ? [] : service.args),
+        network: (service.network === undefined) ? null : service.network,
+        run_args: (service.run_args === undefined) ? [] : service.run_args,
+        args: (service.args === undefined) ? [] : service.args,
     };
     // A shell service that names an image has none of the fields a docker service is made of
     // but the image and the port, and one more that decides its container: the line it runs.

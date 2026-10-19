@@ -26,7 +26,7 @@ async function service_probe(app, service)
             continue;
         }
         if ((instance.phase !== 'lost') || (instance.last_activity_at === null)) {
-            instance.started_at = ((started_before === null) ? Date.now() : started_before);
+            instance.started_at = (started_before === null) ? Date.now() : started_before;
             instance.last_activity_at = Date.now();
         }
         instance.phase = 'running';

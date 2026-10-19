@@ -95,16 +95,16 @@ bin/restart</pre>
             ];
         },
         machines: function () {
-            return ((this.state === null) ? [] : this.state.remotes);
+            return (this.state === null) ? [] : this.state.remotes;
         },
         services: function () {
-            return ((this.state === null) ? [] : this.state.services);
+            return (this.state === null) ? [] : this.state.services;
         },
         machine_options: function () {
-            return this.machines.map(v => ({value: v.name, label: (v.title || v.name)}));
+            return this.machines.map(v => ({value: v.name, label: v.title || v.name}));
         },
         service_options: function () {
-            return this.services.map(v => ({value: v.name, label: (v.title || v.name)}));
+            return this.services.map(v => ({value: v.name, label: v.title || v.name}));
         },
         auth_options: function () {
             return this.services.map(v => ({value: v.name, label: `behind ${v.title || v.name}`}));
@@ -114,9 +114,9 @@ bin/restart</pre>
         rules: function () {
             const out = [];
             for (const item of this.machines) {
-                const inbound = ((item.inbound === undefined) ? {} : item.inbound);
+                const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
-                    out.push({machine: item.name, title: (item.title || item.name), host, service: inbound[host].service, off: (inbound[host].off === true), auth: ((inbound[host].auth === undefined) ? null : inbound[host].auth)});
+                    out.push({machine: item.name, title: item.title || item.name, host, service: inbound[host].service, off: (inbound[host].off === true), auth: (inbound[host].auth === undefined) ? null : inbound[host].auth});
                 }
             }
             return out;
@@ -133,13 +133,13 @@ bin/restart</pre>
             if (this.known(rule.service) === false) {
                 return 'failed';
             }
-            return (rule.off ? '' : 'running');
+            return rule.off ? '' : 'running';
         },
         streams_text: function (item) {
             if (item.streams === 0) {
                 return '';
             }
-            return ((item.streams === 1) ? '1 stream' : `${item.streams} streams`);
+            return (item.streams === 1) ? '1 stream' : `${item.streams} streams`;
         },
         door_open: function (item) {
             const door = door_of(item);
@@ -153,11 +153,11 @@ bin/restart</pre>
             if (door === null) {
                 return 'none — nothing was asked for';
             }
-            return ((door.mode === '0600') ? `${door.mode} · its own user only` : `${door.mode} · open`);
+            return (door.mode === '0600') ? `${door.mode} · its own user only` : `${door.mode} · open`;
         },
         // Whether its door routes by a table of its own, and whether it holds the latest one
         routes_of: function (item) {
-            const doors = ((item.doors === undefined) ? null : item.doors);
+            const doors = (item.doors === undefined) ? null : item.doors;
             if (doors === null) {
                 return {text: 'through serviceman', tone: 'muted', hint: 'An agent from before doors routed by themselves: every request goes through serviceman, and stops when it does'};
             }
@@ -165,7 +165,7 @@ bin/restart</pre>
                 return {text: 'its table could not be sent', tone: 'bad', hint: doors.error};
             }
             if ((doors.wanted !== null) && (doors.told === doors.wanted)) {
-                const peer = ((doors.peer === null) ? 'no peer port' : `peers reach it at ${doors.peer.addresses.join(', ')}:${doors.peer.port}`);
+                const peer = (doors.peer === null) ? 'no peer port' : `peers reach it at ${doors.peer.addresses.join(', ')}:${doors.peer.port}`;
                 return {text: 'by itself · latest table', tone: '', hint: `table ${doors.told} · ${peer}`};
             }
             if (item.phase !== 'online') {
@@ -175,7 +175,7 @@ bin/restart</pre>
         },
         door_path: function (item) {
             const door = door_of(item);
-            return ((door === null) ? '' : door.path);
+            return (door === null) ? '' : door.path;
         },
         // One rule written, whether it is new or the one being edited. A rule that moved to
         // another machine is taken off the old one in the same breath.
@@ -183,7 +183,7 @@ bin/restart</pre>
             const fresh = this.fresh;
             const editing = this.editing;
             const host = fresh.host.toLowerCase();
-            const kept = ((editing === null) ? false : editing.off);
+            const kept = (editing === null) ? false : editing.off;
             const written = await this.rules_write(fresh.machine, function (inbound) {
                 if ((editing !== null) && (editing.machine === fresh.machine)) {
                     delete inbound[editing.host];
@@ -202,7 +202,7 @@ bin/restart</pre>
         },
         edit: function (rule) {
             this.editing = rule;
-            this.fresh = {machine: rule.machine, host: rule.host, service: rule.service, auth: ((rule.auth === null) ? '' : rule.auth)};
+            this.fresh = {machine: rule.machine, host: rule.host, service: rule.service, auth: (rule.auth === null) ? '' : rule.auth};
             this.report('', false);
         },
         clear: function () {
@@ -244,7 +244,7 @@ bin/restart</pre>
 
 function door_of(item)
 {
-    return (((item.machine === null) || (item.machine.door === undefined)) ? null : item.machine.door);
+    return ((item.machine === null) || (item.machine.door === undefined)) ? null : item.machine.door;
 }
 
 export default networking_pane;

@@ -14,9 +14,9 @@ const TOKEN_BYTES = 32;
 // comes back under the same name takes its old entry instead of leaving a dead one behind.
 async function remote_join(app, machine, claimed, from)
 {
-    const out = app.remotes.find(v => v.machine === machine);
-    if (out !== undefined) {
-        return out;
+    const known = app.remotes.find(v => v.machine === machine);
+    if (known !== undefined) {
+        return known;
     }
     const tags = claimed.filter(v => app.config.join.tags_allowed.includes(v));
     const refused = claimed.filter(v => tags.includes(v) === false);
@@ -32,7 +32,7 @@ async function remote_join(app, machine, claimed, from)
         machine,
         from,
         tags,
-        refused: ((refused.length === 0) ? null : refused),
+        refused: (refused.length === 0) ? null : refused,
     });
     return app.remote_by_name[remote.name];
 }

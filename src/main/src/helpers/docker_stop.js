@@ -14,7 +14,7 @@ const STOP_TIMEOUT_MS = 10000;
 async function docker_stop(app, remote, service, slot)
 {
     const container_name = docker_container_name(service, slot);
-    const timeout_ms = ((service.policy.stop_timeout_ms === null) ? STOP_TIMEOUT_MS : service.policy.stop_timeout_ms);
+    const timeout_ms = (service.policy.stop_timeout_ms === null) ? STOP_TIMEOUT_MS : service.policy.stop_timeout_ms;
     const seconds = Math.max(1, Math.round(timeout_ms/1000));
     const time0 = Date.now();
     const answer = await docker_shell(app, remote, ['stop', '--timeout', String(seconds), container_name]);

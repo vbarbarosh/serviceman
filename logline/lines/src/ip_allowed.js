@@ -14,7 +14,7 @@ function ip_allowed(ip, list)
         if ((base === null) || (base.length !== caller.length)) {
             continue;
         }
-        const bits = ((parts.length === 1) ? base.length*8 : parseInt(parts[1], 10));
+        const bits = (parts.length === 1) ? base.length*8 : parseInt(parts[1], 10);
         if ((Number.isInteger(bits) === false) || (bits < 0) || (bits > base.length*8)) {
             continue;
         }

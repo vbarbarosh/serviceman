@@ -26,7 +26,7 @@ function logline_from_json(json, label)
     if ((json.ui !== undefined) && ((typeof json.ui !== 'string') || (RE_UI.test(json.ui) === false))) {
         throw new Error(`${label}.ui: the address of Logline's viewer, such as "http://logline:8081/" (got ${JSON.stringify(json.ui)})`);
     }
-    return {endpoint: json.endpoint, admin: json.admin, ui: ((json.ui === undefined) ? null : json.ui)};
+    return {endpoint: json.endpoint, admin: json.admin, ui: (json.ui === undefined) ? null : json.ui};
 }
 
 module.exports = logline_from_json;

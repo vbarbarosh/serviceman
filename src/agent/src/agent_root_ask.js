@@ -16,7 +16,7 @@ function agent_root_ask(options, method, params, say)
         let rest = '';
         let answered = false;
         socket.on('connect', function () {
-            socket.write(`${JSON.stringify({method, params: ((params === undefined) ? {} : params)})}\n`);
+            socket.write(`${JSON.stringify({method, params: (params === undefined) ? {} : params})}\n`);
         });
         socket.on('data', function (chunk) {
             rest += chunk.toString('utf8');

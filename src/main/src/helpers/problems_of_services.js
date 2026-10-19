@@ -17,7 +17,7 @@ async function problems_of_services(app)
             if ((instance.phase !== 'running') || (instance.upstream === null) || (instance.upstream === undefined)) {
                 continue;
             }
-            const remote = ((instance.remote === null) ? null : app.remote_by_name[instance.remote]);
+            const remote = (instance.remote === null) ? null : app.remote_by_name[instance.remote];
             if ((remote !== null) && ((remote === undefined) || (remote.state.phase !== 'online'))) {
                 continue;
             }
@@ -66,7 +66,7 @@ function probe(service, instance)
                 service: service.name,
                 subject: `${service.title || service.name} does not answer`,
                 cause: `nothing answers at ${where}: ${error.message}`,
-                fix: ((service.type === 'external') ? `It is not serviceman's to start: see that it runs ${(instance.remote === null) ? 'here' : `on ${instance.remote}`}.` : 'Restart it from its page; its log says why it stopped answering.'),
+                fix: (service.type === 'external') ? `It is not serviceman's to start: see that it runs ${(instance.remote === null) ? 'here' : `on ${instance.remote}`}.` : 'Restart it from its page; its log says why it stopped answering.',
                 since: null,
             };
             resolve({problem, seen: [key, {state: 'bad', text: 'no answer', detail: problem.cause}]});

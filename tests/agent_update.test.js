@@ -24,7 +24,7 @@ test('a bin/update that fails is said on the next ask, and the ask after that tr
         };
         try {
             assert.deepStrictEqual(agent_update({}, 'c1'), {started: true});
-            await until(() => said.some(vv => vv.includes('[agent_update_failed]')));
+            await until(() => said.some(v => v.includes('[agent_update_failed]')));
         }
         finally {
             console.log = console_log;

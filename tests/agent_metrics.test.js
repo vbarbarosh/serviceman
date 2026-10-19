@@ -39,7 +39,7 @@ test('a day is at most 720 points, each the mean of its step', function () {
     const now = Math.floor(Date.now()/30000)*30000;
     const rows = [];
     for (let at = now - 24*60*MINUTE_MS; at <= now; at += 30000) {
-        rows.push({at, cpu: (((at/30000) % 2 === 0) ? 0 : 1)});
+        rows.push({at, cpu: ((at/30000) % 2 === 0) ? 0 : 1});
     }
     rows_write('30s', rows);
     const answer = agent_metrics_read({range: '24h'});

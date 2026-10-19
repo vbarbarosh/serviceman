@@ -11,7 +11,7 @@ function counters_apply(service, saved)
     if (Number.isFinite(saved.cold_start_ms)) {
         service.state.cold_start_ms = saved.cold_start_ms;
     }
-    const instances = (((saved.instances === undefined) || (saved.instances === null)) ? {} : saved.instances);
+    const instances = ((saved.instances === undefined) || (saved.instances === null)) ? {} : saved.instances;
     for (const instance of service.state.instances) {
         const found = instances[instance.slot];
         if ((found === undefined) || (found === null)) {

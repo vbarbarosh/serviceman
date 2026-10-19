@@ -66,14 +66,14 @@ const services_pane = {
     },
     computed: {
         services: function () {
-            return ((this.state === null) ? [] : this.state.services);
+            return (this.state === null) ? [] : this.state.services;
         },
         remotes: function () {
-            return ((this.state === null) ? [] : this.state.remotes);
+            return (this.state === null) ? [] : this.state.remotes;
         },
         place: function () {
             const found = this.remotes.find(v => v.name === this.remote);
-            return ((found === undefined) ? null : {name: found.name, title: (found.title || found.name), tags: found.tags});
+            return (found === undefined) ? null : {name: found.name, title: found.title || found.name, tags: found.tags};
         },
         // What the machine carries — by its name, or by a #tag it has — the way its card counts it
         services_here: function () {
@@ -81,7 +81,7 @@ const services_pane = {
             if (place === null) {
                 return this.services;
             }
-            return this.services.filter(v => v.remotes.some(vv => (vv.startsWith('#') ? place.tags.includes(vv.slice(1)) : vv === place.name)));
+            return this.services.filter(v => v.remotes.some(vv => vv.startsWith('#') ? place.tags.includes(vv.slice(1)) : vv === place.name));
         },
         chips: function () {
             const services = this.services_here;
@@ -115,18 +115,18 @@ const services_pane = {
             const out = [];
             const group_by_key = {};
             for (const remote of this.remotes) {
-                const phase = ((remote.phase === 'online') ? 'running' : 'failed');
-                const text = ((remote.phase === 'online') ? `online · ${(remote.latency_ms === null) ? '…' : `${remote.latency_ms}ms`}` : 'offline');
-                group_by_key[remote.name] = {key: remote.name, title: (remote.title || remote.name), phase, text, rows: []};
+                const phase = (remote.phase === 'online') ? 'running' : 'failed';
+                const text = (remote.phase === 'online') ? `online · ${(remote.latency_ms === null) ? '…' : `${remote.latency_ms}ms`}` : 'offline';
+                group_by_key[remote.name] = {key: remote.name, title: remote.title || remote.name, phase, text, rows: []};
             }
             const wanted = this.filter.toLowerCase();
             for (const service of this.services_here) {
                 if (this.is_shown(service, wanted) === false) {
                     continue;
                 }
-                const key = (this.grouped ? (service.remotes[0] || '') : 'all');
+                const key = this.grouped ? (service.remotes[0] || '') : 'all';
                 if (group_by_key[key] === undefined) {
-                    const title = ((key === '') ? 'Runs somewhere else' : `Machines tagged ${key}`);
+                    const title = (key === '') ? 'Runs somewhere else' : `Machines tagged ${key}`;
                     group_by_key[key] = {key, title, phase: null, text: '', rows: []};
                 }
                 group_by_key[key].rows.push(this.row_of(service));
@@ -173,24 +173,24 @@ const services_pane = {
             return (service.phase === 'failed') || (service.phase === 'lost') || (service.gave_up === true) || ((service.error !== null) && (service.phase !== 'running'));
         },
         row_of: function (service) {
-            const host = ((service.publish.hosts.length === 0) ? '' : service.publish.hosts[0]);
+            const host = (service.publish.hosts.length === 0) ? '' : service.publish.hosts[0];
             return {
                 name: service.name,
-                title: (service.title || service.name),
-                phase: ((service.doing === null) ? service.phase : 'starting'),
+                title: service.title || service.name,
+                phase: (service.doing === null) ? service.phase : 'starting',
                 host,
                 url: this.url_of(host),
                 more: Math.max(0, service.publish.hosts.length - 1),
                 type: service.type,
-                state: ((service.doing === null) ? service.phase : service.doing),
+                state: (service.doing === null) ? service.phase : service.doing,
                 detail: this.detail_of(service),
-                bad: ((service.error !== null) && (service.phase !== 'running')),
+                bad: (service.error !== null) && (service.phase !== 'running'),
             };
         },
         // One short line about now: what it is doing, why it broke, or when it goes to sleep
         detail_of: function (service) {
             if (service.doing !== null) {
-                return ((service.progress_text === null) ? '' : service.progress_text);
+                return (service.progress_text === null) ? '' : service.progress_text;
             }
             if ((service.error !== null) && (service.phase !== 'running')) {
                 return service.error;
@@ -211,16 +211,16 @@ const services_pane = {
         },
         remote_title: function (name) {
             const found = this.remotes.find(v => v.name === name);
-            return ((found === undefined) ? name : (found.title || found.name));
+            return (found === undefined) ? name : (found.title || found.name);
         },
         url_of: function (host) {
             if (host === '') {
                 return '';
             }
-            const port = ((this.state.listen.port === 80) ? '' : `:${this.state.listen.port}`);
+            const port = (this.state.listen.port === 80) ? '' : `:${this.state.listen.port}`;
             const mark = host.indexOf('/');
-            const name = ((mark === -1) ? host : host.slice(0, mark));
-            const path = ((mark === -1) ? '' : host.slice(mark));
+            const name = (mark === -1) ? host : host.slice(0, mark);
+            const path = (mark === -1) ? '' : host.slice(mark);
             return `http://${name}${port}${path}`;
         },
     },

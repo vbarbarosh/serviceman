@@ -13,8 +13,8 @@ const TIMEOUT_MS = 30000;
 //     -> {ok, code, stdout, stderr}
 function agent_ufw(options, params)
 {
-    const argv = (Array.isArray(params.argv) ? params.argv.map(String) : []);
-    const first = ((argv[0] === '--force') ? argv[1] : argv[0]);
+    const argv = Array.isArray(params.argv) ? params.argv.map(String) : [];
+    const first = (argv[0] === '--force') ? argv[1] : argv[0];
     if (SUBCOMMANDS.includes(first) === false) {
         return Promise.reject(new Error(`ufw is asked only for ${SUBCOMMANDS.join(', ')}, not ${JSON.stringify((first === undefined) ? '' : first)}`));
     }
@@ -26,10 +26,10 @@ function agent_ufw(options, params)
         child_process.execFile(command[0], command.slice(1).concat(argv), {timeout: TIMEOUT_MS, env: Object.assign({}, process.env, {LC_ALL: 'C'})}, function (error, stdout, stderr) {
             if ((error !== null) && (typeof error.code !== 'number')) {
                 // Not there, or not allowed to run: said the way ufw's own refusal is
-                resolve({ok: false, code: -1, stdout: String(stdout || ''), stderr: ((error.code === 'ENOENT') ? `${command[0]}: not found` : error.message)});
+                resolve({ok: false, code: -1, stdout: String(stdout || ''), stderr: (error.code === 'ENOENT') ? `${command[0]}: not found` : error.message});
                 return;
             }
-            resolve({ok: (error === null), code: ((error === null) ? 0 : error.code), stdout: String(stdout), stderr: String(stderr)});
+            resolve({ok: (error === null), code: (error === null) ? 0 : error.code, stdout: String(stdout), stderr: String(stderr)});
         });
     });
 }
@@ -41,7 +41,7 @@ function ufw_command(options)
     if ((options !== undefined) && (options.ufw !== undefined) && (options.ufw !== '')) {
         return options.ufw.split(' ').filter(v => v !== '');
     }
-    return (((process.getuid !== undefined) && (process.getuid() === 0)) ? ['ufw'] : ['sudo', '-n', 'ufw']);
+    return ((process.getuid !== undefined) && (process.getuid() === 0)) ? ['ufw'] : ['sudo', '-n', 'ufw'];
 }
 
 module.exports = agent_ufw;

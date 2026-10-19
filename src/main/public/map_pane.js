@@ -89,8 +89,8 @@ const map_pane = {
                 while (queue.length > 0) {
                     const at = queue.shift();
                     for (const edge of this.graph.edges) {
-                        const from = (forward ? edge.from : edge.to);
-                        const to = (forward ? edge.to : edge.from);
+                        const from = forward ? edge.from : edge.to;
+                        const to = forward ? edge.to : edge.from;
                         if ((from === at) && (out.has(to) === false)) {
                             out.add(to);
                             queue.push(to);
@@ -174,15 +174,15 @@ function map_graph(state)
     nodes.push({id: 'm:', kind: 'machine', name: '', label: 'this host', sub: 'serviceman', phase: 'running', host: true, behind: false, hint: 'The machine serviceman itself runs on'});
     for (const remote of remotes) {
         machine_index[remote.name] = Object.keys(machine_index).length;
-        const machine = ((remote.machine === undefined) ? null : remote.machine);
+        const machine = (remote.machine === undefined) ? null : remote.machine;
         const online = (remote.phase === 'online');
         nodes.push({
             id: `m:${remote.name}`,
             kind: 'machine',
             name: remote.name,
             label: remote.title || remote.name,
-            sub: ((machine === null) ? '' : machine.hostname),
-            phase: (online ? 'running' : 'failed'),
+            sub: (machine === null) ? '' : machine.hostname,
+            phase: online ? 'running' : 'failed',
             host: false,
             behind: agent_current(remote, state.agent_built) === false,
             hint: `${remote.name} — ${online ? 'online' : 'offline'}`,
@@ -198,8 +198,8 @@ function map_graph(state)
                 running.add((instance.remote === null) ? '' : instance.remote);
             }
         }
-        const places = ((running.size > 0) ? Array.from(running) : service_places(service, state.remotes));
-        const kind = ((running.size > 0) ? 'run' : 'may');
+        const places = (running.size > 0) ? Array.from(running) : service_places(service, state.remotes);
+        const kind = (running.size > 0) ? 'run' : 'may';
         const order = places.reduce((sum, place) => sum + ((machine_index[place] === undefined) ? 0 : machine_index[place]), 0)/Math.max(1, places.length);
         services.push({service, places, kind, order});
     }
@@ -234,7 +234,7 @@ function map_graph(state)
     const sending = remotes.filter(v => (v.logline !== undefined) && (v.logline !== null) && (v.logline.logs === 'all'));
     if (sending.length > 0) {
         const ui = sending.map(v => v.logline.ui).find(v => (v !== null) && (v !== undefined));
-        nodes.push({id: 'l:', kind: 'logline', name: 'logline', label: 'Logline', sub: ((ui === undefined) ? '' : 'open its viewer'), phase: null, host: false, behind: false, ui: ((ui === undefined) ? null : ui), hint: 'Where the machines send their logs'});
+        nodes.push({id: 'l:', kind: 'logline', name: 'logline', label: 'Logline', sub: (ui === undefined) ? '' : 'open its viewer', phase: null, host: false, behind: false, ui: (ui === undefined) ? null : ui, hint: 'Where the machines send their logs'});
         for (const remote of sending) {
             edges.push({key: `m:${remote.name}>l:`, from: `m:${remote.name}`, to: 'l:', kind: 'logs'});
         }
@@ -259,13 +259,13 @@ function service_places(service, remotes)
             names.push(wanted);
         }
     }
-    return ((names.length === 0) ? [''] : names);
+    return (names.length === 0) ? [''] : names;
 }
 
 // The dot a service's phase is drawn with, as the rail draws it; a resting one is the empty ring
 function service_dot(phase)
 {
-    return (['running', 'starting', 'stopping', 'failed', 'lost'].includes(phase) ? phase : 'stopped');
+    return ['running', 'starting', 'stopping', 'failed', 'lost'].includes(phase) ? phase : 'stopped';
 }
 
 function name_compare(a, b)

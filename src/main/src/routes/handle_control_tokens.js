@@ -43,7 +43,7 @@ async function handle_control_tokens(app, req, res, url)
         }
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'GET')) {
-        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name), socket: socket_shown(app), port: control_port(app), owner_token_file: ((String(process.env.SERVICEMAN_OWNER_TOKEN || '').trim() === '') ? 'data/owner.token' : null)});
+        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name), socket: socket_shown(app), port: control_port(app), owner_token_file: (String(process.env.SERVICEMAN_OWNER_TOKEN || '').trim() === '') ? 'data/owner.token' : null});
         return true;
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'POST')) {
@@ -85,11 +85,11 @@ async function session_open(app, req, res)
         send_json(res, 400, {error: error.message});
         return;
     }
-    const token = (((body !== null) && (typeof body.token === 'string')) ? body.token.trim() : '');
+    const token = ((body !== null) && (typeof body.token === 'string')) ? body.token.trim() : '';
     const caller = control_caller(app, {headers: {authorization: `Bearer ${token}`}});
     if ((caller === null) || (caller.owner === false)) {
-        log_event(app, 'control_sign_in_refused', {client: req.socket.remoteAddress, reason: ((caller === null) ? 'unknown_token' : 'not_the_owner')});
-        send_json(res, 401, {error: ((caller === null) ? 'That is not the owner\'s token' : 'An agent\'s token is sent with each request, not signed in')});
+        log_event(app, 'control_sign_in_refused', {client: req.socket.remoteAddress, reason: (caller === null) ? 'unknown_token' : 'not_the_owner'});
+        send_json(res, 401, {error: (caller === null) ? 'That is not the owner\'s token' : 'An agent\'s token is sent with each request, not signed in'});
         return;
     }
     log_event(app, 'control_signed_in', {client: req.socket.remoteAddress});
@@ -123,7 +123,7 @@ async function token_change(app, req, res, id)
         return;
     }
     const item = Object.assign({}, found, fields);
-    control_tokens_write(app, control_tokens_read(app).map(v => ((v.id === id) ? item : v)));
+    control_tokens_write(app, control_tokens_read(app).map(v => (v.id === id) ? item : v));
     log_event(app, 'control_token_changed', fields_logged(item));
     send_json(res, 200, {item: token_view(item)});
 }
@@ -140,7 +140,7 @@ function token_rotate(app, res, id)
     const token = control_token_new();
     const item = Object.assign({}, found, {sha256: control_token_hash(token), rotated_at: new Date().toISOString()});
     delete item.used_at;
-    control_tokens_write(app, control_tokens_read(app).map(v => ((v.id === id) ? item : v)));
+    control_tokens_write(app, control_tokens_read(app).map(v => (v.id === id) ? item : v));
     log_event(app, 'control_token_rotated', {id: item.id, label: item.label});
     send_json(res, 200, {token, item: token_view(item)});
 }
@@ -158,28 +158,28 @@ async function fields_read(app, req, res)
         send_json(res, 400, {error: error.message});
         return null;
     }
-    const asked = (((body === null) || (typeof body !== 'object')) ? {} : body);
-    const label = ((typeof asked.label === 'string') ? asked.label.trim() : '');
+    const asked = ((body === null) || (typeof body !== 'object')) ? {} : body;
+    const label = (typeof asked.label === 'string') ? asked.label.trim() : '';
     if ((label === '') || (label.length > LABEL_MAX) || /[\r\n]/.test(label)) {
         send_json(res, 400, {error: `a token has a label: one line, up to ${LABEL_MAX} characters`});
         return null;
     }
-    const named = (Array.isArray(asked.remotes) ? Array.from(new Set(asked.remotes.map(String))) : []);
-    const remotes = (named.includes('*') ? ['*'] : named);
-    const unknown = remotes.filter(v => ((v !== '*') && (app.remote_by_name[v] === undefined)));
+    const named = Array.isArray(asked.remotes) ? Array.from(new Set(asked.remotes.map(String))) : [];
+    const remotes = named.includes('*') ? ['*'] : named;
+    const unknown = remotes.filter(v => (v !== '*') && (app.remote_by_name[v] === undefined));
     if (unknown.length > 0) {
         send_json(res, 400, {error: `no remote named ${unknown.map(v => JSON.stringify(v)).join(', ')}`});
         return null;
     }
-    const rights = (Array.isArray(asked.rights) ? Array.from(new Set(asked.rights.map(String))) : []);
+    const rights = Array.isArray(asked.rights) ? Array.from(new Set(asked.rights.map(String))) : [];
     const wrong = rights.filter(v => (control_route_right.RIGHTS.includes(v) === false));
     if ((rights.length === 0) || (wrong.length > 0)) {
         send_json(res, 400, {error: `a token has some of the rights ${control_route_right.RIGHTS.join(', ')}`});
         return null;
     }
     // The files right is of some folders, the same paths on each of its machines, ~ their homes
-    const folders = ((Array.isArray(asked.folders) && rights.includes('files')) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : []);
-    if (rights.includes('files') && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => ((v.length > FOLDER_MAX) || /[\r\n\0]/.test(v))))) {
+    const folders = (Array.isArray(asked.folders) && rights.includes('files')) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : [];
+    if (rights.includes('files') && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => (v.length > FOLDER_MAX) || /[\r\n\0]/.test(v)))) {
         send_json(res, 400, {error: `the files right is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
         return null;
     }
@@ -201,7 +201,7 @@ function socket_shown(app)
     }
     const base = path.dirname(app.state_dir);
     const full = path.resolve(base, socket);
-    return (full.startsWith(`${base}${path.sep}`) ? path.relative(base, full) : full);
+    return full.startsWith(`${base}${path.sep}`) ? path.relative(base, full) : full;
 }
 
 // The control port as it is listened on, the config's 0 being whichever was free; null without one
@@ -216,7 +216,7 @@ function control_port(app)
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: (Array.isArray(token.folders) ? token.folders : []), made_at: token.made_at, rotated_at: ((token.rotated_at === undefined) ? null : token.rotated_at), used_at: ((token.used_at === undefined) ? null : token.used_at)};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: Array.isArray(token.folders) ? token.folders : [], made_at: token.made_at, rotated_at: (token.rotated_at === undefined) ? null : token.rotated_at, used_at: (token.used_at === undefined) ? null : token.used_at};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,
@@ -224,7 +224,7 @@ function token_view(token)
 function cookie_of(req, value, max_age_s)
 {
     const host = String((req.headers.host === undefined) ? '' : req.headers.host).replace(/:\d+$/, '');
-    const named = (/^[a-z0-9.-]+$/i.test(host) && host.includes('.') && (/^[0-9.]+$/.test(host) === false));
+    const named = /^[a-z0-9.-]+$/i.test(host) && host.includes('.') && (/^[0-9.]+$/.test(host) === false);
     return `${control_caller.COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${max_age_s}; HttpOnly; SameSite=Strict${named ? `; Domain=${host}` : ''}`;
 }
 

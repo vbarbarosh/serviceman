@@ -5,7 +5,7 @@ const path = require('path');
 // machine that will run the container is the one that writes this line.
 function volume_text(volume, keep_root)
 {
-    const source = ((volume.kind === 'kept') ? path.join((keep_root === undefined) ? '.' : keep_root, 'data', volume.keep) : volume.source);
+    const source = (volume.kind === 'kept') ? path.join((keep_root === undefined) ? '.' : keep_root, 'data', volume.keep) : volume.source;
     if (volume.readonly) {
         return `${source}:${volume.target}:ro`;
     }

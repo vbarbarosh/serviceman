@@ -113,7 +113,7 @@ button:hover {
 function render_page(page)
 {
     const theme = theme_switch();
-    const script = (page.script ? `<script>${page.script}</script>` : '');
+    const script = page.script ? `<script>${page.script}</script>` : '';
     return `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">

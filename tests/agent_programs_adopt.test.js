@@ -91,7 +91,7 @@ async function within_agent_dir(fn)
 function tick_last(text)
 {
     const ticks = [...text.matchAll(/^tick (\d+)$/gm)];
-    return ((ticks.length === 0) ? 0 : Number(ticks[ticks.length - 1][1]));
+    return (ticks.length === 0) ? 0 : Number(ticks[ticks.length - 1][1]);
 }
 
 async function until(fn)

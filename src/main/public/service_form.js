@@ -50,10 +50,10 @@ function duration_parts(text, fallback)
 {
     if ((text === '') || (text === undefined) || (text === null)) {
         const found = RE_DURATION.exec(fallback || '');
-        return {n: '', unit: ((found === null) ? 's' : found[2] || 's')};
+        return {n: '', unit: (found === null) ? 's' : found[2] || 's'};
     }
     const found = RE_DURATION.exec(String(text).trim());
-    return ((found === null) ? null : {n: found[1], unit: found[2] || 's'});
+    return (found === null) ? null : {n: found[1], unit: found[2] || 's'};
 }
 
 // 0.7 <-> 70: the file keeps a share, the form asks for a percentage. Rounded on the way out,
@@ -61,13 +61,13 @@ function duration_parts(text, fallback)
 function share_percent(text)
 {
     const share = Number(text);
-    return (((text === '') || (Number.isFinite(share) === false)) ? text : String(Math.round(share*100)));
+    return ((text === '') || (Number.isFinite(share) === false)) ? text : String(Math.round(share*100));
 }
 
 function percent_share(text)
 {
     const percent = Number(text);
-    return (((String(text).trim() === '') || (Number.isFinite(percent) === false)) ? text : String(percent/100));
+    return ((String(text).trim() === '') || (Number.isFinite(percent) === false)) ? text : String(percent/100);
 }
 
 // A length of time as a number and a unit, so nobody has to remember how the file spells one
@@ -99,7 +99,7 @@ const duration = {
         },
         n: {
             get: function () {
-                return ((this.parts === null) ? '' : this.parts.n);
+                return (this.parts === null) ? '' : this.parts.n;
             },
             set: function (text) {
                 this.write(text, this.unit);
@@ -107,7 +107,7 @@ const duration = {
         },
         unit: {
             get: function () {
-                return ((this.parts === null) ? this.fallback.unit : this.parts.unit);
+                return (this.parts === null) ? this.fallback.unit : this.parts.unit;
             },
             set: function (text) {
                 this.write(this.n, text);
@@ -116,7 +116,7 @@ const duration = {
     },
     methods: {
         write: function (n, unit) {
-            this.$emit('update:modelValue', ((String(n).trim() === '') ? '' : `${n}${unit}`));
+            this.$emit('update:modelValue', (String(n).trim() === '') ? '' : `${n}${unit}`);
         },
     },
 };
@@ -512,7 +512,7 @@ const service_form = {
     props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir'],
     emits: ['close', 'saved'],
     data: function () {
-        const source = ((this.source === undefined) ? null : this.source);
+        const source = (this.source === undefined) ? null : this.source;
         const model = form_from_service((this.original === null) ? source : this.original);
         // A clone is a new service with the settings carried over; the name and the address must be its own
         if ((this.original === null) && (source !== null)) {
@@ -524,7 +524,7 @@ const service_form = {
             // take it back again
             place_given: null,
             // A new service starts as the short form; a clone carries settings worth seeing
-            simple: ((this.original === null) && (source === null)),
+            simple: (this.original === null) && (source === null),
             IDLE_STEPS,
             KINDS,
             KIND_NAMES,
@@ -570,7 +570,7 @@ const service_form = {
         },
         // The model the fields are bound to: the draft of the open card, or the new service
         m: function () {
-            return ((this.draft === null) ? this.model : this.draft);
+            return (this.draft === null) ? this.model : this.draft;
         },
         heading: function () {
             if ((this.source !== undefined) && (this.source !== null)) {
@@ -584,7 +584,7 @@ const service_form = {
                 if (item.kinds.includes(this.m.type) === false) {
                     continue;
                 }
-                const open = (this.creating ? (item.must || (this.opened[item.id] === true)) : ((this.editing === item.id) || (this.kind_changing && item.must)));
+                const open = this.creating ? (item.must || (this.opened[item.id] === true)) : ((this.editing === item.id) || (this.kind_changing && item.must));
                 const wrong = (SECTION_PROBLEMS[item.id] || []).some(v => this.problems[v] !== undefined);
                 out.push({id: item.id, title: item.title, must: item.must, open, wrong, last: false, summary: this.summary_of(item.id, this.model)});
             }
@@ -603,7 +603,7 @@ const service_form = {
         // The machine a new service is given: the one it was added from, or the first there is
         place_default: function () {
             const found = this.places.find(v => v.value === this.remote);
-            return ((found === undefined) ? this.places[0].value : found.value);
+            return (found === undefined) ? this.places[0].value : found.value;
         },
         places: function () {
             const out = [];
@@ -631,7 +631,7 @@ const service_form = {
             if ((Number.isFinite(each) === false) || (each < 1)) {
                 return 'Empty takes everything that arrives, so nothing ever waits in line.';
             }
-            const copies = (this.scaling_on ? (parseInt(this.m.max, 10) || 1) : 1);
+            const copies = this.scaling_on ? (parseInt(this.m.max, 10) || 1) : 1;
             return `${(copies === 1) ? 'One copy takes' : `${copies} copies take`} ${copies*each} at once; the next one waits in line.`;
         },
         // The address a new docker service answers on when none is given: its name, under the
@@ -662,7 +662,7 @@ const service_form = {
         },
         prefix_example: function () {
             const host = this.m.hosts.find(v => v.text.includes('/'));
-            const prefix = ((host === undefined) ? '' : host.text.slice(host.text.indexOf('/')).replace(/\/+$/, ''));
+            const prefix = (host === undefined) ? '' : host.text.slice(host.text.indexOf('/')).replace(/\/+$/, '');
             return {asked: `${prefix}/x`, seen: '/x'};
         },
         busy_up_percent: {
@@ -761,7 +761,7 @@ const service_form = {
     },
     methods: {
         host_from_name: function (name) {
-            const host = (((this.control === undefined) || (this.control === null) || (typeof this.control.host !== 'string')) ? 'localhost' : this.control.host);
+            const host = ((this.control === undefined) || (this.control === null) || (typeof this.control.host !== 'string')) ? 'localhost' : this.control.host;
             const at = host.indexOf('.');
             // A hostname has no _ in it: speedtest_laptop answers on speedtest-laptop
             return `${name.replace(/_/g, '-')}.${(at === -1) ? host : host.slice(at + 1)}`;
@@ -774,8 +774,8 @@ const service_form = {
             if ((this.creating === false) || (model.type !== 'docker')) {
                 return model;
             }
-            const name = ((model.name === '') ? this.easy_name : model.name);
-            const port = ((model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port);
+            const name = (model.name === '') ? this.easy_name : model.name;
+            const port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
             const out = Object.assign({}, model, {name, port});
             if ((name !== '') && model.hosts.every(v => v.text === '')) {
                 out.hosts = [{key: 'easy', text: this.host_from_name(name)}];
@@ -886,7 +886,7 @@ const service_form = {
         },
         place_text: function (value) {
             const found = this.remotes.find(v => v.name === value);
-            return ((found === undefined) ? value : this.remote_text(found));
+            return (found === undefined) ? value : this.remote_text(found);
         },
         // Which machine, as the rail names it: a remote by its title
         remote_text: function (view) {
@@ -996,7 +996,7 @@ const service_form = {
             // The image is asked about on the first machine it may run on; a tag is asked of
             // any online machine carrying it, and nothing named of any machine that is online
             const first = model.places[0].text;
-            const where = ((first === '') ? '' : `&remote=${encodeURIComponent(first)}`);
+            const where = (first === '') ? '' : `&remote=${encodeURIComponent(first)}`;
             const answer = await fetch(`/api/v1/image-ports?image=${encodeURIComponent(image)}${where}`).then(v => v.json()).catch(() => ({ports: []}));
             if ((image === this.m.image) && (answer.ports.length > 0)) {
                 this.detected_port = answer.ports[0];
@@ -1066,7 +1066,7 @@ const service_form = {
             if (this.creating) {
                 return Object.keys(this.problems);
             }
-            const open = (this.kind_changing ? SECTIONS.filter(v => v.must && v.kinds.includes(this.m.type)).map(v => v.id) : [this.editing]);
+            const open = this.kind_changing ? SECTIONS.filter(v => v.must && v.kinds.includes(this.m.type)).map(v => v.id) : [this.editing];
             const fields = [].concat(...open.map(v => SECTION_PROBLEMS[v] || []));
             return Object.keys(this.problems).filter(v => fields.includes(v));
         },
@@ -1120,7 +1120,7 @@ const service_form = {
             }
             catch {
                 this.report('the answer never came back — checking whether it landed…', false);
-                const landed = await settled(async () => (await state_read()).services.some(vv => vv.name === model.name));
+                const landed = await settled(async () => (await state_read()).services.some(v => v.name === model.name));
                 if (landed === false) {
                     this.report('serviceman is not answering', true);
                 }
@@ -1144,7 +1144,7 @@ const service_form = {
             catch {
                 this.report('the answer never came back — checking whether it landed…', false);
                 const name = this.original.name;
-                const gone = await settled(async () => (await state_read()).services.some(vv => vv.name === name) === false);
+                const gone = await settled(async () => (await state_read()).services.some(v => v.name === name) === false);
                 if (gone === false) {
                     this.report('serviceman is not answering', true);
                     return;
@@ -1184,7 +1184,7 @@ const service_form = {
             const answer = await fetch('/api/v1/secrets', {cache: 'no-store'});
             const body = await answer.json();
             this.library = body.global.map(v => v.name);
-            const name = ((this.original === null) ? '' : this.original.name);
+            const name = (this.original === null) ? '' : this.original.name;
             for (const item of body.services.filter(v => v.service === name)) {
                 this.model.secrets.push({key: Math.random(), name: item.name, value: '', copy_from: '', kept: true, length: item.length});
             }
@@ -1232,7 +1232,7 @@ function remotes_of(service)
     if (Array.isArray(service.remotes)) {
         return service.remotes;
     }
-    return ((service.remote === undefined) ? [] : [service.remote]);
+    return (service.remote === undefined) ? [] : [service.remote];
 }
 
 function form_from_service(service)
@@ -1307,7 +1307,7 @@ function form_from_service(service)
     out.strip_prefix = publish.strip_prefix === true;
     out.redirect = service.redirect || '';
     out.image = service.image || '';
-    out.port = ((publish.port === undefined) ? '' : String(publish.port));
+    out.port = (publish.port === undefined) ? '' : String(publish.port);
     out.network = service.network || '';
     out.init = service.init !== false;
     for (const name of Object.keys(service.env || {})) {
@@ -1329,29 +1329,29 @@ function form_from_service(service)
     out.start = policy.start || 'on_demand';
     out.restart = policy.restart || 'on_failure';
     out.never_stop = policy.stop_after_idle === false;
-    out.stop_after_idle = ((out.never_stop || (policy.stop_after_idle === undefined)) ? '' : String(policy.stop_after_idle));
-    out.start_timeout = ((policy.start_timeout === undefined) ? '' : String(policy.start_timeout));
-    out.stop_timeout = ((policy.stop_timeout === undefined) ? '' : String(policy.stop_timeout));
-    out.start_tries = ((policy.start_tries === undefined) ? '' : String(policy.start_tries));
+    out.stop_after_idle = (out.never_stop || (policy.stop_after_idle === undefined)) ? '' : String(policy.stop_after_idle);
+    out.start_timeout = (policy.start_timeout === undefined) ? '' : String(policy.start_timeout);
+    out.stop_timeout = (policy.stop_timeout === undefined) ? '' : String(policy.stop_timeout);
+    out.start_tries = (policy.start_tries === undefined) ? '' : String(policy.start_tries);
     out.never_request_timeout = policy.request_timeout === false;
-    out.request_timeout = ((out.never_request_timeout || (policy.request_timeout === undefined)) ? '' : String(policy.request_timeout));
+    out.request_timeout = (out.never_request_timeout || (policy.request_timeout === undefined)) ? '' : String(policy.request_timeout);
     const instances = policy.instances || {};
-    out.min = ((instances.min === undefined) ? '' : String(instances.min));
-    out.max = ((instances.max === undefined) ? '' : String(instances.max));
-    out.concurrency = (((policy.concurrency === undefined) || (policy.concurrency === false)) ? '' : String(policy.concurrency));
+    out.min = (instances.min === undefined) ? '' : String(instances.min);
+    out.max = (instances.max === undefined) ? '' : String(instances.max);
+    out.concurrency = ((policy.concurrency === undefined) || (policy.concurrency === false)) ? '' : String(policy.concurrency);
     const warmup = policy.warmup || {};
-    out.warmup_queue = ((warmup.queue === undefined) ? '' : String(warmup.queue));
-    out.warmup_wait = ((warmup.wait === undefined) ? '' : String(warmup.wait));
-    out.scale_down_after = ((policy.scale_down_after === undefined) ? '' : String(policy.scale_down_after));
+    out.warmup_queue = (warmup.queue === undefined) ? '' : String(warmup.queue);
+    out.warmup_wait = (warmup.wait === undefined) ? '' : String(warmup.wait);
+    out.scale_down_after = (policy.scale_down_after === undefined) ? '' : String(policy.scale_down_after);
     out.prepull = policy.prepull !== false;
     const autoscale = policy.autoscale;
-    out.autoscale = ((autoscale !== undefined) && (autoscale !== null) && (autoscale !== false));
+    out.autoscale = (autoscale !== undefined) && (autoscale !== null) && (autoscale !== false);
     if (out.autoscale) {
-        out.busy_up = ((autoscale.busy_up === undefined) ? '' : String(autoscale.busy_up));
-        out.busy_down = ((autoscale.busy_down === undefined) ? '' : String(autoscale.busy_down));
-        out.up_for = ((autoscale.up_for === undefined) ? '' : String(autoscale.up_for));
-        out.down_for = ((autoscale.down_for === undefined) ? '' : String(autoscale.down_for));
-        out.cool_down = ((autoscale.cool_down === undefined) ? '' : String(autoscale.cool_down));
+        out.busy_up = (autoscale.busy_up === undefined) ? '' : String(autoscale.busy_up);
+        out.busy_down = (autoscale.busy_down === undefined) ? '' : String(autoscale.busy_down);
+        out.up_for = (autoscale.up_for === undefined) ? '' : String(autoscale.up_for);
+        out.down_for = (autoscale.down_for === undefined) ? '' : String(autoscale.down_for);
+        out.cool_down = (autoscale.cool_down === undefined) ? '' : String(autoscale.cool_down);
     }
     return out;
 }
@@ -1367,7 +1367,7 @@ function volume_row(volume)
     if (readonly) {
         parts.pop();
     }
-    const target = ((parts.length > 1) ? parts.pop() : '');
+    const target = (parts.length > 1) ? parts.pop() : '';
     return {source: parts.join(':'), target, readonly};
 }
 
@@ -1406,7 +1406,7 @@ function json_from_service(model)
     const places = model.places.map(v => v.text).filter(v => v !== '');
     if (((model.type === 'docker') || (model.type === 'shell')) && (places.length > 0)) {
         // One machine reads better as "remote"; a list of them is a list
-        out[(places.length === 1) ? 'remote' : 'remotes'] = ((places.length === 1) ? places[0] : places);
+        out[(places.length === 1) ? 'remote' : 'remotes'] = (places.length === 1) ? places[0] : places;
     }
     out.publish = publish_from_model(model);
     if ((model.redirect !== '') && ((model.type === 'docker') || (model.type === 'shell'))) {
@@ -1542,7 +1542,7 @@ function json_from_service(model)
                 if (model[name] !== '') {
                     // A share is 0.7, not 7 — a whole-number reader would keep it as text
                     const share = Number(model[name]);
-                    autoscale[name] = (Number.isFinite(share) ? share : model[name]);
+                    autoscale[name] = Number.isFinite(share) ? share : model[name];
                 }
             }
             for (const name of ['up_for', 'down_for', 'cool_down']) {
@@ -1574,7 +1574,7 @@ function plural_words(count, one, many)
 
 function number_or_text(text)
 {
-    return (/^\d+$/.test(text) ? parseInt(text, 10) : text);
+    return /^\d+$/.test(text) ? parseInt(text, 10) : text;
 }
 
 export default service_form;

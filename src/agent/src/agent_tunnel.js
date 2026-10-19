@@ -121,7 +121,7 @@ function target_socket(target)
     if (target.path !== undefined) {
         return net.connect({path: agent_path_expand(target.path)});
     }
-    return net.connect({host: ((target.host === undefined) ? '127.0.0.1' : target.host), port: target.port});
+    return net.connect({host: (target.host === undefined) ? '127.0.0.1' : target.host, port: target.port});
 }
 
 function stream_write(state, found, chunk)
@@ -166,7 +166,7 @@ function gone_from_error(error)
     if (error === null) {
         return {};
     }
-    return {code: ((error.code === undefined) ? 'ECONNRESET' : error.code), message: error.message};
+    return {code: (error.code === undefined) ? 'ECONNRESET' : error.code, message: error.message};
 }
 
 function bytes_body(bytes)
@@ -189,7 +189,7 @@ agent_tunnel.open = function (state, socket, target) {
 function free_id(state)
 {
     for (;;) {
-        state.next_stream_id = ((state.next_stream_id + 2 >= LAST_ID) ? 1 : state.next_stream_id + 2);
+        state.next_stream_id = (state.next_stream_id + 2 >= LAST_ID) ? 1 : state.next_stream_id + 2;
         if (state.streams[state.next_stream_id] === undefined) {
             return state.next_stream_id;
         }

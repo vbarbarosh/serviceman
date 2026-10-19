@@ -20,7 +20,7 @@ async function logline_place(app)
     if (service === undefined) {
         throw new Error('no service is named logline: add Logline\'s viewer as an external service named logline, on the machine that runs it');
     }
-    const name = ((Array.isArray(service.remotes) && (service.remotes.length > 0)) ? service.remotes[0] : null);
+    const name = (Array.isArray(service.remotes) && (service.remotes.length > 0)) ? service.remotes[0] : null;
     if (name === null) {
         throw new Error('the service logline names no machine: Logline runs on one, and the service says which');
     }
@@ -40,9 +40,9 @@ async function logline_place(app)
         throw new Error(`docker on ${name} has no socket its agent can reach`);
     }
     for (const item of await engine_json(connect, 'GET', '/containers/json?all=1')) {
-        const labels = (((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels);
+        const labels = ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
         if ((labels[LABEL_PROJECT] === project) && (labels[LABEL_DIR] !== undefined)) {
-            const files = ((labels[LABEL_FILES] === undefined) ? [] : labels[LABEL_FILES].split(',').filter(v => v !== ''));
+            const files = (labels[LABEL_FILES] === undefined) ? [] : labels[LABEL_FILES].split(',').filter(v => v !== '');
             return {remote, project, dir: labels[LABEL_DIR], files: files.map(v => path.posix.resolve(labels[LABEL_DIR], v))};
         }
     }

@@ -34,7 +34,7 @@ async function main()
     const config = {
         port: parseInt(env.PORT || '3000', 10),
         bind: env.BIND || undefined,
-        admin_token: ((admin_off === null) ? env.ADMIN_TOKEN : null),
+        admin_token: (admin_off === null) ? env.ADMIN_TOKEN : null,
         admin_off,
         admin_ips,
         clickhouse: env.CLICKHOUSE || 'http://lines:@clickstack:8123',

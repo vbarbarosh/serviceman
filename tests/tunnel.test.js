@@ -195,7 +195,7 @@ function far_server()
 function fetch_through(agent, port, path, body, options)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: '127.0.0.1', port, path, agent, method: ((body === undefined) ? 'GET' : 'POST')}, function (res) {
+        const req = http.request({host: '127.0.0.1', port, path, agent, method: (body === undefined) ? 'GET' : 'POST'}, function (res) {
             const chunks = [];
             res.on('data', function (chunk) {
                 chunks.push(chunk);

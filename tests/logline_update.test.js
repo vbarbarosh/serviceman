@@ -124,6 +124,6 @@ async function world_make(t, over)
         app,
         there,
         // The compose commands it was asked; the agent asks docker its version on its own
-        docker_asked: () => (fs.existsSync(asked_file) ? fs.readFileSync(asked_file, 'utf8').split('\n').filter(vv => vv !== '').map(vv => JSON.parse(vv)).filter(vv => vv[0] === 'compose') : []),
+        docker_asked: () => fs.existsSync(asked_file) ? fs.readFileSync(asked_file, 'utf8').split('\n').filter(v => v !== '').map(v => JSON.parse(v)).filter(v => v[0] === 'compose') : [],
     };
 }

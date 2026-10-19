@@ -63,8 +63,8 @@ function link_check(remote, now, problems)
         return from_problem('link', 'Link', problem, `offline for ${format_duration_ms(now - problem.since)}`);
     }
     if (remote.phase === 'online') {
-        const latency = ((remote.latency_ms === null) ? '' : `, ${Math.round(remote.latency_ms)} ms`);
-        return check('link', 'Link', 'ok', `online${latency}`, ((remote.uptime_ms === null) ? null : `connected for ${format_duration_ms(remote.uptime_ms)}`));
+        const latency = (remote.latency_ms === null) ? '' : `, ${Math.round(remote.latency_ms)} ms`;
+        return check('link', 'Link', 'ok', `online${latency}`, (remote.uptime_ms === null) ? null : `connected for ${format_duration_ms(remote.uptime_ms)}`);
     }
     if (remote.phase === 'greeting') {
         return check('link', 'Link', 'none', 'saying hello', null);
@@ -77,7 +77,7 @@ function link_check(remote, now, problems)
 
 function agent_check(remote, served)
 {
-    const version = ((remote.agent_version === null) ? 'older' : remote.agent_version);
+    const version = (remote.agent_version === null) ? 'older' : remote.agent_version;
     if (remote.update_refused !== null) {
         return check('agent', 'Agent', 'warn', `${version}, will not update`, remote.update_refused);
     }
@@ -94,7 +94,7 @@ function disk_check(machine)
         return null;
     }
     const part = disk.free/disk.total;
-    const state = ((part < DISK_OUT) ? 'bad' : ((part < DISK_LOW) ? 'warn' : 'ok'));
+    const state = (part < DISK_OUT) ? 'bad' : ((part < DISK_LOW) ? 'warn' : 'ok');
     return check('disk', 'Disk', state, `${gb(disk.free)} free`, `${gb(disk.free)} free of ${gb(disk.total)} on ${disk.path} (${Math.round(part*100)}%)`);
 }
 
@@ -105,7 +105,7 @@ function mem_check(machine)
         return null;
     }
     const part = mem.free/mem.total;
-    return check('memory', 'Memory', ((part < MEM_LOW) ? 'warn' : 'ok'), `${gb(mem.free)} free`, `${gb(mem.free)} free of ${gb(mem.total)} (${Math.round(part*100)}%)`);
+    return check('memory', 'Memory', (part < MEM_LOW) ? 'warn' : 'ok', `${gb(mem.free)} free`, `${gb(mem.free)} free of ${gb(mem.total)} (${Math.round(part*100)}%)`);
 }
 
 function cpu_check(machine)
@@ -113,8 +113,8 @@ function cpu_check(machine)
     if (!Number.isFinite(machine.cpu_busy)) {
         return null;
     }
-    const load = (Number.isFinite(machine.load) ? `, load ${machine.load.toFixed(2)}` : '');
-    return check('cpu', 'CPU', ((machine.cpu_busy >= CPU_BUSY) ? 'warn' : 'ok'), `${Math.round(machine.cpu_busy*100)}% busy`, `${Math.round(machine.cpu_busy*100)}% busy${load}`);
+    const load = Number.isFinite(machine.load) ? `, load ${machine.load.toFixed(2)}` : '';
+    return check('cpu', 'CPU', (machine.cpu_busy >= CPU_BUSY) ? 'warn' : 'ok', `${Math.round(machine.cpu_busy*100)}% busy`, `${Math.round(machine.cpu_busy*100)}% busy${load}`);
 }
 
 // The numbers above are servermon's: a silent one is a machine whose numbers are not known
@@ -130,7 +130,7 @@ function servermon_check(machine)
     if (servermon.state === 'off') {
         return check('servermon', 'servermon', 'warn', 'off', 'The agent keeps no log folder (SERVICEMAN_LOG_DIR), so servermon does not run and the machine\'s numbers are not known.');
     }
-    const since = ((servermon.last_at === null) ? 'has written nothing yet' : `silent since ${servermon.last_at.replace('T', ' ').slice(0, 19)}`);
+    const since = (servermon.last_at === null) ? 'has written nothing yet' : `silent since ${servermon.last_at.replace('T', ' ').slice(0, 19)}`;
     return check('servermon', 'servermon', 'warn', since, `servermon ${since}: the machine's numbers are not known. The agent starts it again within a minute.`);
 }
 
@@ -158,7 +158,7 @@ function docker_check(name, machine, seen, problems)
 {
     const wrong = Array.from(problems.values()).filter(v => (v.kind === 'container') && (v.remote === name));
     if (wrong.length > 0) {
-        const text = ((wrong.length === 1) ? wrong[0].subject.replace(` on ${name}`, '') : `${wrong.length} containers in trouble`);
+        const text = (wrong.length === 1) ? wrong[0].subject.replace(` on ${name}`, '') : `${wrong.length} containers in trouble`;
         return check('docker', 'Docker', 'bad', text, wrong.map(v => `${v.subject}: ${v.cause}. ${v.fix}`).join('\n'));
     }
     if (machine.docker === null) {
@@ -185,11 +185,11 @@ function service_row(service, seen, problems)
         if (instance.phase !== 'running') {
             continue;
         }
-        const where = ((instance.remote === null) ? '' : ` on ${instance.remote}`);
+        const where = (instance.remote === null) ? '' : ` on ${instance.remote}`;
         const key = `answers:${instance.slot}`;
         const problem = problems.get(`service_silent:${service.name}:${instance.slot}`);
         if (problem !== undefined) {
-            checks.push(from_problem(key, 'Answers', problem, ((instance.remote === null) ? 'no' : `not${where}`)));
+            checks.push(from_problem(key, 'Answers', problem, (instance.remote === null) ? 'no' : `not${where}`));
             continue;
         }
         const answer = seen_check(key, 'Answers', `service:${service.name}:${instance.slot}`, seen);
@@ -207,14 +207,14 @@ function phase_check(service)
         return check('phase', 'State', 'bad', 'gave up starting', service.error);
     }
     if ((phase === 'failed') || (phase === 'lost')) {
-        return check('phase', 'State', 'bad', ((phase === 'lost') ? 'its machine went' : 'failed'), service.error);
+        return check('phase', 'State', 'bad', (phase === 'lost') ? 'its machine went' : 'failed', service.error);
     }
     if (phase === 'running') {
-        const up = ((service.uptime_ms === null) ? '' : ` for ${format_duration_ms(service.uptime_ms)}`);
+        const up = (service.uptime_ms === null) ? '' : ` for ${format_duration_ms(service.uptime_ms)}`;
         return check('phase', 'State', 'ok', `running${up}`, null);
     }
     if (phase === 'stopped') {
-        return check('phase', 'State', 'none', 'asleep', ((service.type === 'external') ? null : 'Starts on the next visit.'));
+        return check('phase', 'State', 'none', 'asleep', (service.type === 'external') ? null : 'Starts on the next visit.');
     }
     return check('phase', 'State', 'none', phase, null);
 }
@@ -273,19 +273,19 @@ function lines_checks(remote, now, problems)
         return [check('sending', 'Sending', 'none', 'machine offline', 'Its lines wait on the machine until it is back.')];
     }
     if ((status === null) || (status.collecting !== true)) {
-        const why = ((remote.logline.error !== null) ? remote.logline.error : 'Its agent does not collect: too old, or not told yet.');
-        return [check('sending', 'Sending', ((remote.logline.error !== null) ? 'bad' : 'none'), 'not collecting', why)];
+        const why = (remote.logline.error !== null) ? remote.logline.error : 'Its agent does not collect: too old, or not told yet.';
+        return [check('sending', 'Sending', (remote.logline.error !== null) ? 'bad' : 'none', 'not collecting', why)];
     }
     const out = [];
-    const refused = (problems.get(`logline_refused:${name}`) || problems.get(`logline_silent:${name}`));
+    const refused = problems.get(`logline_refused:${name}`) || problems.get(`logline_silent:${name}`);
     if (refused !== undefined) {
-        out.push(from_problem('sending', 'Sending', refused, (refused.key.startsWith('logline_refused:') ? 'refused' : 'stuck')));
+        out.push(from_problem('sending', 'Sending', refused, refused.key.startsWith('logline_refused:') ? 'refused' : 'stuck'));
     }
     else if ((status.last_answer !== null) && (status.last_answer !== 'ok')) {
         out.push(check('sending', 'Sending', 'bad', 'refused', `Logline answers "${status.last_answer}"`));
     }
     else {
-        const last = ((status.last_sent_at === null) ? 'nothing sent yet' : `last ${format_duration_ms(now - Date.parse(status.last_sent_at))} ago`);
+        const last = (status.last_sent_at === null) ? 'nothing sent yet' : `last ${format_duration_ms(now - Date.parse(status.last_sent_at))} ago`;
         out.push(check('sending', 'Sending', 'ok', last, `${status.sent.lines.toLocaleString('en-US')} lines sent since the agent started`));
     }
     const full = problems.get(`logline_full:${name}`);
@@ -295,7 +295,7 @@ function lines_checks(remote, now, problems)
     }
     else {
         const lines = status.waiting.lines;
-        out.push(check('waiting', 'Waiting', 'ok', ((lines === 0) ? 'nothing' : `${lines.toLocaleString('en-US')} ${plural(lines, 'line', 'lines')}`), (Number.isFinite(status.cap_bytes) ? `${mb(status.waiting.bytes)} of ${mb(status.cap_bytes)} kept on the machine` : null)));
+        out.push(check('waiting', 'Waiting', 'ok', (lines === 0) ? 'nothing' : `${lines.toLocaleString('en-US')} ${plural(lines, 'line', 'lines')}`, Number.isFinite(status.cap_bytes) ? `${mb(status.waiting.bytes)} of ${mb(status.cap_bytes)} kept on the machine` : null));
     }
     const dirs = Object.keys(status.dir_errors || {});
     if (dirs.length > 0) {
@@ -306,8 +306,8 @@ function lines_checks(remote, now, problems)
 
 function forward_row(forward)
 {
-    const state = ((forward.state === 'ready') ? 'ok' : (['aside', 'telling'].includes(forward.state) ? 'none' : 'bad'));
-    const text = ((forward.state === 'ready') ? 'ready' : forward.state.replace(/_/g, ' '));
+    const state = (forward.state === 'ready') ? 'ok' : (['aside', 'telling'].includes(forward.state) ? 'none' : 'bad');
+    const text = (forward.state === 'ready') ? 'ready' : forward.state.replace(/_/g, ' ');
     return row(`forward:${forward.label}`, forward.label, {}, [check('state', 'State', state, text, forward.problem)]);
 }
 
@@ -324,12 +324,12 @@ function seen_check(key, label, seen_key, seen)
 // A check in the words of what is wrong there: its own short text, the problem's whole say
 function from_problem(key, label, problem, text)
 {
-    return check(key, label, 'bad', ((text === undefined) ? problem.subject : text), `${problem.subject}: ${problem.cause}. ${problem.fix}`);
+    return check(key, label, 'bad', (text === undefined) ? problem.subject : text, `${problem.subject}: ${problem.cause}. ${problem.fix}`);
 }
 
 function check(key, label, state, text, detail)
 {
-    return {key, label, state, text, detail: ((detail === undefined) ? null : detail)};
+    return {key, label, state, text, detail: (detail === undefined) ? null : detail};
 }
 
 // A row is as well as its worst check; one with nothing but nothing to say says nothing
@@ -337,12 +337,12 @@ function row(key, name, where, checks)
 {
     const states = checks.map(v => v.state);
     const state = ['bad', 'warn', 'ok'].find(v => states.includes(v)) || 'none';
-    return {key, name, remote: ((where.remote === undefined) ? null : where.remote), service: ((where.service === undefined) ? null : where.service), state, checks};
+    return {key, name, remote: (where.remote === undefined) ? null : where.remote, service: (where.service === undefined) ? null : where.service, state, checks};
 }
 
 function gb(bytes)
 {
-    return ((bytes >= 1024**3) ? `${(bytes/1024**3).toFixed(1)} GB` : `${Math.round(bytes/1024**2)} MB`);
+    return (bytes >= 1024**3) ? `${(bytes/1024**3).toFixed(1)} GB` : `${Math.round(bytes/1024**2)} MB`;
 }
 
 function mb(bytes)
@@ -352,7 +352,7 @@ function mb(bytes)
 
 function plural(n, one, many)
 {
-    return ((n === 1) ? one : many);
+    return (n === 1) ? one : many;
 }
 
 module.exports = health_from_views;

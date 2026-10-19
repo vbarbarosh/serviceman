@@ -75,52 +75,52 @@ function load_test_run(app, test)
     return out;
 }
 
-async function run(app, test, out)
+async function run(app, test, test_run)
 {
-    if (out.url === null) {
+    if (test_run.url === null) {
         throw new Error(`${test.service} has no address to ask — give the test one`);
     }
     const service = app.service_by_name[test.service];
     if ((service !== undefined) && (service.type !== 'external')) {
         const time0 = Date.now();
         await service_ensure_running(app, service);
-        out.wake_ms = Date.now() - time0;
+        test_run.wake_ms = Date.now() - time0;
     }
     const remote = app.remote_by_name[test.remote];
     if (remote === undefined) {
         throw new Error(`no remote named ${test.remote}`);
     }
-    if (out.phase === 'stopping') {
+    if (test_run.phase === 'stopping') {
         throw new Error('stopped before k6 started');
     }
     // A .localhost name is serviceman's: from a remote it is reached where serviceman is on the
     // tailnet. A serviceman with no tailnet is reached only from the remote on its own machine.
     let ip = null;
-    if (is_localhost_url(out.url)) {
+    if (is_localhost_url(test_run.url)) {
         const tailnet = await tailnet_ip_read();
         ip = (tailnet === null) ? '127.0.0.1' : tailnet;
-        out.via = (tailnet === null) ? 'the remote\'s own loopback: this serviceman is not on a tailnet' : `serviceman on the tailnet, at ${tailnet}`;
+        test_run.via = (tailnet === null) ? 'the remote\'s own loopback: this serviceman is not on a tailnet' : `serviceman on the tailnet, at ${tailnet}`;
     }
-    out.phase = 'running';
-    const script = Buffer.from(k6_script(test, out.url, ip)).toString('base64');
-    const argv = ['run', '--rm', '--name', `serviceman-k6-${out.id}`, '--network', 'host', '-e', `K6_SCRIPT=${script}`, '--entrypoint', 'sh', K6_IMAGE, '-c', K6_SHELL];
-    const answer = await remote_call(app, remote, 'docker', {argv, service: `${k6_lane}${out.id}`}, PULL_MS + test.duration_ms);
-    if (out.phase === 'stopping') {
-        out.phase = 'stopped';
+    test_run.phase = 'running';
+    const script = Buffer.from(k6_script(test, test_run.url, ip)).toString('base64');
+    const argv = ['run', '--rm', '--name', `serviceman-k6-${test_run.id}`, '--network', 'host', '-e', `K6_SCRIPT=${script}`, '--entrypoint', 'sh', K6_IMAGE, '-c', K6_SHELL];
+    const answer = await remote_call(app, remote, 'docker', {argv, service: `${k6_lane}${test_run.id}`}, PULL_MS + test.duration_ms);
+    if (test_run.phase === 'stopping') {
+        test_run.phase = 'stopped';
         return;
     }
-    out.said = said_from_stderr(answer.stderr);
+    test_run.said = said_from_stderr(answer.stderr);
     const line = answer.stdout.split('\n').find(v => v.startsWith(k6_summary_mark));
     if (line === undefined) {
         const said = answer.stderr.split('\n').filter(v => v.trim() !== '');
         throw new Error(`k6 ended with no numbers (exit ${answer.code})${(said.length === 0) ? '' : `: ${said[said.length - 1]}`}`);
     }
-    out.result = result_from_export(JSON.parse(line.slice(k6_summary_mark.length)));
-    const slow = (test.p95_ms !== null) && (out.result.p95_ms >= test.p95_ms);
-    const failing = (test.errors_pct !== null) && (out.result.errors > test.errors_pct/100);
-    out.result.p95_passed = (slow === false);
-    out.result.errors_passed = (failing === false);
-    out.phase = (slow || failing) ? 'failed' : 'passed';
+    test_run.result = result_from_export(JSON.parse(line.slice(k6_summary_mark.length)));
+    const slow = (test.p95_ms !== null) && (test_run.result.p95_ms >= test.p95_ms);
+    const failing = (test.errors_pct !== null) && (test_run.result.errors > test.errors_pct/100);
+    test_run.result.p95_passed = (slow === false);
+    test_run.result.errors_passed = (failing === false);
+    test_run.phase = (slow || failing) ? 'failed' : 'passed';
 }
 
 // What --summary-export wrote -> the numbers a run keeps. A run that never got an answer has

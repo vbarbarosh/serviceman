@@ -53,13 +53,13 @@ function agent_program_start(state, params, group)
         fs.closeSync(err_fd);
     }
     const own = log_uid();
-    agent_say(own, 'group_spawn', ((group === undefined) ? undefined : {parent: group}));
+    agent_say(own, 'group_spawn', (group === undefined) ? undefined : {parent: group});
     agent_say(own, 'program_begin', {service: params.name, slot: params.slot, pid: child.pid, cwd: params.cwd, argv: params.argv.join(' ')});
     const record = {
         name: params.name,
         slot: params.slot,
         pid: child.pid,
-        started: ((child.pid === undefined) ? null : proc_start_time(child.pid)),
+        started: (child.pid === undefined) ? null : proc_start_time(child.pid),
         cwd: params.cwd,
         dir: cwd,
         argv: params.argv,

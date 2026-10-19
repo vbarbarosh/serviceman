@@ -15,10 +15,10 @@ async function run(argv, input)
         child.stdout.on('data', v => stdout.push(v));
         child.stderr.on('data', v => stderr.push(v));
         child.on('error', function (error) {
-            resolve({code: -1, stdout: '', stderr: ((error.code === 'ENOENT') ? `${argv[0]}: not found` : error.message)});
+            resolve({code: -1, stdout: '', stderr: (error.code === 'ENOENT') ? `${argv[0]}: not found` : error.message});
         });
         child.on('close', function (code) {
-            resolve({code: ((code === null) ? -1 : code), stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8')});
+            resolve({code: (code === null) ? -1 : code, stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8')});
         });
         child.stdin.on('error', function () {
             // A command that does not read its stdin closes it; its status says the rest
@@ -217,7 +217,7 @@ function mount_propagated(mount, groups)
 function process_how(base, target)
 {
     function inside(file) {
-        return ((file !== null) && ((file === target) || file.startsWith(`${target}/`)));
+        return (file !== null) && ((file === target) || file.startsWith(`${target}/`));
     }
     if (inside(link_read(`${base}/cwd`))) {
         return 'cwd';
@@ -232,7 +232,7 @@ function process_how(base, target)
     catch {
         return null;
     }
-    return (fds.some(v => inside(link_read(`${base}/fd/${v}`))) ? 'open file' : null);
+    return fds.some(v => inside(link_read(`${base}/fd/${v}`))) ? 'open file' : null;
 }
 
 function process_who(base)
@@ -253,7 +253,7 @@ function user_name_of(uid)
 {
     try {
         const line = fs.readFileSync('/etc/passwd', 'utf8').split('\n').find(v => v.split(':')[2] === String(uid));
-        return ((line === undefined) ? String(uid) : line.split(':')[0]);
+        return (line === undefined) ? String(uid) : line.split(':')[0];
     }
     catch {
         return String(uid);

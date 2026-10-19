@@ -50,8 +50,8 @@ test('a forward\'s history is one average per 5 seconds, oldest first, ten minut
     // The first bucket carries 1000 bytes a second sent and 100 back, the second 2000 and 0
     forwards_sample(app, TIME0);
     for (let i = 1; i <= 10; ++i) {
-        counts.bytes_sent += ((i <= 5) ? 1000 : 2000);
-        counts.bytes_back += ((i <= 5) ? 100 : 0);
+        counts.bytes_sent += (i <= 5) ? 1000 : 2000;
+        counts.bytes_back += (i <= 5) ? 100 : 0;
         forwards_sample(app, TIME0 + i*1000);
     }
     let view = view_from_forward(app, app.config.forwards[0]);
@@ -152,7 +152,7 @@ function app_new(forwards, dir)
 {
     const config = config_from_json(json_of(forwards), __dirname);
     const out = app_from_config(config);
-    out.state_dir = ((dir === undefined) ? fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-stats-')) : dir);
+    out.state_dir = (dir === undefined) ? fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-stats-')) : dir;
     return out;
 }
 

@@ -157,13 +157,13 @@ const tokens_form = {
             this.owner_token_file = body.owner_token_file;
         },
         said_of: function (right) {
-            return ((RIGHTS_SAID[right] === undefined) ? '' : RIGHTS_SAID[right]);
+            return (RIGHTS_SAID[right] === undefined) ? '' : RIGHTS_SAID[right];
         },
         machines_text: function (item) {
             if (item.remotes.includes('*')) {
                 return 'every machine';
             }
-            return ((item.remotes.length === 0) ? 'no machine' : item.remotes.join(', '));
+            return (item.remotes.length === 0) ? 'no machine' : item.remotes.join(', ');
         },
         used_text: function (item) {
             if (item.used_at === null) {
@@ -193,15 +193,15 @@ const tokens_form = {
             this.folders = '';
         },
         save: async function () {
-            const body = {label: this.label, remotes: (this.every ? ['*'] : this.remotes_chosen), rights: this.rights_chosen, folders: this.folders_list};
+            const body = {label: this.label, remotes: this.every ? ['*'] : this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list};
             const editing = this.editing;
             const loaded = await this.call((editing === null) ? '/api/v1/tokens' : `/api/v1/tokens/${editing.id}`, (editing === null) ? 'POST' : 'PUT', body);
             if (loaded === null) {
                 return;
             }
-            this.made = ((editing === null) ? {label: loaded.item.label, token: loaded.token} : null);
+            this.made = (editing === null) ? {label: loaded.item.label, token: loaded.token} : null;
             this.copied = '';
-            this.note = ((editing === null) ? '' : `${loaded.item.label} is saved`);
+            this.note = (editing === null) ? '' : `${loaded.item.label} is saved`;
             this.form_reset();
             await this.load();
         },

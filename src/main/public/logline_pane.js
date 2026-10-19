@@ -130,13 +130,13 @@ const logline_pane = {
             ];
         },
         place_changed: function () {
-            return (((this.place === null) || (this.place.files === undefined)) ? [] : this.place.files.filter(v => (v.state !== 'same')));
+            return ((this.place === null) || (this.place.files === undefined)) ? [] : this.place.files.filter(v => (v.state !== 'same'));
         },
         updating: function () {
-            return ((this.run !== null) && (this.run.phase === 'running'));
+            return (this.run !== null) && (this.run.phase === 'running');
         },
         update_off: function () {
-            return (this.updating || (this.place === null) || (this.place.error !== undefined) || (this.place.differs === 0));
+            return this.updating || (this.place === null) || (this.place.error !== undefined) || (this.place.differs === 0);
         },
         update_title: function () {
             if ((this.place !== null) && (this.place.differs === 0)) {
@@ -145,7 +145,7 @@ const logline_pane = {
             return 'Put the files that differ on Logline\'s machine and start it again there';
         },
         logline: function () {
-            return ((this.state.logline === undefined) ? null : this.state.logline);
+            return (this.state.logline === undefined) ? null : this.state.logline;
         },
         // The service Logline itself runs as: the one called logline, or the one whose address
         // the viewer is on
@@ -174,17 +174,17 @@ const logline_pane = {
             const now = Date.now();
             return this.state.remotes.map(function (item) {
                 const status = item.logline.status;
-                const counting = ((item.logline.logs === 'all') && (status !== null) && status.collecting);
+                const counting = (item.logline.logs === 'all') && (status !== null) && status.collecting;
                 return {
                     name: item.name,
-                    title: (item.title || item.name),
+                    title: item.title || item.name,
                     stage: logline_stage(item),
                     off: (item.logline.logs === 'off'),
-                    sent: (counting ? status.sent.lines.toLocaleString('en-US') : ''),
-                    waiting: (counting ? status.waiting.lines.toLocaleString('en-US') : ''),
-                    behind: (counting && (status.waiting.lines > 0)),
-                    last: ((counting && (status.last_sent_at !== null)) ? `${format_ms(Math.max(0, now - Date.parse(status.last_sent_at)))} ago` : ''),
-                    held: (counting && (status.last_answer !== null) && (status.last_answer !== 'ok')),
+                    sent: counting ? status.sent.lines.toLocaleString('en-US') : '',
+                    waiting: counting ? status.waiting.lines.toLocaleString('en-US') : '',
+                    behind: counting && (status.waiting.lines > 0),
+                    last: (counting && (status.last_sent_at !== null)) ? `${format_ms(Math.max(0, now - Date.parse(status.last_sent_at)))} ago` : '',
+                    held: counting && (status.last_answer !== null) && (status.last_answer !== 'ok'),
                 };
             });
         },
@@ -197,7 +197,7 @@ const logline_pane = {
             try {
                 const answer = await fetch('/api/v1/logline/place');
                 const body = await answer.json();
-                this.place = (answer.ok ? body : {error: body.error});
+                this.place = answer.ok ? body : {error: body.error};
             }
             catch {
                 this.place = {error: 'serviceman did not answer'};
@@ -263,9 +263,9 @@ const logline_pane = {
         },
         edit_begin: function () {
             this.form = {
-                endpoint: ((this.logline === null) ? '' : this.logline.endpoint),
+                endpoint: (this.logline === null) ? '' : this.logline.endpoint,
                 admin_token: '',
-                ui: (((this.logline === null) || (this.logline.ui === null)) ? '' : this.logline.ui),
+                ui: ((this.logline === null) || (this.logline.ui === null)) ? '' : this.logline.ui,
             };
             this.form_note = '';
             this.editing = true;
@@ -313,9 +313,9 @@ function viewer_host(logline)
 
 function remote_title(remotes, names)
 {
-    const name = ((Array.isArray(names) && (names.length > 0)) ? names[0] : null);
+    const name = (Array.isArray(names) && (names.length > 0)) ? names[0] : null;
     const found = remotes.find(v => v.name === name);
-    return ((found === undefined) ? (name || '') : (found.title || found.name));
+    return (found === undefined) ? (name || '') : (found.title || found.name);
 }
 
 function run_line(run, line)

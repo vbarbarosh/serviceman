@@ -25,7 +25,7 @@ async function agent_door_answer(options, relay, req, res)
     agent_say(group, 'group_spawn', undefined);
     agent_say(group, 'door_request_begin', {method: req.method, host, path: path_of(req.url)});
     res.once('close', function () {
-        agent_say(group, 'door_request_end', {status: (res.writableEnded ? res.statusCode : 'cut_off'), took: `${((Date.now() - time0)/1000).toFixed(3)}s`});
+        agent_say(group, 'door_request_end', {status: res.writableEnded ? res.statusCode : 'cut_off', took: `${((Date.now() - time0)/1000).toFixed(3)}s`});
     });
     mark(req);
     const routed = await route(options, req, host, group);
@@ -88,8 +88,8 @@ async function route(options, req, host, group)
     }
     // Whatever a visitor claims to be is not taken from them: only the wall says who they are
     delete req.headers['x-auth-user'];
-    const own = ((rule.wall !== null) && agent_wall_ask.own(req.url));
-    const name = (own ? rule.wall : rule.service);
+    const own = (rule.wall !== null) && agent_wall_ask.own(req.url);
+    const name = own ? rule.wall : rule.service;
     if ((rule.wall !== null) && (own === false)) {
         const wall = await agent_service_target(table, rule.wall, options);
         if (wall === null) {
@@ -161,7 +161,7 @@ function host_of(req)
 function path_of(url)
 {
     const mark = url.indexOf('?');
-    return ((mark === -1) ? url : url.slice(0, mark));
+    return (mark === -1) ? url : url.slice(0, mark);
 }
 
 module.exports = agent_door_answer;

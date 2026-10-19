@@ -27,7 +27,7 @@ const overview_tile = {
             if (this.share >= 0.92) {
                 return 'full';
             }
-            return ((this.share >= 0.8) ? 'filling' : '');
+            return (this.share >= 0.8) ? 'filling' : '';
         },
     },
 };

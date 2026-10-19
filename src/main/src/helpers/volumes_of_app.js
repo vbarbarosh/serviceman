@@ -22,7 +22,7 @@ function volumes_of_app(app)
 // What it is called where it lives: a folder under the agent, a volume of docker's, a path
 function name_of(volume)
 {
-    return ((volume.kind === 'kept') ? `data/${volume.keep}` : volume.source);
+    return (volume.kind === 'kept') ? `data/${volume.keep}` : volume.source;
 }
 
 module.exports = volumes_of_app;

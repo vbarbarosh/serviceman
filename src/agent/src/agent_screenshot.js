@@ -63,7 +63,7 @@ async function agent_screenshot(options)
         // desktop for the sake of a picture nobody got.
         const answer = await agent_shell(item.argv, {env, timeout: EACH_MS, killSignal: 'SIGKILL'});
         const png = png_read(file);
-        const size = ((png === null) ? null : png_size(png));
+        const size = (png === null) ? null : png_size(png);
         if (answer.ok && (size !== null) && big_enough(size) && (flat(size, png) === false)) {
             return {ok: true, method: item.method, bytes: png.length, width: size.width, height: size.height, png: png.toString('base64')};
         }
@@ -109,9 +109,9 @@ function why(answer, size, file)
     if (size !== null) {
         return `wrote a ${size.width}×${size.height} picture of one flat colour — the screen is off or locked, or this way in cannot see what is drawn`;
     }
-    const out = (answer.stderr || answer.stdout || '').trim();
-    if (out !== '') {
-        return out;
+    const printed = (answer.stderr || answer.stdout || '').trim();
+    if (printed !== '') {
+        return printed;
     }
     return `ended ${answer.code} and wrote no file at ${file}`;
 }
@@ -144,7 +144,7 @@ function png_read(file)
     try {
         const png = fs.readFileSync(file);
         fs.unlinkSync(file);
-        return ((png.length === 0) ? null : png);
+        return (png.length === 0) ? null : png;
     }
     catch {
         return null;

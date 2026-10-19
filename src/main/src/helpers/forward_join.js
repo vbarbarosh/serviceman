@@ -45,7 +45,7 @@ function forward_carry(app, forward, near_make)
     const from = app.remote_by_name[forward.from.remote];
     let far;
     try {
-        far = tunnel_open(from, ((forward.from.socket === null) ? {host: ((forward.from.host === null) ? '127.0.0.1' : forward.from.host), port: forward.from.port} : {path: forward.from.socket}));
+        far = tunnel_open(from, (forward.from.socket === null) ? {host: (forward.from.host === null) ? '127.0.0.1' : forward.from.host, port: forward.from.port} : {path: forward.from.socket});
     }
     catch (error) {
         failed(app, counts, label, `${forward.from.remote} is offline`);

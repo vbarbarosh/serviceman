@@ -36,7 +36,7 @@ function agent_programs_adopt(programs, group)
             }
             continue;
         }
-        const own = ((typeof record.group === 'string') ? record.group : group);
+        const own = (typeof record.group === 'string') ? record.group : group;
         agent_say(own, 'program_adopted', {service: record.name, slot: record.slot, pid: record.pid});
         agent_program_follow(programs, record, null, own);
     }

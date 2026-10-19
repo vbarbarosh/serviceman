@@ -5,7 +5,7 @@ const secrets_read = require('./secrets_read');
 function secrets_of_service(app, service)
 {
     const kept = secrets_read(app).services[service.name];
-    return ((kept === undefined) ? {} : kept);
+    return (kept === undefined) ? {} : kept;
 }
 
 module.exports = secrets_of_service;

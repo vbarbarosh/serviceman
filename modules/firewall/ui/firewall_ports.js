@@ -51,22 +51,22 @@ function verdict(row, firewall)
         return {kind: 'local', text: 'only this machine can reach it', rule: null, now: true};
     }
     if ((firewall === null) || (firewall.installed === false)) {
-        return {kind: 'unknown', text: ((firewall === null) ? '' : 'no ufw on this machine'), rule: null, now: true};
+        return {kind: 'unknown', text: (firewall === null) ? '' : 'no ufw on this machine', rule: null, now: true};
     }
     const rules = firewall.rules.filter(v => rule_covers(v, row));
     const everyone = rules.find(v => v.from === 'any');
     const some = rules.filter(v => (v.from !== 'any') && ((everyone === undefined) || (rules.indexOf(v) < rules.indexOf(everyone))));
     const out = {kind: 'closed', text: '', rule: null, now: firewall.active};
     if (everyone !== undefined) {
-        out.kind = (((everyone.action === 'allow') || (everyone.action === 'limit')) ? 'open' : 'closed');
+        out.kind = ((everyone.action === 'allow') || (everyone.action === 'limit')) ? 'open' : 'closed';
         out.rule = everyone;
-        out.text = ((out.kind === 'open') ? ((everyone.action === 'limit') ? 'let in, slowed down' : 'let in') : 'kept out');
+        out.text = (out.kind === 'open') ? ((everyone.action === 'limit') ? 'let in, slowed down' : 'let in') : 'kept out';
     }
     else {
         // ufw keeps incoming out unless told otherwise; while it is off, its status does not say
-        const policy = ((firewall.defaults === null) ? 'deny' : (firewall.defaults.incoming || 'deny'));
-        out.kind = ((policy === 'allow') ? 'open' : 'closed');
-        out.text = ((out.kind === 'open') ? 'let in by the default' : 'kept out by the default');
+        const policy = (firewall.defaults === null) ? 'deny' : (firewall.defaults.incoming || 'deny');
+        out.kind = (policy === 'allow') ? 'open' : 'closed';
+        out.text = (out.kind === 'open') ? 'let in by the default' : 'kept out by the default';
     }
     const let_in = some.filter(v => (v.action === 'allow') || (v.action === 'limit')).map(v => v.from);
     if ((let_in.length > 0) && (out.kind === 'closed')) {
@@ -90,14 +90,14 @@ function rule_covers(rule, row)
         return false;
     }
     if (rule.app !== null) {
-        return (((rule.app === 'ssh') || (rule.app === 'OpenSSH')) && (row.port === 22) && (row.proto === 'tcp'));
+        return ((rule.app === 'ssh') || (rule.app === 'OpenSSH')) && (row.port === 22) && (row.proto === 'tcp');
     }
     if (rule.port === null) {
         return true;
     }
-    return rule.port.split(',').some(function (v) {
-        const range = v.split(':').map(Number);
-        return ((range.length === 1) ? range[0] === row.port : ((range[0] <= row.port) && (row.port <= range[1])));
+    return rule.port.split(',').some(function (part) {
+        const range = part.split(':').map(Number);
+        return (range.length === 1) ? range[0] === row.port : ((range[0] <= row.port) && (row.port <= range[1]));
     });
 }
 
@@ -116,17 +116,17 @@ function port_reach(address, addresses)
         return {exposure: 'network', text: 'the tailnet'};
     }
     if ((kind === 'private') || (kind === 'link')) {
-        return {exposure: 'network', text: ((kind === 'link') ? 'the link-local network' : 'a private network')};
+        return {exposure: 'network', text: (kind === 'link') ? 'the link-local network' : 'a private network'};
     }
     // A group's datagrams are sent on the network around; routers do not carry them in from the internet
     if ((kind === 'multicast') || (kind === 'broadcast')) {
-        return {exposure: 'network', text: ((kind === 'multicast') ? 'a multicast group' : 'a broadcast')};
+        return {exposure: 'network', text: (kind === 'multicast') ? 'a multicast group' : 'a broadcast'};
     }
     if ((addresses === null) || (addresses.length === 0)) {
         return {exposure: 'open', text: 'every address'};
     }
     const open = addresses.some(v => ip_kind(v) === 'public');
-    return {exposure: (open ? 'open' : 'network'), text: 'every address'};
+    return {exposure: open ? 'open' : 'network', text: 'every address'};
 }
 
 // What kind of address a socket is bound to, from the text ss prints: every address, this

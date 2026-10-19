@@ -300,27 +300,27 @@ async function control_answer(app, req, res)
     }
     const remote_docker = RE_REMOTE_DOCKER.exec(url.pathname);
     if (remote_docker !== null) {
-        await handle_docker(app, req, res, decodeURIComponent(remote_docker[1]), ((remote_docker[2] === undefined) ? '' : remote_docker[2]));
+        await handle_docker(app, req, res, decodeURIComponent(remote_docker[1]), (remote_docker[2] === undefined) ? '' : remote_docker[2]);
         return;
     }
     const remote_firewall = RE_REMOTE_FIREWALL.exec(url.pathname);
     if (remote_firewall !== null) {
-        await handle_firewall(app, req, res, decodeURIComponent(remote_firewall[1]), ((remote_firewall[2] === undefined) ? '' : remote_firewall[2]));
+        await handle_firewall(app, req, res, decodeURIComponent(remote_firewall[1]), (remote_firewall[2] === undefined) ? '' : remote_firewall[2]);
         return;
     }
     const remote_volumes = RE_REMOTE_VOLUMES.exec(url.pathname);
     if (remote_volumes !== null) {
-        await handle_volumes(app, req, res, decodeURIComponent(remote_volumes[1]), ((remote_volumes[2] === undefined) ? '' : remote_volumes[2]));
+        await handle_volumes(app, req, res, decodeURIComponent(remote_volumes[1]), (remote_volumes[2] === undefined) ? '' : remote_volumes[2]);
         return;
     }
     const transfers = RE_TRANSFERS.exec(url.pathname);
     if (transfers !== null) {
-        await file_manager_transfers_serve(req, res, {queue: transfers_of(app), tail: ((transfers[1] === undefined) ? '' : transfers[1]), disk_known: v => ((typeof v === 'string') && (app.remote_by_name[v] !== undefined))});
+        await file_manager_transfers_serve(req, res, {queue: transfers_of(app), tail: (transfers[1] === undefined) ? '' : transfers[1], disk_known: v => (typeof v === 'string') && (app.remote_by_name[v] !== undefined)});
         return;
     }
     const remote_fs = RE_REMOTE_FS.exec(url.pathname);
     if (remote_fs !== null) {
-        await handle_fs(app, req, res, decodeURIComponent(remote_fs[1]), ((remote_fs[2] === undefined) ? '' : remote_fs[2]));
+        await handle_fs(app, req, res, decodeURIComponent(remote_fs[1]), (remote_fs[2] === undefined) ? '' : remote_fs[2]);
         return;
     }
     const remote_processes = RE_REMOTE_PROCESSES.exec(url.pathname);
@@ -481,11 +481,11 @@ function page_known(app, pathname)
         return false;
     }
     if (parts[0] === 'services') {
-        const named = ((parts[1] === 'new') || (app.service_by_name[parts[1]] !== undefined));
+        const named = (parts[1] === 'new') || (app.service_by_name[parts[1]] !== undefined);
         return named && ((parts[2] === undefined) || SERVICE_TABS.includes(parts[2]));
     }
     if (parts[0] === 'remotes') {
-        const named = ((parts[1] === 'new') || (app.remote_by_name[parts[1]] !== undefined));
+        const named = (parts[1] === 'new') || (app.remote_by_name[parts[1]] !== undefined);
         return named && ((parts[2] === undefined) || REMOTE_TABS.includes(parts[2]));
     }
     return false;
@@ -640,7 +640,7 @@ async function handle_fs(app, req, res, name, tail)
         return;
     }
     await file_manager_serve(req, res, {
-        disk: remote_disk(app, remote, ((token === undefined) ? undefined : {root: token.folders})),
+        disk: remote_disk(app, remote, (token === undefined) ? undefined : {root: token.folders}),
         tail,
         name: remote.name,
         log: function (event, fields) {
@@ -680,7 +680,7 @@ async function handle_docker(app, req, res, name, tail)
     if (files !== null) {
         await file_manager_serve(req, res, {
             disk: container_disk(connect, files[1]),
-            tail: ((files[2] === undefined) ? '' : files[2]),
+            tail: (files[2] === undefined) ? '' : files[2],
             name: files[1].slice(0, 12),
             log: function (event, fields) {
                 log_event(app, event, Object.assign({remote: remote.name, container: files[1].slice(0, 12)}, fields));
@@ -728,7 +728,7 @@ async function handle_firewall(app, req, res, name, tail)
     await firewall_serve(req, res, {
         run: v => remote_call(app, remote, 'ufw', {argv: v}, UFW_TIMEOUT_MS),
         // An agent from before the port list has none to give; the module says so
-        ports: (remote_can(remote, 'port_list') ? ports_read : undefined),
+        ports: remote_can(remote, 'port_list') ? ports_read : undefined,
         tail,
         log: function (event, fields) {
             log_event(app, event, Object.assign({remote: remote.name}, fields));
@@ -758,7 +758,7 @@ async function handle_volumes(app, req, res, name, tail)
     }
     await volumes_serve(req, res, {
         call: v => remote_call(app, remote, 'volume', v, VOLUME_TIMEOUT_MS),
-        key_safe: (from_this_machine(req) || from_loopback_page(req) || (req.socket.encrypted === true)),
+        key_safe: from_this_machine(req) || from_loopback_page(req) || (req.socket.encrypted === true),
         tail,
         log: function (event, fields) {
             log_event(app, event, Object.assign({remote: remote.name}, fields));
@@ -848,7 +848,7 @@ async function handle_apt(app, res, name, action)
     }
     const promise = remote_call(app, remote, 'apt_upgrade', {service: apt_lane}, APT_TIMEOUT_MS);
     promise.then(function (answer) {
-        return apt_ended(app, remote, before, (answer.cancelled ? 'cancelled' : (answer.ok ? 'ok' : 'error')), (answer.ok ? null : last_line_of(answer)));
+        return apt_ended(app, remote, before, answer.cancelled ? 'cancelled' : (answer.ok ? 'ok' : 'error'), answer.ok ? null : last_line_of(answer));
     }, function (error) {
         return apt_ended(app, remote, before, 'error', error.message);
     }).catch(function (error) {
@@ -869,12 +869,12 @@ async function apt_ended(app, remote, before, phase, error)
         for (const item of run.containers.down) {
             apt_said(remote, `serviceman: ${item.name} ran before the upgrade and cannot start now: ${item.reason}`);
         }
-        log_event(app, ((run.containers.down.length === 0) ? 'apt_containers_ok' : 'apt_containers_down'), {remote: remote.name, ran: before.length, started: run.containers.started, down: run.containers.down.map(v => v.name)});
+        log_event(app, (run.containers.down.length === 0) ? 'apt_containers_ok' : 'apt_containers_down', {remote: remote.name, ran: before.length, started: run.containers.started, down: run.containers.down.map(v => v.name)});
     }
     run.phase = phase;
     run.ended_at = Date.now();
     run.error = error;
-    log_event(app, ((phase === 'ok') ? 'apt_end_ok' : 'apt_end_error'), {remote: remote.name, lines: run.lines.length, reason: ((error === null) ? undefined : error)});
+    log_event(app, (phase === 'ok') ? 'apt_end_ok' : 'apt_end_error', {remote: remote.name, lines: run.lines.length, reason: (error === null) ? undefined : error});
     // What the upgrade left wrong is on the page now, not at the next look a minute away
     problems_check(app).catch(function (error) {
         log_event(app, 'problems_check_error', {reason: error.message});
@@ -892,7 +892,7 @@ async function apt_ended(app, remote, before, phase, error)
 function last_line_of(answer)
 {
     const said = `${answer.stderr || ''}\n${answer.stdout || ''}`.trim().split('\n').filter(v => v.trim() !== '');
-    return ((said.length === 0) ? `apt-get ended with ${answer.code}` : said[said.length - 1]);
+    return (said.length === 0) ? `apt-get ended with ${answer.code}` : said[said.length - 1];
 }
 
 // GET /api/v1/remotes/<name>/metrics?range=1h|24h|7d|30d
@@ -955,7 +955,7 @@ async function handle_terminal_create(app, req, res, name)
         }
         term = String(n);
     }
-    await handle_terminal_call(app, res, name, 'term_create', {name: term, cols: body.cols, rows: body.rows, env: (body.env || undefined), cwd: (body.cwd || undefined)});
+    await handle_terminal_call(app, res, name, 'term_create', {name: term, cols: body.cols, rows: body.rows, env: body.env || undefined, cwd: body.cwd || undefined});
 }
 
 // POST /api/v1/remotes/<name>/terminals/<term>/signal (body: {signal, to})
@@ -1108,11 +1108,11 @@ async function logline_put(app, req, res)
     const endpoint = String(((body.endpoint === undefined) || (body.endpoint === null)) ? '' : body.endpoint).trim();
     const ui = String(((body.ui === undefined) || (body.ui === null)) ? '' : body.ui).trim();
     const admin_token = String(((body.admin_token === undefined) || (body.admin_token === null)) ? '' : body.admin_token).trim();
-    const admin = ((app.config.logline === null) ? 'logline' : app.config.logline.admin);
+    const admin = (app.config.logline === null) ? 'logline' : app.config.logline.admin;
     if (endpoint !== '') {
         // A wrong address is refused before the token is kept, so nothing lands half-way
         try {
-            logline_from_json({endpoint, admin, ui: ((ui === '') ? undefined : ui)}, 'logline');
+            logline_from_json({endpoint, admin, ui: (ui === '') ? undefined : ui}, 'logline');
         }
         catch (error) {
             send_json(res, 400, {error: error.message});
@@ -1154,7 +1154,7 @@ async function secrets_save(app, req, res)
         return;
     }
     const kept = secrets_read(app);
-    let value = (((body.value === undefined) || (body.value === null)) ? '' : String(body.value));
+    let value = ((body.value === undefined) || (body.value === null)) ? '' : String(body.value);
     if ((body.copy_from !== undefined) && (body.copy_from !== null) && (body.copy_from !== '')) {
         const from = kept.global[String(body.copy_from)];
         if (from === undefined) {
@@ -1163,7 +1163,7 @@ async function secrets_save(app, req, res)
         }
         value = from;
     }
-    const bag = ((service === '') ? kept.global : ((kept.services[service] === undefined) ? {} : kept.services[service]));
+    const bag = (service === '') ? kept.global : ((kept.services[service] === undefined) ? {} : kept.services[service]);
     if (value === '') {
         delete bag[name];
     }
@@ -1177,7 +1177,7 @@ async function secrets_save(app, req, res)
         }
     }
     secrets_write(app, kept);
-    log_event(app, ((value === '') ? 'secret_removed' : 'secret_written'), {service: ((service === '') ? null : service), secret: name});
+    log_event(app, (value === '') ? 'secret_removed' : 'secret_written', {service: (service === '') ? null : service, secret: name});
     secrets_list(app, res);
 }
 
@@ -1247,7 +1247,7 @@ function send_agent(res)
 // leaves out.
 function collection_send(app, res)
 {
-    const port = ((app.listen_port === 80) ? '' : String(app.listen_port));
+    const port = (app.listen_port === 80) ? '' : String(app.listen_port);
     const text = render_index_collection(app, port);
     res.writeHead(200, {
         'content-type': 'text/plain; charset=utf-8',
@@ -1267,7 +1267,7 @@ async function image_ports(app, res, image, remote_name)
         send_json(res, 400, {error: 'an image name is required'});
         return;
     }
-    const asked = ((remote_name === null) ? '' : remote_name);
+    const asked = (remote_name === null) ? '' : remote_name;
     if ((asked !== '') && (asked.startsWith('#') === false) && (app.remote_by_name[asked] === undefined)) {
         send_json(res, 404, {error: `no remote named ${asked} is in the config`});
         return;
@@ -1530,7 +1530,7 @@ function load_test_from_body(body)
 async function join_save(app, req, res)
 {
     const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
-    const join = (((body.join === undefined) || (body.join === null)) ? null : object_from_body(body, 'join'));
+    const join = ((body.join === undefined) || (body.join === null)) ? null : object_from_body(body, 'join');
     await config_file_mutate(app, res, function (json) {
         if (join === null) {
             delete json.join;
@@ -1609,7 +1609,7 @@ async function remote_logs_put(app, req, res, name)
         if (Array.isArray(json.dirs) && (json.dirs.length > 0)) {
             // Checked with the rest of the config when it is read back: a wrong path is refused
             // there, with where it is wrong
-            found.log_dirs = json.dirs.map(v => (((v.service === undefined) || (v.service === null) || (v.service === '')) ? {path: v.path} : {path: v.path, service: v.service}));
+            found.log_dirs = json.dirs.map(v => ((v.service === undefined) || (v.service === null) || (v.service === '')) ? {path: v.path} : {path: v.path, service: v.service});
         }
         else if (json.dirs !== undefined) {
             delete found.log_dirs;
@@ -1712,8 +1712,8 @@ async function config_file_write(app, res, change, miss_status)
     if (miss !== null) {
         // A refusal is a sentence, and sometimes a status of its own: what is not there is a
         // 404, what is there and in use is not
-        const said = ((typeof miss === 'string') ? {error: miss, status: miss_status} : miss);
-        send_json(res, said.status || miss_status || 400, Object.assign({error: said.error}, ((said.services === undefined) ? {} : {services: said.services})));
+        const said = (typeof miss === 'string') ? {error: miss, status: miss_status} : miss;
+        send_json(res, said.status || miss_status || 400, Object.assign({error: said.error}, (said.services === undefined) ? {} : {services: said.services}));
         return;
     }
     let config;
@@ -1753,7 +1753,7 @@ function text_hash(text)
 // else a 401 that says what is wanted
 function token_refuse(app, req, res, url)
 {
-    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: ((req.headers.authorization === undefined) && (req.headers.cookie === undefined) ? 'no_token' : 'unknown_token')});
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: (req.headers.authorization === undefined) && (req.headers.cookie === undefined) ? 'no_token' : 'unknown_token'});
     if (wants_html(req) && (url.pathname.startsWith('/api/') === false)) {
         render_sign_in_page(res);
         return;
@@ -1793,8 +1793,8 @@ function control_owner_or_refuse(app, req, res)
     if ((caller !== null) && caller.owner) {
         return true;
     }
-    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: ((caller === null) ? 'no_token' : 'not_the_owner')});
-    render_error_page(res, ((caller === null) ? 401 : 403), 'Sign in first', 'Open the control page and sign in with the owner\'s token');
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: (caller === null) ? 'no_token' : 'not_the_owner'});
+    render_error_page(res, (caller === null) ? 401 : 403, 'Sign in first', 'Open the control page and sign in with the owner\'s token');
     return false;
 }
 
@@ -1850,11 +1850,11 @@ function view_from_problem(problem)
         key: problem.key,
         kind: problem.kind,
         remote: problem.remote,
-        service: ((problem.service === undefined) ? null : problem.service),
+        service: (problem.service === undefined) ? null : problem.service,
         subject: problem.subject,
         cause: problem.cause,
         fix: problem.fix,
-        since: ((problem.since === null) ? problem.first_seen : problem.since),
+        since: (problem.since === null) ? problem.first_seen : problem.since,
     };
 }
 
@@ -1869,12 +1869,12 @@ function state_from_app(app)
     for (const remote of app.remotes) {
         remotes.push(view_from_remote(remote, now, app.config.logline));
     }
-    const logline = ((app.config.logline === null) ? null : {
+    const logline = (app.config.logline === null) ? null : {
         endpoint: app.config.logline.endpoint,
         ui: app.config.logline.ui,
         admin: app.config.logline.admin,
         admin_kept: secrets_read(app).global[app.config.logline.admin] !== undefined,
-    });
+    };
     const problems = Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since));
     const forwards = app.config.forwards.map(v => view_from_forward(app, v));
     const agent_built = agent_bundle.built_at();
@@ -1886,7 +1886,7 @@ function state_from_app(app)
         listen: app.config.listen,
         control: app.config.control,
         // Whether a machine may add itself, and what it may claim — never the token itself
-        join: ((app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix}),
+        join: (app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix},
         // Where Logline is, and whether its admin token is kept — never the token itself
         logline,
         services,

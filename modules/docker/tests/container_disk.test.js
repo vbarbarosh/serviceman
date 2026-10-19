@@ -153,7 +153,7 @@ async function engine_start(t)
                     return res.end(frame(2, 'df: unrecognized option: i\n'));
                 }
                 if (cmd[0] === 'df') {
-                    const counted = ((out.df_inodes === 'counted') ? '100 30 70 30%' : '0 0 0 -');
+                    const counted = (out.df_inodes === 'counted') ? '100 30 70 30%' : '0 0 0 -';
                     return res.end(frame(1, `Filesystem Inodes IUsed IFree IUse% Mounted on\noverlay ${counted} /\n`));
                 }
                 if ((cmd[1] === '-p') && (cmd[2] === '/fail')) {
@@ -164,7 +164,7 @@ async function engine_start(t)
             }
             const done = /^\/exec\/(e\d+)\/json$/.exec(url.pathname);
             if (done !== null) {
-                return json(res, 200, {ExitCode: ((execs[done[1]].code === undefined) ? 0 : execs[done[1]].code)});
+                return json(res, 200, {ExitCode: (execs[done[1]].code === undefined) ? 0 : execs[done[1]].code});
             }
             if (url.pathname === `/containers/${ID}/archive`) {
                 const asked = url.searchParams.get('path');
@@ -177,7 +177,7 @@ async function engine_start(t)
                 if (file === undefined) {
                     return json(res, 404, {message: 'no such file'});
                 }
-                const said = (file.dir ? {name: 'conf', size: 4096, mode: 2147484141, mtime: '2025-10-02T10:00:00Z'} : {name: path.basename(asked), size: (file.link ? 10 : file.text.length), mode: (file.link ? 0o777 : file.mode), mtime: '2025-10-02T10:00:00Z', linkTarget: (file.link ? file.link : asked)});
+                const said = file.dir ? {name: 'conf', size: 4096, mode: 2147484141, mtime: '2025-10-02T10:00:00Z'} : {name: path.basename(asked), size: file.link ? 10 : file.text.length, mode: file.link ? 0o777 : file.mode, mtime: '2025-10-02T10:00:00Z', linkTarget: file.link ? file.link : asked};
                 res.writeHead(200, {'x-docker-container-path-stat': Buffer.from(JSON.stringify(said)).toString('base64')});
                 if (req.method === 'HEAD') {
                     return res.end();
@@ -188,7 +188,7 @@ async function engine_start(t)
         });
     });
     await new Promise(v => server.listen(socket, v));
-    t.after(() => new Promise(vv => server.close(vv)));
+    t.after(() => new Promise(v => server.close(v)));
     return out;
 }
 

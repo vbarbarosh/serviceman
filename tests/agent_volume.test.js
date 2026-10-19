@@ -28,7 +28,7 @@ function fake_machine(over)
             machine.ran.push(argv.join(' '));
             machine.inputs.push((input === undefined) ? null : input);
             if (argv[1] === '--version') {
-                return {code: (machine.no_cryptsetup ? -1 : 0), stdout: 'cryptsetup 2.7.0', stderr: ''};
+                return {code: machine.no_cryptsetup ? -1 : 0, stdout: 'cryptsetup 2.7.0', stderr: ''};
             }
             if ((machine.fail !== null) && argv.join(' ').startsWith(machine.fail)) {
                 return {code: 1, stdout: '', stderr: `${argv[0]}: it went wrong`};
@@ -57,12 +57,12 @@ function fake_machine(over)
             }
             return {code: 0, stdout: '', stderr: ''};
         },
-        meta_names: async () => Object.keys(machine.metas).map(vv => vv.split('/').pop().replace(/\.json$/, '')).sort(),
-        meta_read: async v => ((machine.metas[v] === undefined) ? null : machine.metas[v]),
+        meta_names: async () => Object.keys(machine.metas).map(v => v.split('/').pop().replace(/\.json$/, '')).sort(),
+        meta_read: async v => (machine.metas[v] === undefined) ? null : machine.metas[v],
         meta_write: async function (file, value) {
             machine.metas[file] = value;
         },
-        file_stat: async v => ((machine.files[v] === undefined) ? null : {size: machine.files[v], on_disk: 300*1024**2}),
+        file_stat: async v => (machine.files[v] === undefined) ? null : {size: machine.files[v], on_disk: 300*1024**2},
         file_remove: async function (file) {
             delete machine.files[file];
             delete machine.metas[file];
@@ -74,7 +74,7 @@ function fake_machine(over)
         room_of: async () => ({used: GB, free: 9*GB}),
         mounted: async (target, device) => (machine.mounts[target] === device),
         exists: async v => machine.devices.includes(v),
-        folder_names: async v => ((machine.folders[v] === undefined) ? null : machine.folders[v]),
+        folder_names: async v => (machine.folders[v] === undefined) ? null : machine.folders[v],
         folder_make: async function (dir) {
             if (machine.folders[dir] === undefined) {
                 machine.folders[dir] = [];
@@ -93,7 +93,7 @@ function fake_machine(over)
         image_grow: async function (file, size) {
             machine.files[file] = size;
         },
-        user_of: async v => ((v === 'user') ? {name: 'user', uid: 1000, gid: 1000, home: '/home/user'} : null),
+        user_of: async v => (v === 'user') ? {name: 'user', uid: 1000, gid: 1000, home: '/home/user'} : null,
         users_of: async () => machine.users,
     };
     return Object.assign(machine, over);

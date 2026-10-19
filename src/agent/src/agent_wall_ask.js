@@ -15,7 +15,7 @@ function agent_wall_ask(target, req, host, extra)
     return new Promise(function (resolve) {
         const headers = Object.assign({
             host,
-            cookie: ((req.headers.cookie === undefined) ? '' : req.headers.cookie),
+            cookie: (req.headers.cookie === undefined) ? '' : req.headers.cookie,
             'x-real-ip': client_of(req),
             'x-original-uri': `${scheme_of(req)}://${host}${req.url}`,
             'x-original-method': req.method,
@@ -27,7 +27,7 @@ function agent_wall_ask(target, req, host, extra)
                 resolve({said: 'yes', user: String(answer.headers['x-auth-user'] || '')});
                 return;
             }
-            resolve({said: ([401, 403].includes(answer.statusCode) ? 'no' : 'unreachable')});
+            resolve({said: [401, 403].includes(answer.statusCode) ? 'no' : 'unreachable'});
         });
         asking.setTimeout(ASK_MS, function () {
             asking.destroy(new Error('the wall did not answer in time'));
@@ -47,7 +47,7 @@ agent_wall_ask.sign_in = function (req) {
 // keeps under /auth
 agent_wall_ask.own = function (url) {
     const mark = url.indexOf('?');
-    const pathname = ((mark === -1) ? url : url.slice(0, mark));
+    const pathname = (mark === -1) ? url : url.slice(0, mark);
     return (pathname === '/auth') || pathname.startsWith('/auth/');
 };
 

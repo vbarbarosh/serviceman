@@ -74,13 +74,13 @@ const service_doors = {
         rules: function () {
             const out = [];
             for (const item of this.remotes) {
-                const inbound = ((item.inbound === undefined) ? {} : item.inbound);
+                const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
-                    const rule = ((typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host]);
+                    const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
                     if (rule.service !== this.view.name) {
                         continue;
                     }
-                    out.push({machine: item.name, title: (item.title || item.name), host, off: (rule.off === true), auth: ((rule.auth === undefined) ? null : rule.auth), door_problem: door_problem(item)});
+                    out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth, door_problem: door_problem(item)});
                 }
             }
             return out;
@@ -91,7 +91,7 @@ const service_doors = {
             return others.filter(v => v === WALL_NAME).concat(others.filter(v => v !== WALL_NAME));
         },
         remote_options: function () {
-            return this.remotes.map(v => ({value: v.name, label: (v.title || v.name)}));
+            return this.remotes.map(v => ({value: v.name, label: v.title || v.name}));
         },
         wall_options: function () {
             return this.walls.map(v => ({value: v, label: `protected by ${v}`}));
@@ -105,8 +105,8 @@ const service_doors = {
             return this.names.includes(name);
         },
         add_open: function () {
-            const machine = ((this.remotes.length === 1) ? this.remotes[0].name : '');
-            this.fresh = {host: '', machine, auth: ((this.names.includes(WALL_NAME) && (this.view.name !== WALL_NAME)) ? WALL_NAME : '')};
+            const machine = (this.remotes.length === 1) ? this.remotes[0].name : '';
+            this.fresh = {host: '', machine, auth: (this.names.includes(WALL_NAME) && (this.view.name !== WALL_NAME)) ? WALL_NAME : ''};
             this.adding = true;
             this.report('', false);
         },

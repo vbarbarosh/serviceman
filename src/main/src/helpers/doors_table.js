@@ -37,7 +37,7 @@ function doors_table(app, remote)
         for (const host of Object.keys(other.inbound || {})) {
             const rule = rule_of(other.inbound[host]);
             for (const name of [rule.service, rule.wall]) {
-                const service = ((name === null) ? undefined : app.service_by_name[name]);
+                const service = (name === null) ? undefined : app.service_by_name[name];
                 if ((service !== undefined) && (place_of(app, service).machine === remote.name)) {
                     wanted.add(name);
                     asked = true;
@@ -57,13 +57,13 @@ function doors_table(app, remote)
     const peers = {};
     for (const other of app.remotes) {
         // What it said at its hello, or — away since serviceman started — what it said before
-        const peer = ((other === remote) ? null : (other.state.doors_peer || door_peer_known(app, other.name)));
+        const peer = (other === remote) ? null : (other.state.doors_peer || door_peer_known(app, other.name));
         const used = Object.values(services).some(v => v.machine === other.name);
         if (used && (peer !== null) && (peer !== undefined)) {
             peers[other.name] = {addresses: peer.addresses, port: peer.port, token: door_token(app, other.name)};
         }
     }
-    const table = {self: remote.name, token: (asked ? door_token(app, remote.name) : null), names, services, peers};
+    const table = {self: remote.name, token: asked ? door_token(app, remote.name) : null, names, services, peers};
     const version = crypto.createHash('sha256').update(JSON.stringify(table)).digest('hex').slice(0, 12);
     return Object.assign({version}, table);
 }
@@ -75,7 +75,7 @@ function rule_of(rule)
     if (typeof rule === 'string') {
         return {service: rule, wall: null, off: false};
     }
-    return {service: rule.service, wall: (((rule.auth === undefined) || (rule.auth === null) || (rule.auth === '')) ? null : rule.auth), off: (rule.off === true)};
+    return {service: rule.service, wall: ((rule.auth === undefined) || (rule.auth === null) || (rule.auth === '')) ? null : rule.auth, off: (rule.off === true)};
 }
 
 // Where a service runs and how its machine reaches it: the machine a running copy is on, or the
@@ -86,10 +86,10 @@ function place_of(app, service)
 {
     const running = service.state.instances.find(v => (v.remote !== null) && (v.remote !== undefined));
     const candidates = remote_candidates(app, service);
-    const machine = ((running !== undefined) ? running.remote : ((candidates.length === 0) ? null : candidates[0].name));
+    const machine = (running !== undefined) ? running.remote : ((candidates.length === 0) ? null : candidates[0].name);
     if (service.type === 'external') {
         const upstream = service.upstream;
-        return {service: service.name, machine, kind: 'external', upstream: ((typeof upstream === 'string') ? upstream : `${upstream.host}:${upstream.port}`)};
+        return {service: service.name, machine, kind: 'external', upstream: (typeof upstream === 'string') ? upstream : `${upstream.host}:${upstream.port}`};
     }
     if ((service.type === 'docker') || ((service.type === 'shell') && (service.image !== undefined) && (service.image !== null))) {
         return {service: service.name, machine, kind: 'docker', container: docker_container_name(service, 1), port: service.port};

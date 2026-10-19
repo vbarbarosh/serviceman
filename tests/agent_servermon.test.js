@@ -66,7 +66,7 @@ async function day_files_wait(dir)
 {
     const until = Date.now() + 8000;
     while (Date.now() < until) {
-        const names = (fs.existsSync(dir) ? fs.readdirSync(dir).filter(v => /^\d{8}\.jsonl$/.test(v)) : []);
+        const names = fs.existsSync(dir) ? fs.readdirSync(dir).filter(v => /^\d{8}\.jsonl$/.test(v)) : [];
         if ((names.length > 0) && (fs.readFileSync(path.join(dir, names[0]), 'utf8').includes('\n'))) {
             return names;
         }

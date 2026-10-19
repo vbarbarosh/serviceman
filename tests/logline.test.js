@@ -68,7 +68,7 @@ test('a machine switched on is told where to send and with which token, bound to
     assert.strictEqual(fs.statSync(path.join(dir, 'state', 'logline_tokens.json')).mode & 0o777, 0o600);
     // From an address it was not issued for, the token lets nothing in
     const elsewhere = await fetch(json.logline.endpoint, {method: 'POST', headers: {authorization: `Bearer ${told.token}`}, body: '[]'});
-    assert.strictEqual(elsewhere.status, (agent_addresses().includes('127.0.0.1') ? 200 : 401));
+    assert.strictEqual(elsewhere.status, agent_addresses().includes('127.0.0.1') ? 200 : 401);
 
     // Switched off, then on again: the link stays up, and the floor is the new moment
     const socket = remote.state.socket;

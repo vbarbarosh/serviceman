@@ -16,7 +16,7 @@ const remote_firewall = {
         // How far a port on every address reaches depends on what the machine's addresses are
         addresses: function () {
             const machine = this.view.machine;
-            return (((machine === null) || (machine.addresses === undefined)) ? null : machine.addresses);
+            return ((machine === null) || (machine.addresses === undefined)) ? null : machine.addresses;
         },
     },
 };

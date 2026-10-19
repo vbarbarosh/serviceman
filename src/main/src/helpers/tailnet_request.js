@@ -14,7 +14,7 @@ async function tailnet_request(url, options)
 {
     const deadline = Date.now() + options.timeout_ms;
     const port = Number(url.port || ((url.protocol === 'https:') ? 443 : 80));
-    const tunnel = (((options.proxy === undefined) || (options.proxy === null) || (options.proxy === '')) ? null : await tunnel_open(new URL(options.proxy), url.hostname, port, deadline, options.timeout_ms));
+    const tunnel = ((options.proxy === undefined) || (options.proxy === null) || (options.proxy === '')) ? null : await tunnel_open(new URL(options.proxy), url.hostname, port, deadline, options.timeout_ms);
     return await request_send(url, port, options, tunnel, deadline);
 }
 
@@ -62,7 +62,7 @@ function request_send(url, port, options, tunnel, deadline)
         }
         else {
             request_options.createConnection = function () {
-                return (secure ? tls.connect({socket: tunnel, servername: url.hostname}) : tunnel);
+                return secure ? tls.connect({socket: tunnel, servername: url.hostname}) : tunnel;
             };
         }
         const req = (secure ? https : http).request(request_options, function (res) {

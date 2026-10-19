@@ -49,9 +49,9 @@ async function link_join(app, req, socket, head)
 // machine add itself — a new one it has just become. Anything else is turned away.
 async function remote_of(app, req, socket)
 {
-    const out = remote_find_by_token(app, req.headers.authorization);
-    if (out !== null) {
-        return out;
+    const known = remote_find_by_token(app, req.headers.authorization);
+    if (known !== null) {
+        return known;
     }
     // A machine this host took away while it was not looking. It is told so, in a word it can
     // act on: it stops dialling and takes itself off that machine.
@@ -98,7 +98,7 @@ function refuse(app, socket, status, phrase, text, words, mark)
     log_event(app, 'remote_refused', words);
     // A refusal an agent should act on rather than wait out says so in a header of its own:
     // the text is for a person reading a log, this is for the program
-    const said = ((mark === undefined) ? '' : `serviceman-refused: ${mark}\r\n`);
+    const said = (mark === undefined) ? '' : `serviceman-refused: ${mark}\r\n`;
     socket.end(`HTTP/1.1 ${status} ${phrase}\r\ncontent-type: text/plain\r\ncontent-length: ${Buffer.byteLength(text)}\r\n${said}connection: close\r\n\r\n${text}`);
 }
 

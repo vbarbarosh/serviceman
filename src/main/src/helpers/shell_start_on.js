@@ -24,12 +24,12 @@ async function shell_start_on(app, remote, service, instance)
     });
     instance.pid = answer.pid;
     instance.asked_to_stop = false;
-    return ((service.port === null) ? null : {host: '127.0.0.1', port: service.port});
+    return (service.port === null) ? null : {host: '127.0.0.1', port: service.port};
 }
 
 function shell_argv(service)
 {
-    return ((Array.isArray(service.argv) && (service.argv.length > 0)) ? service.argv : ['/bin/sh', '-c', service.command]);
+    return (Array.isArray(service.argv) && (service.argv.length > 0)) ? service.argv : ['/bin/sh', '-c', service.command];
 }
 
 module.exports = shell_start_on;

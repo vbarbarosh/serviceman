@@ -6,7 +6,7 @@ const HEADER_BYTES = 5;
 // The body may be given in pieces, so a stream frame carries its bytes without a copy.
 function link_send(socket, kind, body)
 {
-    const parts = (Array.isArray(body) ? body : [body]);
+    const parts = Array.isArray(body) ? body : [body];
     let length = 0;
     for (const part of parts) {
         length += part.length;

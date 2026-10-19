@@ -60,15 +60,15 @@ const join_form = {
     props: ['join'],
     emits: ['close', 'saved'],
     data: function () {
-        const join = (((this.join === undefined) || (this.join === null)) ? null : this.join);
+        const join = ((this.join === undefined) || (this.join === null)) ? null : this.join;
         return {
             model: {
                 on: (join !== null),
-                token: ((join === null) ? token_make() : join.token),
-                tags_allowed: ((join === null) ? '' : (join.tags_allowed || []).join(', ')),
-                name_prefix: ((join === null) ? 'auto-' : join.name_prefix),
+                token: (join === null) ? token_make() : join.token,
+                tags_allowed: (join === null) ? '' : (join.tags_allowed || []).join(', '),
+                name_prefix: (join === null) ? 'auto-' : join.name_prefix,
             },
-            saved_token: ((join === null) ? '' : join.token),
+            saved_token: (join === null) ? '' : join.token,
             where: `${location.protocol}//${location.host}`,
             note: '',
             bad: false,
@@ -94,7 +94,7 @@ const join_form = {
                     this.report(outcome.error, true);
                     return;
                 }
-                this.saved_token = (this.model.on ? this.model.token : '');
+                this.saved_token = this.model.on ? this.model.token : '';
                 this.report(this.model.on ? 'saved · a machine with this token may join' : 'saved · no machine can add itself now', false);
                 this.$emit('saved');
             }
@@ -134,7 +134,7 @@ function json_from_join(model)
     return {
         token: model.token,
         tags_allowed: tags_of(model),
-        name_prefix: ((model.name_prefix === '') ? 'auto-' : model.name_prefix),
+        name_prefix: (model.name_prefix === '') ? 'auto-' : model.name_prefix,
     };
 }
 

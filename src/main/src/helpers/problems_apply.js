@@ -15,8 +15,8 @@ function problems_apply(app, found, now)
     const after = new Map();
     for (const item of found) {
         const was = before.get(item.key);
-        const first_seen = ((was === undefined) ? now : was.first_seen);
-        const shown = (((was !== undefined) && was.shown) || (now - first_seen >= HOLD_MS));
+        const first_seen = (was === undefined) ? now : was.first_seen;
+        const shown = ((was !== undefined) && was.shown) || (now - first_seen >= HOLD_MS);
         if (shown && ((was === undefined) || (was.shown === false))) {
             log_event(app, 'problem_begin', {remote: item.remote, subject: item.subject, cause: item.cause});
         }

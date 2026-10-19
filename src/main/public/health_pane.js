@@ -55,13 +55,13 @@ const health_pane = {
     emits: ['remote', 'select'],
     computed: {
         problems: function () {
-            return ((this.state.problems === undefined) ? [] : this.state.problems);
+            return (this.state.problems === undefined) ? [] : this.state.problems;
         },
         health: function () {
-            return ((this.state.health === undefined) ? null : this.state.health);
+            return (this.state.health === undefined) ? null : this.state.health;
         },
         areas: function () {
-            return ((this.health === null) ? [] : this.health.areas);
+            return (this.health === null) ? [] : this.health.areas;
         },
         // What is wrong, what to look at, or that nothing is. It counts things, not problems:
         // a thing is red the moment a look finds it so, a problem once two looks have
@@ -85,7 +85,7 @@ const health_pane = {
             if (items.length === 0) {
                 return {state: 'ok-text', text: 'Everything works'};
             }
-            return {state: ((counts.bad > 0) ? 'bad' : 'warn'), text: items.join(' · ')};
+            return {state: (counts.bad > 0) ? 'bad' : 'warn', text: items.join(' · ')};
         },
         checked_text: function () {
             if ((this.health === null) || (this.health.checked_at === null)) {
@@ -94,7 +94,7 @@ const health_pane = {
             return `checked ${format_ms(Math.max(0, this.state.now - this.health.checked_at))} ago`;
         },
         checked_title: function () {
-            return (((this.health === null) || (this.health.checked_at === null)) ? '' : new Date(this.health.checked_at).toLocaleString());
+            return ((this.health === null) || (this.health.checked_at === null)) ? '' : new Date(this.health.checked_at).toLocaleString();
         },
     },
     methods: {

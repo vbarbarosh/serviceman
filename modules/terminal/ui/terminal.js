@@ -39,11 +39,11 @@ const terminal = {
         // by itself — a shell that ended is not reconnected to, it is opened again
         // `lockable` is Chrome's Keyboard Lock being here: only in full screen does it give a
         // page the keys the browser keeps for itself, Ctrl-W, Ctrl-T and Ctrl-N among them
-        return {note: 'opening…', bad: false, over: false, full: false, lockable: ((navigator.keyboard !== undefined) && (typeof navigator.keyboard.lock === 'function') && (document.fullscreenEnabled === true))};
+        return {note: 'opening…', bad: false, over: false, full: false, lockable: (navigator.keyboard !== undefined) && (typeof navigator.keyboard.lock === 'function') && (document.fullscreenEnabled === true)};
     },
     watch: {
         theme: function (value) {
-            this.term.options.theme = ((value === 'dark') ? THEME_DARK : THEME_LIGHT);
+            this.term.options.theme = (value === 'dark') ? THEME_DARK : THEME_LIGHT;
         },
         // Another far end — another instance of a service, say — starts on a clean screen
         url: function () {
@@ -57,7 +57,7 @@ const terminal = {
     methods: {
         open: function () {
             const _this = this;
-            const protocol = ((location.protocol === 'https:') ? 'wss:' : 'ws:');
+            const protocol = (location.protocol === 'https:') ? 'wss:' : 'ws:';
             const socket = new WebSocket(`${protocol}//${location.host}${this.url}`);
             socket.binaryType = 'arraybuffer';
             this.socket = socket;
@@ -132,7 +132,7 @@ const terminal = {
         this.term = new Terminal({
             fontSize: 13,
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-            theme: ((this.theme === 'dark') ? THEME_DARK : THEME_LIGHT),
+            theme: (this.theme === 'dark') ? THEME_DARK : THEME_LIGHT,
             cursorBlink: true,
             scrollback: 5000,
         });

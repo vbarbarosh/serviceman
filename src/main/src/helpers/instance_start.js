@@ -83,7 +83,7 @@ async function start_on(app, service, instance, remote, time0)
     const upstream = await driver_start(app, remote, service, instance);
     // The pool is made before the probe, because the probe asks through it
     agent_reset(app, service, instance);
-    const answered = ((upstream === null) ? null : await wait_http_answer(app, service, instance, upstream, service.policy.start_timeout_ms));
+    const answered = (upstream === null) ? null : await wait_http_answer(app, service, instance, upstream, service.policy.start_timeout_ms);
     instance.upstream = upstream;
     instance.phase = 'running';
     instance.started_at = Date.now();

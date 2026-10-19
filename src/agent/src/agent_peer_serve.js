@@ -23,11 +23,11 @@ const where = {now: null};
 // thing between a caller and every service here, and the tailnet is who may be a caller at all.
 function agent_peer_serve(options, group)
 {
-    const port = ((options.peer_port === '') ? PEER_PORT : parseInt(options.peer_port, 10));
+    const port = (options.peer_port === '') ? PEER_PORT : parseInt(options.peer_port, 10);
     if ((port === 0) || Number.isNaN(port)) {
         return;
     }
-    const hosts = ((options.peer_host === '') ? agent_addresses().filter(is_tailnet) : [options.peer_host]);
+    const hosts = (options.peer_host === '') ? agent_addresses().filter(is_tailnet) : [options.peer_host];
     if (hosts.length === 0) {
         agent_say(group, 'peer_serve_off', {reason: 'this machine has no tailnet address'});
         return;
@@ -80,7 +80,7 @@ async function peer_answer(options, req, res)
 async function peer_upgrade(options, req, socket, head)
 {
     const found = peer_service(req);
-    const target = ((found.refused === undefined) ? await agent_service_target(agent_doors_state.table, found.service, options) : null);
+    const target = (found.refused === undefined) ? await agent_service_target(agent_doors_state.table, found.service, options) : null;
     if (target === null) {
         socket.end('HTTP/1.1 502 Bad Gateway\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;

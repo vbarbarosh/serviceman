@@ -71,7 +71,7 @@ function check(ctx, status, group)
 function restart_reason(ctx, pids)
 {
     if ((fs.existsSync(ctx.file) === false) || (fs.readFileSync(ctx.file, 'utf8') !== agent_servermon_text)) {
-        return ((pids.length === 0) ? 'none' : 'new version');
+        return (pids.length === 0) ? 'none' : 'new version';
     }
     if (pids.length === 0) {
         return 'gone';

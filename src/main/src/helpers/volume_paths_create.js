@@ -12,7 +12,7 @@ async function volume_paths_create(app, remote, service)
         }
         // A path this service keeps is under the folder of whoever runs it; that end knows
         // where its own folder is, so it makes it there
-        const source = ((volume.kind === 'kept') ? kept_path(app, remote, volume) : volume.source);
+        const source = (volume.kind === 'kept') ? kept_path(app, remote, volume) : volume.source;
         if ((source === null) || (await dir_made(app, remote, source) === false)) {
             continue;
         }
@@ -24,7 +24,7 @@ async function volume_paths_create(app, remote, service)
 function kept_path(app, remote, volume)
 {
     const root = volume_keep_root(app, remote);
-    return ((root === null) ? null : require('path').join(root, 'data', volume.keep));
+    return (root === null) ? null : require('path').join(root, 'data', volume.keep);
 }
 
 // Makes the folder where the container will run, and says whether it had to

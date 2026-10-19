@@ -28,16 +28,16 @@ function package_list_from_dpkg(status_text, manual_text, hold_text, upgrade_tex
             name,
             arch,
             version: columns[3],
-            size: (Number.isFinite(size) ? size*KIB : null),
+            size: Number.isFinite(size) ? size*KIB : null,
             section: columns[5],
             summary: columns.slice(6).join('\t'),
-            manual: (manual.has(name) || manual.has(`${name}:${arch}`)),
-            held: (held.has(name) || held.has(`${name}:${arch}`)),
-            broken: ((status[1] !== 'i') || ((status[2] || ' ') !== ' ')),
+            manual: manual.has(name) || manual.has(`${name}:${arch}`),
+            held: held.has(name) || held.has(`${name}:${arch}`),
+            broken: (status[1] !== 'i') || ((status[2] || ' ') !== ' '),
             update: updates[`${name}:${arch}`] || updates[name] || null,
         });
     }
-    out.sort((a, b) => ((a.name === b.name) ? cmp(a.arch, b.arch) : cmp(a.name, b.name)));
+    out.sort((a, b) => (a.name === b.name) ? cmp(a.arch, b.arch) : cmp(a.name, b.name));
     return out;
 }
 
@@ -66,7 +66,7 @@ function lines_of(text)
 // Package names are ascii, and the order apt itself lists them in
 function cmp(a, b)
 {
-    return ((a < b) ? -1 : ((a > b) ? 1 : 0));
+    return (a < b) ? -1 : ((a > b) ? 1 : 0);
 }
 
 module.exports = package_list_from_dpkg;

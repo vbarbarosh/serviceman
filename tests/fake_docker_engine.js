@@ -27,7 +27,7 @@ async function fake_docker_engine(socket)
         // One line, stamped now, to whoever follows the container
         log: function (id, text, stream) {
             const at = stamp_next(engine);
-            const item = {at, at_text: stamp_text(at), stream: ((stream === 'stderr') ? 2 : 1), text};
+            const item = {at, at_text: stamp_text(at), stream: (stream === 'stderr') ? 2 : 1, text};
             const container = engine.containers.get(id);
             container.logs.push(item);
             for (const follower of engine.followers) {
@@ -72,7 +72,7 @@ function route(engine, req, res)
     const one = /^\/containers\/([^/]+)\/json$/.exec(url.pathname);
     const logs = /^\/containers\/([^/]+)\/logs$/.exec(url.pathname);
     if (url.pathname === '/containers/json') {
-        json_send(res, 200, [...engine.containers.values()].map(v => ({Id: v.id, Names: [`/${v.name}`], Image: v.image, Labels: v.labels, State: (v.running ? 'running' : 'exited')})));
+        json_send(res, 200, [...engine.containers.values()].map(v => ({Id: v.id, Names: [`/${v.name}`], Image: v.image, Labels: v.labels, State: v.running ? 'running' : 'exited'})));
         return;
     }
     if (one !== null) {

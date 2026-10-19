@@ -31,8 +31,8 @@ function pool_autoscale(app, service, now)
     const room = running.length*service.policy.concurrency;
     const busy = (service_inflight(service) + state.queue.length)/room;
     const up_at = busy_up_at(service, policy);
-    state.busy_up_since = ((busy >= up_at) ? ((state.busy_up_since === null) ? now : state.busy_up_since) : null);
-    state.busy_down_since = ((busy <= policy.busy_down) ? ((state.busy_down_since === null) ? now : state.busy_down_since) : null);
+    state.busy_up_since = (busy >= up_at) ? ((state.busy_up_since === null) ? now : state.busy_up_since) : null;
+    state.busy_down_since = (busy <= policy.busy_down) ? ((state.busy_down_since === null) ? now : state.busy_down_since) : null;
     if ((state.scaled_at !== null) && (now - state.scaled_at < policy.cool_down_ms)) {
         return;
     }

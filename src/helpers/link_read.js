@@ -6,7 +6,7 @@ function link_read(socket, on_frame)
 {
     let rest = Buffer.alloc(0);
     socket.on('data', function (chunk) {
-        rest = ((rest.length === 0) ? chunk : Buffer.concat([rest, chunk]));
+        rest = (rest.length === 0) ? chunk : Buffer.concat([rest, chunk]);
         for (;;) {
             if (rest.length < HEADER_BYTES) {
                 return;

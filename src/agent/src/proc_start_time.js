@@ -14,7 +14,7 @@ function proc_start_time(pid)
     // The name in parentheses may hold spaces and parentheses of its own: the fields are
     // counted from after the last one. Start time is the 22nd field, the 20th after the name.
     const fields = text.slice(text.lastIndexOf(')') + 2).split(' ');
-    return ((fields[19] === undefined) ? null : fields[19]);
+    return (fields[19] === undefined) ? null : fields[19];
 }
 
 module.exports = proc_start_time;

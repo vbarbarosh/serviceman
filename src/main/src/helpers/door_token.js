@@ -29,8 +29,8 @@ function tokens_of(app)
             throw error;
         }
     }
-    const kept = ((text === null) ? {} : JSON.parse(text));
-    app.door_tokens = (((kept === null) || (typeof kept !== 'object') || Array.isArray(kept)) ? {} : kept);
+    const kept = (text === null) ? {} : JSON.parse(text);
+    app.door_tokens = ((kept === null) || (typeof kept !== 'object') || Array.isArray(kept)) ? {} : kept;
     return app.door_tokens;
 }
 

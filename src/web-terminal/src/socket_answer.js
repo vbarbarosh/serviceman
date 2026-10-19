@@ -18,8 +18,8 @@ function socket_answer(req, socket, head)
             terminal_refuse(client, 'no session has that name: lowercase letters, digits, - and _, one word after /');
             return;
         }
-        const argv = ((name === '') ? [process.env.SHELL || '/bin/bash', '-l'] : tmux_argv(['new-session', '-A', '-s', name]));
-        const note = ((name === '') ? 'a terminal of its own: it ends when this page closes' : `session ${name}: it stays when this page closes, and /${name} opens it again`);
+        const argv = (name === '') ? [process.env.SHELL || '/bin/bash', '-l'] : tmux_argv(['new-session', '-A', '-s', name]);
+        const note = (name === '') ? 'a terminal of its own: it ends when this page closes' : `session ${name}: it stays when this page closes, and /${name} opens it again`;
         const stream = pty_spawn(argv);
         terminal_attach(client, stream, {
             note,

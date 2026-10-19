@@ -12,7 +12,7 @@ function fs_host_of(app, req)
         return null;
     }
     const name = host.slice(0, -mark.length);
-    return (/^[^.]+$/.test(name) ? name : null);
+    return /^[^.]+$/.test(name) ? name : null;
 }
 
 function host_of(text)

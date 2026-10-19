@@ -23,7 +23,7 @@ async function firewall_serve(req, res, options)
     const ctx = {
         run: options.run,
         ports: options.ports,
-        log: ((options.log === undefined) ? function () {} : options.log),
+        log: (options.log === undefined) ? function () {} : options.log,
     };
     const tail = options.tail;
     try {
@@ -60,7 +60,7 @@ async function firewall_serve(req, res, options)
         send_json(res, 404, {error: `no such door: ${tail}`});
     }
     catch (error) {
-        send_json(res, ((error.status === undefined) ? 502 : error.status), {error: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
     }
 }
 
@@ -92,7 +92,7 @@ async function state_read(ctx)
 async function rule_add_serve(ctx, req, res)
 {
     const body = await body_json(req);
-    const argv = ((typeof body.command === 'string') ? command_argv_checked(body.command) : argv_from_form(body));
+    const argv = (typeof body.command === 'string') ? command_argv_checked(body.command) : argv_from_form(body);
     const before = await state_read(ctx);
     // ufw says it inserted a rule past the last one, and adds nothing: that one is added last
     const at = Number(body.at);
@@ -181,7 +181,7 @@ function argv_from_form(body)
         out.push((proto === 'any') ? port : `${port}/${proto}`);
         return out;
     }
-    out.push('from', ((from === '') ? 'any' : from), 'to', 'any', 'port', port);
+    out.push('from', (from === '') ? 'any' : from, 'to', 'any', 'port', port);
     if (proto !== 'any') {
         out.push('proto', proto);
     }
@@ -239,7 +239,7 @@ function rule_fields(argv)
         const one = word.split('/');
         if (/^[\d:,]+$/.test(one[0])) {
             out.port = one[0];
-            out.proto = ((one[1] === undefined) ? null : one[1]);
+            out.proto = (one[1] === undefined) ? null : one[1];
         }
         else {
             out.app = word;
@@ -261,9 +261,9 @@ function ssh_lets_in(rule)
     if ((rule.port === null) || ((rule.proto !== null) && (rule.proto !== 'tcp'))) {
         return false;
     }
-    return rule.port.split(',').some(function (v) {
-        const range = v.split(':').map(Number);
-        return ((range.length === 1) ? range[0] === 22 : ((range[0] <= 22) && (22 <= range[1])));
+    return rule.port.split(',').some(function (part) {
+        const range = part.split(':').map(Number);
+        return (range.length === 1) ? range[0] === 22 : ((range[0] <= 22) && (22 <= range[1]));
     });
 }
 
@@ -287,7 +287,7 @@ function defaults_from_status(text)
 function line_value(text, name)
 {
     const found = new RegExp(`^${name}: (.*)$`, 'm').exec(text);
-    return ((found === null) ? null : found[1].trim());
+    return (found === null) ? null : found[1].trim();
 }
 
 // Words the way a shell splits them, which is how ufw writes a comment: in single quotes
@@ -304,7 +304,7 @@ function words_split(text)
 
 function argv_text(argv)
 {
-    return argv.map(v => (/\s/.test(v) ? `'${v}'` : v)).join(' ');
+    return argv.map(v => /\s/.test(v) ? `'${v}'` : v).join(' ');
 }
 
 // What ufw said when it could not be run at all, or refused: as the error
@@ -326,9 +326,9 @@ function said_throw(answer)
 {
     refused_throw(answer);
     const text = `${answer.stdout}\n${answer.stderr}`;
-    const error = /^ERROR: (.*)$/m.exec(text);
-    if (error !== null) {
-        throw status_error(400, error[1]);
+    const said = /^ERROR: (.*)$/m.exec(text);
+    if (said !== null) {
+        throw status_error(400, said[1]);
     }
     if (/Could not delete non-existent rule/.test(text)) {
         throw status_error(409, 'ufw has no such rule any more');

@@ -26,7 +26,7 @@ function container_disk(connect, id)
 {
     return {
         list: async function (asked) {
-            const dir = (((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked));
+            const dir = ((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked);
             const answer = await exec_run(connect, id, ['find', dir, '-mindepth', '1', '-maxdepth', '1', '-exec', 'stat', '-L', '-c', LIST_FORMAT, '{}', '+']);
             if ((answer.code !== 0) && (answer.stdout === '')) {
                 throw new Error(answer.stderr.trim() || `find ended with ${answer.code} in the container`);
@@ -35,11 +35,11 @@ function container_disk(connect, id)
             for (const line of answer.stdout.split('\n')) {
                 const found = /^([^/]+)\/(\d+)\/(\d+)\/(.*)$/.exec(line);
                 if (found !== null) {
-                    const kind = ((found[1] === 'directory') ? 'dir' : 'file');
-                    items.push({name: path.posix.basename(found[4]), kind, size: ((kind === 'file') ? Number(found[2]) : null), mtime_ms: Number(found[3])*1000});
+                    const kind = (found[1] === 'directory') ? 'dir' : 'file';
+                    items.push({name: path.posix.basename(found[4]), kind, size: (kind === 'file') ? Number(found[2]) : null, mtime_ms: Number(found[3])*1000});
                 }
             }
-            items.sort((a, b) => ((a.kind === b.kind) ? a.name.localeCompare(b.name) : ((a.kind === 'dir') ? -1 : 1)));
+            items.sort((a, b) => (a.kind === b.kind) ? a.name.localeCompare(b.name) : ((a.kind === 'dir') ? -1 : 1));
             return {path: dir, items};
         },
         stat: async function (asked) {
@@ -71,7 +71,7 @@ function container_disk(connect, id)
             return exec_or_throw(connect, id, ['mkdir', '-p', path.posix.normalize(asked)]);
         },
         room: async function (asked) {
-            return await disk_room(connect, id, (((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked)));
+            return await disk_room(connect, id, ((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked));
         },
     };
 }
@@ -84,7 +84,7 @@ async function working_dir(connect, id)
         throw new Error(engine_said(answer));
     }
     const config = JSON.parse(answer.body).Config;
-    return ((config && config.WorkingDir) ? config.WorkingDir : '/');
+    return (config && config.WorkingDir) ? config.WorkingDir : '/';
 }
 
 // A link followed to what it names, the way the agent's own file manager follows one: a
@@ -116,8 +116,8 @@ async function path_stat(connect, id, full)
         throw new Error(engine_said(answer));
     }
     const said = JSON.parse(Buffer.from(String(answer.headers['x-docker-container-path-stat']), 'base64').toString('utf8'));
-    const dir = ((said.isDir === true) || (Math.floor(said.mode/MODE_DIR) % 2 === 1));
-    return {kind: (dir ? 'dir' : 'file'), size: said.size, mtime_ms: Date.parse(said.mtime), mode: said.mode % 4096, link: (said.linkTarget ? said.linkTarget : null)};
+    const dir = (said.isDir === true) || (Math.floor(said.mode/MODE_DIR) % 2 === 1);
+    return {kind: dir ? 'dir' : 'file', size: said.size, mtime_ms: Date.parse(said.mtime), mode: said.mode % 4096, link: said.linkTarget ? said.linkTarget : null};
 }
 
 // The bytes of one file, out of the archive docker writes of it: past the headers (a long name
@@ -129,8 +129,8 @@ async function* file_bytes(connect, id, asked, range)
     if (res.statusCode !== 200) {
         throw new Error(engine_said({status: res.statusCode, body: await body_text(res)}));
     }
-    const first = ((range === null) ? 0 : range.start);
-    const last = ((range === null) ? Infinity : range.end);
+    const first = (range === null) ? 0 : range.start;
+    const last = (range === null) ? Infinity : range.end;
     let held = Buffer.alloc(0);
     // Bytes of a header about the next entry, still to pass over
     let skip = 0;
@@ -201,8 +201,8 @@ async function disk_room(connect, id, full)
         throw new Error(bytes.stderr.trim() || `df ended with ${bytes.code} in the container`);
     }
     const inodes = await exec_run(connect, id, ['df', '-Pi', at]);
-    const counted = ((inodes.code === 0) ? df_numbers(inodes.stdout) : null);
-    return {bytes_free: blocks.free*1024, inodes_free: (((counted === null) || (counted.total === 0)) ? null : counted.free)};
+    const counted = (inodes.code === 0) ? df_numbers(inodes.stdout) : null;
+    return {bytes_free: blocks.free*1024, inodes_free: ((counted === null) || (counted.total === 0)) ? null : counted.free};
 }
 
 // The numbers of df -P's one line about a disk: total, used, free, then a share and where it is
@@ -269,7 +269,7 @@ async function tar_put(connect, id, dir, source)
         await exec_or_throw(connect, id, ['mkdir', '-p', dir]);
     }
     const size = Number((source.headers === undefined) ? NaN : source.headers['content-length']);
-    const headers = (Number.isInteger(size) ? {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': size} : {'host': 'docker', 'content-type': 'application/x-tar'});
+    const headers = Number.isInteger(size) ? {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': size} : {'host': 'docker', 'content-type': 'application/x-tar'};
     const res = await new Promise(function (resolve, reject) {
         const req = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(dir)}`, headers}, resolve);
         req.on('error', reject);
@@ -369,7 +369,7 @@ async function exec_start(connect, id, cmd)
 async function exec_code(connect, exec)
 {
     const answer = await engine_call(connect, 'GET', `/exec/${exec}/json`);
-    return ((answer.status === 200) ? JSON.parse(answer.body).ExitCode : null);
+    return (answer.status === 200) ? JSON.parse(answer.body).ExitCode : null;
 }
 
 // Docker's two streams in one, without a terminal: each frame is 8 bytes — the stream, three
@@ -384,7 +384,7 @@ async function* frames(res)
             if (held.length < 8 + size) {
                 break;
             }
-            yield {stream: ((held[0] === 2) ? 'stderr' : 'stdout'), data: held.subarray(8, 8 + size)};
+            yield {stream: (held[0] === 2) ? 'stderr' : 'stdout', data: held.subarray(8, 8 + size)};
             held = held.subarray(8 + size);
         }
     }
@@ -401,8 +401,8 @@ async function engine_call(connect, method, pathname, value)
 function engine_stream(connect, method, pathname, value)
 {
     return new Promise(function (resolve, reject) {
-        const body = ((value === undefined) ? null : JSON.stringify(value));
-        const headers = ((body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)});
+        const body = (value === undefined) ? null : JSON.stringify(value);
+        const headers = (body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)};
         const req = http.request({createConnection: connect, method, path: pathname, headers}, resolve);
         req.on('error', reject);
         req.end((body === null) ? undefined : body);

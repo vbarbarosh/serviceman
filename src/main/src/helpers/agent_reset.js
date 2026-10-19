@@ -11,8 +11,8 @@ function agent_reset(app, service, instance)
     if (instance.agent !== null) {
         instance.agent.destroy();
     }
-    const remote = ((instance.remote === null) ? undefined : app.remote_by_name[instance.remote]);
-    instance.agent = ((remote === undefined) ? new http.Agent(AGENT_OPTIONS) : tunnel_agent(remote));
+    const remote = (instance.remote === null) ? undefined : app.remote_by_name[instance.remote];
+    instance.agent = (remote === undefined) ? new http.Agent(AGENT_OPTIONS) : tunnel_agent(remote);
     return instance.agent;
 }
 

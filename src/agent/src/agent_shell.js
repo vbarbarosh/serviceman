@@ -12,12 +12,12 @@ function agent_shell(argv, options)
                 ok: (error === null),
                 // What it ended with, for the times a command fails quietly: a status is the
                 // only thing a program that says nothing still says
-                code: ((error === null) ? 0 : ((typeof error.code === 'number') ? error.code : -1)),
+                code: (error === null) ? 0 : ((typeof error.code === 'number') ? error.code : -1),
                 // Whether it was stopped rather than finished — a command given a deadline and
                 // still going is a different answer from one that failed
-                killed: ((error !== null) && (error.killed === true)),
+                killed: (error !== null) && (error.killed === true),
                 stdout: String(stdout).trim(),
-                stderr: ((error === null) ? String(stderr).trim() : String(stderr || error.message).trim()),
+                stderr: (error === null) ? String(stderr).trim() : String(stderr || error.message).trim(),
             });
         });
     });

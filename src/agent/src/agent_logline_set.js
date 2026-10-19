@@ -13,17 +13,17 @@ const file_write_synced = require('./file_write_synced');
 // again, the floor is the new moment.
 function agent_logline_set(params)
 {
-    const logs = (((params !== undefined) && (params.logs === 'all')) ? 'all' : 'off');
+    const logs = ((params !== undefined) && (params.logs === 'all')) ? 'all' : 'off';
     if ((logs === 'all') && ((typeof params.endpoint !== 'string') || (typeof params.token !== 'string'))) {
         throw new Error('logs "all" needs an endpoint and a token');
     }
     const was = agent_logline_read();
     const settings = {
-        endpoint: ((logs === 'all') ? params.endpoint : null),
-        token: ((logs === 'all') ? params.token : null),
+        endpoint: (logs === 'all') ? params.endpoint : null,
+        token: (logs === 'all') ? params.token : null,
         logs,
-        floor: ((logs === 'off') ? null : (((was.logs === 'all') && (was.floor !== null)) ? was.floor : new Date().toISOString())),
-        dirs: (((logs === 'all') && Array.isArray(params.dirs)) ? params.dirs.map(v => ({path: String(v.path), service: (((v.service === undefined) || (v.service === null)) ? null : String(v.service))})) : []),
+        floor: (logs === 'off') ? null : (((was.logs === 'all') && (was.floor !== null)) ? was.floor : new Date().toISOString()),
+        dirs: ((logs === 'all') && Array.isArray(params.dirs)) ? params.dirs.map(v => ({path: String(v.path), service: ((v.service === undefined) || (v.service === null)) ? null : String(v.service)})) : [],
     };
     if (JSON.stringify(settings) !== JSON.stringify(was)) {
         // Mode 600: the token lets this machine write to the log

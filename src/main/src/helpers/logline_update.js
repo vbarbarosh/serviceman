@@ -60,7 +60,7 @@ function services_to_restart(changed)
 {
     const text = fs.readFileSync(path.join(logline_files.dir, 'docker-compose.yml'), 'utf8');
     const mounts = compose_mounts(text);
-    return Object.keys(mounts).filter(v => mounts[v].some(vv => changed.some(vvv => ((vvv.path === vv) || vvv.path.startsWith(`${vv}/`)))));
+    return Object.keys(mounts).filter(v => mounts[v].some(vv => changed.some(vvv => (vvv.path === vv) || vvv.path.startsWith(`${vv}/`))));
 }
 
 async function run(app, remote, argv, say)

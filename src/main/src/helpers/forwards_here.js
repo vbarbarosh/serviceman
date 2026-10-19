@@ -103,7 +103,7 @@ async function listen(app, item, error_before)
         out.error = error.message;
     });
     out.server = server;
-    log_event(app, 'forward_here_listen', {forward: item.label, at, owner: ((owner === null) ? null : `${owner.uid}:${owner.gid}`)});
+    log_event(app, 'forward_here_listen', {forward: item.label, at, owner: (owner === null) ? null : `${owner.uid}:${owner.gid}`});
     return out;
 }
 
@@ -218,12 +218,12 @@ function close(found)
 
 function at_of(app, item)
 {
-    return ((item.to.socket === null) ? `127.0.0.1:${item.to.port}` : path.resolve(app.state_dir, item.to.socket));
+    return (item.to.socket === null) ? `127.0.0.1:${item.to.port}` : path.resolve(app.state_dir, item.to.socket);
 }
 
 function key_of(app, item)
 {
-    return ((item.to.socket === null) ? `port ${item.to.port}` : `socket ${at_of(app, item)}`);
+    return (item.to.socket === null) ? `port ${item.to.port}` : `socket ${at_of(app, item)}`;
 }
 
 module.exports = forwards_here;

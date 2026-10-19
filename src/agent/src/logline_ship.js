@@ -115,7 +115,7 @@ async function send(settings, body)
         });
     }
     catch (error) {
-        return {ok: false, refused: false, text: ((error.cause === undefined) ? error.message : error.cause.message)};
+        return {ok: false, refused: false, text: (error.cause === undefined) ? error.message : error.cause.message};
     }
     const text = await res.text().catch(() => '');
     let said = text;
@@ -130,14 +130,14 @@ async function send(settings, body)
     }
     // A wrong token, a wrong address, a Logline too busy: none of it is the batch's fault
     const retried = [401, 403, 404, 408, 425, 429];
-    return {ok: false, refused: ((res.status >= 400) && (res.status <= 499) && (retried.includes(res.status) === false)), text: `${res.status} ${said}`.trim()};
+    return {ok: false, refused: (res.status >= 400) && (res.status <= 499) && (retried.includes(res.status) === false), text: `${res.status} ${said}`.trim()};
 }
 
 function stats_add(ctx, cut, answer)
 {
-    ctx.stats.sent_lines += ((answer === 'ok') ? cut.count : 0);
-    ctx.stats.sent_batches += ((answer === 'ok') ? 1 : 0);
-    ctx.stats.sent_bytes += ((answer === 'ok') ? Buffer.byteLength(cut.body) : 0);
+    ctx.stats.sent_lines += (answer === 'ok') ? cut.count : 0;
+    ctx.stats.sent_batches += (answer === 'ok') ? 1 : 0;
+    ctx.stats.sent_bytes += (answer === 'ok') ? Buffer.byteLength(cut.body) : 0;
     ctx.stats.last_sent_at = new Date().toISOString();
     ctx.stats.last_answer = answer;
     file_write_synced(path.join(ctx.dir, 'stats.json'), JSON.stringify({

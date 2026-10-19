@@ -10,7 +10,7 @@ function tags_declared(app, remote, claimed)
     if (remote.machine === null) {
         return claimed;
     }
-    const allowed = ((app.config.join === null) ? [] : app.config.join.tags_allowed);
+    const allowed = (app.config.join === null) ? [] : app.config.join.tags_allowed;
     return claimed.filter(v => allowed.includes(v));
 }
 

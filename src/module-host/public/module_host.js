@@ -36,7 +36,7 @@ const module_host = {
     computed: {
         props: function () {
             const make = MODULE_PROPS[this.key];
-            return ((make === undefined) ? {} : make(this.machine));
+            return (make === undefined) ? {} : make(this.machine);
         },
     },
     methods: {
@@ -66,7 +66,7 @@ const module_host = {
             }
         },
         theme_flip: function () {
-            this.theme = ((this.theme === 'light') ? 'dark' : 'light');
+            this.theme = (this.theme === 'light') ? 'dark' : 'light';
             document.documentElement.dataset.theme = this.theme;
             try {
                 localStorage.setItem(THEME_KEY, this.theme);

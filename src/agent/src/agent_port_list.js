@@ -35,7 +35,7 @@ async function agent_port_list()
         });
     }
     // By port, so the same number over tcp and udp, or over v4 and v6, stands together
-    items.sort((a, b) => ((a.port === b.port) ? a.proto.localeCompare(b.proto) : a.port - b.port));
+    items.sort((a, b) => (a.port === b.port) ? a.proto.localeCompare(b.proto) : a.port - b.port);
     return {at: Date.now(), items, commands: [argv_line(SS_ARGV)]};
 }
 
@@ -46,7 +46,7 @@ function address_split(text)
     const at = text.lastIndexOf(':');
     const address = text.slice(0, at);
     return {
-        address: ((address.startsWith('[') && address.includes(']')) ? address.slice(1, address.indexOf(']')) : address),
+        address: (address.startsWith('[') && address.includes(']')) ? address.slice(1, address.indexOf(']')) : address,
         // `*` where ss has no number to print, which is a socket bound to nothing
         port: parseInt(text.slice(at + 1), 10) || 0,
     };

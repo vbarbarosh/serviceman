@@ -37,7 +37,7 @@ async function look_at(app, remote)
         }
         return;
     }
-    const measured = ((state.measured_at === null) ? 0 : state.measured_at);
+    const measured = (state.measured_at === null) ? 0 : state.measured_at;
     const owed = (Date.now() - measured >= THROUGHPUT_EVERY_MS);
     const quiet = (silent >= QUIET_MS);
     if ((quiet === false) && (owed === false)) {

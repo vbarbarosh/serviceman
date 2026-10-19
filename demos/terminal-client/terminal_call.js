@@ -8,7 +8,7 @@
 async function terminal_call(options, action, params)
 {
     const base = `/api/v1/remotes/${encodeURIComponent(options.remote)}/terminals`;
-    const path = ((action === 'create') ? base : `${base}/${encodeURIComponent(params.name)}/${action}`);
+    const path = (action === 'create') ? base : `${base}/${encodeURIComponent(params.name)}/${action}`;
     const headers = {'content-type': 'application/json'};
     if ((typeof options.token === 'string') && (options.token !== '')) {
         headers.authorization = `Bearer ${options.token}`;

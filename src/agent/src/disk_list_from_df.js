@@ -24,9 +24,9 @@ function disk_list_from_df(space_text, inode_text)
         const disk = zfs || (row.device.startsWith('/dev/') && (row.device.startsWith('/dev/loop') === false));
         const inodes = inodes_by_mount[row.mount];
         // A filesystem that keeps no inode count — vfat, among others — says 0
-        const counted = ((inodes !== undefined) && (inodes.total > 0));
-        const key = (zfs ? `zfs ${row.device.split('/')[0]}` : row.device);
-        const found = (disk ? disk_by_key[key] : undefined);
+        const counted = (inodes !== undefined) && (inodes.total > 0);
+        const key = zfs ? `zfs ${row.device.split('/')[0]}` : row.device;
+        const found = disk ? disk_by_key[key] : undefined;
         if (found !== undefined) {
             found.mounts.push(row.mount);
             if (zfs) {
@@ -42,16 +42,16 @@ function disk_list_from_df(space_text, inode_text)
             continue;
         }
         const item = {
-            device: (zfs ? row.device.split('/')[0] : row.device),
+            device: zfs ? row.device.split('/')[0] : row.device,
             type: row.type,
             mounts: [row.mount],
             disk,
-            total: (zfs ? (row.used + row.free)*BLOCK_BYTES : row.total*BLOCK_BYTES),
+            total: zfs ? (row.used + row.free)*BLOCK_BYTES : row.total*BLOCK_BYTES,
             used: row.used*BLOCK_BYTES,
             free: row.free*BLOCK_BYTES,
-            inodes_total: (counted ? (zfs ? inodes.used + inodes.free : inodes.total) : null),
-            inodes_used: (counted ? inodes.used : null),
-            inodes_free: (counted ? inodes.free : null),
+            inodes_total: counted ? (zfs ? inodes.used + inodes.free : inodes.total) : null,
+            inodes_used: counted ? inodes.used : null,
+            inodes_free: counted ? inodes.free : null,
             encrypted: false,
             // The pool this volume holds the key of, or null
             key_of: null,
@@ -63,7 +63,7 @@ function disk_list_from_df(space_text, inode_text)
     }
     for (const item of out) {
         const found = /^\/dev\/mapper\/keystore-(.+)$/.exec(item.device);
-        const pool = ((found === null) ? undefined : disk_by_key[`zfs ${found[1]}`]);
+        const pool = (found === null) ? undefined : disk_by_key[`zfs ${found[1]}`];
         if (pool !== undefined) {
             pool.encrypted = true;
             item.key_of = pool.device;
@@ -78,7 +78,7 @@ function disk_list_from_df(space_text, inode_text)
         }
     }
     // The disks first, then the rest, each by where it is mounted
-    out.sort((a, b) => ((a.disk === b.disk) ? a.mounts[0].localeCompare(b.mounts[0]) : (a.disk ? -1 : 1)));
+    out.sort((a, b) => (a.disk === b.disk) ? a.mounts[0].localeCompare(b.mounts[0]) : (a.disk ? -1 : 1));
     return out;
 }
 

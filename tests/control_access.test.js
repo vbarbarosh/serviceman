@@ -196,7 +196,7 @@ async function serviceman_start(services)
     const config = config_from_json({
         listen: {host: '127.0.0.1', port: 0},
         control: {host: 'serviceman.localhost', port: 0},
-        services: ((services === undefined) ? [] : services),
+        services: (services === undefined) ? [] : services,
     }, __dirname);
     const app = app_from_config(config);
     const servers = await server_start(app);

@@ -153,7 +153,7 @@ const remote_overview = {
             if (this.view.phase === 'online') {
                 return 'running';
             }
-            return ((this.view.phase === 'greeting') ? 'starting' : 'stopped');
+            return (this.view.phase === 'greeting') ? 'starting' : 'stopped';
         },
         // What follows "remote <name>" under the title: since when and how fast it is linked, or
         // when it was last seen, then its tags; a tag the machine declared itself is starred
@@ -194,13 +194,13 @@ const remote_overview = {
             const machine = view.machine;
             const out = [];
             const cpu = machine.cpu_busy;
-            out.push({icon: 'cpu', label: 'CPU', text: ((cpu === null) ? '—' : `${Math.round(cpu*100)}%`), value: ((cpu === null) ? 0 : cpu), note: `${(machine.load === null) ? '' : `load ${machine.load.toFixed(2)} · `}${machine.cpu.count} × ${machine.cpu.model}`});
+            out.push({icon: 'cpu', label: 'CPU', text: (cpu === null) ? '—' : `${Math.round(cpu*100)}%`, value: (cpu === null) ? 0 : cpu, note: `${(machine.load === null) ? '' : `load ${machine.load.toFixed(2)} · `}${machine.cpu.count} × ${machine.cpu.model}`});
             const mem = machine.mem;
-            const mem_used = ((mem.free === null) ? null : 1 - mem.free/mem.total);
-            out.push({icon: 'memory', label: 'Memory', text: ((mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`), value: ((mem_used === null) ? 0 : mem_used), note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
+            const mem_used = (mem.free === null) ? null : 1 - mem.free/mem.total;
+            out.push({icon: 'memory', label: 'Memory', text: (mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`, value: (mem_used === null) ? 0 : mem_used, note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
             const disk = machine.disk;
-            const disk_used = ((disk.free === null) ? null : 1 - disk.free/disk.total);
-            out.push({icon: 'database', label: 'Disk', text: ((disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`), value: ((disk_used === null) ? 0 : disk_used), note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`});
+            const disk_used = (disk.free === null) ? null : 1 - disk.free/disk.total;
+            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`});
             if (machine.temperature !== null) {
                 out.push({icon: 'thermometer', label: 'Temperature', text: `${machine.temperature.c}°C`, value: machine.temperature.c/100, note: machine.temperature.of});
             }
@@ -208,19 +208,19 @@ const remote_overview = {
                 out.push({icon: 'battery', label: 'Battery', text: `${machine.battery.percent}%`, value: null, note: machine.battery.status});
             }
             if (view.phase === 'online') {
-                out.push({icon: 'link', label: 'Link', text: ((view.latency_ms === null) ? '—' : format_ms(view.latency_ms)), value: null, note: ((view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps))});
+                out.push({icon: 'link', label: 'Link', text: (view.latency_ms === null) ? '—' : format_ms(view.latency_ms), value: null, note: (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps)});
             }
             return out;
         },
         addresses: function () {
             const found = this.view.machine.addresses;
-            return (Array.isArray(found) ? found : []);
+            return Array.isArray(found) ? found : [];
         },
         current: function () {
-            return agent_current(this.view, ((this.served === undefined) ? null : this.served));
+            return agent_current(this.view, (this.served === undefined) ? null : this.served);
         },
         updates: function () {
-            return ((this.view.machine === null) ? null : this.view.machine.updates);
+            return (this.view.machine === null) ? null : this.view.machine.updates;
         },
         updates_waiting: function () {
             const updates = this.updates;

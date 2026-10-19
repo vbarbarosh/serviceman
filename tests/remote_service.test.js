@@ -280,8 +280,8 @@ test('an agent that hears nothing from the host hangs up and dials again by itse
         // agent's own beat, which the host would answer, is five seconds away.
         await running.agent_start({SERVICEMAN_HOST_GONE_MS: '1500', SERVICEMAN_BEAT_MS: '5000'});
         const first = running.app.log_lines.filter(v => /\[remote_online\] remote=vps1/.test(v)).length;
-        await wait_until(() => running.app.log_lines.some(vv => /\[agent_host_quiet\] remote=vps1 silent=\d+\.\d{3}s then="dialling fresh"/.test(vv)), 15000);
-        await wait_until(() => running.app.log_lines.filter(vv => /\[remote_online\] remote=vps1/.test(vv)).length > first, 15000);
+        await wait_until(() => running.app.log_lines.some(v => /\[agent_host_quiet\] remote=vps1 silent=\d+\.\d{3}s then="dialling fresh"/.test(v)), 15000);
+        await wait_until(() => running.app.log_lines.filter(v => /\[remote_online\] remote=vps1/.test(v)).length > first, 15000);
     }
     finally {
         await running.close();
@@ -341,12 +341,12 @@ test('a machine that dials in with an older agent is asked to fetch the one this
         assert.strictEqual(remote.state.agent_built, null, 'an agent run from the repo carries no build date');
 
         // An agent that names no build at all is the oldest kind there is, and it is asked too
-        await wait_until(() => running.app.log_lines.some(vv => /remote_update_asked/.test(vv)), 15000);
+        await wait_until(() => running.app.log_lines.some(v => /remote_update_asked/.test(v)), 15000);
         assert.match(running.app.log_lines.find(v => /remote_update_asked/.test(v)), /\[remote_update_asked\] remote=vps1 serving=/);
 
         // This one runs from the repo: no bin/update beside it, and source is never overwritten
         // from a link — it says so, and the page can read the reason back
-        await wait_until(() => running.app.log_lines.some(vv => /remote_update_refused/.test(vv)), 15000);
+        await wait_until(() => running.app.log_lines.some(v => /remote_update_refused/.test(v)), 15000);
         assert.match(running.app.log_lines.find(v => /remote_update_refused/.test(v)), /is not a bundled agent — this one runs from the repo/);
         await wait_until(() => remote.state.update_refused !== null, 15000);
         assert.match(remote.state.update_refused, /is not a bundled agent/);
@@ -363,7 +363,7 @@ test('a machine that dials in with an older agent is asked to fetch the one this
         child.stdout.on('data', v => said.push(v.toString('utf8')));
         child.stderr.on('data', v => said.push(v.toString('utf8')));
         running.children.push(child);
-        await wait_until(() => running.app.log_lines.some(vv => /running=2020-01-01T00:00:00\.000Z serving=/.test(vv)), 15000);
+        await wait_until(() => running.app.log_lines.some(v => /running=2020-01-01T00:00:00\.000Z serving=/.test(v)), 15000);
 
         // A machine already connected hears about it too: the same check runs on a clock, and
         // asks again only after a while rather than on every tick
@@ -484,7 +484,7 @@ async function serviceman_start(services, remotes)
     const config = config_from_json({
         listen: {host: '127.0.0.1', port: 0},
         control: {host: 'serviceman.localhost', port: 0},
-        remotes: ((remotes === undefined) ? [{name: 'vps1', token: TOKEN}] : remotes),
+        remotes: (remotes === undefined) ? [{name: 'vps1', token: TOKEN}] : remotes,
         services,
     }, __dirname);
     const app = app_from_config(config);
@@ -496,9 +496,9 @@ async function serviceman_start(services, remotes)
         control_port: servers.control.address().port,
         children: [],
         agent_start: async function (name, token, env) {
-            const remote = ((typeof name === 'string') ? name : 'vps1');
-            const secret = ((typeof name === 'string') ? token : TOKEN);
-            const words = ((typeof name === 'string') ? env : name);
+            const remote = (typeof name === 'string') ? name : 'vps1';
+            const secret = (typeof name === 'string') ? token : TOKEN;
+            const words = (typeof name === 'string') ? env : name;
             const argv = [AGENT, '--url', `http://127.0.0.1:${out.control_port}`, '--token', secret, '--docker', DOCKER_BIN];
             const child = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, words)});
             child.stdout.resume();

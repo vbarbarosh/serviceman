@@ -15,7 +15,7 @@ const ws = require('ws');
 function terminal_connect(options)
 {
     const url = new URL(`/api/v1/shell?remote=${encodeURIComponent(options.remote)}&term=${encodeURIComponent(options.name)}`, options.url);
-    url.protocol = ((url.protocol === 'https:') ? 'wss:' : 'ws:');
+    url.protocol = (url.protocol === 'https:') ? 'wss:' : 'ws:';
     const headers = {};
     if ((typeof options.token === 'string') && (options.token !== '')) {
         headers.authorization = `Bearer ${options.token}`;

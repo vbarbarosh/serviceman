@@ -28,7 +28,7 @@ function log_words(words)
 function log_value(value)
 {
     if (typeof value === 'string') {
-        return ((BARE.test(value) && (UNSAFE.test(value) === false)) ? value : JSON.stringify(value));
+        return (BARE.test(value) && (UNSAFE.test(value) === false)) ? value : JSON.stringify(value);
     }
     if ((typeof value === 'number') && Number.isFinite(value)) {
         return String(value);

@@ -48,9 +48,9 @@ async function request_answer(req, res)
         return;
     }
     const api = /^\/api\/([a-z_]+)(\/.*)?$/.exec(pathname);
-    const served = ((api === null) ? undefined : modules_served.find(v => v.key === api[1]));
+    const served = (api === null) ? undefined : modules_served.find(v => v.key === api[1]);
     if (served !== undefined) {
-        await served.serve(req, res, ((api[2] === undefined) ? '' : api[2]));
+        await served.serve(req, res, (api[2] === undefined) ? '' : api[2]);
         return;
     }
     if (req.method !== 'GET') {
@@ -70,7 +70,7 @@ async function request_answer(req, res)
     const file = /^\/_\/([a-z_]+)\/([a-z0-9_-][a-z0-9_.-]*)$/.exec(pathname);
     if (file !== null) {
         const module = modules_served.find(v => v.key === file[1]);
-        const dir = ((module === undefined) ? DIRS[file[1]] : module.ui);
+        const dir = (module === undefined) ? DIRS[file[1]] : module.ui;
         if ((dir !== undefined) && (file[1] !== 'main')) {
             file_send(res, path.join(dir, file[2]));
             return;

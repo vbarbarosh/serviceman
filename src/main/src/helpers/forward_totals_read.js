@@ -8,7 +8,7 @@ function forward_totals_read(app)
 {
     try {
         const json = JSON.parse(fs.readFileSync(forward_totals_path(app), 'utf8'));
-        return (((json.forwards === undefined) || (json.forwards === null)) ? {} : json.forwards);
+        return ((json.forwards === undefined) || (json.forwards === null)) ? {} : json.forwards;
     }
     catch (error) {
         if (error.code !== 'ENOENT') {

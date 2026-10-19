@@ -87,8 +87,8 @@ function key_from_request(text, from_key)
 
 function file_from_key(key)
 {
-    const file = (key.startsWith(HOUSE) ? path.resolve(__dirname, '..', '..', '..', 'node_modules', key) : path.resolve(__dirname, '..', '..', key));
-    return (key.endsWith('.json') ? file : `${file}.js`);
+    const file = key.startsWith(HOUSE) ? path.resolve(__dirname, '..', '..', '..', 'node_modules', key) : path.resolve(__dirname, '..', '..', key);
+    return key.endsWith('.json') ? file : `${file}.js`;
 }
 
 // Every relative require in a bundled module is written as the key it resolves to, so the

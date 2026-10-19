@@ -27,8 +27,8 @@ function agent_file_put(target)
     const replaced = fs.existsSync(full);
     // A file that is there is written over as itself: through a link to the file the link
     // points at, and with the permissions it had — an edited script stays runnable
-    const written = (replaced ? fs.realpathSync(full) : full);
-    const mode = (replaced ? fs.statSync(written).mode & 0o7777 : null);
+    const written = replaced ? fs.realpathSync(full) : full;
+    const mode = replaced ? fs.statSync(written).mode & 0o7777 : null;
     const part = path.join(path.dirname(written), `.${path.basename(written)}.part`);
     const file = fs.createWriteStream(part);
     const out = new EventEmitter();

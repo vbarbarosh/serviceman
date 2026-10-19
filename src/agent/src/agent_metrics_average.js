@@ -21,7 +21,7 @@ function agent_metrics_average(rows, at)
                 count++;
             }
         }
-        means[key] = ((count === 0) ? null : sum/count);
+        means[key] = (count === 0) ? null : sum/count;
     }
     return agent_metrics_rounded(means);
 }

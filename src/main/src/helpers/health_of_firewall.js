@@ -25,7 +25,7 @@ async function health_of_firewall(app, remote)
         return {state: 'none', text: 'no ufw', detail: 'ufw is not installed there.'};
     }
     if (answer.ok === false) {
-        const why = (/sudo:.*(password|no tty|askpass)/.test(text) ? 'ufw needs root, and sudo there asks for a password: give it a root agent.' : (text.split('\n').pop() || `ufw ended with ${answer.code}`));
+        const why = /sudo:.*(password|no tty|askpass)/.test(text) ? 'ufw needs root, and sudo there asks for a password: give it a root agent.' : (text.split('\n').pop() || `ufw ended with ${answer.code}`);
         return {state: 'none', text: 'cannot ask', detail: why};
     }
     if (/^Status: active/m.test(answer.stdout) === false) {
@@ -40,7 +40,7 @@ function rules_count(stdout)
 {
     const lines = stdout.split('\n');
     const head = lines.findIndex(v => /^-+\s+-+/.test(v));
-    return ((head < 0) ? 0 : lines.slice(head + 1).filter(v => v.trim() !== '').length);
+    return (head < 0) ? 0 : lines.slice(head + 1).filter(v => v.trim() !== '').length;
 }
 
 module.exports = health_of_firewall;

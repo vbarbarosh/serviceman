@@ -28,8 +28,8 @@ async function file_manager_transfers_serve(req, res, options)
             send_json(res, 400, {error: error.message});
             return;
         }
-        const from = (((body === null) || (typeof body.from !== 'object') || (body.from === null)) ? {} : body.from);
-        const to = (((body === null) || (typeof body.to !== 'object') || (body.to === null)) ? {} : body.to);
+        const from = ((body === null) || (typeof body.from !== 'object') || (body.from === null)) ? {} : body.from;
+        const to = ((body === null) || (typeof body.to !== 'object') || (body.to === null)) ? {} : body.to;
         if ((options.disk_known(from.disk) === false) || (typeof from.path !== 'string') || (from.path === '')) {
             send_json(res, 400, {error: 'a copy comes from a file or a folder of a disk: from.disk, from.path'});
             return;
@@ -78,7 +78,7 @@ function item_view(item)
         left: item.left,
         received: item.received,
         began_at: item.began_at,
-        ms: ((item.began_ms === null) ? 0 : Date.now() - item.began_ms),
+        ms: (item.began_ms === null) ? 0 : Date.now() - item.began_ms,
         phase: item.phase,
         said: item.said,
         wait_s: item.wait_s,

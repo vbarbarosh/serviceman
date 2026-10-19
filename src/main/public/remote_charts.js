@@ -104,7 +104,7 @@ const remote_charts = {
         // the mouse moves
         charts: function () {
             const data = this.data;
-            const points = ((data === null) ? [] : data.points);
+            const points = (data === null) ? [] : data.points;
             return OVERVIEW_CHARTS.map(function (chart) {
                 const top = chart_top(chart, points);
                 const paths = chart.lines.map(v => chart_path(v, points, data, top));
@@ -112,7 +112,7 @@ const remote_charts = {
             });
         },
         point: function () {
-            return (((this.hover_at === null) || (this.data === null)) ? null : point_nearest(this.data, this.hover_at));
+            return ((this.hover_at === null) || (this.data === null)) ? null : point_nearest(this.data, this.hover_at);
         },
         // Each chart's value: at the cursor, or the last point it has a value at; null for none.
         // Each line is said with its name where the chart has more than one.
@@ -123,26 +123,26 @@ const remote_charts = {
                 let point = this.point;
                 if ((point === null) && (data !== null)) {
                     const last = data.points.findLast(v => chart.lines.some(vv => vv.of(v) !== null));
-                    point = ((last === undefined) ? null : last);
+                    point = (last === undefined) ? null : last;
                 }
-                out[chart.key] = ((point === null) ? null : chart.lines.map(function (line) {
+                out[chart.key] = (point === null) ? null : chart.lines.map(function (line) {
                     const value = line.of(point);
-                    return {name: line.name, said: ((value === null) ? '—' : chart.text(value))};
-                }));
+                    return {name: line.name, said: (value === null) ? '—' : chart.text(value)};
+                });
             }
             return out;
         },
         cursor: function () {
-            return ((this.point === null) ? null : `${chart_x(this.point.at + this.data.step_ms/2, this.data)/CHART_W*100}%`);
+            return (this.point === null) ? null : `${chart_x(this.point.at + this.data.step_ms/2, this.data)/CHART_W*100}%`;
         },
         at: function () {
-            return ((this.point === null) ? '' : new Date(this.point.at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}));
+            return (this.point === null) ? '' : new Date(this.point.at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
         },
         from: function () {
-            return ((this.data === null) ? '' : chart_time(this.data.from, this.data.range));
+            return (this.data === null) ? '' : chart_time(this.data.from, this.data.range);
         },
         to: function () {
-            return (((this.data === null) || (this.data.away === false)) ? 'now' : chart_time(this.data.to, '1h'));
+            return ((this.data === null) || (this.data.away === false)) ? 'now' : chart_time(this.data.to, '1h');
         },
     },
     methods: {
@@ -216,7 +216,7 @@ function charts_range_read()
 {
     try {
         const kept = localStorage.getItem(CHARTS_RANGE_KEY);
-        return (CHART_RANGES.includes(kept) ? kept : '24h');
+        return CHART_RANGES.includes(kept) ? kept : '24h';
     }
     catch {
         return '24h';
@@ -282,8 +282,8 @@ function chart_path(line, points, data, top)
         }
         const x = chart_x(point.at + data.step_ms/2, data);
         const y = (CHART_H - Math.min(1, Math.max(0, value/top))*CHART_H).toFixed(1);
-        const broken = ((prev_at === null) || (point.at - prev_at > 2.5*data.step_ms));
-        out += (broken ? `M${x} ${y}h0.1` : `L${x} ${y}`);
+        const broken = (prev_at === null) || (point.at - prev_at > 2.5*data.step_ms);
+        out += broken ? `M${x} ${y}h0.1` : `L${x} ${y}`;
         prev_at = point.at;
     }
     return out;
@@ -319,7 +319,7 @@ function share_of(value, total)
 
 function number_of(value)
 {
-    return ((typeof value === 'number') ? value : null);
+    return (typeof value === 'number') ? value : null;
 }
 
 export default remote_charts;

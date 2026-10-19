@@ -23,7 +23,7 @@ function control_tokens_read(app)
     catch {
         kept = [];
     }
-    app.control_tokens = (Array.isArray(kept) ? kept.filter(token_valid) : []);
+    app.control_tokens = Array.isArray(kept) ? kept.filter(token_valid) : [];
     return app.control_tokens;
 }
 

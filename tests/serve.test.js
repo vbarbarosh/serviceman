@@ -455,14 +455,14 @@ test('the pool grows while the work is there, and shrinks when it is not', async
         await wait_until(() => service_inflight(service) === 1);
 
         reap_idle(running.app);
-        await wait_until(() => service.state.instances.filter(vv => (vv.phase === 'running') || (vv.phase === 'starting')).length === 2);
+        await wait_until(() => service.state.instances.filter(v => (v.phase === 'running') || (v.phase === 'starting')).length === 2);
         assert.strictEqual(running.app.log_lines.some(v => /\[service_scale_up\] service=crew instance=2 of=3 reason="busy 1\.00 of 0\.\d+ for /.test(v)), true);
         assert.strictEqual((await slow).status, 200);
 
         // The work is done, so the copy that is not needed goes; the floor of one stays
         await wait_until(() => service_inflight(service) === 0);
         reap_idle(running.app);
-        await wait_until(() => service.state.instances.filter(vv => vv.phase === 'running').length === 1, 8000);
+        await wait_until(() => service.state.instances.filter(v => v.phase === 'running').length === 1, 8000);
         assert.strictEqual(running.app.log_lines.some(v => /\[service_scale_down\] service=crew instance=\d+ left=1 reason="busy 0\.00 for /.test(v)), true);
     }
     finally {
@@ -478,7 +478,7 @@ test('an image that is not on the machine is pulled before anyone asks for it', 
     ]);
     try {
         image_prepull_start(running.app);
-        await wait_until(() => running.app.log_lines.some(vv => /\[image_pull_end_ok\] service=fresh image=far\/fresh:1 remote=vps1 took=\d+\.\d{3}s/.test(vv)));
+        await wait_until(() => running.app.log_lines.some(v => /\[image_pull_end_ok\] service=fresh image=far\/fresh:1 remote=vps1 took=\d+\.\d{3}s/.test(v)));
         assert.strictEqual(running.app.log_lines.some(v => /\[image_pull_begin\] service=fresh image=far\/fresh:1 remote=vps1/.test(v)), true);
         assert.strictEqual(running.app.log_lines.some(v => /\[image_pull_begin\] service=here/.test(v)), false, 'the image is already on the machine');
         assert.strictEqual(running.app.log_lines.some(v => /\[image_pull_begin\] service=left/.test(v)), false, 'prepull: false is left for the first visitor');
@@ -1544,7 +1544,7 @@ test('a program that moved on is fetched again: new code, same folder, same stor
         fs.writeFileSync(source, fs.readFileSync(source, 'utf8').replace('the app answers', 'the new one answers'));
         const asked = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/writer/update', method: 'POST'});
         assert.strictEqual(asked.status, 202);
-        await wait_until(() => running.app.log_lines.some(vv => /\[service_update_end_ok\] service=writer/.test(vv)), 20000);
+        await wait_until(() => running.app.log_lines.some(v => /\[service_update_end_ok\] service=writer/.test(v)), 20000);
 
         const warm = await fetch_host({port: running.port, host: 'writer.test', path: '/now'});
         assert.strictEqual(warm.body, 'the new one answers /now', 'the install line ran again and what it fetched is what runs');
@@ -1877,8 +1877,8 @@ function config_json(services, extra)
 // what the agent is started with
 async function serviceman_start(services, options)
 {
-    const given = ((options === undefined) ? {} : options);
-    process.env.SERVICEMAN_TEST_STATE = ((given.state_file === undefined) ? path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-')), 'docker.json') : given.state_file);
+    const given = (options === undefined) ? {} : options;
+    process.env.SERVICEMAN_TEST_STATE = (given.state_file === undefined) ? path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-')), 'docker.json') : given.state_file;
     const config = config_from_json(config_json(services, given.config), __dirname);
     return await serviceman_serve(config, given.agent_env);
 }
@@ -2085,7 +2085,7 @@ function shell_talk(control_port, name, lines, query)
 {
     return new Promise(function (resolve) {
         const heard = {notes: [], text: '', closed_without_answer: true};
-        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?${((query === undefined) ? `service=${encodeURIComponent(name)}&slot=1` : query)}`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
+        const client = new ws.WebSocket(`ws://127.0.0.1:${control_port}/api/v1/shell?${(query === undefined) ? `service=${encodeURIComponent(name)}&slot=1` : query}`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
         function done() {
             resolve(heard);
         }

@@ -27,7 +27,7 @@ async function ask(key, url, what)
         return [key, {state: 'ok', text: `answers in ${Date.now() - begin} ms`, detail: url}];
     }
     catch (error) {
-        const cause = ((error.cause === undefined) ? error.message : (error.cause.code || error.cause.message));
+        const cause = (error.cause === undefined) ? error.message : (error.cause.code || error.cause.message);
         return [key, {state: 'bad', text: 'does not answer', detail: `${url}: ${cause}. ${what} go nowhere: see that Logline runs there.`, cause: `nothing answers at ${url}: ${cause}`}];
     }
 }

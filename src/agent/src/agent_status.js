@@ -5,7 +5,7 @@ const format_duration_ms = require('../../helpers/format_duration_ms');
 // cannot be reached.
 function agent_status(status, at)
 {
-    const now = ((at === undefined) ? Date.now() : at);
+    const now = (at === undefined) ? Date.now() : at;
     const lines = [
         `serviceman-agent ${status.agent}${(status.built === null) ? '' : ` built ${status.built}`}`,
         `pid ${status.pid}, up ${format_duration_ms(now - status.started_at)}`,

@@ -29,7 +29,7 @@ function control_route_right(method, pathname)
     for (const item of RIGHTS) {
         const found = item.re.exec(pathname);
         if ((found !== null) && item.methods.includes(method)) {
-            return {right: item.right, said: item.said, remote: ((found[1] === undefined) ? null : decodeURIComponent(found[1]))};
+            return {right: item.right, said: item.said, remote: (found[1] === undefined) ? null : decodeURIComponent(found[1])};
         }
     }
     return null;

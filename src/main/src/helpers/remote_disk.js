@@ -15,8 +15,8 @@ const FS_TIMEOUT_MS = 15000;
 // starting folder, is under the first.
 function remote_disk(app, remote, options)
 {
-    const root = (((options === undefined) || (Array.isArray(options.root) === false)) ? undefined : options.root);
-    const home = ((root === undefined) ? '~' : '');
+    const root = ((options === undefined) || (Array.isArray(options.root) === false)) ? undefined : options.root;
+    const home = (root === undefined) ? '~' : '';
     return {
         // Whether this machine's agent does that already: an older one copies a folder in
         // plainer steps
@@ -24,22 +24,22 @@ function remote_disk(app, remote, options)
             return remote_can(remote, feature);
         },
         list: function (asked) {
-            return remote_call(app, remote, 'fs_list', {path: (((asked === null) || (asked === '')) ? home : asked), root}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_list', {path: ((asked === null) || (asked === '')) ? home : asked, root}, FS_TIMEOUT_MS);
         },
         stat: function (asked) {
             return remote_call(app, remote, 'fs_stat', {path: asked, root}, FS_TIMEOUT_MS);
         },
         read: function (asked, range) {
-            return tunnel_open(remote, {read: Object.assign({path: asked, root}, ((range === null) ? {} : {start: range.start, end: range.end}))});
+            return tunnel_open(remote, {read: Object.assign({path: asked, root}, (range === null) ? {} : {start: range.start, end: range.end})});
         },
         tar: function (dir, names, asked) {
-            return tunnel_open(remote, {tar: {dir: ((dir === '') ? home : dir), names, paths: ((asked !== undefined) && (asked.paths === true)), root}});
+            return tunnel_open(remote, {tar: {dir: (dir === '') ? home : dir, names, paths: (asked !== undefined) && (asked.paths === true), root}});
         },
         tree: function (dir, asked) {
-            return tunnel_open(remote, {tree: {path: (((dir === null) || (dir === '')) ? home : dir), hash: asked.hash, skip: asked.skip, root}});
+            return tunnel_open(remote, {tree: {path: ((dir === null) || (dir === '')) ? home : dir, hash: asked.hash, skip: asked.skip, root}});
         },
         watch: function (dir, asked) {
-            return tunnel_open(remote, {watch: {path: (((dir === null) || (dir === '')) ? home : dir), tree: asked.tree, skip: asked.skip, root}});
+            return tunnel_open(remote, {watch: {path: ((dir === null) || (dir === '')) ? home : dir, tree: asked.tree, skip: asked.skip, root}});
         },
         write: async function (dir, name, req) {
             try {
@@ -59,7 +59,7 @@ function remote_disk(app, remote, options)
             return remote_call(app, remote, 'dir_create', {path: asked, root}, FS_TIMEOUT_MS);
         },
         room: function (dir) {
-            return remote_call(app, remote, 'fs_room', {path: (((dir === null) || (dir === '')) ? home : dir), root}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_room', {path: ((dir === null) || (dir === '')) ? home : dir, root}, FS_TIMEOUT_MS);
         },
         write_tar: function (dir, source) {
             return file_send(remote, {tar_put: {dir, root}}, source);

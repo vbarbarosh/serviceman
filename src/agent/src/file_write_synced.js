@@ -7,7 +7,7 @@ function file_write_synced(file, text, mode)
 {
     fs.mkdirSync(path.dirname(file), {recursive: true, mode: 0o700});
     const temp = `${file}.new`;
-    const fd = fs.openSync(temp, 'w', ((mode === undefined) ? 0o600 : mode));
+    const fd = fs.openSync(temp, 'w', (mode === undefined) ? 0o600 : mode);
     try {
         fs.writeFileSync(fd, text);
         fs.fsyncSync(fd);

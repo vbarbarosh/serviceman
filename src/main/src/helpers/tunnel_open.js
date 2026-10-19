@@ -30,7 +30,7 @@ function tunnel_open(remote, target)
 function free_id(state)
 {
     for (;;) {
-        state.next_stream_id = ((state.next_stream_id + 2 >= LAST_ID) ? 2 : state.next_stream_id + 2);
+        state.next_stream_id = (state.next_stream_id + 2 >= LAST_ID) ? 2 : state.next_stream_id + 2;
         if (state.streams[state.next_stream_id] === undefined) {
             return state.next_stream_id;
         }

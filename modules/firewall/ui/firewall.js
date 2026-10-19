@@ -189,7 +189,7 @@ const firewall = {
     },
     computed: {
         port_rows: function () {
-            return ((this.ports === null) ? [] : firewall_ports(this.ports.items, this.addresses, this.state));
+            return (this.ports === null) ? [] : firewall_ports(this.ports.items, this.addresses, this.state);
         },
         // What actually gets through: a port the firewall keeps out counts as kept out, however
         // open its address
@@ -217,16 +217,16 @@ const firewall = {
                 if ((this.show === 'local') && (row.reach.exposure !== 'local')) {
                     return false;
                 }
-                return ((query === '') || (String(row.port) === query) || row.held.toLowerCase().includes(query));
+                return (query === '') || (String(row.port) === query) || row.held.toLowerCase().includes(query);
             }, this);
         },
         rules: function () {
-            const listed = ((this.state === null) ? [] : this.state.rules.filter(v => this.deleting.includes(v.command) === false));
+            const listed = (this.state === null) ? [] : this.state.rules.filter(v => this.deleting.includes(v.command) === false);
             return listed.concat(this.adding);
         },
         defaults_text: function () {
             if ((this.state === null) || (this.state.defaults === null)) {
-                return (((this.state !== null) && (this.state.active === false)) ? 'Rules are kept, and apply once it is on' : '');
+                return ((this.state !== null) && (this.state.active === false)) ? 'Rules are kept, and apply once it is on' : '';
             }
             const d = this.state.defaults;
             return `In: ${d.incoming || '?'} by default · out: ${d.outgoing || '?'}`;
@@ -255,7 +255,7 @@ const firewall = {
                     return;
                 }
                 this.ports = ports;
-                this.ports_note = `${ports.items.length} ${((ports.items.length === 1) ? 'socket' : 'sockets')} · read ${new Date().toLocaleTimeString()}`;
+                this.ports_note = `${ports.items.length} ${(ports.items.length === 1) ? 'socket' : 'sockets'} · read ${new Date().toLocaleTimeString()}`;
             }
             catch (error) {
                 this.ports_note = error.message;
@@ -278,25 +278,25 @@ const firewall = {
         // a service by name or the default stays to be changed in the rules below
         closable: function (row) {
             const rule = row.verdict.rule;
-            return ((rule !== null) && (rule.from === 'any') && (rule.app === null) && (rule.port === String(row.port)));
+            return (rule !== null) && (rule.from === 'any') && (rule.app === null) && (rule.port === String(row.port));
         },
         // A port's row tinted by how far it reaches, and marked when the firewall shuts it now
         port_class: function (row) {
             return [`fw-${row.reach.exposure}`].concat(((row.verdict.kind === 'closed') && row.verdict.now) ? ['fw-shut'] : []);
         },
         rule_class: function (rule) {
-            return (rule.pending ? ['fw-pending'] : []);
+            return rule.pending ? ['fw-pending'] : [];
         },
         verdict_class: function (row) {
             if ((row.verdict.kind === 'open') && (row.reach.exposure === 'open')) {
                 return 'bad';
             }
-            return (((row.verdict.kind === 'closed') && row.verdict.now) ? 'fw-ok' : 'muted');
+            return ((row.verdict.kind === 'closed') && row.verdict.now) ? 'fw-ok' : 'muted';
         },
         add: async function () {
             const form = Object.assign({}, this.form);
             // A key of its own: the list holds a reactive copy, never this object itself
-            const shown = {command: `adding ${form.port} #${Date.now()}`, action: form.action, direction: form.direction, port: form.port, proto: ((form.proto === 'any') ? null : form.proto), from: ((form.from.trim() === '') ? 'any' : form.from.trim()), to: 'any', on: null, app: null, comment: form.comment, pending: 'adding…'};
+            const shown = {command: `adding ${form.port} #${Date.now()}`, action: form.action, direction: form.direction, port: form.port, proto: (form.proto === 'any') ? null : form.proto, from: (form.from.trim() === '') ? 'any' : form.from.trim(), to: 'any', on: null, app: null, comment: form.comment, pending: 'adding…'};
             this.adding.push(shown);
             const done = await this.ask('POST', '/rules', form, 'Added');
             this.adding = this.adding.filter(v => v.command !== shown.command);
@@ -325,24 +325,24 @@ const firewall = {
             await this.ask('POST', '/rules', undo, 'Put back');
         },
         switch_to: async function (action) {
-            await this.ask('POST', `/${action}`, null, ((action === 'enable') ? 'Turned on' : 'Turned off'));
+            await this.ask('POST', `/${action}`, null, (action === 'enable') ? 'Turned on' : 'Turned off');
         },
         // One call to the module: its answer is the firewall as it is now
         ask: async function (method, tail, body, said) {
             this.busy = true;
-            this.note = ((method === 'GET') ? '' : 'Writing on the machine…');
+            this.note = (method === 'GET') ? '' : 'Writing on the machine…';
             this.bad = false;
             try {
-                const answer = await fetch(`${this.base}${tail}`, {method, cache: 'no-store', body: ((body === null) ? undefined : JSON.stringify(body))});
-                const out = await answer.json();
+                const answer = await fetch(`${this.base}${tail}`, {method, cache: 'no-store', body: (body === null) ? undefined : JSON.stringify(body)});
+                const firewall = await answer.json();
                 if (answer.ok === false) {
-                    this.note = out.error;
+                    this.note = firewall.error;
                     this.bad = true;
                     return null;
                 }
-                this.state = out;
+                this.state = firewall;
                 this.note = said;
-                return out;
+                return firewall;
             }
             catch (error) {
                 this.note = error.message;
@@ -360,14 +360,14 @@ const firewall = {
             if (rule.port === null) {
                 return 'every port';
             }
-            return ((rule.proto === null) ? rule.port : `${rule.port}/${rule.proto}`);
+            return (rule.proto === null) ? rule.port : `${rule.port}/${rule.proto}`;
         },
         from_text: function (rule) {
-            return ((rule.from === 'any') ? 'anywhere' : rule.from);
+            return (rule.from === 'any') ? 'anywhere' : rule.from;
         },
         to_text: function (rule) {
-            const to = ((rule.to === 'any') ? 'this machine' : rule.to);
-            return ((rule.on === null) ? to : `${to} on ${rule.on}`);
+            const to = (rule.to === 'any') ? 'this machine' : rule.to;
+            return (rule.on === null) ? to : `${to} on ${rule.on}`;
         },
     },
     mounted: function () {

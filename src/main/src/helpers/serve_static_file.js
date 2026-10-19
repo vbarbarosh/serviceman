@@ -9,7 +9,7 @@ const render_error_page = require('./render_error_page');
 // thing serviceman serves from disk
 async function serve_static_file(app, service, req, res, prefix)
 {
-    const mount = ((prefix === undefined) ? '' : prefix);
+    const mount = (prefix === undefined) ? '' : prefix;
     if ((req.method !== 'GET') && (req.method !== 'HEAD')) {
         render_error_page(res, 405, 'Only GET is served here', `${service.name} is a folder of files`);
         return;
@@ -54,7 +54,7 @@ async function serve_static_file(app, service, req, res, prefix)
 // is that service's own business, and is left alone.
 function fresh_of(service)
 {
-    return ((service.fresh === true) ? asset_stamp(service.root) : null);
+    return (service.fresh === true) ? asset_stamp(service.root) : null;
 }
 
 function pathname_from_url(url)
@@ -95,7 +95,7 @@ async function send_file(res, file_path, method, stamp)
         'content-type': mime_type_from_path(file_path),
         'content-length': found.size,
         'last-modified': found.mtime.toUTCString(),
-    }, ((stamp === null) ? {} : {'cache-control': 'no-cache'})));
+    }, (stamp === null) ? {} : {'cache-control': 'no-cache'}));
     if (method === 'HEAD') {
         res.end();
         return;

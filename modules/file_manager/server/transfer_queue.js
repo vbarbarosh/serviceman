@@ -43,8 +43,8 @@ const FINISH_SLACK_MS = 10*60*1000;
 // is {disk, dir}.
 function transfer_queue(options)
 {
-    const log = ((options.log === undefined) ? function () {} : options.log);
-    const ctx = {disk_of: options.disk_of, log, part_bytes: ((options.part_bytes === undefined) ? PART_BYTES : options.part_bytes), small_bytes: ((options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes)};
+    const log = (options.log === undefined) ? function () {} : options.log;
+    const ctx = {disk_of: options.disk_of, log, part_bytes: (options.part_bytes === undefined) ? PART_BYTES : options.part_bytes, small_bytes: (options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes};
     const out = {items: [], running: false};
     out.add = function (from, to) {
         const item = item_make(from, to);
@@ -168,14 +168,14 @@ async function transfer_run(item, ctx)
                     }
                     progressed();
                 });
-                item.path = ((landed === null) ? null : landed.path);
+                item.path = (landed === null) ? null : landed.path;
             }
             if (item.cancelled) {
                 break;
             }
             item.phase = 'ok';
             item.said = left_said(item);
-            log('transfer_end_ok', ((item.kind === 'dir') ? {id: item.id, path: item.path, files: item.files_done, bytes: item.received, left: left_count(item)} : {id: item.id, path: item.path, bytes: item.size}));
+            log('transfer_end_ok', (item.kind === 'dir') ? {id: item.id, path: item.path, files: item.files_done, bytes: item.received, left: left_count(item)} : {id: item.id, path: item.path, bytes: item.size});
             return;
         }
         catch (error) {
@@ -340,7 +340,7 @@ async function file_step(item, step, from, to, ctx, progressed)
     if ((item.piece === null) || (item.piece.from_path !== path.posix.join(item.from.path, file.path))) {
         item.piece = {
             from_path: path.posix.join(item.from.path, file.path),
-            dir: path.posix.join(item.to.dir, item.name, ((rel_dir === '.') ? '' : rel_dir)),
+            dir: path.posix.join(item.to.dir, item.name, (rel_dir === '.') ? '' : rel_dir),
             name: path.posix.basename(file.path),
             id: `${item.id}f${walk.at}`,
             size: file.size,
@@ -451,7 +451,7 @@ function walk_read(disk, dir)
 // by one. Links come last, so no file of this copy is written through one of them.
 function steps_of(item, walk, from, to, ctx)
 {
-    const tars = (can(from, 'folder_copy') && can(to, 'tar_put'));
+    const tars = can(from, 'folder_copy') && can(to, 'tar_put');
     const full = new Set();
     for (const name of [].concat(walk.files.map(v => v.path), walk.dirs, walk.links.map(v => v.path), walk.others, walk.unread.map(v => v.path))) {
         const parts = name.split('/');
@@ -490,7 +490,7 @@ function steps_of(item, walk, from, to, ctx)
 
 function can(disk, feature)
 {
-    return ((disk.can === undefined) ? false : disk.can(feature));
+    return (disk.can === undefined) ? false : disk.can(feature);
 }
 
 function step_bytes(step)
@@ -550,7 +550,7 @@ function left_said(item)
 
 function plural(n, one, many)
 {
-    return ((n === 1) ? one : many);
+    return (n === 1) ? one : many;
 }
 
 function disk_or_throw(disk_of, name)

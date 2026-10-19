@@ -21,17 +21,17 @@ const command_copy = {
     },
     computed: {
         text: function () {
-            return (Array.isArray(this.commands) ? this.commands.join('\n') : '');
+            return Array.isArray(this.commands) ? this.commands.join('\n') : '';
         },
         title: function () {
-            const head = ((this.said === '') ? 'Copy the command, to do this by hand' : this.said);
+            const head = (this.said === '') ? 'Copy the command, to do this by hand' : this.said;
             return `${head}:\n${this.text}`;
         },
     },
     methods: {
         copy: async function () {
             this.copied = await to_clipboard(this.text);
-            this.said = (this.copied ? 'Copied' : 'The browser would not copy it, so here it is to copy by hand');
+            this.said = this.copied ? 'Copied' : 'The browser would not copy it, so here it is to copy by hand';
             clearTimeout(this.timer);
             this.timer = setTimeout(this.reset, HELD_MS);
         },

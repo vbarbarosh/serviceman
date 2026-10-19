@@ -75,7 +75,7 @@ function apt_command(options)
     if ((options !== undefined) && (options.apt !== undefined) && (options.apt !== '')) {
         return options.apt;
     }
-    return (((process.getuid !== undefined) && (process.getuid() === 0)) ? 'apt-get' : 'sudo -n apt-get');
+    return ((process.getuid !== undefined) && (process.getuid() === 0)) ? 'apt-get' : 'sudo -n apt-get';
 }
 
 // Stops the run that is going: the whole group, because apt is a shell line that started

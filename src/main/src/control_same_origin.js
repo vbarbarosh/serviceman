@@ -4,7 +4,7 @@ function control_same_origin(req)
 {
     const site = req.headers['sec-fetch-site'];
     if (site !== undefined) {
-        return ((site === 'same-origin') || (site === 'none'));
+        return (site === 'same-origin') || (site === 'none');
     }
     if (req.headers.origin === undefined) {
         return true;
@@ -14,7 +14,7 @@ function control_same_origin(req)
         return false;
     }
     const host = url_parse(`${origin.protocol}//${req.headers.host || ''}`);
-    return ((host !== null) && (host.host === origin.host));
+    return (host !== null) && (host.host === origin.host);
 }
 
 function url_parse(text)

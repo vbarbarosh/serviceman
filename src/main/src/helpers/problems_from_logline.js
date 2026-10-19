@@ -13,8 +13,8 @@ function problems_from_logline(remote, status, now)
         return out;
     }
     const waiting = status.waiting;
-    const oldest = (((waiting === undefined) || (waiting.oldest === null)) ? null : Date.parse(waiting.oldest));
-    const since = (Number.isFinite(oldest) ? oldest : null);
+    const oldest = ((waiting === undefined) || (waiting.oldest === null)) ? null : Date.parse(waiting.oldest);
+    const since = Number.isFinite(oldest) ? oldest : null;
     const answer = status.last_answer;
     if ((answer !== null) && (answer !== undefined) && (answer !== 'ok')) {
         out.push({
@@ -44,9 +44,9 @@ function problems_from_logline(remote, status, now)
             key: `logline_full:${remote}`,
             kind: 'logline',
             remote,
-            subject: (full ? `${remote} has stopped collecting its lines` : `${remote}'s lines near the limit of what it keeps`),
+            subject: full ? `${remote} has stopped collecting its lines` : `${remote}'s lines near the limit of what it keeps`,
             cause: `${mb(waiting.bytes)} of ${mb(status.cap_bytes)} wait to be sent`,
-            fix: (full ? 'New lines stay with Docker until there is room, and what Docker rotates away meanwhile is lost: let Logline take them first.' : 'Once it is full, collecting stops: let Logline take what waits first.'),
+            fix: full ? 'New lines stay with Docker until there is room, and what Docker rotates away meanwhile is lost: let Logline take them first.' : 'Once it is full, collecting stops: let Logline take what waits first.',
             since,
         });
     }
@@ -67,7 +67,7 @@ function fix_of(answer)
 function minutes(ms)
 {
     const m = Math.round(ms/60000);
-    return ((m < 120) ? `${m} min` : `${Math.round(m/60)} h`);
+    return (m < 120) ? `${m} min` : `${Math.round(m/60)} h`;
 }
 
 function mb(bytes)

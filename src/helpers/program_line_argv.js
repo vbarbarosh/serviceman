@@ -11,7 +11,7 @@ function program_line_argv(line, dir, image, env, docker_bin, user, secrets)
     if ((image === null) || (image === undefined) || (image === '')) {
         return ['/bin/sh', '-c', line];
     }
-    const out = [((docker_bin === undefined) ? 'docker' : docker_bin), 'run', '--rm', '--volume', `${dir}:${INSIDE}`, '--workdir', INSIDE].concat(program_user(user)).concat(secrets_mounts(secrets));
+    const out = [(docker_bin === undefined) ? 'docker' : docker_bin, 'run', '--rm', '--volume', `${dir}:${INSIDE}`, '--workdir', INSIDE].concat(program_user(user)).concat(secrets_mounts(secrets));
     for (const name of Object.keys(((env === undefined) || (env === null)) ? {} : env)) {
         out.push('--env', `${name}=${env[name]}`);
     }

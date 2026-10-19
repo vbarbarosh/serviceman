@@ -28,7 +28,7 @@ async function service_image_pull(app, service)
         throw new Error(`${service.name} is not made from an image — there is nothing to pull`);
     }
     const instance = service.state.instances[0];
-    const remote = ((instance.remote === null) ? remote_reserve(app, service, instance, []) : remote_from_instance(app, service, instance));
+    const remote = (instance.remote === null) ? remote_reserve(app, service, instance, []) : remote_from_instance(app, service, instance);
     const time0 = Date.now();
     const was = await image_id(app, remote, service.image);
     const running = (service_phase(service) === 'running');
@@ -50,7 +50,7 @@ async function service_image_pull(app, service)
         }
         log_event(app, 'service_pull_end_ok', {service: service.name, image: service.image, remote: remote.name, fresh, behind, took: format_seconds(Date.now() - time0)});
         service_said(app, {service: service.name, text: pull_text(service, fresh, behind, running)});
-        return {image: service.image, remote: remote.name, fresh, remade: (fresh || behind), id: now};
+        return {image: service.image, remote: remote.name, fresh, remade: fresh || behind, id: now};
     }
     catch (error) {
         service.state.last_error = error.message;
@@ -115,7 +115,7 @@ async function containers_forget(app, remote, service, running)
 async function image_id(app, remote, image)
 {
     const said = await docker_shell(app, remote, ['image', 'inspect', '--format', '{{.Id}}', image]);
-    return (said.ok ? said.stdout.trim() : null);
+    return said.ok ? said.stdout.trim() : null;
 }
 
 function last_line(answer)

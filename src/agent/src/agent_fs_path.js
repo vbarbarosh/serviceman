@@ -14,7 +14,7 @@ const path = require('path');
 function agent_fs_path(text, root)
 {
     const asked = String(((text === undefined) || (text === null)) ? '' : text);
-    const roots = (Array.isArray(root) ? root : [root]).filter(v => ((typeof v === 'string') && (v !== '')));
+    const roots = (Array.isArray(root) ? root : [root]).filter(v => (typeof v === 'string') && (v !== ''));
     if (roots.length === 0) {
         return plain((asked === '') ? '~' : asked);
     }
@@ -30,7 +30,7 @@ function agent_fs_path(text, root)
         full = path.resolve(first, asked);
     }
     const seen = real_of_nearest(full);
-    const inside = roots.map(v => real_of_nearest(plain(v))).some(v => ((seen === v) || seen.startsWith(`${v}${path.sep}`)));
+    const inside = roots.map(v => real_of_nearest(plain(v))).some(v => (seen === v) || seen.startsWith(`${v}${path.sep}`));
     if (inside === false) {
         throw Object.assign(new Error(`EACCES: ${JSON.stringify(asked)} is outside the folders this token may use`), {code: 'EACCES'});
     }

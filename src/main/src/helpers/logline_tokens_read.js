@@ -17,8 +17,8 @@ function logline_tokens_read(app)
             throw error;
         }
     }
-    const kept = ((text === null) ? {} : JSON.parse(text));
-    app.logline_tokens = (((kept === null) || (typeof kept !== 'object') || Array.isArray(kept)) ? {} : kept);
+    const kept = (text === null) ? {} : JSON.parse(text);
+    app.logline_tokens = ((kept === null) || (typeof kept !== 'object') || Array.isArray(kept)) ? {} : kept;
     return app.logline_tokens;
 }
 

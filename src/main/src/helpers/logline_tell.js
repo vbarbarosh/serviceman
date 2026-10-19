@@ -27,7 +27,7 @@ async function tell(app, remote)
     }
     try {
         const answer = await answer_make(app, remote);
-        const told = logline_mark(answer.logs, ((answer.endpoint === undefined) ? null : answer.endpoint), ((answer.token === undefined) ? null : crypto.createHash('sha256').update(answer.token).digest('hex')), ((answer.dirs === undefined) ? [] : answer.dirs));
+        const told = logline_mark(answer.logs, (answer.endpoint === undefined) ? null : answer.endpoint, (answer.token === undefined) ? null : crypto.createHash('sha256').update(answer.token).digest('hex'), (answer.dirs === undefined) ? [] : answer.dirs);
         if (state.logline_told === told) {
             return;
         }
@@ -56,14 +56,14 @@ async function answer_make(app, remote)
         return {logs: 'off'};
     }
     const resources = remote.state.resources;
-    const ips = (((resources === null) || (Array.isArray(resources.addresses) === false)) ? [] : resources.addresses);
+    const ips = ((resources === null) || (Array.isArray(resources.addresses) === false)) ? [] : resources.addresses;
     if (ips.length === 0) {
         throw new Error('its agent named no address of its own, so there is nothing to bind a token to');
     }
     const kept = await logline_token(app, remote.name, ips);
     remote.state.logline_ips = kept.ips;
-    remote.state.logline_issued_at = ((kept.issued_at === undefined) ? null : kept.issued_at);
-    return {endpoint: logline.endpoint, token: kept.token, logs: 'all', dirs: ((remote.log_dirs === undefined) ? [] : remote.log_dirs)};
+    remote.state.logline_issued_at = (kept.issued_at === undefined) ? null : kept.issued_at;
+    return {endpoint: logline.endpoint, token: kept.token, logs: 'all', dirs: (remote.log_dirs === undefined) ? [] : remote.log_dirs};
 }
 
 // What a telling amounts to, the way the agent says it at hello: the token by its hash, so the

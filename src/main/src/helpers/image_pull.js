@@ -26,9 +26,9 @@ async function image_pull(app, remote, service, loud)
         service.state.doing = `downloading ${service.image}`;
         service_said(app, {service: service.name, text: `the image ${service.image} is not on this machine yet — downloading it`});
     }
-    const pulled = ((loud === true)
+    const pulled = (loud === true)
         ? await shell_progress_docker_pull(app, remote, service)
-        : await docker_shell(app, remote, ['pull', service.image]));
+        : await docker_shell(app, remote, ['pull', service.image]);
     if (loud === true) {
         service.state.doing = null;
     }

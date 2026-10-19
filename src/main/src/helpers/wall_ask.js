@@ -63,8 +63,8 @@ function ask_now(instance, req, host, resolve)
         agent: instance.agent,
         headers: {
             host,
-            cookie: ((req.headers.cookie === undefined) ? '' : req.headers.cookie),
-            'x-real-ip': ((req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress),
+            cookie: (req.headers.cookie === undefined) ? '' : req.headers.cookie,
+            'x-real-ip': (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress,
             'x-original-uri': `${scheme_of(req)}://${host}${req.url}`,
             'x-original-method': req.method,
             'content-length': '0',
@@ -72,7 +72,7 @@ function ask_now(instance, req, host, resolve)
     };
     const asking = http.request(options, function (answer) {
         answer.resume();
-        resolve({ok: (answer.statusCode === 200), user: ((answer.headers['x-auth-user'] === undefined) ? '' : answer.headers['x-auth-user'])});
+        resolve({ok: (answer.statusCode === 200), user: (answer.headers['x-auth-user'] === undefined) ? '' : answer.headers['x-auth-user']});
     });
     asking.setTimeout(ASK_MS, function () {
         asking.destroy();

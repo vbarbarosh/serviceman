@@ -62,8 +62,8 @@ async function docker_serve(req, res, options)
     const ctx = {
         connect: options.connect,
         run: options.run,
-        log: ((options.log === undefined) ? function () {} : options.log),
-        own: ((options.own === undefined) ? own_none : options.own),
+        log: (options.log === undefined) ? function () {} : options.log,
+        own: (options.own === undefined) ? own_none : options.own,
     };
     // GET <base>/containers
     if ((tail === '/containers') && (req.method === 'GET')) {
@@ -161,8 +161,8 @@ async function containers_serve(ctx, res)
 
 function container_view(ctx, item)
 {
-    const labels = (((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels);
-    const name = ((Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12));
+    const labels = ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
+    const name = (Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12);
     return {
         id: item.Id,
         name,
@@ -171,9 +171,9 @@ function container_view(ctx, item)
         status: item.Status,
         created_ms: item.Created*1000,
         ports: ports_text(item.Ports),
-        project: ((labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT]),
-        service: ((labels[LABEL_SERVICE] === undefined) ? null : labels[LABEL_SERVICE]),
-        dir: ((labels[LABEL_DIR] === undefined) ? null : labels[LABEL_DIR]),
+        project: (labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT],
+        service: (labels[LABEL_SERVICE] === undefined) ? null : labels[LABEL_SERVICE],
+        dir: (labels[LABEL_DIR] === undefined) ? null : labels[LABEL_DIR],
         own: ctx.own(name),
     };
 }
@@ -186,14 +186,14 @@ function container_view(ctx, item)
 async function store_serve(ctx, res, kind)
 {
     try {
-        const listed = await engine_call(ctx.connect, 'GET', ((kind === 'images') ? '/images/json' : `/${kind}`));
+        const listed = await engine_call(ctx.connect, 'GET', (kind === 'images') ? '/images/json' : `/${kind}`);
         const containers = await engine_call(ctx.connect, 'GET', '/containers/json?all=1');
         if ((listed.status !== 200) || (containers.status !== 200)) {
             send_json(res, 502, {error: engine_said((listed.status !== 200) ? listed : containers)});
             return;
         }
         const body = JSON.parse(listed.body);
-        const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({id: v.Id, name: name_of(v), state: v.State, image: v.ImageID, mounts: (Array.isArray(v.Mounts) ? v.Mounts : []), networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
+        const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({id: v.Id, name: name_of(v), state: v.State, image: v.ImageID, mounts: Array.isArray(v.Mounts) ? v.Mounts : [], networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
         if (kind === 'images') {
             send_json(res, 200, {images: body.map(v => image_view(v, users))});
             return;
@@ -226,29 +226,29 @@ function image_view(item, users)
 
 function volume_view(item, users)
 {
-    const labels = (((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels);
+    const labels = ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
     return {
         name: item.Name,
         driver: item.Driver,
-        created_ms: (item.CreatedAt ? Date.parse(item.CreatedAt) : null),
-        project: ((labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT]),
+        created_ms: item.CreatedAt ? Date.parse(item.CreatedAt) : null,
+        project: (labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT],
         used_by: users.filter(v => v.mounts.some(vv => (vv.Type === 'volume') && (vv.Name === item.Name))).map(v => v.name),
         // Where its files lie on the machine, and where each container sees them
-        mountpoint: (item.Mountpoint ? item.Mountpoint : null),
+        mountpoint: item.Mountpoint ? item.Mountpoint : null,
         mounts: users.flatMap(v => v.mounts.filter(vv => (vv.Type === 'volume') && (vv.Name === item.Name)).map(vv => ({id: v.id, name: v.name, running: (v.state === 'running'), destination: vv.Destination}))),
     };
 }
 
 function network_view(item, users)
 {
-    const labels = (((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels);
-    const config = ((item.IPAM && Array.isArray(item.IPAM.Config)) ? item.IPAM.Config : []);
+    const labels = ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
+    const config = (item.IPAM && Array.isArray(item.IPAM.Config)) ? item.IPAM.Config : [];
     return {
         id: item.Id,
         name: item.Name,
         driver: item.Driver,
         subnet: config.map(v => v.Subnet).filter(v => v).join(', '),
-        project: ((labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT]),
+        project: (labels[LABEL_PROJECT] === undefined) ? null : labels[LABEL_PROJECT],
         used_by: users.filter(v => v.networks.includes(item.Name)).map(v => v.name),
         builtin: NETWORKS_BUILTIN.includes(item.Name),
     };
@@ -270,7 +270,7 @@ async function volume_helper(ctx, res, name, action)
 {
     try {
         const listed = await engine_call(ctx.connect, 'GET', `/containers/json?all=1&filters=${encodeURIComponent(JSON.stringify({label: [`${LABEL_HELPER_VOLUME}=${name}`]}))}`);
-        const found = ((listed.status === 200) ? JSON.parse(listed.body).filter(v => is_helper(v) && (v.Labels[LABEL_HELPER_VOLUME] === name)) : []);
+        const found = (listed.status === 200) ? JSON.parse(listed.body).filter(v => is_helper(v) && (v.Labels[LABEL_HELPER_VOLUME] === name)) : [];
         if (action === 'close') {
             // Killed first: sleep, the helper's first process, would sit through a stop's SIGTERM
             // and keep a remove waiting for the whole stop timeout
@@ -325,7 +325,7 @@ async function image_ensure(ctx, image)
     for await (const chunk of pulled) {
         text += chunk.toString('utf8');
     }
-    const failed = text.split('\n').map(v => (v.trim().startsWith('{') ? JSON.parse(v) : {})).find(v => v.error);
+    const failed = text.split('\n').map(v => v.trim().startsWith('{') ? JSON.parse(v) : {}).find(v => v.error);
     if ((pulled.statusCode !== 200) || (failed !== undefined)) {
         throw new Error(`${image} could not be pulled: ${(failed === undefined) ? `docker answered ${pulled.statusCode}` : failed.error}`);
     }
@@ -333,7 +333,7 @@ async function image_ensure(ctx, image)
 
 function name_of(item)
 {
-    return ((Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12));
+    return (Array.isArray(item.Names) && (item.Names.length > 0)) ? item.Names[0].replace(/^\//, '') : item.Id.slice(0, 12);
 }
 
 // POST <base>/images/<id>/remove
@@ -346,10 +346,10 @@ async function store_remove(ctx, res, kind, pathname, name)
     try {
         const answer = await engine_call(ctx.connect, 'DELETE', pathname);
         if ((answer.status !== 200) && (answer.status !== 204)) {
-            send_json(res, ((answer.status === 409) ? 409 : 502), {error: engine_said(answer)});
+            send_json(res, (answer.status === 409) ? 409 : 502, {error: engine_said(answer)});
             return;
         }
-        ctx.log(`docker_${kind}_removed`, {name: ((kind === 'volume') ? name : name.replace(/^sha256:/, '').slice(0, 12))});
+        ctx.log(`docker_${kind}_removed`, {name: (kind === 'volume') ? name : name.replace(/^sha256:/, '').slice(0, 12)});
         send_json(res, 200, {});
     }
     catch (error) {
@@ -411,15 +411,15 @@ async function store_prune(ctx, res, kind, all)
 // What a prune would take: each with its address for the engine, a name to say, its size
 async function prune_found(ctx, kind, all)
 {
-    const listed = await engine_call(ctx.connect, 'GET', ((kind === 'images') ? '/images/json' : `/${kind}`));
+    const listed = await engine_call(ctx.connect, 'GET', (kind === 'images') ? '/images/json' : `/${kind}`);
     const containers = await engine_call(ctx.connect, 'GET', '/containers/json?all=1');
     if ((listed.status !== 200) || (containers.status !== 200)) {
         throw new Error(engine_said((listed.status !== 200) ? listed : containers));
     }
     const body = JSON.parse(listed.body);
-    const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({name: name_of(v), state: v.State, image: v.ImageID, mounts: (Array.isArray(v.Mounts) ? v.Mounts : []), networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
+    const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({name: name_of(v), state: v.State, image: v.ImageID, mounts: Array.isArray(v.Mounts) ? v.Mounts : [], networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
     if (kind === 'images') {
-        return body.map(v => image_view(v, users)).filter(v => (v.used_by.length === 0) && (v.read_only === false) && (all || v.dangling)).map(v => ({path: `/images/${v.id.replace(/^sha256:/, '')}`, label: ((v.tags.length === 0) ? v.id.replace(/^sha256:/, '').slice(0, 12) : v.tags[0]), size: v.size}));
+        return body.map(v => image_view(v, users)).filter(v => (v.used_by.length === 0) && (v.read_only === false) && (all || v.dangling)).map(v => ({path: `/images/${v.id.replace(/^sha256:/, '')}`, label: (v.tags.length === 0) ? v.id.replace(/^sha256:/, '').slice(0, 12) : v.tags[0], size: v.size}));
     }
     if (kind === 'volumes') {
         return (Array.isArray(body.Volumes) ? body.Volumes : []).map(v => volume_view(v, users)).filter(v => v.used_by.length === 0).map(v => ({path: `/volumes/${encodeURIComponent(v.name)}`, label: v.name, size: 0}));
@@ -436,7 +436,7 @@ async function image_pull(ctx, res, id)
     try {
         const listed = await engine_call(ctx.connect, 'GET', '/images/json');
         const found = JSON.parse(listed.body).find(v => (v.Id === id) || (v.Id === `sha256:${id}`));
-        tag = ((found === undefined) ? undefined : (Array.isArray(found.RepoTags) ? found.RepoTags : []).find(v => v !== '<none>:<none>'));
+        tag = (found === undefined) ? undefined : (Array.isArray(found.RepoTags) ? found.RepoTags : []).find(v => v !== '<none>:<none>');
     }
     catch (error) {
         send_json(res, 502, {error: error.message});
@@ -447,8 +447,8 @@ async function image_pull(ctx, res, id)
         return;
     }
     const at = tag.lastIndexOf(':');
-    const repo = ((at > tag.lastIndexOf('/')) ? tag.slice(0, at) : tag);
-    const version = ((at > tag.lastIndexOf('/')) ? tag.slice(at + 1) : 'latest');
+    const repo = (at > tag.lastIndexOf('/')) ? tag.slice(0, at) : tag;
+    const version = (at > tag.lastIndexOf('/')) ? tag.slice(at + 1) : 'latest';
     progress_begin(res);
     progress_say(res, {text: `$ docker pull ${tag}`});
     ctx.log('docker_image_pull_begin', {image: tag});
@@ -465,14 +465,14 @@ async function image_pull(ctx, res, id)
             const lines = held.split('\n');
             held = lines.pop();
             for (const line of lines) {
-                failed = ((failed === null) ? pull_line(res, said, layers, line) : failed);
+                failed = (failed === null) ? pull_line(res, said, layers, line) : failed;
             }
             if (Date.now() - said_at > PROGRESS_EVERY_MS) {
                 said_at = Date.now();
                 pull_progress(res, layers);
             }
         }
-        failed = ((failed === null) ? pull_line(res, said, layers, held) : failed);
+        failed = (failed === null) ? pull_line(res, said, layers, held) : failed;
         if ((pulled.statusCode !== 200) && (failed === null)) {
             failed = `docker answered ${pulled.statusCode}`;
         }
@@ -518,14 +518,14 @@ function pull_line(res, said, layers, line)
     if (item.error) {
         return String(item.error);
     }
-    const key = ((item.id === undefined) ? '' : item.id);
+    const key = (item.id === undefined) ? '' : item.id;
     if ((key !== '') && item.progressDetail && (item.progressDetail.total > 0) && (item.status === 'Downloading')) {
         layers[key] = {current: item.progressDetail.current, total: item.progressDetail.total};
     }
     if ((key !== '') && (layers[key] !== undefined) && /complete|Already exists/i.test(String(item.status))) {
         layers[key].current = layers[key].total;
     }
-    const text = ((item.status === undefined) ? ((item.stream === undefined) ? '' : String(item.stream).trim()) : String(item.status));
+    const text = (item.status === undefined) ? ((item.stream === undefined) ? '' : String(item.stream).trim()) : String(item.status);
     if ((text === '') || (said[key] === text)) {
         return null;
     }
@@ -539,7 +539,7 @@ function ports_text(ports)
 {
     const out = [];
     for (const item of (Array.isArray(ports) ? ports : [])) {
-        const text = ((item.PublicPort === undefined) ? `${item.PrivatePort}/${item.Type}` : `${item.PublicPort}→${item.PrivatePort}/${item.Type}`);
+        const text = (item.PublicPort === undefined) ? `${item.PrivatePort}/${item.Type}` : `${item.PublicPort}→${item.PrivatePort}/${item.Type}`;
         if (out.includes(text) === false) {
             out.push(text);
         }
@@ -555,7 +555,7 @@ async function container_do(ctx, res, id, action)
 {
     try {
         // A running container is not removed: the engine refuses, and its word is the answer
-        const answer = ((action === 'remove') ? await engine_call(ctx.connect, 'DELETE', `/containers/${id}`) : await engine_call(ctx.connect, 'POST', `/containers/${id}/${action}`));
+        const answer = (action === 'remove') ? await engine_call(ctx.connect, 'DELETE', `/containers/${id}`) : await engine_call(ctx.connect, 'POST', `/containers/${id}/${action}`);
         // 304 is a container already started, or already stopped: what was asked is so
         if ((answer.status !== 204) && (answer.status !== 304)) {
             send_json(res, 502, {error: engine_said(answer)});
@@ -626,9 +626,9 @@ async function project_find(ctx, project)
         throw new Error(engine_said(answer));
     }
     for (const item of JSON.parse(answer.body)) {
-        const labels = (((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels);
+        const labels = ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
         if ((labels[LABEL_PROJECT] === project) && (labels[LABEL_DIR] !== undefined)) {
-            const files = ((labels[LABEL_FILES] === undefined) ? [] : labels[LABEL_FILES].split(',').filter(v => v !== ''));
+            const files = (labels[LABEL_FILES] === undefined) ? [] : labels[LABEL_FILES].split(',').filter(v => v !== '');
             return {dir: labels[LABEL_DIR], files: files.map(v => path.resolve(labels[LABEL_DIR], v))};
         }
     }
@@ -675,8 +675,8 @@ function engine_stream(connect, method, pathname)
 function engine_call(connect, method, path, value)
 {
     return new Promise(function (resolve, reject) {
-        const body = ((value === undefined) ? null : JSON.stringify(value));
-        const headers = ((body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)});
+        const body = (value === undefined) ? null : JSON.stringify(value);
+        const headers = (body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)};
         const req = http.request({createConnection: connect, method, path, headers}, function (res) {
             const chunks = [];
             res.on('data', v => chunks.push(v));

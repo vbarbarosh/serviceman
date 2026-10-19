@@ -25,7 +25,7 @@ function remotes_of(app, item)
         return app.remotes.filter(v => remote_tags(v).includes(tag));
     }
     const found = app.remote_by_name[item];
-    return ((found === undefined) ? [] : [found]);
+    return (found === undefined) ? [] : [found];
 }
 
 module.exports = remote_candidates;

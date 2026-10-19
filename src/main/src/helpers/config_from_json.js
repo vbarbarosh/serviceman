@@ -55,15 +55,15 @@ function config_from_json(json, base_dir)
         listen: {
             host: listen.host || DEFAULT_LISTEN_HOST,
             // Zero is a port: it means whichever one is free, and it must survive the default
-            port: ((listen.port === undefined) ? DEFAULT_LISTEN_PORT : listen.port),
-            socket: ((listen.socket === undefined) ? null : path.resolve(base_dir, listen.socket)),
+            port: (listen.port === undefined) ? DEFAULT_LISTEN_PORT : listen.port,
+            socket: (listen.socket === undefined) ? null : path.resolve(base_dir, listen.socket),
             socket_mode: mode_from_json(listen.socket_mode, 'listen.socket_mode'),
         },
         control: {
-            host: ((control.host === undefined) ? DEFAULT_CONTROL_HOST : control.host),
-            port: ((control.port === undefined) ? DEFAULT_CONTROL_PORT : control.port),
+            host: (control.host === undefined) ? DEFAULT_CONTROL_HOST : control.host,
+            port: (control.port === undefined) ? DEFAULT_CONTROL_PORT : control.port,
             bind: control.bind || DEFAULT_CONTROL_BIND,
-            socket: ((control.socket === undefined) ? null : path.resolve(base_dir, control.socket)),
+            socket: (control.socket === undefined) ? null : path.resolve(base_dir, control.socket),
             socket_mode: mode_from_json(control.socket_mode, 'control.socket_mode'),
             exposed: control.exposed === true,
             names: names_from_json(control.names, 'control.names'),
@@ -183,7 +183,7 @@ function remotes_from_service(json, label)
     if ((json.remote !== undefined) && (json.remotes !== undefined)) {
         throw new Error(`${label}.remotes: write one of "remote" or "remotes", not both`);
     }
-    const out = ((json.remote === undefined) ? json.remotes : [json.remote]);
+    const out = (json.remote === undefined) ? json.remotes : [json.remote];
     if ((Array.isArray(out) === false) || (out.length === 0)) {
         throw new Error(`${label}.remotes: a list of remote names is required, in the order they are tried`);
     }
@@ -263,25 +263,25 @@ function service_from_json(json, service_defaults, base_dir, label)
     }
     if (out.type === 'shell') {
         out.command = json.command;
-        out.argv = (Array.isArray(json.argv) ? json.argv : null);
-        out.port = ((publish.port === undefined) ? null : publish.port);
+        out.argv = Array.isArray(json.argv) ? json.argv : null;
+        out.port = (publish.port === undefined) ? null : publish.port;
         out.lifecycle = lifecycle_from_json(json.lifecycle, `${label}.lifecycle`);
         // The environment the lines run in. Without one they run on the machine itself; with
         // one they run inside it, with the program's folder mounted at /app.
-        out.image = ((json.image === undefined) ? null : String(json.image));
+        out.image = (json.image === undefined) ? null : String(json.image);
         // Who it runs as inside that image: `node:node` for a node image, `1000:1000` for a
         // number. Without one, the user running serviceman or the agent, by number.
-        out.user = ((json.user === undefined) ? null : String(json.user));
+        out.user = (json.user === undefined) ? null : String(json.user);
         // Storage, for a program that keeps something. It lives on one machine, which is why
         // a service with a volume may name only one.
         out.volumes = volumes_from_json(json.volumes, base_dir, `${label}.volumes`, out.name);
         // As written, and resolved by the agent on the machine that runs it, against its own
         // home. A program that installs itself gets a folder of its own without being told,
         // because there is nowhere else it could go.
-        out.cwd = ((json.cwd === undefined) ? cwd_default(out) : String(json.cwd));
+        out.cwd = (json.cwd === undefined) ? cwd_default(out) : String(json.cwd);
         // A folder serviceman chose is a folder the agent may take away again. One that was
         // named in the config belongs to whoever named it, and is never removed.
-        out.cwd_made = ((json.cwd === undefined) && (out.lifecycle.install !== null));
+        out.cwd_made = (json.cwd === undefined) && (out.lifecycle.install !== null);
         out.env = json.env || {};
     }
     if (out.type === 'external') {
@@ -290,7 +290,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         }
         // host:port. http://host:port says the same and is read as it; anything more — https, a
         // path — would be taken for part of the host, and is refused
-        const bare = ((typeof json.upstream === 'string') ? json.upstream.trim().replace(/^http:\/\/([^/\s]+)\/?$/, '$1') : json.upstream);
+        const bare = (typeof json.upstream === 'string') ? json.upstream.trim().replace(/^http:\/\/([^/\s]+)\/?$/, '$1') : json.upstream;
         if ((typeof bare === 'string') && /[/\s]/.test(bare)) {
             throw new Error(`${label}.upstream: where it already answers, as host:port — plain http, no path (got ${JSON.stringify(json.upstream)})`);
         }

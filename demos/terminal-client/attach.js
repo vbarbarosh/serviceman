@@ -47,7 +47,7 @@ async function main()
 // no token was given. Anything else as it is.
 function report(error)
 {
-    const given = ((process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== ''));
+    const given = (process.env.SERVICEMAN_TOKEN !== undefined) && (process.env.SERVICEMAN_TOKEN !== '');
     if ((error.status === 401) && given) {
         console.error('serviceman does not know the token in SERVICEMAN_TOKEN: bin/owner-token prints the owner\'s');
         return;

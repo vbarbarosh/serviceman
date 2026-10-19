@@ -66,8 +66,8 @@ async function file_manager_serve(req, res, options)
 {
     const url = new URL(req.url, 'http://file-manager.invalid');
     const tail = options.tail;
-    const log = ((options.log === undefined) ? function () {} : options.log);
-    const ctx = {disk: options.disk, log, name: ((options.name === undefined) ? 'files' : options.name)};
+    const log = (options.log === undefined) ? function () {} : options.log;
+    const ctx = {disk: options.disk, log, name: (options.name === undefined) ? 'files' : options.name};
     if (((tail === '') || (tail === '/')) && (req.method === 'GET')) {
         await list_serve(ctx, req, res, url);
         return;
@@ -154,7 +154,7 @@ function tree_serve(ctx, req, res, url)
     }
     const events = String(req.headers.accept).includes('text/event-stream');
     const delay_text = url.searchParams.get('delay');
-    const delay = ((delay_text === null) ? 0 : Number(delay_text));
+    const delay = (delay_text === null) ? 0 : Number(delay_text);
     if ((Number.isInteger(delay) === false) || (delay < 0) || (delay > TREE_DELAY_MAX_MS)) {
         send_json(res, 400, {error: `a delay is a number of milliseconds from 0 to ${TREE_DELAY_MAX_MS}, and ${JSON.stringify(delay_text)} is not one`});
         return;
@@ -314,7 +314,7 @@ function tree_serve(ctx, req, res, url)
         if (cut) {
             stream.destroy();
         }
-        listed.items.sort((a, b) => ((a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0)));
+        listed.items.sort((a, b) => (a.path < b.path) ? -1 : ((a.path > b.path) ? 1 : 0));
         listed.items.push(cut ? {type: 'error', error: `more than ${TREE_JSON_MAX_ITEMS} names: the list stops here`} : {type: 'end'});
         // Compact, unlike the other doors: a tree is thousands of items, and indents add 60%
         send_json(res, 200, listed.items, 0);
@@ -330,7 +330,7 @@ function item_of(line)
     if (line.type === 'error') {
         return {type: 'error', path: line.path, error: line.error};
     }
-    const out = {type: line.type, path: line.path, size: ((line.type === 'file') ? line.size : null), mtime_ms: line.mtime_ms};
+    const out = {type: line.type, path: line.path, size: (line.type === 'file') ? line.size : null, mtime_ms: line.mtime_ms};
     if (line.target !== undefined) {
         out.target = line.target;
     }
@@ -370,7 +370,7 @@ async function file_serve(ctx, req, res, asked)
     }
     const headers = {
         'content-type': mime_type_of(asked),
-        'content-length': ((range === null) ? stat.size : range.end - range.start + 1),
+        'content-length': (range === null) ? stat.size : range.end - range.start + 1,
         'content-disposition': content_disposition('inline', path.basename(asked)),
         'accept-ranges': 'bytes',
         'last-modified': new Date(stat.mtime_ms).toUTCString(),
@@ -379,7 +379,7 @@ async function file_serve(ctx, req, res, asked)
     if (range !== null) {
         headers['content-range'] = `bytes ${range.start}-${range.end}/${stat.size}`;
     }
-    res.writeHead(((range === null) ? 200 : 206), headers);
+    res.writeHead((range === null) ? 200 : 206, headers);
     if (req.method === 'HEAD') {
         res.end();
         return;
@@ -562,7 +562,7 @@ async function room_serve(ctx, res, url)
     }
     try {
         const room = await ctx.disk.room(url.searchParams.get('path'));
-        send_json(res, 200, {bytes_free: room.bytes_free, inodes_free: ((room.inodes_free === undefined) ? null : room.inodes_free)});
+        send_json(res, 200, {bytes_free: room.bytes_free, inodes_free: (room.inodes_free === undefined) ? null : room.inodes_free});
     }
     catch (error) {
         send_json(res, 502, {error: error.message});
@@ -612,8 +612,8 @@ async function act_serve(ctx, req, res, action)
 // is, and whether it replaced one.
 async function upload_serve(ctx, req, res, url)
 {
-    const file = ((url.searchParams.get('name') === null) ? '' : url.searchParams.get('name'));
-    const dir = ((url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim());
+    const file = (url.searchParams.get('name') === null) ? '' : url.searchParams.get('name');
+    const dir = (url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim();
     if ((RE_FILE_NAME.test(file) === false) || (file === '.') || (file === '..')) {
         send_json(res, 400, {error: `a file lands under a name of its own, and ${JSON.stringify(file)} is not one`});
         return;
@@ -646,7 +646,7 @@ async function tar_upload_serve(ctx, req, res, url)
         send_json(res, 501, {error: 'this disk cannot take a tar'});
         return;
     }
-    const dir = ((url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim());
+    const dir = (url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim();
     if (dir === '') {
         send_json(res, 400, {error: 'a folder is required'});
         return;
@@ -672,9 +672,9 @@ async function tar_upload_serve(ctx, req, res, url)
         }
         try {
             for (const event of parser.push(chunk)) {
-                seen = (seen || (event.type !== 'data'));
-                counted.files += ((event.type === 'file') ? 1 : 0);
-                counted.bytes += ((event.type === 'data') ? event.bytes.length : 0);
+                seen = seen || (event.type !== 'data');
+                counted.files += (event.type === 'file') ? 1 : 0;
+                counted.bytes += (event.type === 'data') ? event.bytes.length : 0;
             }
         }
         catch (error) {
@@ -713,7 +713,7 @@ async function tar_upload_serve(ctx, req, res, url)
     // and keeps what was whole. A refusal at the first entry asks nothing of the disk.
     function refuse(error, before) {
         refused = error;
-        seen = (seen || (error.entries > 0));
+        seen = seen || (error.entries > 0);
         body.end(before);
         wake();
     }
@@ -740,7 +740,7 @@ async function tar_upload_serve(ctx, req, res, url)
         landed = await ctx.disk.write_tar(dir, body);
     }
     catch (error) {
-        send_json(res, ((refused === null) ? 502 : 400), {error: ((refused === null) ? error.message : refused.message)});
+        send_json(res, (refused === null) ? 502 : 400, {error: (refused === null) ? error.message : refused.message});
         return;
     }
     if (refused !== null) {
@@ -748,8 +748,8 @@ async function tar_upload_serve(ctx, req, res, url)
         return;
     }
     // A disk that cannot count what it unpacked leaves it to what was read here
-    const files = ((typeof landed.files === 'number') ? landed.files : counted.files);
-    const bytes = ((typeof landed.bytes === 'number') ? landed.bytes : counted.bytes);
+    const files = (typeof landed.files === 'number') ? landed.files : counted.files;
+    const bytes = (typeof landed.bytes === 'number') ? landed.bytes : counted.bytes;
     ctx.log('files_copied', {dir, files, bytes, ms: Date.now() - time0});
     send_json(res, 200, {files, bytes});
 }
@@ -820,9 +820,9 @@ function part_where(ctx, res, url)
         send_json(res, 501, {error: 'this disk takes a file in one piece'});
         return null;
     }
-    const name = ((url.searchParams.get('name') === null) ? '' : url.searchParams.get('name'));
-    const dir = ((url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim());
-    const id = ((url.searchParams.get('id') === null) ? '' : url.searchParams.get('id'));
+    const name = (url.searchParams.get('name') === null) ? '' : url.searchParams.get('name');
+    const dir = (url.searchParams.get('dir') === null) ? '' : url.searchParams.get('dir').trim();
+    const id = (url.searchParams.get('id') === null) ? '' : url.searchParams.get('id');
     if ((RE_FILE_NAME.test(name) === false) || (name === '.') || (name === '..')) {
         send_json(res, 400, {error: `a file lands under a name of its own, and ${JSON.stringify(name)} is not one`});
         return null;
@@ -871,7 +871,7 @@ function range_of(header, size)
     if (start >= size) {
         return 'bad';
     }
-    const end = ((found[2] === '') ? size - 1 : Math.min(size - 1, parseInt(found[2], 10)));
+    const end = (found[2] === '') ? size - 1 : Math.min(size - 1, parseInt(found[2], 10));
     if (end < start) {
         return null;
     }
@@ -908,7 +908,7 @@ function body_read(req, limit_bytes)
 
 function send_json(res, status, value, indent)
 {
-    const text = JSON.stringify(value, null, ((indent === undefined) ? 4 : indent));
+    const text = JSON.stringify(value, null, (indent === undefined) ? 4 : indent);
     res.writeHead(status, {
         'content-type': 'application/json; charset=utf-8',
         'content-length': Buffer.byteLength(text),

@@ -38,7 +38,7 @@ function forwards_from_json(json, label)
         if ((item === null) || (typeof item !== 'object') || Array.isArray(item)) {
             throw new Error(`${at}: {"label", "from": {"remote", "port" or "socket"}, "to": {...}}`);
         }
-        const forward_label = ((item.label === undefined) ? item.name : item.label);
+        const forward_label = (item.label === undefined) ? item.name : item.label;
         if ((typeof forward_label !== 'string') || (forward_label.trim() !== forward_label) || (forward_label === '') || (forward_label.length > LABEL_MAX) || RE_LINE_BREAK.test(forward_label)) {
             throw new Error(`${at}.label: any text of one line, at most ${LABEL_MAX} characters, with no spaces around it (got ${JSON.stringify(forward_label)})`);
         }
@@ -103,11 +103,11 @@ function end_from_json(json, label, here_allowed)
         throw new Error(`${label}.host: an address that machine reaches, such as 10.0.0.5 (got ${JSON.stringify(json.host)})`);
     }
     return {
-        remote: (here ? null : json.remote),
+        remote: here ? null : json.remote,
         here,
-        port: ((json.port === undefined) ? null : json.port),
-        socket: ((json.socket === undefined) ? null : json.socket),
-        host: ((json.host === undefined) ? null : json.host),
+        port: (json.port === undefined) ? null : json.port,
+        socket: (json.socket === undefined) ? null : json.socket,
+        host: (json.host === undefined) ? null : json.host,
     };
 }
 

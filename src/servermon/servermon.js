@@ -139,7 +139,7 @@ function mounts_read()
     const seen_keys = new Set();
     for (const mount_path of mount_paths) {
         const stat = statfs_read(mount_path);
-        const key = (stat && `${stat.blocks}:${stat.files}:${stat.ffree}`);
+        const key = stat && `${stat.blocks}:${stat.files}:${stat.ffree}`;
         if (stat && !seen_keys.has(key)) {
             seen_keys.add(key);
             out.push({path: mount_path, size: stat.blocks*stat.bsize, free: stat.bavail*stat.bsize});

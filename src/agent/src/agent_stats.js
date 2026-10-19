@@ -16,26 +16,26 @@ const SILENT_MS = 5000;
 async function agent_stats(options)
 {
     const lines = agent_servermon_lines();
-    const last = ((lines.length === 0) ? null : lines[lines.length - 1]);
+    const last = (lines.length === 0) ? null : lines[lines.length - 1];
     // The machine's numbers are servermon's last line, read here and never measured here: null
     // while servermon is off or silent, and `servermon` says which
-    const now = (((last !== null) && ((Date.now() - last.at) <= SILENT_MS)) ? last : null);
+    const now = ((last !== null) && ((Date.now() - last.at) <= SILENT_MS)) ? last : null;
     return {
         at: Date.now(),
         can: await agent_can(options),
         uptime_ms: Math.round(os.uptime()*1000),
         servermon: servermon_said(last, now),
-        load: ((now === null) ? null : now.load),
+        load: (now === null) ? null : now.load,
         // How busy its cores were over servermon's last second, 0 to 1
-        cpu_busy: (((now === null) || (now.cpu === null)) ? null : now.cpu/100),
-        mem_free: ((now === null) ? null : now.mem_total - now.mem_used),
-        disk_free: ((now === null) ? null : disk_free_of(now.mounts, options.dir)),
+        cpu_busy: ((now === null) || (now.cpu === null)) ? null : now.cpu/100,
+        mem_free: (now === null) ? null : now.mem_total - now.mem_used,
+        disk_free: (now === null) ? null : disk_free_of(now.mounts, options.dir),
         // All of its disks together, for a line that says how full the machine is
-        disks: ((now === null) ? null : disks_of(now.mounts)),
-        battery: (((now === null) || (now.battery === undefined)) ? null : now.battery),
+        disks: (now === null) ? null : disks_of(now.mounts),
+        battery: ((now === null) || (now.battery === undefined)) ? null : now.battery,
         // The way in, as its file says it stands right now
         door: agent_http_serve.door(),
-        temperature: (((now === null) || (now.temperature === undefined)) ? null : now.temperature),
+        temperature: ((now === null) || (now.temperature === undefined)) ? null : now.temperature,
         updates: await agent_updates(options),
         // How its lines to Logline are going
         logline: agent_logline_status(),
@@ -52,7 +52,7 @@ function servermon_said(last, now)
         return {state: 'off', last_at: null};
     }
     if (now === null) {
-        return {state: 'silent', last_at: ((last === null) ? null : last.time)};
+        return {state: 'silent', last_at: (last === null) ? null : last.time};
     }
     return {state: 'running', last_at: now.time};
 }
@@ -63,12 +63,12 @@ function disk_free_of(mounts, dir)
     const target = path.resolve(dir);
     let found = null;
     for (const mount of mounts) {
-        const under = ((mount.path === '/') || (target === mount.path) || target.startsWith(`${mount.path}/`));
+        const under = (mount.path === '/') || (target === mount.path) || target.startsWith(`${mount.path}/`);
         if (under && ((found === null) || (mount.path.length > found.path.length))) {
             found = mount;
         }
     }
-    return ((found === null) ? null : found.size - found.used);
+    return (found === null) ? null : found.size - found.used;
 }
 
 function disks_of(mounts)

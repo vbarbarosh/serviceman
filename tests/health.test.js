@@ -121,7 +121,7 @@ function views(over)
 
 function seen(items)
 {
-    return {checked_at: ((Object.keys(items).length === 0) ? null : NOW - 20000), items: new Map(Object.entries(items))};
+    return {checked_at: (Object.keys(items).length === 0) ? null : NOW - 20000, items: new Map(Object.entries(items))};
 }
 
 function ok(text)

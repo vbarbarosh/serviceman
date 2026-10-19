@@ -176,8 +176,8 @@ function announce(app, servers)
     }
     log_event(app, 'serviceman_control', {
         host: app.config.control.host,
-        address: ((servers.control === null) ? null : `${app.config.control.bind}:${servers.control.address().port}`),
-        socket: ((servers.socket === null) ? null : app.config.control.socket),
+        address: (servers.control === null) ? null : `${app.config.control.bind}:${servers.control.address().port}`,
+        socket: (servers.socket === null) ? null : app.config.control.socket,
     });
 
     for (const remote of app.remotes) {
@@ -256,7 +256,7 @@ function start_always(app)
 function policy_text(service)
 {
     if (service.redirect !== null) {
-        const idle = ((service.policy.stop_after_idle_ms === null) ? 'stays up' : `sleeps ${Math.round(service.policy.stop_after_idle_ms/1000)}s after the last one`);
+        const idle = (service.policy.stop_after_idle_ms === null) ? 'stays up' : `sleeps ${Math.round(service.policy.stop_after_idle_ms/1000)}s after the last one`;
         return `wakes it, then sends the visitor to ${service.redirect} — ${idle}`;
     }
     if ((service.type === 'shell') && (service.port === null)) {
@@ -265,7 +265,7 @@ function policy_text(service)
     if (service.policy.start === 'always') {
         return 'always on';
     }
-    const pool = ((service.policy.instances.max === 1) ? '' : `, up to ${service.policy.instances.max} instances`);
+    const pool = (service.policy.instances.max === 1) ? '' : `, up to ${service.policy.instances.max} instances`;
     if (service.policy.stop_after_idle_ms === null) {
         return `on demand, stays up${pool}`;
     }

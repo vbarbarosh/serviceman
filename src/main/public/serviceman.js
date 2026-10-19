@@ -102,11 +102,11 @@ const service_status = {
         door_names: function () {
             const out = [];
             for (const item of ((this.remotes === undefined) ? [] : this.remotes)) {
-                const inbound = ((item.inbound === undefined) ? {} : item.inbound);
+                const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
-                    const rule = ((typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host]);
+                    const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
                     if (rule.service === this.view.name) {
-                        out.push({machine: item.name, title: (item.title || item.name), host, off: (rule.off === true), auth: ((rule.auth === undefined) ? null : rule.auth)});
+                        out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth});
                     }
                 }
             }
@@ -119,7 +119,7 @@ const service_status = {
             if ((this.view.phase === 'failed') || this.view.gave_up) {
                 return 'failed';
             }
-            return ((this.view.phase === 'running') ? 'running' : 'stopped');
+            return (this.view.phase === 'running') ? 'running' : 'stopped';
         },
         state_text: function () {
             if (this.view.type === 'external') {
@@ -128,7 +128,7 @@ const service_status = {
             if ((this.view.phase === 'running') && (this.view.policy.instances.max > 1)) {
                 return `running · ${this.view.instances_running} of ${this.view.policy.instances.max}`;
             }
-            return ((this.view.doing === null) ? this.view.phase : 'working');
+            return (this.view.doing === null) ? this.view.phase : 'working';
         },
         // The one line after the state: when it goes to sleep, how long it has been up, what
         // wakes it, or why it will not
@@ -154,7 +154,7 @@ const service_status = {
                 return said.join(' · ');
             }
             if (view.phase === 'stopped') {
-                return ((view.policy.start === 'always') ? 'it starts with serviceman' : 'the first request starts it');
+                return (view.policy.start === 'always') ? 'it starts with serviceman' : 'the first request starts it';
             }
             return '';
         },
@@ -163,7 +163,7 @@ const service_status = {
         },
         // What it printed while it was worked on; once it runs, the Logs tab is the place
         tail: function () {
-            const worth = ((this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'failed') || this.error_shown);
+            const worth = (this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'failed') || this.error_shown;
             if ((worth === false) || (this.view.said === undefined)) {
                 return '';
             }
@@ -174,13 +174,13 @@ const service_status = {
         format_ms,
         remote_text: function (name) {
             const found = ((this.remotes === undefined) ? [] : this.remotes).find(v => v.name === name) || null;
-            return ((found === null) ? name : (found.title || found.name));
+            return (found === null) ? name : (found.title || found.name);
         },
         address_of: function (host) {
             const mark = host.indexOf('/');
-            const hostname = ((mark === -1) ? host : host.slice(0, mark));
-            const prefix = ((mark === -1) ? '' : host.slice(mark));
-            return ((this.port === 80) ? `http://${hostname}${prefix}` : `http://${hostname}:${this.port}${prefix}`);
+            const hostname = (mark === -1) ? host : host.slice(0, mark);
+            const prefix = (mark === -1) ? '' : host.slice(mark);
+            return (this.port === 80) ? `http://${hostname}${prefix}` : `http://${hostname}:${this.port}${prefix}`;
         },
     },
 };
@@ -269,7 +269,7 @@ const config_editor = {
                     return;
                 }
                 this.hash = outcome.hash;
-                const notes = ((outcome.notes.length > 0) ? outcome.notes.join(' · ') : 'nothing changed');
+                const notes = (outcome.notes.length > 0) ? outcome.notes.join(' · ') : 'nothing changed';
                 this.report(outcome.restart_needed ? `saved · ${notes}` : `saved and applied · ${notes}`, false);
                 this.$emit('saved');
             }
@@ -358,7 +358,7 @@ const remote_install = {
     },
     computed: {
         token_text: function () {
-            return ((this.token === null) ? '<the token in the config>' : this.token);
+            return (this.token === null) ? '<the token in the config>' : this.token;
         },
         agent_url: function () {
             return `${location.protocol}//${location.host}`;
@@ -393,33 +393,33 @@ const remote_install = {
         // What the commands below are written with: what is in the field, or — if it was
         // emptied — what this page knows
         door_where: function () {
-            return ((this.typed === '') ? this.door.mark : this.typed);
+            return (this.typed === '') ? this.door.mark : this.typed;
         },
         door: function () {
-            const out = this.doors.find(v => v.key === this.door_key);
-            if (out !== undefined) {
-                return out;
+            const picked = this.doors.find(v => v.key === this.door_key);
+            if (picked !== undefined) {
+                return picked;
             }
-            return ((this.doors.length === 0) ? null : this.doors[0]);
+            return (this.doors.length === 0) ? null : this.doors[0];
         },
         // The whole install in one line, the way tailscale does it: fetch and run, with the token
         // given to the script instead of baked into it
         install_text: function () {
-            const fetched = ((this.door.socket === null)
+            const fetched = (this.door.socket === null)
                 ? `curl -fsSL ${this.door_where}/api/v1/install.sh`
-                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/install.sh`);
-            const where = ((this.door.socket === null) ? '' : ` --url ${this.door_url}`);
-            const root = (this.root_half ? ' --root' : '');
+                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/install.sh`;
+            const where = (this.door.socket === null) ? '' : ` --url ${this.door_url}`;
+            const root = this.root_half ? ' --root' : '';
             return `${fetched} | sh -s -- --token ${this.token_text}${where}${root}`;
         },
         // The url the agent is given: a plain address, or a socket file as unix:///path
         door_url: function () {
-            return ((this.door.socket === null) ? this.door_where : `unix://${this.door_where}`);
+            return (this.door.socket === null) ? this.door_where : `unix://${this.door_where}`;
         },
         file_text: function () {
-            const fetched = ((this.door.socket === null)
+            const fetched = (this.door.socket === null)
                 ? `curl -fsSL ${this.door_where}/api/v1/agent.js -o serviceman-agent.js`
-                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/agent.js -o serviceman-agent.js`);
+                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/agent.js -o serviceman-agent.js`;
             return `${fetched}\nnode serviceman-agent.js --url ${this.door_url} --token ${this.token_text}`;
         },
         node_text: function () {
@@ -449,7 +449,7 @@ const remote_install = {
             this.typed = door.mark;
         },
         door_fill: function () {
-            this.typed = ((this.door === null) ? '' : this.door.mark);
+            this.typed = (this.door === null) ? '' : this.door.mark;
         },
         // The command is only worth copying with the real token in it, and the config has it
         token_read: async function () {
@@ -459,7 +459,7 @@ const remote_install = {
             try {
                 const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
                 const found = (JSON.parse(loaded.text).remotes || []).find(v => v.name === this.view.name);
-                this.token = ((found === undefined) ? null : found.token);
+                this.token = (found === undefined) ? null : found.token;
             }
             catch {
                 this.token = null;
@@ -618,24 +618,24 @@ const remote_configure = {
         },
         agent_user: function () {
             const machine = this.view.machine;
-            return (((machine === null) || !machine.user) ? 'the user its agent runs as' : machine.user);
+            return ((machine === null) || !machine.user) ? 'the user its agent runs as' : machine.user;
         },
         // The one command that gives a machine its root half, run on that machine
         root_install_text: function () {
             const machine = this.view.machine;
-            const dir = (((machine === null) || !machine.dir) ? '~/serviceman-agent' : machine.dir);
+            const dir = ((machine === null) || !machine.dir) ? '~/serviceman-agent' : machine.dir;
             return `sudo ${dir}/bin/install-root`;
         },
         // What the machine last said is waiting; an agent from before the field says nothing
         updates: function () {
-            return ((this.view.machine === null) ? null : this.view.machine.updates);
+            return (this.view.machine === null) ? null : this.view.machine.updates;
         },
         // The word beside each card's title: where the agent stands against the one served
         agent_pill: function () {
             if (this.served === null) {
                 return null;
             }
-            return (this.behind ? {tone: 'starting', text: 'update available'} : {tone: 'running', text: 'up to date'});
+            return this.behind ? {tone: 'starting', text: 'update available'} : {tone: 'running', text: 'up to date'};
         },
         updates_pill: function () {
             if ((this.known === false) || (this.apt_able === false)) {
@@ -752,7 +752,7 @@ const remote_configure = {
                 const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/screenshot`, {method: 'POST'});
                 if (answer.ok === false) {
                     const outcome = await answer.json();
-                    this.shot_tried = ((outcome.tried === undefined) ? [] : outcome.tried);
+                    this.shot_tried = (outcome.tried === undefined) ? [] : outcome.tried;
                     this.shot_report(outcome.error, true);
                     return;
                 }
@@ -811,7 +811,7 @@ const remote_files = {
             const out = [];
             for (const item of ((this.remotes === undefined) ? [] : this.remotes)) {
                 if (item.name !== this.view.name) {
-                    out.push({value: item.name, label: ((item.phase === 'online') ? (item.title || item.name) : `${item.title || item.name} (${item.phase})`)});
+                    out.push({value: item.name, label: (item.phase === 'online') ? (item.title || item.name) : `${item.title || item.name} (${item.phase})`});
                 }
             }
             return out;
@@ -831,7 +831,7 @@ const remote_files = {
         },
         agent_user: function () {
             const machine = this.view.machine;
-            return (((machine === null) || !machine.user) ? 'the user its agent runs as' : machine.user);
+            return ((machine === null) || !machine.user) ? 'the user its agent runs as' : machine.user;
         },
         // A file opens under its machine's own name — phone.fs.<control host> — where the whole
         // path is the address, so a page finds its style.css one name over. A machine whose
@@ -840,7 +840,7 @@ const remote_files = {
             if ((this.control === undefined) || (this.control === null) || (this.control.host === null) || this.view.name.includes('.')) {
                 return null;
             }
-            const port = ((location.port === '') ? '' : `:${location.port}`);
+            const port = (location.port === '') ? '' : `:${location.port}`;
             return `${location.protocol}//${this.view.name}.fs.${this.control.host}${port}`;
         },
     },
@@ -877,23 +877,23 @@ function proc_rows(items, closed)
 
 // One process and what it started, as rows. A folded one keeps its children out of the list
 // and says how many it is holding — a folded row that hides its count looks like a leaf.
-function proc_walk(out, kids, closed, item, depth)
+function proc_walk(rows, kids, closed, item, depth)
 {
-    const children = ((kids[item.pid] === undefined) ? [] : kids[item.pid]);
+    const children = (kids[item.pid] === undefined) ? [] : kids[item.pid];
     if (closed[item.pid] === true) {
-        out.push({item, depth, children: children.length, hidden: proc_count(kids, item)});
+        rows.push({item, depth, children: children.length, hidden: proc_count(kids, item)});
         return;
     }
-    out.push({item, depth, children: children.length, hidden: 0});
+    rows.push({item, depth, children: children.length, hidden: 0});
     for (const kid of children) {
-        proc_walk(out, kids, closed, kid, depth + 1);
+        proc_walk(rows, kids, closed, kid, depth + 1);
     }
 }
 
 // How many processes are under this one, all the way down
 function proc_count(kids, item)
 {
-    const children = ((kids[item.pid] === undefined) ? [] : kids[item.pid]);
+    const children = (kids[item.pid] === undefined) ? [] : kids[item.pid];
     let out = children.length;
     for (const kid of children) {
         out += proc_count(kids, kid);
@@ -942,7 +942,7 @@ function proc_with_parents(items, matched)
         let at = by_pid[pid];
         while ((at !== undefined) && (kept.has(at.pid) === false)) {
             kept.add(at.pid);
-            at = ((at.ppid === at.pid) ? undefined : by_pid[at.ppid]);
+            at = (at.ppid === at.pid) ? undefined : by_pid[at.ppid];
         }
     }
     return items.filter(v => kept.has(v.pid));
@@ -954,7 +954,7 @@ function load_level(share)
     if (share >= 0.9) {
         return 'full';
     }
-    return ((share >= 0.5) ? 'filling' : '');
+    return (share >= 0.5) ? 'filling' : '';
 }
 
 // Everything running on a machine, as the tree it is: a process sits under the one that
@@ -1029,10 +1029,10 @@ const remote_processes = {
         },
         matched: function () {
             const query = this.query.trim().toLowerCase();
-            return ((query === '') ? null : new Set(this.items.filter(v => proc_matches(v, query)).map(v => v.pid)));
+            return (query === '') ? null : new Set(this.items.filter(v => proc_matches(v, query)).map(v => v.pid));
         },
         matched_count: function () {
-            return ((this.matched === null) ? this.items.length : this.matched.size);
+            return (this.matched === null) ? this.items.length : this.matched.size;
         },
         // A branch folds only in the whole tree: a filtered one shows every match
         foldable: function () {
@@ -1042,7 +1042,7 @@ const remote_processes = {
             const matched = this.matched;
             if (this.view_by !== 'tree') {
                 const field = this.view_by;
-                const items = ((matched === null) ? this.items : this.items.filter(v => matched.has(v.pid)));
+                const items = (matched === null) ? this.items : this.items.filter(v => matched.has(v.pid));
                 return items.slice().sort((a, b) => b[field] - a[field]).map(v => ({item: v, depth: 0, children: 0, hidden: 0, dim: false}));
             }
             if (matched === null) {
@@ -1059,7 +1059,7 @@ const remote_processes = {
         },
         cores: function () {
             const machine = this.view.machine;
-            return (((machine === null) || !machine.cpu) ? 1 : Math.max(1, machine.cpu.count));
+            return ((machine === null) || !machine.cpu) ? 1 : Math.max(1, machine.cpu.count);
         },
         // Each process is a share of one core, as top shows it; together they are a share of
         // all the machine has
@@ -1114,7 +1114,7 @@ const remote_processes = {
                 }
                 this.items = outcome.items;
                 this.commands = outcome.commands;
-                this.window_ms = ((outcome.cpu_window_ms === undefined) ? null : outcome.cpu_window_ms);
+                this.window_ms = (outcome.cpu_window_ms === undefined) ? null : outcome.cpu_window_ms;
                 this.report(`read ${new Date().toLocaleTimeString()}`, false);
             }
             catch {
@@ -1133,11 +1133,11 @@ const remote_processes = {
             if ((row.children === 0) || (this.foldable === false)) {
                 return null;
             }
-            return ((this.closed[row.item.pid] === true) ? 'closed' : 'open');
+            return (this.closed[row.item.pid] === true) ? 'closed' : 'open';
         },
         // A command too long for its row reads whole in the row's details
         proc_more: function (row, key) {
-            return ((key === 'command') && (row.item.command.length > COMMAND_LONG));
+            return (key === 'command') && (row.item.command.length > COMMAND_LONG);
         },
         branch_toggle: function (row) {
             if ((row.children === 0) || (this.foldable === false)) {
@@ -1257,7 +1257,7 @@ const remote_disks = {
             return DISK_COLUMNS;
         },
         rows: function () {
-            return (this.show_all ? this.items : this.items.filter(v => v.disk));
+            return this.show_all ? this.items : this.items.filter(v => v.disk);
         },
         // The disks together, as the card on the Remotes page counts them
         summary: function () {
@@ -1321,7 +1321,7 @@ const remote_disks = {
         },
         // A device mounted in more places than its row names reads them all in its details
         disk_more: function (row, key) {
-            return ((key === 'mounted') && (row.mounts.length > 4));
+            return (key === 'mounted') && (row.mounts.length > 4);
         },
         // The other places a device is mounted at, the first three, as its row says them
         also_text: function (mounts) {
@@ -1332,12 +1332,12 @@ const remote_disks = {
             return `${item.device} ${item.mounts[0]}`;
         },
         percent_of: function (part, whole) {
-            return ((whole > 0) ? Math.round(part/whole*100) : 0);
+            return (whole > 0) ? Math.round(part/whole*100) : 0;
         },
         // A disk past nine tenths is one to look at; past three quarters, one to keep an eye on
         level_of: function (part, whole) {
             const percent = this.percent_of(part, whole);
-            return ((percent >= 90) ? 'full' : ((percent >= 75) ? 'filling' : ''));
+            return (percent >= 90) ? 'full' : ((percent >= 75) ? 'filling' : '');
         },
         // 8775070 -> "8.8M": inodes are a count, not bytes
         count_text: function (count) {
@@ -1489,7 +1489,7 @@ const remote_packages = {
             }
             let size = 0;
             for (const item of this.items) {
-                size += (item.size || 0);
+                size += item.size || 0;
             }
             const update = this.items.filter(v => v.update !== null);
             const security = update.filter(v => v.update.security).length;
@@ -1697,13 +1697,13 @@ const remote_logline = {
         },
         tiles: function () {
             const status = this.status;
-            const counting = ((status !== null) && status.collecting);
+            const counting = (status !== null) && status.collecting;
             return [
-                {label: 'Sent', value: (counting ? thousands_text(status.sent.lines) : '—'), note: (counting ? `lines · ${format_bytes(status.sent.bytes)}` : 'lines'), kind: ''},
-                {label: 'Batches', value: (counting ? thousands_text(status.sent.batches) : '—'), note: 'each stored whole', kind: ''},
-                {label: 'Waiting here', value: (counting ? thousands_text(status.waiting.lines) : '—'), note: (counting ? `lines · ${format_bytes(status.waiting.bytes)}` : 'lines'), kind: ((counting && (status.waiting.lines > 0)) ? 'busy' : '')},
-                {label: 'Oldest waiting', value: ((counting && (status.waiting.oldest !== null)) ? this.ago(status.waiting.oldest) : '—'), note: 'how far behind it is', kind: ''},
-                {label: 'Last sent', value: ((counting && (status.last_sent_at !== null)) ? `${this.ago(status.last_sent_at)} ago` : '—'), note: ((counting && (status.last_answer !== null)) ? `Logline said: ${status.last_answer}` : 'nothing yet'), kind: ((counting && (status.last_answer !== null) && (status.last_answer !== 'ok')) ? 'bad' : '')},
+                {label: 'Sent', value: counting ? thousands_text(status.sent.lines) : '—', note: counting ? `lines · ${format_bytes(status.sent.bytes)}` : 'lines', kind: ''},
+                {label: 'Batches', value: counting ? thousands_text(status.sent.batches) : '—', note: 'each stored whole', kind: ''},
+                {label: 'Waiting here', value: counting ? thousands_text(status.waiting.lines) : '—', note: counting ? `lines · ${format_bytes(status.waiting.bytes)}` : 'lines', kind: (counting && (status.waiting.lines > 0)) ? 'busy' : ''},
+                {label: 'Oldest waiting', value: (counting && (status.waiting.oldest !== null)) ? this.ago(status.waiting.oldest) : '—', note: 'how far behind it is', kind: ''},
+                {label: 'Last sent', value: (counting && (status.last_sent_at !== null)) ? `${this.ago(status.last_sent_at)} ago` : '—', note: (counting && (status.last_answer !== null)) ? `Logline said: ${status.last_answer}` : 'nothing yet', kind: (counting && (status.last_answer !== null) && (status.last_answer !== 'ok')) ? 'bad' : ''},
             ];
         },
     },
@@ -1781,7 +1781,7 @@ const remote_logline = {
         dir_default: function (text) {
             const parts = String(text || '').replace(/\/+$/, '').split('/').filter(v => (v !== '') && (v !== '~'));
             const last = parts[parts.length - 1] || '';
-            return (last.includes('*') ? parts[parts.length - 2] || '' : last);
+            return last.includes('*') ? parts[parts.length - 2] || '' : last;
         },
         // Why the machine cannot read a folder, as it last said; null when it can
         dir_error: function (text) {
@@ -1988,7 +1988,7 @@ const remote_page = {
     },
     computed: {
         tab_now: function () {
-            return (remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview');
+            return remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
         agent_now: function () {
             return agent_current(this.view, this.served);
@@ -2004,7 +2004,7 @@ const remote_page = {
         },
         // The settings tab edits the config entry, which the status does not carry
         settings_name: function () {
-            return ((this.tab_now === 'settings') ? this.view.name : '');
+            return (this.tab_now === 'settings') ? this.view.name : '';
         },
     },
     watch: {
@@ -2140,7 +2140,7 @@ const service_page = {
             return logline_link(this.logline, 'service', this.view.name);
         },
         tab_now: function () {
-            return (tab_allowed(this.view, this.tab) ? this.tab : 'overview');
+            return tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
         driven: function () {
             return this.view.type !== 'external';
@@ -2148,8 +2148,8 @@ const service_page = {
         // The machine the breadcrumb goes through: the first one named, not a #tag
         place: function () {
             const name = this.view.remotes.find(v => v.startsWith('#') === false);
-            const found = ((name === undefined) ? undefined : this.remotes.find(v => v.name === name));
-            return ((found === undefined) ? null : {name: found.name, title: (found.title || found.name)});
+            const found = (name === undefined) ? undefined : this.remotes.find(v => v.name === name);
+            return (found === undefined) ? null : {name: found.name, title: found.title || found.name};
         },
         waiting: function () {
             return (this.busy === true) || (this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping');
@@ -2171,11 +2171,11 @@ const service_page = {
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             // A serviceman with no config file has no entry to edit; the page says so
-            const found = ((typeof loaded.text === 'string') ? JSON.parse(loaded.text).services.find(v => v.name === name) || null : null);
+            const found = (typeof loaded.text === 'string') ? JSON.parse(loaded.text).services.find(v => v.name === name) || null : null;
             // The page may have moved on while the config was coming; a late answer is nobody's
             if (name === this.view.name) {
                 this.original = found;
-                this.original_state = ((found === null) ? 'none' : 'found');
+                this.original_state = (found === null) ? 'none' : 'found';
                 this.edit_key++;
             }
         },
@@ -2205,7 +2205,7 @@ function route_from_path(pathname, search)
         return {kind: 'home', name: '', tab: '', item: '', remote};
     }
     if (((parts[0] === 'services') || (parts[0] === 'remotes')) && (parts.length > 1)) {
-        return {kind: parts[0], name: parts[1], tab: ((parts[2] === undefined) ? '' : parts[2]), item: ((parts[3] === undefined) ? '' : parts[3]), remote: null, path: new URLSearchParams(search).get('path')};
+        return {kind: parts[0], name: parts[1], tab: (parts[2] === undefined) ? '' : parts[2], item: (parts[3] === undefined) ? '' : parts[3], remote: null, path: new URLSearchParams(search).get('path')};
     }
     return {kind: parts[0], name: '', tab: '', item: '', remote};
 }
@@ -2390,7 +2390,7 @@ const app = {
             remote_name: null,
             busy: {},
             theme: document.documentElement.dataset.theme,
-            skin: (localStorage.getItem('serviceman.skin') || ''),
+            skin: localStorage.getItem('serviceman.skin') || '',
             skins: [],
             skin_menu: false,
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
@@ -2460,7 +2460,7 @@ const app = {
     computed: {
         // What is wrong now, as the last look found it (problems_check), the oldest first
         problems: function () {
-            return (((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems);
+            return ((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems;
         },
         // The problems the bar was not closed on: any one of them shows the bar again
         problems_unseen: function () {
@@ -2468,8 +2468,8 @@ const app = {
         },
         // The Health row's word: what is wrong, else what to look at, else that all is well
         health_tally: function () {
-            const counts = (((this.state === null) || (this.state.health === undefined)) ? null : this.state.health.counts);
-            const warn = ((counts === null) ? 0 : counts.warn);
+            const counts = ((this.state === null) || (this.state.health === undefined)) ? null : this.state.health.counts;
+            const warn = (counts === null) ? 0 : counts.warn;
             if (this.problems.length > 0) {
                 return {state: 'bad', text: `${this.problems.length} ${(this.problems.length === 1) ? 'problem' : 'problems'}`, title: this.problems.map(v => v.subject).join('\n')};
             }
@@ -2509,7 +2509,7 @@ const app = {
             if (this.editor_open) {
                 return '/config';
             }
-            const only = ((this.list_remote === null) ? '' : `?remote=${encodeURIComponent(this.list_remote)}`);
+            const only = (this.list_remote === null) ? '' : `?remote=${encodeURIComponent(this.list_remote)}`;
             if (this.volumes_open) {
                 return `/storage${only}`;
             }
@@ -2556,17 +2556,17 @@ const app = {
                 return '/services/new';
             }
             if (this.selected_name !== null) {
-                const tail = ((this.service_tab_now === 'overview') ? '' : `/${this.service_tab_now}`);
+                const tail = (this.service_tab_now === 'overview') ? '' : `/${this.service_tab_now}`;
                 return `/services/${encodeURIComponent(this.selected_name)}${tail}`;
             }
             if (this.remote_name !== null) {
-                const tail = ((this.remote_tab_now === 'overview') ? '' : `/${this.remote_tab_now}`);
-                const item = (((this.remote_tab_now === 'shell') && (this.remote_terminal_now !== null)) ? `/${encodeURIComponent(this.remote_terminal_now)}` : '');
+                const tail = (this.remote_tab_now === 'overview') ? '' : `/${this.remote_tab_now}`;
+                const item = ((this.remote_tab_now === 'shell') && (this.remote_terminal_now !== null)) ? `/${encodeURIComponent(this.remote_terminal_now)}` : '';
                 const folder = this.remote_files_paths[this.remote_name];
-                const query = (((this.remote_tab_now === 'files') && (folder !== undefined)) ? `?path=${encodeURIComponent(folder)}` : '');
+                const query = ((this.remote_tab_now === 'files') && (folder !== undefined)) ? `?path=${encodeURIComponent(folder)}` : '';
                 return `/remotes/${encodeURIComponent(this.remote_name)}${tail}${item}${query}`;
             }
-            return ((only === '') ? '/' : `/services${only}`);
+            return (only === '') ? '/' : `/services${only}`;
         },
         // The row of the rail that holds what is open: a service page is under Services, the
         // door rules under Addresses, a machine and its forms under Remotes
@@ -2624,10 +2624,10 @@ const app = {
         },
         // Door names with a wall in front of them
         guarded_count: function () {
-            return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(vv => (typeof vv === 'object') && (vv.auth !== undefined)).length, 0);
+            return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
         },
         forwards_count: function () {
-            return ((this.state.forwards === undefined) ? 0 : this.state.forwards.length);
+            return (this.state.forwards === undefined) ? 0 : this.state.forwards.length;
         },
         doors_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.keys((remote.inbound === undefined) ? {} : remote.inbound).length, 0);
@@ -2647,7 +2647,7 @@ const app = {
                 }
             }
             for (const remote of this.state.remotes) {
-                const rule_by_host = ((remote.inbound === undefined) ? {} : remote.inbound);
+                const rule_by_host = (remote.inbound === undefined) ? {} : remote.inbound;
                 for (const host of Object.keys(rule_by_host)) {
                     out.push({key: `${remote.name} ${host}`, address: host, service: rule_by_host[host].service});
                 }
@@ -2688,7 +2688,7 @@ const app = {
         },
         skin_title: function () {
             const found = this.skins.find(v => v.name === this.skin);
-            return ((found === undefined) ? 'Classic' : found.title);
+            return (found === undefined) ? 'Classic' : found.title;
         },
         // The tab the page can actually show for the picked service — the address says this
         // one, not the remembered wish
@@ -2696,13 +2696,13 @@ const app = {
             if (this.selected === null) {
                 return 'overview';
             }
-            return (tab_allowed(this.selected, this.service_tab) ? this.service_tab : 'overview');
+            return tab_allowed(this.selected, this.service_tab) ? this.service_tab : 'overview';
         },
         remote_tab_now: function () {
             if (this.selected_remote === null) {
                 return 'overview';
             }
-            return (remote_tab_allowed(this.selected_remote, this.remote_tab) ? this.remote_tab : 'overview');
+            return remote_tab_allowed(this.selected_remote, this.remote_tab) ? this.remote_tab : 'overview';
         },
         // The terminal named for the remote open now; one picked on another machine is not its
         remote_terminal_now: function () {
@@ -2723,7 +2723,7 @@ const app = {
             }
             // A service names a machine, or a kind of machine: #gpu is every machine with the tag
             const view = this.selected_remote;
-            return this.state.services.filter(v => v.remotes.some(vv => (vv.startsWith('#') ? view.tags.includes(vv.slice(1)) : vv === view.name)));
+            return this.state.services.filter(v => v.remotes.some(vv => vv.startsWith('#') ? view.tags.includes(vv.slice(1)) : vv === view.name));
         },
     },
     watch: {
@@ -2733,7 +2733,7 @@ const app = {
             const self = this;
             this.$nextTick(function () {
                 const rail = self.$refs.rail;
-                const on = ((rail === undefined) ? null : rail.querySelector('.rail-tree .row.on'));
+                const on = (rail === undefined) ? null : rail.querySelector('.rail-tree .row.on');
                 if (on === null) {
                     return;
                 }
@@ -2778,7 +2778,7 @@ const app = {
             if (view.phase !== 'online') {
                 return 'offline';
             }
-            return ((view.latency_ms === null) ? 'measuring…' : `${view.latency_ms}ms`);
+            return (view.latency_ms === null) ? 'measuring…' : `${view.latency_ms}ms`;
         },
         tick: async function () {
             await this.poll();
@@ -2807,7 +2807,7 @@ const app = {
                 }
                 this.selected_name = route.name;
                 this.remote_name = null;
-                this.service_tab = (['settings', 'logs', 'shell'].includes(route.tab) ? route.tab : 'overview');
+                this.service_tab = ['settings', 'logs', 'shell'].includes(route.tab) ? route.tab : 'overview';
                 return;
             }
             if (route.kind === 'remotes') {
@@ -2826,8 +2826,8 @@ const app = {
                 this.selected_name = null;
                 this.remote_key++;
                 // The Ports tab is part of Firewall now; an address from before still opens it
-                const tab = ((route.tab === 'ports') ? 'firewall' : route.tab);
-                this.remote_tab = (['configure', 'files', 'docker', 'firewall', 'logs', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'].includes(tab) ? tab : 'overview');
+                const tab = (route.tab === 'ports') ? 'firewall' : route.tab;
+                this.remote_tab = ['configure', 'files', 'docker', 'firewall', 'logs', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'].includes(tab) ? tab : 'overview';
                 if ((route.tab === 'shell') && (route.item !== '')) {
                     this.remote_terminals = Object.assign({}, this.remote_terminals, {[route.name]: route.item});
                     this.terminal_last = route.item;
@@ -2927,9 +2927,9 @@ const app = {
             if ((this.selected_name === null) && (this.remote_name === null)) {
                 return;
             }
-            const known = ((this.selected_name === null)
+            const known = (this.selected_name === null)
                 ? this.state.remotes.some(v => v.name === this.remote_name)
-                : this.state.services.some(v => v.name === this.selected_name));
+                : this.state.services.some(v => v.name === this.selected_name);
             if (known === false) {
                 this.home_show();
             }
@@ -2950,7 +2950,7 @@ const app = {
             try {
                 const answer = await fetch('/api/v1/volumes', {cache: 'no-store'});
                 const body = await answer.json();
-                this.volumes_count = ((body.volumes.length === 0) ? 'none' : String(body.volumes.length));
+                this.volumes_count = (body.volumes.length === 0) ? 'none' : String(body.volumes.length);
                 this.volumes = body.volumes;
             }
             catch {
@@ -3072,7 +3072,7 @@ const app = {
             try {
                 const answer = await fetch('/api/v1/secrets', {cache: 'no-store'});
                 const body = await answer.json();
-                this.secrets_count = ((body.secrets.length === 0) ? 'none' : String(body.secrets.length));
+                this.secrets_count = (body.secrets.length === 0) ? 'none' : String(body.secrets.length);
                 this.secret_names = body.secrets.map(v => v.name);
             }
             catch {
@@ -3083,7 +3083,7 @@ const app = {
         join_open: async function () {
             const loaded = await config_read();
             this.panes_close();
-            this.join_original = (JSON.parse(loaded.text).join || null);
+            this.join_original = JSON.parse(loaded.text).join || null;
             this.join_key++;
             this.join_form_open = true;
             this.secrets_open = false;
@@ -3173,7 +3173,7 @@ const app = {
         create: function (remote) {
             this.panes_close();
             this.form_source = null;
-            this.form_remote = ((remote === undefined) ? null : remote);
+            this.form_remote = (remote === undefined) ? null : remote;
             this.form_key++;
             this.form_open = true;
         },
@@ -3228,7 +3228,7 @@ const app = {
             this.remote_name = null;
         },
         theme_toggle: function () {
-            this.theme = ((this.theme === 'dark') ? 'light' : 'dark');
+            this.theme = (this.theme === 'dark') ? 'light' : 'dark';
             document.documentElement.dataset.theme = this.theme;
             localStorage.setItem('serviceman.theme', this.theme);
         },
@@ -3378,12 +3378,12 @@ function rail_compare(a, b)
 
 function plural(count, one, many)
 {
-    return ((count === 1) ? one : many);
+    return (count === 1) ? one : many;
 }
 
 function ace_theme(theme)
 {
-    return ((theme === 'dark') ? 'ace/theme/github_dark' : 'ace/theme/github_light_default');
+    return (theme === 'dark') ? 'ace/theme/github_dark' : 'ace/theme/github_light_default';
 }
 
 function icon_html(name)
@@ -3405,7 +3405,7 @@ function problems_seen_read()
 {
     try {
         const seen = JSON.parse(localStorage.getItem('serviceman.problems_seen'));
-        return (Array.isArray(seen) ? seen : []);
+        return Array.isArray(seen) ? seen : [];
     }
     catch {
         return [];

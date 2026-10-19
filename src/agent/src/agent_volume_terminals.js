@@ -16,7 +16,7 @@ function agent_volume_terminals(value, holders, proc = '/proc')
     if ((value === null) || (typeof value !== 'object')) {
         return value;
     }
-    const known = ((holders === undefined) ? holders_read() : holders);
+    const known = (holders === undefined) ? holders_read() : holders;
     const lists = [value].concat(Array.isArray(value.items) ? value.items : []).filter(v => Array.isArray(v.users));
     for (const list of lists) {
         list.users = list.users.map(v => Object.assign({}, v, {terminal: terminal_of(v.pid, known, proc)}));

@@ -210,9 +210,9 @@ async function token_make(running, body)
 function call(running, method, asked, body, token, headers)
 {
     const extra = Object.assign({}, headers);
-    const host = ((extra.host === undefined) ? '127.0.0.1' : extra.host);
+    const host = (extra.host === undefined) ? '127.0.0.1' : extra.host;
     delete extra.host;
-    return fetch_host({port: running.port, host, method, path: asked, token, headers: extra, body: ((body === null) ? undefined : JSON.stringify(body))});
+    return fetch_host({port: running.port, host, method, path: asked, token, headers: extra, body: (body === null) ? undefined : JSON.stringify(body)});
 }
 
 // The first line the shell door answers, or closed when it hangs up without a word
@@ -222,7 +222,7 @@ function shell_answer(running, token, asked)
         const socket = net.connect(running.port, '127.0.0.1');
         let said = '';
         socket.on('connect', function () {
-            const auth = ((token === null) ? '' : `Authorization: Bearer ${token}\r\n`);
+            const auth = (token === null) ? '' : `Authorization: Bearer ${token}\r\n`;
             socket.write(`GET ${asked} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n${auth}\r\n`);
         });
         socket.on('data', function (chunk) {

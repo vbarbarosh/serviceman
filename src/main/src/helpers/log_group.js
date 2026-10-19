@@ -9,7 +9,7 @@ function log_group(fn)
     const parent = log_scope.getStore();
     const group = {
         uid: log_uid(),
-        parent: ((parent === undefined) ? null : parent),
+        parent: (parent === undefined) ? null : parent,
         spawned: false,
     };
     return log_scope.run(group, () => fn(group));

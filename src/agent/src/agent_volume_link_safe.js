@@ -21,7 +21,7 @@ function agent_volume_link_safe(url_text, address)
     if ((host === 'localhost') || host.endsWith('.localhost') || host.endsWith('.ts.net')) {
         return true;
     }
-    return (address_safe(host) || ((typeof address === 'string') && address_safe(address)));
+    return address_safe(host) || ((typeof address === 'string') && address_safe(address));
 }
 
 function address_safe(address)
@@ -29,10 +29,10 @@ function address_safe(address)
     const ip = address.replace(/^::ffff:/i, '');
     if (net.isIPv4(ip)) {
         const octets = ip.split('.').map(Number);
-        return ((octets[0] === 127) || ((octets[0] === 100) && (octets[1] >= 64) && (octets[1] <= 127)));
+        return (octets[0] === 127) || ((octets[0] === 100) && (octets[1] >= 64) && (octets[1] <= 127));
     }
     if (net.isIPv6(ip)) {
-        return ((ip === '::1') || /^fd7a:115c:a1e0:/i.test(ip));
+        return (ip === '::1') || /^fd7a:115c:a1e0:/i.test(ip);
     }
     return false;
 }

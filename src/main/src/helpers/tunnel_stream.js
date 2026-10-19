@@ -161,7 +161,7 @@ function gone_from_error(error)
     if ((error === null) || (error === undefined)) {
         return {};
     }
-    return {code: ((error.code === undefined) ? 'ECONNRESET' : error.code), message: error.message};
+    return {code: (error.code === undefined) ? 'ECONNRESET' : error.code, message: error.message};
 }
 
 function bytes_body(bytes)

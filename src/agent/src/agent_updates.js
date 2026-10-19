@@ -28,7 +28,7 @@ async function agent_updates(options)
         return {pending: counted.pending, security: counted.security, reboot};
     }
     if (said === null) {
-        return (reboot ? {pending: null, security: null, reboot} : null);
+        return reboot ? {pending: null, security: null, reboot} : null;
     }
     return {pending: said.pending, security: said.security, reboot};
 }
