@@ -399,7 +399,7 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 |----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | A machine that was here and went offline           | Its link.                                                                                                            |
 | A copy of a service that does not answer           | A request to it, the way a visitor's goes.                                                                           |
-| A container Docker was meant to keep running, down | Its restart policy, and how it exited: a container stopped by hand is not one.                                       |
+| A container Docker was meant to keep running, down | Docker cannot start it, it keeps failing, or on-failure gave up; one stopped by hand is not, whatever its exit code. |
 | A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart.  |
 | Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
 | Logline's viewer not answering                     | A request to it, the way Open Logline goes.                                                                          |

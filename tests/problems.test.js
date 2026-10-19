@@ -19,14 +19,25 @@ test('a container Docker was meant to keep running that cannot start is a proble
 });
 
 test('a container someone stopped, one with no restart policy, and serviceman\'s own are not problems', function () {
-    const list = [container('b1', 'stopped-by-hand', 'exited'), container('b2', 'stopped-by-docker-stop', 'exited'), container('b3', 'one-off', 'exited'), container('b4', 'serviceman-echo', 'exited')];
+    const list = [container('b1', 'stopped-by-hand', 'exited'), container('b2', 'stopped-by-docker-stop', 'exited'), container('b3', 'one-off', 'exited'), container('b4', 'serviceman-echo', 'exited'), container('b5', 'stopped-while-failing', 'exited'), container('b6', 'ends-with-2-on-stop', 'exited'), container('b7', 'on-failure-stopped-by-hand', 'exited')];
     const inspect = {
         b1: inspected('unless-stopped', 'exited', 0, ''),
         b2: inspected('always', 'exited', 143, ''),
         b3: inspected('no', 'exited', 1, ''),
         b4: inspected('unless-stopped', 'exited', 1, ''),
+        b5: inspected('unless-stopped', 'exited', 1, ''),
+        b6: inspected('always', 'exited', 2, ''),
+        b7: Object.assign(inspected('on-failure', 'exited', 1, ''), {HostConfig: {RestartPolicy: {Name: 'on-failure', MaximumRetryCount: 5}}, RestartCount: 2}),
     };
     assert.deepStrictEqual(problems_from_containers('vps1', list, inspect, []), []);
+});
+
+test('a container Docker gave up on after its on-failure tries is a problem, the tries named', function () {
+    const list = [container('e1', 'gave-up', 'exited')];
+    const inspect = {e1: Object.assign(inspected('on-failure', 'exited', 1, ''), {HostConfig: {RestartPolicy: {Name: 'on-failure', MaximumRetryCount: 5}}, RestartCount: 5})};
+    const found = problems_from_containers('vps1', list, inspect, []);
+    assert.strictEqual(found.length, 1);
+    assert.strictEqual(found[0].cause, 'it failed 5 times in a row (exit 1), and Docker stopped trying, as its restart policy says');
 });
 
 test('a container Docker keeps restarting is a problem', function () {

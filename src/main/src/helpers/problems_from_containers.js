@@ -1,12 +1,10 @@
 const KEEP_RUNNING = ['always', 'unless-stopped', 'on-failure'];
-// What `docker stop` and a stopped daemon leave behind: a container someone stopped, not one
-// that failed
-const STOPPED_CODES = [0, 137, 143];
 
-// The containers of one machine Docker was meant to keep running and does not, and the
-// running ones that will not start again: a file they mount is gone from the machine, and
-// they live on only on what they hold open until Docker or the machine restarts. serviceman's
-// own containers are left to their service pages.
+// The containers of one machine Docker was meant to keep running and does not (one someone
+// stopped is not among them, however its program ended), and the running ones that will not
+// start again: a file they mount is gone from the machine, and they live on only on what they
+// hold open until Docker or the machine restarts. serviceman's own containers are left to
+// their service pages.
 //
 //     list      GET /containers/json?all=1
 //     inspect   {id: GET /containers/<id>/json} for the ones not running
@@ -42,14 +40,24 @@ function problems_from_containers(remote, list, inspect, gone)
 function failed(full)
 {
     const state = full.State;
-    const policy = (full.HostConfig && full.HostConfig.RestartPolicy) ? full.HostConfig.RestartPolicy.Name : '';
-    if (KEEP_RUNNING.includes(policy) === false) {
+    const policy = (full.HostConfig && full.HostConfig.RestartPolicy) ? full.HostConfig.RestartPolicy : {Name: ''};
+    if (KEEP_RUNNING.includes(policy.Name) === false) {
         return false;
     }
     if (state.Status === 'restarting') {
         return true;
     }
-    return (state.Status === 'exited') && ((state.Error !== '') || (STOPPED_CODES.includes(state.ExitCode) === false));
+    if (state.Status !== 'exited') {
+        return false;
+    }
+    if (state.Error !== '') {
+        return true;
+    }
+    // Docker starts an exited one again by its policy until someone stops it, so one left
+    // exited was stopped by hand, whatever code its program ended with; only on-failure:N gives
+    // up, after N failures in a row
+    const max = policy.MaximumRetryCount || 0;
+    return (policy.Name === 'on-failure') && (max > 0) && (state.ExitCode !== 0) && ((full.RestartCount || 0) >= max);
 }
 
 function problem_failed(remote, name, full)
@@ -62,14 +70,15 @@ function problem_failed(remote, name, full)
         kind: 'container',
         remote,
         subject: `${name} is down on ${remote}`,
-        cause: cause_of(state, mount),
+        cause: cause_of(full, mount),
         fix: (mount !== null) ? `Put ${mount[1]} back (Docker leaves an empty folder where a file was), then: docker start ${name}` : `docker logs ${name} says why; once that is mended: docker start ${name}`,
         since: (Number.isFinite(since) && (since > 0)) ? since : null,
     };
 }
 
-function cause_of(state, mount)
+function cause_of(full, mount)
 {
+    const state = full.State;
     if (state.Status === 'restarting') {
         return `it keeps failing: Docker restarts it again and again (exit ${state.ExitCode})`;
     }
@@ -79,7 +88,7 @@ function cause_of(state, mount)
     if (state.Error !== '') {
         return `Docker cannot start it: ${state.Error}`;
     }
-    return `it exited with ${state.ExitCode} and Docker did not bring it back`;
+    return `it failed ${full.RestartCount} times in a row (exit ${state.ExitCode}), and Docker stopped trying, as its restart policy says`;
 }
 
 function name_of(item)
