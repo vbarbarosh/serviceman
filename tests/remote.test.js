@@ -1980,6 +1980,57 @@ test('a machine keeps its own numbers, the page reads them, and sees the last of
     }
 });
 
+test('a machine counts its uptime from servermon, the page reads it by day, and sees the last of it while it is away', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    // A count every 300ms and stats every 200ms: a test cannot wait a minute
+    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_UPTIME_MS: '300', SERVICEMAN_STATS_MS: '200', SERVICEMAN_BEAT_MS: '100'}, LOGS_ENV));
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        assert.ok(remote.state.resources.can.includes('uptime'));
+        let uptime = null;
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+            await timers.setTimeout(200);
+            uptime = await machine_read(running, 'ui1', 'uptime?days=30');
+            if ((uptime.status === 200) && (uptime.body.days[29].known_ms > 0)) {
+                break;
+            }
+        }
+        assert.strictEqual(uptime.body.away, false);
+        assert.strictEqual(uptime.body.days.length, 30);
+        assert.strictEqual(uptime.body.days[0].known_ms, 0, 'the days before servermon are not known');
+        assert.ok(uptime.body.days[29].known_ms > 0);
+        await wait_until(() => (remote.state.stats !== null) && (remote.state.stats.uptime_30d !== null) && (remote.state.stats.uptime_30d !== undefined));
+        assert.ok(remote.state.stats.uptime_30d.known_ms > 0, 'the Remotes list has the last 30 days');
+
+        for (const days of ['0', '91', 'x']) {
+            assert.strictEqual((await machine_read(running, 'ui1', `uptime?days=${days}`)).status, 400, `days=${days}`);
+        }
+        assert.strictEqual((await machine_read(running, 'nowhere', 'uptime')).status, 404);
+
+        // An agent from before uptime is told so, not asked
+        const can = remote.state.resources.can;
+        remote.state.resources.can = can.filter(v => v !== 'uptime');
+        const old = await machine_read(running, 'ui1', 'uptime');
+        assert.strictEqual(old.status, 400);
+        assert.match(old.body.error, /from before uptime/);
+        remote.state.resources.can = can;
+
+        // Away, the last answer is still there, marked as such
+        agent.kill('SIGKILL');
+        await wait_until(() => remote.state.phase === 'offline');
+        const away = await machine_read(running, 'ui1', 'uptime');
+        assert.strictEqual(away.status, 200);
+        assert.strictEqual(away.body.away, true);
+        assert.strictEqual(away.body.days.length, 30);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('a request that reaches a machine http socket is answered by serviceman over the link', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-inbound-'));
     // One service that answers a page, and one that says what it was sent — both already

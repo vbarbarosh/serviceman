@@ -2423,6 +2423,86 @@ article.ov-pane {
     white-space: nowrap;
 }
 
+/* The machine's uptime, a bar a day: the bars share the row whatever its width, and the day
+   pointed at says itself in a strip under them that keeps its place */
+.ov-uptime {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    min-width: 0;
+    padding: .7rem 1rem .6rem;
+    transition: opacity .2s ease;
+}
+
+.ov-uptime.loading {
+    opacity: .8;
+}
+
+.ov-uptime > p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.ov-uptime-ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+}
+
+.ov-uptime-bars {
+    display: flex;
+    gap: 3px;
+    height: 2.4rem;
+}
+
+.ov-uptime-day {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: var(--run);
+    cursor: pointer;
+    transition: background .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.ov-uptime-day.some {
+    background: var(--busy);
+}
+
+.ov-uptime-day.bad {
+    background: var(--bad);
+}
+
+.ov-uptime-day.unknown {
+    border-color: var(--line);
+    background: transparent;
+}
+
+.ov-uptime-bars:hover .ov-uptime-day:not(.on) {
+    opacity: .7;
+}
+
+.ov-uptime-day.on {
+    box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--fg);
+}
+
+.ov-uptime-tip {
+    min-height: 2.6rem;
+    overflow-wrap: anywhere;
+}
+
+.ov-uptime-tip p {
+    margin: 0;
+}
+
+.ov-uptime-tip ul {
+    margin: .1rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
 .ov-chart-at {
     color: var(--fg);
 }

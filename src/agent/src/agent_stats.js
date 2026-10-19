@@ -5,6 +5,8 @@ const agent_logline_status = require('./agent_logline_status');
 const agent_servermon_dir = require('./agent_servermon_dir');
 const agent_servermon_lines = require('./agent_servermon_lines');
 const agent_updates = require('./agent_updates');
+const agent_uptime_of = require('./agent_uptime_of');
+const agent_uptime_state = require('./agent_uptime_state');
 const os = require('os');
 const path = require('path');
 
@@ -25,6 +27,9 @@ async function agent_stats(options)
         can: await agent_can(options),
         uptime_ms: Math.round(os.uptime()*1000),
         servermon: servermon_said(last, now),
+        // The last 30 days as of the last count, for a column of the machines' table: how long
+        // was known and how long of it the machine was down. null before servermon's first line.
+        uptime_30d: uptime_30d_of(),
         load: (now === null) ? null : now.load,
         // How busy its cores were over servermon's last second, 0 to 1
         cpu_busy: ((now === null) || (now.cpu === null)) ? null : now.cpu/100,
@@ -43,6 +48,15 @@ async function agent_stats(options)
         // machine's own time: serviceman counts it as the service being in use
         doors_seen: doors_seen_ago(),
     };
+}
+
+function uptime_30d_of()
+{
+    if (agent_uptime_state.last_at === null) {
+        return null;
+    }
+    const days = agent_uptime_of(30, agent_uptime_state.last_at).days;
+    return {known_ms: days.reduce((sum, v) => sum + v.known_ms, 0), down_ms: days.reduce((sum, v) => sum + v.down_ms, 0)};
 }
 
 // running, off (the agent keeps no log folder) or silent, with the time of its last line

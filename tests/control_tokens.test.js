@@ -75,6 +75,10 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     assert.strictEqual([401, 403].includes(own.status), false, `its own machine goes on to the route: ${own.status} ${own.body}`);
     const other = await call(running, 'GET', '/api/v1/remotes/vps2/metrics', null, made.token);
     assert.deepStrictEqual([other.status, JSON.parse(other.body).error], [403, 'the token "the notes agent" may not see vps2']);
+    const uptime = await call(running, 'GET', '/api/v1/remotes/vps1/uptime', null, made.token);
+    assert.strictEqual([401, 403].includes(uptime.status), false, `its uptime comes with the charts: ${uptime.status} ${uptime.body}`);
+    const uptime_other = await call(running, 'GET', '/api/v1/remotes/vps2/uptime', null, made.token);
+    assert.strictEqual(uptime_other.status, 403);
     const read = await call(running, 'GET', '/api/v1/remotes/vps1/processes', null, made.token);
     assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [403, 'the token "the notes agent" may not read the processes']);
     const terminals = await call(running, 'GET', '/api/v1/remotes/vps1/terminals', null, made.token);

@@ -286,12 +286,27 @@ while the machine is offline, marked with the time it was read. The minutes a ma
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it.
 
+**Uptime** is a bar a day for the last 30: green when servermon wrote a line every second of
+it, orange from 99%, red below, grey for the days before servermon came. A gap of more than 10
+seconds between two lines is a stretch the machine was down; a day pointed at or tapped says
+its share and its longest stretches, in the machine's own time zone, each with why: rebooted
+(the line after it says another boot time), servermon stopped or the machine slept (the same
+one), or no line since. The agent counts the lines itself and reads each byte of them once: a
+finished day when it first meets it (the time and boot at the start of each line, about 170 ms
+for a day's 50 MB), today from where the last count stopped, every minute. The count is kept
+in `metrics/uptime.json`, 90 days, longer than servermon keeps its files. The page reads it from
+`GET /api/v1/remotes/<name>/uptime?days=30` when it opens and every minute after, and shows the
+last answer while the machine is offline; the Remotes list has the last 30 days as a share, in
+its Uptime column and on each card. An agent before 1.22 has none, and the pane says how to
+update it.
+
 **servermon** is the one thing that reads the machine, second by second, and the night it
 stopped answering is in it too: CPU and steal, load, memory and swap, how long tasks waited for
 the CPU, memory and disk, every disk's space (a ZFS pool counted once: its folders' used space
 and the pool's free room), busy time and bytes read and written, network in,
 out, drops and errors, open and half-open tcp connections, connections refused at a full queue,
-the conntrack table, temperature, battery, and pings to the gateway and to two internet hosts. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
+the conntrack table, temperature, battery, and pings to the gateway and to two internet hosts,
+each line starting with its time and the machine's boot time. One JSON line a second into `logs/servermon/<yyyymmdd>.jsonl` beside the agent,
 30 days kept, read on the machine with `tail` and `jq`. It is `src/servermon/servermon.js`, one
 file with node and nothing else; the agent writes it into its folder and starts it on its own,
 so a restart or an update of the agent leaves it running, and finds it again by its command

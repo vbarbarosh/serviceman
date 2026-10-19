@@ -14,6 +14,8 @@ const DIR = process.env.DIR || path.join(__dirname, 'logs', 'servermon');
 const INTERNET_HOSTS = ['1.1.1.1', '8.8.8.8'];
 const INTERVAL = Number(process.env.INTERVAL || 1);
 const TZ = process.env.TZ || 'Europe/Chisinau';
+// When the machine booted, in seconds: a gap between two lines with different ones is a reboot
+const BOOT = boot_read();
 
 main();
 
@@ -61,6 +63,13 @@ async function snapshot_take()
         conntrack: conntrack_read(),
         pings: await pings,
     };
+}
+
+// btime of /proc/stat: the moment the machine booted, in seconds since 1970
+function boot_read()
+{
+    const line = fs.readFileSync('/proc/stat', 'utf8').split('\n').find(v => v.startsWith('btime '));
+    return (line === undefined) ? null : Number(line.split(' ')[1]);
 }
 
 // The first line of /proc/stat: time spent since boot, in ticks.
@@ -383,6 +392,7 @@ function json_from_snapshots(prev, next)
     });
     return JSON.stringify({
         time: iso_from_time(next.time),
+        boot: BOOT,
         cpu: cpu_total ? percent_from_ratio(1 - (next.cpu.idle - prev.cpu.idle)/cpu_total) : null,
         steal: cpu_total ? percent_from_ratio((next.cpu.steal - prev.cpu.steal)/cpu_total) : null,
         load: next.load,

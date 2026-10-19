@@ -8,13 +8,14 @@ import logline_link from './logline_link.js';
 import overview_card from './overview_card.js';
 import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
+import remote_uptime from './remote_uptime.js';
 import to_clipboard from './to_clipboard.js';
 
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
 
 // A remote's Overview tab: its state beside the title, the numbers that move as tiles, its
-// history, what it is as cards, and the raw state folded away at the end. It is drawn again
+// history and its uptime by day, what it is as cards, and the raw state folded away at the end. It is drawn again
 // with every beat of the machine.
 const remote_overview = {
     template: `
@@ -39,6 +40,7 @@ const remote_overview = {
             <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note">{{ tile.text }}</overview-tile>
         </div>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
+        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
                 <template #aside>{{ view.machine.hostname }}</template>
@@ -141,7 +143,7 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'agent-pill-short': agent_pill_short, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts},
+    components: {'agent-pill-short': agent_pill_short, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
     props: ['view', 'services', 'served', 'logline'],
     emits: ['select', 'tab'],
     data: function () {

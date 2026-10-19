@@ -45,6 +45,8 @@ const agent_term_start = require('./agent_term_start');
 const agent_tunnel = require('./agent_tunnel');
 const agent_ufw = require('./agent_ufw');
 const agent_update = require('./agent_update');
+const agent_uptime_count = require('./agent_uptime_count');
+const agent_uptime_of = require('./agent_uptime_of');
 const agent_version = require('../version.json');
 const agent_volume_link_safe = require('./agent_volume_link_safe');
 const agent_volume_terminals = require('./agent_volume_terminals');
@@ -79,10 +81,12 @@ const SLEPT_MS = 30000;
 const HOST_GONE_MS = parseInt(process.env.SERVICEMAN_HOST_GONE_MS || '90000', 10);
 
 const TUNNEL_KINDS = ['o', 'd', 'e', 'x', 'r'];
+// The days an uptime answer covers at most: as many as uptime.json keeps
+const UPTIME_DAYS_MOST = 90;
 
 // What the host asks for every half minute, and every time it measures the link. These would
 // bury everything worth reading, so they are done quietly.
-const QUIET = ['ping', 'stats', 'metrics', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'package_list', 'term_list'];
+const QUIET = ['ping', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'package_list', 'term_list'];
 
 // The work worth bracketing: a line that fetches a repo, an image that has to come down, a
 // shell line somebody wrote. It takes seconds, so a reader wants to see it start and wait.
@@ -421,6 +425,9 @@ async function method_run(options, state, method, params, say, group)
     if (method === 'metrics') {
         return agent_metrics_read(params);
     }
+    if (method === 'uptime') {
+        return await uptime_read(params, group);
+    }
     if (method === 'resources') {
         return await agent_resources(options);
     }
@@ -599,6 +606,18 @@ function stats_send(options, socket, group)
     }, function (error) {
         agent_say(group, 'agent_stats_error', {reason: error.message});
     });
+}
+
+// The machine's uptime by day: the lines since the last count are counted first, so today
+// reaches the moment it was asked
+async function uptime_read(params, group)
+{
+    const days = parseInt(params.days, 10);
+    if ((Number.isInteger(days) === false) || (days < 1) || (days > UPTIME_DAYS_MOST)) {
+        throw new Error(`days is a whole number from 1 to ${UPTIME_DAYS_MOST}`);
+    }
+    await agent_uptime_count(group);
+    return agent_uptime_of(days, Date.now());
 }
 
 module.exports = agent_serve;

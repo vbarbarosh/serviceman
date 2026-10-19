@@ -64,6 +64,8 @@ function remote_state()
         measured_at: null,
         // Its charts as last read, by range: shown while it is away, and kept across links
         metrics: {},
+        // Its uptime by day as last read, shown while it is away the same way
+        uptime: null,
         calls: {},
         next_call_id: 0,
         streams: {},

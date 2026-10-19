@@ -9,6 +9,7 @@
 const RIGHTS = [
     {right: 'status', said: 'read the status', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/status$/},
     {right: 'metrics', said: 'read the charts', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/metrics$/},
+    {right: 'metrics', said: 'read the uptime', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/uptime$/},
     {right: 'processes', said: 'read the processes', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/processes$/},
     {right: 'ports', said: 'read the ports', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/ports$/},
     {right: 'disks', said: 'read the disks', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/disks$/},

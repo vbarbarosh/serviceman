@@ -4,7 +4,7 @@ import to_clipboard from './to_clipboard.js';
 // What each right lets a token do, in a few words
 const RIGHTS_SAID = {
     status: 'its machines and what runs on them',
-    metrics: 'the charts: CPU, memory, disk, network',
+    metrics: 'the charts: CPU, memory, disk, network; the uptime by day',
     processes: 'the process list',
     ports: 'the ports it listens on',
     disks: 'its disks and how full they are',

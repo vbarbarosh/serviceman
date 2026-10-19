@@ -28,7 +28,8 @@ test('the agent starts servermon, keeps it across its own restart, and logs into
         pid = Number((await status_wait(env)).match(/^servermon pid (\d+),/m)[1]);
         const day_files = await day_files_wait(path.join(logs, 'servermon'));
         const line = JSON.parse(fs.readFileSync(path.join(logs, 'servermon', day_files[0]), 'utf8').split('\n')[0]);
-        assert.deepStrictEqual(Object.keys(line).slice(0, 3), ['time', 'cpu', 'steal']);
+        assert.deepStrictEqual(Object.keys(line).slice(0, 4), ['time', 'boot', 'cpu', 'steal']);
+        assert.ok(Number.isInteger(line.boot) && (line.boot*1000 < Date.now()), 'the boot time, in seconds');
         assert.match(fs.readFileSync(path.join(logs, 'servermon', 'servermon.stderr'), 'utf8'), /^servermon: a line every/);
         assert.strictEqual(fs.existsSync(path.join(logs, 'servermon', 'servermon.err')), false, 'the older name is gone');
         assert.ok(fs.existsSync(path.join(dir, 'servermon.js')), 'servermon.js is written beside the agent');

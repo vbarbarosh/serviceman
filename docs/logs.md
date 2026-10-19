@@ -358,6 +358,8 @@ What an agent says about keeping its machine's numbers for the charts:
 |------------------------|--------------------------------------------------------------------|
 | `agent_metrics_error`  | A sample could not be written, and why; said once, not every 30s.  |
 | `agent_metrics_ok`     | Samples are written again after the error above.                   |
+| `agent_uptime_error`   | servermon's lines could not be counted, and why; said once.        |
+| `agent_uptime_ok`      | They are counted again after the error above.                      |
 
 And about servermon, the machine's load every second (the [remotes](remotes.md) page):
 

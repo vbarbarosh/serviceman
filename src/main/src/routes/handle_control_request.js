@@ -96,6 +96,7 @@ const RE_TRANSFERS = /^\/api\/v1\/transfers(\/.*)?$/;
 const RE_REMOTE_PROCESSES = /^\/api\/v1\/remotes\/([^/]+)\/processes$/;
 const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals$/;
 const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
+const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
 const RE_REMOTE_TERMINAL_END = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/end$/;
 const RE_REMOTE_TERMINAL_SIGNAL = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/signal$/;
 const RE_REMOTE_PORTS = /^\/api\/v1\/remotes\/([^/]+)\/ports$/;
@@ -331,6 +332,11 @@ async function control_answer(app, req, res)
     const remote_metrics = RE_REMOTE_METRICS.exec(url.pathname);
     if ((remote_metrics !== null) && (req.method === 'GET')) {
         await handle_remote_metrics(app, res, decodeURIComponent(remote_metrics[1]), url.searchParams.get('range'));
+        return;
+    }
+    const remote_uptime = RE_REMOTE_UPTIME.exec(url.pathname);
+    if ((remote_uptime !== null) && (req.method === 'GET')) {
+        await handle_remote_uptime(app, res, decodeURIComponent(remote_uptime[1]), url.searchParams.get('days'));
         return;
     }
     const remote_terminals = RE_REMOTE_TERMINALS.exec(url.pathname);
@@ -926,6 +932,45 @@ async function handle_remote_metrics(app, res, name, range)
     try {
         const answer = await remote_call(app, remote, 'metrics', {range}, MACHINE_READ_TIMEOUT_MS);
         remote.state.metrics[range] = answer;
+        send_json(res, 200, Object.assign({}, answer, {away: false}));
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+    }
+}
+
+// GET /api/v1/remotes/<name>/uptime?days=30
+// The machine's uptime by day, counted by its agent from servermon's lines: for each day, how
+// long was known and how long of it the machine was down, with the stretches. The last answer is
+// kept here and shown while the machine is away, with `away: true`, as the charts are.
+async function handle_remote_uptime(app, res, name, days_text)
+{
+    const remote = app.remote_by_name[name];
+    if (remote === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    const days = (days_text === null) ? 30 : Number(days_text);
+    if ((Number.isInteger(days) === false) || (days < 1) || (days > 90)) {
+        send_json(res, 400, {error: 'days is a whole number from 1 to 90'});
+        return;
+    }
+    const kept = remote.state.uptime;
+    if (remote.state.phase !== 'online') {
+        if (kept === null) {
+            send_json(res, 409, {error: `${name} is not connected, and its uptime is counted on it`});
+            return;
+        }
+        send_json(res, 200, Object.assign({}, kept, {away: true}));
+        return;
+    }
+    if (remote_can(remote, 'uptime') === false) {
+        send_json(res, 400, {error: `the agent on ${name} is from before uptime: an update to 1.22 or newer brings it`, old_agent: true});
+        return;
+    }
+    try {
+        const answer = await remote_call(app, remote, 'uptime', {days}, MACHINE_READ_TIMEOUT_MS);
+        remote.state.uptime = answer;
         send_json(res, 200, Object.assign({}, answer, {away: false}));
     }
     catch (error) {

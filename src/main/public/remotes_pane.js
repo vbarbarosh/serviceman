@@ -68,6 +68,7 @@ const remotes_pane = {
                 <button v-if="(card.doors > 0)" type="button" class="tag" title="Only the names this machine's door answers" @click.stop="$emit('doors', card.name)">{{ card.doors_text }}</button>
                 <span v-else class="tag">{{ card.doors_text }}</span>
                 <logs-link :url="card.logs_url" kind="remote"/>
+                <span v-if="(card.uptime !== null)" :class="card.uptime.kind" :title="card.uptime.title">{{ card.uptime.share }} uptime</span>
                 <span class="muted list-right">{{ card.machine_text }}</span>
             </div>
         </div>
@@ -97,6 +98,7 @@ const remotes_pane = {
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).text }}</button>
                 <span v-else>{{ bar_of(row, column.key).text }}</span>
             </span>
+            <span v-else-if="((column.key === 'uptime') && (row.uptime !== null))" :class="row.uptime.kind" :title="row.uptime.title">{{ row.uptime.share }}</span>
             <!-- Each count opens its own list, holding only what this machine carries -->
             <template v-else-if="(column.key === 'services')">
                 <button v-if="(row.services > 0)" type="button" class="tag" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
@@ -161,10 +163,11 @@ const remotes_pane = {
             return [
                 {key: 'name', label: 'Remote', wraps: true},
                 {key: 'state', label: 'State', spread: v => (v.bars.length === 0) ? ['cpu', 'memory', 'disk'] : []},
-                {key: 'cpu', label: 'CPU', fold: 9, hide: v => (this.bar_of(v, 'cpu') === null)},
-                {key: 'memory', label: 'Memory', fold: 7, hide: v => (this.bar_of(v, 'memory') === null)},
-                {key: 'disk', label: 'Disk', fold: 6, hide: v => (this.bar_of(v, 'disk') === null)},
-                {key: 'services', label: 'Services', fold: 8, align: 'right'},
+                {key: 'cpu', label: 'CPU', fold: 10, hide: v => (this.bar_of(v, 'cpu') === null)},
+                {key: 'memory', label: 'Memory', fold: 8, hide: v => (this.bar_of(v, 'memory') === null)},
+                {key: 'disk', label: 'Disk', fold: 7, hide: v => (this.bar_of(v, 'disk') === null)},
+                {key: 'uptime', label: 'Uptime', fold: 6, align: 'right', hide: v => (v.uptime === null)},
+                {key: 'services', label: 'Services', fold: 9, align: 'right'},
                 {key: 'folders', label: 'Folders', fold: 5, align: 'right'},
                 {key: 'doors', label: 'Door names', fold: 4, align: 'right'},
                 {key: 'logs', label: 'Logs', fold: 3, hide: v => (v.logs_url === null)},
@@ -210,6 +213,7 @@ const remotes_pane = {
                 logs_url: logline_link(this.state.logline, 'remote', remote.name),
                 troubles,
                 bars: (online && (machine !== null)) ? this.bars_of(machine) : [],
+                uptime: ((machine === null) || (machine.uptime_30d === undefined)) ? null : uptime_of(machine.uptime_30d),
                 away_text: this.away_text(remote, services),
                 services: services.length,
                 folders,
@@ -291,6 +295,19 @@ function remotes_view_write(view)
     catch {
         // kept for this pane only
     }
+}
+
+// The last 30 days as the machine counted them: the share up, red below 99%, and the days and
+// downtime in its title; null before servermon's first line or from an agent before 1.22
+function uptime_of(counted)
+{
+    if ((counted === null) || (counted.known_ms === 0)) {
+        return null;
+    }
+    const days = Math.ceil(counted.known_ms/86400000);
+    const share = (counted.down_ms === 0) ? '100%' : `${(Math.floor((1 - counted.down_ms/counted.known_ms)*1000)/10).toFixed(1)}%`;
+    const down = (counted.down_ms === 0) ? 'never down' : `down ${format_ms(counted.down_ms)}`;
+    return {share, kind: ((counted.down_ms/counted.known_ms) > 0.01) ? 'bad' : '', title: `The last ${days} ${(days === 1) ? 'day' : 'days'}: ${down}`};
 }
 
 function disks_from_disk(disk)

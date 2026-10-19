@@ -19,6 +19,7 @@ const agent_sleep_watch = require('./src/agent_sleep_watch');
 const agent_status_ask = require('./src/agent_status_ask');
 const agent_status_serve = require('./src/agent_status_serve');
 const agent_uninstall = require('./src/agent_uninstall');
+const agent_uptime = require('./src/agent_uptime');
 const agent_version = require('./version.json');
 const format_seconds = require('../helpers/format_seconds');
 const log_uid = require('../helpers/log_uid');
@@ -165,6 +166,8 @@ async function main()
     // And so does servermon, the machine's load every second, written beside the agent and kept
     // running by it: it is read after the machine stopped answering, the agent included
     agent_servermon(status, boot);
+    // And its uptime, counted from servermon's lines into a file of its own
+    agent_uptime(boot);
     // And so does its door: the table it routes by is on its disk, and the door and the way its
     // peers reach it stand for the life of the agent, not of a link
     agent_doors_state.table = agent_doors_read();

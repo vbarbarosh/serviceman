@@ -92,6 +92,9 @@ function machine_of(state)
         // Where the numbers above come from: servermon running, off or silent. null from an
         // agent that measured them itself
         servermon: ((stats === null) || (stats.servermon === undefined)) ? null : stats.servermon,
+        // The last 30 days, {known_ms, down_ms}: null from an agent before 1.22, or before
+        // servermon's first line
+        uptime_30d: ((stats === null) || (stats.uptime_30d === undefined)) ? null : stats.uptime_30d,
         updates: ((stats === null) || (stats.updates === undefined)) ? null : stats.updates,
         // The door on that machine: where it is and who may knock, as the file says right now.
         // null is no door — an agent from before them, or one whose link is not up.
