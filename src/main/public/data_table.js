@@ -76,7 +76,7 @@ const data_table = {
                         <td v-if="caret_shown(fold.folded)" class="fold-caret" @click.stop="toggle(row, fold.folded)"><svg v-if="opens_now(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
                         <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
                         <template v-for="(column, i) of columns" :key="column.key">
-                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
+                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
@@ -200,6 +200,12 @@ const data_table = {
         // The keys of the columns a spread cell takes over in this row
         spread_over: function (row) {
             return this.columns.flatMap(v => ((v.spread === undefined) ? [] : (v.spread(row) || [])));
+        },
+        // A spread cell's colspan with every column shown, fold_table narrowing it to the shown
+        // ones; bound here, so a cell that stops spreading loses it with its data-spread
+        spread_span: function (row, column) {
+            const keys = (column.spread === undefined) ? [] : (column.spread(row) || []);
+            return (keys.length === 0) ? undefined : 1 + keys.length;
         },
         // What a cell spreads over, for fold_table to set its colspan; undefined for most cells
         spread_of: function (row, column) {
