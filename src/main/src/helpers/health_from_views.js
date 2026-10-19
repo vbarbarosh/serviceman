@@ -70,7 +70,7 @@ function link_check(remote, now, problems)
         return check('link', 'Link', 'none', 'saying hello', null);
     }
     if (remote.left_at === null) {
-        return check('link', 'Link', 'none', 'never dialled in', 'Its agent has not connected since serviceman started.');
+        return check('link', 'Link', 'none', 'not since serviceman started', 'Its agent has not connected since serviceman started.');
     }
     return check('link', 'Link', 'bad', `offline for ${format_duration_ms(now - remote.left_at)}`, remote.error);
 }

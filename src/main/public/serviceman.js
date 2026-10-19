@@ -12,6 +12,7 @@ import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
+import is_name_in_title from './is_name_in_title.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -1893,7 +1894,7 @@ const remote_page = {
         <span class="muted">›</span>
         <span class="dot" :class="(view.phase === 'online' ? 'running' : 'failed')"/>
         <b>{{ view.title || view.name }}</b>
-        <code v-if="(view.title && view.title !== view.name)" class="muted">{{ view.name }}</code>
+        <code v-if="name_shown" class="muted">{{ view.name }}</code>
         <agent-pill :current="agent_now"/>
         <div class="acts crumb-acts">
             <button type="button" title="A new service, run on this machine" @click="$emit('create', view.name)">
@@ -1988,6 +1989,10 @@ const remote_page = {
         return {original: null, edit_key: 0};
     },
     computed: {
+        // The name beside the title, unless it only repeats it
+        name_shown: function () {
+            return is_name_in_title(this.view.title, this.view.name) === false;
+        },
         tab_now: function () {
             return remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
@@ -2061,7 +2066,7 @@ const service_page = {
         <span class="muted">›</span>
         <span class="dot" :class="(view.doing === null ? view.phase : 'starting')"/>
         <b>{{ view.title || view.name }}</b>
-        <code v-if="(view.title && view.title !== view.name)" class="muted">{{ view.name }}</code>
+        <code v-if="name_shown" class="muted">{{ view.name }}</code>
         <div class="acts crumb-acts">
             <template v-if="driven">
                 <button type="button" :disabled="(waiting || view.phase === 'running')" @click="$emit('start', view)">
@@ -2137,6 +2142,10 @@ const service_page = {
         return {original: null, original_state: 'reading', edit_key: 0};
     },
     computed: {
+        // The name beside the title, unless it only repeats it
+        name_shown: function () {
+            return is_name_in_title(this.view.title, this.view.name) === false;
+        },
         logline_url: function () {
             return logline_link(this.logline, 'service', this.view.name);
         },

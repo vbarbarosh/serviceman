@@ -4,6 +4,7 @@ import agent_pill_short from './agent_pill_short.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
+import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
 
@@ -44,7 +45,7 @@ const remotes_pane = {
             <div class="row-of">
                 <span class="dot" :class="(card.online ? 'running' : 'failed')"/>
                 <b>{{ card.title }}</b>
-                <code v-if="(card.title !== card.name)" class="muted">{{ card.name }}</code>
+                <code v-if="card.name_shown" class="muted">{{ card.name }}</code>
                 <span class="pill" :class="(card.online ? 'running' : 'failed')">{{ card.pill }}</span>
                 <agent-pill :current="card.agent"/>
             </div>
@@ -79,7 +80,7 @@ const remotes_pane = {
             <span v-if="(column.key === 'name')" class="machine-name">
                 <span class="dot" :class="(row.online ? 'running' : 'failed')"/>
                 <button type="button" class="link" title="The machine's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
-                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+                <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
             </span>
             <!-- A machine with no numbers says why across their empty cells: since when it is away,
                  what waits for it, what went wrong -->
@@ -202,6 +203,7 @@ const remotes_pane = {
             return {
                 name: remote.name,
                 title: remote.title || remote.name,
+                name_shown: is_name_in_title(remote.title, remote.name) === false,
                 online,
                 pill: online ? `online · ${(remote.latency_ms === null) ? '…' : `${remote.latency_ms}ms`}` : 'offline',
                 agent: agent_current(remote, this.state.agent_built),
@@ -246,7 +248,8 @@ const remotes_pane = {
             return this.state.services.filter(v => v.remotes.some(vv => vv.startsWith('#') ? remote.tags.includes(vv.slice(1)) : vv === remote.name));
         },
         away_text: function (remote, services) {
-            const seen = (remote.left_at === null) ? 'Never connected.' : `Last seen ${format_ms(this.state.now - remote.left_at)} ago.`;
+            // Nothing is kept of a machine over a restart: one not seen since says only that
+            const seen = (remote.left_at === null) ? `Not connected since serviceman started ${format_ms(this.state.now - this.state.started_at)} ago.` : `Last seen ${format_ms(this.state.now - remote.left_at)} ago.`;
             if (services.length === 0) {
                 return `${seen} Nothing is placed on it.`;
             }

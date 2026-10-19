@@ -1,5 +1,6 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
 
@@ -43,7 +44,7 @@ const services_pane = {
         <template #cell="{row, column}">
             <span v-if="(column.key === 'name')" class="row-of">
                 <button type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
-                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+                <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
                 <logs-link :url="logs_url('service', row.name)" kind="service"/>
             </span>
             <template v-else-if="(column.key === 'address')">
@@ -178,6 +179,7 @@ const services_pane = {
             return {
                 name: service.name,
                 title: service.title || service.name,
+                name_shown: is_name_in_title(service.title, service.name) === false,
                 phase: (service.doing === null) ? service.phase : 'starting',
                 host,
                 url: this.url_of(host),

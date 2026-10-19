@@ -25,7 +25,7 @@ test('a machine that went is red, says for how long, and has nothing else to say
     assert.strictEqual(row.checks[0].text, 'offline for 3h 0s');
 });
 
-test('a machine that never dialled in is not missed', function () {
+test('a machine not dialled in since serviceman started is not missed', function () {
     const health = health_from_views(views({remotes: [remote('laptop', {phase: 'offline', machine: null})]}), seen({}));
     assert.strictEqual(area(health, 'machines').rows[0].state, 'none');
 });
