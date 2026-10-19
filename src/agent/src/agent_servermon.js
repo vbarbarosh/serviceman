@@ -31,6 +31,10 @@ function agent_servermon(status, group)
     };
     // Where agent 1.20.0 kept its pid
     fs.rmSync(path.join(agent_dir(), 'servermon.json'), {force: true});
+    // Agent 1.21.3 named its stderr servermon.err: a servermon it started goes on writing there
+    if (fs.existsSync(path.join(dir, 'servermon.err'))) {
+        fs.renameSync(path.join(dir, 'servermon.err'), path.join(dir, 'servermon.stderr'));
+    }
     status.servermon = {state: 'starting', pid: null, dir: ctx.dir, error: null};
     check(ctx, status, group);
     // The clock never keeps the agent up by itself: --once ends with its link
@@ -88,8 +92,8 @@ function start(ctx)
         file_write_synced(ctx.file, agent_servermon_text, 0o755);
     }
     fs.mkdirSync(ctx.dir, {recursive: true});
-    // What it says about itself and how it died, the last start's only
-    const err_fd = fs.openSync(path.join(ctx.dir, 'servermon.err'), 'w');
+    // Its stderr: what it says about itself and how it died, the last start's only
+    const err_fd = fs.openSync(path.join(ctx.dir, 'servermon.stderr'), 'w');
     let child;
     try {
         child = child_process.spawn(process.execPath, [ctx.file], {

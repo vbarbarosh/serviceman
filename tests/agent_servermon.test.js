@@ -9,14 +9,17 @@ const timers = require('timers/promises');
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 
 // The agent writes servermon.js beside itself and starts it; servermon writes a line a second
-// into logs/servermon/. The agent's own log is logs/agent/<day>.txt, and the days an older agent
-// left in logs/ are moved in there. A restart of the agent finds the same servermon again, by
-// its command line, with no file of its own to say which one it is.
+// into logs/servermon/, its stderr into servermon.stderr there. The agent's own log is
+// logs/agent/<day>.txt, and the days an older agent left in logs/ are moved in there. A restart
+// of the agent finds the same servermon again, by its command line, with no file of its own to
+// say which one it is; the servermon.err an older agent opened for it is renamed, not lost.
 test('the agent starts servermon, keeps it across its own restart, and logs into logs/agent', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-servermon-'));
     const logs = path.join(dir, 'logs');
     fs.mkdirSync(logs);
     fs.writeFileSync(path.join(logs, '20260101.log'), 'a line of an older agent\n');
+    fs.mkdirSync(path.join(logs, 'servermon'));
+    fs.writeFileSync(path.join(logs, 'servermon', 'servermon.err'), 'the stderr of an older agent\n');
     const env = Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_LOG_DIR: logs});
     const argv = [AGENT, '--url', 'http://127.0.0.1:9', '--token', 'servermonservermonservermonserv', '--machine', 'servermon', '--peer-port', '0'];
     let agent = child_process.spawn(process.execPath, argv, {stdio: 'ignore', env});
@@ -26,6 +29,8 @@ test('the agent starts servermon, keeps it across its own restart, and logs into
         const day_files = await day_files_wait(path.join(logs, 'servermon'));
         const line = JSON.parse(fs.readFileSync(path.join(logs, 'servermon', day_files[0]), 'utf8').split('\n')[0]);
         assert.deepStrictEqual(Object.keys(line).slice(0, 3), ['time', 'cpu', 'steal']);
+        assert.match(fs.readFileSync(path.join(logs, 'servermon', 'servermon.stderr'), 'utf8'), /^servermon: a line every/);
+        assert.strictEqual(fs.existsSync(path.join(logs, 'servermon', 'servermon.err')), false, 'the older name is gone');
         assert.ok(fs.existsSync(path.join(dir, 'servermon.js')), 'servermon.js is written beside the agent');
         assert.deepStrictEqual(fs.readdirSync(dir).filter(v => v.startsWith('servermon')), ['servermon.js'], 'and nothing beside it');
         assert.strictEqual(fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0')[1], path.join(dir, 'servermon.js'));
@@ -36,8 +41,13 @@ test('the agent starts servermon, keeps it across its own restart, and logs into
         agent.kill('SIGKILL');
         await timers.setTimeout(200);
         assert.doesNotThrow(() => process.kill(pid, 0), 'servermon outlives the agent');
+        // As agent 1.21.3 left it: the running servermon's stderr under the older name
+        fs.renameSync(path.join(logs, 'servermon', 'servermon.stderr'), path.join(logs, 'servermon', 'servermon.err'));
         agent = child_process.spawn(process.execPath, argv, {stdio: 'ignore', env});
         assert.match(await status_wait(env), new RegExp(`^servermon pid ${pid},`, 'm'), 'the agent took the same servermon back');
+        assert.match(fs.readFileSync(path.join(logs, 'servermon', 'servermon.stderr'), 'utf8'), /^servermon: a line every/);
+        assert.strictEqual(fs.readlinkSync(`/proc/${pid}/fd/2`), path.join(logs, 'servermon', 'servermon.stderr'), 'it goes on writing there');
+        assert.strictEqual(fs.existsSync(path.join(logs, 'servermon', 'servermon.err')), false);
     }
     finally {
         agent.kill('SIGKILL');
