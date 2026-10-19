@@ -1,4 +1,5 @@
 import agent_current from './agent_current.js';
+import agent_pill_short from './agent_pill_short.js';
 import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
@@ -68,8 +69,7 @@ const remote_overview = {
             <overview-card v-if="(view.machine !== null)" icon="robot" title="Agent" tab="configure" go="Configure" @tab="$emit('tab', $event)">
                 <template #aside>
                     {{ view.agent_version }}
-                    <span v-if="(current === true)" class="pill running">up to date</span>
-                    <span v-if="(current === false)" class="pill starting">outdated</span>
+                    <agent-pill-short :current="current"/>
                 </template>
                 <dt>Built</dt>
                 <dd>{{ ((view.agent_built === null) ? 'before builds were dated' : view.agent_built) }}</dd>
@@ -141,7 +141,7 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts},
+    components: {'agent-pill-short': agent_pill_short, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts},
     props: ['view', 'services', 'served', 'logline'],
     emits: ['select', 'tab'],
     data: function () {

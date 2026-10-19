@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
+import logs_link from './logs_link.js';
 
 // The front page: every service, one row each, under the machine it runs on. A filter and the
 // state chips narrow it; nothing here is kept but what the rows say.
@@ -36,14 +37,14 @@ const services_pane = {
                 <b>{{ group_by_key[group].title }}</b>
                 <span v-if="(group_by_key[group].phase !== null)" class="dot" :class="group_by_key[group].phase"/>
                 <span class="muted">{{ group_by_key[group].text }}</span>
-                <a v-if="((group_by_key[group].phase !== null) && (logs_url('remote', group) !== null))" class="tag" :href="logs_url('remote', group)" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">logs ↗</a>
+                <logs-link v-if="(group_by_key[group].phase !== null)" :url="logs_url('remote', group)" kind="remote"/>
             </span>
         </template>
         <template #cell="{row, column}">
             <span v-if="(column.key === 'name')" class="row-of">
                 <button type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
                 <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
-                <a v-if="(logs_url('service', row.name) !== null)" class="tag" :href="logs_url('service', row.name)" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">logs ↗</a>
+                <logs-link :url="logs_url('service', row.name)" kind="service"/>
             </span>
             <template v-else-if="(column.key === 'address')">
                 <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
@@ -57,7 +58,7 @@ const services_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'logs-link': logs_link},
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],

@@ -1,8 +1,11 @@
 import agent_current from './agent_current.js';
+import agent_pill from './agent_pill.js';
+import agent_pill_short from './agent_pill_short.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
+import logs_link from './logs_link.js';
 
 const REMOTES_VIEW_KEY = 'serviceman.remotes_view';
 
@@ -43,7 +46,7 @@ const remotes_pane = {
                 <b>{{ card.title }}</b>
                 <code v-if="(card.title !== card.name)" class="muted">{{ card.name }}</code>
                 <span class="pill" :class="(card.online ? 'running' : 'failed')">{{ card.pill }}</span>
-                <span v-if="(card.agent !== null)" class="pill agent-pill" :class="(card.agent ? 'running' : 'starting')" :title="(card.agent ? 'It runs the agent this host serves' : 'It runs an older agent than this host serves; Configure updates it')">{{ (card.agent ? 'agent up to date' : 'agent outdated') }}</span>
+                <agent-pill :current="card.agent"/>
             </div>
             <p v-for="line of card.troubles" :key="line" class="alert">{{ line }}</p>
             <div v-if="(card.bars.length > 0)" class="bars">
@@ -63,7 +66,7 @@ const remotes_pane = {
                 <span v-else class="tag">{{ card.folders_text }}</span>
                 <button v-if="(card.doors > 0)" type="button" class="tag" title="Only the names this machine's door answers" @click.stop="$emit('doors', card.name)">{{ card.doors_text }}</button>
                 <span v-else class="tag">{{ card.doors_text }}</span>
-                <a v-if="(card.logs_url !== null)" class="tag" :href="card.logs_url" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours" @click.stop>logs ↗</a>
+                <logs-link :url="card.logs_url" kind="remote"/>
                 <span class="muted list-right">{{ card.machine_text }}</span>
             </div>
         </div>
@@ -87,7 +90,7 @@ const remotes_pane = {
                     <span v-for="line of row.troubles" :key="line" class="bad">{{ line }}</span>
                 </template>
             </span>
-            <span v-else-if="(column.key === 'agent')" class="pill agent-pill" :class="(row.agent ? 'running' : 'starting')" :title="(row.agent ? 'It runs the agent this host serves' : 'It runs an older agent than this host serves; Configure updates it')">{{ (row.agent ? 'up to date' : 'outdated') }}</span>
+            <agent-pill-short v-else-if="(column.key === 'agent')" :current="row.agent"/>
             <span v-else-if="(bar_of(row, column.key) !== null)" class="load">
                 <span class="meter"><i :style="{width: (bar_of(row, column.key).percent + '%')}"/></span>
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).text }}</button>
@@ -106,7 +109,7 @@ const remotes_pane = {
                 <button v-if="(row.doors > 0)" type="button" class="tag" title="Only the names this machine's door answers" @click="$emit('doors', row.name)">{{ row.doors }}</button>
                 <span v-else class="muted">0</span>
             </template>
-            <a v-else-if="(column.key === 'logs')" class="tag" :href="row.logs_url" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">logs ↗</a>
+            <logs-link v-else-if="(column.key === 'logs')" :url="row.logs_url" kind="remote"/>
             <span v-else-if="(column.key === 'system')" class="muted">{{ row.machine_text }}</span>
         </template>
         <!-- A machine whose numbers fill its row has its troubles under it, as alerts -->
@@ -118,7 +121,7 @@ const remotes_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'agent-pill': agent_pill, 'agent-pill-short': agent_pill_short, 'data-table': data_table, 'logs-link': logs_link},
     props: ['state'],
     emits: ['create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {

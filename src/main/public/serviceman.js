@@ -1,5 +1,6 @@
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
+import agent_pill from './agent_pill.js';
 import authwall_pane from './authwall_pane.js';
 import command_copy from './command_copy.js';
 import config_read from './config_read.js';
@@ -1893,7 +1894,7 @@ const remote_page = {
         <span class="dot" :class="(view.phase === 'online' ? 'running' : 'failed')"/>
         <b>{{ view.title || view.name }}</b>
         <code v-if="(view.title && view.title !== view.name)" class="muted">{{ view.name }}</code>
-        <span v-if="(agent_now !== null)" class="pill" :class="(agent_now ? 'running' : 'starting')" :title="(agent_now ? 'It runs the agent this host serves' : 'It runs an older agent than this host serves; Configure updates it')">{{ (agent_now ? 'agent up to date' : 'agent outdated') }}</span>
+        <agent-pill :current="agent_now"/>
         <div class="acts crumb-acts">
             <button type="button" title="A new service, run on this machine" @click="$emit('create', view.name)">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1980,7 +1981,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell},
+    components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell},
     props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path'],
     emits: ['create', 'files_path', 'list', 'logline', 'saved', 'select', 'service', 'tab'],
     data: function () {
