@@ -281,7 +281,7 @@ function counters_read(file, prefix)
     const lines = fs.readFileSync(file, 'utf8').split('\n').filter(v => v.startsWith(`${prefix}:`));
     const names = lines[0].split(/\s+/).slice(1);
     const values = lines[1].split(/\s+/).slice(1).map(Number);
-    return Object.fromEntries(names.map((name, i) => [name, values[i]]));
+    return Object.fromEntries(names.map((name, index) => [name, values[index]]));
 }
 
 // The kernel's table of tracked connections: when full, every new

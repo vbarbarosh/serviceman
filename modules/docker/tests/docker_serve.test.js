@@ -306,13 +306,13 @@ async function serve(t, options)
 function call(running, method, path_text, body)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: '127.0.0.1', port: running.port, method, path: path_text}, function (res) {
+        const request = http.request({host: '127.0.0.1', port: running.port, method, path: path_text}, function (answer) {
             const chunks = [];
-            res.on('data', v => chunks.push(v));
-            res.on('end', () => resolve({status: res.statusCode, body: Buffer.concat(chunks).toString('utf8')}));
+            answer.on('data', v => chunks.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, body: Buffer.concat(chunks).toString('utf8')}));
         });
-        req.on('error', reject);
-        req.end(body);
+        request.on('error', reject);
+        request.end(body);
     });
 }
 

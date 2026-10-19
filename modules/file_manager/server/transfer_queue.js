@@ -235,8 +235,8 @@ async function piece_copy(item, piece, from, to, ctx, moved)
         return {path: path.posix.join(piece.dir, piece.name)};
     }
     while ((piece.received < piece.size) && (item.cancelled === false)) {
-        const end = Math.min(piece.size, piece.received + ctx.part_bytes) - 1;
-        const source = from.read(piece.from_path, {start: piece.received, end});
+        const last = Math.min(piece.size, piece.received + ctx.part_bytes) - 1;
+        const source = from.read(piece.from_path, {start: piece.received, end: last});
         // Cancel ends the part on its way at once, rather than when its link gives up
         item.abort = function () {
             source.destroy(new Error('the copy was given up'));

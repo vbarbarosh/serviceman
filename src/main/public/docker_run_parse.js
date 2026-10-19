@@ -22,14 +22,14 @@ function docker_run_parse(text)
         return null;
     }
     const out = {image: '', name: '', network: '', port: '', env: [], volumes: [], args: []};
-    let i = start;
-    while (i < words.length) {
-        const word = words[i];
+    let at = start;
+    while (at < words.length) {
+        const word = words[at];
         if (word.startsWith('-') === false) {
             break;
         }
-        const [option, value, ate] = option_at(words, i);
-        i += ate;
+        const [option, value, ate] = option_at(words, at);
+        at += ate;
         if (option === '--name') {
             out.name = value;
         }
@@ -53,11 +53,11 @@ function docker_run_parse(text)
             out.volumes.push(volume_of(value));
         }
     }
-    if (i >= words.length) {
+    if (at >= words.length) {
         return null;
     }
-    out.image = words[i];
-    out.args = words.slice(i + 1);
+    out.image = words[at];
+    out.args = words.slice(at + 1);
     return out;
 }
 

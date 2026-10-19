@@ -37,7 +37,7 @@ function main()
         console.log('Firewall stopped and disabled on system startup');
     }
     else if (words[0] === 'delete') {
-        const rule = words.slice(1).filter((v, i, all) => (all[i - 1] !== 'comment') && (v !== 'comment'));
+        const rule = words.slice(1).filter((v, index, all) => (all[index - 1] !== 'comment') && (v !== 'comment'));
         const at = state.rules.findIndex(v => same(v, rule));
         if (at === -1) {
             console.log('Could not delete non-existent rule\nCould not delete non-existent rule (v6)');
@@ -102,5 +102,5 @@ function same(a, b)
 
 function bare(words)
 {
-    return words.filter((v, i, all) => (v !== 'comment') && (all[i - 1] !== 'comment')).join(' ');
+    return words.filter((v, index, all) => (v !== 'comment') && (all[index - 1] !== 'comment')).join(' ');
 }

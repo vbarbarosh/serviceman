@@ -141,10 +141,10 @@ const service_doors = {
         write: async function (machine, change) {
             this.busy = true;
             this.report('', false);
-            const error = await door_rules_write(machine, change);
+            const problem = await door_rules_write(machine, change);
             this.busy = false;
-            if (error !== null) {
-                this.report(error, true);
+            if (problem !== null) {
+                this.report(problem, true);
                 return false;
             }
             return true;

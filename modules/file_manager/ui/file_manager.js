@@ -619,7 +619,7 @@ const file_manager = {
             }
             const top = Math.max(1, ...samples.map(v => v.y))*1.25;
             const points = samples.map(v => [v.x*1000, 100 - v.y/top*100]);
-            out.line = points.map((v, i) => `${(i === 0) ? 'M' : 'L'}${v[0].toFixed(1)} ${v[1].toFixed(1)}`).join(' ');
+            out.line = points.map((v, index) => `${(index === 0) ? 'M' : 'L'}${v[0].toFixed(1)} ${v[1].toFixed(1)}`).join(' ');
             out.area = `${out.line} L${points.at(-1)[0].toFixed(1)} 100 L${points[0][0].toFixed(1)} 100 Z`;
             if (this.queue.copying) {
                 out.now_y = Math.round(points.at(-1)[1]);

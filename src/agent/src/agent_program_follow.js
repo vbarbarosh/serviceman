@@ -31,12 +31,12 @@ function agent_program_follow(programs, record, child, group)
             read();
         }
         if ((child === null) && (proc_start_time(record.pid) !== record.started)) {
-            end(null, null, 'gone');
+            finish(null, null, 'gone');
         }
     }, READ_EVERY_MS);
     timer.unref();
     let over = false;
-    function end(code, signal, how) {
+    function finish(code, signal, how) {
         if (over) {
             return;
         }
@@ -54,14 +54,14 @@ function agent_program_follow(programs, record, child, group)
     }
     if (child !== null) {
         child.on('exit', function (code, signal) {
-            end(code, signal, (signal === null) ? `code ${code}` : signal);
+            finish(code, signal, (signal === null) ? `code ${code}` : signal);
         });
         // A command that cannot be run at all — no such program, a folder that is not there —
         // ends here instead of exiting, and it ends the same way for the host: as a program
         // that failed
         child.on('error', function (error) {
             output.push(error.message);
-            end(null, null, error.message);
+            finish(null, null, error.message);
         });
     }
     programs[key] = out;

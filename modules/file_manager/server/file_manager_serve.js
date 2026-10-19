@@ -180,7 +180,7 @@ function tree_serve(ctx, req, res, url)
     let started = false;
     let ended = false;
     let finished = false;
-    let end = null;
+    let end_line = null;
     let cut = false;
     let waiting = null;
     let names = 0;
@@ -209,8 +209,8 @@ function tree_serve(ctx, req, res, url)
         if (cut) {
             ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), names: listed.items.length, cut, ms: Date.now() - time0});
         }
-        else if (end !== null) {
-            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), names, hashed: end.hashed, ms: Date.now() - time0});
+        else if (end_line !== null) {
+            ctx.log('tree_listed', {path: listed.path, hash: (hash === 'sha256'), names, hashed: end_line.hashed, ms: Date.now() - time0});
         }
     });
 
@@ -251,7 +251,7 @@ function tree_serve(ctx, req, res, url)
             return false;
         }
         if (line.type === 'end') {
-            end = line;
+            end_line = line;
             return false;
         }
         if ((events === false) && (listed.items.length >= TREE_JSON_MAX_ITEMS)) {
@@ -274,7 +274,7 @@ function tree_serve(ctx, req, res, url)
     }
 
     function finish() {
-        if (end === null) {
+        if (end_line === null) {
             fail(new Error('the disk stopped before the whole tree was read'));
             return;
         }
@@ -518,7 +518,7 @@ function watch_serve(ctx, req, res, url)
             if (line.trim() === '') {
                 continue;
             }
-            const event = JSON.parse(line);
+            const change = JSON.parse(line);
             if (started === false) {
                 started = true;
                 res.writeHead(200, {'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no'});
@@ -526,7 +526,7 @@ function watch_serve(ctx, req, res, url)
             else {
                 events++;
             }
-            res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+            res.write(`event: ${change.type}\ndata: ${JSON.stringify(change)}\n\n`);
         }
     });
     stream.on('end', function () {
@@ -671,10 +671,10 @@ async function tar_upload_serve(ctx, req, res, url)
             return;
         }
         try {
-            for (const event of parser.push(chunk)) {
-                seen = seen || (event.type !== 'data');
-                counted.files += (event.type === 'file') ? 1 : 0;
-                counted.bytes += (event.type === 'data') ? event.bytes.length : 0;
+            for (const piece of parser.push(chunk)) {
+                seen = seen || (piece.type !== 'data');
+                counted.files += (piece.type === 'file') ? 1 : 0;
+                counted.bytes += (piece.type === 'data') ? piece.bytes.length : 0;
             }
         }
         catch (error) {
@@ -697,9 +697,9 @@ async function tar_upload_serve(ctx, req, res, url)
         if (refused !== null) {
             return;
         }
-        const error = parser.end();
-        if (error !== null) {
-            refuse(error, Buffer.alloc(0));
+        const refusal = parser.end();
+        if (refusal !== null) {
+            refuse(refusal, Buffer.alloc(0));
             return;
         }
         body.end();
@@ -871,11 +871,11 @@ function range_of(header, size)
     if (start >= size) {
         return 'bad';
     }
-    const end = (found[2] === '') ? size - 1 : Math.min(size - 1, parseInt(found[2], 10));
-    if (end < start) {
+    const last = (found[2] === '') ? size - 1 : Math.min(size - 1, parseInt(found[2], 10));
+    if (last < start) {
         return null;
     }
-    return {start, end};
+    return {start, end: last};
 }
 
 // Enough types for a folder of static pages; anything else is downloaded as bytes

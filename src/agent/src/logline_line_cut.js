@@ -8,12 +8,12 @@ function logline_line_cut(line)
     if (bytes.length <= LINE_BYTES) {
         return line;
     }
-    let end = LINE_BYTES - 32;
+    let cut_at = LINE_BYTES - 32;
     // Back off to the start of a character: continuation bytes are 10xxxxxx
-    while ((end > 0) && ((bytes[end] & 0xc0) === 0x80)) {
-        end -= 1;
+    while ((cut_at > 0) && ((bytes[cut_at] & 0xc0) === 0x80)) {
+        cut_at -= 1;
     }
-    return `${bytes.subarray(0, end).toString('utf8')}...+${bytes.length - end}`;
+    return `${bytes.subarray(0, cut_at).toString('utf8')}...+${bytes.length - cut_at}`;
 }
 
 module.exports = logline_line_cut;

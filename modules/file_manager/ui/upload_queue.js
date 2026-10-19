@@ -438,8 +438,8 @@ async function copy_stream(queue, items)
     }
     const base = folder_common(items.map(v => v.dir));
     const names = items.map(v => `${(v.dir === base) ? '' : `${v.dir.slice(base.length + 1)}/`}${v.name}`);
-    const {blob, ends} = tar_blob(items.map((v, i) => ({file: v.file, name: names[i]})));
-    const starts = ends.map((v, i) => v - items[i].size);
+    const {blob, ends} = tar_blob(items.map((v, index) => ({file: v.file, name: names[index]})));
+    const starts = ends.map((v, index) => v - items[index].size);
     for (const item of items) {
         item.phase = 'copying';
         item.began = Date.now();
@@ -629,19 +629,19 @@ function upload_call(queue, method, action, item, query, body, progress)
                 resolve(outcome);
                 return;
             }
-            const error = new Error((outcome === null) ? `the server answered ${request.status}` : outcome.error);
-            error.status = request.status;
-            error.lasting = (request.status === 400) || (request.status === 404) || (request.status === 409) || ((request.status === 413) && (action !== 'part'));
-            reject(error);
+            const failure = new Error((outcome === null) ? `the server answered ${request.status}` : outcome.error);
+            failure.status = request.status;
+            failure.lasting = (request.status === 400) || (request.status === 404) || (request.status === 409) || ((request.status === 413) && (action !== 'part'));
+            reject(failure);
         });
         request.addEventListener('error', function () {
             reject(new Error('the connection was lost'));
         });
         request.addEventListener('abort', function () {
-            const error = new Error('stopped');
-            error.aborted = true;
-            error.stalled = (request.stalled === true);
-            reject(error);
+            const stopped = new Error('stopped');
+            stopped.aborted = true;
+            stopped.stalled = (request.stalled === true);
+            reject(stopped);
         });
         request.open(method, `${queue.base}/upload${(action === '') ? '' : `/${action}`}?${where}`);
         request.send((body === undefined) ? null : body);
@@ -788,7 +788,7 @@ function sampler_start(queue)
         }
         queue.samples.push({x, y: speed});
         if (queue.samples.length > SAMPLES_MAX) {
-            queue.samples = queue.samples.filter((v, i) => (i % 2 === 0));
+            queue.samples = queue.samples.filter((v, index) => (index % 2 === 0));
         }
     }, SAMPLE_MS);
 }

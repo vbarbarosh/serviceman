@@ -569,10 +569,10 @@ async function method_run(options, state, method, params, say, group)
         return await agent_forwards_set(params.forwards, group);
     }
     if (method === 'logline_set') {
-        const out = agent_logline_set(params);
+        const settings = agent_logline_set(params);
         // Collection follows the new word at once; it does not wait for the answer to leave
         agent_logline(options);
-        return out;
+        return settings;
     }
     if (method === 'update') {
         return agent_update(params, group);

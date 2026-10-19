@@ -45,9 +45,9 @@ function agent_tar_put(target)
     };
     out.end = function () {
         step(async function () {
-            const error = parser.end();
-            if (error !== null) {
-                throw error;
+            const refusal = parser.end();
+            if (refusal !== null) {
+                throw refusal;
             }
             out.emit('data', Buffer.from(`${JSON.stringify({path: dir, files, bytes})}\n`));
             out.emit('end');
@@ -81,20 +81,20 @@ function agent_tar_put(target)
     }
 
     async function events_write(events) {
-        for (const event of events) {
+        for (const piece of events) {
             if (out.destroyed || failed) {
                 return;
             }
-            if (event.type === 'dir') {
-                fs.mkdirSync(agent_fs_path(path.join(dir, event.name), target.root), {recursive: true});
+            if (piece.type === 'dir') {
+                fs.mkdirSync(agent_fs_path(path.join(dir, piece.name), target.root), {recursive: true});
             }
-            else if (event.type === 'file') {
-                await file_open(event);
+            else if (piece.type === 'file') {
+                await file_open(piece);
             }
-            else if (event.type === 'data') {
-                await bytes_write(event.bytes);
+            else if (piece.type === 'data') {
+                await bytes_write(piece.bytes);
             }
-            else if (event.type === 'file_end') {
+            else if (piece.type === 'file_end') {
                 await file_close();
             }
         }

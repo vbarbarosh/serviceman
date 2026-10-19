@@ -329,9 +329,9 @@ function link_gone(app, remote, socket)
 // Every request in flight through the link ends where it stands; nothing waits for a dead machine
 function stream_gone(found, name)
 {
-    const error = new Error(`the link to remote ${name} dropped`);
-    error.code = 'ECONNRESET';
-    found.tunnel_gone(error);
+    const dropped = new Error(`the link to remote ${name} dropped`);
+    dropped.code = 'ECONNRESET';
+    found.tunnel_gone(dropped);
 }
 
 function services_wake(app, remote)

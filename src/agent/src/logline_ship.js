@@ -105,9 +105,9 @@ async function send(settings, body)
     if ((settings.logs !== 'all') || (settings.endpoint === null) || (settings.token === null)) {
         return {ok: false, refused: false, text: 'this machine is not told where to send'};
     }
-    let res;
+    let answer;
     try {
-        res = await fetch(settings.endpoint, {
+        answer = await fetch(settings.endpoint, {
             method: 'POST',
             headers: {'authorization': `Bearer ${settings.token}`, 'content-type': 'application/json'},
             body,
@@ -117,7 +117,7 @@ async function send(settings, body)
     catch (error) {
         return {ok: false, refused: false, text: (error.cause === undefined) ? error.message : error.cause.message};
     }
-    const text = await res.text().catch(() => '');
+    const text = await answer.text().catch(() => '');
     let said = text;
     try {
         said = JSON.parse(text).error || text;
@@ -125,12 +125,12 @@ async function send(settings, body)
     catch {
         // Not Logline's JSON; the text is what there is
     }
-    if ((res.status >= 200) && (res.status <= 299)) {
+    if ((answer.status >= 200) && (answer.status <= 299)) {
         return {ok: true, refused: false, text: 'ok'};
     }
     // A wrong token, a wrong address, a Logline too busy: none of it is the batch's fault
     const retried = [401, 403, 404, 408, 425, 429];
-    return {ok: false, refused: (res.status >= 400) && (res.status <= 499) && (retried.includes(res.status) === false), text: `${res.status} ${said}`.trim()};
+    return {ok: false, refused: (answer.status >= 400) && (answer.status <= 499) && (retried.includes(answer.status) === false), text: `${answer.status} ${said}`.trim()};
 }
 
 function stats_add(ctx, cut, answer)

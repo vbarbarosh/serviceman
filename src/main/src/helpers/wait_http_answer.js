@@ -97,26 +97,26 @@ async function tail_say(app, service, instance)
 function ask(instance, upstream)
 {
     return new Promise(function (resolve) {
-        const req = http.request({
+        const request = http.request({
             host: upstream.host,
             port: upstream.port,
             method: 'GET',
             path: '/',
             agent: instance.agent,
             headers: {'user-agent': PROBE_AGENT},
-        }, function (res) {
+        }, function (answer) {
             // The body is nobody's business here, but it has to be read for the socket to
             // go back to the pool the requests will take it from
-            res.resume();
-            resolve({status: res.statusCode, reason: null});
+            answer.resume();
+            resolve({status: answer.statusCode, reason: null});
         });
-        req.setTimeout(ATTEMPT_TIMEOUT_MS, function () {
-            req.destroy();
+        request.setTimeout(ATTEMPT_TIMEOUT_MS, function () {
+            request.destroy();
         });
-        req.on('error', function (error) {
+        request.on('error', function (error) {
             resolve({status: null, reason: error.message});
         });
-        req.end();
+        request.end();
     });
 }
 

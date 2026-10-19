@@ -274,13 +274,13 @@ function port_free()
 function fetch_socket(file, host, path_asked, headers)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({socketPath: file, path: path_asked, headers: Object.assign({host}, headers)}, function (res) {
+        const request = http.request({socketPath: file, path: path_asked, headers: Object.assign({host}, headers)}, function (answer) {
             const body = [];
-            res.on('data', v => body.push(v));
-            res.on('end', () => resolve({status: res.statusCode, headers: res.headers, body: Buffer.concat(body).toString('utf8')}));
+            answer.on('data', v => body.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, headers: answer.headers, body: Buffer.concat(body).toString('utf8')}));
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 
@@ -288,19 +288,19 @@ function fetch_socket(file, host, path_asked, headers)
 function fetch_port(port, headers)
 {
     return new Promise(function (resolve) {
-        const req = http.request({host: '127.0.0.1', port, path: '/', headers}, function (res) {
+        const request = http.request({host: '127.0.0.1', port, path: '/', headers}, function (answer) {
             const body = [];
-            res.on('data', v => body.push(v));
-            res.on('end', () => resolve({status: res.statusCode, body: Buffer.concat(body).toString('utf8')}));
+            answer.on('data', v => body.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, body: Buffer.concat(body).toString('utf8')}));
         });
-        req.on('upgrade', function (res, socket) {
+        request.on('upgrade', function (answer, socket) {
             socket.destroy();
-            resolve({status: res.statusCode});
+            resolve({status: answer.statusCode});
         });
-        req.on('error', function () {
+        request.on('error', function () {
             resolve({status: 'closed'});
         });
-        req.end();
+        request.end();
     });
 }
 

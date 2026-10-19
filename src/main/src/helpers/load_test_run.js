@@ -153,10 +153,10 @@ function said_from_stderr(stderr)
             continue;
         }
         const msg = field_of(match[2], 'msg');
-        const error = field_of(match[2], 'error');
+        const reason = field_of(match[2], 'error');
         out.push({
             count: parseInt(match[1], 10),
-            text: (msg === null) ? match[2] : ((error === null) ? msg : `${msg}: ${error}`),
+            text: (msg === null) ? match[2] : ((reason === null) ? msg : `${msg}: ${reason}`),
             users: match[2].endsWith('source=console'),
         });
     }

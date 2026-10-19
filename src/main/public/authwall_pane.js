@@ -154,12 +154,12 @@ const authwall_pane = {
         guard: async function (rule, auth) {
             this.busy = true;
             this.report('', false);
-            const error = await door_rules_write(rule.machine, function (inbound) {
+            const problem = await door_rules_write(rule.machine, function (inbound) {
                 inbound[rule.host] = door_rule_value(rule.service, rule.off, auth);
             });
             this.busy = false;
-            if (error !== null) {
-                this.report(error, true);
+            if (problem !== null) {
+                this.report(problem, true);
             }
         },
         report: function (note, bad) {

@@ -37,8 +37,8 @@ function logline_collect(ctx)
         stop: function () {
             run.running = false;
             clearInterval(timer);
-            for (const res of run.streams) {
-                res.destroy();
+            for (const stream of run.streams) {
+                stream.destroy();
             }
         },
         containers: () => run.following.size,
@@ -66,21 +66,21 @@ async function events_watch(run)
     const filters = encodeURIComponent(JSON.stringify({type: ['container'], event: ['start']}));
     while (run.running) {
         try {
-            const res = await docker_api(run.socket, `/events?filters=${filters}`);
-            run.streams.add(res);
+            const events = await docker_api(run.socket, `/events?filters=${filters}`);
+            run.streams.add(events);
             let rest = '';
-            for await (const chunk of res) {
+            for await (const chunk of events) {
                 rest += chunk.toString('utf8');
                 const lines = rest.split('\n');
                 rest = lines.pop();
                 for (const line of lines) {
-                    const event = (line.trim() === '') ? null : JSON.parse(line);
-                    if ((event !== null) && (event.id !== undefined)) {
-                        container_consider(run, event.id);
+                    const docker_event = (line.trim() === '') ? null : JSON.parse(line);
+                    if ((docker_event !== null) && (docker_event.id !== undefined)) {
+                        container_consider(run, docker_event.id);
                     }
                 }
             }
-            run.streams.delete(res);
+            run.streams.delete(events);
         }
         catch (error) {
             if (run.running) {

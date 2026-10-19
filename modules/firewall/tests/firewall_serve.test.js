@@ -165,12 +165,12 @@ async function serve(t, run, ports)
 function call(running, method, path, body)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: '127.0.0.1', port: running.port, method, path}, function (res) {
+        const request = http.request({host: '127.0.0.1', port: running.port, method, path}, function (answer) {
             const chunks = [];
-            res.on('data', v => chunks.push(v));
-            res.on('end', () => resolve({status: res.statusCode, body: JSON.parse(Buffer.concat(chunks).toString('utf8'))}));
+            answer.on('data', v => chunks.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, body: JSON.parse(Buffer.concat(chunks).toString('utf8'))}));
         });
-        req.on('error', reject);
-        req.end((body === undefined) ? undefined : JSON.stringify(body));
+        request.on('error', reject);
+        request.end((body === undefined) ? undefined : JSON.stringify(body));
     });
 }

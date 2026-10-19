@@ -20,9 +20,9 @@ function pool_acquire(app, service, deadline)
         if (deadline !== null) {
             waiter.deadline_timer = setTimeout(function () {
                 waiter_drop(state, waiter);
-                const error = new Error(`the request waited ${Math.round(service.policy.request_timeout_ms/1000)}s for a free instance`);
-                error.status = 504;
-                reject(error);
+                const failure = new Error(`the request waited ${Math.round(service.policy.request_timeout_ms/1000)}s for a free instance`);
+                failure.status = 504;
+                reject(failure);
             }, Math.max(0, deadline - Date.now()));
         }
         if (state.queue.length >= service.policy.warmup.queue) {

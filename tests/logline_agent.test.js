@@ -148,11 +148,11 @@ test('the spool keeps what it synced across a crash, sends a batch the same unti
 test('a spool at its cap says so, and says when there is room again', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-'));
     const spool = logline_spool(dir, {cap_bytes: 600, segment_bytes: 200, sync_ms: 60000});
-    let i = 0;
+    let count = 0;
     while (spool.full() === false) {
-        spool.append({src: 'a', at: `2026-09-25T18:00:${String(10 + i).padStart(2, '0')}.000000000Z`, time: null, labels: {}, line: `line ${i}`});
+        spool.append({src: 'a', at: `2026-09-25T18:00:${String(10 + count).padStart(2, '0')}.000000000Z`, time: null, labels: {}, line: `line ${count}`});
         spool.flush();
-        i += 1;
+        count += 1;
     }
     let roomy = false;
     spool.room().then(function () {
@@ -189,7 +189,7 @@ test('a batch that ends exactly where its segment ends leaves the next one ready
         spool.ack(next);
         next = spool.batch(100, 1e6);
     }
-    assert.deepStrictEqual(lines, Array.from({length: 9 - in_first}, (v, i) => `line ${i + in_first}`));
+    assert.deepStrictEqual(lines, Array.from({length: 9 - in_first}, (v, index) => `line ${index + in_first}`));
     spool.close();
 });
 

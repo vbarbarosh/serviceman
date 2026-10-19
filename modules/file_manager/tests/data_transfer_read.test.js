@@ -3,7 +3,7 @@ const test = require('node:test');
 
 test('a dropped folder is read file by file, its inner folders and empty ones too, in batches as Chrome gives them', async function () {
     const data_transfer_read = (await import('../ui/data_transfer_read.js')).default;
-    const many = Array.from({length: 250}, (v, i) => entry_file(`p${i}.jpg`));
+    const many = Array.from({length: 250}, (v, index) => entry_file(`p${index}.jpg`));
     const transfer = transfer_of([
         entry_dir('photos', [entry_file('a.jpg'), entry_dir('2024', many), entry_dir('empty', []), entry_dir('deep', [entry_dir('er', [])])]),
         entry_file('loose.txt'),

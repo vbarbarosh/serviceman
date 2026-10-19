@@ -227,7 +227,7 @@ const forwards_section = {
             const top = Math.max(1, ...item.history_sent, ...item.history_back);
             const step = (80/Math.max(1, (HISTORY_LENGTH - 1)));
             const left = (80 - (values.length - 1)*step);
-            return values.map((v, i) => `${(left + i*step).toFixed(1)},${(17 - (v/top)*16).toFixed(1)}`).join(' ');
+            return values.map((v, index) => `${(left + index*step).toFixed(1)},${(17 - (v/top)*16).toFixed(1)}`).join(' ');
         },
         through_text: function (item) {
             if (item.total === 0) {
@@ -243,22 +243,22 @@ const forwards_section = {
         place_title: function (value) {
             return (value === HERE) ? 'this host' : this.title_of(value);
         },
-        place_of: function (end) {
-            return end.here ? 'this host' : this.title_of(end.remote);
+        place_of: function (forward_end) {
+            return forward_end.here ? 'this host' : this.title_of(forward_end.remote);
         },
         // An end as the table shows it: a socket of serviceman's own where it lands, in its
         // state dir; the rest as written
-        landed_text: function (end) {
-            if (end.here && (typeof end.socket === 'string')) {
-                return `${this.state_folder}/${end.socket}`;
+        landed_text: function (forward_end) {
+            if (forward_end.here && (typeof forward_end.socket === 'string')) {
+                return `${this.state_folder}/${forward_end.socket}`;
             }
-            return this.end_text(Object.assign({socket: null, host: null}, end));
+            return this.end_text(Object.assign({socket: null, host: null}, forward_end));
         },
-        end_text: function (end) {
-            if (end.socket !== null) {
-                return end.socket;
+        end_text: function (forward_end) {
+            if (forward_end.socket !== null) {
+                return forward_end.socket;
             }
-            return (end.host === null) ? String(end.port) : `${end.host}:${end.port}`;
+            return (forward_end.host === null) ? String(forward_end.port) : `${forward_end.host}:${forward_end.port}`;
         },
         bytes: function (value) {
             return format_bytes(value);
@@ -357,10 +357,10 @@ const forwards_section = {
         forwards_write: async function (change) {
             this.busy = true;
             this.report('', false);
-            const error = await forwards_write(change);
+            const problem = await forwards_write(change);
             this.busy = false;
-            if (error !== null) {
-                this.report(error, true);
+            if (problem !== null) {
+                this.report(problem, true);
                 return false;
             }
             return true;
@@ -378,18 +378,18 @@ function end_says(remote, text, title, listens)
     if (text === '') {
         return {text: listens ? 'a socket file or a port there' : 'a port, an address or a socket there', bad: false};
     }
-    const end = forward_end_parse(remote, text);
-    if (typeof end === 'string') {
-        return {text: end, bad: true};
+    const forward_end = forward_end_parse(remote, text);
+    if (typeof forward_end === 'string') {
+        return {text: forward_end, bad: true};
     }
     const machine = (remote === '') ? 'that machine' : title;
-    if (end.socket !== undefined) {
-        return {text: listens ? `a socket file on ${machine}, only its agent's user may open it` : `the socket file ${end.socket} on ${machine}`, bad: false};
+    if (forward_end.socket !== undefined) {
+        return {text: listens ? `a socket file on ${machine}, only its agent's user may open it` : `the socket file ${forward_end.socket} on ${machine}`, bad: false};
     }
-    if (end.host !== undefined) {
-        return listens ? {text: 'a port or a socket here: it listens on its loopback, not on an address', bad: true} : {text: `${end.host}:${end.port}, as ${machine} reaches it`, bad: false};
+    if (forward_end.host !== undefined) {
+        return listens ? {text: 'a port or a socket here: it listens on its loopback, not on an address', bad: true} : {text: `${forward_end.host}:${forward_end.port}, as ${machine} reaches it`, bad: false};
     }
-    return {text: `port ${end.port} on the loopback of ${machine}`, bad: false};
+    return {text: `port ${forward_end.port} on the loopback of ${machine}`, bad: false};
 }
 
 // Where it shows up on serviceman itself, as typed, in words: where the socket lands on the
@@ -399,14 +399,14 @@ function here_says(text, folder)
     if (text === '') {
         return {text: `a socket file in serviceman's state dir, ${folder}/, or a port on its loopback`, bad: false};
     }
-    const end = forward_here_parse(text);
-    if (typeof end === 'string') {
-        return {text: end, bad: true};
+    const forward_end = forward_here_parse(text);
+    if (typeof forward_end === 'string') {
+        return {text: forward_end, bad: true};
     }
-    if (end.socket !== undefined) {
-        return {text: `the socket file ${folder}/${end.socket}, 0600, for the owner of ${folder}/`, bad: false};
+    if (forward_end.socket !== undefined) {
+        return {text: `the socket file ${folder}/${forward_end.socket}, 0600, for the owner of ${folder}/`, bad: false};
     }
-    return {text: `port ${end.port} on serviceman's own loopback — under docker, inside its container`, bad: false};
+    return {text: `port ${forward_end.port} on serviceman's own loopback — under docker, inside its container`, bad: false};
 }
 
 // An end as typed, in words: a bare number is a port, the rest reads as it is

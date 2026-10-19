@@ -2274,13 +2274,13 @@ function control_fetch(url, init)
 function fetch_socket(file, host, path_asked, headers)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({socketPath: file, path: path_asked, headers: Object.assign({host}, headers)}, function (res) {
+        const request = http.request({socketPath: file, path: path_asked, headers: Object.assign({host}, headers)}, function (answer) {
             const body = [];
-            res.on('data', v => body.push(v));
-            res.on('end', () => resolve({status: res.statusCode, headers: res.headers, body: Buffer.concat(body).toString('utf8')}));
+            answer.on('data', v => body.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, headers: answer.headers, body: Buffer.concat(body).toString('utf8')}));
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 
@@ -2455,17 +2455,17 @@ async function state_read(running)
 function socket_get(socket_path, path)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({socketPath: socket_path, path, headers: {host: 'localhost', authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}}, function (res) {
+        const request = http.request({socketPath: socket_path, path, headers: {host: 'localhost', authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}}, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
-                resolve({status: res.statusCode, body: Buffer.concat(chunks).toString('utf8')});
+            answer.on('end', function () {
+                resolve({status: answer.statusCode, body: Buffer.concat(chunks).toString('utf8')});
             });
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 

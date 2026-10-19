@@ -186,11 +186,11 @@ async function method_run(state, options, job, say)
     if (method === 'uninstall') {
         // The machine has been taken out of the host's config, and the session half is going
         // with it. What keeps this one up is taken away first, then it ends.
-        const out = unit_gone();
+        const gone = unit_gone();
         setTimeout(function () {
             process.exit(0);
         }, 200);
-        return out;
+        return gone;
     }
     throw new Error(`the root agent knows nothing called ${JSON.stringify(method)}`);
 }

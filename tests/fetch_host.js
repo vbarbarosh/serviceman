@@ -10,24 +10,24 @@ process.env.SERVICEMAN_OWNER_TOKEN = OWNER_TOKEN;
 function fetch_host(options)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({
+        const request = http.request({
             host: '127.0.0.1',
             port: options.port,
             agent: false,
             method: options.method || 'GET',
             path: options.path || '/',
             headers: Object.assign({host: options.host || '127.0.0.1'}, token_header(options), options.headers || {}),
-        }, function (res) {
+        }, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
-                resolve({status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8')});
+            answer.on('end', function () {
+                resolve({status: answer.statusCode, headers: answer.headers, body: Buffer.concat(chunks).toString('utf8')});
             });
         });
-        req.on('error', reject);
-        req.end(options.body);
+        request.on('error', reject);
+        request.end(options.body);
     });
 }
 

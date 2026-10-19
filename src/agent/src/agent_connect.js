@@ -17,7 +17,7 @@ function agent_connect(options)
     return new Promise(function (resolve, reject) {
         const url = new URL(options.url);
         const carrier = (url.protocol === 'https:') ? https : http;
-        const req = carrier.request(Object.assign(where(url), {
+        const request = carrier.request(Object.assign(where(url), {
             path: `${(url.protocol === 'unix:') ? '' : url.pathname.replace(/\/+$/, '')}${LINK_PATH}`,
             headers: {
                 host: (url.protocol === 'unix:') ? 'localhost' : url.host,
@@ -30,7 +30,7 @@ function agent_connect(options)
                 'serviceman-tags': options.tags.join(','),
             },
         }));
-        req.on('upgrade', function (res, socket, head) {
+        request.on('upgrade', function (answer, socket, head) {
             if (head.length > 0) {
                 socket.unshift(head);
             }
@@ -39,24 +39,24 @@ function agent_connect(options)
                 // A socket file has no connection to keep alive; the file is either there or gone
                 socket.setKeepAlive(true, KEEPALIVE_MS);
             }
-            resolve({socket, name: res.headers['serviceman-remote'] || '?'});
+            resolve({socket, name: answer.headers['serviceman-remote'] || '?'});
         });
-        req.on('response', function (res) {
+        request.on('response', function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
-                const error = new Error(`${options.url} refused the link: ${res.statusCode} ${Buffer.concat(chunks).toString('utf8').trim()}`);
+            answer.on('end', function () {
+                const refusal = new Error(`${options.url} refused the link: ${answer.statusCode} ${Buffer.concat(chunks).toString('utf8').trim()}`);
                 // A refusal the agent is meant to act on rather than wait out. Only this one
                 // word does anything: every other refusal is dialled again, because a host
                 // that is confused today may be right tomorrow.
-                error.refused = String(res.headers['serviceman-refused'] || '');
-                reject(error);
+                refusal.refused = String(answer.headers['serviceman-refused'] || '');
+                reject(refusal);
             });
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 

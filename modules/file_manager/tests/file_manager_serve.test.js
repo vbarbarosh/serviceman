@@ -21,7 +21,7 @@ test('every door of the API answers from the disk it was given, under the base t
         '/home/me/inner/deep.txt': 'deep',
     });
     const logged = [];
-    const running = await serve(t, {disk, name: 'box', log: (event, fields) => logged.push([event, fields])});
+    const running = await serve(t, {disk, name: 'box', log: (event_name, fields) => logged.push([event_name, fields])});
 
     // A folder, and the disk's own starting folder when none is named
     const listed = await call(running, 'GET', '/fs?path=/home/me');
@@ -178,7 +178,7 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
     a.links['/a/proj/lib'] = 'src';
     const b = disk_that_copies_folders({'/b/proj/keep.txt': 'kept', '/b/proj/src/y.js': 'old'});
     const logged = [];
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event, fields) => logged.push([event, fields]), part_bytes: 10, small_bytes: 20});
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
 
     // The big file's second part fails as a dropped link, and the copy carries on from there
     const write = b.part_write;
@@ -314,7 +314,7 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
             return stream.Readable.from([text.slice(0, 50), text.slice(50, 51), text.slice(51)].map(v => Buffer.from(v)));
         },
     };
-    const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
+    const running = await serve(t, {disk, log: (event_name, fields) => logged.push([event_name, fields])});
 
     // One JSON: a bare array, sorted by path, compact, keys always in one order, end last
     const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256&skip=.git,node_modules&skip=dist');
@@ -393,10 +393,10 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
     read = 0;
     destroyed = false;
     await new Promise(function (resolve) {
-        const req = http.get({host: '127.0.0.1', port: big.port, path: '/fs?path=/big&tree=1&delay=20', headers: {accept: 'text/event-stream'}}, function (res) {
-            res.resume();
+        const request = http.get({host: '127.0.0.1', port: big.port, path: '/fs?path=/big&tree=1&delay=20', headers: {accept: 'text/event-stream'}}, function (answer) {
+            answer.resume();
             setTimeout(function () {
-                req.destroy();
+                request.destroy();
                 resolve();
             }, 300);
         });
@@ -420,16 +420,16 @@ test('a folder watched comes as server-sent events, an error before the watch ho
         },
     };
     const logged = [];
-    const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
+    const running = await serve(t, {disk, log: (event_name, fields) => logged.push([event_name, fields])});
 
     // The answer waits for ready, then each line of the disk is one event
     const events = [];
     let status = null;
-    const req = http.request({host: '127.0.0.1', port: running.port, path: '/fs/watch?path=/home/me&tree=1&skip=node_modules&skip=.git'}, function (res) {
-        status = [res.statusCode, res.headers['content-type']];
-        res.on('data', v => events.push(...v.toString('utf8').split('\n\n').filter(vv => vv !== '')));
+    const request = http.request({host: '127.0.0.1', port: running.port, path: '/fs/watch?path=/home/me&tree=1&skip=node_modules&skip=.git'}, function (answer) {
+        status = [answer.statusCode, answer.headers['content-type']];
+        answer.on('data', v => events.push(...v.toString('utf8').split('\n\n').filter(vv => vv !== '')));
     });
-    req.end();
+    request.end();
     await until(() => opened.length === 1);
     assert.deepStrictEqual(opened[0].asked, {dir: '/home/me', options: {tree: true, skip: ['node_modules', '.git']}});
     assert.strictEqual(status, null, 'nothing is answered before the watch holds');
@@ -444,7 +444,7 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     ]);
 
     // The page goes: the disk's watch is closed, and the host hears how long it ran
-    req.destroy();
+    request.destroy();
     await until(() => opened[0].destroyed);
     await until(() => logged.length === 1);
     assert.deepStrictEqual([logged[0][0], logged[0][1].path, logged[0][1].tree, logged[0][1].events], ['folder_watched', '/home/me', true, 2]);
@@ -502,7 +502,7 @@ test('the room left on a folder\'s disk, for an upload to check it fits; a disk 
 test('many files as one tar: written as they come, with their times; a bad name refuses the tar, before the disk is asked when it is the first', async function (t) {
     const disk = disk_in_memory({'/home/me/old.txt': 'old'});
     const logged = [];
-    const running = await serve(t, {disk, log: (event, fields) => logged.push([event, fields])});
+    const running = await serve(t, {disk, log: (event_name, fields) => logged.push([event_name, fields])});
 
     // What GNU tar writes of a folder: files, folders inside, an empty one, a name too long
     // for ustar (././@LongLink)
@@ -660,18 +660,18 @@ function disk_in_memory(files)
         const out = {files: 0, bytes: 0};
         let file = null;
         for await (const chunk of source) {
-            for (const event of parser.push(chunk)) {
-                if (event.type === 'dir') {
-                    held[`${dir}/${event.name}/`] = '';
+            for (const piece of parser.push(chunk)) {
+                if (piece.type === 'dir') {
+                    held[`${dir}/${piece.name}/`] = '';
                 }
-                if (event.type === 'file') {
-                    file = {full: `${dir}/${event.name}`, mtime_s: event.mtime_s, mode: event.mode, chunks: []};
+                if (piece.type === 'file') {
+                    file = {full: `${dir}/${piece.name}`, mtime_s: piece.mtime_s, mode: piece.mode, chunks: []};
                 }
-                if (event.type === 'data') {
-                    file.chunks.push(Buffer.from(event.bytes));
-                    out.bytes += event.bytes.length;
+                if (piece.type === 'data') {
+                    file.chunks.push(Buffer.from(piece.bytes));
+                    out.bytes += piece.bytes.length;
                 }
-                if (event.type === 'file_end') {
+                if (piece.type === 'file_end') {
                     held[file.full] = Buffer.concat(file.chunks).toString('utf8');
                     times[file.full] = file.mtime_s;
                     modes[file.full] = file.mode;
@@ -679,9 +679,9 @@ function disk_in_memory(files)
                 }
             }
         }
-        const error = parser.end();
-        if (error !== null) {
-            throw error;
+        const refusal = parser.end();
+        if (refusal !== null) {
+            throw refusal;
         }
         return out;
     };
@@ -833,13 +833,13 @@ async function serve(t, options)
 function call(running, method, path, body, headers)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: '127.0.0.1', port: running.port, method, path, headers}, function (res) {
+        const request = http.request({host: '127.0.0.1', port: running.port, method, path, headers}, function (answer) {
             const chunks = [];
-            res.on('data', v => chunks.push(v));
-            res.on('end', () => resolve({status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8')}));
+            answer.on('data', v => chunks.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, headers: answer.headers, body: Buffer.concat(chunks).toString('utf8')}));
         });
-        req.on('error', reject);
-        req.end(((body === undefined) || (body === null)) ? undefined : body);
+        request.on('error', reject);
+        request.end(((body === undefined) || (body === null)) ? undefined : body);
     });
 }
 

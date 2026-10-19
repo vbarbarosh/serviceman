@@ -125,9 +125,9 @@ async function path_stat(connect, id, full)
 async function* file_bytes(connect, id, asked, range)
 {
     const full = (await path_resolved(connect, id, asked)).full;
-    const res = await engine_stream(connect, 'GET', `/containers/${id}/archive?path=${encodeURIComponent(full)}`);
-    if (res.statusCode !== 200) {
-        throw new Error(engine_said({status: res.statusCode, body: await body_text(res)}));
+    const answer = await engine_stream(connect, 'GET', `/containers/${id}/archive?path=${encodeURIComponent(full)}`);
+    if (answer.statusCode !== 200) {
+        throw new Error(engine_said({status: answer.statusCode, body: await body_text(answer)}));
     }
     const first = (range === null) ? 0 : range.start;
     const last = (range === null) ? Infinity : range.end;
@@ -138,7 +138,7 @@ async function* file_bytes(connect, id, asked, range)
     let left = null;
     let at = 0;
     try {
-        for await (const chunk of res) {
+        for await (const chunk of answer) {
             held = Buffer.concat([held, chunk]);
             for (;;) {
                 if (skip > 0) {
@@ -183,7 +183,7 @@ async function* file_bytes(connect, id, asked, range)
         }
     }
     finally {
-        res.destroy();
+        answer.destroy();
     }
 }
 
@@ -236,25 +236,25 @@ async function file_put(connect, id, dir, name, source)
     }
     const header = tar_header(where.name, size, where.mode);
     const pad = Buffer.alloc((512 - size % 512) % 512 + 1024);
-    const res = await new Promise(function (resolve, reject) {
-        const req = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(where.dir)}`, headers: {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': header.length + size + pad.length}}, resolve);
-        req.on('error', reject);
-        req.write(header);
+    const answer = await new Promise(function (resolve, reject) {
+        const request = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(where.dir)}`, headers: {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': header.length + size + pad.length}}, resolve);
+        request.on('error', reject);
+        request.write(header);
         source.on('data', function (chunk) {
-            if (req.write(chunk) === false) {
+            if (request.write(chunk) === false) {
                 source.pause();
-                req.once('drain', () => source.resume());
+                request.once('drain', () => source.resume());
             }
         });
-        source.on('end', () => req.end(pad));
-        source.on('aborted', () => req.destroy(new Error('the copy was given up before the file was in')));
+        source.on('end', () => request.end(pad));
+        source.on('aborted', () => request.destroy(new Error('the copy was given up before the file was in')));
         source.on('error', function (error) {
-            req.destroy(error);
+            request.destroy(error);
         });
     });
-    const said = await body_text(res);
-    if (res.statusCode !== 200) {
-        throw new Error(engine_said({status: res.statusCode, body: said}));
+    const said = await body_text(answer);
+    if (answer.statusCode !== 200) {
+        throw new Error(engine_said({status: answer.statusCode, body: said}));
     }
     return {path: path.posix.join(dir, name), bytes: size, replaced: where.replaced};
 }
@@ -270,18 +270,18 @@ async function tar_put(connect, id, dir, source)
     }
     const size = Number((source.headers === undefined) ? NaN : source.headers['content-length']);
     const headers = Number.isInteger(size) ? {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': size} : {'host': 'docker', 'content-type': 'application/x-tar'};
-    const res = await new Promise(function (resolve, reject) {
-        const req = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(dir)}`, headers}, resolve);
-        req.on('error', reject);
-        source.on('aborted', () => req.destroy(new Error('the copy was given up before the tar was in')));
+    const answer = await new Promise(function (resolve, reject) {
+        const request = http.request({createConnection: connect, method: 'PUT', path: `/containers/${id}/archive?path=${encodeURIComponent(dir)}`, headers}, resolve);
+        request.on('error', reject);
+        source.on('aborted', () => request.destroy(new Error('the copy was given up before the tar was in')));
         source.on('error', function (error) {
-            req.destroy(error);
+            request.destroy(error);
         });
-        source.pipe(req);
+        source.pipe(request);
     });
-    const said = await body_text(res);
-    if (res.statusCode !== 200) {
-        throw new Error(engine_said({status: res.statusCode, body: said}));
+    const said = await body_text(answer);
+    if (answer.statusCode !== 200) {
+        throw new Error(engine_said({status: answer.statusCode, body: said}));
     }
     return {files: null, bytes: null};
 }
@@ -322,7 +322,7 @@ async function exec_run(connect, id, cmd)
 {
     const started = await exec_start(connect, id, cmd);
     const chunks = {stdout: [], stderr: []};
-    for await (const frame of frames(started.res)) {
+    for await (const frame of frames(started.answer)) {
         chunks[frame.stream].push(frame.data);
     }
     return {code: await exec_code(connect, started.exec), stdout: Buffer.concat(chunks.stdout).toString('utf8'), stderr: Buffer.concat(chunks.stderr).toString('utf8')};
@@ -336,7 +336,7 @@ async function* exec_bytes(connect, id, cmd)
     const said = [];
     let wrote = false;
     try {
-        for await (const frame of frames(started.res)) {
+        for await (const frame of frames(started.answer)) {
             if (frame.stream === 'stdout') {
                 wrote = true;
                 yield frame.data;
@@ -347,7 +347,7 @@ async function* exec_bytes(connect, id, cmd)
         }
     }
     finally {
-        started.res.destroy();
+        started.answer.destroy();
     }
     const code = await exec_code(connect, started.exec);
     if ((code !== 0) && (wrote === false)) {
@@ -362,8 +362,8 @@ async function exec_start(connect, id, cmd)
         throw new Error(engine_said(created));
     }
     const exec = JSON.parse(created.body).Id;
-    const res = await engine_stream(connect, 'POST', `/exec/${exec}/start`, {Detach: false, Tty: false});
-    return {exec, res};
+    const answer = await engine_stream(connect, 'POST', `/exec/${exec}/start`, {Detach: false, Tty: false});
+    return {exec, answer};
 }
 
 async function exec_code(connect, exec)
@@ -374,10 +374,10 @@ async function exec_code(connect, exec)
 
 // Docker's two streams in one, without a terminal: each frame is 8 bytes — the stream, three
 // zeros, the length — then that many bytes
-async function* frames(res)
+async function* frames(answer)
 {
     let held = Buffer.alloc(0);
-    for await (const chunk of res) {
+    for await (const chunk of answer) {
         held = Buffer.concat([held, chunk]);
         while (held.length >= 8) {
             const size = held.readUInt32BE(4);
@@ -393,8 +393,8 @@ async function* frames(res)
 // One request to the Engine API, answered whole
 async function engine_call(connect, method, pathname, value)
 {
-    const res = await engine_stream(connect, method, pathname, value);
-    return {status: res.statusCode, headers: res.headers, body: await body_text(res)};
+    const answer = await engine_stream(connect, method, pathname, value);
+    return {status: answer.statusCode, headers: answer.headers, body: await body_text(answer)};
 }
 
 // One request to the Engine API, its answer as it streams
@@ -403,16 +403,16 @@ function engine_stream(connect, method, pathname, value)
     return new Promise(function (resolve, reject) {
         const body = (value === undefined) ? null : JSON.stringify(value);
         const headers = (body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)};
-        const req = http.request({createConnection: connect, method, path: pathname, headers}, resolve);
-        req.on('error', reject);
-        req.end((body === null) ? undefined : body);
+        const request = http.request({createConnection: connect, method, path: pathname, headers}, resolve);
+        request.on('error', reject);
+        request.end((body === null) ? undefined : body);
     });
 }
 
-async function body_text(res)
+async function body_text(answer)
 {
     const chunks = [];
-    for await (const chunk of res) {
+    for await (const chunk of answer) {
         chunks.push(chunk);
     }
     return Buffer.concat(chunks).toString('utf8');

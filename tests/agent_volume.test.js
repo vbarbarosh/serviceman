@@ -190,11 +190,11 @@ test('create refuses what it cannot do: a bad name, a target outside the home, a
         [{key: 'short'}, 400, /16 to 4096/],
         [{size: '20G'}, 409, /more than the 10 GB free/],
     ];
-    for (const [over, status, error] of cases) {
+    for (const [over, status, said] of cases) {
         const answer = await ask(machine, Object.assign({}, CREATE, over));
         assert.strictEqual(answer.ok, false, JSON.stringify(over));
         assert.strictEqual(answer.status, status, JSON.stringify(over));
-        assert.match(answer.error, error);
+        assert.match(answer.error, said);
     }
     assert.ok(machine.ran.every(v => v === 'cryptsetup --version'), 'nothing was run for any of them');
     const bare = fake_machine({no_cryptsetup: true});

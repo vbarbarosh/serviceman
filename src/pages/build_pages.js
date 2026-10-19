@@ -155,7 +155,7 @@ function href_resolve(href, page, pages)
 function nav_html(groups, pages, current, sections)
 {
     const from = current ? current.html_path : 'index.html';
-    return groups.map(function (group, i) {
+    return groups.map(function (group, index) {
         const items = group.map(function (item) {
             const page = pages.find(v => v.md === item.md);
             const href = path.posix.relative(path.posix.dirname(from), page.html_path);
@@ -165,7 +165,7 @@ function nav_html(groups, pages, current, sections)
             const toc = sections.map(v => `<li><a href="#${v.slug}">${v.html}</a></li>`).join('');
             return `<li class="current"><a href="${href}" aria-current="page">${html_escape(item.label)}</a>${toc ? `<ul class="toc">${toc}</ul>` : ''}</li>`;
         }).join('\n');
-        return `<h2>${GROUPS[i]}</h2>\n<ul>\n${items}\n</ul>`;
+        return `<h2>${GROUPS[index]}</h2>\n<ul>\n${items}\n</ul>`;
     }).join('\n');
 }
 

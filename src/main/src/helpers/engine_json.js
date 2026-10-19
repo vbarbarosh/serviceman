@@ -8,15 +8,15 @@ const TIMEOUT_MS = 15000;
 function engine_json(connect, method, path)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({createConnection: connect, method, path, timeout: TIMEOUT_MS}, function (res) {
+        const request = http.request({createConnection: connect, method, path, timeout: TIMEOUT_MS}, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
+            answer.on('end', function () {
                 const text = Buffer.concat(chunks).toString('utf8');
-                if (res.statusCode >= 400) {
-                    reject(new Error(`docker answered ${res.statusCode}: ${message_of(text)}`));
+                if (answer.statusCode >= 400) {
+                    reject(new Error(`docker answered ${answer.statusCode}: ${message_of(text)}`));
                     return;
                 }
                 try {
@@ -26,13 +26,13 @@ function engine_json(connect, method, path)
                     reject(error);
                 }
             });
-            res.on('error', reject);
+            answer.on('error', reject);
         });
-        req.on('timeout', function () {
-            req.destroy(new Error(`docker did not answer in ${TIMEOUT_MS/1000}s`));
+        request.on('timeout', function () {
+            request.destroy(new Error(`docker did not answer in ${TIMEOUT_MS/1000}s`));
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 

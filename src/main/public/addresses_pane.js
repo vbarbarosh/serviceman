@@ -119,11 +119,11 @@ const addresses_pane = {
             }
             this.busy = true;
             this.note = '';
-            const error = await door_rules_write(row.remote, function (inbound) {
+            const problem = await door_rules_write(row.remote, function (inbound) {
                 inbound[row.address] = door_rule_value(row.service, on === false, row.behind);
             });
             this.busy = false;
-            this.note = (error === null) ? '' : error;
+            this.note = (problem === null) ? '' : problem;
         },
         row_of: function (key, address, url, note, service, remote, behind, off) {
             const port = this.state.listen.port;

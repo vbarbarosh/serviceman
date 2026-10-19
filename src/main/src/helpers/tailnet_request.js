@@ -22,24 +22,24 @@ async function tailnet_request(url, options)
 function tunnel_open(proxy, host, port, deadline, timeout_ms)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: proxy.hostname, port: Number(proxy.port || 80), method: 'CONNECT', path: `${host}:${port}`, headers: {host: `${host}:${port}`}, agent: false});
+        const request = http.request({host: proxy.hostname, port: Number(proxy.port || 80), method: 'CONNECT', path: `${host}:${port}`, headers: {host: `${host}:${port}`}, agent: false});
         const timer = setTimeout(function () {
-            req.destroy(new Error(`tailscale's proxy at ${proxy.host} did not reach ${host}:${port} within ${timeout_ms/1000}s`));
+            request.destroy(new Error(`tailscale's proxy at ${proxy.host} did not reach ${host}:${port} within ${timeout_ms/1000}s`));
         }, ms_left(deadline));
-        req.once('connect', function (res, socket) {
+        request.once('connect', function (answer, socket) {
             clearTimeout(timer);
-            if (res.statusCode !== 200) {
+            if (answer.statusCode !== 200) {
                 socket.destroy();
-                reject(new Error(`tailscale's proxy at ${proxy.host} could not reach ${host}:${port} (${res.statusCode} ${res.statusMessage})`));
+                reject(new Error(`tailscale's proxy at ${proxy.host} could not reach ${host}:${port} (${answer.statusCode} ${answer.statusMessage})`));
                 return;
             }
             resolve(socket);
         });
-        req.once('error', function (error) {
+        request.once('error', function (error) {
             clearTimeout(timer);
             reject(error.message.startsWith('tailscale') ? error : new Error(`tailscale's proxy at ${proxy.host}: ${error.message}`));
         });
-        req.end();
+        request.end();
     });
 }
 
@@ -65,25 +65,25 @@ function request_send(url, port, options, tunnel, deadline)
                 return secure ? tls.connect({socket: tunnel, servername: url.hostname}) : tunnel;
             };
         }
-        const req = (secure ? https : http).request(request_options, function (res) {
+        const request = (secure ? https : http).request(request_options, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
+            answer.on('end', function () {
                 clearTimeout(timer);
-                resolve({status: res.statusCode, status_text: res.statusMessage, text: Buffer.concat(chunks).toString('utf8')});
+                resolve({status: answer.statusCode, status_text: answer.statusMessage, text: Buffer.concat(chunks).toString('utf8')});
             });
-            res.on('error', reject);
+            answer.on('error', reject);
         });
         const timer = setTimeout(function () {
-            req.destroy(new Error(`no answer within ${options.timeout_ms/1000}s`));
+            request.destroy(new Error(`no answer within ${options.timeout_ms/1000}s`));
         }, ms_left(deadline));
-        req.once('error', function (error) {
+        request.once('error', function (error) {
             clearTimeout(timer);
             reject(error);
         });
-        req.end(options.body);
+        request.end(options.body);
     });
 }
 

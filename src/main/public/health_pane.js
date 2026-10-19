@@ -134,7 +134,7 @@ const health_pane = {
                     }
                 }
             }
-            return [{key: 'name', label: this.name_head(area.key), wraps: true}].concat(labels.map((v, i) => ({key: v, label: v, fold: (labels.length - i)})));
+            return [{key: 'name', label: this.name_head(area.key), wraps: true}].concat(labels.map((v, index) => ({key: v, label: v, fold: (labels.length - index)})));
         },
         checks_in: function (row, label) {
             return row.checks.filter(v => v.label === label);

@@ -28,23 +28,23 @@ async function logs_read(ctx, container, follow)
     const kept = ctx.spool.cursor(container.id);
     const from = ((kept === null) || (kept.at < ctx.floor)) ? {at: ctx.floor, n: 0} : kept;
     const query = `follow=${follow ? 1 : 0}&stdout=1&stderr=1&timestamps=1&since=${unix_of(from.at)}`;
-    const res = await docker_api(ctx.socket, `/containers/${encodeURIComponent(container.id)}/logs?${query}`);
-    if (res.statusCode === 404) {
-        res.resume();
+    const stream = await docker_api(ctx.socket, `/containers/${encodeURIComponent(container.id)}/logs?${query}`);
+    if (stream.statusCode === 404) {
+        stream.resume();
         return 'gone';
     }
-    if (res.statusCode !== 200) {
+    if (stream.statusCode !== 200) {
         const chunks = [];
-        for await (const chunk of res) {
+        for await (const chunk of stream) {
             chunks.push(chunk);
         }
-        throw new Error(`docker ${res.statusCode}: ${Buffer.concat(chunks).toString('utf8').trim()}`);
+        throw new Error(`docker ${stream.statusCode}: ${Buffer.concat(chunks).toString('utf8').trim()}`);
     }
-    ctx.streams.add(res);
+    ctx.streams.add(stream);
     try {
         const reader = docker_log_reader(container.tty);
         const state = {skip: from.n, from: from.at, last_at: from.at};
-        for await (const chunk of res) {
+        for await (const chunk of stream) {
             for (const item of reader.push(chunk)) {
                 // At its cap the spool takes nothing more: the stream is not read, docker
                 // holds the lines, and reading goes on where it stopped once there is room
@@ -62,7 +62,7 @@ async function logs_read(ctx, container, follow)
         }
     }
     finally {
-        ctx.streams.delete(res);
+        ctx.streams.delete(stream);
     }
     return 'read';
 }

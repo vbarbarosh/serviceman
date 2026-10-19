@@ -456,12 +456,12 @@ test('a websocket reaches a program on a remote through the link, as a request d
 function fetch_direct(port)
 {
     return new Promise(function (resolve, reject) {
-        const req = require('http').request({host: '127.0.0.1', port, path: '/', agent: false}, function (res) {
-            res.resume();
-            resolve(res.statusCode);
+        const request = require('http').request({host: '127.0.0.1', port, path: '/', agent: false}, function (answer) {
+            answer.resume();
+            resolve(answer.statusCode);
         });
-        req.on('error', reject);
-        req.end();
+        request.on('error', reject);
+        request.end();
     });
 }
 

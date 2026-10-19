@@ -648,9 +648,9 @@ function progress_say(res, value)
     res.write(`${JSON.stringify(value)}\n`);
 }
 
-function progress_end(res, end, said)
+function progress_end(res, outcome, said)
 {
-    res.end(`${JSON.stringify({end, said})}\n`);
+    res.end(`${JSON.stringify({end: outcome, said})}\n`);
 }
 
 function bytes_text(bytes)
@@ -665,9 +665,9 @@ function bytes_text(bytes)
 function engine_stream(connect, method, pathname)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({createConnection: connect, method, path: pathname, headers: {host: 'docker'}}, resolve);
-        req.on('error', reject);
-        req.end();
+        const request = http.request({createConnection: connect, method, path: pathname, headers: {host: 'docker'}}, resolve);
+        request.on('error', reject);
+        request.end();
     });
 }
 
@@ -677,14 +677,14 @@ function engine_call(connect, method, path, value)
     return new Promise(function (resolve, reject) {
         const body = (value === undefined) ? null : JSON.stringify(value);
         const headers = (body === null) ? {host: 'docker'} : {'host': 'docker', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body)};
-        const req = http.request({createConnection: connect, method, path, headers}, function (res) {
+        const request = http.request({createConnection: connect, method, path, headers}, function (answer) {
             const chunks = [];
-            res.on('data', v => chunks.push(v));
-            res.on('end', () => resolve({status: res.statusCode, body: Buffer.concat(chunks).toString('utf8')}));
-            res.on('error', reject);
+            answer.on('data', v => chunks.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, body: Buffer.concat(chunks).toString('utf8')}));
+            answer.on('error', reject);
         });
-        req.on('error', reject);
-        req.end((body === null) ? undefined : body);
+        request.on('error', reject);
+        request.end((body === null) ? undefined : body);
     });
 }
 

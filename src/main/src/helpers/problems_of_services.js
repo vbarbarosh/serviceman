@@ -38,10 +38,10 @@ function probe(service, instance)
         return {problem: null, seen: [key, {state: 'ok', text: `in ${Date.now() - begin} ms`, detail: `${where} answers`}]};
     }
     return new Promise(function (resolve) {
-        let req;
+        let request;
         try {
-            req = http.request({host: upstream.host, port: upstream.port, method: 'HEAD', path: '/', agent: instance.agent, timeout: TIMEOUT_MS}, function (res) {
-                res.resume();
+            request = http.request({host: upstream.host, port: upstream.port, method: 'HEAD', path: '/', agent: instance.agent, timeout: TIMEOUT_MS}, function (answer) {
+                answer.resume();
                 resolve(answered());
             });
         }
@@ -50,10 +50,10 @@ function probe(service, instance)
             resolve({problem: null, seen: [key, {state: 'none', text: 'not asked', detail: 'its machine\'s link went'}]});
             return;
         }
-        req.on('timeout', function () {
-            req.destroy(Object.assign(new Error(`no answer in ${TIMEOUT_MS/1000}s`), {code: 'ETIMEDOUT'}));
+        request.on('timeout', function () {
+            request.destroy(Object.assign(new Error(`no answer in ${TIMEOUT_MS/1000}s`), {code: 'ETIMEDOUT'}));
         });
-        req.on('error', function (error) {
+        request.on('error', function (error) {
             if ((typeof error.code === 'string') && error.code.startsWith('HPE_')) {
                 // It answered, in something that is not HTTP: it is there
                 resolve(answered());
@@ -71,7 +71,7 @@ function probe(service, instance)
             };
             resolve({problem, seen: [key, {state: 'bad', text: 'no answer', detail: problem.cause}]});
         });
-        req.end();
+        request.end();
     });
 }
 

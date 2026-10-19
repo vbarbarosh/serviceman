@@ -10,9 +10,9 @@ const child_process = require('child_process');
 // machine without gdbus, or without logind, simply never says it is sleeping.
 function agent_sleep_watch(say)
 {
-    let out;
+    let monitor;
     try {
-        out = child_process.spawn('gdbus', [
+        monitor = child_process.spawn('gdbus', [
             'monitor',
             '--system',
             '--dest', 'org.freedesktop.login1',
@@ -23,7 +23,7 @@ function agent_sleep_watch(say)
         return null;
     }
     let rest = '';
-    out.stdout.on('data', function (chunk) {
+    monitor.stdout.on('data', function (chunk) {
         rest += chunk.toString('utf8');
         const lines = rest.split('\n');
         rest = lines.pop();
@@ -34,12 +34,12 @@ function agent_sleep_watch(say)
             }
         }
     });
-    out.on('error', function () {
+    monitor.on('error', function () {
         // No gdbus on this machine; nothing here to do about it
     });
     // It must not hold the process open: the agent ends when the agent ends
-    out.unref();
-    return out;
+    monitor.unref();
+    return monitor;
 }
 
 module.exports = agent_sleep_watch;

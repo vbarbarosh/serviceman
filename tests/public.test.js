@@ -38,11 +38,11 @@ function templates_of(text)
     const out = [];
     const mark = 'template: `';
     for (let at = text.indexOf(mark); at !== -1; at = text.indexOf(mark, at + 1)) {
-        const end = text.indexOf('`', at + mark.length);
-        if (end === -1) {
+        const close_at = text.indexOf('`', at + mark.length);
+        if (close_at === -1) {
             continue;
         }
-        const raw = text.slice(at + mark.length, end);
+        const raw = text.slice(at + mark.length, close_at);
          
         out.push(new Function(`return \`${raw}\`;`)());
     }

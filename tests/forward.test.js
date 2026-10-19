@@ -290,7 +290,7 @@ test('the config says what is wrong with a forward, in its own words', function 
     assert.throws(() => config_of(same_place), {message: 'forwards[1].to: "a" already listens there'});
     // A label is any text of one line, up to 100 characters; a config from before labels says `name`
     const labels = ['Loki on prod', 'vps1.example.com/loki.sock', 'Логи · 3100', 'x'.repeat(100)];
-    assert.deepStrictEqual(config_of(labels.map((v, i) => ({label: v, from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: i + 1}}))).forwards.map(v => v.label), labels);
+    assert.deepStrictEqual(config_of(labels.map((v, index) => ({label: v, from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: index + 1}}))).forwards.map(v => v.label), labels);
     assert.strictEqual(config_of([{name: 'loki', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]).forwards[0].label, 'loki');
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);

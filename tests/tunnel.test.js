@@ -85,8 +85,8 @@ test('a port nobody listens on comes back refused, and so does an offline remote
     const link = await link_open();
     const agent = tunnel_agent(link.remote);
     try {
-        const error = await fetch_error(agent, closed_port, '/');
-        assert.strictEqual(error.code, 'ECONNREFUSED');
+        const failure = await fetch_error(agent, closed_port, '/');
+        assert.strictEqual(failure.code, 'ECONNREFUSED');
 
         link.remote.state.phase = 'offline';
         assert.throws(() => tunnel_agent(link.remote).createConnection({port: closed_port}), /remote vps1 is offline/);
@@ -107,9 +107,9 @@ test('a link that drops ends every request in flight', async function () {
         assert.strictEqual(Object.keys(link.remote.state.streams).length, 1);
 
         link.remote.state.socket.destroy();
-        const error = await answer;
-        assert.strictEqual(error.code, 'ECONNRESET');
-        assert.match(error.message, /the link to remote vps1 dropped/);
+        const failure = await answer;
+        assert.strictEqual(failure.code, 'ECONNRESET');
+        assert.match(failure.message, /the link to remote vps1 dropped/);
         assert.deepStrictEqual(link.remote.state.streams, {});
     }
     finally {
@@ -195,24 +195,24 @@ function far_server()
 function fetch_through(agent, port, path, body, options)
 {
     return new Promise(function (resolve, reject) {
-        const req = http.request({host: '127.0.0.1', port, path, agent, method: (body === undefined) ? 'GET' : 'POST'}, function (res) {
+        const request = http.request({host: '127.0.0.1', port, path, agent, method: (body === undefined) ? 'GET' : 'POST'}, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
+            answer.on('end', function () {
                 const buffer = Buffer.concat(chunks);
-                resolve({status: res.statusCode, body: buffer.toString('utf8'), buffer});
+                resolve({status: answer.statusCode, body: buffer.toString('utf8'), buffer});
             });
             if ((options !== undefined) && options.slow) {
-                res.pause();
+                answer.pause();
                 setTimeout(function () {
-                    res.resume();
+                    answer.resume();
                 }, 300);
             }
         });
-        req.on('error', reject);
-        req.end(body);
+        request.on('error', reject);
+        request.end(body);
     });
 }
 

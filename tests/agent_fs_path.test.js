@@ -65,7 +65,7 @@ test('a file finished over a link that leads out, a tar entry through one, and a
     fs.mkdirSync(path.join(from, 'door'));
     fs.writeFileSync(path.join(from, 'door', 'planted.txt'), 'planted');
     const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', 'door/planted.txt']);
-    const error = await new Promise(function (resolve) {
+    const failure = await new Promise(function (resolve) {
         const put = agent_tar_put({dir: notes, root: notes});
         put.on('error', e => resolve(e.message));
         put.on('end', () => resolve(null));
@@ -73,7 +73,7 @@ test('a file finished over a link that leads out, a tar entry through one, and a
             put.end();
         });
     });
-    assert.match(String(error), /EACCES/);
+    assert.match(String(failure), /EACCES/);
     assert.strictEqual(fs.existsSync(path.join(away, 'planted.txt')), false);
 
     // tar reads a name through the link, so such a name is refused before tar runs

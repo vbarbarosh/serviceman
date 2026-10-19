@@ -188,13 +188,13 @@ function file_read(ctx, dir, file, key, start)
     return 'read';
 }
 
-function line_keep(ctx, dir, file, key, bytes, end)
+function line_keep(ctx, dir, file, key, bytes, offset)
 {
     const stripped = logline_time_strip(bytes.toString('utf8').trimEnd());
     ctx.spool.append({
         src: key,
         // The offset past the line, padded so offsets compare as text, the way stamps do
-        at: String(end).padStart(16, '0'),
+        at: String(offset).padStart(16, '0'),
         time: (stripped.time === null) ? new Date().toISOString() : stripped.time,
         labels: {
             host: ctx.host,

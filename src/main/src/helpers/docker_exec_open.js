@@ -25,22 +25,22 @@ function api_json(connect, method, path, value)
 {
     return new Promise(function (resolve, reject) {
         const body = JSON.stringify(value);
-        const req = http.request({createConnection: connect, method, path, headers: headers_json(body)}, function (res) {
+        const request = http.request({createConnection: connect, method, path, headers: headers_json(body)}, function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
+            answer.on('end', function () {
                 const text = Buffer.concat(chunks).toString('utf8');
-                if (res.statusCode >= 400) {
-                    reject(new Error(message_from_answer(text, res.statusCode)));
+                if (answer.statusCode >= 400) {
+                    reject(new Error(message_from_answer(text, answer.statusCode)));
                     return;
                 }
                 resolve((text === '') ? {} : JSON.parse(text));
             });
         });
-        req.on('error', reject);
-        req.end(body);
+        request.on('error', reject);
+        request.end(body);
     });
 }
 
@@ -50,25 +50,25 @@ function api_hijack(connect, path, value)
     return new Promise(function (resolve, reject) {
         const body = JSON.stringify(value);
         const headers = Object.assign(headers_json(body), {connection: 'Upgrade', upgrade: 'tcp'});
-        const req = http.request({createConnection: connect, method: 'POST', path, headers});
-        req.on('upgrade', function (res, socket, head) {
+        const request = http.request({createConnection: connect, method: 'POST', path, headers});
+        request.on('upgrade', function (answer, socket, head) {
             // What the shell wrote before we listened arrived with the handshake
             if (head && (head.length > 0)) {
                 socket.unshift(head);
             }
             resolve(socket);
         });
-        req.on('response', function (res) {
+        request.on('response', function (answer) {
             const chunks = [];
-            res.on('data', function (chunk) {
+            answer.on('data', function (chunk) {
                 chunks.push(chunk);
             });
-            res.on('end', function () {
-                reject(new Error(message_from_answer(Buffer.concat(chunks).toString('utf8'), res.statusCode)));
+            answer.on('end', function () {
+                reject(new Error(message_from_answer(Buffer.concat(chunks).toString('utf8'), answer.statusCode)));
             });
         });
-        req.on('error', reject);
-        req.end(body);
+        request.on('error', reject);
+        request.end(body);
     });
 }
 

@@ -187,8 +187,8 @@ function meta_read(state)
     const bytes = Buffer.concat(state.meta);
     state.meta = null;
     if (state.meta_type === 'L') {
-        const end = bytes.indexOf(0);
-        state.long_name = bytes.subarray(0, (end === -1) ? bytes.length : end).toString('utf8');
+        const nul_at = bytes.indexOf(0);
+        state.long_name = bytes.subarray(0, (nul_at === -1) ? bytes.length : nul_at).toString('utf8');
         return;
     }
     // Records of "<length> <key>=<value>\n"
@@ -247,8 +247,8 @@ function name_checked(text)
 function text_read(block, start, length)
 {
     const field = block.subarray(start, start + length);
-    const end = field.indexOf(0);
-    return field.subarray(0, (end === -1) ? field.length : end).toString('utf8');
+    const nul_at = field.indexOf(0);
+    return field.subarray(0, (nul_at === -1) ? field.length : nul_at).toString('utf8');
 }
 
 // A number field: octal digits, or GNU's base-256 for a size past 8 GB (its first bit set)

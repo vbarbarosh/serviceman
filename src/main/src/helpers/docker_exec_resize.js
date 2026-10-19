@@ -4,18 +4,18 @@ const http = require('http');
 function docker_exec_resize(connect, exec_id, size)
 {
     return new Promise(function (resolve) {
-        const req = http.request({
+        const request = http.request({
             createConnection: connect,
             method: 'POST',
             path: `/exec/${exec_id}/resize?h=${size.rows}&w=${size.cols}`,
-        }, function (res) {
-            res.resume();
-            res.on('end', resolve);
+        }, function (answer) {
+            answer.resume();
+            answer.on('end', resolve);
         });
-        req.on('error', function () {
+        request.on('error', function () {
             resolve();
         });
-        req.end();
+        request.end();
     });
 }
 

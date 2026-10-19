@@ -14,11 +14,11 @@ function link_send(socket, kind, body)
     const head = Buffer.allocUnsafe(HEADER_BYTES);
     head.writeUInt32BE(length, 0);
     head.writeUInt8(kind.charCodeAt(0), 4);
-    let out = socket.write(head);
+    let flushed = socket.write(head);
     for (const part of parts) {
-        out = socket.write(part);
+        flushed = socket.write(part);
     }
-    return out;
+    return flushed;
 }
 
 module.exports = link_send;

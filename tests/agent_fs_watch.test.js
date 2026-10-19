@@ -101,8 +101,8 @@ test('a folder is watched once however many listen, and the last to leave ends t
 test('a folder that is not there is an error, and one that goes ends the watch with one', async function (t) {
     const dir = dir_make(t);
     const missing = agent_fs_watch({path: path.join(dir, 'nothing')});
-    const error = await new Promise(v => missing.on('error', v));
-    assert.match(error.message, /ENOENT/);
+    const failure = await new Promise(v => missing.on('error', v));
+    assert.match(failure.message, /ENOENT/);
 
     const inner = path.join(dir, 'inner');
     fs.mkdirSync(inner);

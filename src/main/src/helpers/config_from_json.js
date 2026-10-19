@@ -139,14 +139,14 @@ function config_from_json(json, base_dir)
         }
     }
     for (let i = 0; i < out.forwards.length; i++) {
-        for (const end of ['from', 'to']) {
+        for (const side of ['from', 'to']) {
             // serviceman itself is no remote of its own config
-            if (out.forwards[i][end].here) {
+            if (out.forwards[i][side].here) {
                 continue;
             }
-            const name = out.forwards[i][end].remote;
+            const name = out.forwards[i][side].remote;
             if (out.remotes.some(v => v.name === name) === false) {
-                throw new Error(`forwards[${i}].${end}.remote: no remote named ${JSON.stringify(name)} is in the config`);
+                throw new Error(`forwards[${i}].${side}.remote: no remote named ${JSON.stringify(name)} is in the config`);
             }
         }
     }

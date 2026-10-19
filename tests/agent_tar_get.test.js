@@ -100,11 +100,11 @@ async function tar_read(stream)
 {
     const chunks = [];
     stream.on('data', v => chunks.push(v));
-    const error = await new Promise(function (resolve) {
+    const failure = await new Promise(function (resolve) {
         stream.on('end', () => resolve(null));
         stream.on('error', e => resolve(e.message));
     });
-    return {error, raw: Buffer.concat(chunks)};
+    return {error: failure, raw: Buffer.concat(chunks)};
 }
 
 // A tar of our own on PATH: it writes its bytes, says the line, and ends with the code
@@ -118,13 +118,13 @@ async function tar_with_exit(code, said)
         const stream = agent_tar_get({dir: bin, names: ['tar']});
         const chunks = [];
         stream.on('data', v => chunks.push(v));
-        const error = await new Promise(function (resolve) {
+        const failure = await new Promise(function (resolve) {
             stream.on('end', () => resolve(null));
             stream.on('error', function (error) {
                 resolve(error.message);
             });
         });
-        return {error, bytes: Buffer.concat(chunks).toString('utf8')};
+        return {error: failure, bytes: Buffer.concat(chunks).toString('utf8')};
     }
     finally {
         process.env.PATH = path_before;

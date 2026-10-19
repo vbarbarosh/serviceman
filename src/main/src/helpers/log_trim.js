@@ -7,11 +7,11 @@ function log_trim(text, bytes)
     if (raw.length <= bytes) {
         return text;
     }
-    let end = bytes;
-    while ((end > 0) && ((raw[end] & 0xc0) === 0x80)) {
-        end--;
+    let cut_at = bytes;
+    while ((cut_at > 0) && ((raw[cut_at] & 0xc0) === 0x80)) {
+        cut_at--;
     }
-    return `${raw.subarray(0, end).toString('utf8')}...+${raw.length - end}`;
+    return `${raw.subarray(0, cut_at).toString('utf8')}...+${raw.length - cut_at}`;
 }
 
 module.exports = log_trim;

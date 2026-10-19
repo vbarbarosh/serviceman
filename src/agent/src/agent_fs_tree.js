@@ -61,7 +61,7 @@ async function* lines(target)
         throw new Error(`${root} is not a folder`);
     }
     yield lines_of([{type: 'start', path: root}]);
-    const end = {type: 'end', hashed: 0, ms: 0};
+    const end_line = {type: 'end', hashed: 0, ms: 0};
     const files = [];
     const dirs = [''];
     let names = 0;
@@ -86,7 +86,7 @@ async function* lines(target)
             yield lines_of(said);
         }
         while (files.length >= HASH_SLICE) {
-            yield await hashed_lines(files.splice(0, HASH_SLICE), end);
+            yield await hashed_lines(files.splice(0, HASH_SLICE), end_line);
         }
         names += found.length + 1;
         if (names >= NAMES_AT_ONCE) {
@@ -95,18 +95,18 @@ async function* lines(target)
         }
     }
     if (files.length > 0) {
-        yield await hashed_lines(files, end);
+        yield await hashed_lines(files, end_line);
     }
-    end.ms = Date.now() - time0;
-    yield lines_of([end]);
+    end_line.ms = Date.now() - time0;
+    yield lines_of([end_line]);
 }
 
 // A slice of files with their hashes, as lines; the event loop let in after it
-async function hashed_lines(slice, end)
+async function hashed_lines(slice, end_line)
 {
     await pool(slice, HASH_AT_ONCE, async function (item) {
         if (await hash_fill(item)) {
-            end.hashed++;
+            end_line.hashed++;
         }
     });
     await new Promise(v => setImmediate(v));
