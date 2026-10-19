@@ -93,7 +93,7 @@ Do not apply:
 - **VUE-01, VUE-02, VUE-07 to VUE-14:** they describe Vue 2 components this page does not have (the mixin globals, app-form inputs, vue-modal, svg-icon files).
 - **VUE-24:** a kind's look comes from a Sass mixin, and the page's styles are plain CSS.
 - **DOC-01 to DOC-05, DOC-11, DOC-13:** they are about the rulebook's own documents.
-- **Open, the author's decision:** VUE-03, VUE-04 and VUE-19 are written for Vue 2 templates; whether they bind this page's Vue 3 string templates is not decided. Until it is, a template matches the templates around it (shorthand `@` and `:`). VUE-21 (a component named kind first, `pane-remotes`) waits on the same decision: it would rename every component of the page; until then a new one is named as its neighbours are (`remotes-pane`).
+- **VUE-03, VUE-04, VUE-19, VUE-21:** they are for Vue 2 templates, and the author decided (2026-10-19) they do not bind this page's Vue 3 string templates. A template matches the templates around it (shorthand `@` and `:`), and a new component is named as its neighbours are (`remotes-pane`).
 
 ### Lint
 
