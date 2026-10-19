@@ -1814,6 +1814,35 @@ button.tag:hover {
     margin-left: 0;
 }
 
+/* Remotes as a table: a row for each machine, what its card says in its body under the row */
+/* The dot hangs left of the name, so a name that wraps never leaves it alone on a line */
+.machine-name {
+    display: block;
+    position: relative;
+    padding-left: 1rem;
+}
+
+.machine-name .dot {
+    position: absolute;
+    top: .4em;
+    left: 0;
+}
+
+.machine-name code {
+    display: inline-block;
+    margin-left: .35rem;
+}
+
+.machine-notes {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.machine-notes p {
+    margin: 0;
+}
+
 /* A machine in the rail that runs an older agent than this host serves */
 .row .agent-behind {
     flex: none;

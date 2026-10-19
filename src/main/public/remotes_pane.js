@@ -1,10 +1,16 @@
 import agent_current from './agent_current.js';
+import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import logline_link from './logline_link.js';
 
-// Every machine as a card: whether it is there, how loaded it is, and what it carries. An
-// offline one says since when, and what waits for it.
+const REMOTES_VIEW_KEY = 'serviceman.remotes_view';
+
+// Cards, or a table with a row for each machine; the same things said in both
+const REMOTES_VIEWS = [{value: 'cards', label: 'Cards'}, {value: 'table', label: 'Table'}];
+
+// Every machine as a card, or as a row of a table: whether it is there, how loaded it is, and
+// what it carries. An offline one says since when, and what waits for it.
 const remotes_pane = {
     template: `
 <article id="detail" class="list">
@@ -23,8 +29,14 @@ const remotes_pane = {
             {{ chip.label }}
             <span class="muted">{{ chip.count }}</span>
         </button>
+        <span class="list-right">
+            <span class="muted">View</span>
+            <span class="seg">
+                <button v-for="option of views" :key="option.value" type="button" :class="{on: (view === option.value)}" @click="view_pick(option.value)">{{ option.label }}</button>
+            </span>
+        </span>
     </div>
-    <div class="machines">
+    <div v-if="(view === 'cards')" class="machines">
         <div v-for="card of cards" :key="card.name" class="card machine pick" :class="{away: (card.online === false)}" @click="$emit('select', card.name)">
             <div class="row-of">
                 <span class="dot" :class="(card.online ? 'running' : 'failed')"/>
@@ -55,14 +67,55 @@ const remotes_pane = {
                 <span class="muted list-right">{{ card.machine_text }}</span>
             </div>
         </div>
-        <p v-if="(cards.length === 0)" class="muted">{{ remotes.length === 0 ? 'No remotes yet. A remote is a machine with an agent that dials in; a service runs on one.' : 'Nothing matches.' }}</p>
+        <p v-if="(cards.length === 0)" class="muted">{{ empty_text }}</p>
     </div>
+    <!-- Name and state never fold; the rest fold where the pane is narrow, CPU last. The name
+         opens the machine; a click on the row opens what folded. -->
+    <data-table v-else class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text">
+        <template #cell="{row, column}">
+            <span v-if="(column.key === 'name')" class="machine-name">
+                <span class="dot" :class="(row.online ? 'running' : 'failed')"/>
+                <button type="button" class="link" title="The machine's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
+                <code v-if="(row.title !== row.name)" class="muted">{{ row.name }}</code>
+            </span>
+            <span v-else-if="(column.key === 'state')" class="pill" :class="(row.online ? 'running' : 'failed')">{{ row.pill }}</span>
+            <span v-else-if="(column.key === 'agent')" class="pill agent-pill" :class="(row.agent ? 'running' : 'starting')" :title="(row.agent ? 'It runs the agent this host serves' : 'It runs an older agent than this host serves; Configure updates it')">{{ (row.agent ? 'up to date' : 'outdated') }}</span>
+            <span v-else-if="(bar_of(row, column.key) !== null)" class="load">
+                <span class="meter"><i :style="{width: (bar_of(row, column.key).percent + '%')}"/></span>
+                <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).text }}</button>
+                <span v-else>{{ bar_of(row, column.key).text }}</span>
+            </span>
+            <!-- Each count opens its own list, holding only what this machine carries -->
+            <template v-else-if="(column.key === 'services')">
+                <button v-if="(row.services > 0)" type="button" class="tag" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
+                <span v-else class="muted">0</span>
+            </template>
+            <template v-else-if="(column.key === 'folders')">
+                <button v-if="(row.folders > 0)" type="button" class="tag" title="Only the folders kept on this machine" @click="$emit('folders', row.name)">{{ row.folders }}</button>
+                <span v-else class="muted">0</span>
+            </template>
+            <template v-else-if="(column.key === 'doors')">
+                <button v-if="(row.doors > 0)" type="button" class="tag" title="Only the names this machine's door answers" @click="$emit('doors', row.name)">{{ row.doors }}</button>
+                <span v-else class="muted">0</span>
+            </template>
+            <a v-else-if="(column.key === 'logs')" class="tag" :href="row.logs_url" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">logs ↗</a>
+            <span v-else-if="(column.key === 'system')" class="muted">{{ row.machine_text }}</span>
+        </template>
+        <!-- What a card says in its body: its troubles, and since when an offline one is away -->
+        <template #below="{row}">
+            <div v-if="((row.troubles.length > 0) || (row.online === false))" class="machine-notes">
+                <p v-for="line of row.troubles" :key="line" class="alert">{{ line }}</p>
+                <p v-if="(row.online === false)" class="muted">{{ row.away_text }}</p>
+            </div>
+        </template>
+    </data-table>
 </article>
 `,
+    components: {'data-table': data_table},
     props: ['state'],
     emits: ['create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {
-        return {filter: '', show: 'all', volumes: []};
+        return {filter: '', show: 'all', volumes: [], view: remotes_view_read(), views: REMOTES_VIEWS};
     },
     computed: {
         remotes: function () {
@@ -93,8 +146,34 @@ const remotes_pane = {
             }
             return out;
         },
+        columns: function () {
+            return [
+                {key: 'name', label: 'Remote', wraps: true},
+                {key: 'state', label: 'State'},
+                {key: 'cpu', label: 'CPU', fold: 9, hide: v => (this.bar_of(v, 'cpu') === null)},
+                {key: 'memory', label: 'Memory', fold: 7, hide: v => (this.bar_of(v, 'memory') === null)},
+                {key: 'disk', label: 'Disk', fold: 6, hide: v => (this.bar_of(v, 'disk') === null)},
+                {key: 'services', label: 'Services', fold: 8, align: 'right'},
+                {key: 'folders', label: 'Folders', fold: 5, align: 'right'},
+                {key: 'doors', label: 'Door names', fold: 4, align: 'right'},
+                {key: 'logs', label: 'Logs', fold: 3, hide: v => (v.logs_url === null)},
+                {key: 'agent', label: 'Agent', fold: 2, hide: v => (v.agent === null)},
+                {key: 'system', label: 'System', fold: 1, hide: v => (v.machine_text === '')},
+            ];
+        },
+        empty_text: function () {
+            return ((this.remotes.length === 0) ? 'No remotes yet. A remote is a machine with an agent that dials in; a service runs on one.' : 'Nothing matches.');
+        },
     },
     methods: {
+        view_pick: function (view) {
+            this.view = view;
+            remotes_view_write(view);
+        },
+        bar_of: function (card, key) {
+            const found = card.bars.find(v => v.key === key);
+            return ((found === undefined) ? null : found);
+        },
         card_of: function (remote, machine) {
             const online = (remote.phase === 'online');
             const services = this.services_of(remote);
@@ -136,11 +215,11 @@ const remotes_pane = {
             if ((machine.cpu_busy !== undefined) && (machine.cpu_busy !== null)) {
                 const busy = Math.round(machine.cpu_busy*100);
                 const load = ((machine.load === null) ? '' : ` · load ${machine.load.toFixed(2)}`);
-                out.push({label: 'CPU', percent: busy, text: `${busy}% busy${load}`});
+                out.push({key: 'cpu', label: 'CPU', percent: busy, text: `${busy}% busy${load}`});
             }
             if (machine.mem.total > 0) {
                 const used = Math.round((1 - machine.mem.free/machine.mem.total)*100);
-                out.push({label: 'Memory', percent: used, text: `${format_bytes(machine.mem.free)} of ${format_bytes(machine.mem.total)} free`});
+                out.push({key: 'memory', label: 'Memory', percent: used, text: `${format_bytes(machine.mem.free)} of ${format_bytes(machine.mem.total)} free`});
             }
             // Every disk together, the way CPU is every core: used over what there is. An agent
             // that does not count its disks yet is the one it lives on.
@@ -148,7 +227,7 @@ const remotes_pane = {
             if ((disks !== null) && (disks.total > 0)) {
                 const percent = Math.round(disks.used/disks.total*100);
                 const over = ((disks.count > 1) ? ` · ${disks.count} disks` : '');
-                out.push({label: 'Disk', percent, text: `${format_bytes(disks.used)} of ${format_bytes(disks.total)} used${over}`, disks: true});
+                out.push({key: 'disk', label: 'Disk', percent, text: `${format_bytes(disks.used)} of ${format_bytes(disks.total)} used${over}`, disks: true});
             }
             return out;
         },
@@ -178,6 +257,28 @@ const remotes_pane = {
         this.volumes_load();
     },
 };
+
+// The view last picked, for this viewer: a convenience, so a browser that keeps nothing gets cards
+function remotes_view_read()
+{
+    try {
+        const kept = localStorage.getItem(REMOTES_VIEW_KEY);
+        return (REMOTES_VIEWS.some(v => v.value === kept) ? kept : 'cards');
+    }
+    catch {
+        return 'cards';
+    }
+}
+
+function remotes_view_write(view)
+{
+    try {
+        localStorage.setItem(REMOTES_VIEW_KEY, view);
+    }
+    catch {
+        // kept for this pane only
+    }
+}
 
 function disks_from_disk(disk)
 {
