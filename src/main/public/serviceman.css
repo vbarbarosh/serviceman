@@ -570,10 +570,11 @@ button:disabled:hover {
     margin: 0;
 }
 
-/* A name that may wrap asks for no more than 16rem while measured, so a long one wraps rather
-   than folding the rest of its row away */
+/* A name that may wrap is measured on one line up to 30rem: a name of a usual length folds a
+   lesser column rather than wrap (UI-21); only an absurd one wraps rather than fold the rest of
+   its row away */
 .fold-room > table.data-table.fold-measure > * > tr > .wraps {
-    max-width: 16rem;
+    max-width: 30rem;
     overflow: hidden;
 }
 
