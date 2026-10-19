@@ -450,7 +450,7 @@ button:disabled:hover {
 }
 
 /* .bad lets its text wrap everywhere else */
-.fold-room > table > * > tr:not(.fold-more) > :not(.wraps) .bad {
+.fold-room > table > * > tr:not(.fold-more) > :not(.wraps, [data-spread]) .bad {
     white-space: nowrap;
 }
 
@@ -462,6 +462,21 @@ button:disabled:hover {
 .fold-room > table.fold-measure > * > tr > * {
     white-space: nowrap;
     overflow-wrap: normal;
+}
+
+/* A cell spread over a row's empty cells wraps in the room it gets: what it says widens no
+   column, neither here nor in the measure */
+.fold-room > table > * > tr > [data-spread] {
+    white-space: normal;
+}
+
+.fold-room > table > * > tr > [data-spread] > * {
+    width: 0;
+    min-width: 100%;
+}
+
+.fold-room > table.fold-measure > * > tr > [data-spread] > * {
+    display: none;
 }
 
 .fold-room > table > thead > tr > th {
@@ -1815,6 +1830,18 @@ button.tag:hover {
 }
 
 /* Remotes as a table: a row for each machine, what its card says in its body under the row */
+/* The state, and for a machine with no numbers why, across their empty cells */
+.machine-state {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .8rem;
+    align-items: baseline;
+}
+
+.machine-state .pill {
+    flex: none;
+}
+
 /* The dot hangs left of the name, so a name that wraps never leaves it alone on a line */
 .machine-name {
     display: block;

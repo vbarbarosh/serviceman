@@ -11,7 +11,9 @@
 //   is_open(key)   whether that row's details are open
 //   toggle(key, event)  a click on the row; a click on a link, a button or a box inside it is theirs
 // `caret_kept` says the chevron's column is there whether anything folds or not: it is
-// measured as part of the table, not added when the first column folds.
+// measured as part of the table, not added when the first column folds. A cell that spreads
+// over the columns after it carries `data-spread` with their names: its colspan is set here, to
+// those shown now, and what it says is left out of the measure, so it wraps in the room it gets.
 const fold_table = {
     template: `
 <div ref="room" class="fold-room">
@@ -49,7 +51,7 @@ const fold_table = {
             this.frame = requestAnimationFrame(() => this.measure());
         },
         is_open: function (key) {
-            return ((this.folded.length > 0) && (this.opened[key] === true));
+            return (this.folded.length > 0) && (this.opened[key] === true);
         },
         toggle: function (key, event) {
             if ((this.folded.length === 0) || (event.target.closest('a, button, input, select, label, textarea') !== null)) {
@@ -62,7 +64,7 @@ const fold_table = {
         measure: function () {
             const room = this.$refs.room;
             const table = room.querySelector('table');
-            const head = ((table === null) ? null : table.querySelector('thead tr'));
+            const head = (table === null) ? null : table.querySelector('thead tr');
             if ((head === null) || (room.clientWidth === 0)) {
                 return;
             }
@@ -70,10 +72,14 @@ const fold_table = {
             for (const cell of cells) {
                 cell.hidden = false;
             }
+            const spreads = table.querySelectorAll('[data-spread]');
+            for (const cell of spreads) {
+                cell.colSpan = 1 + cell.dataset.spread.split(' ').length;
+            }
             table.classList.add('fold-measure');
             const caret = head.querySelector('.fold-caret');
-            const kept = ((caret !== null) && (this.caret_kept === true));
-            const caret_width = (((caret === null) || kept) ? 0 : caret.offsetWidth);
+            const kept = (caret !== null) && (this.caret_kept === true);
+            const caret_width = ((caret === null) || kept) ? 0 : caret.offsetWidth;
             let width = (table.offsetWidth - caret_width);
             const widths = {};
             for (const cell of head.querySelectorAll('[data-fold]')) {
@@ -86,13 +92,16 @@ const fold_table = {
                     break;
                 }
                 if ((folded.length === 0) && (kept === false)) {
-                    width += ((caret === null) ? CARET_WIDTH : caret_width);
+                    width += (caret === null) ? CARET_WIDTH : caret_width;
                 }
                 folded.push(name);
-                width -= (widths[name] || 0);
+                width -= widths[name] || 0;
             }
             for (const cell of cells) {
                 cell.hidden = folded.includes(cell.dataset.fold);
+            }
+            for (const cell of spreads) {
+                cell.colSpan = 1 + cell.dataset.spread.split(' ').filter(v => folded.includes(v) === false).length;
             }
             const span = (head.children.length - head.querySelectorAll('[hidden]').length - ((caret === null) ? 0 : 1) + ((folded.length === 0) ? 0 : 1));
             if (folded.join(' ') !== this.folded.join(' ')) {

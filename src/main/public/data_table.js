@@ -9,11 +9,14 @@ import {Comment} from 'vue';
 // say. Actions sit last, one style for all, and fold into the details on a narrow screen.
 //
 // Props
-//     columns    [{key, label, fold, wraps, clip, align, sort, hide}]: fold a number, the lowest
-//                folds first, or absent for a column that never folds; wraps for a name that may
-//                wrap; clip for one line cut with … (the whole text opens under the row); align
-//                'right' for figures; sort for a header that sorts on a click; hide(row) for a
-//                cell with nothing to say, left out of the details when its column folds
+//     columns    [{key, label, fold, wraps, clip, align, sort, hide, spread}]: fold a number, the
+//                lowest folds first, or absent for a column that never folds; wraps for a name
+//                that may wrap; clip for one line cut with … (the whole text opens under the
+//                row); align 'right' for figures; sort for a header that sorts on a click;
+//                hide(row) for a cell with nothing to say, left out of the details when its
+//                column folds; spread(row) for the keys of the columns after it that the cell
+//                takes over in that row, the ones of them shown (fold_table): a note written
+//                across a row's empty cells, those cells left out and never in its details
 //                A row_class of dim fades the row: a row shown for its place, not for itself
 //     rows       the things, one a row, already in their order (and by group, when grouped)
 //     row_key    the field that names a row, or a function of the row
@@ -72,11 +75,13 @@ const data_table = {
                     <tr :class="row_classes(row, fold.folded)" @click="row_click(row, fold.folded, $event)">
                         <td v-if="caret_shown(fold.folded)" class="fold-caret" @click.stop="toggle(row, fold.folded)"><svg v-if="opens_now(row, fold.folded)" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></td>
                         <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
-                        <td v-for="(column, i) of columns" :key="column.key" :data-fold="fold_name(column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
+                        <template v-for="(column, i) of columns" :key="column.key">
+                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
                         </td>
+                        </template>
                         <td v-if="has_actions" data-fold="actions" class="dt-actions">
                             <span v-if="asking_of(row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
                             <slot v-else name="actions" :row="row" :ask="(question, yes, action) => ask(row, question, yes, action)"/>
@@ -144,7 +149,7 @@ const data_table = {
             return (this.$slots.actions !== undefined);
         },
         rows_shown: function () {
-            return (((this.limit === null) || this.all_shown) ? this.rows : this.rows.slice(0, this.limit));
+            return ((this.limit === null) || this.all_shown) ? this.rows : this.rows.slice(0, this.limit);
         },
         // The columns that may fold, the least needed first; the actions before them all
         fold_order: function () {
@@ -152,32 +157,32 @@ const data_table = {
             const out = folding.map(v => v.key);
             if (this.has_actions) {
                 const at = folding.findIndex(v => v.fold > this.actions_fold);
-                out.splice(((at === -1) ? out.length : at), 0, 'actions');
+                out.splice((at === -1) ? out.length : at, 0, 'actions');
             }
             return out;
         },
         all_ticked: function () {
-            return ((this.rows.length > 0) && this.rows.every(v => this.selected.includes(this.key_of(v))));
+            return (this.rows.length > 0) && this.rows.every(v => this.selected.includes(this.key_of(v)));
         },
     },
     methods: {
         key_of: function (row) {
-            return ((typeof this.row_key === 'function') ? this.row_key(row) : row[this.row_key]);
+            return (typeof this.row_key === 'function') ? this.row_key(row) : row[this.row_key];
         },
         fold_name: function (column) {
-            return (Number.isFinite(column.fold) ? column.key : undefined);
+            return Number.isFinite(column.fold) ? column.key : undefined;
         },
         sorted_by: function (column) {
-            return ((this.sort !== null) && (this.sort.key === column.key));
+            return (this.sort !== null) && (this.sort.key === column.key);
         },
         group_begins: function (index) {
             if (this.group === null) {
                 return false;
             }
-            return ((index === 0) || (this.group(this.rows_shown[index - 1]) !== this.group(this.rows_shown[index])));
+            return (index === 0) || (this.group(this.rows_shown[index - 1]) !== this.group(this.rows_shown[index]));
         },
         indent_of: function (row) {
-            return ((this.depth === null) ? null : {paddingLeft: `calc(${this.depth(row)*1.1}rem + .6rem)`});
+            return (this.depth === null) ? null : {paddingLeft: `calc(${this.depth(row)*1.1}rem + .6rem)`};
         },
         // Whether the page has rows of its own under this one: its slot renders something
         below_of: function (row) {
@@ -186,21 +191,32 @@ const data_table = {
             }
             return this.$slots.below({row}).some(v => v.type !== Comment);
         },
-        // What a row's details list: every column folded away, and every one with more to say
+        // What a row's details list: every column folded away, and every one with more to say;
+        // never a column a spread cell took over in this row
         details_of: function (row, folded) {
-            return this.columns.filter(v => ((folded.includes(v.key) && said(v, row)) || ((this.more !== null) && this.more(row, v.key))));
+            const taken = this.spread_over(row);
+            return this.columns.filter(v => (taken.includes(v.key) === false) && ((folded.includes(v.key) && said(v, row)) || ((this.more !== null) && this.more(row, v.key))));
+        },
+        // The keys of the columns a spread cell takes over in this row
+        spread_over: function (row) {
+            return this.columns.flatMap(v => ((v.spread === undefined) ? [] : (v.spread(row) || [])));
+        },
+        // What a cell spreads over, for fold_table to set its colspan; undefined for most cells
+        spread_of: function (row, column) {
+            const keys = ((column.spread === undefined) ? [] : (column.spread(row) || []));
+            return (keys.length === 0) ? undefined : keys.join(' ');
         },
         opens_now: function (row, folded) {
             if ((this.details_of(row, folded).length > 0) || ((this.opens !== null) && this.opens(row))) {
                 return true;
             }
-            return (this.has_actions && folded.includes('actions'));
+            return this.has_actions && folded.includes('actions');
         },
         caret_shown: function (folded) {
             return this.rows_shown.some(v => this.opens_now(v, folded));
         },
         is_open: function (row, folded) {
-            return ((this.opened[this.key_of(row)] === true) && this.opens_now(row, folded));
+            return (this.opened[this.key_of(row)] === true) && this.opens_now(row, folded);
         },
         toggle: function (row, folded) {
             if (this.opens_now(row, folded) === false) {
@@ -222,7 +238,7 @@ const data_table = {
             this.toggle(row, folded);
         },
         row_classes: function (row, folded) {
-            const out = {foldable: ((this.on_row !== null) || this.opens_now(row, folded)), open: this.is_open(row, folded), chosen: ((this.chosen !== null) && this.chosen(row))};
+            const out = {foldable: (this.on_row !== null) || this.opens_now(row, folded), open: this.is_open(row, folded), chosen: (this.chosen !== null) && this.chosen(row)};
             if (this.row_class !== null) {
                 for (const name of [].concat(this.row_class(row) || [])) {
                     out[name] = true;
@@ -241,17 +257,17 @@ const data_table = {
         tick: function (row, on) {
             const key = this.key_of(row);
             const rest = this.selected.filter(v => v !== key);
-            this.$emit('selected', (on ? rest.concat([key]) : rest));
+            this.$emit('selected', on ? rest.concat([key]) : rest);
         },
         tick_all: function (on) {
-            this.$emit('selected', (on ? this.rows.map(v => this.key_of(v)) : []));
+            this.$emit('selected', on ? this.rows.map(v => this.key_of(v)) : []);
         },
         // A question in a row's actions: yes does it, Cancel puts the actions back
         ask: function (row, question, yes, action) {
             this.asking = {key: this.key_of(row), question, yes, action};
         },
         asking_of: function (row) {
-            return ((this.asking !== null) && (this.asking.key === this.key_of(row)));
+            return (this.asking !== null) && (this.asking.key === this.key_of(row));
         },
         ask_yes: function () {
             const action = this.asking.action;
@@ -264,7 +280,7 @@ const data_table = {
 // Whether a column's cell has anything to say for this row
 function said(column, row)
 {
-    return ((column.hide === undefined) || (column.hide(row) === false));
+    return (column.hide === undefined) || (column.hide(row) === false);
 }
 
 export default data_table;
