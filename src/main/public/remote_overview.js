@@ -14,9 +14,9 @@ import to_clipboard from './to_clipboard.js';
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
 
-// A remote's Overview tab: its state beside the title, the numbers that move as tiles, its
-// history and its uptime by day, what it is as cards, and the raw state folded away at the end. It is drawn again
-// with every beat of the machine.
+// A remote's Overview tab: its state beside the title, its uptime by day in one row under it,
+// the numbers that move as tiles, its history, what it is as cards, and the raw state folded away
+// at the end. It is drawn again with every beat of the machine.
 const remote_overview = {
     template: `
 <article id="detail" class="ov-pane">
@@ -36,11 +36,11 @@ const remote_overview = {
         <p v-else-if="(view.phase !== 'online')" class="alert">The agent on this machine is not connected. What is below is what it last said.</p>
         <p v-if="view.error" class="alert"><strong>Last error</strong> · {{ view.error }}</p>
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
+        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-tiles">
             <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note">{{ tile.text }}</overview-tile>
         </div>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
-        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
                 <template #aside>{{ view.machine.hostname }}</template>

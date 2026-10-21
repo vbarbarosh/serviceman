@@ -269,10 +269,11 @@ Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in `/api/v1/status`.
 
-The **Overview** tab shows a machine at a glance: its state beside its name, then tiles for CPU,
-memory, disk and temperature, each with a bar under it (amber from 80%, red from 92%), and for
-its battery and the link; its history, then cards for the machine, its agent, its services, its updates and its logs, each
-with a link to the tab that does more with it, and its raw state folded away at the end.
+The **Overview** tab shows a machine at a glance: its state beside its name, its uptime in one
+row under it, then tiles for CPU, memory, disk and temperature, each with a bar under it (amber
+from 80%, red from 92%), and for its battery and the link; its history, then cards for the
+machine, its agent, its services, its updates and its logs, each with a link to the tab that
+does more with it, and its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
@@ -286,9 +287,10 @@ while the machine is offline, marked with the time it was read. The minutes a ma
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it.
 
-**Uptime** is a bar a day for the last 30: green when servermon wrote a line every second of
-it, orange from 99%, red below, grey for the days before servermon came. A gap of more than 10
-seconds between two lines is a stretch the machine was down; a day pointed at or tapped says
+**Uptime** is a bar a day for the last 30, in one row under the machine's name, its share of
+those days at the end of it: green when servermon wrote a line every second of it, orange from
+99%, red below, grey for the days before servermon came. A gap of more than 10 seconds between
+two lines is a stretch the machine was down; a day pointed at or tapped says, in a box under it,
 its share and its longest stretches, in the machine's own time zone, each with why: rebooted
 (the line after it says another boot time), servermon stopped or the machine slept (the same
 one), or no line since. The agent counts the lines itself and reads each byte of them once: a
