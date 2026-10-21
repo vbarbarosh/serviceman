@@ -19,12 +19,13 @@ const WHY_SAID = {
 // before servermon came. A day pointed at, focused or tapped says its share and each stretch it
 // was down, in the machine's own time zone, in a box over what is below, so the row keeps its
 // height. Read when the pane opens and every minute after; what was read stays on screen while
-// the next is read.
+// the next is read. Bare, it is the row alone, with no card and no title: a line of a list that
+// says what it is beside it (a machine's row opened in the Remotes table).
 const remote_uptime = {
     template: `
-<section class="card ov-uptime" :class="{loading}">
+<section class="ov-uptime" :class="{loading, card: (bare !== true), bare: (bare === true)}">
     <div class="ov-uptime-row">
-        <div class="ov-uptime-head">
+        <div v-if="(bare !== true)" class="ov-uptime-head">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" v-html="icons.pulse"/>
             <b>Uptime</b>
         </div>
@@ -53,7 +54,7 @@ const remote_uptime = {
     </div>
 </section>
 `,
-    props: ['view'],
+    props: ['view', 'bare'],
     emits: ['tab'],
     data: function () {
         // The box says the last day shown while it fades out, where that day is

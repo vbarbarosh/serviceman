@@ -8,6 +8,7 @@ import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
+import remote_uptime from './remote_uptime.js';
 
 const REMOTES_VIEW_KEY = 'serviceman.remotes_view';
 
@@ -79,7 +80,7 @@ const remotes_pane = {
     </div>
     <!-- Name and state never fold; the rest fold where the pane is narrow, CPU last. The name
          opens the machine; a click on the row opens what folded. -->
-    <data-table v-else class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text">
+    <data-table v-else class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text" :opens="uptime_opens">
         <template #cell="{row, column}">
             <span v-if="(column.key === 'name')" class="machine-name">
                 <span class="dot" :class="(row.online ? 'running' : 'failed')"/>
@@ -101,7 +102,6 @@ const remotes_pane = {
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).text }}</button>
                 <span v-else>{{ bar_of(row, column.key).text }}</span>
             </span>
-            <span v-else-if="((column.key === 'uptime') && (row.uptime !== null))" :class="row.uptime.kind" :title="row.uptime.title">{{ row.uptime.share }}</span>
             <!-- Each count opens its own list, holding only what this machine carries -->
             <template v-else-if="(column.key === 'services')">
                 <button v-if="(row.services > 0)" type="button" class="tag" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
@@ -118,6 +118,13 @@ const remotes_pane = {
             <logs-link v-else-if="(column.key === 'logs')" :url="row.logs_url" kind="remote"/>
             <span v-else-if="(column.key === 'system')" class="muted">{{ row.machine_text }}</span>
         </template>
+        <!-- Opened, a machine says its last 30 days, a bar a day, as its own page does -->
+        <template #details="{row}">
+            <template v-if="uptime_opens(row)">
+                <dt>Uptime</dt>
+                <dd><remote-uptime :view="row.remote" :bare="true" @tab="$emit('configure', row.name)"/></dd>
+            </template>
+        </template>
         <!-- A machine whose numbers fill its row has its troubles under it, as alerts -->
         <template #below="{row}">
             <div v-if="((row.bars.length > 0) && (row.troubles.length > 0))" class="machine-notes">
@@ -127,7 +134,7 @@ const remotes_pane = {
     </data-table>
 </article>
 `,
-    components: {'agent-pill': agent_pill, 'apt-all-section': apt_all_section, 'agent-pill-short': agent_pill_short, 'data-table': data_table, 'logs-link': logs_link},
+    components: {'agent-pill': agent_pill, 'agent-pill-short': agent_pill_short, 'apt-all-section': apt_all_section, 'data-table': data_table, 'logs-link': logs_link, 'remote-uptime': remote_uptime},
     props: ['state'],
     emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {
@@ -176,7 +183,6 @@ const remotes_pane = {
                 {key: 'cpu', label: 'CPU', fold: 10, hide: v => (this.bar_of(v, 'cpu') === null)},
                 {key: 'memory', label: 'Memory', fold: 8, hide: v => (this.bar_of(v, 'memory') === null)},
                 {key: 'disk', label: 'Disk', fold: 7, hide: v => (this.bar_of(v, 'disk') === null)},
-                {key: 'uptime', label: 'Uptime', fold: 6, align: 'right', hide: v => (v.uptime === null)},
                 {key: 'services', label: 'Services', fold: 9, align: 'right'},
                 {key: 'folders', label: 'Folders', fold: 5, align: 'right'},
                 {key: 'doors', label: 'Door names', fold: 4, align: 'right'},
@@ -193,6 +199,10 @@ const remotes_pane = {
         view_pick: function (view) {
             this.view = view;
             remotes_view_write(view);
+        },
+        // A machine that ever said what it is has its uptime to show when its row opens
+        uptime_opens: function (card) {
+            return (card.remote.machine !== null) && (card.remote.machine !== undefined);
         },
         bar_of: function (card, key) {
             const found = card.bars.find(v => v.key === key);
@@ -215,6 +225,7 @@ const remotes_pane = {
             }
             return {
                 name: remote.name,
+                remote,
                 title: remote.title || remote.name,
                 name_shown: is_name_in_title(remote.title, remote.name) === false,
                 online,

@@ -2649,11 +2649,26 @@ article.ov-pane {
     font-size: .75rem;
 }
 
+/* The row alone, in a list that names it beside it */
+.ov-uptime.bare {
+    padding: 0;
+}
+
+.ov-uptime.bare .ov-uptime-row {
+    grid-template-areas: "from track to value";
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
 @container (max-width: 44rem) {
     .ov-uptime-row {
         grid-template-areas: "head value value" "track track track" "from . to";
         grid-template-columns: auto minmax(0, 1fr) auto;
         row-gap: .25rem;
+    }
+
+    .ov-uptime.bare .ov-uptime-row {
+        grid-template-areas: "value value value" "track track track" "from . to";
+        grid-template-columns: auto minmax(0, 1fr) auto;
     }
 
     .ov-uptime .ov-chart-value {

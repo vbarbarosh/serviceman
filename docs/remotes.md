@@ -298,8 +298,8 @@ finished day when it first meets it (the time and boot at the start of each line
 for a day's 50 MB), today from where the last count stopped, every minute. The count is kept
 in `metrics/uptime.json`, 90 days, longer than servermon keeps its files. The page reads it from
 `GET /api/v1/remotes/<name>/uptime?days=30` when it opens and every minute after, and shows the
-last answer while the machine is offline; the Remotes list has the last 30 days as a share, in
-its Uptime column and on each card. An agent before 1.22 has none, and the pane says how to
+last answer while the machine is offline; the Remotes list has the last 30 days as a share on
+each card, and as the same row of bars, a day each, when a machine's row is opened in its table. An agent before 1.22 has none, and the pane says how to
 update it.
 
 **servermon** is the one thing that reads the machine, second by second, and the night it
