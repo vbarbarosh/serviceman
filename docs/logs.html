@@ -1425,6 +1425,34 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>remote_service_error</code></td>
 <td>Waking that remote&#39;s services went wrong.</td>
 </tr>
+<tr>
+<td><code>apt_begin</code></td>
+<td>Updates began to be installed on the machine.</td>
+</tr>
+<tr>
+<td><code>apt_end_ok</code></td>
+<td>They are installed; <code>lines=</code> how many apt printed.</td>
+</tr>
+<tr>
+<td><code>apt_end_error</code></td>
+<td>apt failed or was cancelled; <code>reason=</code> its last line.</td>
+</tr>
+<tr>
+<td><code>apt_all_begin</code></td>
+<td>Install updates on N was pressed: <code>remotes=</code> the machines, <code>held=</code> the one serviceman runs on, which goes last.</td>
+</tr>
+<tr>
+<td><code>apt_all_end</code></td>
+<td>Every one of them ended: <code>ok=</code> and <code>failed=</code> how many.</td>
+</tr>
+<tr>
+<td><code>apt_all_error</code></td>
+<td>Running them broke, and why.</td>
+</tr>
+<tr>
+<td><code>apt_cancel_error</code></td>
+<td>Cancel all could not reach a machine to stop its run.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="forwards"><a class="anchor" href="#forwards" aria-hidden="true" tabindex="-1">#</a>Forwards</h3>

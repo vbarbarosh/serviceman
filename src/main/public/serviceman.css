@@ -1871,6 +1871,88 @@ button.tag:hover {
     margin: 0;
 }
 
+/* Remotes: updates installed on every machine shown, a row each; a long name or line is cut
+   with an ellipsis inside its own column, and the pill keeps its place on the right */
+.apt-all {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: 1rem 1.1rem;
+}
+
+.apt-all p {
+    margin: 0;
+}
+
+.apt-all-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: baseline;
+}
+
+.apt-all-rows {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+
+.apt-all-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: .3rem .6rem;
+    align-items: center;
+    padding: .45rem .7rem;
+    border-radius: 8px;
+    background: var(--hover);
+    cursor: pointer;
+}
+
+.apt-all-row.off {
+    cursor: default;
+    opacity: .6;
+}
+
+.apt-all-row.run {
+    grid-template-columns: minmax(0, 1fr) auto;
+    border: 1px solid transparent;
+    transition: border-color .12s ease;
+}
+
+.apt-all-row.run:hover {
+    border-color: var(--accent);
+}
+
+.apt-all-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.apt-all-said {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 0;
+}
+
+.apt-all-said:empty {
+    display: none;
+}
+
+.apt-all-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+}
+
+.apt-all-said .busy {
+    color: var(--busy);
+}
+
 /* A machine in the rail that runs an older agent than this host serves */
 .row .agent-behind {
     flex: none;

@@ -338,6 +338,31 @@ Before it starts, serviceman notes the containers that run; once it is over, it 
 Docker to answer and starts again each one that is not running. What cannot start is named at
 the end of the upgrade's lines, with Docker's reason, and on the Health page.
 
+## Its updates
+
+A machine's **Configure** tab says what apt has waiting, and **Install them** runs
+`apt-get update`, then `apt-get upgrade`, answering its questions as a person would and keeping
+every config file you changed. Every line apt prints is shown while it runs; **Cancel** stops
+it. A root agent runs `apt-get`; one that runs as a user runs `sudo -n apt-get`, so sudo on that
+machine has to let it without a password.
+
+**Install updates on N**, at the top of **Remotes**, does the same on every machine the list
+shows that has something waiting: the filter and the chips narrow it, and each machine can be
+unticked. They all start at once, each its own apt, with a row each for how it goes and its last
+line; a row opens the machine's Configure tab with every line. The machine serviceman itself
+runs on waits until the others end, then runs alone: an upgrade of Docker there restarts
+serviceman in the middle of it. serviceman finds that machine by its own container in the
+machine's `docker ps`. **Cancel all** stops what runs and what waits. The runs are serviceman's,
+not the page's: a closed page stops nothing, and the list shows them again when opened.
+
+After an upgrade, every container that ran before it runs again: the ones Docker does not bring
+back, serviceman starts. A machine that wants a restart says so; nothing restarts it.
+
+The calls, for a script: `POST /api/v1/apt-upgrade` with `{"remotes": ["vps1", "vps2"]}`
+starts them and answers which started, which waits (`held`) and which were left out and why;
+`GET /api/v1/apt-upgrade` is a row per machine; `POST /api/v1/apt-cancel` stops them. One
+machine's are `/api/v1/remotes/<name>/apt-upgrade`, `/apt-cancel` and `/apt`.
+
 ## Its ports and its firewall
 
 The **Firewall** tab of a remote is what the machine listens on and what its firewall, ufw,

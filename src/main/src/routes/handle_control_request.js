@@ -1,8 +1,8 @@
 const agent_bundle = require('../../../agent/bundler/agent_bundle');
 const agent_install_sh = require('../helpers/agent_install_sh');
 const app_apply_config = require('../helpers/app_apply_config');
-const apt_lane = require('../helpers/apt_lane');
-const apt_said = require('../helpers/apt_said');
+const apt_all_run = require('../helpers/apt_all_run');
+const apt_run = require('../helpers/apt_run');
 const body_read = require('../body_read');
 const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
@@ -38,10 +38,8 @@ const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
 const path = require('path');
-const problems_check = require('../helpers/problems_check');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
-const remote_containers_restore = require('../helpers/remote_containers_restore');
 const remote_containers_running = require('../helpers/remote_containers_running');
 const remote_disk = require('../helpers/remote_disk');
 const remote_removed_add = require('../helpers/remote_removed_add');
@@ -106,8 +104,6 @@ const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages$/;
 const MACHINE_READ_TIMEOUT_MS = 15000;
 const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
 const RE_REMOTE_AGENT = /^\/api\/v1\/remotes\/([^/]+)\/agent-update$/;
-// Installing everything a machine is behind on is a job of minutes, sometimes many
-const APT_TIMEOUT_MS = 3600000;
 // A screen is a few megabytes over a link, and a machine that will not take the picture says
 // so quickly; the wait is for the one that thinks about it
 const SCREENSHOT_TIMEOUT_MS = 30000;
@@ -251,6 +247,18 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/remotes') && (req.method === 'POST')) {
         await remote_create(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/apt-upgrade') && (req.method === 'GET')) {
+        handle_apt_all_read(app, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/apt-upgrade') && (req.method === 'POST')) {
+        await handle_apt_all(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/apt-cancel') && (req.method === 'POST')) {
+        await handle_apt_all_cancel(app, res);
         return;
     }
     if ((url.pathname === '/api/v1/volumes') && (req.method === 'GET')) {
@@ -808,7 +816,8 @@ function handle_apt_read(app, res, name)
 // POST /api/v1/remotes/<name>/apt-upgrade
 // POST /api/v1/remotes/<name>/apt-cancel
 // Installing what is waiting, and stopping it again — both by hand, both from the machine's
-// page. Nothing here runs on a clock.
+// page. Nothing here runs on a clock. One that waits for its turn among several machines is
+// started now when asked here.
 async function handle_apt(app, res, name, action)
 {
     const remote = app.remote_by_name[name];
@@ -824,81 +833,164 @@ async function handle_apt(app, res, name, action)
         send_json(res, 400, {error: `the agent on ${name} is from before installing updates — its page says how it updates`});
         return;
     }
-    const run = remote.state.apt;
     if (action === 'apt-cancel') {
         try {
-            const answer = await remote_call(app, remote, 'apt_cancel', {});
-            send_json(res, 200, answer);
+            send_json(res, 200, await apt_cancel(app, remote));
         }
         catch (error) {
             send_json(res, 502, {error: error.message});
         }
         return;
     }
-    if (run.phase === 'running') {
+    if (remote.state.apt.phase === 'running') {
         send_json(res, 409, {error: `an upgrade is already running on ${name}`});
         return;
     }
     // The run outlives this request by minutes: the answer says it began, and the page reads
     // how it is going from the door above
-    remote.state.apt = {phase: 'running', lines: [], started_at: Date.now(), ended_at: null, error: null, containers: null};
-    log_event(app, 'apt_begin', {remote: remote.name});
-    // What runs now has to run after: an upgrade of Docker restarts every container, and the
-    // ones Docker does not bring back are started again once it is over
-    let before = null;
-    try {
-        before = await remote_containers_running(app, remote);
-    }
-    catch (error) {
-        log_event(app, 'apt_containers_unknown', {remote: remote.name, reason: error.message});
-    }
-    const promise = remote_call(app, remote, 'apt_upgrade', {service: apt_lane}, APT_TIMEOUT_MS);
-    promise.then(function (answer) {
-        return apt_ended(app, remote, before, answer.cancelled ? 'cancelled' : (answer.ok ? 'ok' : 'error'), answer.ok ? null : last_line_of(answer));
-    }, function (error) {
-        return apt_ended(app, remote, before, 'error', error.message);
-    }).catch(function (error) {
+    apt_run(app, remote).catch(function (error) {
         log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
     });
     send_json(res, 202, {started: true});
 }
 
-async function apt_ended(app, remote, before, phase, error)
+// GET /api/v1/apt-upgrade
+// How the last upgrade of several machines at once is going: a row per machine, its last line
+// rather than all of them, for a list read every second
+function handle_apt_all_read(app, res)
 {
-    const run = remote.state.apt;
-    if (before !== null) {
-        apt_said(remote, 'serviceman: the upgrade is over; every container that ran before it is to run again');
-        run.containers = await remote_containers_restore(app, remote, before);
-        for (const name of run.containers.started) {
-            apt_said(remote, `serviceman: ${name} had stopped, and is started again`);
-        }
-        for (const item of run.containers.down) {
-            apt_said(remote, `serviceman: ${item.name} ran before the upgrade and cannot start now: ${item.reason}`);
-        }
-        log_event(app, (run.containers.down.length === 0) ? 'apt_containers_ok' : 'apt_containers_down', {remote: remote.name, ran: before.length, started: run.containers.started, down: run.containers.down.map(v => v.name)});
+    const batch = app.apt_all;
+    if (batch === null) {
+        send_json(res, 200, {batch: null});
+        return;
     }
-    run.phase = phase;
-    run.ended_at = Date.now();
-    run.error = error;
-    log_event(app, (phase === 'ok') ? 'apt_end_ok' : 'apt_end_error', {remote: remote.name, lines: run.lines.length, reason: (error === null) ? undefined : error});
-    // What the upgrade left wrong is on the page now, not at the next look a minute away
-    problems_check(app).catch(function (error) {
-        log_event(app, 'problems_check_error', {reason: error.message});
-    });
-    // What is waiting has just changed, and the page is looking at it: the machine is asked
-    // again now rather than at the next heartbeat half a minute from here
-    const promise = remote_call(app, remote, 'stats');
-    promise.then(function (stats) {
-        remote.state.stats = stats;
-    }, function () {
-        // The link went with the run; the next heartbeat says what is true
-    });
+    const rows = [];
+    for (const name of batch.remotes) {
+        const remote = app.remote_by_name[name];
+        if (remote === undefined) {
+            continue;
+        }
+        const run = remote.state.apt;
+        const updates = (remote.state.stats === null) ? null : (remote.state.stats.updates || null);
+        rows.push({
+            name,
+            title: remote.title || name,
+            phase: run.phase,
+            lines: run.lines.length,
+            last_line: (run.lines.length === 0) ? null : run.lines[run.lines.length - 1],
+            error: run.error,
+            containers: (run.containers === null) ? null : {started: run.containers.started, down: run.containers.down.map(v => v.name)},
+            reboot: (updates !== null) && (updates.reboot === true),
+        });
+    }
+    send_json(res, 200, {batch: {started_at: batch.started_at, ended_at: batch.ended_at, held: batch.held, remotes: rows}});
 }
 
-function last_line_of(answer)
+// POST /api/v1/apt-upgrade {"remotes": ["vps1", "vps2"]}
+// Installs what is waiting on each machine named, at once, from the Remotes list. A machine
+// that cannot be upgraded now is left out and said why; the rest start.
+async function handle_apt_all(app, req, res)
 {
-    const said = `${answer.stderr || ''}\n${answer.stdout || ''}`.trim().split('\n').filter(v => v.trim() !== '');
-    return (said.length === 0) ? `apt-get ended with ${answer.code}` : said[said.length - 1];
+    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    if ((Array.isArray(body.remotes) === false) || (body.remotes.length === 0) || body.remotes.some(v => typeof v !== 'string')) {
+        send_json(res, 400, {error: 'remotes is a list of the machines to upgrade, by name'});
+        return;
+    }
+    if ((app.apt_all !== null) && (app.apt_all.ended_at === null)) {
+        send_json(res, 409, {error: 'machines are being upgraded already: cancel them, or wait for them to end'});
+        return;
+    }
+    const remotes = [];
+    const skipped = [];
+    for (const name of new Set(body.remotes)) {
+        const remote = app.remote_by_name[name];
+        const reason = apt_refusal(remote, name);
+        if (reason === null) {
+            remotes.push(remote);
+        }
+        else {
+            skipped.push({name, reason});
+        }
+    }
+    if (remotes.length === 0) {
+        send_json(res, 409, {error: 'none of these machines can be upgraded now', skipped});
+        return;
+    }
+    const held = await own_remote(app, remotes);
+    apt_all_run(app, remotes, held).catch(function (error) {
+        log_event(app, 'apt_all_error', {reason: error.message});
+    });
+    send_json(res, 202, {started: remotes.map(v => v.name), held: (held === null) ? null : held.name, skipped});
+}
+
+// POST /api/v1/apt-cancel
+// Stops every run of the last upgrade of several machines that is still going; one that waits
+// for its turn does not start
+async function handle_apt_all_cancel(app, res)
+{
+    const batch = app.apt_all;
+    const stopped = [];
+    if (batch !== null) {
+        for (const name of batch.remotes) {
+            const remote = app.remote_by_name[name];
+            if (remote === undefined) {
+                continue;
+            }
+            try {
+                if ((await apt_cancel(app, remote)).stopped) {
+                    stopped.push(name);
+                }
+            }
+            catch (error) {
+                log_event(app, 'apt_cancel_error', {remote: name, reason: error.message});
+            }
+        }
+    }
+    send_json(res, 200, {stopped});
+}
+
+// Why a machine cannot be upgraded now, or null when it can
+function apt_refusal(remote, name)
+{
+    if (remote === undefined) {
+        return `no remote named ${JSON.stringify(name)}`;
+    }
+    if (remote.state.phase !== 'online') {
+        return `${name} is not connected`;
+    }
+    if (remote_can(remote, 'apt') === false) {
+        return `the agent on ${name} is from before installing updates — its page says how it updates`;
+    }
+    if ((remote.state.apt.phase === 'running') || (remote.state.apt.phase === 'waiting')) {
+        return `an upgrade is already running on ${name}`;
+    }
+    return null;
+}
+
+// The machine whose Docker runs this serviceman, among these; null when serviceman runs in no
+// container, or on none of them
+async function own_remote(app, remotes)
+{
+    if (app.own_container === null) {
+        return null;
+    }
+    const lists = await Promise.all(remotes.map(v => remote_containers_running(app, v).catch(() => null)));
+    const index = lists.findIndex(v => (v !== null) && v.some(vv => vv.id === app.own_container));
+    return (index === -1) ? null : remotes[index];
+}
+
+// A run that goes is stopped on its machine; one that waits for its turn is not started
+async function apt_cancel(app, remote)
+{
+    const run = remote.state.apt;
+    if (run.phase === 'waiting') {
+        Object.assign(run, {phase: 'cancelled', ended_at: Date.now()});
+        return {stopped: true};
+    }
+    if (run.phase !== 'running') {
+        return {stopped: false, reason: 'nothing is being installed on this machine'};
+    }
+    return remote_call(app, remote, 'apt_cancel', {});
 }
 
 // GET /api/v1/remotes/<name>/metrics?range=1h|24h|7d|30d

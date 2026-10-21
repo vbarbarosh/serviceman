@@ -1,6 +1,7 @@
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
 import agent_pill_short from './agent_pill_short.js';
+import apt_all_section from './apt_all_section.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
@@ -22,6 +23,7 @@ const remotes_pane = {
         <h1>Remotes</h1>
         <span class="muted">{{ remotes.length }}</span>
         <div class="list-acts">
+            <button v-if="(apt_open === false)" type="button" :disabled="(apt_count === 0)" :title="((apt_count === 0) ? 'Nothing waits to be installed on the machines shown' : 'apt-get update and upgrade on each of them, at once')" @click="apt_open = true">{{ ((apt_count === 0) ? 'No updates' : ('Install updates on ' + apt_count)) }}</button>
             <button type="button" @click="$emit('join')">{{ state.join === null ? 'Let machines join' : 'Machines may join' }}</button>
             <button type="button" class="primary" @click="$emit('create')">+ Add remote</button>
         </div>
@@ -40,6 +42,7 @@ const remotes_pane = {
             </span>
         </span>
     </div>
+    <apt-all-section v-if="apt_open" :remotes="shown" @close="apt_open = false" @configure="$emit('configure', $event)"/>
     <div v-if="(view === 'cards')" class="machines">
         <div v-for="card of cards" :key="card.name" class="card machine pick" :class="{away: (card.online === false)}" @click="$emit('select', card.name)">
             <div class="row-of">
@@ -124,11 +127,11 @@ const remotes_pane = {
     </data-table>
 </article>
 `,
-    components: {'agent-pill': agent_pill, 'agent-pill-short': agent_pill_short, 'data-table': data_table, 'logs-link': logs_link},
+    components: {'agent-pill': agent_pill, 'apt-all-section': apt_all_section, 'agent-pill-short': agent_pill_short, 'data-table': data_table, 'logs-link': logs_link},
     props: ['state'],
-    emits: ['create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
+    emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {
-        return {filter: '', show: 'all', volumes: [], view: remotes_view_read(), views: REMOTES_VIEWS};
+        return {filter: '', show: 'all', volumes: [], view: remotes_view_read(), views: REMOTES_VIEWS, apt_open: false};
     },
     computed: {
         remotes: function () {
@@ -142,22 +145,29 @@ const remotes_pane = {
                 {value: 'offline', label: 'Offline', phase: 'failed', count: this.remotes.length - online},
             ];
         },
-        cards: function () {
-            const out = [];
+        // The machines the chips and the filter leave
+        shown: function () {
             const wanted = this.filter.toLowerCase();
-            for (const remote of this.remotes) {
+            const show = this.show;
+            return this.remotes.filter(function (remote) {
                 const online = (remote.phase === 'online');
-                if (((this.show === 'online') && (online === false)) || ((this.show === 'offline') && online)) {
-                    continue;
+                if (((show === 'online') && (online === false)) || ((show === 'offline') && online)) {
+                    return false;
                 }
                 const machine = (remote.machine === undefined) ? null : remote.machine;
                 const words = [remote.name, remote.title || '', (machine === null) ? '' : machine.hostname].concat(remote.tags).join(' ').toLowerCase();
-                if ((wanted !== '') && (words.includes(wanted) === false)) {
-                    continue;
-                }
-                out.push(this.card_of(remote, machine));
-            }
-            return out;
+                return (wanted === '') || words.includes(wanted);
+            });
+        },
+        cards: function () {
+            return this.shown.map(v => this.card_of(v, (v.machine === undefined) ? null : v.machine));
+        },
+        // The machines shown with something to install that can be asked to install it now
+        apt_count: function () {
+            return this.shown.filter(function (remote) {
+                const machine = (remote.machine === undefined) ? null : remote.machine;
+                return (remote.phase === 'online') && (machine !== null) && (machine.can !== null) && machine.can.includes('apt') && (machine.updates !== null) && (machine.updates.pending > 0);
+            }).length;
         },
         columns: function () {
             return [
@@ -260,6 +270,18 @@ const remotes_pane = {
             const names = services.map(v => v.title || v.name).join(', ');
             return `${seen} Waiting for it: ${names}.`;
         },
+        // Machines being upgraded from here a moment ago are still being upgraded: their rows
+        // are shown again, rather than a button to start them
+        apt_running_find: async function () {
+            try {
+                const answer = await fetch('/api/v1/apt-upgrade', {cache: 'no-store'});
+                const batch = (await answer.json()).batch;
+                this.apt_open = this.apt_open || ((batch !== null) && (batch.ended_at === null));
+            }
+            catch {
+                // The button is there to start them; the rows show once it is pressed
+            }
+        },
         volumes_load: async function () {
             try {
                 const answer = await fetch('/api/v1/volumes', {cache: 'no-store'});
@@ -272,6 +294,7 @@ const remotes_pane = {
     },
     created: function () {
         this.volumes_load();
+        this.apt_running_find();
     },
 };
 

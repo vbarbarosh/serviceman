@@ -508,8 +508,8 @@ const remote_configure = {
             <b>Updates</b>
             <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
             <template v-if="(known && apt_able)">
-                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || updates.pending === 0)" @click="apt_start">Install them</button>
-                <button v-else type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop">{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
+                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || updates.pending === 0)" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : 'Install them') }}</button>
+                <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop">{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
             </template>
         </div>
         <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
@@ -519,6 +519,7 @@ const remote_configure = {
             <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.</p>
             <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping every config file you changed.</p>
             <p v-if="(updates !== null && updates.reboot)" class="muted">An installed update wants the machine restarted.</p>
+            <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
             <p v-if="(apt.phase === 'running')" class="muted">installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
             <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
             <p v-if="(apt.phase === 'cancelled')" class="muted">Stopped where it stood. A run stopped in the middle of installing may leave a package half-set-up: <code>sudo dpkg --configure -a</code> on that machine finishes what was interrupted, and the Shell tab is one click away.</p>
@@ -646,6 +647,9 @@ const remote_configure = {
             if (this.apt.phase === 'running') {
                 return {tone: 'starting', text: 'installing'};
             }
+            if (this.apt.phase === 'waiting') {
+                return {tone: 'starting', text: 'waiting'};
+            }
             if (this.updates === null) {
                 return {tone: '', text: 'not known'};
             }
@@ -704,7 +708,7 @@ const remote_configure = {
             catch {
                 // The next tick asks again; the header already says when serviceman is away
             }
-            if (this.apt.phase === 'running') {
+            if ((this.apt.phase === 'running') || (this.apt.phase === 'waiting')) {
                 this.apt_timer = setTimeout(() => this.apt_read(), 1000);
             }
         },
@@ -2381,7 +2385,7 @@ const app = {
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named"/>
-        <remotes-pane v-else-if="remotes_open" :state="state" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
+        <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" @close="form_open = false" @saved="form_saved"/>
@@ -3028,6 +3032,10 @@ const app = {
         // The Disk line of a machine's card: its Disks tab
         remote_disks_show: function (name) {
             this.remote_tab = 'disks';
+            this.remote_select_named(name);
+        },
+        remote_configure_show: function (name) {
+            this.remote_tab = 'configure';
             this.remote_select_named(name);
         },
         // A count on a machine's card: the list of that kind, holding only what the machine carries

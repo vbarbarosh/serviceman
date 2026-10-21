@@ -1,6 +1,7 @@
 const app_routes_rebuild = require('./app_routes_rebuild');
 const externals_attach = require('./externals_attach');
 const load_test_runs_read = require('./load_test_runs_read');
+const own_container_id = require('./own_container_id');
 const remote_state = require('./remote_state');
 const state_dir_from_env = require('./state_dir_from_env');
 const state_from_service = require('./state_from_service');
@@ -50,6 +51,10 @@ function app_from_config(config)
         // (forwards_here)
         forwards_here: {},
         forwards_here_lock: Promise.resolve(),
+        // The last upgrade of several machines at once, from the Remotes list (apt_all_run), and
+        // the container this serviceman runs in: the machine that runs it goes last
+        apt_all: null,
+        own_container: own_container_id(),
     };
     for (const item of config.services) {
         out.services.push(Object.assign({}, item, {state: state_from_service(item)}));

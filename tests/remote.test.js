@@ -5,6 +5,7 @@ const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const config_remote_add = require('../src/main/src/helpers/config_remote_add');
 const crypto = require('crypto');
+const fake_docker_engine = require('./fake_docker_engine');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const http = require('http');
@@ -582,6 +583,104 @@ test('the updates of a machine are installed on a press, said line by line, and 
     finally {
         agent.kill('SIGKILL');
         await running.close();
+    }
+});
+
+test('the updates of several machines are installed at once, the one serviceman runs on last', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
+    const docker = await fake_docker_engine(path.join(dir, 'docker.sock'));
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}, {name: 'vps3', token: JOIN_TOKEN}]);
+    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get')];
+    const first = agent_start(running.control_port, TOKEN, apt);
+    // vps2's Docker runs this serviceman: what docker says of its own container's id
+    const second = agent_start(running.control_port, TOKEN2, apt, {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
+    running.app.own_container = docker.add('serviceman');
+    try {
+        const vps1 = running.app.remote_by_name.vps1;
+        const vps2 = running.app.remote_by_name.vps2;
+        await wait_until(() => (vps1.state.phase === 'online') && (vps2.state.phase === 'online'));
+
+        // Nothing was asked yet, and nothing names what nobody can upgrade
+        assert.deepStrictEqual((await control(running, 'GET', '/api/v1/apt-upgrade', null)).body, {batch: null});
+        assert.strictEqual((await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: []})).status, 400);
+        const none = await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps3', 'ghost']});
+        assert.strictEqual(none.status, 409);
+        assert.deepStrictEqual(none.body.skipped.map(v => v.name), ['vps3', 'ghost']);
+
+        // A machine away is left out and said why; the one serviceman runs on waits its turn
+        const began = await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2', 'vps3']});
+        assert.strictEqual(began.status, 202);
+        assert.deepStrictEqual(began.body.started, ['vps1', 'vps2']);
+        assert.strictEqual(began.body.held, 'vps2');
+        assert.deepStrictEqual(began.body.skipped, [{name: 'vps3', reason: 'vps3 is not connected'}]);
+        await wait_until(() => vps1.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
+        assert.strictEqual(vps2.state.apt.phase, 'waiting');
+
+        // A row per machine, with its last line rather than all of them
+        const read = await control(running, 'GET', '/api/v1/apt-upgrade', null);
+        assert.deepStrictEqual(read.body.batch.remotes.map(v => [v.name, v.phase]), [['vps1', 'running'], ['vps2', 'waiting']]);
+        assert.match(read.body.batch.remotes[0].last_line, /Unpacking demo-package-\d+ /);
+        assert.strictEqual(read.body.batch.ended_at, null);
+
+        // A second ask while they run is refused rather than started beside it
+        assert.strictEqual((await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1']})).status, 409);
+
+        // The others ending is vps2's turn
+        await control(running, 'POST', '/api/v1/remotes/vps1/apt-cancel', null);
+        await wait_until(() => vps2.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 15000);
+        assert.strictEqual(vps1.state.apt.phase, 'cancelled');
+        assert.strictEqual(vps2.state.apt.phase, 'running');
+
+        // Cancel all stops what goes, and the batch is over
+        const stopped = await control(running, 'POST', '/api/v1/apt-cancel', null);
+        assert.deepStrictEqual(stopped.body.stopped, ['vps2']);
+        await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
+        assert.strictEqual(vps2.state.apt.phase, 'cancelled');
+    }
+    finally {
+        first.kill('SIGKILL');
+        second.kill('SIGKILL');
+        await running.close();
+        await docker.close();
+    }
+});
+
+test('a machine waiting its turn is not started once cancelled, and starts at once from its own page', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
+    const docker = await fake_docker_engine(path.join(dir, 'docker.sock'));
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
+    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get')];
+    const first = agent_start(running.control_port, TOKEN, apt);
+    const second = agent_start(running.control_port, TOKEN2, apt, {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
+    running.app.own_container = docker.add('serviceman');
+    try {
+        const vps1 = running.app.remote_by_name.vps1;
+        const vps2 = running.app.remote_by_name.vps2;
+        await wait_until(() => (vps1.state.phase === 'online') && (vps2.state.phase === 'online'));
+
+        await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2']});
+        assert.strictEqual(vps2.state.apt.phase, 'waiting');
+        // Its own page cancels it like a run, and it is not started when its turn comes
+        const cancelled = await control(running, 'POST', '/api/v1/remotes/vps2/apt-cancel', null);
+        assert.strictEqual(cancelled.body.stopped, true);
+        await control(running, 'POST', '/api/v1/remotes/vps1/apt-cancel', null);
+        await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
+        assert.strictEqual(vps2.state.apt.phase, 'cancelled');
+        assert.strictEqual(vps2.state.apt.lines.length, 0);
+
+        // Install them on a waiting machine starts it now; its turn then finds it already run
+        await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2']});
+        assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps2/apt-upgrade', null)).status, 202);
+        await wait_until(() => vps2.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
+        await control(running, 'POST', '/api/v1/apt-cancel', null);
+        await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
+        assert.strictEqual(vps2.state.apt.phase, 'cancelled');
+    }
+    finally {
+        first.kill('SIGKILL');
+        second.kill('SIGKILL');
+        await running.close();
+        await docker.close();
     }
 });
 
