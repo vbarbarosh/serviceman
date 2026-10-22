@@ -1,6 +1,7 @@
 // What the Docker module holds and does, for its host to route, check and show: the containers,
 // the compose projects they came from, the images, volumes and networks, and what is done to
-// each. A long command answers as it goes, a line at a time (answer: progress).
+// each. A long command answers a stream of its lines, or the lines themselves where the host
+// keeps no streams (answer: stream).
 const docker_manifest = {
     module: 'docker',
     title: 'Docker',
@@ -24,8 +25,8 @@ const docker_manifest = {
             id: '[^/]+',
             example: 'web',
             commands: [
-                {command: 'update', on: 'item', said: 'pull its images, make again what changed', answer: 'progress'},
-                {command: 'recreate', on: 'item', said: 'pull its images, take it down, bring it up', answer: 'progress'},
+                {command: 'update', on: 'item', said: 'pull its images, make again what changed', answer: 'stream'},
+                {command: 'recreate', on: 'item', said: 'pull its images, take it down, bring it up', answer: 'stream'},
             ],
         },
         {
@@ -35,9 +36,9 @@ const docker_manifest = {
             example: 'sha256:5d0da3dc976460b72c77d94c8a1ad043720b0416bfc16c52c45d4847e53fadb6',
             read: {},
             commands: [
-                {command: 'pull', on: 'item', said: 'pull it again under its first tag', answer: 'progress'},
+                {command: 'pull', on: 'item', said: 'pull it again under its first tag', answer: 'stream'},
                 {command: 'remove', on: 'item', said: 'remove it', danger: true},
-                {command: 'prune', on: 'kind', said: 'remove the dangling ones, or with all=1 every one no container uses', query: ['all'], answer: 'progress', danger: true},
+                {command: 'prune', on: 'kind', said: 'remove the dangling ones, or with all=1 every one no container uses', query: ['all'], answer: 'stream', danger: true},
             ],
         },
         {
@@ -50,7 +51,7 @@ const docker_manifest = {
                 {command: 'open', on: 'item', said: 'mount it in a helper, for its files to be read'},
                 {command: 'close', on: 'item', said: 'let the helper go'},
                 {command: 'remove', on: 'item', said: 'remove it and what is in it', danger: true},
-                {command: 'prune', on: 'kind', said: 'remove every one no container mounts', answer: 'progress', danger: true},
+                {command: 'prune', on: 'kind', said: 'remove every one no container mounts', answer: 'stream', danger: true},
             ],
         },
         {
@@ -61,7 +62,7 @@ const docker_manifest = {
             read: {},
             commands: [
                 {command: 'remove', on: 'item', said: 'remove it', danger: true},
-                {command: 'prune', on: 'kind', said: 'remove every one no container is on, the built-in ones aside', answer: 'progress', danger: true},
+                {command: 'prune', on: 'kind', said: 'remove every one no container is on, the built-in ones aside', answer: 'stream', danger: true},
             ],
         },
     ],

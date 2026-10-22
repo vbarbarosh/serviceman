@@ -576,6 +576,9 @@ const remote_configure = {
             apt: {phase: 'idle', lines: [], error: null},
             cancelling: false,
             apt_timer: null,
+            // The stream of the run being followed, and what lets it go when the page does
+            apt_following: null,
+            apt_abort: new AbortController(),
             updating: false,
             agent_note: '',
             agent_bad: false,
@@ -691,25 +694,75 @@ const remote_configure = {
             this.agent_note = note;
             this.agent_bad = bad;
         },
-        // The run outlives the request that started it, so the page reads how it is going —
-        // quickly while it runs, and once more when it ends
+        // The run outlives the request that started it. The page reads where it stands, and
+        // while it runs follows its stream, line by line as apt says them, reading it once more
+        // when it ends. One waiting for its turn among several machines has no stream yet: it is
+        // asked about every second until it starts.
         apt_read: async function () {
             clearTimeout(this.apt_timer);
             try {
                 const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/upgrade`, {cache: 'no-store'});
                 if (answer.ok) {
-                    const before = this.apt.lines.length;
-                    this.apt = await answer.json();
-                    if (this.apt.lines.length !== before) {
-                        this.apt_scroll();
-                    }
+                    const run = await answer.json();
+                    // Lines the stream brought are not taken back by a read that has fewer
+                    this.apt = Object.assign(run, {lines: (this.apt_following === null) ? run.lines : this.apt.lines});
+                    this.apt_scroll();
                 }
             }
             catch {
                 // The next tick asks again; the header already says when serviceman is away
             }
+            if ((this.apt.phase === 'running') && (typeof this.apt.url === 'string')) {
+                this.apt_follow(this.apt.url);
+                return;
+            }
             if ((this.apt.phase === 'running') || (this.apt.phase === 'waiting')) {
                 this.apt_timer = setTimeout(() => this.apt_read(), 1000);
+            }
+        },
+        // The run's lines from its stream: every one it has said, then each as it comes
+        apt_follow: async function (url) {
+            if (this.apt_following === url) {
+                return;
+            }
+            this.apt_following = url;
+            const lines = [];
+            try {
+                const answer = await fetch(url, {cache: 'no-store', signal: this.apt_abort.signal});
+                if (answer.ok === false) {
+                    throw new Error(String(answer.status));
+                }
+                const reader = answer.body.getReader();
+                const decoder = new TextDecoder();
+                let held = '';
+                for (;;) {
+                    const part = await reader.read();
+                    if (part.done) {
+                        break;
+                    }
+                    held += decoder.decode(part.value, {stream: true});
+                    const said = held.split('\n');
+                    held = said.pop();
+                    for (const line of said.filter(v => v.trim() !== '')) {
+                        const item = JSON.parse(line);
+                        if (item.text !== undefined) {
+                            lines.push(item.text);
+                        }
+                    }
+                    this.apt.lines = lines.slice();
+                    this.apt_scroll();
+                }
+            }
+            catch {
+                // Gone with the page, or the stream with serviceman: where the run stands is read
+                // below either way
+            }
+            if (this.apt_following !== url) {
+                return;
+            }
+            this.apt_following = null;
+            if (this.apt_abort.signal.aborted === false) {
+                this.apt_read();
             }
         },
         // A log that grows under your eyes follows the last line, the way a terminal does
@@ -722,11 +775,12 @@ const remote_configure = {
         },
         apt_start: async function () {
             this.apt = {phase: 'running', lines: [], error: null};
+            let started;
             try {
                 const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/upgrade`, {method: 'POST'});
+                started = await answer.json();
                 if (answer.ok === false) {
-                    const outcome = await answer.json();
-                    this.apt = {phase: 'error', lines: [], error: outcome.error};
+                    this.apt = {phase: 'error', lines: [], error: started.error};
                     return;
                 }
             }
@@ -734,7 +788,7 @@ const remote_configure = {
                 this.apt = {phase: 'error', lines: [], error: 'the answer never came back'};
                 return;
             }
-            this.apt_read();
+            this.apt_follow(started.url);
         },
         apt_stop: async function () {
             this.cancelling = true;
@@ -790,6 +844,7 @@ const remote_configure = {
     unmounted: function () {
         this.shot_forget();
         clearTimeout(this.apt_timer);
+        this.apt_abort.abort();
     },
 };
 

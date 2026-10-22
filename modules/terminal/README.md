@@ -27,9 +27,10 @@ What it holds and does is written down in `server/terminal_manifest.js`, for a h
 give rights and show by: its kind of items and the commands on them, in
 [the shape every module has](../../README.md#modules).
 
-A host that keeps terminals on a machine, to be joined later, lists, makes, signals and ends
-them here, under the base it mounts it at — serviceman's is
-`/api/v1/remotes/<name>/terminals`. Each door is one call of the host's `call(method, params)`:
+A host that keeps terminals on a machine, to be joined later, lists, makes, signals, ends and
+joins them here, under the base it mounts it at — serviceman's is
+`/api/v1/remotes/<name>/terminals`. Each door but the join is one call of the host's
+`call(method, params)`:
 
 | Door | What it does |
 |---|---|
@@ -37,6 +38,7 @@ them here, under the base it mounts it at — serviceman's is
 | `POST <base>` `{name, cols, rows, env, cwd}` | `term_create`; no name is the first number no terminal has |
 | `POST <base>/<name>/signal` `{signal, to}` | `term_signal`: to its shell, or to what runs in front (`to: foreground`) |
 | `POST <base>/<name>/end` | `term_end`: the shell hung up, the terminal gone |
+| `POST <base>/<name>/join` | the host's `join(name)`: `{stream, url}`, a stream both ways, the WebSocket to open at `url`; 501 without one |
 
 - Only the fields a door takes go on to the call; `env` and `cwd` go as they came, for the host
   to judge.
@@ -82,6 +84,7 @@ The kept terminals' API, for a host that keeps them:
     await terminal_serve(req, res, {
         // term_list, term_create, term_signal, term_end -> what the machine answers
         call: (method, params) => ask_the_machine(method, params),
+        join: name => a_stream_to_join(name),           // -> {stream, url}; optional
         tail: '',                                       // the address after the base
     });
 
@@ -122,7 +125,10 @@ Ctrl-W, Ctrl-T and Ctrl-N too. Holding Esc leaves.
 - `src/main/src/routes/handle_control_request.js` sends `/api/v1/remotes/<name>/terminals…` to
   `terminal_serve`, after its own refusals: no such machine, not connected; its `call()` asks
   the agent, and refuses an agent from before what is asked, a name that is not one, and an
-  `env` or a `cwd` its shell would not take
+  `env` or a `cwd` its shell would not take; its `join()` is a stream kept for a minute, which
+  `handle_control_upgrade.js` joins once, for whoever asked, to the terminal
+- `src/main/public/remote_shell.js` asks for a join each time it joins a terminal, and gives
+  the component the stream's address
 - `src/main/src/routes/handle_control_upgrade.js` opens the far end for `/api/v1/shell`,
   `docker exec` for a service or a pty through the agent for a machine, and attaches it
 - `src/main/public/remote_shell.js` and `service_shell.js` are the two Shell tabs, each a

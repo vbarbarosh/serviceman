@@ -754,7 +754,11 @@ front (<code>to: &quot;foreground&quot;</code>; SIGINT there is Ctrl-C, SIGWINCH
 itself again).</p>
 <p><strong>End:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/end</code> hangs the shell up, as closing a
 terminal window does; whoever has it open sees it close. Typing <code>exit</code> in it does the same.</p>
-<p><strong>Join:</strong> a websocket on <code>/api/v1/shell?remote=&lt;remote&gt;&amp;term=&lt;name&gt;</code></p>
+<p><strong>Join:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/join</code> answers a stream that goes
+both ways, <code>{&quot;stream&quot;: &quot;s_…&quot;, &quot;url&quot;: &quot;/api/v1/streams/s_…&quot;}</code>; open a websocket at that <code>url</code>,
+with the same token, within a minute. A stream is joined once: ask again to join again. The
+older door, a websocket on <code>/api/v1/shell?remote=&lt;remote&gt;&amp;term=&lt;name&gt;</code>, joins the same way and
+stays.</p>
 <ul>
 <li>A name that is not running is made. Names are letters, digits, <code>-</code> and <code>_</code>.</li>
 <li>The first message is text, json: <code>{&quot;type&quot;: &quot;note&quot;, &quot;text&quot;: &quot;the terminal work on laptop: …&quot;, &quot;ok&quot;: true}</code>.</li>

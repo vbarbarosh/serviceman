@@ -65,9 +65,12 @@ whose containers do not say where they came from has no actions. A long action �
 update, a pull, a prune — answers as it goes, one JSON object a line: `{text}` for what it
 printed, `{step, steps, name}` for the step it is on, `{progress: {done, total, unit}}` for how
 far it is (a pull adds up its layers' bytes; a prune counts what it took, one at a time), and
-last `{end: done | failed, said}`. The page draws it as one panel: a spinner and the time so
-far, the step, a bar with its percent and the time left at the rate so far, and the log; every
-other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with `{error}`.
+last `{end: done | failed, said}`. A host that keeps streams (`stream` below) gets those lines
+in one, and the answer is at once `202 {stream, url}`: the action goes on when the page goes,
+and the page reads it at `url`; given `streams`, a page that opens finds one still running and
+shows it again from its first line. Without, the lines are the answer itself. The page draws it
+as one panel: a spinner and the time so far, the step, a bar with its percent and the time left
+at the rate so far, and the log; every other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with `{error}`.
 
 ## A container's files and shell
 
@@ -118,6 +121,8 @@ host's import map.
         run: argv => run_docker(argv),        // -> {ok, code, stdout, stderr}
         tail: '/containers',                  // the address after the base
         own: v => v.startsWith('serviceman-'), // containers someone else runs: shown, no actions
+        // optional: where a long action says its lines, kept by the host -> {id, url, write, end}
+        stream: title => a_stream_kept(title),
         log: function (event, fields) {
         },
     });
@@ -127,7 +132,10 @@ The page half: the host serves `ui/` and maps it, with Vue, in its import map:
     <link rel="stylesheet" href="/modules/docker/docker.css">
     import docker from 'docker/docker.js';
 
-    <docker base="/docker" :offline="false" :theme="theme" :files_base="v => '/docker/containers/' + v.id + '/fs'" :shell_url="v => '/shell?container=' + v.id"/>
+    <docker base="/docker" :offline="false" :theme="theme" :files_base="v => '/docker/containers/' + v.id + '/fs'" :shell_url="v => '/shell?container=' + v.id" streams="/streams"/>
+
+`streams`, optional, is where the host lists its streams, `GET streams?base=<base>` →
+`{items: [{title, url, started_at, ended_at}]}`.
 
 The host page gives the colours (`--panel`, `--line`, `--muted`) and the classes the module
 shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`, `muted`, `bad`,
@@ -139,10 +147,12 @@ shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`, `muted`, 
   `docker_serve`: `connect` is a stream through the link to the socket the agent reports
   (`docker_exec_connect`), `run` is the agent's docker command (`docker_shell`), and
   serviceman's own containers, `serviceman-…`, are shown without actions — their service
-  starts and stops them
+  starts and stops them; `stream` is one of serviceman's (`stream_open`), read at
+  `/api/v1/streams/<id>`
 - `/api/v1/remotes/<name>/docker/containers/<id>/fs…` is the File Manager's API over
   `container_disk`; `/api/v1/shell?remote=<name>&container=<id>` is a shell in it
 - `src/main/public/remote_docker.js` is the Docker tab of a machine, which wraps the component
+  and gives it `streams="/api/v1/streams"`
 - `src/main/public/index.html` loads the css and maps `docker/`; the control server serves
   `ui/` at `/modules/docker/`
 

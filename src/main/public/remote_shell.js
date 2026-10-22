@@ -44,7 +44,7 @@ const term_tabs = {
 // gone at once.
 const remote_shell = {
     template: `
-<terminal v-if="(url !== null)" id="detail" :key="(url + '#' + joins)" :url="url" :theme="theme" :restart="false" @ended="closed">
+<terminal v-if="(url !== null)" id="detail" :key="url" :url="url" :theme="theme" :restart="false" @ended="closed">
     <template #head>
         <div>
             <h1>{{ view.title || view.name }}</h1>
@@ -65,9 +65,10 @@ const remote_shell = {
     emits: ['terminal'],
     data: function () {
         // `pick` is the terminal shown; `made` are the ones this page opened that the list has
-        // not heard of yet; `gone` the ones it ended that the list may still name; `joins` counts
-        // the times the one shown was joined again after its link dropped
-        return {pick: null, made: [], gone: [], items: [], joins: 0, loaded: false, error: null};
+        // not heard of yet; `gone` the ones it ended that the list may still name; `url` the
+        // stream the one shown is joined through, and `joining` counts the joins asked for, so
+        // only the last one's answer is taken
+        return {pick: null, made: [], gone: [], items: [], url: null, joining: 0, loaded: false, error: null};
     },
     computed: {
         // Oldest first, so a new terminal takes the end of the row and nothing moves
@@ -88,18 +89,13 @@ const remote_shell = {
             const found = this.items.find(v => v.name === this.pick);
             return ((found === undefined) || (found.command === undefined)) ? undefined : [found.command];
         },
-        url: function () {
-            if (this.pick === null) {
-                return null;
-            }
-            return `/api/v1/shell?remote=${encodeURIComponent(this.view.name)}&term=${encodeURIComponent(this.pick)}`;
-        },
     },
     watch: {
         // The address follows the terminal shown; one the page opened by itself, or none left,
         // replaces it
         pick: function (next, prev) {
             this.$emit('terminal', {name: next, replace: (prev === null) || (next === null)});
+            this.join();
         },
     },
     methods: {
@@ -138,10 +134,38 @@ const remote_shell = {
                 await this.terminals_load();
             }
             if (this.items.some(v => v.name === name)) {
-                this.joins++;
+                this.join();
                 return;
             }
             this.ended(name);
+        },
+        // The terminal shown, joined through the stream its join answers: one stream a join, so
+        // it is asked for again each time the terminal is joined again. Joining a name that is
+        // not running makes it.
+        join: async function () {
+            const name = this.pick;
+            const asked = ++this.joining;
+            if (name === null) {
+                this.url = null;
+                return;
+            }
+            try {
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/terminals/${encodeURIComponent(name)}/join`, {method: 'POST'});
+                const body = await answer.json();
+                if (asked !== this.joining) {
+                    return;
+                }
+                if (answer.ok === false) {
+                    this.error = body.error;
+                    return;
+                }
+                this.url = body.url;
+            }
+            catch (error) {
+                if (asked === this.joining) {
+                    this.error = error.message;
+                }
+            }
         },
         // A terminal gone, by its × or by `exit` typed in it: its tab goes with it
         ended: function (name) {

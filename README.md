@@ -64,10 +64,19 @@ the host mounts it at; the kind is left out for the module's own:
     GET  <base>/<kind>/<command>        how a long one goes, for one that is kept (upgrade)
     POST <base>/<kind>/<id>/<command>   a command on one (start, stop, remove)
 
-What is neither, a stream or another module's API inside this one, the manifest names as a
-door. serviceman answers 404 for whatever a manifest does not name, before the module is
-asked; gives a token only the rights a manifest names, door by door; and answers every
-manifest, with where it is mounted, at `GET /api/v1/modules`.
+A long command answers a stream rather than waiting for its end: `{stream, url}`, and the
+stream is read at `GET /api/v1/streams/<id>`, one JSON object a line, from its first line,
+then as it goes, to its end. serviceman keeps it, so the command goes on when the page that
+asked closes, and a page that reloads reads it again from the start; `GET /api/v1/streams`
+lists the ones kept, ten minutes past their end. Docker's pull, update, recreate and prune and
+the package upgrade answer one. Joining a terminal is one that goes both ways: the WebSocket
+opens at its address, once, within a minute.
+
+What is neither an item nor a command, a file read or written, a folder watched, another
+module's API inside this one, the manifest names as a door. serviceman answers 404 for
+whatever a manifest does not name, before the module is asked; gives a token only the rights a
+manifest names, door by door; and answers every manifest, with where it is mounted, at
+`GET /api/v1/modules`.
 
 - [Disks](modules/disks/README.md) — the disks of a machine: the room and the inodes of every
   filesystem it has mounted

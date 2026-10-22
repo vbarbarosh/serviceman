@@ -42,6 +42,15 @@ const PROJECT_STEPS = {
     recreate: [['pull'], ['down'], ['up', '-d']],
 };
 
+// What a page calls each long action while it runs, and after a reload
+const PROJECT_TITLES = {update: 'update', recreate: 'down and up'};
+const PRUNE_TITLES = {
+    'images': 'Removing dangling images',
+    'images-all': 'Removing unused images',
+    'volumes': 'Removing unused volumes',
+    'networks': 'Removing unused networks',
+};
+
 // The labels compose puts on every container it makes
 const LABEL_PROJECT = 'com.docker.compose.project';
 const LABEL_SERVICE = 'com.docker.compose.service';
@@ -53,8 +62,10 @@ const LABEL_FILES = 'com.docker.compose.project.config_files';
 // runs its docker command — {ok, code, stdout, stderr} — for what only the command does, which
 // is compose. Only the calls below go through; the engine itself is never handed out.
 //
-//     options = {connect, run, tail, log, own}
-//     own(name)   a container someone else runs, shown without actions
+//     options = {connect, run, tail, log, own, stream}
+//     own(name)       a container someone else runs, shown without actions
+//     stream(title)   a stream the host keeps, {id, url, write(value), end(value)}: where a
+//                     long action says what it does; without one it says it in its answer
 async function docker_serve(req, res, options)
 {
     const url = new URL(req.url, 'http://docker.invalid');
@@ -64,6 +75,7 @@ async function docker_serve(req, res, options)
         run: options.run,
         log: (options.log === undefined) ? function () {} : options.log,
         own: (options.own === undefined) ? own_none : options.own,
+        stream: options.stream,
     };
     // GET <base>/containers
     if ((tail === '/containers') && (req.method === 'GET')) {
@@ -374,16 +386,16 @@ async function store_prune(ctx, res, kind, all)
         send_json(res, 502, {error: error.message});
         return;
     }
-    progress_begin(res);
+    const progress = progress_begin(ctx, res, PRUNE_TITLES[all ? `${kind}-all` : kind]);
     // Nothing to take is said as that, with no bar to stand at nought
     if (found.length === 0) {
-        progress_end(res, 'done', PRUNE_NOTHING[kind]);
+        progress_end(progress, 'done', PRUNE_NOTHING[kind]);
         return;
     }
     const total_bytes = found.reduce((sum, v) => sum + v.size, 0);
     let removed = 0;
     let freed = 0;
-    progress_say(res, {progress: {done: 0, total: found.length, bytes: 0, total_bytes, unit: 'items'}});
+    progress_say(progress, {progress: {done: 0, total: found.length, bytes: 0, total_bytes, unit: 'items'}});
     for (let i = 0; i < found.length; i++) {
         const item = found[i];
         let answer;
@@ -396,16 +408,16 @@ async function store_prune(ctx, res, kind, all)
         if ((answer.status === 200) || (answer.status === 204)) {
             removed++;
             freed += item.size;
-            progress_say(res, {text: `removed ${item.label}${(item.size > 0) ? ` (${bytes_text(item.size)})` : ''}`});
+            progress_say(progress, {text: `removed ${item.label}${(item.size > 0) ? ` (${bytes_text(item.size)})` : ''}`});
         }
         else {
-            progress_say(res, {text: `kept ${item.label}: ${engine_said(answer)}`});
+            progress_say(progress, {text: `kept ${item.label}: ${engine_said(answer)}`});
         }
-        progress_say(res, {progress: {done: i + 1, total: found.length, bytes: freed, total_bytes, unit: 'items'}});
+        progress_say(progress, {progress: {done: i + 1, total: found.length, bytes: freed, total_bytes, unit: 'items'}});
     }
     ctx.log(`docker_${kind}_pruned`, {removed, reclaimed: freed});
     // Images share layers, so their sizes added up say the most that was freed, not exactly that
-    progress_end(res, 'done', `removed ${removed} of ${found.length}${(freed > 0) ? `, up to ${bytes_text(freed)} freed` : ''}`);
+    progress_end(progress, 'done', `removed ${removed} of ${found.length}${(freed > 0) ? `, up to ${bytes_text(freed)} freed` : ''}`);
 }
 
 // What a prune would take: each with its address for the engine, a name to say, its size
@@ -449,8 +461,8 @@ async function image_pull(ctx, res, id)
     const at = tag.lastIndexOf(':');
     const repo = (at > tag.lastIndexOf('/')) ? tag.slice(0, at) : tag;
     const version = (at > tag.lastIndexOf('/')) ? tag.slice(at + 1) : 'latest';
-    progress_begin(res);
-    progress_say(res, {text: `$ docker pull ${tag}`});
+    const progress = progress_begin(ctx, res, `pull ${tag}`);
+    progress_say(progress, {text: `$ docker pull ${tag}`});
     ctx.log('docker_image_pull_begin', {image: tag});
     let failed = null;
     // Each layer's bytes, done of total, added up into one number for the whole image
@@ -465,14 +477,14 @@ async function image_pull(ctx, res, id)
             const lines = held.split('\n');
             held = lines.pop();
             for (const line of lines) {
-                failed = (failed === null) ? pull_line(res, said, layers, line) : failed;
+                failed = (failed === null) ? pull_line(progress, said, layers, line) : failed;
             }
             if (Date.now() - said_at > PROGRESS_EVERY_MS) {
                 said_at = Date.now();
-                pull_progress(res, layers);
+                pull_progress(progress, layers);
             }
         }
-        failed = (failed === null) ? pull_line(res, said, layers, held) : failed;
+        failed = (failed === null) ? pull_line(progress, said, layers, held) : failed;
         if ((pulled.statusCode !== 200) && (failed === null)) {
             failed = `docker answered ${pulled.statusCode}`;
         }
@@ -481,27 +493,27 @@ async function image_pull(ctx, res, id)
         failed = error.message;
     }
     if (failed !== null) {
-        progress_end(res, 'failed', failed);
+        progress_end(progress, 'failed', failed);
         ctx.log('docker_image_pull_end_error', {image: tag, reason: failed});
         return;
     }
-    pull_progress(res, layers);
-    progress_end(res, 'done', `${tag} is the newest there is`);
+    pull_progress(progress, layers);
+    progress_end(progress, 'done', `${tag} is the newest there is`);
     ctx.log('docker_image_pull_end_ok', {image: tag});
 }
 
 // The whole image's bytes so far, from what every layer said last
-function pull_progress(res, layers)
+function pull_progress(progress, layers)
 {
     const all = Object.values(layers).filter(v => v.total > 0);
     if (all.length > 0) {
-        progress_say(res, {progress: {done: all.reduce((sum, v) => sum + Math.min(v.current, v.total), 0), total: all.reduce((sum, v) => sum + v.total, 0), unit: 'bytes'}});
+        progress_say(progress, {progress: {done: all.reduce((sum, v) => sum + Math.min(v.current, v.total), 0), total: all.reduce((sum, v) => sum + v.total, 0), unit: 'bytes'}});
     }
 }
 
 // One line of the engine's pull progress: a layer's bytes kept for the sum, a line said when the
 // layer says something new; an error is returned to end the pull with
-function pull_line(res, said, layers, line)
+function pull_line(progress, said, layers, line)
 {
     if (line.trim() === '') {
         return null;
@@ -512,7 +524,7 @@ function pull_line(res, said, layers, line)
     }
     catch {
         // Podman writes some of its progress as plain text
-        progress_say(res, {text: line});
+        progress_say(progress, {text: line});
         return null;
     }
     if (item.error) {
@@ -530,7 +542,7 @@ function pull_line(res, said, layers, line)
         return null;
     }
     said[key] = text;
-    progress_say(res, {text: `${(key === '') ? '' : `${key}: `}${text}`});
+    progress_say(progress, {text: `${(key === '') ? '' : `${key}: `}${text}`});
     return null;
 }
 
@@ -588,12 +600,12 @@ async function project_do(ctx, res, project, action)
         send_json(res, 404, {error: `no container says it is of compose project ${project}, with the folder it came from`});
         return;
     }
-    progress_begin(res);
+    const progress = progress_begin(ctx, res, `${project} · ${PROJECT_TITLES[action]}`);
     ctx.log('docker_project_begin', {project, action});
     const steps = PROJECT_STEPS[action];
     for (let i = 0; i < steps.length; i++) {
         const argv = ['compose', '-p', project].concat(found.files.flatMap(v => ['-f', v]), steps[i]);
-        progress_say(res, {step: i + 1, steps: steps.length, name: steps[i].join(' '), text: `$ docker ${argv.join(' ')}`});
+        progress_say(progress, {step: i + 1, steps: steps.length, name: steps[i].join(' '), text: `$ docker ${argv.join(' ')}`});
         let answer;
         try {
             answer = await ctx.run(argv);
@@ -603,15 +615,15 @@ async function project_do(ctx, res, project, action)
         }
         const printed = `${answer.stdout}${answer.stderr}`.replace(/\n$/, '');
         if (printed !== '') {
-            progress_say(res, {text: printed});
+            progress_say(progress, {text: printed});
         }
         if (answer.ok === false) {
-            progress_end(res, 'failed', `${steps[i].join(' ')} failed${((answer.code === null) || (answer.code === undefined)) ? '' : ` with code ${answer.code}`}`);
+            progress_end(progress, 'failed', `${steps[i].join(' ')} failed${((answer.code === null) || (answer.code === undefined)) ? '' : ` with code ${answer.code}`}`);
             ctx.log('docker_project_end_error', {project, action, step: steps[i].join(' ')});
             return;
         }
     }
-    progress_end(res, 'done', `${project}: ${steps.map(v => v.join(' ')).join(', then ')}`);
+    progress_end(progress, 'done', `${project}: ${steps.map(v => v.join(' ')).join(', then ')}`);
     ctx.log('docker_project_end_ok', {project, action});
 }
 
@@ -637,20 +649,31 @@ async function project_find(ctx, project)
 
 // A long action answers as it goes, one JSON object a line: {text} for what it printed,
 // {progress: {done, total, unit}} for how far it is, {step, steps, name} for which step it is
-// on, and last {end: done | failed, said}
-function progress_begin(res)
+// on, and last {end: done | failed, said}. A host that keeps streams gets them in one, and the
+// answer is its id at once, {stream, url}: the action goes on when the page that asked goes
+// away, and the page reads it there again. Without, the lines are the answer itself.
+function progress_begin(ctx, res, title)
 {
-    res.writeHead(200, {'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff'});
+    if (ctx.stream === undefined) {
+        res.writeHead(200, {'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff'});
+        return {
+            write: v => res.write(`${JSON.stringify(v)}\n`),
+            end: v => res.end(`${JSON.stringify(v)}\n`),
+        };
+    }
+    const stream = ctx.stream(title);
+    send_json(res, 202, {stream: stream.id, url: stream.url});
+    return stream;
 }
 
-function progress_say(res, value)
+function progress_say(progress, value)
 {
-    res.write(`${JSON.stringify(value)}\n`);
+    progress.write(value);
 }
 
-function progress_end(res, outcome, said)
+function progress_end(progress, outcome, said)
 {
-    res.end(`${JSON.stringify({end: outcome, said})}\n`);
+    progress.end({end: outcome, said});
 }
 
 function bytes_text(bytes)

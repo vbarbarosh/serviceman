@@ -14,6 +14,7 @@ const log_group_from = require('../helpers/log_group_from');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
 const remote_from_instance = require('../helpers/remote_from_instance');
+const streams_of = require('../helpers/streams_of');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const terminal_attach = require('../../../../modules/terminal/server/terminal_attach');
 const terminal_refuse = require('../../../../modules/terminal/server/terminal_refuse');
@@ -22,11 +23,13 @@ const ws = require('ws');
 
 const REMOTE_PATH = '/api/v1/remote';
 const SHELL_PATH = '/api/v1/shell';
+const RE_STREAM = /^\/api\/v1\/streams\/([^/]+)$/;
 
 const sockets = new ws.WebSocketServer({noServer: true});
 
-// The two long-lived doors of the control port: a shell pane into a container or a machine,
-// through the Terminal module, and the link an agent on another machine dials in on
+// The long-lived doors of the control port: a shell pane into a container or a machine,
+// through the Terminal module; a stream that goes both ways, a terminal's join, at the address
+// its command answered; and the link an agent on another machine dials in on
 function handle_control_upgrade(app, req, socket, head)
 {
     const url = new URL(req.url, 'http://serviceman.invalid');
@@ -34,7 +37,8 @@ function handle_control_upgrade(app, req, socket, head)
         handle_remote_upgrade(app, req, socket, head);
         return;
     }
-    if (url.pathname !== SHELL_PATH) {
+    const stream_asked = RE_STREAM.exec(url.pathname);
+    if ((url.pathname !== SHELL_PATH) && (stream_asked === null)) {
         socket.destroy();
         return;
     }
@@ -55,7 +59,8 @@ function handle_control_upgrade(app, req, socket, head)
     // A shell is the owner's, and a kept terminal of a machine also an agent's whose token has
     // the terminals right on that machine
     const caller = control_caller(app, req);
-    const refused = shell_refusal(caller, url);
+    const joined = (stream_asked === null) ? null : stream_join(app, caller, stream_asked[1]);
+    const refused = (joined === null) ? shell_refusal(caller, url) : joined.refused;
     if (refused !== null) {
         log_group_from(socket.log_group, function () {
             log_event(app, 'shell_refused', {from: socket.remoteAddress, token: ((caller === null) || caller.owner) ? null : caller.token.label, reason: refused});
@@ -66,7 +71,7 @@ function handle_control_upgrade(app, req, socket, head)
     if (caller.owner === false) {
         caller.token.used_at = new Date().toISOString();
         log_group_from(socket.log_group, function () {
-            log_event(app, 'control_token_used', {token: caller.token.label, method: 'GET', path: `/api/v1/shell?remote=${url.searchParams.get('remote')}&term=${url.searchParams.get('term')}`});
+            log_event(app, 'control_token_used', {token: caller.token.label, method: 'GET', path: (joined === null) ? `/api/v1/shell?remote=${url.searchParams.get('remote')}&term=${url.searchParams.get('term')}` : url.pathname});
         });
     }
     if (app.config.control.shell === false) {
@@ -78,7 +83,10 @@ function handle_control_upgrade(app, req, socket, head)
             const machine = url.searchParams.get('remote');
             const container = url.searchParams.get('container');
             let promise;
-            if (machine === null) {
+            if (joined !== null) {
+                promise = machine_join(app, client, joined.join.remote, joined.join.term);
+            }
+            else if (machine === null) {
                 promise = shell_join(app, client, url.searchParams.get('service'), parseInt(url.searchParams.get('slot') || '1', 10));
             }
             else if (container === null) {
@@ -107,6 +115,26 @@ function shell_refusal(caller, url)
     const remote = url.searchParams.get('remote');
     const kept = (remote !== null) && (url.searchParams.get('term') !== null) && (url.searchParams.get('container') === null) && (url.searchParams.get('service') === null);
     return control_token_refusal(kept ? {right: 'terminals', said: 'use the terminals', remote} : null, caller.token);
+}
+
+// The terminal a stream joins, taken from it once, or why this caller may not: no token, a
+// stream never made, joined already or gone a minute later, or one an agent's token made for
+// another, or whose right to the terminals it has lost since
+function stream_join(app, caller, id)
+{
+    if (caller === null) {
+        return {refused: 'no_token', join: null};
+    }
+    const stream = streams_of(app).get(id);
+    if ((stream === undefined) || (stream.kind !== 'both')) {
+        return {refused: 'no_such_stream', join: null};
+    }
+    if ((caller.owner === false) && (stream.token !== caller.token.id)) {
+        return {refused: 'not_its_stream', join: null};
+    }
+    const join = stream.take();
+    const refused = caller.owner ? null : control_token_refusal({right: 'terminals', said: 'use the terminals', remote: join.remote}, caller.token);
+    return {refused, join};
 }
 
 // GET /api/v1/shell (query)

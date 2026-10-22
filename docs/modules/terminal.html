@@ -735,9 +735,10 @@ tests/                      the server half with a fake socket and stream
 <p>What it holds and does is written down in <code>server/terminal_manifest.js</code>, for a host to route,
 give rights and show by: its kind of items and the commands on them, in
 <a href="../index.html#modules">the shape every module has</a>.</p>
-<p>A host that keeps terminals on a machine, to be joined later, lists, makes, signals and ends
-them here, under the base it mounts it at — serviceman&#39;s is
-<code>/api/v1/remotes/&lt;name&gt;/terminals</code>. Each door is one call of the host&#39;s <code>call(method, params)</code>:</p>
+<p>A host that keeps terminals on a machine, to be joined later, lists, makes, signals, ends and
+joins them here, under the base it mounts it at — serviceman&#39;s is
+<code>/api/v1/remotes/&lt;name&gt;/terminals</code>. Each door but the join is one call of the host&#39;s
+<code>call(method, params)</code>:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -760,6 +761,10 @@ them here, under the base it mounts it at — serviceman&#39;s is
 <tr>
 <td><code>POST &lt;base&gt;/&lt;name&gt;/end</code></td>
 <td><code>term_end</code>: the shell hung up, the terminal gone</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/&lt;name&gt;/join</code></td>
+<td>the host&#39;s <code>join(name)</code>: <code>{stream, url}</code>, a stream both ways, the WebSocket to open at <code>url</code>; 501 without one</td>
 </tr>
 </tbody></table>
 </div>
@@ -824,6 +829,7 @@ terminal_refuse(client, &#39;box is not connected&#39;);
 await terminal_serve(req, res, {
     // term_list, term_create, term_signal, term_end -&gt; what the machine answers
     call: (method, params) =&gt; ask_the_machine(method, params),
+    join: name =&gt; a_stream_to_join(name),           // -&gt; {stream, url}; optional
     tail: &#39;&#39;,                                       // the address after the base
 });
 </code></pre>
@@ -876,7 +882,10 @@ Ctrl-W, Ctrl-T and Ctrl-N too. Holding Esc leaves.</p>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/terminals…</code> to
 <code>terminal_serve</code>, after its own refusals: no such machine, not connected; its <code>call()</code> asks
 the agent, and refuses an agent from before what is asked, a name that is not one, and an
-<code>env</code> or a <code>cwd</code> its shell would not take</li>
+<code>env</code> or a <code>cwd</code> its shell would not take; its <code>join()</code> is a stream kept for a minute, which
+<code>handle_control_upgrade.js</code> joins once, for whoever asked, to the terminal</li>
+<li><code>src/main/public/remote_shell.js</code> asks for a join each time it joins a terminal, and gives
+the component the stream&#39;s address</li>
 <li><code>src/main/src/routes/handle_control_upgrade.js</code> opens the far end for <code>/api/v1/shell</code>,
 <code>docker exec</code> for a service or a pty through the agent for a machine, and attaches it</li>
 <li><code>src/main/public/remote_shell.js</code> and <code>service_shell.js</code> are the two Shell tabs, each a

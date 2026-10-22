@@ -1138,11 +1138,20 @@ test('the Docker tab lists a machine\'s containers, starts and stops one, opens 
         const odd = await shell_talk(running.control_port, null, [], 'remote=vps1&container=nope');
         assert.match(odd.notes[0], /is not a container id/);
 
-        // compose runs as the machine's docker command, in the project's own folder
+        // compose runs as the machine's docker command, in the project's own folder; the answer
+        // is a stream serviceman keeps, read at its own address, from the start, to the end
         const update = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/remotes/vps1/docker/projects/shop/update', method: 'POST'});
-        assert.strictEqual(update.status, 200);
-        const steps = update.body.trim().split('\n').map(v => JSON.parse(v));
+        assert.strictEqual(update.status, 202);
+        const started = JSON.parse(update.body);
+        assert.strictEqual(started.url, `/api/v1/streams/${started.stream}`);
+        const read = await fetch_host({port: running.control_port, host: '127.0.0.1', path: started.url});
+        assert.strictEqual(read.status, 200);
+        const steps = read.body.trim().split('\n').map(v => JSON.parse(v));
         assert.deepStrictEqual(steps.map(v => v.text || v.end), ['$ docker compose -p shop -f /srv/shop/compose.yml pull', 'compose pull', '$ docker compose -p shop -f /srv/shop/compose.yml up -d', 'compose -d', 'done']);
+        const again = await fetch_host({port: running.control_port, host: '127.0.0.1', path: started.url});
+        assert.strictEqual(again.body, read.body, 'read again once it ended, it is the same from the start');
+        const listed_streams = JSON.parse((await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/streams?base=%2Fapi%2Fv1%2Fremotes%2Fvps1%2Fdocker'})).body).items;
+        assert.deepStrictEqual(listed_streams.map(v => [v.id, v.title, v.state]), [[started.stream, 'shop · update', 'done']]);
         assert.strictEqual(running.app.log_lines.some(v => /\[docker_project_end_ok\] remote=vps1 project=shop action=update/.test(v)), true);
     }
     finally {

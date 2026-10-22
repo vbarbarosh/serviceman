@@ -8,6 +8,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
+const stream_open = require('../src/main/src/helpers/stream_open');
 const test = require('node:test');
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -177,6 +178,39 @@ test('a token with terminals uses the kept terminals of its machines and opens n
     assert.deepStrictEqual([other.status, JSON.parse(other.body).error], [403, 'the token "the notes app" may not see vps2']);
     const status = await call(running, 'GET', '/api/v1/status', null, terminals.token);
     assert.deepStrictEqual([status.status, JSON.parse(status.body).error], [403, 'the token "the notes app" may not read the status']);
+});
+
+test('a terminal is joined once, through the stream its join answers, by whoever asked for it', async function (t) {
+    const running = await serviceman_start(t);
+    const notes = await token_make(running, {label: 'the notes app', remotes: ['vps1'], rights: ['terminals']});
+    const other = await token_make(running, {label: 'another app', remotes: ['vps1'], rights: ['terminals']});
+    function join_of(token) {
+        return stream_open(running.app, {title: 'the terminal work on vps1', base: '/api/v1/remotes/vps1/terminals', command: 'join', item: 'work', token, join: {remote: 'vps1', term: 'work'}});
+    }
+
+    // Its own, once; another's token neither joins it nor uses it up
+    const own = join_of(notes.item.id);
+    assert.strictEqual(await shell_answer(running, other.token, own.url), 'closed');
+    assert.strictEqual(await shell_answer(running, null, own.url), 'closed');
+    assert.match(await shell_answer(running, notes.token, own.url), /^HTTP\/1.1 101/);
+    assert.strictEqual(await shell_answer(running, notes.token, own.url), 'closed', 'a stream is joined once');
+    assert.strictEqual(await shell_answer(running, running.owner, '/api/v1/streams/s_nope'), 'closed');
+    assert.match(await shell_answer(running, running.owner, join_of(null).url), /^HTTP\/1.1 101/);
+    assert.strictEqual(running.app.log_lines.some(v => /\[shell_refused\] .*token="another app" reason=not_its_stream/.test(v)), true);
+
+    // One both ways is not read as lines; streams are the owner's to list and read
+    const both = join_of(null);
+    const read = await call(running, 'GET', both.url, null, running.owner);
+    assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [400, 'this stream goes both ways: it is joined over a WebSocket at this address']);
+    for (const asked of ['/api/v1/streams', both.url]) {
+        const refused = await call(running, 'GET', asked, null, notes.token);
+        assert.strictEqual(refused.status, 403, asked);
+    }
+
+    // The join is a command of the Terminal module, under the terminals right: the machine is
+    // away here, which is the answer
+    const joined = await call(running, 'POST', '/api/v1/remotes/vps1/terminals/work/join', null, notes.token);
+    assert.deepStrictEqual([joined.status, JSON.parse(joined.body).error], [409, 'vps1 is not connected']);
 });
 
 // A serviceman of its own state dir, so its owner's token and tokens are this test's alone

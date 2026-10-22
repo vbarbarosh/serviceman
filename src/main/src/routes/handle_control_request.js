@@ -65,6 +65,9 @@ const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
+const stream_open = require('../helpers/stream_open');
+const stream_read = require('../helpers/stream_read');
+const streams_of = require('../helpers/streams_of');
 const term_create_refusal = require('../../../helpers/term_create_refusal');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const terminal_serve = require('../../../../modules/terminal/server/terminal_serve');
@@ -97,6 +100,7 @@ const RE_REMOTE_VOLUMES = /^\/api\/v1\/remotes\/([^/]+)\/volumes(\/.*)?$/;
 const RE_TRANSFERS = /^\/api\/v1\/transfers(\/.*)?$/;
 // The Processes, Disks and Packages modules' APIs, one machine's under each
 const RE_REMOTE_PROCESSES = /^\/api\/v1\/remotes\/([^/]+)\/processes(\/.*)?$/;
+const RE_STREAM = /^\/api\/v1\/streams\/([^/]+)$/;
 const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals(\/.*)?$/;
 const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
 const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
@@ -237,6 +241,15 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/modules') && (req.method === 'GET')) {
         modules_send(res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/streams') && (req.method === 'GET')) {
+        streams_send(app, res, url.searchParams.get('base'));
+        return;
+    }
+    const stream_asked = RE_STREAM.exec(url.pathname);
+    if ((stream_asked !== null) && (req.method === 'GET')) {
+        stream_send(app, res, stream_asked[1]);
         return;
     }
     if ((url.pathname === '/api/v1/config') && (req.method === 'GET')) {
@@ -554,6 +567,32 @@ function modules_send(res)
     send_json(res, 200, {modules: module_mount_of.MODULE_MOUNTS.map(v => Object.assign({base: v.base}, v.manifest))});
 }
 
+// GET /api/v1/streams (query: base)
+// The streams of lines kept now, running or ended a little while ago; with `base`, those of one
+// module of one machine, which is how its page finds again what it was showing after a reload
+function streams_send(app, res, base)
+{
+    const items = Array.from(streams_of(app).values()).filter(v => (v.kind === 'lines') && ((base === null) || (v.base === base)));
+    send_json(res, 200, {items: items.map(v => ({id: v.id, url: v.url, title: v.title, base: v.base, command: v.command, item: v.item, started_at: v.started_at, ended_at: v.ended_at, state: v.state}))});
+}
+
+// GET /api/v1/streams/<id>
+// One stream, from its first line kept, then as it goes; one that goes both ways is joined
+// over a WebSocket at this address instead (handle_control_upgrade)
+function stream_send(app, res, id)
+{
+    const stream = streams_of(app).get(id);
+    if (stream === undefined) {
+        send_json(res, 404, {error: `no stream ${id}: it ended over ten minutes ago, or serviceman restarted since`});
+        return;
+    }
+    if (stream.kind === 'both') {
+        send_json(res, 400, {error: 'this stream goes both ways: it is joined over a WebSocket at this address'});
+        return;
+    }
+    stream_read(stream, res);
+}
+
 // GET /api/v1/remotes/<name>/ports
 // What that machine is listening on, read when asked and kept nowhere: the agent runs ss over
 // there as its own user, and what comes back is what that user may see.
@@ -726,6 +765,7 @@ async function handle_docker(app, req, res, name, tail)
     await docker_serve(req, res, {
         connect,
         run: v => docker_shell(app, remote, v),
+        stream: v => stream_open(app, {title: v, base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/docker`}),
         tail,
         own: v => v.startsWith('serviceman-'),
         log: function (event, fields) {
@@ -851,7 +891,8 @@ async function handle_packages(app, req, res, name, tail)
             apt_run(app, remote).catch(function (error) {
                 log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
             });
-            return {started: true};
+            // The run is set before its first wait: its stream is known already
+            return {started: true, stream: remote.state.apt.stream, url: remote.state.apt.url};
         },
         run: () => remote.state.apt,
         cancel: function () {
@@ -1111,6 +1152,7 @@ async function handle_terminals(app, req, res, name, tail)
     }
     await terminal_serve(req, res, {
         call: (method, params) => terminal_call(app, remote, method, params),
+        join: v => terminal_join(app, req, remote, v),
         tail,
     });
 }
@@ -1150,6 +1192,28 @@ async function terminal_call(app, remote, method, params)
     }
     log_event(app, 'terminal_call', {remote: remote.name, method, term: asked.name});
     return answer;
+}
+
+// Joining a terminal is a stream that goes both ways: made here, and joined once, within a
+// minute, by a WebSocket at its address (handle_control_upgrade), by whoever asked for it
+function terminal_join(app, req, remote, name)
+{
+    if ((remote_can(remote, 'term_list') === false) || (remote_can(remote, 'term_signal') === false)) {
+        throw status_error(400, `the agent on ${remote.name} is from before kept terminals — its page says how it updates`);
+    }
+    if (term_name_valid(name) === false) {
+        throw status_error(400, `a terminal name is letters, digits, - and _, at most 64 of them: ${JSON.stringify(name)}`);
+    }
+    const token = req.control_token;
+    const stream = stream_open(app, {
+        title: `the terminal ${name} on ${remote.name}`,
+        base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/terminals`,
+        command: 'join',
+        item: name,
+        token: (token === undefined) ? null : token.id,
+        join: {remote: remote.name, term: name},
+    });
+    return {stream: stream.id, url: stream.url};
 }
 
 function status_error(status, message)

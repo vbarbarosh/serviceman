@@ -1,6 +1,6 @@
 // What the Terminal module holds and does, for its host to route, check and show: one kind, the
-// kept terminals of the machine, made, signalled and ended. Joining one is the WebSocket of
-// terminal_attach, not a door of this API.
+// kept terminals of the machine, made, signalled, ended and joined. Joining one answers a
+// stream that goes both ways, opened as a WebSocket where the answer says.
 const RIGHT = {right: 'terminals', said: 'use the terminals'};
 
 const terminal_manifest = {
@@ -17,6 +17,7 @@ const terminal_manifest = {
                 {command: 'create', on: 'kind', said: 'make one, named or the next free number', body: ['name', 'cols', 'rows', 'env', 'cwd'], right: RIGHT},
                 {command: 'signal', on: 'item', said: 'send a signal to its shell, or to what runs in front', body: ['signal', 'to'], right: RIGHT},
                 {command: 'end', on: 'item', said: 'hang up its shell; the terminal is gone', danger: true, right: RIGHT},
+                {command: 'join', on: 'item', said: 'join it, made if it is not running: a stream both ways, for a WebSocket', answer: 'stream', right: RIGHT},
             ],
         },
     ],

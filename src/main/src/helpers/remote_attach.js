@@ -223,7 +223,7 @@ function remote_said(app, remote, message)
         remote.state.update_refused = words.reason;
     }
     if ((message.service === apt_lane) && (text !== null)) {
-        apt_said(remote, text);
+        apt_said(app, remote, text);
         return;
     }
     if ((typeof message.service === 'string') && message.service.startsWith(k6_lane) && (text !== null)) {

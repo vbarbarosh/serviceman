@@ -7,7 +7,7 @@ const remote_docker = {
 <article v-if="(view.machine === null)" id="detail" class="list">
     <p class="muted">This machine has not connected since serviceman last started, so whether it has docker is not known yet.</p>
 </article>
-<docker v-else id="detail" class="list" :base="base" :offline="(view.phase !== 'online')" :theme="theme" :files_base="files_base" :shell_url="shell_url"/>
+<docker v-else id="detail" class="list" :base="base" :offline="(view.phase !== 'online')" :theme="theme" :files_base="files_base" :shell_url="shell_url" streams="/api/v1/streams"/>
 `,
     components: {docker},
     props: ['view', 'theme'],

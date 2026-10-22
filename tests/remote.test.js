@@ -575,6 +575,14 @@ test('the updates of a machine are installed on a press, said line by line, and 
         assert.strictEqual(read.body.phase, 'cancelled');
         assert.strictEqual(read.body.lines.length, remote.state.apt.lines.length);
 
+        // Its stream says the same lines, and how it ended, for a page that follows it
+        assert.strictEqual(began.body.url, `/api/v1/streams/${began.body.stream}`);
+        assert.strictEqual(read.body.url, began.body.url);
+        const streamed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: began.body.url});
+        const said = streamed.body.trim().split('\n').map(v => JSON.parse(v));
+        assert.deepStrictEqual(said.slice(0, -1).map(v => v.text), remote.state.apt.lines);
+        assert.strictEqual(said[said.length - 1].end, 'cancelled');
+
         // What is waiting is counted from apt when a run ends, not read from the file ubuntu
         // writes once a day — and the machine is asked for it at once, not in half a minute
         await wait_until(() => (remote.state.stats.updates !== null) && (remote.state.stats.updates.pending === 2), 10000);

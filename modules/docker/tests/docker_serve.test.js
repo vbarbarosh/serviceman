@@ -321,3 +321,35 @@ function said(body)
 {
     return body.trim().split('\n').map(v => JSON.parse(v));
 }
+
+test('a host that keeps streams gets a long action\'s lines in one, and the answer is where it is', async function (t) {
+    const engine = await engine_start(t);
+    const streams = [];
+    const running = await serve(t, {
+        connect: () => net.connect(engine.socket),
+        run: async v => ({ok: true, code: 0, stdout: `ran ${v[v.length - 1]}\n`, stderr: ''}),
+        stream: function (title) {
+            const out = {id: `s${streams.length + 1}`, url: `/streams/s${streams.length + 1}`, title, lines: [], ended: null};
+            out.write = function (value) {
+                out.lines.push(value);
+            };
+            out.end = function (value) {
+                out.ended = value;
+            };
+            streams.push(out);
+            return out;
+        },
+    });
+    const update = await call(running, 'POST', '/docker/projects/shop/update');
+    assert.deepStrictEqual([update.status, JSON.parse(update.body)], [202, {stream: 's1', url: '/streams/s1'}]);
+    for (let i = 0; (i < 100) && (streams[0].ended === null); i++) {
+        await new Promise(v => setTimeout(v, 10));
+    }
+    assert.strictEqual(streams[0].title, 'shop · update');
+    assert.deepStrictEqual(streams[0].lines.map(v => v.text), ['$ docker compose -p shop -f /srv/shop/compose.yml -f /srv/shop/compose.prod.yml pull', 'ran pull', '$ docker compose -p shop -f /srv/shop/compose.yml -f /srv/shop/compose.prod.yml up -d', 'ran -d']);
+    assert.deepStrictEqual(streams[0].ended, {end: 'done', said: 'shop: pull, then up -d'});
+
+    // What is refused before it begins is still a plain answer, and no stream
+    assert.strictEqual((await call(running, 'POST', '/docker/projects/nowhere/update')).status, 404);
+    assert.strictEqual(streams.length, 1);
+});

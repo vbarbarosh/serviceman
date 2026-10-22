@@ -6,7 +6,7 @@
 //     GET  <base>[/<kind>]                  the kind read: its items, or the thing itself
 //     POST <base>[/<kind>]                  an item made: the command create
 //     POST <base>[/<kind>]/<command>        a command on all of the kind
-//     GET  <base>[/<kind>]/<command>        how a long command's run goes (answer: run)
+//     GET  <base>[/<kind>]/<command>        how a long command's run goes (run: true)
 //     POST <base>[/<kind>]/<id>/<command>   a command on one item
 //
 // The kind is left out for the module's own one, kind ''. HEAD is taken as GET. The answer is
@@ -49,7 +49,7 @@ function module_route(manifest, method, tail)
         if ((command !== undefined) && (verb === 'POST')) {
             return route_found(manifest, kind, null, command.command, null, command.right);
         }
-        if ((command !== undefined) && (verb === 'GET') && (command.answer === 'run')) {
+        if ((command !== undefined) && (verb === 'GET') && (command.run === true)) {
             return route_found(manifest, kind, null, 'run', null, command.right);
         }
         return null;

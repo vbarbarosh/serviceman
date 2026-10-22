@@ -164,7 +164,9 @@ const docker = {
     // theme       light or dark, for the File Manager's editor and the Terminal
     // files_base  container -> where the File Manager's API for its files is; none, no Files
     // shell_url   container -> the websocket of a shell in it; none, no Shell
-    props: ['base', 'offline', 'theme', 'files_base', 'shell_url'],
+    // streams     where the host lists the streams it keeps, GET streams?base=…: a long action
+    //             still running is shown again when the page opens; none, it is not looked for
+    props: ['base', 'offline', 'theme', 'files_base', 'shell_url', 'streams'],
     data: function () {
         return {
             TABS,
@@ -356,47 +358,93 @@ const docker = {
         },
         // A command on the machine whose answer is text written as it goes, shown as it comes
         // The answer is one JSON object a line: {text}, {progress}, {step, steps, name}, {end, said}
+        // A long action, its lines read as it goes. A host that keeps streams answers where to
+        // read them, and the action goes on there whatever this page does; one that does not
+        // answers with the lines themselves.
         run_stream: async function (title, url) {
-            this.run = {title, phase: 'running', said: '', text: '', log: false, progress: null, step: null, began: Date.now()};
-            const run = this.run;
-            this.clock_start();
+            const run = this.run_begin(title, Date.now());
             try {
-                const answer = await fetch(url, {method: 'POST'});
-                if (answer.ok === false) {
-                    run.said = (await answer.json()).error;
+                const asked = await fetch(url, {method: 'POST'});
+                if (asked.ok === false) {
+                    run.said = (await asked.json()).error;
                     run.phase = 'failed';
                     return;
                 }
-                const reader = answer.body.getReader();
-                const decoder = new TextDecoder();
-                let held = '';
-                for (;;) {
-                    const part = await reader.read();
-                    if (part.done) {
-                        break;
-                    }
-                    held += decoder.decode(part.value, {stream: true});
-                    const lines = held.split('\n');
-                    held = lines.pop();
-                    for (const line of lines) {
-                        this.run_line(run, line);
-                    }
-                }
-                this.run_line(run, held);
-                if (run.phase === 'running') {
-                    run.phase = 'failed';
-                    run.said = 'the answer stopped before the end';
-                }
+                const answer = (asked.status === 202) ? await fetch((await asked.json()).url, {cache: 'no-store'}) : asked;
+                await this.run_follow(run, answer);
             }
             catch {
                 run.phase = 'failed';
                 run.said = 'the answer never came back';
             }
             finally {
-                run.ms = Date.now() - run.began;
-                this.clock_stop();
-                await this.tab_read();
+                await this.run_over(run);
             }
+        },
+        // A long action asked for before this page opened, still running: shown again, from its
+        // first line
+        run_find: async function () {
+            if ((this.streams === undefined) || (this.streams === null)) {
+                return;
+            }
+            try {
+                const listed = await fetch(`${this.streams}?base=${encodeURIComponent(this.base)}`, {cache: 'no-store'});
+                const found = listed.ok ? (await listed.json()).items.find(v => v.ended_at === null) : undefined;
+                if ((found === undefined) || (this.run !== null)) {
+                    return;
+                }
+                const run = this.run_begin(found.title, found.started_at);
+                try {
+                    await this.run_follow(run, await fetch(found.url, {cache: 'no-store'}));
+                }
+                catch {
+                    run.phase = 'failed';
+                    run.said = 'the answer never came back';
+                }
+                finally {
+                    await this.run_over(run);
+                }
+            }
+            catch {
+                // Nothing found is nothing shown
+            }
+        },
+        run_begin: function (title, began) {
+            this.run = {title, phase: 'running', said: '', text: '', log: false, progress: null, step: null, began};
+            this.clock_start();
+            return this.run;
+        },
+        run_follow: async function (run, answer) {
+            if (answer.ok === false) {
+                run.said = (await answer.json()).error;
+                run.phase = 'failed';
+                return;
+            }
+            const reader = answer.body.getReader();
+            const decoder = new TextDecoder();
+            let held = '';
+            for (;;) {
+                const part = await reader.read();
+                if (part.done) {
+                    break;
+                }
+                held += decoder.decode(part.value, {stream: true});
+                const lines = held.split('\n');
+                held = lines.pop();
+                for (const line of lines) {
+                    this.run_line(run, line);
+                }
+            }
+            this.run_line(run, held);
+            if (run.phase === 'running') {
+                run.phase = 'failed';
+                run.said = 'the answer stopped before the end';
+            }
+        },
+        run_over: async function (run) {
+            run.ms = Date.now() - run.began;
+            this.clock_stop();
+            await this.tab_read();
         },
         run_line: function (run, line) {
             if (line.trim() === '') {
@@ -648,6 +696,7 @@ const docker = {
     },
     mounted: function () {
         this.tab_read();
+        this.run_find();
     },
     // A helper container is not left behind by a page that goes elsewhere
     unmounted: function () {

@@ -49,7 +49,11 @@ itself again).
 **End:** `POST /api/v1/remotes/<remote>/terminals/<name>/end` hangs the shell up, as closing a
 terminal window does; whoever has it open sees it close. Typing `exit` in it does the same.
 
-**Join:** a websocket on `/api/v1/shell?remote=<remote>&term=<name>`
+**Join:** `POST /api/v1/remotes/<remote>/terminals/<name>/join` answers a stream that goes
+both ways, `{"stream": "s_…", "url": "/api/v1/streams/s_…"}`; open a websocket at that `url`,
+with the same token, within a minute. A stream is joined once: ask again to join again. The
+older door, a websocket on `/api/v1/shell?remote=<remote>&term=<name>`, joins the same way and
+stays.
 
 - A name that is not running is made. Names are letters, digits, `-` and `_`.
 - The first message is text, json: `{"type": "note", "text": "the terminal work on laptop: …", "ok": true}`.

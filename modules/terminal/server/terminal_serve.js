@@ -1,14 +1,16 @@
 const BODY_LIMIT_BYTES = 16*1024;
 
-const RE_DOOR = /^\/([^/]+)\/(end|signal)$/;
+const RE_DOOR = /^\/([^/]+)\/(end|signal|join)$/;
 
 // The kept terminals of one machine, under whatever base the host mounts it at: listed, made,
-// signalled and ended. Joining one is terminal_attach, over a WebSocket. The host gives
-// `call(method, params)`, which asks the machine (term_list, term_create, term_signal,
-// term_end) and answers its value, or throws an error with the status to answer: whether the
-// machine can, and whether it takes a name, an env or a folder, is the host's to say.
+// signalled, ended and joined. The host gives `call(method, params)`, which asks the machine
+// (term_list, term_create, term_signal, term_end) and answers its value, or throws an error
+// with the status to answer: whether the machine can, and whether it takes a name, an env or a
+// folder, is the host's to say. Joining one is a stream that goes both ways: `join(name)` makes
+// it and answers {stream, url}, the WebSocket to open there, which terminal_attach then joins
+// to the terminal. A host that gives none has terminals that are not joined here.
 //
-//     options = {call, tail}
+//     options = {call, join, tail}
 async function terminal_serve(req, res, options)
 {
     const tail = options.tail;
@@ -32,9 +34,19 @@ async function terminal_serve(req, res, options)
         // does, and the terminal is gone at once. A signal goes to its shell (to: shell, the
         // default), or to what runs in it in front (to: foreground), which SIGINT stops as
         // Ctrl-C does.
+        // POST <base>/<name>/join
+        // A terminal not running yet is made by joining it
         const door = RE_DOOR.exec(tail);
         if ((door !== null) && (req.method === 'POST')) {
             const name = decodeURIComponent(door[1]);
+            if ((door[2] === 'join') && (options.join === undefined)) {
+                send_json(res, 501, {error: 'terminals are not joined from here'});
+                return;
+            }
+            if (door[2] === 'join') {
+                send_json(res, 200, await options.join(name));
+                return;
+            }
             if (door[2] === 'end') {
                 send_json(res, 200, await options.call('term_end', {name}));
                 return;

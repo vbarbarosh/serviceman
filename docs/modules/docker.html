@@ -831,9 +831,12 @@ whose containers do not say where they came from has no actions. A long action �
 update, a pull, a prune — answers as it goes, one JSON object a line: <code>{text}</code> for what it
 printed, <code>{step, steps, name}</code> for the step it is on, <code>{progress: {done, total, unit}}</code> for how
 far it is (a pull adds up its layers&#39; bytes; a prune counts what it took, one at a time), and
-last <code>{end: done | failed, said}</code>. The page draws it as one panel: a spinner and the time so
-far, the step, a bar with its percent and the time left at the rate so far, and the log; every
-other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with <code>{error}</code>.</p>
+last <code>{end: done | failed, said}</code>. A host that keeps streams (<code>stream</code> below) gets those lines
+in one, and the answer is at once <code>202 {stream, url}</code>: the action goes on when the page goes,
+and the page reads it at <code>url</code>; given <code>streams</code>, a page that opens finds one still running and
+shows it again from its first line. Without, the lines are the answer itself. The page draws it
+as one panel: a spinner and the time so far, the step, a bar with its percent and the time left
+at the rate so far, and the log; every other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with <code>{error}</code>.</p>
 <h2 id="a-containers-files-and-shell"><a class="anchor" href="#a-containers-files-and-shell" aria-hidden="true" tabindex="-1">#</a>A container&#39;s files and shell</h2>
 <p><code>container_disk(connect, id)</code> is a disk the File Manager module takes (see its README), made
 of the Engine API alone: nothing is installed in the container and nothing is mounted.</p>
@@ -878,6 +881,8 @@ await docker_serve(req, res, {
     run: argv =&gt; run_docker(argv),        // -&gt; {ok, code, stdout, stderr}
     tail: &#39;/containers&#39;,                  // the address after the base
     own: v =&gt; v.startsWith(&#39;serviceman-&#39;), // containers someone else runs: shown, no actions
+    // optional: where a long action says its lines, kept by the host -&gt; {id, url, write, end}
+    stream: title =&gt; a_stream_kept(title),
     log: function (event, fields) {
     },
 });
@@ -886,8 +891,10 @@ await docker_serve(req, res, {
 <pre><code>&lt;link rel=&quot;stylesheet&quot; href=&quot;/modules/docker/docker.css&quot;&gt;
 import docker from &#39;docker/docker.js&#39;;
 
-&lt;docker base=&quot;/docker&quot; :offline=&quot;false&quot; :theme=&quot;theme&quot; :files_base=&quot;v =&gt; &#39;/docker/containers/&#39; + v.id + &#39;/fs&#39;&quot; :shell_url=&quot;v =&gt; &#39;/shell?container=&#39; + v.id&quot;/&gt;
+&lt;docker base=&quot;/docker&quot; :offline=&quot;false&quot; :theme=&quot;theme&quot; :files_base=&quot;v =&gt; &#39;/docker/containers/&#39; + v.id + &#39;/fs&#39;&quot; :shell_url=&quot;v =&gt; &#39;/shell?container=&#39; + v.id&quot; streams=&quot;/streams&quot;/&gt;
 </code></pre>
+<p><code>streams</code>, optional, is where the host lists its streams, <code>GET streams?base=&lt;base&gt;</code> →
+<code>{items: [{title, url, started_at, ended_at}]}</code>.</p>
 <p>The host page gives the colours (<code>--panel</code>, <code>--line</code>, <code>--muted</code>) and the classes the module
 shares with it: <code>card</code>, <code>list-head</code>, <code>list-acts</code>, <code>list-table</code>, <code>dot</code>, <code>muted</code>, <code>bad</code>,
 <code>primary</code>, <code>danger</code>.</p>
@@ -897,10 +904,12 @@ shares with it: <code>card</code>, <code>list-head</code>, <code>list-acts</code
 <code>docker_serve</code>: <code>connect</code> is a stream through the link to the socket the agent reports
 (<code>docker_exec_connect</code>), <code>run</code> is the agent&#39;s docker command (<code>docker_shell</code>), and
 serviceman&#39;s own containers, <code>serviceman-…</code>, are shown without actions — their service
-starts and stops them</li>
+starts and stops them; <code>stream</code> is one of serviceman&#39;s (<code>stream_open</code>), read at
+<code>/api/v1/streams/&lt;id&gt;</code></li>
 <li><code>/api/v1/remotes/&lt;name&gt;/docker/containers/&lt;id&gt;/fs…</code> is the File Manager&#39;s API over
 <code>container_disk</code>; <code>/api/v1/shell?remote=&lt;name&gt;&amp;container=&lt;id&gt;</code> is a shell in it</li>
-<li><code>src/main/public/remote_docker.js</code> is the Docker tab of a machine, which wraps the component</li>
+<li><code>src/main/public/remote_docker.js</code> is the Docker tab of a machine, which wraps the component
+and gives it <code>streams=&quot;/api/v1/streams&quot;</code></li>
 <li><code>src/main/public/index.html</code> loads the css and maps <code>docker/</code>; the control server serves
 <code>ui/</code> at <code>/modules/docker/</code></li>
 </ul>

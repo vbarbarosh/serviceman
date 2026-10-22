@@ -35,7 +35,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>` | what the host's `read()` answers, below |
-| `POST <base>/upgrade` | install everything that waits: the host's `upgrade()`, 202 once it has begun |
+| `POST <base>/upgrade` | install everything that waits: the host's `upgrade()`, 202 once it has begun, with the stream of its lines where the host keeps one, `{started, stream, url}` |
 | `GET <base>/upgrade` | how it goes: the host's `run()`, `{phase, lines, started_at, ended_at, error}` |
 | `POST <base>/cancel` | stop it: the host's `cancel()` |
 
@@ -49,8 +49,8 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
   `updates_known: false` that the dry run could not say what an upgrade would bring. The page
   says so instead of showing every package as a need, or as up to date.
 - The upgrade is a run of minutes, so it outlives the request that started it: the host keeps
-  it, and the page reads it back once a second while it goes. A second one while one runs is
-  the host's to refuse (serviceman's is a 409).
+  it, and a page follows its stream, or reads the run back. A second one while one runs is the
+  host's to refuse (serviceman's is a 409).
 - **Refusals:** a read, an upgrade or a cancel that throws is a 502 with its message, or the
   status the error carries; a host that gives no `upgrade`, `run` or `cancel` answers 501 at
   their doors; any other door or method is a 404.
@@ -62,7 +62,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
     await packages_serve(req, res, {
         // -> {at, items, manual_known, updates_known, commands}
         read: () => ask_the_machine('package_list'),
-        upgrade: () => start_the_upgrade(),             // -> {started: true}; optional
+        upgrade: () => start_the_upgrade(),             // -> {started, stream, url}; optional
         run: () => the_upgrade_so_far(),                // -> {phase, lines, …}; optional
         cancel: () => stop_the_upgrade(),               // optional
         tail: '',                                       // the address after the base
@@ -90,8 +90,11 @@ page's `data_table.js` and its copy button the page's `command_copy.js`, importe
   `packages_serve`, once the machine is one it knows. Its `read()` is the agent's
   `package_list`, refused for a machine away or an agent from before it; `upgrade()` and
   `cancel()` are `apt_run` and `apt_cancel` (`src/main/src/helpers/`), which keep the run on the
-  machine's state, put back the containers it stopped, and are what Remotes' Install updates
-  uses for several machines at once; `run()` is that state, read even once the machine is away
+  machine's state, say its lines in a stream (`/api/v1/streams/<id>`) as they come, put back
+  the containers it stopped, and are what Remotes' Install updates uses for several machines at
+  once; `run()` is that state, read even once the machine is away, with the stream's `url`
+- the Configure tab of a machine (`remote_configure` in `src/main/public/serviceman.js`) reads
+  the run once, follows its stream while it runs, and reads it again when it ends
 - the agent's `package_list` (`src/agent/src/agent_package_list.js`) runs dpkg-query, apt-mark
   and `apt-get -s upgrade` as the agent's own user: none of it needs root, and the dry run reads
   the lists the last `apt-get update` left

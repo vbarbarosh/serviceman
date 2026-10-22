@@ -361,8 +361,9 @@ back, serviceman starts. A machine that wants a restart says so; nothing restart
 The calls, for a script: `POST /api/v1/apt-upgrade` with `{"remotes": ["vps1", "vps2"]}`
 starts them and answers which started, which waits (`held`) and which were left out and why;
 `GET /api/v1/apt-upgrade` is a row per machine; `POST /api/v1/apt-cancel` stops them. One
-machine's are the Packages module's: `POST /api/v1/remotes/<name>/packages/upgrade` starts it,
-`GET` at the same address is how it goes, and `POST …/packages/cancel` stops it.
+machine's are the Packages module's: `POST /api/v1/remotes/<name>/packages/upgrade` starts it
+and answers the stream of its lines, `{stream, url}`, read at `url` as it goes; `GET` at the
+same address is where it stands, and `POST …/packages/cancel` stops it.
 
 ## Its ports and its firewall
 

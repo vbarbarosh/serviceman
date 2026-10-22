@@ -752,7 +752,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/upgrade</code></td>
-<td>install everything that waits: the host&#39;s <code>upgrade()</code>, 202 once it has begun</td>
+<td>install everything that waits: the host&#39;s <code>upgrade()</code>, 202 once it has begun, with the stream of its lines where the host keeps one, <code>{started, stream, url}</code></td>
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/upgrade</code></td>
@@ -775,8 +775,8 @@ it is not the machine&#39;s own nor <code>all</code>.</li>
 <code>updates_known: false</code> that the dry run could not say what an upgrade would bring. The page
 says so instead of showing every package as a need, or as up to date.</li>
 <li>The upgrade is a run of minutes, so it outlives the request that started it: the host keeps
-it, and the page reads it back once a second while it goes. A second one while one runs is
-the host&#39;s to refuse (serviceman&#39;s is a 409).</li>
+it, and a page follows its stream, or reads the run back. A second one while one runs is the
+host&#39;s to refuse (serviceman&#39;s is a 409).</li>
 <li><strong>Refusals:</strong> a read, an upgrade or a cancel that throws is a 502 with its message, or the
 status the error carries; a host that gives no <code>upgrade</code>, <code>run</code> or <code>cancel</code> answers 501 at
 their doors; any other door or method is a 404.</li>
@@ -787,7 +787,7 @@ their doors; any other door or method is a 404.</li>
 await packages_serve(req, res, {
     // -&gt; {at, items, manual_known, updates_known, commands}
     read: () =&gt; ask_the_machine(&#39;package_list&#39;),
-    upgrade: () =&gt; start_the_upgrade(),             // -&gt; {started: true}; optional
+    upgrade: () =&gt; start_the_upgrade(),             // -&gt; {started, stream, url}; optional
     run: () =&gt; the_upgrade_so_far(),                // -&gt; {phase, lines, …}; optional
     cancel: () =&gt; stop_the_upgrade(),               // optional
     tail: &#39;&#39;,                                       // the address after the base
@@ -812,8 +812,11 @@ page&#39;s <code>data_table.js</code> and its copy button the page&#39;s <code>c
 <code>packages_serve</code>, once the machine is one it knows. Its <code>read()</code> is the agent&#39;s
 <code>package_list</code>, refused for a machine away or an agent from before it; <code>upgrade()</code> and
 <code>cancel()</code> are <code>apt_run</code> and <code>apt_cancel</code> (<code>src/main/src/helpers/</code>), which keep the run on the
-machine&#39;s state, put back the containers it stopped, and are what Remotes&#39; Install updates
-uses for several machines at once; <code>run()</code> is that state, read even once the machine is away</li>
+machine&#39;s state, say its lines in a stream (<code>/api/v1/streams/&lt;id&gt;</code>) as they come, put back
+the containers it stopped, and are what Remotes&#39; Install updates uses for several machines at
+once; <code>run()</code> is that state, read even once the machine is away, with the stream&#39;s <code>url</code></li>
+<li>the Configure tab of a machine (<code>remote_configure</code> in <code>src/main/public/serviceman.js</code>) reads
+the run once, follows its stream while it runs, and reads it again when it ends</li>
 <li>the agent&#39;s <code>package_list</code> (<code>src/agent/src/agent_package_list.js</code>) runs dpkg-query, apt-mark
 and <code>apt-get -s upgrade</code> as the agent&#39;s own user: none of it needs root, and the dry run reads
 the lists the last <code>apt-get update</code> left</li>
