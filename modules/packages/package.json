@@ -1,0 +1,11 @@
+{
+    "name": "packages",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "The packages of one machine for a web page: what dpkg keeps, installed by hand or as a need, held, and what an upgrade would bring",
+    "main": "server/packages_serve.js",
+    "scripts": {
+        "test": "node --test tests/*.test.js"
+    }
+}

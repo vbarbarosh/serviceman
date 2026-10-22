@@ -1,0 +1,11 @@
+{
+    "name": "disks",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "The disks of one machine for a web page: the room and the inodes of every filesystem it has mounted",
+    "main": "server/disks_serve.js",
+    "scripts": {
+        "test": "node --test tests/*.test.js"
+    }
+}

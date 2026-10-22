@@ -1,0 +1,19 @@
+/* The Disks module's own rules. The host page gives the colours and the classes the module
+   shares with it: list-tools, list-right, chip, meter, tag, muted, bad; its tables are the
+   page's data-table. */
+
+/* The share used as a bar, the numbers under it */
+.disk-use {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+}
+
+.disk-use .meter {
+    width: 5rem;
+    margin: 0;
+}
+
+.disk-lock {
+    margin-left: .4rem;
+}

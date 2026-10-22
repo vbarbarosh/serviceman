@@ -1,0 +1,11 @@
+{
+    "name": "processes",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "Everything running on one machine for a web page: the process tree, folded, filtered and sorted",
+    "main": "server/processes_serve.js",
+    "scripts": {
+        "test": "node --test tests/*.test.js"
+    }
+}

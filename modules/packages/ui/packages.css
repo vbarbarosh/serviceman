@@ -1,0 +1,13 @@
+/* The Packages module's own rules. The host page gives the colours (--accent, --bad) and the
+   classes the module shares with it: list-tools, list-right, chip, seg, tag, muted, bad; its
+   tables are the page's data-table. */
+
+/* The version an upgrade would bring, under the one installed */
+.package-next {
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.package-security {
+    color: var(--bad);
+}

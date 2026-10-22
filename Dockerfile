@@ -31,7 +31,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./package.json
 COPY config ./config
 COPY src ./src
-# The modules (File Manager, Terminal, Docker), which src/ requires and the control page imports
+# The modules (Docker, File Manager, Firewall and the rest), which src/ requires and the control
+# page imports
 COPY modules ./modules
 # Logline as serviceman puts it on the machine that runs it (Update Logline on its page)
 COPY logline ./logline

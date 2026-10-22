@@ -1,0 +1,37 @@
+/* The Processes module's own rules. The host page gives the colours (--panel, --line, --fg,
+   --accent) and the classes the module shares with it: seg, load, meter, muted, bad; its
+   tables are the page's data-table. */
+
+/* One bar: what reads again, what narrows the list, how it is shown, and a line of totals
+   under it */
+.procs-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    min-height: 2rem;
+}
+
+.procs-find {
+    width: 18rem;
+    max-width: 100%;
+    padding: .3rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.procs-find:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.procs-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem 1.2rem;
+    margin: .6rem 0 .2rem;
+    font-size: .9rem;
+}

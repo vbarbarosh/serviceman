@@ -2167,37 +2167,13 @@ a.button:hover {
     background: var(--hover);
 }
 
-/* A machine's disks: the share used as a bar, the numbers under it */
-.disk-use {
-    display: flex;
-    gap: .5rem;
-    align-items: center;
-}
-
-.disk-use .meter {
-    width: 5rem;
-    margin: 0;
-}
-
+/* A meter filling up, and one full */
 .meter.filling i {
     background: var(--busy);
 }
 
 .meter.full i {
     background: var(--bad);
-}
-
-.disk-lock {
-    margin-left: .4rem;
-}
-
-.package-next {
-    color: var(--accent);
-    white-space: nowrap;
-}
-
-.package-security {
-    color: var(--bad);
 }
 
 /* A machine's Logs tab: where its lines go, and a row of the numbers its sending moves */
@@ -2940,40 +2916,6 @@ article.rf h1 + p {
 
 article.rf .actions {
     margin-top: 0;
-}
-
-/* A machine's lists — processes, ports — share one bar: what reads again, what narrows the
-   list, how it is shown, and a line of totals under it */
-.list-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-    min-height: 2rem;
-}
-
-.list-find {
-    width: 18rem;
-    max-width: 100%;
-    padding: .3rem .6rem;
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    background: var(--panel);
-    color: var(--fg);
-    font: inherit;
-}
-
-.list-find:focus {
-    border-color: var(--accent);
-    outline: none;
-}
-
-.list-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .2rem 1.2rem;
-    margin: .6rem 0 .2rem;
-    font-size: .9rem;
 }
 
 /* A share as a short bar beside its number */

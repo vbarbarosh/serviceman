@@ -12,6 +12,9 @@
 <link rel="stylesheet" href="/modules/terminal/terminal.css">
 <link rel="stylesheet" href="/modules/firewall/firewall.css">
 <link rel="stylesheet" href="/modules/volumes/volumes.css">
+<link rel="stylesheet" href="/modules/processes/processes.css">
+<link rel="stylesheet" href="/modules/disks/disks.css">
+<link rel="stylesheet" href="/modules/packages/packages.css">
 <script>
 document.documentElement.dataset.theme = (localStorage.getItem('serviceman.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 // The chosen skin goes on before the first paint, after serviceman.css so it overrides it
@@ -31,9 +34,12 @@ document.documentElement.dataset.theme = (localStorage.getItem('serviceman.theme
 {
     "imports": {
         "codemirror": "/vendor/codemirror.mjs",
+        "disks/": "/modules/disks/",
         "docker/": "/modules/docker/",
         "file_manager/": "/modules/file_manager/",
         "firewall/": "/modules/firewall/",
+        "packages/": "/modules/packages/",
+        "processes/": "/modules/processes/",
         "terminal/": "/modules/terminal/",
         "volumes/": "/modules/volumes/",
         "vue": "/vendor/vue.esm-browser.prod.js",

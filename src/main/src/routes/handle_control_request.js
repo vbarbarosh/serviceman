@@ -15,6 +15,7 @@ const control_same_origin = require('../control_same_origin');
 const control_token_refusal = require('../helpers/control_token_refusal');
 const control_token_status = require('../helpers/control_token_status');
 const crypto = require('crypto');
+const disks_serve = require('../../../../modules/disks/server/disks_serve');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
 const docker_serve = require('../../../../modules/docker/server/docker_serve');
 const docker_shell = require('../helpers/docker_shell');
@@ -37,7 +38,9 @@ const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
+const packages_serve = require('../../../../modules/packages/server/packages_serve');
 const path = require('path');
+const processes_serve = require('../../../../modules/processes/server/processes_serve');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
 const remote_containers_running = require('../helpers/remote_containers_running');
@@ -91,15 +94,16 @@ const RE_REMOTE_FIREWALL = /^\/api\/v1\/remotes\/([^/]+)\/firewall(\/.*)?$/;
 const RE_REMOTE_VOLUMES = /^\/api\/v1\/remotes\/([^/]+)\/volumes(\/.*)?$/;
 // Copies of files from one machine to another, run here and not by a page
 const RE_TRANSFERS = /^\/api\/v1\/transfers(\/.*)?$/;
-const RE_REMOTE_PROCESSES = /^\/api\/v1\/remotes\/([^/]+)\/processes$/;
+// The Processes, Disks and Packages modules' APIs, one machine's under each
+const RE_REMOTE_PROCESSES = /^\/api\/v1\/remotes\/([^/]+)\/processes(\/.*)?$/;
 const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals$/;
 const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
 const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
 const RE_REMOTE_TERMINAL_END = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/end$/;
 const RE_REMOTE_TERMINAL_SIGNAL = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/signal$/;
 const RE_REMOTE_PORTS = /^\/api\/v1\/remotes\/([^/]+)\/ports$/;
-const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks$/;
-const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages$/;
+const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
+const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages(\/.*)?$/;
 // ps and ss answer at once; the wait is for a machine thinking about it
 const MACHINE_READ_TIMEOUT_MS = 15000;
 const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
@@ -137,6 +141,9 @@ const MODULE_SITES = {
     terminal: {name: 'terminal', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'terminal', 'ui'), fresh: true},
     firewall: {name: 'firewall', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'firewall', 'ui'), fresh: true},
     volumes: {name: 'volumes', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'volumes', 'ui'), fresh: true},
+    processes: {name: 'processes', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'processes', 'ui'), fresh: true},
+    disks: {name: 'disks', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'disks', 'ui'), fresh: true},
+    packages: {name: 'packages', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'packages', 'ui'), fresh: true},
 };
 
 // The control page and the calls behind it
@@ -333,8 +340,8 @@ async function control_answer(app, req, res)
         return;
     }
     const remote_processes = RE_REMOTE_PROCESSES.exec(url.pathname);
-    if ((remote_processes !== null) && (req.method === 'GET')) {
-        await handle_machine_read(app, res, decodeURIComponent(remote_processes[1]), 'proc_list', 'the process list');
+    if (remote_processes !== null) {
+        await handle_machine_module(app, req, res, decodeURIComponent(remote_processes[1]), ((remote_processes[2] === undefined) ? '' : remote_processes[2]), processes_serve, 'proc_list', 'the process list');
         return;
     }
     const remote_metrics = RE_REMOTE_METRICS.exec(url.pathname);
@@ -362,13 +369,13 @@ async function control_answer(app, req, res)
         return;
     }
     const remote_disks = RE_REMOTE_DISKS.exec(url.pathname);
-    if ((remote_disks !== null) && (req.method === 'GET')) {
-        await handle_machine_read(app, res, decodeURIComponent(remote_disks[1]), 'disk_list', 'the disk list');
+    if (remote_disks !== null) {
+        await handle_machine_module(app, req, res, decodeURIComponent(remote_disks[1]), ((remote_disks[2] === undefined) ? '' : remote_disks[2]), disks_serve, 'disk_list', 'the disk list');
         return;
     }
     const remote_packages = RE_REMOTE_PACKAGES.exec(url.pathname);
-    if ((remote_packages !== null) && (req.method === 'GET')) {
-        await handle_machine_read(app, res, decodeURIComponent(remote_packages[1]), 'package_list', 'the package list');
+    if (remote_packages !== null) {
+        await handle_machine_module(app, req, res, decodeURIComponent(remote_packages[1]), ((remote_packages[2] === undefined) ? '' : remote_packages[2]), packages_serve, 'package_list', 'the package list');
         return;
     }
     const remote_apt = RE_REMOTE_APT.exec(url.pathname);
@@ -553,15 +560,11 @@ async function handle_agent_update(app, res, name)
     }
 }
 
-// GET /api/v1/remotes/<name>/processes
 // GET /api/v1/remotes/<name>/ports
-// GET /api/v1/remotes/<name>/disks
-// GET /api/v1/remotes/<name>/packages
 // GET /api/v1/remotes/<name>/terminals
-// What is running on that machine, what it is listening on, its disks, its packages and its
-// kept terminals. Each
-// is read when asked and kept nowhere: the agent runs ps, ss, df or dpkg, or reads its terminals' notes, over there as its own user, and what
-// comes back is what that user may see.
+// What that machine is listening on, and its kept terminals. Each is read when asked and kept
+// nowhere: the agent runs ss, or reads its terminals' notes, over there as its own user, and
+// what comes back is what that user may see.
 async function handle_machine_read(app, res, name, method, what)
 {
     const remote = app.remote_by_name[name];
@@ -584,6 +587,34 @@ async function handle_machine_read(app, res, name, method, what)
     catch (error) {
         send_json(res, 502, {error: error.message});
     }
+}
+
+// GET /api/v1/remotes/<name>/processes
+// GET /api/v1/remotes/<name>/disks
+// GET /api/v1/remotes/<name>/packages
+// What is running on that machine, its disks and its packages, through the Processes, Disks
+// and Packages modules: the doors are the module's, and its read is the agent running ps, df
+// or dpkg over there as its own user, so what comes back is what that user may see. The
+// refusals are this host's own.
+async function handle_machine_module(app, req, res, name, tail, serve, method, what)
+{
+    const remote = app.remote_by_name[name];
+    if (remote === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    if (remote.state.phase !== 'online') {
+        send_json(res, 409, {error: `${name} is not connected`});
+        return;
+    }
+    if (remote_can(remote, method) === false) {
+        send_json(res, 400, {error: `the agent on ${name} is from before ${what} — its page says how it updates`});
+        return;
+    }
+    await serve(req, res, {
+        read: () => remote_call(app, remote, method, {}, MACHINE_READ_TIMEOUT_MS),
+        tail,
+    });
 }
 
 // GET /api/v1/remotes/<name>/fs (query)

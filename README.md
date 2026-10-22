@@ -54,11 +54,17 @@ modules' by `bin/build-pages`.
 Parts of the control page that stand on their own: a page half and a server half, and a host
 that gives them what they reach. serviceman is the first host of each.
 
+- [Disks](modules/disks/README.md) — the disks of a machine: the room and the inodes of every
+  filesystem it has mounted
 - [Docker](modules/docker/README.md) — the containers of one machine, its compose projects,
   images, volumes and networks
 - [Files](modules/file_manager/README.md) — a file manager: folders, uploads in parts, a whole
   tree as JSON or events, a folder watched, copies between disks
 - [Firewall](modules/firewall/README.md) — what a machine listens on and what ufw lets through
+- [Packages](modules/packages/README.md) — the packages of a machine: installed by hand or as a
+  need, held, and what an upgrade would bring
+- [Processes](modules/processes/README.md) — everything running on a machine, as a tree that
+  folds, filters and sorts by CPU or memory
 - [Terminal](modules/terminal/README.md) — xterm on a page, joined over a websocket to a shell
   in a container or a pty on a machine
 - [Volumes](modules/volumes/README.md) — encrypted volumes of a machine: LUKS in a file, opened
