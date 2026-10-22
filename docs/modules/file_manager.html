@@ -728,9 +728,11 @@ handler at the base, and decides who may ask.</p>
 reached over the link that machine&#39;s agent dialled.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/file_manager_serve.js   the HTTP API, given a disk
+server/file_manager_manifest.js its kinds of items and the commands on them
 server/transfer_queue.js       copies from one disk to another, in parts, run by the server
 server/tar_parser.js           a tar read as its bytes come, for the tar upload
 server/file_manager_transfers_serve.js   the HTTP API of those copies
+server/file_manager_transfers_manifest.js   their kind and its commands
 ui/file_manager.js             the component
 ui/upload_queue.js             the uploads, kept by the page so they outlive the component
 ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
@@ -739,6 +741,9 @@ vendor_src/codemirror.js       what the editor takes from CodeMirror, for the ho
 tests/                         the API over a disk held in memory
 </code></pre>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
+<p>What it holds and does is written down in <code>server/file_manager_manifest.js</code>, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
 <p>Under the base the host mounts it at — serviceman&#39;s is <code>/api/v1/remotes/&lt;name&gt;/fs</code>:</p>
 <div class="table-wrap"><table>
 <thead>

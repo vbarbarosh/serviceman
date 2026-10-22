@@ -708,7 +708,7 @@ img {
 <li><a href="firewall.html">Firewall</a></li>
 <li><a href="packages.html">Packages</a></li>
 <li><a href="processes.html">Processes</a></li>
-<li class="current"><a href="terminal.html" aria-current="page">Terminal</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#what-goes-over-the-websocket">What goes over the websocket</a></li><li><a href="#plugging-it-into-a-host">Plugging it into a host</a></li><li><a href="#in-serviceman">In serviceman</a></li><li><a href="#tests">Tests</a></li></ul></li>
+<li class="current"><a href="terminal.html" aria-current="page">Terminal</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#the-api-of-kept-terminals">The API of kept terminals</a></li><li><a href="#what-goes-over-the-websocket">What goes over the websocket</a></li><li><a href="#plugging-it-into-a-host">Plugging it into a host</a></li><li><a href="#in-serviceman">In serviceman</a></li><li><a href="#tests">Tests</a></li></ul></li>
 <li><a href="volumes.html">Volumes</a></li>
 </ul>
 </nav>
@@ -725,10 +725,52 @@ and its Shell tab of a machine opens a pty there through the machine&#39;s agent
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/terminal_attach.js   the websocket joined to a stream
 server/terminal_refuse.js   no terminal, and the note that says why
+server/terminal_serve.js    the HTTP API of kept terminals, given call(method, params)
+server/terminal_manifest.js its kind of items and the commands on them
 ui/terminal.js              the component
 ui/terminal.css             the component&#39;s rules
 tests/                      the server half with a fake socket and stream
 </code></pre>
+<h2 id="the-api-of-kept-terminals"><a class="anchor" href="#the-api-of-kept-terminals" aria-hidden="true" tabindex="-1">#</a>The API of kept terminals</h2>
+<p>What it holds and does is written down in <code>server/terminal_manifest.js</code>, for a host to route,
+give rights and show by: its kind of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
+<p>A host that keeps terminals on a machine, to be joined later, lists, makes, signals and ends
+them here, under the base it mounts it at — serviceman&#39;s is
+<code>/api/v1/remotes/&lt;name&gt;/terminals</code>. Each door is one call of the host&#39;s <code>call(method, params)</code>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Door</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET &lt;base&gt;</code></td>
+<td><code>term_list</code>: <code>{items: [{name, created_at, attached, cwd, command}]}</code></td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;</code> <code>{name, cols, rows, env, cwd}</code></td>
+<td><code>term_create</code>; no name is the first number no terminal has</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/&lt;name&gt;/signal</code> <code>{signal, to}</code></td>
+<td><code>term_signal</code>: to its shell, or to what runs in front (<code>to: foreground</code>)</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/&lt;name&gt;/end</code></td>
+<td><code>term_end</code>: the shell hung up, the terminal gone</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li>Only the fields a door takes go on to the call; <code>env</code> and <code>cwd</code> go as they came, for the host
+to judge.</li>
+<li><strong>Refusals:</strong> a call that throws is a 502 with its message, or the status the error carries;
+a body that is not JSON is a 400; any other door or method is a 404.</li>
+</ul>
+<p><a href="../terminals.html">Terminals from another program</a> says what each answers in serviceman,
+and how a terminal is joined.</p>
 <h2 id="what-goes-over-the-websocket"><a class="anchor" href="#what-goes-over-the-websocket" aria-hidden="true" tabindex="-1">#</a>What goes over the websocket</h2>
 <div class="table-wrap"><table>
 <thead>
@@ -776,6 +818,15 @@ terminal_attach(client, stream, {
 
 terminal_refuse(client, &#39;box is not connected&#39;);
 </code></pre>
+<p>The kept terminals&#39; API, for a host that keeps them:</p>
+<pre><code>const terminal_serve = require(&#39;../modules/terminal/server/terminal_serve&#39;);
+
+await terminal_serve(req, res, {
+    // term_list, term_create, term_signal, term_end -&gt; what the machine answers
+    call: (method, params) =&gt; ask_the_machine(method, params),
+    tail: &#39;&#39;,                                       // the address after the base
+});
+</code></pre>
 <p>The page half: the host serves <code>ui/</code> and maps it, with Vue and xterm, in its import map, and
 loads xterm&#39;s css and the component&#39;s:</p>
 <pre><code>&lt;link rel=&quot;stylesheet&quot; href=&quot;/vendor/xterm.css&quot;&gt;
@@ -822,6 +873,10 @@ terminal is open its page asks before it goes (&quot;Leave site?&quot;), and on 
 Ctrl-W, Ctrl-T and Ctrl-N too. Holding Esc leaves.</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
+<li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/terminals…</code> to
+<code>terminal_serve</code>, after its own refusals: no such machine, not connected; its <code>call()</code> asks
+the agent, and refuses an agent from before what is asked, a name that is not one, and an
+<code>env</code> or a <code>cwd</code> its shell would not take</li>
 <li><code>src/main/src/routes/handle_control_upgrade.js</code> opens the far end for <code>/api/v1/shell</code>,
 <code>docker exec</code> for a service or a pty through the agent for a machine, and attaches it</li>
 <li><code>src/main/public/remote_shell.js</code> and <code>service_shell.js</code> are the two Shell tabs, each a

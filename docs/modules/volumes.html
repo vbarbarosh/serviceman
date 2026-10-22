@@ -725,6 +725,7 @@ After a reboot every volume is closed; nothing on the machine can open it, since
 kept there.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/volumes_serve.js       the HTTP API, given call(params) and key_safe
+server/volumes_manifest.js    its kinds of items and the commands on them
 ui/volumes.js                 the list, for any number of machines
 ui/volumes.css                the component&#39;s rules
 tests/volumes_serve.test.js   the API over a fake machine
@@ -744,6 +745,9 @@ typed it. The keyring is left out, so Grow needs no key.</li>
 folder is kept beside it as <code>&lt;target&gt;.plain-&lt;time&gt;</code> for its owner to delete.</li>
 </ul>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
+<p>What it holds and does is written down in <code>server/volumes_manifest.js</code>, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
 <p>Under the base the host mounts it at — serviceman&#39;s is <code>/api/v1/remotes/&lt;name&gt;/volumes</code>.
 A volume is</p>
 <pre><code>{name, owner, target, state: open|closed|missing, users, size, on_disk, used, free, created, passphrase?}

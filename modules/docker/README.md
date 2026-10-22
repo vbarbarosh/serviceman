@@ -19,12 +19,17 @@ machine's agent dialled, and runs compose as the agent's docker command.
 ## Layout
 
     server/docker_serve.js   the HTTP API, given connect and run
+    server/docker_manifest.js its kinds of items and the commands on them
     server/container_disk.js a File Manager disk inside a container, over the Engine API alone
     ui/docker.js             the component
     ui/docker.css            the component's rules
     tests/                   the API over a fake engine and a fake run
 
 ## The API
+
+What it holds and does is written down in `server/docker_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
 
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/docker`:
 

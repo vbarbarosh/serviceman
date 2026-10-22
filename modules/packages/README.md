@@ -19,17 +19,25 @@ on Remotes.
 ## Layout
 
     server/packages_serve.js      the HTTP API, given read()
+    server/packages_manifest.js   its kinds of items and the commands on them
     ui/packages.js                the component
     ui/packages.css               the component's rules
     tests/packages_serve.test.js  the API over a fake read
 
 ## The API
 
+What it holds and does is written down in `server/packages_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
+
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/packages`.
 
 | Door | What it does |
 |---|---|
 | `GET <base>` | what the host's `read()` answers, below |
+| `POST <base>/upgrade` | install everything that waits: the host's `upgrade()`, 202 once it has begun |
+| `GET <base>/upgrade` | how it goes: the host's `run()`, `{phase, lines, started_at, ended_at, error}` |
+| `POST <base>/cancel` | stop it: the host's `cancel()` |
 
     {at, manual_known, updates_known, commands: ['dpkg-query …', 'apt-mark showmanual', …],
      items: [{name, arch, version, size, section, summary, manual, held, broken,
@@ -40,8 +48,12 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 - `manual_known: false` says apt-mark could not tell which were installed by hand;
   `updates_known: false` that the dry run could not say what an upgrade would bring. The page
   says so instead of showing every package as a need, or as up to date.
-- **Refusals:** a read that throws is a 502 with its message, or the status the error carries;
-  any other door or method is a 404.
+- The upgrade is a run of minutes, so it outlives the request that started it: the host keeps
+  it, and the page reads it back once a second while it goes. A second one while one runs is
+  the host's to refuse (serviceman's is a 409).
+- **Refusals:** a read, an upgrade or a cancel that throws is a 502 with its message, or the
+  status the error carries; a host that gives no `upgrade`, `run` or `cancel` answers 501 at
+  their doors; any other door or method is a 404.
 
 ## Plugging it into a host
 
@@ -50,6 +62,9 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
     await packages_serve(req, res, {
         // -> {at, items, manual_known, updates_known, commands}
         read: () => ask_the_machine('package_list'),
+        upgrade: () => start_the_upgrade(),             // -> {started: true}; optional
+        run: () => the_upgrade_so_far(),                // -> {phase, lines, …}; optional
+        cancel: () => stop_the_upgrade(),               // optional
         tail: '',                                       // the address after the base
     });
 
@@ -72,8 +87,11 @@ page's `data_table.js` and its copy button the page's `command_copy.js`, importe
 ## In serviceman
 
 - `src/main/src/routes/handle_control_request.js` sends `/api/v1/remotes/<name>/packages…` to
-  `packages_serve`, after its own refusals: no such machine, not connected, an agent from before
-  the package list; its `read()` is the agent's `package_list`
+  `packages_serve`, once the machine is one it knows. Its `read()` is the agent's
+  `package_list`, refused for a machine away or an agent from before it; `upgrade()` and
+  `cancel()` are `apt_run` and `apt_cancel` (`src/main/src/helpers/`), which keep the run on the
+  machine's state, put back the containers it stopped, and are what Remotes' Install updates
+  uses for several machines at once; `run()` is that state, read even once the machine is away
 - the agent's `package_list` (`src/agent/src/agent_package_list.js`) runs dpkg-query, apt-mark
   and `apt-get -s upgrade` as the agent's own user: none of it needs root, and the dry run reads
   the lists the last `apt-get update` left

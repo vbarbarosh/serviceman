@@ -1,6 +1,10 @@
+const module_mount_of = require('./module_mount_of');
+const module_route = require('./module_route');
+
 // What a token other than the owner's may ask of the control door: these rights and nothing
 // else, each of one machine but the status. Every other route is the owner's alone, a route
-// added later included, until it is written here on purpose.
+// added later included, until it is written here on purpose. The modules' rights are not
+// here: each module's manifest names its own, door by door (module_mount_of).
 //
 //     right    its name, as a token holds it
 //     said     what a refusal says the token may not do
@@ -10,17 +14,7 @@ const RIGHTS = [
     {right: 'status', said: 'read the status', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/status$/},
     {right: 'metrics', said: 'read the charts', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/metrics$/},
     {right: 'metrics', said: 'read the uptime', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/uptime$/},
-    {right: 'processes', said: 'read the processes', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/processes$/},
     {right: 'ports', said: 'read the ports', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/ports$/},
-    {right: 'disks', said: 'read the disks', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/disks$/},
-    {right: 'packages', said: 'read the packages', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/packages$/},
-    {right: 'containers', said: 'read the containers', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/docker\/containers$/},
-    // The file manager of its machine, kept within the token's folder by the agent itself
-    {right: 'files', said: 'use the files', methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'], re: /^\/api\/v1\/remotes\/([^/]+)\/fs(?:\/.*)?$/},
-    // A kept terminal is a shell on its machine: listed, made, signalled, ended here, and
-    // joined through the shell door (handle_control_upgrade)
-    {right: 'terminals', said: 'use the terminals', methods: ['GET', 'HEAD', 'POST'], re: /^\/api\/v1\/remotes\/([^/]+)\/terminals$/},
-    {right: 'terminals', said: 'use the terminals', methods: ['POST'], re: /^\/api\/v1\/remotes\/([^/]+)\/terminals\/[^/]+\/(?:end|signal)$/},
 ];
 
 // The right a request needs, {right, said, remote}, remote null for one of no machine; null
@@ -33,9 +27,27 @@ function control_route_right(method, pathname)
             return {right: item.right, said: item.said, remote: (found[1] === undefined) ? null : decodeURIComponent(found[1])};
         }
     }
-    return null;
+    const mounted = module_mount_of(pathname);
+    if (mounted === null) {
+        return null;
+    }
+    // A right to the whole module is to every request under it; the module says what is a door
+    const manifest = mounted.mount.manifest;
+    const given = (manifest.right === undefined) ? module_route(manifest, method, mounted.tail) : {right: manifest.right};
+    if ((given === null) || (given.right === null)) {
+        return null;
+    }
+    return {right: given.right.right, said: given.right.said, remote: mounted.remote};
 }
 
-control_route_right.RIGHTS = Array.from(new Set(RIGHTS.map(v => v.right)));
+control_route_right.RIGHTS = Array.from(new Set(RIGHTS.map(v => v.right).concat(module_mount_of.MODULE_MOUNTS.flatMap(v => manifest_rights(v.manifest)))));
+
+// Every right a manifest names, in its order
+function manifest_rights(manifest)
+{
+    const kinds = manifest.kinds.flatMap(v => [(v.read === undefined) ? undefined : v.read.right].concat(v.commands.map(vv => vv.right)));
+    const doors = manifest.doors.map(v => v.right);
+    return [manifest.right].concat(kinds, doors).filter(v => v !== undefined).map(v => v.right);
+}
 
 module.exports = control_route_right;

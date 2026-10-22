@@ -1015,7 +1015,8 @@ back, serviceman starts. A machine that wants a restart says so; nothing restart
 <p>The calls, for a script: <code>POST /api/v1/apt-upgrade</code> with <code>{&quot;remotes&quot;: [&quot;vps1&quot;, &quot;vps2&quot;]}</code>
 starts them and answers which started, which waits (<code>held</code>) and which were left out and why;
 <code>GET /api/v1/apt-upgrade</code> is a row per machine; <code>POST /api/v1/apt-cancel</code> stops them. One
-machine&#39;s are <code>/api/v1/remotes/&lt;name&gt;/apt-upgrade</code>, <code>/apt-cancel</code> and <code>/apt</code>.</p>
+machine&#39;s are the Packages module&#39;s: <code>POST /api/v1/remotes/&lt;name&gt;/packages/upgrade</code> starts it,
+<code>GET</code> at the same address is how it goes, and <code>POST …/packages/cancel</code> stops it.</p>
 <h2 id="its-ports-and-its-firewall"><a class="anchor" href="#its-ports-and-its-firewall" aria-hidden="true" tabindex="-1">#</a>Its ports and its firewall</h2>
 <p>The <strong>Firewall</strong> tab of a remote is what the machine listens on and what its firewall, ufw,
 lets through. (It was two tabs, Ports and Firewall; an old <code>/ports</code> address opens it.)</p>

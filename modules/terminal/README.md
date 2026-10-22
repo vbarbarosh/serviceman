@@ -15,9 +15,36 @@ and its Shell tab of a machine opens a pty there through the machine's agent.
 
     server/terminal_attach.js   the websocket joined to a stream
     server/terminal_refuse.js   no terminal, and the note that says why
+    server/terminal_serve.js    the HTTP API of kept terminals, given call(method, params)
+    server/terminal_manifest.js its kind of items and the commands on them
     ui/terminal.js              the component
     ui/terminal.css             the component's rules
     tests/                      the server half with a fake socket and stream
+
+## The API of kept terminals
+
+What it holds and does is written down in `server/terminal_manifest.js`, for a host to route,
+give rights and show by: its kind of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
+
+A host that keeps terminals on a machine, to be joined later, lists, makes, signals and ends
+them here, under the base it mounts it at — serviceman's is
+`/api/v1/remotes/<name>/terminals`. Each door is one call of the host's `call(method, params)`:
+
+| Door | What it does |
+|---|---|
+| `GET <base>` | `term_list`: `{items: [{name, created_at, attached, cwd, command}]}` |
+| `POST <base>` `{name, cols, rows, env, cwd}` | `term_create`; no name is the first number no terminal has |
+| `POST <base>/<name>/signal` `{signal, to}` | `term_signal`: to its shell, or to what runs in front (`to: foreground`) |
+| `POST <base>/<name>/end` | `term_end`: the shell hung up, the terminal gone |
+
+- Only the fields a door takes go on to the call; `env` and `cwd` go as they came, for the host
+  to judge.
+- **Refusals:** a call that throws is a 502 with its message, or the status the error carries;
+  a body that is not JSON is a 400; any other door or method is a 404.
+
+[Terminals from another program](../../docs/terminals.md) says what each answers in serviceman,
+and how a terminal is joined.
 
 ## What goes over the websocket
 
@@ -47,6 +74,16 @@ The server half, once the host has a websocket and has opened the far end:
     });
 
     terminal_refuse(client, 'box is not connected');
+
+The kept terminals' API, for a host that keeps them:
+
+    const terminal_serve = require('../modules/terminal/server/terminal_serve');
+
+    await terminal_serve(req, res, {
+        // term_list, term_create, term_signal, term_end -> what the machine answers
+        call: (method, params) => ask_the_machine(method, params),
+        tail: '',                                       // the address after the base
+    });
 
 The page half: the host serves `ui/` and maps it, with Vue and xterm, in its import map, and
 loads xterm's css and the component's:
@@ -82,6 +119,10 @@ Ctrl-W, Ctrl-T and Ctrl-N too. Holding Esc leaves.
 
 ## In serviceman
 
+- `src/main/src/routes/handle_control_request.js` sends `/api/v1/remotes/<name>/terminals…` to
+  `terminal_serve`, after its own refusals: no such machine, not connected; its `call()` asks
+  the agent, and refuses an agent from before what is asked, a name that is not one, and an
+  `env` or a `cwd` its shell would not take
 - `src/main/src/routes/handle_control_upgrade.js` opens the far end for `/api/v1/shell`,
   `docker exec` for a service or a pty through the agent for a machine, and attaches it
 - `src/main/public/remote_shell.js` and `service_shell.js` are the two Shell tabs, each a

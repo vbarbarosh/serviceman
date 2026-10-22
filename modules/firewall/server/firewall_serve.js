@@ -41,6 +41,11 @@ async function firewall_serve(req, res, options)
             send_json(res, 200, await ctx.ports());
             return;
         }
+        // GET <base>/rules
+        if ((tail === '/rules') && (req.method === 'GET')) {
+            send_json(res, 200, {items: (await state_read(ctx)).rules});
+            return;
+        }
         // POST <base>/rules (body)
         if ((tail === '/rules') && (req.method === 'POST')) {
             await rule_add_serve(ctx, req, res);

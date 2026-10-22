@@ -728,6 +728,7 @@ there was), ufw runs in the machine&#39;s root half, or with <code>sudo -n</code
 ports are the list its agent reads with <code>ss</code>.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/firewall_serve.js      the HTTP API, given run(argv) and ports()
+server/firewall_manifest.js   its kinds of items and the commands on them
 ui/firewall.js                the component
 ui/firewall_ports.js          the ports as rows: how far each reaches, what the firewall does
 ui/firewall.css               the component&#39;s rules
@@ -742,6 +743,9 @@ the same on as off. So a rule is deleted by what it is (<code>ufw delete allow 2
 number that moves under it, and Undo is the same command again, at its old place
 (<code>ufw insert &lt;n&gt; …</code>), since the first rule that matches is the one ufw goes by.</p>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
+<p>What it holds and does is written down in <code>server/firewall_manifest.js</code>, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
 <p>Under the base the host mounts it at — serviceman&#39;s is <code>/api/v1/remotes/&lt;name&gt;/firewall</code>.
 Every answer about the firewall that succeeds is the firewall as it is now:</p>
 <pre><code>{installed, active, defaults: {incoming, outgoing, routed} or null while off, logging,
@@ -757,6 +761,10 @@ Every answer about the firewall that succeeds is the firewall as it is now:</p>
 <tbody><tr>
 <td><code>GET &lt;base&gt;</code></td>
 <td>the firewall; <code>installed: false</code> on a machine without ufw</td>
+</tr>
+<tr>
+<td><code>GET &lt;base&gt;/rules</code></td>
+<td>the rules alone, as <code>{items}</code></td>
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/ports</code></td>

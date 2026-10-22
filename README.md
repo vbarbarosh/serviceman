@@ -54,6 +54,21 @@ modules' by `bin/build-pages`.
 Parts of the control page that stand on their own: a page half and a server half, and a host
 that gives them what they reach. serviceman is the first host of each.
 
+Each module holds items of a few kinds and does commands on them, and says which in its
+manifest, `server/<name>_manifest.js`. Every module's API has the same shape, under the base
+the host mounts it at; the kind is left out for the module's own:
+
+    GET  <base>/<kind>                  the items
+    POST <base>/<kind>                  one made
+    POST <base>/<kind>/<command>        a command on all of them (prune, upgrade)
+    GET  <base>/<kind>/<command>        how a long one goes, for one that is kept (upgrade)
+    POST <base>/<kind>/<id>/<command>   a command on one (start, stop, remove)
+
+What is neither, a stream or another module's API inside this one, the manifest names as a
+door. serviceman answers 404 for whatever a manifest does not name, before the module is
+asked; gives a token only the rights a manifest names, door by door; and answers every
+manifest, with where it is mounted, at `GET /api/v1/modules`.
+
 - [Disks](modules/disks/README.md) — the disks of a machine: the room and the inodes of every
   filesystem it has mounted
 - [Docker](modules/docker/README.md) — the containers of one machine, its compose projects,

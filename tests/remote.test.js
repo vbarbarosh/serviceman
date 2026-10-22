@@ -551,7 +551,7 @@ test('the updates of a machine are installed on a press, said line by line, and 
         await wait_until(() => remote.state.phase === 'online');
         assert.strictEqual(remote.state.apt.phase, 'idle', 'nothing installs itself');
 
-        const began = await control(running, 'POST', '/api/v1/remotes/ui1/apt-upgrade', null);
+        const began = await control(running, 'POST', '/api/v1/remotes/ui1/packages/upgrade', null);
         assert.strictEqual(began.status, 202);
 
         // The lines arrive while it runs; nobody waits for the end to read the first of them
@@ -560,10 +560,10 @@ test('the updates of a machine are installed on a press, said line by line, and 
         assert.strictEqual(remote.state.apt.lines.some(v => /Reading package lists/.test(v)), true);
 
         // A second ask while one is running is refused rather than started beside it
-        const again = await control(running, 'POST', '/api/v1/remotes/ui1/apt-upgrade', null);
+        const again = await control(running, 'POST', '/api/v1/remotes/ui1/packages/upgrade', null);
         assert.strictEqual(again.status, 409);
 
-        const stopped = await control(running, 'POST', '/api/v1/remotes/ui1/apt-cancel', null);
+        const stopped = await control(running, 'POST', '/api/v1/remotes/ui1/packages/cancel', null);
         assert.strictEqual(stopped.status, 200);
         assert.strictEqual(stopped.body.stopped, true);
         await wait_until(() => remote.state.apt.phase !== 'running', 15000);
@@ -571,7 +571,7 @@ test('the updates of a machine are installed on a press, said line by line, and 
         assert.strictEqual(remote.state.apt.lines.some(v => /Aborted/.test(v)), true, 'what it said on its way out is in the log too');
 
         // And the whole of it is what the page reads back
-        const read = await control(running, 'GET', '/api/v1/remotes/ui1/apt', null);
+        const read = await control(running, 'GET', '/api/v1/remotes/ui1/packages/upgrade', null);
         assert.strictEqual(read.body.phase, 'cancelled');
         assert.strictEqual(read.body.lines.length, remote.state.apt.lines.length);
 
@@ -626,7 +626,7 @@ test('the updates of several machines are installed at once, the one serviceman 
         assert.strictEqual((await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1']})).status, 409);
 
         // The others ending is vps2's turn
-        await control(running, 'POST', '/api/v1/remotes/vps1/apt-cancel', null);
+        await control(running, 'POST', '/api/v1/remotes/vps1/packages/cancel', null);
         await wait_until(() => vps2.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 15000);
         assert.strictEqual(vps1.state.apt.phase, 'cancelled');
         assert.strictEqual(vps2.state.apt.phase, 'running');
@@ -661,16 +661,16 @@ test('a machine waiting its turn is not started once cancelled, and starts at on
         await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2']});
         assert.strictEqual(vps2.state.apt.phase, 'waiting');
         // Its own page cancels it like a run, and it is not started when its turn comes
-        const cancelled = await control(running, 'POST', '/api/v1/remotes/vps2/apt-cancel', null);
+        const cancelled = await control(running, 'POST', '/api/v1/remotes/vps2/packages/cancel', null);
         assert.strictEqual(cancelled.body.stopped, true);
-        await control(running, 'POST', '/api/v1/remotes/vps1/apt-cancel', null);
+        await control(running, 'POST', '/api/v1/remotes/vps1/packages/cancel', null);
         await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
         assert.strictEqual(vps2.state.apt.phase, 'cancelled');
         assert.strictEqual(vps2.state.apt.lines.length, 0);
 
         // Install them on a waiting machine starts it now; its turn then finds it already run
         await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2']});
-        assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps2/apt-upgrade', null)).status, 202);
+        assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps2/packages/upgrade', null)).status, 202);
         await wait_until(() => vps2.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
         await control(running, 'POST', '/api/v1/apt-cancel', null);
         await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
@@ -699,11 +699,11 @@ test('a machine with a root half does its root work there, and says so', async f
         await wait_until(() => remote.state.phase === 'online');
         await wait_until(() => remote.state.resources.can.includes('root'), 10000);
 
-        const began = await control(running, 'POST', '/api/v1/remotes/ui1/apt-upgrade', null);
+        const began = await control(running, 'POST', '/api/v1/remotes/ui1/packages/upgrade', null);
         assert.strictEqual(began.status, 202);
         // The lines come from the root half, through the session agent, over the link
         await wait_until(() => remote.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 15000);
-        const stopped = await control(running, 'POST', '/api/v1/remotes/ui1/apt-cancel', null);
+        const stopped = await control(running, 'POST', '/api/v1/remotes/ui1/packages/cancel', null);
         assert.strictEqual(stopped.body.stopped, true);
         await wait_until(() => remote.state.apt.phase !== 'running', 15000);
         assert.strictEqual(remote.state.apt.phase, 'cancelled');

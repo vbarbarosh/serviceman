@@ -31,6 +31,9 @@ test('rules are added from the form, listed as ufw keeps them, and refused when 
     const db = ranged.body.rules[1];
     assert.deepStrictEqual([db.action, db.direction, db.port, db.proto, db.from, db.to, db.comment], ['allow', 'in', '5432', 'tcp', '10.0.0.0/8', 'any', 'db from the lan']);
     assert.deepStrictEqual([ranged.body.rules[2].port, ranged.body.rules[2].proto, ranged.body.rules[2].from], ['8000:8100', 'udp', 'any']);
+    // The rules alone are a kind of their own, read as the others are
+    const listed = await call(running, 'GET', '/firewall/rules');
+    assert.deepStrictEqual([listed.status, listed.body.items.map(v => v.command)], [200, ranged.body.rules.map(v => v.command)]);
 
     // Wrong input is said before ufw is asked; a rule it has already is said by ufw
     const refused = [

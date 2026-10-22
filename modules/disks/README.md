@@ -17,11 +17,16 @@ run over there by the machine's agent.
 ## Layout
 
     server/disks_serve.js         the HTTP API, given read()
+    server/disks_manifest.js      its kinds of items and the commands on them
     ui/disks.js                   the component
     ui/disks.css                  the component's rules
     tests/disks_serve.test.js     the API over a fake read
 
 ## The API
+
+What it holds and does is written down in `server/disks_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
 
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/disks`.
 

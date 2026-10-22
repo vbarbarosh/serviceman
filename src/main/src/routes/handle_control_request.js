@@ -38,6 +38,8 @@ const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
+const module_mount_of = require('../helpers/module_mount_of');
+const module_route = require('../helpers/module_route');
 const packages_serve = require('../../../../modules/packages/server/packages_serve');
 const path = require('path');
 const processes_serve = require('../../../../modules/processes/server/processes_serve');
@@ -65,6 +67,7 @@ const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
 const term_create_refusal = require('../../../helpers/term_create_refusal');
 const term_name_valid = require('../../../helpers/term_name_valid');
+const terminal_serve = require('../../../../modules/terminal/server/terminal_serve');
 const transfer_queue = require('../../../../modules/file_manager/server/transfer_queue');
 const url_logged = require('../helpers/url_logged');
 const view_from_forward = require('../helpers/view_from_forward');
@@ -79,8 +82,6 @@ const BODY_LIMIT_BYTES = 1024*1024;
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull)$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
-const RE_REMOTE_APT = /^\/api\/v1\/remotes\/([^/]+)\/apt$/;
-const RE_REMOTE_APT_DO = /^\/api\/v1\/remotes\/([^/]+)\/(apt-upgrade|apt-cancel)$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
 // The File Manager module's API, one machine's disk under each
 const RE_REMOTE_FS = /^\/api\/v1\/remotes\/([^/]+)\/fs(\/.*)?$/;
@@ -96,11 +97,9 @@ const RE_REMOTE_VOLUMES = /^\/api\/v1\/remotes\/([^/]+)\/volumes(\/.*)?$/;
 const RE_TRANSFERS = /^\/api\/v1\/transfers(\/.*)?$/;
 // The Processes, Disks and Packages modules' APIs, one machine's under each
 const RE_REMOTE_PROCESSES = /^\/api\/v1\/remotes\/([^/]+)\/processes(\/.*)?$/;
-const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals$/;
+const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals(\/.*)?$/;
 const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
 const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
-const RE_REMOTE_TERMINAL_END = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/end$/;
-const RE_REMOTE_TERMINAL_SIGNAL = /^\/api\/v1\/remotes\/([^/]+)\/terminals\/([^/]+)\/signal$/;
 const RE_REMOTE_PORTS = /^\/api\/v1\/remotes\/([^/]+)\/ports$/;
 const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
 const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages(\/.*)?$/;
@@ -236,6 +235,10 @@ async function control_answer(app, req, res)
         await image_ports(app, res, url.searchParams.get('image'), url.searchParams.get('remote'));
         return;
     }
+    if ((url.pathname === '/api/v1/modules') && (req.method === 'GET')) {
+        modules_send(res);
+        return;
+    }
     if ((url.pathname === '/api/v1/config') && (req.method === 'GET')) {
         await config_send(app, res);
         return;
@@ -314,6 +317,12 @@ async function control_answer(app, req, res)
         await remote_logs_put(app, req, res, decodeURIComponent(remote_logs[1]));
         return;
     }
+    // A module answers only what its manifest names; anything else is no door of it
+    const mounted = module_mount_of(url.pathname);
+    if ((mounted !== null) && (module_route(mounted.mount.manifest, req.method, mounted.tail) === null)) {
+        send_json(res, 404, {error: `no such door: ${url.pathname}`});
+        return;
+    }
     const remote_docker = RE_REMOTE_DOCKER.exec(url.pathname);
     if (remote_docker !== null) {
         await handle_docker(app, req, res, decodeURIComponent(remote_docker[1]), (remote_docker[2] === undefined) ? '' : remote_docker[2]);
@@ -355,12 +364,8 @@ async function control_answer(app, req, res)
         return;
     }
     const remote_terminals = RE_REMOTE_TERMINALS.exec(url.pathname);
-    if ((remote_terminals !== null) && (req.method === 'GET')) {
-        await handle_machine_read(app, res, decodeURIComponent(remote_terminals[1]), 'term_list', 'kept terminals');
-        return;
-    }
-    if ((remote_terminals !== null) && (req.method === 'POST')) {
-        await handle_terminal_create(app, req, res, decodeURIComponent(remote_terminals[1]));
+    if (remote_terminals !== null) {
+        await handle_terminals(app, req, res, decodeURIComponent(remote_terminals[1]), (remote_terminals[2] === undefined) ? '' : remote_terminals[2]);
         return;
     }
     const remote_ports = RE_REMOTE_PORTS.exec(url.pathname);
@@ -375,27 +380,7 @@ async function control_answer(app, req, res)
     }
     const remote_packages = RE_REMOTE_PACKAGES.exec(url.pathname);
     if (remote_packages !== null) {
-        await handle_machine_module(app, req, res, decodeURIComponent(remote_packages[1]), ((remote_packages[2] === undefined) ? '' : remote_packages[2]), packages_serve, 'package_list', 'the package list');
-        return;
-    }
-    const remote_apt = RE_REMOTE_APT.exec(url.pathname);
-    if ((remote_apt !== null) && (req.method === 'GET')) {
-        handle_apt_read(app, res, decodeURIComponent(remote_apt[1]));
-        return;
-    }
-    const remote_apt_do = RE_REMOTE_APT_DO.exec(url.pathname);
-    if ((remote_apt_do !== null) && (req.method === 'POST')) {
-        await handle_apt(app, res, decodeURIComponent(remote_apt_do[1]), remote_apt_do[2]);
-        return;
-    }
-    const remote_terminal_end = RE_REMOTE_TERMINAL_END.exec(url.pathname);
-    if ((remote_terminal_end !== null) && (req.method === 'POST')) {
-        await handle_terminal_call(app, res, decodeURIComponent(remote_terminal_end[1]), 'term_end', {name: decodeURIComponent(remote_terminal_end[2])});
-        return;
-    }
-    const remote_terminal_signal = RE_REMOTE_TERMINAL_SIGNAL.exec(url.pathname);
-    if ((remote_terminal_signal !== null) && (req.method === 'POST')) {
-        await handle_terminal_signal(app, req, res, decodeURIComponent(remote_terminal_signal[1]), decodeURIComponent(remote_terminal_signal[2]));
+        await handle_packages(app, req, res, decodeURIComponent(remote_packages[1]), (remote_packages[2] === undefined) ? '' : remote_packages[2]);
         return;
     }
     const remote_screenshot = RE_REMOTE_SCREENSHOT.exec(url.pathname);
@@ -560,11 +545,18 @@ async function handle_agent_update(app, res, name)
     }
 }
 
+// GET /api/v1/modules
+// What every module holds and does, and where: its kinds of items, the commands on them, the
+// doors that are neither, and the rights a token may be given of it. The manifests as they
+// are, each with the base it is mounted at.
+function modules_send(res)
+{
+    send_json(res, 200, {modules: module_mount_of.MODULE_MOUNTS.map(v => Object.assign({base: v.base}, v.manifest))});
+}
+
 // GET /api/v1/remotes/<name>/ports
-// GET /api/v1/remotes/<name>/terminals
-// What that machine is listening on, and its kept terminals. Each is read when asked and kept
-// nowhere: the agent runs ss, or reads its terminals' notes, over there as its own user, and
-// what comes back is what that user may see.
+// What that machine is listening on, read when asked and kept nowhere: the agent runs ss over
+// there as its own user, and what comes back is what that user may see.
 async function handle_machine_read(app, res, name, method, what)
 {
     const remote = app.remote_by_name[name];
@@ -591,11 +583,9 @@ async function handle_machine_read(app, res, name, method, what)
 
 // GET /api/v1/remotes/<name>/processes
 // GET /api/v1/remotes/<name>/disks
-// GET /api/v1/remotes/<name>/packages
-// What is running on that machine, its disks and its packages, through the Processes, Disks
-// and Packages modules: the doors are the module's, and its read is the agent running ps, df
-// or dpkg over there as its own user, so what comes back is what that user may see. The
-// refusals are this host's own.
+// What is running on that machine and its disks, through the Processes and Disks modules: the
+// doors are the module's, and its read is the agent running ps or df over there as its own
+// user, so what comes back is what that user may see. The refusals are this host's own.
 async function handle_machine_module(app, req, res, name, tail, serve, method, what)
 {
     const remote = app.remote_by_name[name];
@@ -832,57 +822,55 @@ function transfers_of(app)
     return app.transfers;
 }
 
-// GET /api/v1/remotes/<name>/apt
-// What is waiting to be installed on that machine, and how the run that was asked for is going
-function handle_apt_read(app, res, name)
+// GET /api/v1/remotes/<name>/packages
+// POST /api/v1/remotes/<name>/packages/upgrade
+// GET /api/v1/remotes/<name>/packages/upgrade
+// POST /api/v1/remotes/<name>/packages/cancel
+// One machine's packages, through the Packages module: the list is read when asked, the agent
+// running dpkg over there as its own user. Installing what waits, and stopping it again, are
+// both by hand, from the machine's page; nothing here runs on a clock, and one that waits for
+// its turn among several machines is started now when asked here. The run outlives the request
+// by minutes, so it is kept on the remote's state and read back, even once the machine is gone.
+async function handle_packages(app, req, res, name, tail)
 {
     const remote = app.remote_by_name[name];
     if (remote === undefined) {
         send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
         return;
     }
-    send_json(res, 200, remote.state.apt);
+    await packages_serve(req, res, {
+        read: function () {
+            machine_refuse(remote, 'package_list', 'the package list');
+            return remote_call(app, remote, 'package_list', {}, MACHINE_READ_TIMEOUT_MS);
+        },
+        upgrade: function () {
+            machine_refuse(remote, 'apt', 'installing updates');
+            if (remote.state.apt.phase === 'running') {
+                throw status_error(409, `an upgrade is already running on ${name}`);
+            }
+            apt_run(app, remote).catch(function (error) {
+                log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
+            });
+            return {started: true};
+        },
+        run: () => remote.state.apt,
+        cancel: function () {
+            machine_refuse(remote, 'apt', 'installing updates');
+            return apt_cancel(app, remote);
+        },
+        tail,
+    });
 }
 
-// POST /api/v1/remotes/<name>/apt-upgrade
-// POST /api/v1/remotes/<name>/apt-cancel
-// Installing what is waiting, and stopping it again — both by hand, both from the machine's
-// page. Nothing here runs on a clock. One that waits for its turn among several machines is
-// started now when asked here.
-async function handle_apt(app, res, name, action)
+// A machine away, or with an agent from before what is asked, is refused with what to do
+function machine_refuse(remote, method, what)
 {
-    const remote = app.remote_by_name[name];
-    if (remote === undefined) {
-        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
-        return;
-    }
     if (remote.state.phase !== 'online') {
-        send_json(res, 409, {error: `${name} is not connected`});
-        return;
+        throw status_error(409, `${remote.name} is not connected`);
     }
-    if (remote_can(remote, 'apt') === false) {
-        send_json(res, 400, {error: `the agent on ${name} is from before installing updates — its page says how it updates`});
-        return;
+    if (remote_can(remote, method) === false) {
+        throw status_error(400, `the agent on ${remote.name} is from before ${what} — its page says how it updates`);
     }
-    if (action === 'apt-cancel') {
-        try {
-            send_json(res, 200, await apt_cancel(app, remote));
-        }
-        catch (error) {
-            send_json(res, 502, {error: error.message});
-        }
-        return;
-    }
-    if (remote.state.apt.phase === 'running') {
-        send_json(res, 409, {error: `an upgrade is already running on ${name}`});
-        return;
-    }
-    // The run outlives this request by minutes: the answer says it began, and the page reads
-    // how it is going from the door above
-    apt_run(app, remote).catch(function (error) {
-        log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
-    });
-    send_json(res, 202, {started: true});
 }
 
 // GET /api/v1/apt-upgrade
@@ -1101,44 +1089,16 @@ async function handle_remote_uptime(app, res, name, days_text)
     }
 }
 
+// GET /api/v1/remotes/<name>/terminals
 // POST /api/v1/remotes/<name>/terminals (body: {name, cols, rows, env, cwd})
-// A terminal kept on the machine, made without joining it: the name asked for, or the lowest
-// number no terminal has. Its shell gets the variables of `env` and starts in `cwd`. Answers
-// {name, created}; created is false when it was running already, with what it had.
-async function handle_terminal_create(app, req, res, name)
-{
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
-    const refused = term_create_refusal(body.env, body.cwd);
-    if (refused !== null) {
-        send_json(res, 400, {error: refused});
-        return;
-    }
-    const remote = app.remote_by_name[name];
-    let term = body.name;
-    if (((term === undefined) || (term === null)) && (remote !== undefined) && (remote.state.phase === 'online')) {
-        const listed = await remote_call(app, remote, 'term_list', {}, MACHINE_READ_TIMEOUT_MS);
-        let n = 1;
-        while (listed.items.some(v => v.name === String(n))) {
-            n++;
-        }
-        term = String(n);
-    }
-    await handle_terminal_call(app, res, name, 'term_create', {name: term, cols: body.cols, rows: body.rows, env: body.env || undefined, cwd: body.cwd || undefined});
-}
-
 // POST /api/v1/remotes/<name>/terminals/<term>/signal (body: {signal, to})
-// A signal into the terminal: to its shell (to: shell, the default), or to what runs in it in
-// front (to: foreground), which SIGINT stops as Ctrl-C does
-async function handle_terminal_signal(app, req, res, name, term)
-{
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
-    await handle_terminal_call(app, res, name, 'term_signal', {name: term, signal: body.signal, to: body.to});
-}
-
 // POST /api/v1/remotes/<name>/terminals/<term>/end
-// The × of a terminal's tab goes through here too: the shell is hung up, as closing a terminal
-// window does, and the terminal is gone at once — not left running for nobody
-async function handle_terminal_call(app, res, name, method, params)
+// One machine's kept terminals, through the Terminal module: the doors are the module's, the
+// machine is asked over the link its agent dialled. A new one is the name asked for, or the
+// lowest number no terminal has; its shell gets the variables of `env` and starts in `cwd`,
+// and the answer is {name, created}, created false when it was running already. The list is
+// read when asked and kept nowhere: the agent reads its terminals' notes as its own user.
+async function handle_terminals(app, req, res, name, tail)
 {
     const remote = app.remote_by_name[name];
     if (remote === undefined) {
@@ -1149,27 +1109,54 @@ async function handle_terminal_call(app, res, name, method, params)
         send_json(res, 409, {error: `${name} is not connected`});
         return;
     }
+    await terminal_serve(req, res, {
+        call: (method, params) => terminal_call(app, remote, method, params),
+        tail,
+    });
+}
+
+// What the Terminal module asks of the machine, with this host's refusals: an agent from before
+// what is asked, a name or an env it would not take
+async function terminal_call(app, remote, method, params)
+{
+    if (method === 'term_list') {
+        if (remote_can(remote, 'term_list') === false) {
+            throw status_error(400, `the agent on ${remote.name} is from before kept terminals — its page says how it updates`);
+        }
+        return await remote_call(app, remote, method, params, MACHINE_READ_TIMEOUT_MS);
+    }
     if ((remote_can(remote, 'term_list') === false) || ((method !== 'term_end') && (remote_can(remote, 'term_signal') === false))) {
-        send_json(res, 400, {error: `the agent on ${name} is from before ${(method === 'term_end') ? 'kept terminals' : 'creating and signalling terminals'} — its page says how it updates`});
-        return;
+        throw status_error(400, `the agent on ${remote.name} is from before ${(method === 'term_end') ? 'kept terminals' : 'creating and signalling terminals'} — its page says how it updates`);
     }
+    const refused = (method === 'term_create') ? term_create_refusal(params.env, params.cwd) : null;
+    if (refused !== null) {
+        throw status_error(400, refused);
+    }
+    // An empty env or folder is none: the shell's own
+    const asked = (method === 'term_create') ? Object.assign({}, params, {env: params.env || undefined, cwd: params.cwd || undefined}) : params;
     // An older agent would start the shell without them, and answer as if it had not
-    if (((params.env !== undefined) || (params.cwd !== undefined)) && (remote_can(remote, 'term_env') === false)) {
-        send_json(res, 400, {error: `the agent on ${name} is from before env and cwd for a new terminal — its page says how it updates`});
-        return;
+    if (((asked.env !== undefined) || (asked.cwd !== undefined)) && (remote_can(remote, 'term_env') === false)) {
+        throw status_error(400, `the agent on ${remote.name} is from before env and cwd for a new terminal — its page says how it updates`);
     }
-    if (term_name_valid(params.name) === false) {
-        send_json(res, 400, {error: `a terminal name is letters, digits, - and _, at most 64 of them: ${JSON.stringify(params.name)}`});
-        return;
+    if (term_name_valid(asked.name) === false) {
+        throw status_error(400, `a terminal name is letters, digits, - and _, at most 64 of them: ${JSON.stringify(asked.name)}`);
     }
+    let answer;
     try {
-        const answer = await remote_call(app, remote, method, params, MACHINE_READ_TIMEOUT_MS);
-        log_event(app, 'terminal_call', {remote: remote.name, method, term: params.name});
-        send_json(res, 200, answer);
+        answer = await remote_call(app, remote, method, asked, MACHINE_READ_TIMEOUT_MS);
     }
     catch (error) {
-        send_json(res, 400, {error: error.message});
+        throw status_error(400, error.message);
     }
+    log_event(app, 'terminal_call', {remote: remote.name, method, term: asked.name});
+    return answer;
+}
+
+function status_error(status, message)
+{
+    const out = new Error(message);
+    out.status = status;
+    return out;
 }
 
 // POST /api/v1/remotes/<name>/screenshot

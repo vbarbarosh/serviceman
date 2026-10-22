@@ -729,11 +729,15 @@ Installing the updates is not here: it is serviceman&#39;s own, on a machine&#39
 on Remotes.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/packages_serve.js      the HTTP API, given read()
+server/packages_manifest.js   its kinds of items and the commands on them
 ui/packages.js                the component
 ui/packages.css               the component&#39;s rules
 tests/packages_serve.test.js  the API over a fake read
 </code></pre>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
+<p>What it holds and does is written down in <code>server/packages_manifest.js</code>, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
 <p>Under the base the host mounts it at — serviceman&#39;s is <code>/api/v1/remotes/&lt;name&gt;/packages</code>.</p>
 <div class="table-wrap"><table>
 <thead>
@@ -745,6 +749,18 @@ tests/packages_serve.test.js  the API over a fake read
 <tbody><tr>
 <td><code>GET &lt;base&gt;</code></td>
 <td>what the host&#39;s <code>read()</code> answers, below</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/upgrade</code></td>
+<td>install everything that waits: the host&#39;s <code>upgrade()</code>, 202 once it has begun</td>
+</tr>
+<tr>
+<td><code>GET &lt;base&gt;/upgrade</code></td>
+<td>how it goes: the host&#39;s <code>run()</code>, <code>{phase, lines, started_at, ended_at, error}</code></td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/cancel</code></td>
+<td>stop it: the host&#39;s <code>cancel()</code></td>
 </tr>
 </tbody></table>
 </div>
@@ -758,8 +774,12 @@ it is not the machine&#39;s own nor <code>all</code>.</li>
 <li><code>manual_known: false</code> says apt-mark could not tell which were installed by hand;
 <code>updates_known: false</code> that the dry run could not say what an upgrade would bring. The page
 says so instead of showing every package as a need, or as up to date.</li>
-<li><strong>Refusals:</strong> a read that throws is a 502 with its message, or the status the error carries;
-any other door or method is a 404.</li>
+<li>The upgrade is a run of minutes, so it outlives the request that started it: the host keeps
+it, and the page reads it back once a second while it goes. A second one while one runs is
+the host&#39;s to refuse (serviceman&#39;s is a 409).</li>
+<li><strong>Refusals:</strong> a read, an upgrade or a cancel that throws is a 502 with its message, or the
+status the error carries; a host that gives no <code>upgrade</code>, <code>run</code> or <code>cancel</code> answers 501 at
+their doors; any other door or method is a 404.</li>
 </ul>
 <h2 id="plugging-it-into-a-host"><a class="anchor" href="#plugging-it-into-a-host" aria-hidden="true" tabindex="-1">#</a>Plugging it into a host</h2>
 <pre><code>const packages_serve = require(&#39;../modules/packages/server/packages_serve&#39;);
@@ -767,6 +787,9 @@ any other door or method is a 404.</li>
 await packages_serve(req, res, {
     // -&gt; {at, items, manual_known, updates_known, commands}
     read: () =&gt; ask_the_machine(&#39;package_list&#39;),
+    upgrade: () =&gt; start_the_upgrade(),             // -&gt; {started: true}; optional
+    run: () =&gt; the_upgrade_so_far(),                // -&gt; {phase, lines, …}; optional
+    cancel: () =&gt; stop_the_upgrade(),               // optional
     tail: &#39;&#39;,                                       // the address after the base
 });
 </code></pre>
@@ -786,8 +809,11 @@ page&#39;s <code>data_table.js</code> and its copy button the page&#39;s <code>c
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/packages…</code> to
-<code>packages_serve</code>, after its own refusals: no such machine, not connected, an agent from before
-the package list; its <code>read()</code> is the agent&#39;s <code>package_list</code></li>
+<code>packages_serve</code>, once the machine is one it knows. Its <code>read()</code> is the agent&#39;s
+<code>package_list</code>, refused for a machine away or an agent from before it; <code>upgrade()</code> and
+<code>cancel()</code> are <code>apt_run</code> and <code>apt_cancel</code> (<code>src/main/src/helpers/</code>), which keep the run on the
+machine&#39;s state, put back the containers it stopped, and are what Remotes&#39; Install updates
+uses for several machines at once; <code>run()</code> is that state, read even once the machine is away</li>
 <li>the agent&#39;s <code>package_list</code> (<code>src/agent/src/agent_package_list.js</code>) runs dpkg-query, apt-mark
 and <code>apt-get -s upgrade</code> as the agent&#39;s own user: none of it needs root, and the dry run reads
 the lists the last <code>apt-get update</code> left</li>

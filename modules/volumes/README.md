@@ -14,6 +14,7 @@ kept there.
 ## Layout
 
     server/volumes_serve.js       the HTTP API, given call(params) and key_safe
+    server/volumes_manifest.js    its kinds of items and the commands on them
     ui/volumes.js                 the list, for any number of machines
     ui/volumes.css                the component's rules
     tests/volumes_serve.test.js   the API over a fake machine
@@ -34,6 +35,10 @@ root half: tests in `tests/agent_volume.test.js`.
   folder is kept beside it as `<target>.plain-<time>` for its owner to delete.
 
 ## The API
+
+What it holds and does is written down in `server/volumes_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
 
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/volumes`.
 A volume is

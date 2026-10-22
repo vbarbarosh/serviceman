@@ -696,7 +696,7 @@ const remote_configure = {
         apt_read: async function () {
             clearTimeout(this.apt_timer);
             try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/apt`, {cache: 'no-store'});
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/upgrade`, {cache: 'no-store'});
                 if (answer.ok) {
                     const before = this.apt.lines.length;
                     this.apt = await answer.json();
@@ -723,7 +723,7 @@ const remote_configure = {
         apt_start: async function () {
             this.apt = {phase: 'running', lines: [], error: null};
             try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/apt-upgrade`, {method: 'POST'});
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/upgrade`, {method: 'POST'});
                 if (answer.ok === false) {
                     const outcome = await answer.json();
                     this.apt = {phase: 'error', lines: [], error: outcome.error};
@@ -739,7 +739,7 @@ const remote_configure = {
         apt_stop: async function () {
             this.cancelling = true;
             try {
-                await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/apt-cancel`, {method: 'POST'});
+                await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/cancel`, {method: 'POST'});
             }
             catch {
                 // Whether it stopped is what the run itself says, a moment from now

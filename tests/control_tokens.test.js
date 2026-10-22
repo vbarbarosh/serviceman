@@ -95,7 +95,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
 
     // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'files', 'terminals']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'processes', 'disks', 'packages', 'containers', 'files', 'terminals']);
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);
     assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${made.item.id}`, null, running.owner)).status, 200);
@@ -180,6 +180,34 @@ test('a token with terminals uses the kept terminals of its machines and opens n
 });
 
 // A serviceman of its own state dir, so its owner's token and tokens are this test's alone
+test('the modules say what they hold and do; a door none names is a 404, and a right is to the doors it names', async function (t) {
+    const running = await serviceman_start(t);
+    const listed = await call(running, 'GET', '/api/v1/modules', null, running.owner);
+    assert.strictEqual(listed.status, 200);
+    const modules = JSON.parse(listed.body).modules;
+    assert.deepStrictEqual(modules.map(v => v.module), ['processes', 'disks', 'packages', 'docker', 'firewall', 'volumes', 'file_manager', 'terminal', 'file_manager']);
+    const docker = modules.find(v => v.module === 'docker');
+    assert.strictEqual(docker.base, '/api/v1/remotes/<name>/docker');
+    assert.deepStrictEqual(docker.kinds.find(v => v.kind === 'containers').commands.map(v => v.command), ['start', 'stop', 'restart', 'remove']);
+
+    // A door no manifest names is answered here, before the machine is looked for
+    const none = await call(running, 'POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/kill', null, running.owner);
+    assert.deepStrictEqual([none.status, JSON.parse(none.body).error], [404, 'no such door: /api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/kill']);
+    const named = await call(running, 'POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/stop', null, running.owner);
+    assert.deepStrictEqual([named.status, JSON.parse(named.body).error], [409, 'vps1 is not connected']);
+
+    // A token that reads the packages and the containers changes neither; the list is the owner's
+    const made = await token_make(running, {label: 'the notes agent', remotes: ['vps1'], rights: ['packages', 'containers']});
+    for (const [method, asked] of [['GET', '/api/v1/remotes/vps1/packages'], ['GET', '/api/v1/remotes/vps1/docker/containers']]) {
+        const answer = await call(running, method, asked, null, made.token);
+        assert.strictEqual([401, 403].includes(answer.status), false, `${method} ${asked}: ${answer.status} ${answer.body}`);
+    }
+    for (const [method, asked] of [['POST', '/api/v1/remotes/vps1/packages/upgrade'], ['GET', '/api/v1/remotes/vps1/packages/upgrade'], ['POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/stop'], ['GET', '/api/v1/modules']]) {
+        const answer = await call(running, method, asked, null, made.token);
+        assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" has no right to this'], `${method} ${asked}`);
+    }
+});
+
 async function serviceman_start(t)
 {
     const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tokens-'));

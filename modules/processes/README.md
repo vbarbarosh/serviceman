@@ -17,6 +17,7 @@ serviceman is the first host: its Processes tab of a machine is this component, 
 ## Layout
 
     server/processes_serve.js     the HTTP API, given read()
+    server/processes_manifest.js  its kinds of items and the commands on them
     ui/processes.js               the component
     ui/processes.css              the component's rules
     tests/processes_serve.test.js the API over a fake read
@@ -29,6 +30,10 @@ a tree that moves under the hand is one nobody can read. The folds are kept, by 
 read that brings the same tree back.
 
 ## The API
+
+What it holds and does is written down in `server/processes_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
 
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/processes`.
 

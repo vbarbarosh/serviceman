@@ -729,12 +729,16 @@ root on that machine, is never handed out.</p>
 machine&#39;s agent dialled, and runs compose as the agent&#39;s docker command.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/docker_serve.js   the HTTP API, given connect and run
+server/docker_manifest.js its kinds of items and the commands on them
 server/container_disk.js a File Manager disk inside a container, over the Engine API alone
 ui/docker.js             the component
 ui/docker.css            the component&#39;s rules
 tests/                   the API over a fake engine and a fake run
 </code></pre>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
+<p>What it holds and does is written down in <code>server/docker_manifest.js</code>, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+<a href="../index.html#modules">the shape every module has</a>.</p>
 <p>Under the base the host mounts it at — serviceman&#39;s is <code>/api/v1/remotes/&lt;name&gt;/docker</code>:</p>
 <div class="table-wrap"><table>
 <thead>

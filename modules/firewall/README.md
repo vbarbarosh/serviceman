@@ -18,6 +18,7 @@ ports are the list its agent reads with `ss`.
 ## Layout
 
     server/firewall_serve.js      the HTTP API, given run(argv) and ports()
+    server/firewall_manifest.js   its kinds of items and the commands on them
     ui/firewall.js                the component
     ui/firewall_ports.js          the ports as rows: how far each reaches, what the firewall does
     ui/firewall.css               the component's rules
@@ -35,6 +36,10 @@ number that moves under it, and Undo is the same command again, at its old place
 
 ## The API
 
+What it holds and does is written down in `server/firewall_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
+
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/firewall`.
 Every answer about the firewall that succeeds is the firewall as it is now:
 
@@ -44,6 +49,7 @@ Every answer about the firewall that succeeds is the firewall as it is now:
 | Door | What it does |
 |---|---|
 | `GET <base>` | the firewall; `installed: false` on a machine without ufw |
+| `GET <base>/rules` | the rules alone, as `{items}` |
 | `GET <base>/ports` | what the host's `ports()` answers: `{items: [{proto, address, port, state, users: [{name, pid}]}], commands}`; 501 without one |
 | `POST <base>/rules` `{action, direction, port, proto, from, comment}` | a rule from the form, added last |
 | `POST <base>/rules` `{command, at}` | a rule as the list gave it, put back at its place: Undo |

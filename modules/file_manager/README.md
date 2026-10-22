@@ -18,9 +18,11 @@ reached over the link that machine's agent dialled.
 ## Layout
 
     server/file_manager_serve.js   the HTTP API, given a disk
+    server/file_manager_manifest.js its kinds of items and the commands on them
     server/transfer_queue.js       copies from one disk to another, in parts, run by the server
     server/tar_parser.js           a tar read as its bytes come, for the tar upload
     server/file_manager_transfers_serve.js   the HTTP API of those copies
+    server/file_manager_transfers_manifest.js   their kind and its commands
     ui/file_manager.js             the component
     ui/upload_queue.js             the uploads, kept by the page so they outlive the component
     ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
@@ -29,6 +31,10 @@ reached over the link that machine's agent dialled.
     tests/                         the API over a disk held in memory
 
 ## The API
+
+What it holds and does is written down in `server/file_manager_manifest.js`, for a host to route,
+give rights and show by: its kinds of items and the commands on them, in
+[the shape every module has](../../README.md#modules).
 
 Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>/fs`:
 
