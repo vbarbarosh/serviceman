@@ -25,6 +25,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
 
     bin/configure                       # after a fresh checkout or a pull
     bin/run                             # the image, with data/serviceman.json; the page is http://serviceman.localhost:3001
+    bin/run-local                       # module-host: every module on this computer, no serviceman; prints its page's address
     bin/test                            # the suites in tests/ (npm test)
     node --test modules/*/tests/*.test.js
     (cd logline/lines && bin/test)

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# The modules on this computer, from this checkout: module-host, with the ServiceMan agent's own
+# code in its process doing the work as you, and no serviceman, image or install. The page is
+# http://localhost:3002 (PORT for another), on the loopback only. What the agent keeps, its
+# kept terminals among it, goes to ~/.local/state/module-host. It needs node and the packages,
+# which bin/configure installs; they are installed here when missing.
+if [ ! -d node_modules ]; then
+    npm ci
+fi
+exec node src/module-host/index.js

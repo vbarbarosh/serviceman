@@ -2,13 +2,37 @@ import {createApp, markRaw} from 'vue';
 
 const THEME_KEY = 'module-host.theme';
 
-// What each module's component is given here, from this computer: its API is /api/<key>
+// What each module's component is given here, from this computer (its name, user, cores and
+// addresses) and the page's theme: its API is /api/<key>, as serviceman gives it a machine's
 const MODULE_PROPS = {
-    firewall: v => ({base: '/api/firewall', addresses: v.addresses}),
+    processes: v => ({base: '/api/processes', cores: v.machine.cores}),
+    disks: () => ({base: '/api/disks'}),
+    packages: () => ({base: '/api/packages'}),
+    docker: function (v) {
+        return {
+            base: '/api/docker',
+            theme: v.theme,
+            streams: '/api/v1/streams',
+            // A container's files, the File Manager's API over a disk inside it
+            files_base: vv => `/api/docker/containers/${vv.id}/fs`,
+            // A shell in a container, the Terminal module's websocket
+            shell_url: vv => `/api/shell?container=${vv.id}`,
+        };
+    },
+    file_manager: v => ({base: '/api/file_manager', theme: v.theme, title: v.machine.hostname, user: v.machine.user, home_title: `The home folder of ${v.machine.user}`, disk: v.machine.hostname, targets: []}),
+    // The control page's own terminal tabs, around the Terminal module's pane
+    terminal: v => ({view: {name: v.machine.hostname, title: v.machine.hostname}, theme: v.theme, base: '/api/terminal'}),
+    firewall: v => ({base: '/api/firewall', addresses: v.machine.addresses}),
+    volumes: v => ({machines: [{name: v.machine.hostname, title: v.machine.hostname, base: '/api/volumes', offline: false, user: v.machine.user}]}),
 };
 
+// The modules whose page half is a part of a page on serviceman's (Volumes is a section of
+// Storage), and is given that page's article here, so it stands where the others do
+const WITHIN_PAGE = ['volumes'];
+
 // serviceman's modules on this computer: one at a time beside the list of them, each loaded
-// from its own page half the first time it is opened
+// from its own page half the first time it is opened; every module's styles from the start,
+// since one module opens another inside it (Docker a container's files and its shell)
 const module_host = {
     template: `
 <div class="mh-head">
@@ -26,21 +50,24 @@ const module_host = {
     <div class="mh-main">
         <p v-if="(error !== '')" class="bad">{{ error }}</p>
         <p v-else-if="((loaded === null) || (machine === null))" class="muted">Loading…</p>
+        <article v-else-if="WITHIN_PAGE.includes(key)" class="list">
+            <component :is="loaded" :key="key" v-bind="props"/>
+        </article>
         <component v-else :is="loaded" :key="key" v-bind="props"/>
     </div>
 </div>
 `,
     data: function () {
-        return {modules: [], machine: null, key: null, loaded: null, error: '', theme: document.documentElement.dataset.theme};
+        return {WITHIN_PAGE, modules: [], machine: null, key: null, loaded: null, error: '', theme: document.documentElement.dataset.theme};
     },
     computed: {
         props: function () {
             const make = MODULE_PROPS[this.key];
-            return (make === undefined) ? {} : make(this.machine);
+            return (make === undefined) ? {} : make({machine: this.machine, theme: this.theme});
         },
     },
     methods: {
-        // The module named in the address, or the first; its css and component on first use
+        // The module named in the address, or the first; its component on first use
         open: async function (key) {
             this.key = key;
             this.loaded = null;
@@ -49,14 +76,7 @@ const module_host = {
                 history.replaceState(null, '', `#${key}`);
             }
             try {
-                if (document.querySelector(`link[data-module="${key}"]`) === null) {
-                    const link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = `/_/${key}/${key}.css`;
-                    link.dataset.module = key;
-                    document.head.appendChild(link);
-                }
-                const found = await import(`/_/${key}/${key}.js`);
+                const found = await import(this.modules.find(v => v.key === key).page);
                 if (key === this.key) {
                     this.loaded = markRaw(found.default);
                 }
@@ -78,9 +98,15 @@ const module_host = {
     },
     mounted: async function () {
         try {
-            const [modules, machine] = await Promise.all([fetch('/api/modules'), fetch('/api/machine')].map(async v => (await v).json()));
+            const [modules, machine] = await Promise.all(['/api/modules', '/api/machine'].map(answer_read));
             this.modules = modules;
             this.machine = machine;
+            for (const item of modules) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `/_/${item.key}/${item.key}.css`;
+                document.head.appendChild(link);
+            }
         }
         catch (error) {
             this.error = `Could not read this computer: ${error.message}`;
@@ -90,5 +116,16 @@ const module_host = {
         this.open(this.modules.some(v => v.key === asked) ? asked : this.modules[0].key);
     },
 };
+
+// A refusal says why: a browser that has not the key is told to open the address module-host printed
+async function answer_read(url)
+{
+    const answer = await fetch(url, {cache: 'no-store'});
+    const outcome = await answer.json();
+    if (answer.ok === false) {
+        throw new Error(outcome.error);
+    }
+    return outcome;
+}
 
 createApp(module_host).mount('#app');

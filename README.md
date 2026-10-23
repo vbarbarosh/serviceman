@@ -29,6 +29,14 @@ starting config, when there is none; `bin/run` runs the image with it. Open
 http://serviceman.localhost:3001 for the control page, and add a machine and a service there or
 in the file ([Config](docs/config.md)); then visit the service's hostname.
 
+**The modules on this computer only**, with no serviceman, image or agent to install:
+
+    bin/run-local
+
+It runs [module-host](src/module-host/README.md), with the agent's own code inside it, and prints
+the address of its page: Processes, Disks, Packages, Docker, Files, Terminal, Firewall and
+Volumes, of this computer, as the user who started it.
+
 ## Docs
 
 Also as a site: https://vbarbarosh.github.io/serviceman/, built from these files and the

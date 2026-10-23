@@ -61,7 +61,8 @@ const remote_shell = {
     components: {'term-tabs': term_tabs, terminal},
     // terminal  the terminal the address names, or the one last open on this machine
     // prefer    the terminal last open on any machine: opened here too when this one has it
-    props: ['view', 'theme', 'terminal', 'prefer'],
+    // base      the Terminal module's API, when it is not this host's for the machine (module-host)
+    props: ['view', 'theme', 'terminal', 'prefer', 'base'],
     emits: ['terminal'],
     data: function () {
         // `pick` is the terminal shown; `made` are the ones this page opened that the list has
@@ -71,6 +72,9 @@ const remote_shell = {
         return {pick: null, made: [], gone: [], items: [], url: null, joining: 0, loaded: false, error: null};
     },
     computed: {
+        terms_base: function () {
+            return this.base ? this.base : `/api/v1/remotes/${encodeURIComponent(this.view.name)}/terminals`;
+        },
         // Oldest first, so a new terminal takes the end of the row and nothing moves
         shown: function () {
             const terminals = this.items.filter(v => this.gone.includes(v.name) === false);
@@ -114,7 +118,7 @@ const remote_shell = {
         end: async function (name) {
             this.ended(name);
             try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/terminals/${encodeURIComponent(name)}/end`, {method: 'POST'});
+                const answer = await fetch(`${this.terms_base}/${encodeURIComponent(name)}/end`, {method: 'POST'});
                 if (answer.ok === false) {
                     this.error = (await answer.json()).error;
                 }
@@ -150,7 +154,7 @@ const remote_shell = {
                 return;
             }
             try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/terminals/${encodeURIComponent(name)}/join`, {method: 'POST'});
+                const answer = await fetch(`${this.terms_base}/${encodeURIComponent(name)}/join`, {method: 'POST'});
                 const body = await answer.json();
                 if (asked !== this.joining) {
                     return;
@@ -179,7 +183,7 @@ const remote_shell = {
         },
         terminals_load: async function () {
             try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/terminals`, {cache: 'no-store'});
+                const answer = await fetch(this.terms_base, {cache: 'no-store'});
                 const body = await answer.json();
                 if (answer.ok === false) {
                     this.error = body.error;

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>This computer</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>&#9673;</text></svg>">
+<link rel="stylesheet" href="/_/vendor/xterm.css">
 <link rel="stylesheet" href="/_/serviceman.css">
 <link rel="stylesheet" href="/_/app/module_host.css">
 <script>
@@ -18,7 +19,12 @@ catch {
 <script type="importmap">
 {
     "imports": {
-        "vue": "/_/vendor/vue.esm-browser.prod.js"
+        "codemirror": "/_/vendor/codemirror.mjs",
+        "file_manager/": "/_/file_manager/",
+        "terminal/": "/_/terminal/",
+        "vue": "/_/vendor/vue.esm-browser.prod.js",
+        "xterm": "/_/vendor/xterm.mjs",
+        "xterm-addon-fit": "/_/vendor/addon-fit.mjs"
     }
 }
 </script>
