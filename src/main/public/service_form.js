@@ -1,9 +1,9 @@
+import app_zip_read from './app_zip_read.js';
+import app_zip_send from './app_zip_send.js';
 import docker_run_parse from './docker_run_parse.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
-import tar_blob from './tar_blob.js';
-import zip_entries from './zip_entries.js';
 
 // What a service can be, in the order the question is worth asking
 const KINDS = ['docker', 'shell', 'external'];
@@ -970,7 +970,17 @@ const service_form = {
             }
             if (id === 'keep') {
                 const kept = model.volumes.filter(v => v.target !== '').map(v => v.target);
-                lines.push((kept.length === 0) ? 'nothing kept — it all goes with a restart' : `keeps ${kept.join(', ')}`);
+                // An app folder is its own storage: it stays, and its data/ outlives a new zip
+                const app_folder = (model.type === 'shell') && (model.command === 'bin/run') && model.cwd.startsWith('/');
+                if (app_folder) {
+                    lines.push(`${model.cwd} stays; its data/ is kept through a new zip`);
+                }
+                if (kept.length > 0) {
+                    lines.push(`keeps ${kept.join(', ')}`);
+                }
+                else if (app_folder === false) {
+                    lines.push('nothing kept — it all goes with a restart');
+                }
                 if ((model.type === 'shell') && (model.secrets.length > 0)) {
                     lines.push(plural_words(model.secrets.length, 'secret', 'secrets'));
                 }
@@ -1148,26 +1158,7 @@ const service_form = {
                 this.short_kind('shell');
             }
             const name = name_free(name_from_folder(file.name.replace(/\.zip$/i, '')), this.names || []);
-            const zip = {file, name, folder: `${ZIP_HOME}/${name}`, top: '', files: 0, configure: false, entries: [], problem: null};
-            try {
-                zip.entries = await zip_entries(file);
-            }
-            catch (error) {
-                zip.problem = `${file.name}: ${error.message}`;
-            }
-            // bin/run at the top is an app as it is; one folder holding everything is a zip of the app's folder
-            const tops = Array.from(new Set(zip.entries.map(v => v.name.slice(0, v.name.indexOf('/') + 1))));
-            const at_top = zip.entries.some(v => v.name === 'bin/run');
-            zip.top = ((at_top === false) && (tops.length === 1) && (tops[0] !== '')) ? tops[0] : '';
-            const names = zip.entries.filter(v => v.dir === false).map(v => v.name.slice(zip.top.length));
-            zip.files = names.length;
-            zip.configure = names.includes('bin/configure');
-            if ((zip.problem === null) && zip.entries.some(v => v.link)) {
-                zip.problem = `${file.name} holds links, which are not sent: zip the files they point at.`;
-            }
-            else if ((zip.problem === null) && (names.includes('bin/run') === false)) {
-                zip.problem = `${file.name} has no bin/run, at its top or in its one folder: an app folder starts with it.`;
-            }
+            const zip = Object.assign(await app_zip_read(file), {name, folder: `${ZIP_HOME}/${name}`});
             const given = (this.app_zip === null) ? '' : this.app_zip.folder;
             if ((this.m.cwd === '') || (this.m.cwd === given)) {
                 this.m.cwd = zip.folder;
@@ -1372,34 +1363,10 @@ const service_form = {
         },
         // The zip's files, into a new folder on its machine through the File Manager's API, as
         // one tar with their modes; what comes back is the folder as the machine names it
-        zip_send: async function () {
-            const zip = this.app_zip;
+        zip_send: function () {
             const place = this.m.places[0].text;
-            const base = `/api/v1/remotes/${encodeURIComponent(place)}/fs`;
             this.busy = true;
-            this.report(`reading ${zip.file.name}…`, false);
-            const items = [];
-            for (const entry of zip.entries) {
-                const path = entry.name.slice(zip.top.length);
-                if (path === '') {
-                    continue;
-                }
-                if (entry.dir) {
-                    items.push({path, dir: true, mtime_s: entry.mtime_s});
-                    continue;
-                }
-                // A zip made where there are no modes still runs what is in bin
-                const mode = (entry.mode !== 0) ? entry.mode : (path.startsWith('bin/') ? 0o755 : 0o644);
-                items.push({path, mode, mtime_s: entry.mtime_s, bytes: await entry.bytes()});
-            }
-            await answer_read(fetch(`${base}/mkdir`, {method: 'POST', body: JSON.stringify({path: this.m.cwd})}));
-            const made = await list_read(`${base}?path=${encodeURIComponent(this.m.cwd)}`);
-            if (made.error !== undefined) {
-                throw new Error(made.error);
-            }
-            this.report(`sending ${zip.file.name} to ${this.place_text(place)}…`, false);
-            await answer_read(fetch(`${base}/upload/tar?dir=${encodeURIComponent(made.path)}`, {method: 'POST', body: tar_blob(items)}));
-            return made.path;
+            return app_zip_send(this.app_zip, place, this.m.cwd, v => this.report(v, false));
         },
         // One card saved: the whole service is sent, and only this card differs from what was
         section_save: async function () {
@@ -1525,17 +1492,6 @@ function name_from_folder(folder)
 {
     const tail = folder.replace(/\/+$/, '').split('/').pop();
     return tail.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[^a-z0-9]+/, '');
-}
-
-// What a request answered, or the error it said
-async function answer_read(request)
-{
-    const answer = await request;
-    const said = await answer.json().catch(() => ({}));
-    if (answer.ok === false) {
-        throw new Error(said.error || `the machine answered ${answer.status}`);
-    }
-    return said;
 }
 
 // One folder of a machine as its agent lists it, or {error} with what went wrong

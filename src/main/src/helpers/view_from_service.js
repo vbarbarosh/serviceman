@@ -1,3 +1,4 @@
+const service_app_folder = require('./service_app_folder');
 const service_inflight = require('./service_inflight');
 const service_phase = require('./service_phase');
 const service_redir = require('../service_redir');
@@ -39,6 +40,9 @@ function view_from_service(service, now)
         redir: (service.hosts.length === 0) ? null : service_redir(service),
         // Whether there is anything to fetch again: a program that puts itself in place
         installs: (service.type === 'shell') && (service.lifecycle.install !== null),
+        // The folder of an app folder, which takes a new version with its data/ kept; null for
+        // anything else
+        app_folder: service_app_folder(service),
         // Whether there is an image behind it, and so something a pull could bring
         image: (service.type === 'docker') ? service.image : null,
         // Work that the phase does not show, and the last of what it printed while doing it,

@@ -60,6 +60,7 @@ const serve_static_file = require('../helpers/serve_static_file');
 const service_ensure_running = require('../helpers/service_ensure_running');
 const service_image_pull = require('../helpers/service_image_pull');
 const service_reinstall = require('../helpers/service_reinstall');
+const service_replace = require('../helpers/service_replace');
 const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
@@ -82,7 +83,7 @@ const wants_html = require('../wants_html');
 
 const BODY_LIMIT_BYTES = 1024*1024;
 
-const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull)$/;
+const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -1264,6 +1265,7 @@ async function handle_screenshot(app, res, name)
 // POST /api/v1/services/<name>/stop
 // POST /api/v1/services/<name>/restart
 // POST /api/v1/services/<name>/update
+// POST /api/v1/services/<name>/replace   an app folder takes the new version sent to <folder>.new
 function handle_action(app, req, res, name, action)
 {
     if (req.method !== 'POST') {
@@ -1290,6 +1292,16 @@ function handle_action(app, req, res, name, action)
     if (action === 'start') {
         // Asking is a change: whatever serviceman gave up on, it tries again now
         service_try_again(app, service);
+    }
+    // The page that sent the new version waits for it to be in, and is told what failed
+    if (action === 'replace') {
+        service_replace(app, service).then(function () {
+            send_json(res, 200, view_from_service(service));
+        }, function (error) {
+            log_event(app, 'control_error', {service: service.name, reason: error.message});
+            send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+        });
+        return;
     }
     const promise = action_promise(app, service, action);
     promise.catch(function (error) {

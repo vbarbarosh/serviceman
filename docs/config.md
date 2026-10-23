@@ -505,6 +505,24 @@ exactly what it was.
 Whatever serviceman gave up on before is forgiven at that moment: a service that had used up
 its start attempts gets them back, because this is a different program now.
 
+### A new version of an app folder
+
+An app folder (`bin/run` in a folder named in `cwd`, as **An app folder** on the New service
+form makes one) takes a new version as a zip: **New zip…** on its page, in place of **Fetch
+again**. What the app keeps lives in its `data/`, and that is all that outlives a new version:
+
+1. the page reads the zip and sends its files beside the folder, to `<folder>.new`;
+2. serviceman stops the app, sets the folder aside as `<folder>.old` and puts `<folder>.new` in
+   its place;
+3. `bin/configure` runs in it;
+4. `data/` is moved over from the old folder, over any `data/` the zip brought, and the old
+   folder goes;
+5. the app starts again if it was running.
+
+Whatever fails before `data/` is across puts the old folder back as it was and starts it
+again: the app runs the version it had, and the new files wait in `<folder>.new` to be looked
+at. `POST /api/v1/services/<name>/replace` is step 2 onwards, for whoever put the files there.
+
 ### Storage
 
 A program that keeps something names the paths it keeps:

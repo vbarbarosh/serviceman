@@ -1355,6 +1355,22 @@ a <code>git clone</code> install line runs again, the working copy is new and <c
 exactly what it was.</p>
 <p>Whatever serviceman gave up on before is forgiven at that moment: a service that had used up
 its start attempts gets them back, because this is a different program now.</p>
+<h3 id="a-new-version-of-an-app-folder"><a class="anchor" href="#a-new-version-of-an-app-folder" aria-hidden="true" tabindex="-1">#</a>A new version of an app folder</h3>
+<p>An app folder (<code>bin/run</code> in a folder named in <code>cwd</code>, as <strong>An app folder</strong> on the New service
+form makes one) takes a new version as a zip: <strong>New zip…</strong> on its page, in place of <strong>Fetch
+again</strong>. What the app keeps lives in its <code>data/</code>, and that is all that outlives a new version:</p>
+<ol>
+<li>the page reads the zip and sends its files beside the folder, to <code>&lt;folder&gt;.new</code>;</li>
+<li>serviceman stops the app, sets the folder aside as <code>&lt;folder&gt;.old</code> and puts <code>&lt;folder&gt;.new</code> in
+its place;</li>
+<li><code>bin/configure</code> runs in it;</li>
+<li><code>data/</code> is moved over from the old folder, over any <code>data/</code> the zip brought, and the old
+folder goes;</li>
+<li>the app starts again if it was running.</li>
+</ol>
+<p>Whatever fails before <code>data/</code> is across puts the old folder back as it was and starts it
+again: the app runs the version it had, and the new files wait in <code>&lt;folder&gt;.new</code> to be looked
+at. <code>POST /api/v1/services/&lt;name&gt;/replace</code> is step 2 onwards, for whoever put the files there.</p>
 <h3 id="storage"><a class="anchor" href="#storage" aria-hidden="true" tabindex="-1">#</a>Storage</h3>
 <p>A program that keeps something names the paths it keeps:</p>
 <pre><code class="language-json">&quot;volumes&quot;: [&quot;:/app/data&quot;]

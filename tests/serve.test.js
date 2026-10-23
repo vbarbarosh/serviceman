@@ -1339,6 +1339,79 @@ test('an app folder is configured once and served on the PORT it is given', asyn
     }
 });
 
+// An app folder takes a new version: the files sent to <folder>.new become the folder,
+// bin/configure runs in it, and data/ comes over from the old one, over any data/ they brought
+test('an app folder takes a new version and keeps its data/', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    fs.mkdirSync(path.join(folder, 'data'));
+    fs.writeFileSync(path.join(folder, 'data', 'kept.txt'), 'written by v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ]);
+    try {
+        const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(first.body, 'v1 configured, data: written by v1');
+
+        app_version_write(`${folder}.new`, 'v2');
+        fs.mkdirSync(path.join(`${folder}.new`, 'data'));
+        fs.writeFileSync(path.join(`${folder}.new`, 'data', 'kept.txt'), 'the zip\'s own, to be replaced');
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(replaced.status, 200, replaced.body);
+        assert.strictEqual(JSON.parse(replaced.body).phase, 'running', 'it was running, so it runs again');
+
+        const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(second.body, 'v2 configured, data: written by v1');
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false);
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+        assert.ok(running.app.log_lines.some(v => /\[service_replace_end_ok\] service=appdir/.test(v)));
+
+        // Nothing waits beside it: refused, and nothing touched
+        const nothing = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(nothing.status, 409);
+        assert.match(JSON.parse(nothing.body).error, /no new version waits at/);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// A new version whose bin/configure fails leaves the app as it ran: the old folder is the app
+// again, data/ in it, and the new one waits where it was sent, to be looked at
+test('an app folder whose new version cannot be configured keeps the version it had', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    fs.mkdirSync(path.join(folder, 'data'));
+    fs.writeFileSync(path.join(folder, 'data', 'kept.txt'), 'written by v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ]);
+    try {
+        app_version_write(`${folder}.new`, 'v2');
+        fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'configure'), '#!/bin/sh\necho "v2 cannot be set up here" >&2\nexit 1\n', {mode: 0o755});
+        await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(replaced.status, 502);
+        assert.match(JSON.parse(replaced.body).error, /v2 cannot be set up here/);
+        assert.strictEqual(service_phase(running.app.service_by_name.appdir), 'running', 'it was running, and runs the version it had');
+        assert.strictEqual(running.app.service_by_name.appdir.state.last_error, null, 'nothing about the app failed');
+
+        const answer = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(answer.body, 'v1 configured, data: written by v1');
+        assert.ok(fs.existsSync(path.join(`${folder}.new`, 'server.js')), 'the version that failed waits where it was sent');
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('a service that keeps data may name one machine, and its volumes are mounted where it runs', function () {
     const remotes = [{name: 'laptop', token: '0123456789abcdef0123456789abcdef'}, {name: 'aaa', token: 'fedcba9876543210fedcba9876543210'}];
     const one = config_from_json({remotes, services: [{
@@ -1907,6 +1980,24 @@ function config_json(services, extra)
 // options: `state_file` is the docker stand-in's note of its containers, shared between two
 // servicemans that must see the same ones; `config` is more of the config; `agent_env` is
 // what the agent is started with
+// An app folder of one version: bin/configure marks it, bin/run serves the version, whether it
+// was configured, and what data/ holds
+function app_version_write(folder, version)
+{
+    fs.mkdirSync(path.join(folder, 'bin'), {recursive: true});
+    fs.writeFileSync(path.join(folder, 'bin', 'configure'), '#!/bin/sh\necho configured > configured.txt\n', {mode: 0o755});
+    fs.writeFileSync(path.join(folder, 'bin', 'run'), `#!/bin/sh\nexec ${process.execPath} server.js\n`, {mode: 0o755});
+    fs.writeFileSync(path.join(folder, 'server.js'), [
+        'const fs = require(\'fs\');',
+        'require(\'http\').createServer(function (req, res) {',
+        '    const configured = fs.existsSync(\'configured.txt\') ? \'configured\' : \'not configured\';',
+        '    const data = fs.existsSync(\'data/kept.txt\') ? fs.readFileSync(\'data/kept.txt\', \'utf8\') : \'none\';',
+        `    res.end(\'${version} \' + configured + \', data: \' + data);`,
+        '}).listen(Number(process.env.PORT), \'127.0.0.1\');',
+        '',
+    ].join('\n'));
+}
+
 async function serviceman_start(services, options)
 {
     const given = (options === undefined) ? {} : options;
