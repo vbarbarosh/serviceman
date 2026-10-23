@@ -44,8 +44,8 @@ import module_kind from './module_kind.js';
 //     summary        {items, matches, answer}: a line of totals under the tools; matches is
 //                    how many the filter typed lets through, null with none typed
 //     cell-<key>     {item, row, more}: a cell the module draws itself, in place of its `as`
-//     actions        {item, ask}, details {item}, below {item}, group_head {group, rows}: as
-//                    data-table's
+//     group_head     {group}: a group's own row, across the table, its items under it
+//     actions        {item, ask}, details {item}, below {item}: as data-table's
 //
 // Emits: answer(outcome), each time the list is read, for what else the module shows of it
 
@@ -62,7 +62,7 @@ const items_view = {
         <slot name="tools" :items="all"/>
         <span class="list-right">
             <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
-            <span v-if="is_tree" class="seg">
+            <span v-if="(is_tree && list_able)" class="seg">
                 <button type="button" :class="{on: (sort === null)}" title="Each under the one it belongs to" @click="sort = null">Tree</button>
                 <button type="button" :class="{on: (sort !== null)}" title="One list, sorted by a column: click its header" @click="list_show">List</button>
             </span>
@@ -75,9 +75,10 @@ const items_view = {
     </div>
     <slot name="summary" :items="all" :matches="matches" :answer="answer"/>
     <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted">{{ empty }}</p>
-    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :group="group_of" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" @sort="sort_by" @branch="branch_toggle">
+    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => (v.group === null)" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" @sort="sort_by" @branch="branch_toggle">
         <template #cell="{row, column, more}">
-            <slot :name="('cell-' + column.key)" :item="row.item" :row="row" :more="more">
+            <div v-if="(row.group !== null)" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
+            <slot v-else :name="('cell-' + column.key)" :item="row.item" :row="row" :more="more">
                 <template v-if="none_of(row.item, column)"><span class="muted">{{ column.none }}</span></template>
                 <code v-else-if="(column.as === 'code')" :class="{muted: column.muted}">{{ row.item[column.key] }}</code>
                 <span v-else-if="(column.as === 'bytes')" :class="{muted: column.muted}">{{ format_bytes(row.item[column.key]) }}</span>
@@ -98,12 +99,11 @@ const items_view = {
                 <span v-else-if="(column.as === 'flag')" :class="{muted: (row.item[column.key] !== true)}">{{ ((row.item[column.key] === true) ? column.yes : column.no) }}</span>
                 <span v-else :class="{muted: column.muted}">{{ row.item[column.key] }}</span>
             </slot>
-            <span v-if="((column === table_columns[0]) && (row.hidden > 0))" class="muted"> +{{ row.hidden }}</span>
+            <span v-if="((row.group === null) && (column === table_columns[0]) && (row.hidden > 0))" class="muted"> +{{ row.hidden }}</span>
         </template>
-        <template v-if="($slots.actions !== undefined)" #actions="{row, ask}"><slot name="actions" :item="row.item" :ask="ask"/></template>
-        <template v-if="($slots.details !== undefined)" #details="{row}"><slot name="details" :item="row.item"/></template>
-        <template v-if="($slots.below !== undefined)" #below="{row}"><slot name="below" :item="row.item"/></template>
-        <template #group_head="{group, rows}"><slot name="group_head" :group="group" :rows="rows">{{ group }}</slot></template>
+        <template v-if="($slots.actions !== undefined)" #actions="{row, ask}"><slot v-if="(row.group === null)" name="actions" :item="row.item" :ask="ask"/></template>
+        <template v-if="($slots.details !== undefined)" #details="{row}"><slot v-if="(row.group === null)" name="details" :item="row.item"/></template>
+        <template v-if="($slots.below !== undefined)" #below="{row}"><slot v-if="(row.group === null)" name="below" :item="row.item"/></template>
     </data-table>
 </div>
 `,
@@ -152,22 +152,33 @@ const items_view = {
         },
         // A cell with nothing to say is left out of the row's details, unless its column says
         // what nothing is
+        // A group's row is its first cell across the table, the actions' cell too
         table_columns: function () {
             const view = this;
-            return this.kind_here.columns.map(function (column) {
+            const keys = this.kind_here.columns.map(v => v.key).concat((this.$slots.actions === undefined) ? [] : ['actions']);
+            function group_spread(row) {
+                return (row.group === null) ? null : keys.slice(1);
+            }
+            return this.kind_here.columns.map(function (column, i) {
                 const as = module_kind.AS.includes(column.as) ? column.as : 'text';
-                return Object.assign({}, column, {as, hide: v => (view.none_of(v.item, column) && (column.none === undefined))});
+                const spread = (i === 0) ? group_spread : undefined;
+                return Object.assign({}, column, {as, spread, hide: v => ((v.group !== null) || (view.none_of(v.item, column) && (column.none === undefined)))});
             });
         },
+        // A tree of its own items, or of the groups they stand in
         is_tree: function () {
-            return (this.kind_now !== null) && (this.kind_now.tree !== undefined);
+            return (this.kind_now !== null) && ((this.kind_now.tree !== undefined) || (this.kind_now.group !== undefined));
+        },
+        // Whether the tree has a list beside it: a column to sort it by
+        list_able: function () {
+            return (this.kind_now.sort !== undefined) || this.kind_now.columns.some(v => (v.sort === true));
         },
         // A filter where there is something to filter: a list longer than a glance
         searched: function () {
             return (this.kind_now !== null) && Array.isArray(this.kind_now.search) && ((this.all.length > SEARCH_FROM) || (this.query !== ''));
         },
         matches: function () {
-            return (this.query === '') ? null : this.rows.filter(v => (v.dim === false)).length;
+            return (this.query === '') ? null : this.rows.filter(v => ((v.group === null) && (v.dim === false))).length;
         },
         // "Filter by command, user or pid": the search fields by their columns' names
         search_said: function () {
@@ -184,29 +195,7 @@ const items_view = {
             if (this.kind_now === null) {
                 return [];
             }
-            const rows = items_rows(this.shown, this.kind_here, {query: this.query, sort: this.sort, closed: this.closed});
-            const group = this.kind_now.group;
-            if (group === undefined) {
-                return rows;
-            }
-            // The rows of one group next to each other, in the order the groups first come
-            const groups = new Map();
-            for (const row of rows) {
-                if (groups.has(row.item[group]) === false) {
-                    groups.set(row.item[group], []);
-                }
-                groups.get(row.item[group]).push(row);
-            }
-            return Array.from(groups.values()).flat();
-        },
-        group_of: function () {
-            const group = (this.kind_now === null) ? undefined : this.kind_now.group;
-            if (group === undefined) {
-                return null;
-            }
-            return function (row) {
-                return row.item[group];
-            };
+            return items_rows(this.shown, this.kind_here, {query: this.query, sort: this.sort, closed: this.closed});
         },
         // A branch folds only in the whole tree: a filtered one shows every match
         foldable: function () {
@@ -315,6 +304,9 @@ const items_view = {
             return (column.clip === true) && (String(row.item[key]).length > 40);
         },
         row_classes: function (row) {
+            if (row.group !== null) {
+                return ['iv-group'];
+            }
             const classes = (this.row_class === null) ? [] : [].concat(this.row_class(row.item) || []);
             return row.dim ? classes.concat(['dim']) : classes;
         },

@@ -1,28 +1,36 @@
+// The field a group's own row keeps the group in: no item of a module has it
+const GROUP = '__group';
+
 // A module's items as the rows of its table, the way its manifest's kind says they stand: a
-// tree by the field that names each one's parent ({id, parent}), or a plain list; narrowed to
-// what was typed and sorted by a column when one is asked for.
+// tree by the field that names each one's parent ({id, parent}), a tree of groups by the field
+// they stand together by (group: a row of its own for each, its items under it, an item of none
+// a root), or a plain list; narrowed to what was typed and sorted by a column when one is asked
+// for.
 //
 //     state = {query, sort, closed}
 //     query    words typed: every one is in the kind's search fields, or the item is left out
 //     sort     {key, down} for a plain list in that column's order, or null for the tree
 //     closed   the keys of the branches folded
 //
-// Each row is {item, key, depth, children, hidden, dim}: `children` how many it holds right
-// under it, `hidden` how many a folded one keeps out of the list, all the way down, and `dim`
-// for a row shown only to keep a match in its place in the tree.
+// Each row is {item, key, depth, children, hidden, dim, group}: `children` how many it holds
+// right under it, `hidden` how many a folded one keeps out of the list, all the way down, `dim`
+// for a row shown only to keep a match in its place in the tree, and `group` the value a group's
+// own row stands for, null on an item's row; a group's row has an item of its own, holding
+// nothing but its group.
 function items_rows(items, kind, state)
 {
     const words = String(state.query || '').toLowerCase().split(/\s+/).filter(v => (v !== ''));
     const matched = (words.length === 0) ? null : new Set(items.filter(v => item_matches(v, kind, words)));
     const tree = ((kind.tree === undefined) || (kind.tree === null)) ? null : kind.tree;
-    if ((tree === null) || ((state.sort !== null) && (state.sort !== undefined))) {
+    const group = ((kind.group === undefined) || (kind.group === null)) ? null : kind.group;
+    if (((tree === null) && (group === null)) || ((state.sort !== null) && (state.sort !== undefined))) {
         const listed = ((matched === null) ? items : items.filter(v => matched.has(v))).slice();
         if ((state.sort !== null) && (state.sort !== undefined)) {
             listed.sort(items_order(state.sort));
         }
-        return listed.map(v => ({item: v, key: key_of(kind, v), depth: 0, children: 0, hidden: 0, dim: false}));
+        return listed.map(v => ({item: v, key: key_of(kind, v), depth: 0, children: 0, hidden: 0, dim: false, group: null}));
     }
-    const links = tree_links(items, tree);
+    const links = (tree === null) ? group_links(items, group) : tree_links(items, tree);
     if (matched === null) {
         const closed = (state.closed === undefined) ? {} : state.closed;
         const out = [];
@@ -46,13 +54,16 @@ function items_rows(items, kind, state)
             tree_walk(rows, kind, links.kids, {}, item, 0, kept);
         }
     }
-    return rows.map(v => Object.assign(v, {dim: (matched.has(v.item) === false)}));
+    return rows.map(v => Object.assign(v, {dim: ((v.group === null) && (matched.has(v.item) === false))}));
 }
 
 // What names an item: the kind's key, a field or several (a device mounted twice is two disks),
 // or the whole item when the kind has none
 function key_of(kind, item)
 {
+    if (item[GROUP] !== undefined) {
+        return `group ${item[GROUP]}`;
+    }
     if ((kind.key === undefined) || (kind.key === null)) {
         return JSON.stringify(item);
     }
@@ -113,6 +124,38 @@ function tree_links(items, tree)
     return {roots, parent, kids};
 }
 
+// Groups as the parents of their items: a group's row comes where its first item would, and an
+// item of no group stands as a root where it is
+function group_links(items, field)
+{
+    const parent = new Map();
+    const kids = new Map();
+    const roots = [];
+    const groups = new Map();
+    for (const item of items) {
+        const value = item[field];
+        if ((value === null) || (value === undefined)) {
+            roots.push(item);
+            continue;
+        }
+        if (groups.has(value) === false) {
+            const head = {[GROUP]: value};
+            groups.set(value, head);
+            kids.set(head, []);
+            roots.push(head);
+        }
+        parent.set(item, groups.get(value));
+        kids.get(groups.get(value)).push(item);
+    }
+    return {roots, parent, kids};
+}
+
+// The value a group's row stands for, null for an item's
+function group_of(item)
+{
+    return (item[GROUP] === undefined) ? null : item[GROUP];
+}
+
 // One item and what is under it, as rows. A folded one keeps what is under it out of the list
 // and says how many — a folded row that hides its count looks like a leaf.
 function tree_walk(rows, kind, kids, closed, item, depth, kept)
@@ -121,10 +164,10 @@ function tree_walk(rows, kind, kids, closed, item, depth, kept)
     const children = (kept === undefined) ? all : all.filter(v => kept.has(v));
     const key = key_of(kind, item);
     if (closed[key] === true) {
-        rows.push({item, key, depth, children: children.length, hidden: tree_count(kids, item), dim: false});
+        rows.push({item, key, depth, children: children.length, hidden: tree_count(kids, item), dim: false, group: group_of(item)});
         return;
     }
-    rows.push({item, key, depth, children: children.length, hidden: 0, dim: false});
+    rows.push({item, key, depth, children: children.length, hidden: 0, dim: false, group: group_of(item)});
     for (const kid of children) {
         tree_walk(rows, kind, kids, closed, kid, depth + 1, kept);
     }

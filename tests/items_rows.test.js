@@ -20,6 +20,12 @@ async function items_rows_of()
     return (await import(path.join(PUBLIC, 'items_rows.js'))).default;
 }
 
+// A tree of groups as lines: a group's row in brackets, an item by its id
+function told(rows)
+{
+    return rows.map(v => `${'  '.repeat(v.depth)}${(v.group === null) ? v.item.id : `[${v.group}]`}${(v.hidden > 0) ? ` +${v.hidden}` : ''}${v.dim ? ' dim' : ''}`);
+}
+
 function said(rows)
 {
     return rows.map(v => `${'  '.repeat(v.depth)}${v.item.pid}${(v.hidden > 0) ? ` +${v.hidden}` : ''}${v.dim ? ' dim' : ''}`);
@@ -65,4 +71,22 @@ test('a list with no tree keeps the order it came in; a key of several fields na
     const rows = items_rows(disks, kind, {query: '', sort: null, closed: {}});
     assert.deepStrictEqual(rows.map(v => v.key), ['tmpfs /run', '/dev/sda1 /', 'tmpfs /dev/shm']);
     assert.deepStrictEqual(items_rows(disks, kind, {query: 'shm', sort: null, closed: {}}).map(v => v.key), ['tmpfs /dev/shm']);
+});
+
+test('a tree of groups: a row of its own for each, where its first item was, its items under it, and one of no group a root', async function () {
+    const items_rows = await items_rows_of();
+    const containers = [
+        {id: 'a', name: 'blog-app-1', project: 'blog'},
+        {id: 'b', name: 'shop-web-1', project: 'shop'},
+        {id: 'c', name: 'blog-cache-1', project: 'blog'},
+        {id: 'd', name: 'lonely', project: null},
+    ];
+    const kind = {key: 'id', search: ['name', 'project'], group: 'project'};
+    const rows = items_rows(containers, kind, {query: '', sort: null, closed: {}});
+    assert.deepStrictEqual(told(rows), ['[blog]', '  a', '  c', '[shop]', '  b', 'd']);
+    assert.deepStrictEqual(rows.filter(v => (v.group !== null)).map(v => [v.key, v.children]), [['group blog', 2], ['group shop', 1]]);
+    assert.deepStrictEqual(told(items_rows(containers, kind, {query: '', sort: null, closed: {'group blog': true}})), ['[blog] +2', '[shop]', '  b', 'd']);
+    // A match keeps its group's row, which is never dimmed: it is a head, not an item
+    assert.deepStrictEqual(told(items_rows(containers, kind, {query: 'cache', sort: null, closed: {}})), ['[blog]', '  c']);
+    assert.deepStrictEqual(told(items_rows(containers, kind, {query: '', sort: {key: 'name', down: false}, closed: {}})), ['a', 'c', 'd', 'b']);
 });

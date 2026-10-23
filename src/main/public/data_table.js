@@ -16,13 +16,16 @@ import {Comment} from 'vue';
 //                hide(row) for a cell with nothing to say, left out of the details when its
 //                column folds; spread(row) for the keys of the columns after it that the cell
 //                takes over in that row, the ones of them shown (fold_table): a note written
-//                across a row's empty cells, those cells left out and never in its details
+//                across a row's empty cells, those cells left out and never in its details;
+//                'actions' among them takes the actions' cell too
 //                A row_class of dim fades the row: a row shown for its place, not for itself
 //     rows       the things, one a row, already in their order (and by group, when grouped)
 //     row_key    the field that names a row, or a function of the row
 //     empty      the line shown in the table's place when there is no row (or slot empty)
 //     more       (row, key) => whether that cell has more to say in the details
 //     opens      (row) => whether the row has details of its own (slot details)
+//     acts       (row) => whether the row has actions, for a table where some rows have none:
+//                one whose actions folded away then has nothing to open
 //     row_class  (row) => classes of the row, such as off
 //     chosen     (row) => whether the row is the one picked, drawn highlighted
 //     group      (row) => the group the row is in: a row of its own (slot group_head) begins
@@ -82,7 +85,7 @@ const data_table = {
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
                         </td>
                         </template>
-                        <td v-if="has_actions" data-fold="actions" class="dt-actions">
+                        <td v-if="(has_actions && (spread_over(row).includes('actions') === false))" data-fold="actions" class="dt-actions">
                             <span v-if="asking_of(row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
                             <slot v-else name="actions" :row="row" :ask="(question, yes, action) => ask(row, question, yes, action)"/>
                         </td>
@@ -95,7 +98,7 @@ const data_table = {
                                     <dd><slot name="cell" :row="row" :column="column" :more="true">{{ row[column.key] }}</slot></dd>
                                 </template>
                                 <slot name="details" :row="row"/>
-                                <template v-if="(has_actions && fold.folded.includes('actions'))">
+                                <template v-if="(has_actions && fold.folded.includes('actions') && ((acts === null) || acts(row)))">
                                     <dt>{{ actions_label }}</dt>
                                     <dd class="fold-actions dt-actions">
                                         <span v-if="asking_of(row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
@@ -125,6 +128,7 @@ const data_table = {
         empty: {type: String, default: 'Nothing here yet.'},
         more: {type: Function, default: null},
         opens: {type: Function, default: null},
+        acts: {type: Function, default: null},
         row_class: {type: Function, default: null},
         chosen: {type: Function, default: null},
         group: {type: Function, default: null},
@@ -216,7 +220,7 @@ const data_table = {
             if ((this.details_of(row, folded).length > 0) || ((this.opens !== null) && this.opens(row))) {
                 return true;
             }
-            return this.has_actions && folded.includes('actions');
+            return this.has_actions && folded.includes('actions') && ((this.acts === null) || this.acts(row));
         },
         caret_shown: function (folded) {
             return this.rows_shown.some(v => this.opens_now(v, folded));

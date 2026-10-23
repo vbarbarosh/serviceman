@@ -68,8 +68,8 @@ const docker = {
             </div>
             <pre v-show="run.log" ref="output" class="dk-output">{{ run.text }}</pre>
         </div>
-        <!-- Containers, each compose project together under a row of its own: its name, its
-             folder, and Update or Down and up for the whole project -->
+        <!-- Containers as a tree: each compose project a branch that folds, its row its name, its
+             folder, and Update or Down and up for the whole project; a container of none a root -->
         <items-view v-if="((tab === 'containers') && (containers !== null))" class="dk-table" :items="container_rows" module="docker" kind="containers" :head="false" actions_label="Change" empty="No containers on this machine, running or not.">
             <template #group_head="{group}">
                 <div class="dk-group-head">

@@ -2930,6 +2930,30 @@ article.rf .actions {
     margin: 0;
 }
 
+/* A group's own row in a tree of groups (items_view): across the table, its mark first, its items
+   under it */
+.fold-room > table.data-table > tbody > tr.iv-group > td {
+    padding-top: .9rem;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: normal;
+}
+
+/* Its mark and its head on one line: a spread cell's children each take the whole cell
+   otherwise */
+.fold-room > table.data-table > tbody > tr.iv-group > [data-spread] > .dt-branch {
+    width: 1rem;
+    min-width: 0;
+}
+
+.fold-room > table.data-table > tbody > tr.iv-group > [data-spread] > .iv-group-head {
+    display: inline-block;
+    width: calc(100% - 1.25rem);
+    min-width: 0;
+    vertical-align: middle;
+}
+
 /* A share of a whole as a bar and its percent, the two figures under them (items_view) */
 .iv-share {
     display: flex;

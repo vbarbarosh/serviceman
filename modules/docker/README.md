@@ -140,7 +140,8 @@ The page half: the host serves `ui/` and maps it, with Vue, in its import map:
 The host page gives the colours (`--panel`, `--line`, `--muted`) and the classes the module
 shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`, `muted`, `bad`,
 `primary`, `danger`. Its four lists are the page's `items_view.js`, given the items the module
-reads, which draws the columns the manifest names, containers by their compose project.
+reads, which draws the columns the manifest names: containers as a tree, each compose project a
+branch that folds, its containers under it, and a container of none a root.
 
 ## In serviceman
 

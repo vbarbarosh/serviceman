@@ -898,7 +898,8 @@ import docker from &#39;docker/docker.js&#39;;
 <p>The host page gives the colours (<code>--panel</code>, <code>--line</code>, <code>--muted</code>) and the classes the module
 shares with it: <code>card</code>, <code>list-head</code>, <code>list-acts</code>, <code>list-table</code>, <code>dot</code>, <code>muted</code>, <code>bad</code>,
 <code>primary</code>, <code>danger</code>. Its four lists are the page&#39;s <code>items_view.js</code>, given the items the module
-reads, which draws the columns the manifest names, containers by their compose project.</p>
+reads, which draws the columns the manifest names: containers as a tree, each compose project a
+branch that folds, its containers under it, and a container of none a root.</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/docker…</code> to
