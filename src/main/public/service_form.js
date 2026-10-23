@@ -2,6 +2,8 @@ import docker_run_parse from './docker_run_parse.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
+import tar_blob from './tar_blob.js';
+import zip_entries from './zip_entries.js';
 
 // What a service can be, in the order the question is worth asking
 const KINDS = ['docker', 'shell', 'external'];
@@ -31,6 +33,9 @@ const SHORT_WORDS = {
     docker: 'an agent runs it and stops it on the machine you name',
     shell: 'a folder with bin/run in it, on a machine of yours',
 };
+
+// Where a zip dropped on the form is unpacked on its machine, by the app's name
+const ZIP_HOME = '~/apps';
 
 // The ports an app folder is given, the first one free from here: well away from serviceman's
 // own and from what most dev servers take
@@ -159,7 +164,7 @@ const service_form = {
                 <span class="muted">{{ SHORT_WORDS[type] }}</span>
             </button>
         </div>
-        <div class="card svc-sec open">
+        <div class="card svc-sec open" :class="{dropping: zip_over}" @dragover.prevent="zip_over = true" @dragleave="zip_over = false" @drop.prevent="zip_dropped">
             <div class="grid svc-body">
                 <template v-if="(m.type === 'docker')">
                     <label>Image</label>
@@ -170,17 +175,24 @@ const service_form = {
                 <template v-else>
                     <label>Folder</label>
                     <div>
-                        <input ref="folder" v-model.trim="m.cwd" placeholder="/home/user/appdir" :class="{wrong: problems.cwd}" spellcheck="false" @change="app_look">
+                        <div class="line">
+                            <input ref="folder" v-model.trim="m.cwd" placeholder="/home/user/appdir" :class="{wrong: problems.cwd}" spellcheck="false" @change="app_look">
+                            <button type="button" @click="$refs.zip.click()">{{ app_zip === null ? 'A .zip…' : 'Another .zip…' }}</button>
+                            <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="zip_picked">
+                        </div>
+                        <p v-if="(app_zip !== null)">
+                            <code>{{ app_zip.file.name }}</code> <span v-if="(app_zip.files > 0)" class="muted">— {{ app_zip.files === 1 ? 'one file' : app_zip.files + ' files' }}, unpacked into this folder</span> <button type="button" class="link" @click="zip_forget">not this zip</button>
+                        </p>
                         <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
                         <p v-else-if="(app_now !== null)" class="muted">{{ app_now.configure ? 'bin/configure runs once, then bin/run' : 'bin/run, with nothing to configure first' }}, on port {{ app_port }} as <code>PORT</code>.</p>
-                        <p v-else class="muted">The folder on that machine with <code>bin/run</code> in it.</p>
+                        <p v-else-if="(app_zip === null)" class="muted">The folder on that machine with <code>bin/run</code> in it, or a .zip of one, picked or dropped here.</p>
                     </div>
                 </template>
                 <label>Name</label>
                 <div>
                     <input v-model.trim="m.name" :placeholder="(easy_name === '' ? (m.type === 'docker' ? 'grafana' : 'appdir') : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
                     <p v-if="problems.name" class="bad">{{ problems.name }}</p>
-                    <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its {{ m.type === 'docker' ? 'image' : 'folder' }}.</p>
+                    <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its {{ m.type === 'docker' ? 'image' : (app_zip === null ? 'folder' : 'zip') }}.</p>
                 </div>
                 <template v-if="(m.type === 'docker')">
                     <label>Port inside</label>
@@ -591,6 +603,10 @@ const service_form = {
             // {path, place, configure}; and why it cannot be one, by the field it is wrong in
             app_found: null,
             app_problem: null,
+            // A zip of the app, read here and sent to its machine as its files on Create:
+            // {file, name, folder, top, files, configure, entries, problem}
+            app_zip: null,
+            zip_over: false,
             // The ports its machine listens on now, so the one an app is given is free there
             ports_busy: [],
             note: '',
@@ -691,6 +707,9 @@ const service_form = {
             return this.host_from_name(name);
         },
         easy_name: function () {
+            if ((this.m.type === 'shell') && this.made_short && (this.app_zip !== null)) {
+                return name_free(this.app_zip.name, this.names || []);
+            }
             if ((this.m.type === 'shell') && (this.made_short) && (this.m.cwd !== '')) {
                 return name_free(name_from_folder(this.m.cwd), this.names || []);
             }
@@ -702,7 +721,8 @@ const service_form = {
         // What was found in the app folder, while it is the folder and the machine asked about
         app_now: function () {
             const found = this.app_found;
-            if ((found === null) || (found.path !== this.m.cwd) || (found.place !== this.m.places[0].text)) {
+            const zip = (this.app_zip === null) ? null : this.app_zip.file;
+            if ((found === null) || (found.path !== this.m.cwd) || (found.place !== this.m.places[0].text) || (found.zip !== zip)) {
                 return null;
             }
             return found;
@@ -798,6 +818,9 @@ const service_form = {
                 if (this.tried && (model.cwd === '')) {
                     out.cwd = 'Where the app is on that machine is needed: the folder with bin/run in it.';
                 }
+                else if ((this.app_zip !== null) && (this.app_zip.problem !== null)) {
+                    out.cwd = this.app_zip.problem;
+                }
                 else if ((this.app_problem !== null) && (this.app_problem.path === model.cwd) && (this.app_problem.place === places[0])) {
                     out.cwd = this.app_problem.text;
                 }
@@ -869,7 +892,7 @@ const service_form = {
                 const found = this.app_now;
                 Object.assign(out, {command: 'bin/run', install: ((found !== null) && found.configure) ? 'bin/configure' : '', port: String(this.app_port), image: ''});
                 // The folder as its machine names it: ~ is the home of whoever runs the agent
-                if (found !== null) {
+                if ((found !== null) && (found.dir !== null)) {
                     out.cwd = found.dir;
                 }
             }
@@ -1104,6 +1127,61 @@ const service_form = {
             }
             this.simple = false;
         },
+        zip_picked: function (event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (file !== undefined) {
+                this.zip_take(file);
+            }
+        },
+        zip_dropped: function (event) {
+            this.zip_over = false;
+            const file = (event.dataTransfer === null) ? undefined : event.dataTransfer.files[0];
+            if (file !== undefined) {
+                this.zip_take(file);
+            }
+        },
+        // A zip is read here: what is in it, under its one top folder when it has one as a zip
+        // of a folder does, and whether that is an app folder
+        zip_take: async function (file) {
+            if (this.m.type !== 'shell') {
+                this.short_kind('shell');
+            }
+            const name = name_free(name_from_folder(file.name.replace(/\.zip$/i, '')), this.names || []);
+            const zip = {file, name, folder: `${ZIP_HOME}/${name}`, top: '', files: 0, configure: false, entries: [], problem: null};
+            try {
+                zip.entries = await zip_entries(file);
+            }
+            catch (error) {
+                zip.problem = `${file.name}: ${error.message}`;
+            }
+            // bin/run at the top is an app as it is; one folder holding everything is a zip of the app's folder
+            const tops = Array.from(new Set(zip.entries.map(v => v.name.slice(0, v.name.indexOf('/') + 1))));
+            const at_top = zip.entries.some(v => v.name === 'bin/run');
+            zip.top = ((at_top === false) && (tops.length === 1) && (tops[0] !== '')) ? tops[0] : '';
+            const names = zip.entries.filter(v => v.dir === false).map(v => v.name.slice(zip.top.length));
+            zip.files = names.length;
+            zip.configure = names.includes('bin/configure');
+            if ((zip.problem === null) && zip.entries.some(v => v.link)) {
+                zip.problem = `${file.name} holds links, which are not sent: zip the files they point at.`;
+            }
+            else if ((zip.problem === null) && (names.includes('bin/run') === false)) {
+                zip.problem = `${file.name} has no bin/run, at its top or in its one folder: an app folder starts with it.`;
+            }
+            const given = (this.app_zip === null) ? '' : this.app_zip.folder;
+            if ((this.m.cwd === '') || (this.m.cwd === given)) {
+                this.m.cwd = zip.folder;
+            }
+            this.app_zip = zip;
+            this.app_look();
+        },
+        zip_forget: function () {
+            if (this.m.cwd === this.app_zip.folder) {
+                this.m.cwd = '';
+            }
+            this.app_zip = null;
+            this.app_look();
+        },
         // What the app folder holds, read on its machine through the File Manager's API: bin/run
         // makes it an app, and bin/configure, when it is there, is its install line
         app_look: async function () {
@@ -1112,13 +1190,18 @@ const service_form = {
             if ((this.m.type !== 'shell') || (path === '') || (place === '') || place.startsWith('#')) {
                 return;
             }
+            const zip = this.app_zip;
             const base = `/api/v1/remotes/${encodeURIComponent(place)}/fs?path=`;
             const at = await list_read(base + encodeURIComponent(path));
+            if (zip !== null) {
+                this.zip_place(path, place, zip, at);
+                return;
+            }
             let bin = null;
             if ((at.error === undefined) && at.items.some(v => (v.name === 'bin') && (v.kind === 'dir'))) {
                 bin = await list_read(base + encodeURIComponent(`${at.path.replace(/\/+$/, '')}/bin`));
             }
-            if ((path !== this.m.cwd) || (place !== this.m.places[0].text)) {
+            if ((path !== this.m.cwd) || (place !== this.m.places[0].text) || (this.app_zip !== null)) {
                 return;
             }
             const run = (bin !== null) && (bin.error === undefined) && bin.items.some(v => (v.name === 'run') && (v.kind !== 'dir'));
@@ -1133,7 +1216,27 @@ const service_form = {
             }
             else {
                 this.app_problem = null;
-                this.app_found = {path, place, dir: at.path, configure: bin.items.some(v => (v.name === 'configure') && (v.kind !== 'dir'))};
+                this.app_found = {path, place, zip: null, dir: at.path, configure: bin.items.some(v => (v.name === 'configure') && (v.kind !== 'dir'))};
+            }
+        },
+        // A zip goes into a folder that is new, or empty: never over what is already there
+        zip_place: function (path, place, zip, at) {
+            if ((path !== this.m.cwd) || (place !== this.m.places[0].text) || (zip !== this.app_zip)) {
+                return;
+            }
+            const missing = (at.error !== undefined) && at.error.includes('ENOENT');
+            if ((at.error !== undefined) && (missing === false)) {
+                const text = at.error.includes('ENOTDIR') ? 'That is a file on the machine, not a folder.' : `${this.place_text(place)} cannot read it: ${at.error}`;
+                this.app_problem = {path, place, text};
+                this.app_found = null;
+            }
+            else if ((missing === false) && (at.items.length > 0)) {
+                this.app_problem = {path, place, text: 'This folder holds files already: a zip goes into a new folder, or an empty one.'};
+                this.app_found = null;
+            }
+            else {
+                this.app_problem = null;
+                this.app_found = {path, place, zip: zip.file, dir: missing ? null : at.path, configure: zip.configure};
             }
         },
         // The ports the machine listens on now; a machine that cannot say leaves the list empty
@@ -1251,11 +1354,52 @@ const service_form = {
                 return;
             }
             const model = this.model_now();
+            if ((model.type === 'shell') && this.simple && (this.app_zip !== null)) {
+                try {
+                    model.cwd = await this.zip_send();
+                }
+                catch (error) {
+                    this.busy = false;
+                    this.report(error.message, true);
+                    return;
+                }
+            }
             const ok = await this.write('POST', '/api/v1/services', model);
             if (ok) {
                 this.$emit('saved', model.name);
                 this.$emit('close');
             }
+        },
+        // The zip's files, into a new folder on its machine through the File Manager's API, as
+        // one tar with their modes; what comes back is the folder as the machine names it
+        zip_send: async function () {
+            const zip = this.app_zip;
+            const place = this.m.places[0].text;
+            const base = `/api/v1/remotes/${encodeURIComponent(place)}/fs`;
+            this.busy = true;
+            this.report(`reading ${zip.file.name}…`, false);
+            const items = [];
+            for (const entry of zip.entries) {
+                const path = entry.name.slice(zip.top.length);
+                if (path === '') {
+                    continue;
+                }
+                if (entry.dir) {
+                    items.push({path, dir: true, mtime_s: entry.mtime_s});
+                    continue;
+                }
+                // A zip made where there are no modes still runs what is in bin
+                const mode = (entry.mode !== 0) ? entry.mode : (path.startsWith('bin/') ? 0o755 : 0o644);
+                items.push({path, mode, mtime_s: entry.mtime_s, bytes: await entry.bytes()});
+            }
+            await answer_read(fetch(`${base}/mkdir`, {method: 'POST', body: JSON.stringify({path: this.m.cwd})}));
+            const made = await list_read(`${base}?path=${encodeURIComponent(this.m.cwd)}`);
+            if (made.error !== undefined) {
+                throw new Error(made.error);
+            }
+            this.report(`sending ${zip.file.name} to ${this.place_text(place)}…`, false);
+            await answer_read(fetch(`${base}/upload/tar?dir=${encodeURIComponent(made.path)}`, {method: 'POST', body: tar_blob(items)}));
+            return made.path;
         },
         // One card saved: the whole service is sent, and only this card differs from what was
         section_save: async function () {
@@ -1381,6 +1525,17 @@ function name_from_folder(folder)
 {
     const tail = folder.replace(/\/+$/, '').split('/').pop();
     return tail.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[^a-z0-9]+/, '');
+}
+
+// What a request answered, or the error it said
+async function answer_read(request)
+{
+    const answer = await request;
+    const said = await answer.json().catch(() => ({}));
+    if (answer.ok === false) {
+        throw new Error(said.error || `the machine answered ${answer.status}`);
+    }
+    return said;
 }
 
 // One folder of a machine as its agent lists it, or {error} with what went wrong

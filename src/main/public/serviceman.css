@@ -1232,6 +1232,12 @@ pre {
     margin: 0 0 1.25rem;
 }
 
+/* A zip held over the short form: it is taken where it is let go */
+.form .card.dropping {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
 /* The short form asks one of two */
 .form .kinds.short {
     grid-template-columns: repeat(2, minmax(0, 1fr));

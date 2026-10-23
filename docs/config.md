@@ -18,9 +18,11 @@ Services are created and reshaped on the control page itself. **+ Add service** 
 form for the two common kinds. **A docker image** asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. **An app folder** asks for the folder
 on the machine: it must hold `bin/run`, which serves the app on the port it finds in `PORT`,
-and may hold `bin/configure`, which then runs once before the first start. The name comes from
-the folder and the port is the first one from 8080 that no other program is given and the
-machine does not listen on. Both get the machine they run on and an address made of their
+and may hold `bin/configure`, which then runs once before the first start. A `.zip` of such a
+folder, picked or dropped on the form, is read in the page and its files are sent on **Create**
+to a new folder on the machine, `~/apps/<name>` unless another is typed, with their modes, so
+the machine needs no `unzip`. The name comes from the folder or the zip, and the port is the
+first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
 name. **All settings…** opens every card, with what the short form filled in, for a program of
 another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the

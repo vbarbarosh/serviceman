@@ -1,0 +1,121 @@
+const assert = require('assert');
+const path = require('path');
+const tar_parser = require('../modules/file_manager/server/tar_parser');
+const test = require('node:test');
+const zlib = require('zlib');
+
+const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
+
+// The page sends a zip dropped on the New service form to a machine as its files: it reads the
+// zip itself and writes them as one tar for the File Manager's upload, with the modes the zip
+// kept, so bin/run arrives able to run
+test('a zip read in the page comes out as a tar of the same files, with their modes', async function () {
+    const zip_entries = (await import(path.join(PUBLIC, 'zip_entries.js'))).default;
+    const tar_blob = (await import(path.join(PUBLIC, 'tar_blob.js'))).default;
+    const long = `appdir/${'deep/'.repeat(25)}file.txt`;
+    const zip = zip_make([
+        {name: 'appdir/', mode: 0o40755},
+        {name: 'appdir/bin/run', mode: 0o100755, text: '#!/bin/sh\nexec node server.js\n'},
+        {name: 'appdir/server.js', mode: 0o100644, text: 'require("http");\n'.repeat(50)},
+        {name: 'appdir/README', mode: 0o100644, text: 'stored as it is', stored: true},
+        {name: long, mode: 0o100600, text: 'far down'},
+    ]);
+    const entries = await zip_entries(new Blob([zip]));
+    assert.deepStrictEqual(entries.map(v => [v.name, v.dir, v.link, v.mode]), [
+        ['appdir/', true, false, 0o755],
+        ['appdir/bin/run', false, false, 0o755],
+        ['appdir/server.js', false, false, 0o644],
+        ['appdir/README', false, false, 0o644],
+        [long, false, false, 0o600],
+    ]);
+    assert.strictEqual(Buffer.from(await entries[2].bytes()).toString(), 'require("http");\n'.repeat(50), 'a deflated file');
+    assert.strictEqual(Buffer.from(await entries[3].bytes()).toString(), 'stored as it is', 'a stored one');
+
+    const items = [];
+    for (const entry of entries.slice(1)) {
+        items.push({path: entry.name.slice('appdir/'.length), mode: entry.mode, mtime_s: entry.mtime_s, bytes: await entry.bytes()});
+    }
+    items.unshift({path: 'bin', dir: true, mtime_s: 0});
+    const tar = Buffer.from(await tar_blob(items).arrayBuffer());
+    const read = tar_read(tar);
+    assert.deepStrictEqual(read.map(v => [v.type, v.name, v.mode]), [
+        ['dir', 'bin', undefined],
+        ['file', 'bin/run', 0o755],
+        ['file', 'server.js', 0o644],
+        ['file', 'README', 0o644],
+        ['file', long.slice('appdir/'.length), 0o600],
+    ]);
+    assert.strictEqual(read[1].text, '#!/bin/sh\nexec node server.js\n');
+    assert.strictEqual(read[4].text, 'far down', 'a name past ustar\'s hundred bytes keeps its prefix');
+});
+
+test('what is not a zip is said to be one it cannot read', async function () {
+    const zip_entries = (await import(path.join(PUBLIC, 'zip_entries.js'))).default;
+    await assert.rejects(zip_entries(new Blob(['just some text, not a zip'])), /it is not a zip/);
+});
+
+// A zip as `zip` on unix makes one: each file's local header and bytes, then the list of them
+// with their unix modes, then the end record
+function zip_make(files)
+{
+    const locals = [];
+    const listed = [];
+    let offset = 0;
+    for (const file of files) {
+        const name = Buffer.from(file.name);
+        const raw = Buffer.from(file.text || '');
+        const stored = (file.stored === true) || (raw.length === 0);
+        const packed = stored ? raw : zlib.deflateRawSync(raw);
+        const crc = zlib.crc32(raw);
+        const local = Buffer.alloc(30);
+        local.writeUInt32LE(0x04034b50, 0);
+        local.writeUInt16LE(20, 4);
+        local.writeUInt16LE(stored ? 0 : 8, 8);
+        local.writeUInt32LE(crc, 14);
+        local.writeUInt32LE(packed.length, 18);
+        local.writeUInt32LE(raw.length, 22);
+        local.writeUInt16LE(name.length, 26);
+        const entry = Buffer.alloc(46);
+        entry.writeUInt32LE(0x02014b50, 0);
+        entry.writeUInt16LE((3 << 8) | 20, 4);
+        entry.writeUInt16LE(20, 6);
+        entry.writeUInt16LE(stored ? 0 : 8, 10);
+        // 2026-10-23 12:00:00, as DOS keeps it
+        entry.writeUInt16LE(12 << 11, 12);
+        entry.writeUInt16LE(((2026 - 1980) << 9) | (10 << 5) | 23, 14);
+        entry.writeUInt32LE(crc, 16);
+        entry.writeUInt32LE(packed.length, 20);
+        entry.writeUInt32LE(raw.length, 24);
+        entry.writeUInt16LE(name.length, 28);
+        entry.writeUInt32LE((file.mode << 16) >>> 0, 38);
+        entry.writeUInt32LE(offset, 42);
+        locals.push(local, name, packed);
+        listed.push(entry, name);
+        offset += local.length + name.length + packed.length;
+    }
+    const list = Buffer.concat(listed);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(files.length, 8);
+    end.writeUInt16LE(files.length, 10);
+    end.writeUInt32LE(list.length, 12);
+    end.writeUInt32LE(offset, 16);
+    return Buffer.concat(locals.concat([list, end]));
+}
+
+// The tar as the File Manager's upload reads it: its entries, a file's bytes as text
+function tar_read(tar)
+{
+    const parser = tar_parser();
+    const out = [];
+    for (const piece of parser.push(tar)) {
+        if ((piece.type === 'dir') || (piece.type === 'file')) {
+            out.push({type: piece.type, name: piece.name, mode: piece.mode, text: ''});
+        }
+        if (piece.type === 'data') {
+            out[out.length - 1].text += Buffer.from(piece.bytes).toString();
+        }
+    }
+    assert.strictEqual(parser.end(), null, 'the tar ends where it should');
+    return out;
+}
