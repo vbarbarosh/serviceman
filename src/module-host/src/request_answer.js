@@ -20,14 +20,28 @@ const TYPES = {
     '.mjs': 'text/javascript; charset=utf-8',
 };
 
-// The control page's files every module's tables are drawn with
-const SHARED = ['/data_table.js', '/fold_table.js'];
+// The control page's files every module's tables are drawn with, and what they import: a
+// module asks for them beside itself, as they are served on the control page
+const SHARED = [
+    '/command_copy.js',
+    '/data_table.js',
+    '/fold_table.js',
+    '/format_bytes.js',
+    '/format_count.js',
+    '/format_ms.js',
+    '/format_ms_ago.js',
+    '/items_rows.js',
+    '/items_view.js',
+    '/module_kind.js',
+    '/to_clipboard.js',
+];
 
 // GET /                         the page
 // GET /api/modules              [{key, title}]
 // GET /api/machine              {hostname, addresses}
+// GET /api/v1/modules           {modules}: each one's manifest and where it is mounted, as serviceman answers them
 // *   /api/<key>...             the module's API
-// GET /_/{app,vendor,<key>}/:file, GET /_/serviceman.css, GET /data_table.js, GET /fold_table.js
+// GET /_/{app,vendor,<key>}/:file, GET /_/serviceman.css, GET /<the files of SHARED>
 async function request_answer(req, res)
 {
     if (request_allowed(req) === false) {
@@ -41,6 +55,11 @@ async function request_answer(req, res)
     }
     if ((pathname === '/api/modules') && (req.method === 'GET')) {
         send(res, 200, 'application/json', JSON.stringify(modules_served.map(v => ({key: v.key, title: v.title}))));
+        return;
+    }
+    // The items view draws a module's lists from its manifest, read here as on the control page
+    if ((pathname === '/api/v1/modules') && (req.method === 'GET')) {
+        send(res, 200, 'application/json', JSON.stringify({modules: modules_served.map(v => Object.assign({base: `/api/${v.key}`}, v.manifest))}));
         return;
     }
     if ((pathname === '/api/machine') && (req.method === 'GET')) {
@@ -61,8 +80,6 @@ async function request_answer(req, res)
         file_send(res, path.join(DIRS.main, 'serviceman.css'));
         return;
     }
-    // The page's one table, which every module's tables are drawn with: a module asks for it
-    // beside itself, as it is served on the control page
     if (SHARED.includes(pathname)) {
         file_send(res, path.join(DIRS.main, pathname.slice(1)));
         return;

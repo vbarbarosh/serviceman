@@ -36,7 +36,7 @@ root behind it.
 
     index.js                 the server, PORT
     src/modules_served.js    the modules: each one's page half and its API, with what it is given
-    src/request_answer.js    the page, /api/modules, /api/machine, /api/<module>…, the files
+    src/request_answer.js    the page, /api/modules, /api/v1/modules, /api/machine, /api/<module>…, the files
     src/request_allowed.js   only this computer's own page
     public/module_host.js    the page: this computer's name, the modules, the one open
 
