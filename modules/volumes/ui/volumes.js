@@ -1,4 +1,4 @@
-import data_table from '../../data_table.js';
+import items_view from '../../items_view.js';
 
 // The encrypted volumes of several machines in one list: each one's file, the folder it opens
 // at, open or closed, and how full. Close and Grow from its row, Open with a passphrase, Delete
@@ -6,18 +6,12 @@ import data_table from '../../data_table.js';
 // with a passphrase a person types, kept nowhere. Visual Agents makes and opens its own with keys
 // it holds. A change shows at once, marked while the machine makes it. The
 // host page gives the API of each machine, the colours and its usual classes: card, form, grid,
-// list-head, list-acts, dot, muted, bad, alert, primary, link; its one table, data-table, is
-// imported from the page beside it.
+// list-head, list-acts, dot, muted, bad, alert, primary, link; its list is the page's
+// items-view, drawn as the manifest's columns say, imported from the page beside it.
 const PASSPHRASE_MIN = 16;
 const UNDO_SECONDS = 10;
-// The columns of the list, the first to fold the lowest; the actions fold before them all
-const COLUMNS = [
-    {key: 'name', label: 'Volume', wraps: true},
-    {key: 'on', label: 'On', fold: 2},
-    {key: 'folder', label: 'Folder', fold: 1},
-    {key: 'state', label: 'State'},
-    {key: 'used', label: 'Used', fold: 3, hide: v => (v.size === null)},
-];
+// The machine each volume is on, beside the manifest's columns: the list is of several machines
+const MACHINE_COLUMN = [{at: 1, key: 'machine_title', label: 'On', fold: 2}];
 const STATES = {
     open: {text: 'Open', note: ''},
     closed: {text: 'Closed', note: 'waits for its key'},
@@ -84,23 +78,21 @@ const volumes = {
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <data-table class="vol-table" :columns="COLUMNS" :rows="items" row_key="key" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
-        <template #cell="{row, column}">
-            <code v-if="((column.key === 'name') || (column.key === 'folder'))">{{ ((column.key === 'name') ? row.name : row.target) }}</code>
-            <template v-else-if="(column.key === 'on')">{{ row.machine_title }}</template>
-            <template v-else-if="(column.key === 'state')">
-                <span class="vol-state">
-                    <span class="dot" :class="{running: (row.state === 'open'), failed: (row.state === 'missing')}"/>
-                    {{ state_of(row).text }}
-                </span>
-                <small v-if="(state_of(row).note !== '')" class="muted vol-line">{{ state_of(row).note }}</small>
-            </template>
-            <span v-else class="vol-numbers">
-                {{ used_text(row) }}
-                <small v-if="(row.on_disk !== null)" class="muted vol-line">{{ bytes_text(row.on_disk) }} on disk</small>
+    <items-view class="vol-table" :items="items" module="volumes" item_key="key" :columns_added="MACHINE_COLUMN" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
+        <template #cell-state="{item}">
+            <span class="vol-state">
+                <span class="dot" :class="{running: (item.state === 'open'), failed: (item.state === 'missing')}"/>
+                {{ state_of(item).text }}
+            </span>
+            <small v-if="(state_of(item).note !== '')" class="muted vol-line">{{ state_of(item).note }}</small>
+        </template>
+        <template #cell-used="{item}">
+            <span class="vol-numbers">
+                {{ used_text(item) }}
+                <small v-if="(item.on_disk !== null)" class="muted vol-line">{{ bytes_text(item.on_disk) }} on disk</small>
             </span>
         </template>
-        <template #actions="{row}">
+        <template #actions="{item: row}">
             <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
             <template v-else-if="(row.state === 'open')">
                 <button type="button" :disabled="row.offline" @click="grow_show(row)">Grow…</button>
@@ -112,7 +104,7 @@ const volumes = {
             </template>
         </template>
         <!-- Under a volume: the form that grows or opens it, and what the machine said -->
-        <template #below="{row}">
+        <template #below="{item: row}">
             <form v-if="(grow_key === row.key)" class="vol-grow" @submit.prevent="grow(row)">
                 <span class="muted">Now {{ bytes_text(row.size) }}. New size:</span>
                 <input v-model.trim="grow_size" placeholder="40G" aria-label="New size" required>
@@ -140,7 +132,7 @@ const volumes = {
                 </ul>
             </template>
         </template>
-    </data-table>
+    </items-view>
     <ul v-if="(notes.length > 0)" class="vol-notes">
         <li v-for="note of notes" :key="note.machine">
             <b>{{ note.title }}</b>
@@ -149,7 +141,7 @@ const volumes = {
     </ul>
 </section>
 `,
-    components: {'data-table': data_table},
+    components: {'items-view': items_view},
     props: {
         // [{name, title, base, offline, user}]: each machine, the base of its volumes API and
         // the user its agent runs as, who owns a volume made here
@@ -157,7 +149,7 @@ const volumes = {
     },
     data: function () {
         return {
-            COLUMNS,
+            MACHINE_COLUMN,
             items: [],
             notes: [],
             reading: false,

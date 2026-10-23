@@ -322,8 +322,8 @@ Overview and Health say so.
 One more thing its page reads on the spot and keeps nowhere. **Processes** is every process
 on that machine, as the tree it is: each one under the one that started it, and a branch folds
 away. Typing in its box keeps the processes whose command, user or pid match, with the ones
-above them dimmed so each keeps its place in the tree; **Top CPU** and **Top memory** list them
-heaviest first instead. It is `ps` run over there when the pane opens and when **Read again**
+above them dimmed so each keeps its place in the tree; **List** lists them heaviest CPU first
+instead, and a column's header sorts by it, RSS for the heaviest in memory. It is `ps` run over there when the pane opens and when **Read again**
 is pressed, never on a clock. The ports it listens on are in the **Firewall** tab, below.
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its

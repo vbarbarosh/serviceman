@@ -72,6 +72,17 @@ lists the ones kept, ten minutes past their end. Docker's pull, update, recreate
 the package upgrade answer one. Joining a terminal is one that goes both ways: the WebSocket
 opens at its address, once, within a minute.
 
+A kind of items also says how a page shows them: `key`, the field or fields that name one;
+`columns`, each `{key, label, as, fold, sort}`, `as` one of `text`, `code`, `bytes`, `count`,
+`duration`, `ago`, `percent` (with `full`, where its bar is full), `share` (`of` the field it is
+a share of) and `flag` (`yes`, `no`), `fold` the order columns fold in on a narrow screen, the
+lowest first, `none` what an empty cell says; `search`, the fields a filter looks in; `tree`,
+`{id, parent}`, the fields that put each item under another; `group`, the field items stand
+together by; `sort`, the order it starts in. The page's `items_view.js` draws every module's
+lists from them, the same way everywhere: the filter, Read again and the commands to copy, a
+header that sorts, a tree that folds. A module draws a cell itself only where it says more than
+its `as`, and reads its items itself where its commands change them under the hand.
+
 What is neither an item nor a command, a file read or written, a folder watched, another
 module's API inside this one, the manifest names as a door. serviceman answers 404 for
 whatever a manifest does not name, before the module is asked; gives a token only the rights a

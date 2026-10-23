@@ -24,7 +24,7 @@ test('the containers grouped by their labels; a container started, stopped, rest
     });
 
     // Every container, with what the page needs; serviceman's own marked
-    const listed = JSON.parse((await call(running, 'GET', '/docker/containers')).body).containers;
+    const listed = JSON.parse((await call(running, 'GET', '/docker/containers')).body).items;
     assert.deepStrictEqual(listed.map(v => [v.name, v.project, v.service, v.state, v.own]), [
         ['shop-web-1', 'shop', 'web', 'running', false],
         ['shop-db-1', 'shop', 'db', 'exited', false],
@@ -73,19 +73,19 @@ test('images, volumes and networks with the containers that use each; removed, p
     const engine = await engine_start(t);
     const running = await serve(t, {connect: () => net.connect(engine.socket), run: async () => ({ok: true})});
 
-    const images = JSON.parse((await call(running, 'GET', '/docker/images')).body).images;
+    const images = JSON.parse((await call(running, 'GET', '/docker/images')).body).items;
     assert.deepStrictEqual(images.map(v => [v.tags.join(','), v.used_by.join(','), v.dangling, v.read_only]), [
         ['shop/web:latest', 'shop-web-1', false, false],
         ['', '', true, false],
         ['old/thing:1', '', false, true],
     ]);
-    const volumes = JSON.parse((await call(running, 'GET', '/docker/volumes')).body).volumes;
+    const volumes = JSON.parse((await call(running, 'GET', '/docker/volumes')).body).items;
     assert.deepStrictEqual(volumes.map(v => [v.name, v.project, v.used_by.join(',')]), [['shop_data', 'shop', 'shop-web-1'], ['loose', null, '']]);
     // Where a volume's files are: on the machine, and in each container that mounts it
     assert.strictEqual(volumes[0].mountpoint, '/var/lib/docker/volumes/shop_data/_data');
     assert.deepStrictEqual(volumes[0].mounts, [{id: 'a'.repeat(64), name: 'shop-web-1', running: true, destination: '/data'}]);
     assert.deepStrictEqual([volumes[1].mountpoint, volumes[1].mounts], [null, []]);
-    const networks = JSON.parse((await call(running, 'GET', '/docker/networks')).body).networks;
+    const networks = JSON.parse((await call(running, 'GET', '/docker/networks')).body).items;
     assert.deepStrictEqual(networks.map(v => [v.name, v.subnet, v.project, v.used_by.join(','), v.builtin]), [['bridge', '10.88.0.0/16', null, '', true], ['shop_default', '10.89.0.0/24', 'shop', 'shop-web-1,shop-db-1', false]]);
 
     // A removal is the engine's; one it refuses because something uses it says so as 409
@@ -143,9 +143,9 @@ test('a volume nothing mounts opens through a helper container, which no list sh
     assert.strictEqual(engine.created.length, 1);
 
     // It is in no list, and mounts nothing as far as "used by" goes
-    const containers = JSON.parse((await call(running, 'GET', '/docker/containers')).body).containers;
+    const containers = JSON.parse((await call(running, 'GET', '/docker/containers')).body).items;
     assert.strictEqual(containers.some(v => v.id === 'f'.repeat(64)), false);
-    const volumes = JSON.parse((await call(running, 'GET', '/docker/volumes')).body).volumes;
+    const volumes = JSON.parse((await call(running, 'GET', '/docker/volumes')).body).items;
     assert.deepStrictEqual(volumes.find(v => v.name === 'loose').used_by, []);
 
     // Close kills it, then removes it

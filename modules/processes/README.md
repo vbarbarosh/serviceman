@@ -3,8 +3,8 @@
 Everything running on one machine, for a web page: every process as the tree it is, each
 under the one that started it, with its user, CPU, memory, how long it has run and its state. A
 branch folds away, Fold all leaves the roots, a filter keeps every match in its place in the
-tree, and Top CPU and Top memory put the heaviest first. A command too long for its row reads
-whole when the row opens.
+tree, and List puts the heaviest CPU first, a column's header sorting by it. A command too long
+for its row reads whole when the row opens.
 
 It has two halves and knows nothing of where the machine is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
@@ -74,9 +74,11 @@ The page half: the host serves `ui/` and maps it in its import map:
 `connected_at` changes each time the machine dials back in, and a read that failed while it was
 away is read again then. `offline` greys Read again.
 
-The host page gives the colours, as `--panel`, `--line`, `--fg` and `--accent`, and the classes
-the component shares with it: `seg`, `load`, `meter`, `muted`, `bad`; its table is the page's
-`data_table.js` and its copy button the page's `command_copy.js`, imported from beside it.
+The host page gives the colours and the classes the component shares with it: `list-tools`,
+`list-right`, `seg`, `load`, `meter`, `muted`, `bad`; its list is the page's `items_view.js`,
+imported from beside it, which draws the columns the manifest names (see
+[the shape every module has](../../README.md#modules)) and has the filter, Read again, the copy
+button, the tree and its folds.
 
 ## In serviceman
 

@@ -782,9 +782,9 @@ import disks from &#39;disks/disks.js&#39;;
 <p><code>connected_at</code> changes each time the machine dials back in, and a read that failed while it was
 away is read again then. <code>offline</code> greys Read again.</p>
 <p>The host page gives the colours and the classes the component shares with it: <code>list-tools</code>,
-<code>list-right</code>, <code>chip</code>, <code>meter</code> (with <code>filling</code> and <code>full</code>), <code>tag</code>, <code>muted</code>, <code>bad</code>; its table is
-the page&#39;s <code>data_table.js</code> and its copy button the page&#39;s <code>command_copy.js</code>, imported from beside
-it.</p>
+<code>list-right</code>, <code>chip</code>, <code>meter</code> (with <code>filling</code> and <code>full</code>), <code>tag</code>, <code>muted</code>, <code>bad</code>; its list is
+the page&#39;s <code>items_view.js</code>, imported from beside it, which draws the columns the manifest names
+(see <a href="../index.html#modules">the shape every module has</a>).</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/disks…</code> to

@@ -1125,7 +1125,7 @@ test('the Docker tab lists a machine\'s containers, starts and stops one, opens 
     try {
         const listed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/remotes/vps1/docker/containers'});
         assert.strictEqual(listed.status, 200);
-        assert.deepStrictEqual(JSON.parse(listed.body).containers.map(v => [v.name, v.project, v.own]), [['shop-web-1', 'shop', false], ['serviceman-boxy', null, true]]);
+        assert.deepStrictEqual(JSON.parse(listed.body).items.map(v => [v.name, v.project, v.own]), [['shop-web-1', 'shop', false], ['serviceman-boxy', null, true]]);
 
         const stopped = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/vps1/docker/containers/${'a'.repeat(64)}/stop`, method: 'POST'});
         assert.strictEqual(stopped.status, 200);

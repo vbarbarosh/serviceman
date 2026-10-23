@@ -845,7 +845,9 @@ the firewall closes ssh, said after the warning that it will (serviceman&#39;s a
 <p>The host page gives the colours, as <code>--panel</code>, <code>--line</code>, <code>--muted</code>, <code>--fg</code> and <code>--accent</code>, and
 the classes the component shares with it: <code>card</code>, <code>list-head</code>, <code>list-acts</code>, <code>list-table</code>, <code>dot</code>,
 <code>muted</code>, <code>bad</code>, <code>primary</code>, <code>link</code>, <code>pill</code>, <code>chip</code>, and <code>--run</code>, <code>--busy</code>, <code>--bad</code> for the
-colours of open, warned and kept out.</p>
+colours of open, warned and kept out. Its rules are the page&#39;s <code>items_view.js</code>, drawn as the
+manifest&#39;s columns say; its ports the page&#39;s <code>data_table.js</code>, since a row there is a port joined
+with what the firewall does to it, not a socket as the module lists them.</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/firewall…</code> to

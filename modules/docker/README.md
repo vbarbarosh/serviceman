@@ -35,22 +35,22 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 
 | Door | What it does |
 |---|---|
-| `GET <base>/containers` | `{containers: [{id, name, image, state, status, created_ms, ports, project, service, dir, own}]}` |
+| `GET <base>/containers` | `{items: [{id, name, image, state, status, created_ms, ports, project, service, dir, own}]}` |
 | `POST <base>/containers/<id>/start` | starts it; one already running is fine as it is |
 | `POST <base>/containers/<id>/stop` | stops it |
 | `POST <base>/containers/<id>/restart` | restarts it |
 | `POST <base>/projects/<project>/update` | `docker compose pull`, then `up -d`: only what changed is made again |
 | `POST <base>/projects/<project>/recreate` | `docker compose pull`, `down`, `up -d`: every container is made again |
-| `GET <base>/images` | `{images: [{id, tags, size, created_ms, used_by, dangling, read_only}]}` |
+| `GET <base>/images` | `{items: [{id, tags, size, created_ms, used_by, dangling, read_only}]}` |
 | `POST <base>/images/<id>/remove` | takes it away; one a container was made from is refused (409) |
 | `POST <base>/images/<id>/pull` | pulled again under its first name: text, a line when a layer says something new, then `done` or `failed` |
 | `POST <base>/images/prune` | the dangling ones; `?all=1` every one no container was made from — one at a time, with its progress |
-| `GET <base>/volumes` | `{volumes: [{name, driver, created_ms, project, used_by, mountpoint, mounts: [{id, name, running, destination}]}]}` |
+| `GET <base>/volumes` | `{items: [{name, driver, created_ms, project, used_by, mountpoint, mounts: [{id, name, running, destination}]}]}` |
 | `POST <base>/volumes/<name>/remove` | takes it away with what is in it |
 | `POST <base>/volumes/prune` | every volume no container mounts, with its progress |
 | `POST <base>/volumes/<name>/open` | a helper container that mounts it: `{id, path}` |
 | `POST <base>/volumes/<name>/close` | the helper killed and removed |
-| `GET <base>/networks` | `{networks: [{id, name, driver, subnet, project, used_by, builtin}]}` |
+| `GET <base>/networks` | `{items: [{id, name, driver, subnet, project, used_by, builtin}]}` |
 | `POST <base>/networks/<id>/remove` | takes it away; the built-in ones have no button |
 | `POST <base>/networks/prune` | every network no container is on, with its progress |
 
@@ -139,7 +139,8 @@ The page half: the host serves `ui/` and maps it, with Vue, in its import map:
 
 The host page gives the colours (`--panel`, `--line`, `--muted`) and the classes the module
 shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`, `muted`, `bad`,
-`primary`, `danger`.
+`primary`, `danger`. Its four lists are the page's `items_view.js`, given the items the module
+reads, which draws the columns the manifest names, containers by their compose project.
 
 ## In serviceman
 

@@ -1,7 +1,8 @@
 // What the Docker module holds and does, for its host to route, check and show: the containers,
 // the compose projects they came from, the images, volumes and networks, and what is done to
 // each. A long command answers a stream of its lines, or the lines themselves where the host
-// keeps no streams (answer: stream).
+// keeps no streams (answer: stream). Their columns are how a page draws them (items_view), the
+// first to fold the lowest; a container stands with its compose project.
 const docker_manifest = {
     module: 'docker',
     title: 'Docker',
@@ -12,6 +13,15 @@ const docker_manifest = {
             id: '[0-9a-f]{12,64}',
             example: '3f2a9c1b7d4e',
             read: {right: {right: 'containers', said: 'read the containers'}},
+            key: 'id',
+            search: ['name', 'service', 'image', 'project'],
+            group: 'project',
+            columns: [
+                {key: 'name', label: 'Container', wraps: true},
+                {key: 'image', label: 'Image', fold: 2, muted: true},
+                {key: 'ports', label: 'Ports', fold: 1, muted: true},
+                {key: 'status', label: 'Status'},
+            ],
             commands: [
                 {command: 'start', on: 'item', said: 'start it'},
                 {command: 'stop', on: 'item', said: 'stop it'},
@@ -35,6 +45,15 @@ const docker_manifest = {
             id: 'sha256:[0-9a-f]{64}|[0-9a-f]{12,64}',
             example: 'sha256:5d0da3dc976460b72c77d94c8a1ad043720b0416bfc16c52c45d4847e53fadb6',
             read: {},
+            key: 'id',
+            search: ['tags', 'id', 'used_by'],
+            columns: [
+                {key: 'tags', label: 'Image', wraps: true},
+                {key: 'id', label: 'Id', fold: 1, muted: true},
+                {key: 'size', label: 'Size', as: 'bytes', fold: 4, sort: true},
+                {key: 'created_ms', label: 'Created', as: 'ago', fold: 3, muted: true, sort: true},
+                {key: 'used_by', label: 'Used by', fold: 2},
+            ],
             commands: [
                 {command: 'pull', on: 'item', said: 'pull it again under its first tag', answer: 'stream'},
                 {command: 'remove', on: 'item', said: 'remove it', danger: true},
@@ -47,6 +66,15 @@ const docker_manifest = {
             id: '[^/]+',
             example: 'web_data',
             read: {},
+            key: 'name',
+            search: ['name', 'project', 'used_by'],
+            columns: [
+                {key: 'name', label: 'Volume', wraps: true, sort: true},
+                {key: 'project', label: 'Project', fold: 3, muted: true, sort: true},
+                {key: 'driver', label: 'Driver', fold: 1, muted: true},
+                {key: 'created_ms', label: 'Created', as: 'ago', fold: 2, muted: true, sort: true},
+                {key: 'used_by', label: 'Mounted by', fold: 4},
+            ],
             commands: [
                 {command: 'open', on: 'item', said: 'mount it in a helper, for its files to be read'},
                 {command: 'close', on: 'item', said: 'let the helper go'},
@@ -60,6 +88,15 @@ const docker_manifest = {
             id: '[0-9a-f]{12,64}',
             example: '7b1d2e3f4a5c',
             read: {},
+            key: 'id',
+            search: ['name', 'project', 'subnet', 'used_by'],
+            columns: [
+                {key: 'name', label: 'Network', wraps: true, sort: true},
+                {key: 'project', label: 'Project', fold: 3, muted: true, sort: true},
+                {key: 'driver', label: 'Driver', fold: 1, muted: true},
+                {key: 'subnet', label: 'Subnet', fold: 2, muted: true},
+                {key: 'used_by', label: 'Containers', fold: 4},
+            ],
             commands: [
                 {command: 'remove', on: 'item', said: 'remove it', danger: true},
                 {command: 'prune', on: 'kind', said: 'remove every one no container is on, the built-in ones aside', answer: 'stream', danger: true},

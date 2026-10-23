@@ -113,7 +113,9 @@ the firewall closes ssh, said after the warning that it will (serviceman's agent
 The host page gives the colours, as `--panel`, `--line`, `--muted`, `--fg` and `--accent`, and
 the classes the component shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`,
 `muted`, `bad`, `primary`, `link`, `pill`, `chip`, and `--run`, `--busy`, `--bad` for the
-colours of open, warned and kept out.
+colours of open, warned and kept out. Its rules are the page's `items_view.js`, drawn as the
+manifest's columns say; its ports the page's `data_table.js`, since a row there is a port joined
+with what the firewall does to it, not a socket as the module lists them.
 
 ## In serviceman
 

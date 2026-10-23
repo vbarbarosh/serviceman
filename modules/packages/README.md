@@ -81,8 +81,9 @@ The page half: the host serves `ui/` and maps it in its import map:
 away is read again then. `offline` greys Read again.
 
 The host page gives the colours, as `--accent` and `--bad`, and the classes the component shares
-with it: `list-tools`, `list-right`, `chip`, `seg`, `tag`, `muted`, `bad`; its table is the
-page's `data_table.js` and its copy button the page's `command_copy.js`, imported from beside it.
+with it: `list-tools`, `list-right`, `chip`, `seg`, `tag`, `muted`, `bad`; its list is the
+page's `items_view.js`, imported from beside it, which draws the columns the manifest names (see
+[the shape every module has](../../README.md#modules)): a header sorts by its column.
 
 ## In serviceman
 

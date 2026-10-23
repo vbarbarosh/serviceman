@@ -1,25 +1,23 @@
 import data_table from '../../data_table.js';
 import firewall_ports from './firewall_ports.js';
+import items_view from '../../items_view.js';
 
 // The firewall of one machine, ufw, with the ports it listens on: first the ports, each with
 // how far its address reaches and what the firewall does to it, Allow or Close from its row;
 // then the rules as ufw keeps them, a row to add one and × to delete one, with Undo. A change
 // shows at once, marked while the machine makes it. The host page gives the API, the colours
 // and its usual classes: card, list-head, list-acts, dot, pill, muted, bad, primary, link; its
-// one table, data-table, is imported from the page beside it.
-// The columns of each list, the first to fold the lowest; the actions fold before them all
+// rules are the page's items-view, drawn as the manifest's columns say, and its ports the page's
+// data-table, both imported from the page beside it.
+
+// The columns of the ports' list, the first to fold the lowest; the actions fold before them
+// all. A row is a port joined with what the firewall does to it (firewall_ports), not a socket
+// as the module lists them, so its columns are the page's own.
 const PORT_COLUMNS = [
     {key: 'port', label: 'Port'},
     {key: 'reach', label: 'Reachable from · address', fold: 2},
     {key: 'firewall', label: 'Firewall', wraps: true},
     {key: 'held', label: 'Held by', fold: 1, hide: v => (v.held === '')},
-];
-const RULE_COLUMNS = [
-    {key: 'action', label: 'Action'},
-    {key: 'port', label: 'Port'},
-    {key: 'from', label: 'From', fold: 3},
-    {key: 'to', label: 'To', fold: 2},
-    {key: 'comment', label: 'Comment', fold: 1, hide: v => ((v.comment || '') === '')},
 ];
 const ACTIONS = [
     {value: 'allow', label: 'Allow'},
@@ -126,19 +124,16 @@ const firewall = {
             </details>
         </template>
         <h3 class="fw-title">Rules <span class="muted">{{ rules.length }}</span></h3>
-        <data-table class="fw-rules" :columns="RULE_COLUMNS" :rows="rules" row_key="command" :row_class="rule_class" :empty="('No rules. ' + (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.'))" actions_label="Change">
-            <template #cell="{row, column}">
-                <template v-if="(column.key === 'action')"><span class="fw-action" :class="('fw-' + row.action)" :title="('ufw ' + row.command)">{{ row.action }}</span> <span v-if="(row.direction === 'out')" class="muted">out</span></template>
-                <template v-else-if="(column.key === 'port')">{{ port_text(row) }}</template>
-                <template v-else-if="(column.key === 'from')">{{ from_text(row) }}</template>
-                <span v-else-if="(column.key === 'to')" class="muted">{{ to_text(row) }}</span>
-                <span v-else class="muted">{{ row.comment }}</span>
-            </template>
-            <template #actions="{row}">
+        <items-view class="fw-rules" :items="rules" module="firewall" kind="rules" :row_class="rule_class" :empty="('No rules. ' + (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.'))" actions_label="Change">
+            <template #cell-action="{item}"><span class="fw-action" :class="('fw-' + item.action)" :title="('ufw ' + item.command)">{{ item.action }}</span> <span v-if="(item.direction === 'out')" class="muted">out</span></template>
+            <template #cell-port="{item}">{{ port_text(item) }}</template>
+            <template #cell-from="{item}">{{ from_text(item) }}</template>
+            <template #cell-to="{item}"><span class="muted">{{ to_text(item) }}</span></template>
+            <template #actions="{item: row}">
                 <span v-if="row.pending" class="muted">{{ row.pending }}</span>
                 <button v-else type="button" class="danger" :aria-label="('Delete ' + row.command)" :title="('Delete ufw ' + row.command)" :disabled="(busy || offline)" @click="remove(row)">Delete</button>
             </template>
-        </data-table>
+        </items-view>
         <form class="card fw-add" @submit.prevent="add">
             <select v-model="form.action" aria-label="Action"><option v-for="item of ACTIONS" :key="item.value" :value="item.value">{{ item.label }}</option></select>
             <select v-model="form.direction" aria-label="Direction"><option v-for="item of DIRECTIONS" :key="item.value" :value="item.value">{{ item.label }}</option></select>
@@ -151,7 +146,7 @@ const firewall = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'items-view': items_view},
     props: {
         base: {type: String, required: true},
         offline: {type: Boolean, default: false},
@@ -164,7 +159,6 @@ const firewall = {
     data: function () {
         return {
             PORT_COLUMNS,
-            RULE_COLUMNS,
             ACTIONS,
             DIRECTIONS,
             PROTOS,

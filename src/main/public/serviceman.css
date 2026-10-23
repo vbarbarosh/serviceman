@@ -2930,6 +2930,18 @@ article.rf .actions {
     margin: 0;
 }
 
+/* A share of a whole as a bar and its percent, the two figures under them (items_view) */
+.iv-share {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+}
+
+.iv-share .meter {
+    width: 5rem;
+    margin: 0;
+}
+
 /* The Map: a column for each kind of thing, the lines between them drawn underneath. Pointing
    at a node dims everything it is not joined to. */
 .map-legend {

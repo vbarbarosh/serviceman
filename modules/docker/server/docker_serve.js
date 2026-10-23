@@ -168,7 +168,7 @@ async function containers_serve(ctx, res)
         send_json(res, 502, {error: engine_said(answer)});
         return;
     }
-    send_json(res, 200, {containers: JSON.parse(answer.body).filter(v => is_helper(v) === false).map(v => container_view(ctx, v))});
+    send_json(res, 200, {items: JSON.parse(answer.body).filter(v => is_helper(v) === false).map(v => container_view(ctx, v))});
 }
 
 function container_view(ctx, item)
@@ -207,14 +207,14 @@ async function store_serve(ctx, res, kind)
         const body = JSON.parse(listed.body);
         const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({id: v.Id, name: name_of(v), state: v.State, image: v.ImageID, mounts: Array.isArray(v.Mounts) ? v.Mounts : [], networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
         if (kind === 'images') {
-            send_json(res, 200, {images: body.map(v => image_view(v, users))});
+            send_json(res, 200, {items: body.map(v => image_view(v, users))});
             return;
         }
         if (kind === 'volumes') {
-            send_json(res, 200, {volumes: (Array.isArray(body.Volumes) ? body.Volumes : []).map(v => volume_view(v, users))});
+            send_json(res, 200, {items: (Array.isArray(body.Volumes) ? body.Volumes : []).map(v => volume_view(v, users))});
             return;
         }
-        send_json(res, 200, {networks: body.map(v => network_view(v, users))});
+        send_json(res, 200, {items: body.map(v => network_view(v, users))});
     }
     catch (error) {
         send_json(res, 502, {error: error.message});

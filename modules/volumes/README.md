@@ -90,6 +90,9 @@ The page half: the host serves `ui/` and maps it in its import map, then gives t
 
     <volumes :machines="[{name: 'phone', title: 'phone', base: '/api/v1/remotes/phone/volumes', offline: false, user: 'user'}]"/>
 
+Its list is the page's `items_view.js`, given the volumes of every machine, which draws the
+columns the manifest names, and the machine each is on beside them.
+
 ## In serviceman
 
 - the Storage page lists them under the folders, for every machine or the one its chips chose,

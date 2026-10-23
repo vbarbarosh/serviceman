@@ -749,7 +749,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </thead>
 <tbody><tr>
 <td><code>GET &lt;base&gt;/containers</code></td>
-<td><code>{containers: [{id, name, image, state, status, created_ms, ports, project, service, dir, own}]}</code></td>
+<td><code>{items: [{id, name, image, state, status, created_ms, ports, project, service, dir, own}]}</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/containers/&lt;id&gt;/start</code></td>
@@ -773,7 +773,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/images</code></td>
-<td><code>{images: [{id, tags, size, created_ms, used_by, dangling, read_only}]}</code></td>
+<td><code>{items: [{id, tags, size, created_ms, used_by, dangling, read_only}]}</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/images/&lt;id&gt;/remove</code></td>
@@ -789,7 +789,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/volumes</code></td>
-<td><code>{volumes: [{name, driver, created_ms, project, used_by, mountpoint, mounts: [{id, name, running, destination}]}]}</code></td>
+<td><code>{items: [{name, driver, created_ms, project, used_by, mountpoint, mounts: [{id, name, running, destination}]}]}</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/volumes/&lt;name&gt;/remove</code></td>
@@ -809,7 +809,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/networks</code></td>
-<td><code>{networks: [{id, name, driver, subnet, project, used_by, builtin}]}</code></td>
+<td><code>{items: [{id, name, driver, subnet, project, used_by, builtin}]}</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/networks/&lt;id&gt;/remove</code></td>
@@ -897,7 +897,8 @@ import docker from &#39;docker/docker.js&#39;;
 <code>{items: [{title, url, started_at, ended_at}]}</code>.</p>
 <p>The host page gives the colours (<code>--panel</code>, <code>--line</code>, <code>--muted</code>) and the classes the module
 shares with it: <code>card</code>, <code>list-head</code>, <code>list-acts</code>, <code>list-table</code>, <code>dot</code>, <code>muted</code>, <code>bad</code>,
-<code>primary</code>, <code>danger</code>.</p>
+<code>primary</code>, <code>danger</code>. Its four lists are the page&#39;s <code>items_view.js</code>, given the items the module
+reads, which draws the columns the manifest names, containers by their compose project.</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>
 <li><code>src/main/src/routes/handle_control_request.js</code> sends <code>/api/v1/remotes/&lt;name&gt;/docker…</code> to

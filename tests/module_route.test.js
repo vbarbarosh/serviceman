@@ -122,3 +122,24 @@ test('a token\'s right to a module is to the doors its manifest gives it, and th
     assert.strictEqual(right('GET', '/api/v1/transfers'), null);
     assert.deepStrictEqual(control_route_right('GET', '/api/v1/remotes/a%20b/disks'), {right: 'disks', said: 'read the disks', remote: 'a b'});
 });
+
+test('every kind with columns says them so a page can draw them: a label and a way it knows for each, and its search, tree, group and sort as a page reads them', async function () {
+    const module_kind = (await import(path.join(__dirname, '..', 'src', 'main', 'public', 'module_kind.js'))).default;
+    for (const mount of module_mount_of.MODULE_MOUNTS) {
+        for (const kind of mount.manifest.kinds.filter(v => (v.columns !== undefined))) {
+            const where = `${mount.manifest.module} ${JSON.stringify(kind.kind)}`;
+            const keys = kind.columns.map(v => v.key);
+            assert.strictEqual(new Set(keys).size, keys.length, `${where}: a column twice`);
+            for (const column of kind.columns) {
+                assert.strictEqual(typeof column.label, 'string', `${where} ${column.key}: no label`);
+                assert.ok((column.as === undefined) || module_kind.AS.includes(column.as), `${where} ${column.key}: no page draws a column as ${column.as}`);
+                assert.ok((column.as !== 'share') || (typeof column.of === 'string'), `${where} ${column.key}: a share of nothing`);
+                assert.ok((column.as !== 'flag') || ((typeof column.yes === 'string') && (typeof column.no === 'string')), `${where} ${column.key}: a flag with no words`);
+            }
+            assert.ok((kind.sort === undefined) || keys.includes(kind.sort.key), `${where}: sorted by ${(kind.sort === undefined) ? '' : kind.sort.key}, and no column shows it`);
+            assert.ok((kind.search === undefined) || (Array.isArray(kind.search) && (kind.search.length > 0)), `${where}: search is the fields typed words are looked for in`);
+            assert.ok((kind.tree === undefined) || ((typeof kind.tree.id === 'string') && (typeof kind.tree.parent === 'string')), `${where}: a tree is {id, parent}`);
+            assert.ok((kind.group === undefined) || (typeof kind.group === 'string'), `${where}: a group is a field`);
+        }
+    }
+});
