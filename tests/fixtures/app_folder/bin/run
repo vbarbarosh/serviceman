@@ -1,0 +1,4 @@
+#!/bin/sh
+# An app folder's server, on the port it is given
+cd "$(dirname "$0")/.."
+exec node server.js

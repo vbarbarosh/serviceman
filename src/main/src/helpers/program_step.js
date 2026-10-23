@@ -1,6 +1,7 @@
 const format_seconds = require('../../../helpers/format_seconds');
 const log_event = require('./log_event');
 const log_words = require('../../../helpers/log_words');
+const program_env = require('./program_env');
 const remote_call = require('./remote_call');
 const secrets_deliver = require('./secrets_deliver');
 
@@ -28,7 +29,7 @@ async function program_step(app, remote, service, step, env)
 
 function run(app, remote, service, step, line, env, secrets)
 {
-    const words = Object.assign({}, service.env, env);
+    const words = Object.assign(program_env(service), env);
     return remote_call(app, remote, 'program_step', {service: service.name, cwd: service.cwd, line, env: words, image: service.image, user: service.user, secrets});
 }
 

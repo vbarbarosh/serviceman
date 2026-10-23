@@ -2,6 +2,7 @@ const format_seconds = require('../../../helpers/format_seconds');
 const last_line = require('../../../helpers/last_line');
 const log_event = require('./log_event');
 const log_words = require('../../../helpers/log_words');
+const program_env = require('./program_env');
 const program_mark = require('./program_mark');
 const remote_call = require('./remote_call');
 const secrets_deliver = require('./secrets_deliver');
@@ -46,7 +47,7 @@ function ask(app, remote, service, mark, look, secrets, force)
         install: life.install,
         update: life.update,
         mark,
-        env: service.env,
+        env: program_env(service),
         look,
         made: service.cwd_made,
         image: service.image,

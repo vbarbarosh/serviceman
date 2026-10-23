@@ -1316,6 +1316,29 @@ test('a program with an install line puts its folder in place once, and runs fro
     }
 });
 
+// An app as a folder: bin/configure sets it up, bin/run serves it on the port it is given. The
+// port is written once, as publish.port, and the program finds it as PORT
+test('an app folder is configured once and served on the PORT it is given', async function () {
+    const port = await free_port();
+    const running = await serviceman_start([
+        {
+            name: 'appdir',
+            type: 'shell',
+            publish: {host: 'appdir.test', port},
+            lifecycle: {install: `cp -R ${path.join(__dirname, 'fixtures', 'app_folder')}/. . && bin/configure`},
+            command: 'bin/run',
+        },
+    ]);
+    try {
+        const answer = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(answer.status, 200);
+        assert.strictEqual(answer.body, `configured on ${port}`);
+    }
+    finally {
+        await running.close();
+    }
+});
+
 test('a service that keeps data may name one machine, and its volumes are mounted where it runs', function () {
     const remotes = [{name: 'laptop', token: '0123456789abcdef0123456789abcdef'}, {name: 'aaa', token: 'fedcba9876543210fedcba9876543210'}];
     const one = config_from_json({remotes, services: [{
@@ -1374,12 +1397,12 @@ test('a shell service that names an image runs its lines and its command inside 
         // The install line ran in the image, with the folder mounted — npm is the image's to have
         const ran = state_file_read(process.env.SERVICEMAN_TEST_STATE);
         const install = ran.commands.find(v => v.includes('npm install'));
-        assert.match(install, /run --rm --volume .*writer\.[0-9a-f]{8}:\/app --workdir \/app --user \d+:\d+ --env HOME=\/app node:24-alpine \/bin\/sh -c npm install/, install);
+        assert.match(install, /run --rm --volume .*writer\.[0-9a-f]{8}:\/app --workdir \/app --user \d+:\d+ --env HOME=\/app --env PORT=8080 node:24-alpine \/bin\/sh -c npm install/, install);
 
         // And the program itself is a container of ours, with the same folder and the command
         const container = ran.commands.find(v => v.includes('--name serviceman-writer'));
         assert.match(container, /run -d --init --name serviceman-writer --label serviceman\.service=writer/, container);
-        assert.match(container, /--volume .*writer\.[0-9a-f]{8}:\/app --workdir \/app --user \d+:\d+ --env HOME=\/app --publish 127\.0\.0\.1::8080 node:24-alpine \/bin\/sh -c node server\.js/, container);
+        assert.match(container, /--volume .*writer\.[0-9a-f]{8}:\/app --workdir \/app --user \d+:\d+ --env HOME=\/app --publish 127\.0\.0\.1::8080 --env PORT=8080 node:24-alpine \/bin\/sh -c node server\.js/, container);
 
         // Stopping it is docker's to do, because by then it is an ordinary container of ours
         await service_stop(running.app, service, 'the test asked');

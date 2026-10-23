@@ -725,10 +725,15 @@ node src/main data/serviceman.json --check   # read the config, report what is w
 <p><code>--check</code> refuses a config that would only fail at the first request: an unknown type, a
 missing image, a hostname written twice, a duration nobody can read.</p>
 <h2 id="edit-from-the-control-page"><a class="anchor" href="#edit-from-the-control-page" aria-hidden="true" tabindex="-1">#</a>Edit from the control page</h2>
-<p>Services are created and reshaped on the control page itself. <strong>+ Add service</strong> asks what
-it is — a docker image, a program, or something already running — and opens the cards it
-cannot do without; the name comes from the image and the port defaults to the one the image
-names, or 80, when left empty, and an address with a path strips its prefix. A service&#39;s own
+<p>Services are created and reshaped on the control page itself. <strong>+ Add service</strong> is a short
+form for the two common kinds. <strong>A docker image</strong> asks for the image; the name comes from it
+and the port defaults to the one the image names, or 80. <strong>An app folder</strong> asks for the folder
+on the machine: it must hold <code>bin/run</code>, which serves the app on the port it finds in <code>PORT</code>,
+and may hold <code>bin/configure</code>, which then runs once before the first start. The name comes from
+the folder and the port is the first one from 8080 that no other program is given and the
+machine does not listen on. Both get the machine they run on and an address made of their
+name. <strong>All settings…</strong> opens every card, with what the short form filled in, for a program of
+another shape or something already running; an address with a path strips its prefix. A service&#39;s own
 page is the same cards, each with <strong>Edit</strong> — addresses, image, storage, environment, the
 whole policy. A card&#39;s <strong>Save</strong> writes the config file and applies it at once; only the
 fields you fill land in the file. <strong>Remove…</strong>, the last card, takes a service out of the
@@ -1289,7 +1294,7 @@ the next visitor through the door starts it again.</p>
 </tr>
 <tr>
 <td><code>env</code></td>
-<td>Added to the environment serviceman itself has.</td>
+<td>Added to the environment serviceman itself has, after <code>PORT</code> (below).</td>
 </tr>
 </tbody></table>
 </div>
@@ -1441,8 +1446,10 @@ with <code>SERVICEMAN_REASON=idle</code> when the idle clock is what stopped it.
 runs the install line, keeps the child, and serviceman reaches it down the same tunnel. What
 that machine needs is whatever the two lines need — for the one above, git and node.</p>
 <p><strong>With a <code>publish.port</code></strong> the program is a service like any other: an address wakes it, the
-idle policy stops it. <strong>Without one</strong> it answers nowhere — a socket, a tunnel, a job — so it
-carries no <code>publish</code> at all and it starts with serviceman (<code>&quot;start&quot;: &quot;always&quot;</code>).</p>
+idle policy stops it. Each of its lines finds that port as <code>PORT</code>, so <code>bin/run</code> listens where it
+is told and the port is written once; an <code>env</code> that names <code>PORT</code> itself wins. <strong>Without one</strong>
+it answers nowhere — a socket, a tunnel, a job — so it carries no <code>publish</code> at all and it starts
+with serviceman (<code>&quot;start&quot;: &quot;always&quot;</code>).</p>
 <p>A program runs as one copy. The agent keeps the last of what it prints, and the waiting page
 reads it while the program comes up. The agent stops the whole process group, so a shell line
 takes its children with it.</p>

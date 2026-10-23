@@ -1,4 +1,5 @@
 const program_docker_start = require('./program_docker_start');
+const program_env = require('./program_env');
 const program_install = require('./program_install');
 const remote_call = require('./remote_call');
 const secrets_deliver = require('./secrets_deliver');
@@ -20,7 +21,7 @@ async function shell_start_on(app, remote, service, instance)
         slot: instance.slot,
         cwd: service.cwd,
         argv: shell_argv(service),
-        env: Object.assign({}, secrets_env(secrets), service.env),
+        env: Object.assign({}, secrets_env(secrets), program_env(service)),
     });
     instance.pid = answer.pid;
     instance.asked_to_stop = false;

@@ -18,6 +18,24 @@ const KIND_NAMES = {
     external: 'Something already running',
 };
 
+// What the short form makes: an image, or an app folder, a program of one shape. bin/run serves
+// it on PORT; bin/configure, when it has one, sets it up once before the first run.
+const SHORT_KINDS = ['docker', 'shell'];
+
+const SHORT_NAMES = {
+    docker: 'A docker image',
+    shell: 'An app folder',
+};
+
+const SHORT_WORDS = {
+    docker: 'an agent runs it and stops it on the machine you name',
+    shell: 'a folder with bin/run in it, on a machine of yours',
+};
+
+// The ports an app folder is given, the first one free from here: well away from serviceman's
+// own and from what most dev servers take
+const APP_PORT_FIRST = 8080;
+
 // The answers to "sleep after" that are worth one click
 const IDLE_STEPS = ['2m', '10m', '1h'];
 
@@ -135,33 +153,53 @@ const service_form = {
         <div class="list-head">
             <h1>{{ heading }}</h1>
         </div>
+        <div class="kinds short">
+            <button v-for="type of SHORT_KINDS" :key="type" type="button" class="kind" :class="{on: (type === m.type)}" @click="short_kind(type)">
+                <span class="name">{{ SHORT_NAMES[type] }}</span>
+                <span class="muted">{{ SHORT_WORDS[type] }}</span>
+            </button>
+        </div>
         <div class="card svc-sec open">
             <div class="grid svc-body">
-                <label>Image</label>
-                <div>
-                    <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @paste="image_paste" @change="image_change">
-                </div>
+                <template v-if="(m.type === 'docker')">
+                    <label>Image</label>
+                    <div>
+                        <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @paste="image_paste" @change="image_change">
+                    </div>
+                </template>
+                <template v-else>
+                    <label>Folder</label>
+                    <div>
+                        <input ref="folder" v-model.trim="m.cwd" placeholder="/home/user/appdir" :class="{wrong: problems.cwd}" spellcheck="false" @change="app_look">
+                        <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
+                        <p v-else-if="(app_now !== null)" class="muted">{{ app_now.configure ? 'bin/configure runs once, then bin/run' : 'bin/run, with nothing to configure first' }}, on port {{ app_port }} as <code>PORT</code>.</p>
+                        <p v-else class="muted">The folder on that machine with <code>bin/run</code> in it.</p>
+                    </div>
+                </template>
                 <label>Name</label>
                 <div>
-                    <input v-model.trim="m.name" :placeholder="(easy_name === '' ? 'grafana' : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
+                    <input v-model.trim="m.name" :placeholder="(easy_name === '' ? (m.type === 'docker' ? 'grafana' : 'appdir') : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
                     <p v-if="problems.name" class="bad">{{ problems.name }}</p>
-                    <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its image.</p>
+                    <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its {{ m.type === 'docker' ? 'image' : 'folder' }}.</p>
                 </div>
-                <label>Port inside</label>
-                <div>
-                    <div class="line">
-                        <input v-model.trim="m.port" :placeholder="(detected_port === null ? '80' : String(detected_port))" class="short" :class="{wrong: problems.port}" spellcheck="false">
-                        <button v-if="(detected_port !== null && m.port !== String(detected_port))" type="button" class="tab" @click="m.port = String(detected_port)">use {{ detected_port }}, from the image</button>
+                <template v-if="(m.type === 'docker')">
+                    <label>Port inside</label>
+                    <div>
+                        <div class="line">
+                            <input v-model.trim="m.port" :placeholder="(detected_port === null ? '80' : String(detected_port))" class="short" :class="{wrong: problems.port}" spellcheck="false">
+                            <button v-if="(detected_port !== null && m.port !== String(detected_port))" type="button" class="tab" @click="m.port = String(detected_port)">use {{ detected_port }}, from the image</button>
+                        </div>
+                        <p v-if="problems.port" class="bad">{{ problems.port }}</p>
+                        <p v-else-if="(m.port === '')" class="muted">Left empty, it is {{ detected_port === null ? '80' : detected_port + ', the one the image names' }}.</p>
                     </div>
-                    <p v-if="problems.port" class="bad">{{ problems.port }}</p>
-                    <p v-else-if="(m.port === '')" class="muted">Left empty, it is {{ detected_port === null ? '80' : detected_port + ', the one the image names' }}.</p>
-                </div>
+                </template>
                 <label>Runs on</label>
                 <div>
-                    <select v-if="(places.length > 0)" v-model="m.places[0].text" @change="image_change">
+                    <select v-if="(places.length > 0)" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
                         <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
                     </select>
                     <p v-else class="bad">No machine yet. It runs where an agent is — add a remote first.</p>
+                    <p v-if="(places.length > 0 && problems.places)" class="bad">{{ problems.places }}</p>
                 </div>
                 <label>Address</label>
                 <div>
@@ -498,7 +536,7 @@ const service_form = {
     <div v-if="creating" class="svc-create">
         <button type="button" class="primary" :disabled="busy" @click="create">{{ busy ? 'creating…' : 'Create service' }}</button>
         <button type="button" @click="$emit('close')">Cancel</button>
-        <button v-if="simple" type="button" class="link" @click="simple = false">All settings…</button>
+        <button v-if="simple" type="button" class="link" @click="all_settings">All settings…</button>
         <span v-if="(problem_count > 0)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
@@ -509,7 +547,7 @@ const service_form = {
 </article>
 `,
     components: {duration, snip: snippet},
-    props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir'],
+    props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken'],
     emits: ['close', 'saved'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
@@ -529,6 +567,9 @@ const service_form = {
             KINDS,
             KIND_NAMES,
             KIND_WORDS,
+            SHORT_KINDS,
+            SHORT_NAMES,
+            SHORT_WORDS,
             model,
             // The copy a card edits on a service that exists; the page keeps showing the saved
             // one until Save lands
@@ -546,6 +587,12 @@ const service_form = {
             // Rows taken away here are removed on the machine when the card is saved
             secrets_gone: [],
             detected_port: null,
+            // What the app folder's bin holds, as its machine answered for that path:
+            // {path, place, configure}; and why it cannot be one, by the field it is wrong in
+            app_found: null,
+            app_problem: null,
+            // The ports its machine listens on now, so the one an app is given is free there
+            ports_busy: [],
             note: '',
             bad: false,
             busy: false,
@@ -638,16 +685,42 @@ const service_form = {
         // control page's own domain — serviceman.localhost gives grafana.localhost
         easy_host: function () {
             const name = this.model_now().name;
-            if ((this.creating === false) || (this.m.type !== 'docker') || (/^[a-z0-9][a-z0-9_-]*$/.test(name) === false)) {
+            if ((this.creating === false) || (this.made_short === false) || (/^[a-z0-9][a-z0-9_-]*$/.test(name) === false)) {
                 return '';
             }
             return this.host_from_name(name);
         },
         easy_name: function () {
+            if ((this.m.type === 'shell') && (this.made_short) && (this.m.cwd !== '')) {
+                return name_free(name_from_folder(this.m.cwd), this.names || []);
+            }
             if ((this.m.type !== 'docker') || (this.m.image === '')) {
                 return '';
             }
             return name_free(name_from_image(this.m.image), this.names || []);
+        },
+        // What was found in the app folder, while it is the folder and the machine asked about
+        app_now: function () {
+            const found = this.app_found;
+            if ((found === null) || (found.path !== this.m.cwd) || (found.place !== this.m.places[0].text)) {
+                return null;
+            }
+            return found;
+        },
+        // Whether what is made fills itself in from the short form: an image always does, an
+        // app folder while it is made there
+        made_short: function () {
+            return (this.m.type === 'docker') || ((this.m.type === 'shell') && this.simple);
+        },
+        // The port an app folder is given: the first one no program of serviceman's is given
+        // and its machine does not listen on now
+        app_port: function () {
+            const taken = (this.ports_taken || []).concat(this.ports_busy);
+            let out = APP_PORT_FIRST;
+            while (taken.includes(out)) {
+                out++;
+            }
+            return out;
         },
         config_text: function () {
             return JSON.stringify(json_from_service(this.model_now()), null, 4);
@@ -718,8 +791,19 @@ const service_form = {
             if (this.tried && ((model.type === 'docker') || (model.type === 'shell')) && (places.length === 0) && (this.places.length > 0)) {
                 out.places = 'It runs on a machine with an agent — pick one.';
             }
-            if (this.tried && (model.type === 'shell') && (model.command === '')) {
+            if (this.tried && (model.type === 'shell') && (this.model_now().command === '')) {
                 out.command = 'A program needs the line that runs it.';
+            }
+            if ((model.type === 'shell') && this.simple && this.creating) {
+                if (this.tried && (model.cwd === '')) {
+                    out.cwd = 'Where the app is on that machine is needed: the folder with bin/run in it.';
+                }
+                else if ((this.app_problem !== null) && (this.app_problem.path === model.cwd) && (this.app_problem.place === places[0])) {
+                    out.cwd = this.app_problem.text;
+                }
+                if ((places.length > 0) && places[0].startsWith('#')) {
+                    out.places = 'An app folder is on one machine: pick that one, not a tag.';
+                }
             }
             if (this.tried && (model.type === 'external') && (model.upstream === '')) {
                 out.upstream = 'Where it already answers is needed, as host:port.';
@@ -771,12 +855,24 @@ const service_form = {
         // without an address answers on its name — what the empty boxes say they stand for.
         model_now: function () {
             const model = this.m;
-            if ((this.creating === false) || (model.type !== 'docker')) {
+            if ((this.creating === false) || (this.made_short === false)) {
                 return model;
             }
             const name = (model.name === '') ? this.easy_name : model.name;
-            const port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
-            const out = Object.assign({}, model, {name, port});
+            const out = Object.assign({}, model, {name});
+            if (model.type === 'docker') {
+                out.port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
+            }
+            else {
+                // An app folder is one shape of program: bin/run on its port, bin/configure
+                // first when the folder has one
+                const found = this.app_now;
+                Object.assign(out, {command: 'bin/run', install: ((found !== null) && found.configure) ? 'bin/configure' : '', port: String(this.app_port), image: ''});
+                // The folder as its machine names it: ~ is the home of whoever runs the agent
+                if (found !== null) {
+                    out.cwd = found.dir;
+                }
+            }
             if ((name !== '') && model.hosts.every(v => v.text === '')) {
                 out.hosts = [{key: 'easy', text: this.host_from_name(name)}];
             }
@@ -979,6 +1075,78 @@ const service_form = {
                 self.image_change();
             });
         },
+        // The short form's two kinds: what the other one needs is asked of its machine now
+        short_kind: function (type) {
+            this.m.type = type;
+            this.$nextTick(function () {
+                const field = (type === 'docker') ? this.$refs.image : this.$refs.folder;
+                if (field !== undefined) {
+                    field.focus();
+                }
+            });
+            if (type === 'shell') {
+                this.ports_read();
+                this.app_look();
+            }
+        },
+        place_change: function () {
+            if (this.m.type === 'docker') {
+                this.image_change();
+                return;
+            }
+            this.ports_read();
+            this.app_look();
+        },
+        // The whole form takes over from what the short one would make
+        all_settings: function () {
+            if (this.m.type === 'shell') {
+                Object.assign(this.model, this.model_now());
+            }
+            this.simple = false;
+        },
+        // What the app folder holds, read on its machine through the File Manager's API: bin/run
+        // makes it an app, and bin/configure, when it is there, is its install line
+        app_look: async function () {
+            const path = this.m.cwd;
+            const place = this.m.places[0].text;
+            if ((this.m.type !== 'shell') || (path === '') || (place === '') || place.startsWith('#')) {
+                return;
+            }
+            const base = `/api/v1/remotes/${encodeURIComponent(place)}/fs?path=`;
+            const at = await list_read(base + encodeURIComponent(path));
+            let bin = null;
+            if ((at.error === undefined) && at.items.some(v => (v.name === 'bin') && (v.kind === 'dir'))) {
+                bin = await list_read(base + encodeURIComponent(`${at.path.replace(/\/+$/, '')}/bin`));
+            }
+            if ((path !== this.m.cwd) || (place !== this.m.places[0].text)) {
+                return;
+            }
+            const run = (bin !== null) && (bin.error === undefined) && bin.items.some(v => (v.name === 'run') && (v.kind !== 'dir'));
+            if (at.error !== undefined) {
+                const missing = at.error.includes('ENOENT') || at.error.includes('ENOTDIR');
+                this.app_problem = {path, place, text: missing ? `There is no such folder on ${this.place_text(place)}.` : `${this.place_text(place)} cannot read it: ${at.error}`};
+                this.app_found = null;
+            }
+            else if (run === false) {
+                this.app_problem = {path, place, text: 'This folder has no bin/run, the file an app folder starts with.'};
+                this.app_found = null;
+            }
+            else {
+                this.app_problem = null;
+                this.app_found = {path, place, dir: at.path, configure: bin.items.some(v => (v.name === 'configure') && (v.kind !== 'dir'))};
+            }
+        },
+        // The ports the machine listens on now; a machine that cannot say leaves the list empty
+        ports_read: async function () {
+            const place = this.m.places[0].text;
+            if ((place === '') || place.startsWith('#')) {
+                return;
+            }
+            const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(place)}/firewall/ports`).then(v => v.json()).catch(() => ({}));
+            if (place === this.m.places[0].text) {
+                this.ports_busy = Array.isArray(answer.items) ? answer.items.map(v => v.port) : [];
+            }
+        },
         image_change: async function () {
             const model = this.m;
             if (model.type !== 'docker') {
@@ -1072,9 +1240,12 @@ const service_form = {
         },
         create: async function () {
             this.tried = true;
+            if ((this.m.type === 'shell') && this.simple && (this.m.cwd !== '') && (this.app_now === null)) {
+                await this.app_look();
+            }
             if (this.problem_count > 0) {
                 // Something the short form does not show is shown where it can be fixed
-                if (Object.keys(this.problems).some(v => ['name', 'port'].includes(v) === false)) {
+                if (Object.keys(this.problems).some(v => ['name', 'port', 'cwd', 'places'].includes(v) === false)) {
                     this.simple = false;
                 }
                 return;
@@ -1205,6 +1376,26 @@ function model_copy(model)
 }
 
 // "registry.example.com:5000/team/grafana:latest" -> "grafana"
+// The name an app folder gives itself: /home/user/appdir/ is appdir
+function name_from_folder(folder)
+{
+    const tail = folder.replace(/\/+$/, '').split('/').pop();
+    return tail.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[^a-z0-9]+/, '');
+}
+
+// One folder of a machine as its agent lists it, or {error} with what went wrong
+async function list_read(url)
+{
+    try {
+        const answer = await fetch(url);
+        const listed = await answer.json();
+        return answer.ok ? listed : {error: listed.error || `${answer.status}`};
+    }
+    catch (error) {
+        return {error: error.message};
+    }
+}
+
 function name_from_image(image)
 {
     const tail = image.split('/').pop();

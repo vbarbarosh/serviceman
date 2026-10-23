@@ -5,6 +5,7 @@ const docker_spec_hash = require('./docker_spec_hash');
 const docker_upstream = require('./docker_upstream');
 const image_pull = require('./image_pull');
 const log_event = require('./log_event');
+const program_env = require('./program_env');
 const remote_call = require('./remote_call');
 const service_said = require('./service_said');
 const volume_paths_create = require('./volume_paths_create');
@@ -62,7 +63,7 @@ function create(app, remote, service, instance, container, spec, secrets)
         image: service.image,
         user: service.user,
         command: service.command,
-        env: service.env,
+        env: program_env(service),
         port: service.port,
         volumes: service.volumes,
         secrets,

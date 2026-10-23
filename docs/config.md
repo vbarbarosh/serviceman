@@ -14,10 +14,15 @@ missing image, a hostname written twice, a duration nobody can read.
 
 ## Edit from the control page
 
-Services are created and reshaped on the control page itself. **+ Add service** asks what
-it is — a docker image, a program, or something already running — and opens the cards it
-cannot do without; the name comes from the image and the port defaults to the one the image
-names, or 80, when left empty, and an address with a path strips its prefix. A service's own
+Services are created and reshaped on the control page itself. **+ Add service** is a short
+form for the two common kinds. **A docker image** asks for the image; the name comes from it
+and the port defaults to the one the image names, or 80. **An app folder** asks for the folder
+on the machine: it must hold `bin/run`, which serves the app on the port it finds in `PORT`,
+and may hold `bin/configure`, which then runs once before the first start. The name comes from
+the folder and the port is the first one from 8080 that no other program is given and the
+machine does not listen on. Both get the machine they run on and an address made of their
+name. **All settings…** opens every card, with what the short form filled in, for a program of
+another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
 whole policy. A card's **Save** writes the config file and applies it at once; only the
 fields you fill land in the file. **Remove…**, the last card, takes a service out of the
@@ -451,7 +456,7 @@ The agent runs the command on its machine and keeps it alive:
 | `user`    | Who it is inside that image: `node:node`, `1000:1000`. Default: whoever runs the agent, by number. |
 | `lifecycle` | A line for each moment of its life. See below.                             |
 | `cwd`     | Where it runs. The config's folder — or one of serviceman's own when it installs itself. |
-| `env`     | Added to the environment serviceman itself has.                              |
+| `env`     | Added to the environment serviceman itself has, after `PORT` (below).        |
 
 ### The lifecycle of a program
 
@@ -619,8 +624,10 @@ runs the install line, keeps the child, and serviceman reaches it down the same 
 that machine needs is whatever the two lines need — for the one above, git and node.
 
 **With a `publish.port`** the program is a service like any other: an address wakes it, the
-idle policy stops it. **Without one** it answers nowhere — a socket, a tunnel, a job — so it
-carries no `publish` at all and it starts with serviceman (`"start": "always"`).
+idle policy stops it. Each of its lines finds that port as `PORT`, so `bin/run` listens where it
+is told and the port is written once; an `env` that names `PORT` itself wins. **Without one**
+it answers nowhere — a socket, a tunnel, a job — so it carries no `publish` at all and it starts
+with serviceman (`"start": "always"`).
 
 A program runs as one copy. The agent keeps the last of what it prints, and the waiting page
 reads it while the program comes up. The agent stops the whole process group, so a shell line

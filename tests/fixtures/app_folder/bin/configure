@@ -1,0 +1,5 @@
+#!/bin/sh
+# An app folder's set-up, run once: it leaves a mark the app reads
+set -e
+cd "$(dirname "$0")/.."
+echo configured > configured.txt
