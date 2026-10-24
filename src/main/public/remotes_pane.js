@@ -79,7 +79,7 @@ const remotes_pane = {
         <p v-if="(cards.length === 0)" class="muted">{{ empty_text }}</p>
     </div>
     <!-- Name and state never fold; the rest fold where the pane is narrow, CPU last. The name
-         opens the machine; a click on the row opens what folded. -->
+         opens the machine; a click on the row shows it whole at the foot. -->
     <data-table v-else class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text" :opens="uptime_opens">
         <template #cell="{row, column}">
             <span v-if="(column.key === 'name')" class="machine-name">
@@ -200,7 +200,7 @@ const remotes_pane = {
             this.view = view;
             remotes_view_write(view);
         },
-        // A machine that ever said what it is has its uptime to show when its row opens
+        // A machine that ever said what it is has its uptime to show in its row's bar
         uptime_opens: function (card) {
             return (card.remote.machine !== null) && (card.remote.machine !== undefined);
         },

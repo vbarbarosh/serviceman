@@ -149,7 +149,9 @@ section {
     min-height: 0;
 }
 
+/* --foot is the padding under a page, for a bar pinned to its foot to cover it */
 article {
+    --foot: 1rem;
     overflow: auto;
     padding: 1rem 1.25rem;
 }
@@ -450,7 +452,7 @@ button:disabled:hover {
 }
 
 /* .bad lets its text wrap everywhere else */
-.fold-room > table > * > tr:not(.fold-more) > :not(.wraps, [data-spread]) .bad {
+.fold-room > table > * > tr > :not(.wraps, [data-spread]) .bad {
     white-space: nowrap;
 }
 
@@ -493,21 +495,6 @@ button:disabled:hover {
     margin-left: .75rem;
 }
 
-.fold-room > table > * > tr > .fold-caret {
-    width: 24px;
-    padding-right: 0;
-    color: var(--muted);
-}
-
-.fold-room .fold-caret svg {
-    display: block;
-    transition: transform .12s ease;
-}
-
-.fold-room tr.open .fold-caret svg {
-    transform: rotate(90deg);
-}
-
 .fold-room tr.foldable {
     cursor: pointer;
     transition: background .12s ease;
@@ -517,23 +504,9 @@ button:disabled:hover {
     background: var(--panel);
 }
 
-.fold-room tr.foldable.open > td {
-    border-bottom: 0;
-}
-
 .fold-room tr.off .name {
     color: var(--muted);
     text-decoration: line-through;
-}
-
-.fold-room > table > tbody > tr.fold-more > td {
-    padding: 0 0 .75rem 24px;
-    white-space: normal;
-}
-
-/* The details take the width the columns leave them and never widen a column themselves */
-.fold-room tr.fold-more .fold-details {
-    contain: inline-size;
 }
 
 /* On a phone a list-table's cells come closer, so a short name keeps its line */
@@ -650,10 +623,6 @@ button:disabled:hover {
     vertical-align: top;
 }
 
-.fold-room > table.data-table .fold-caret svg {
-    margin-top: .35rem;
-}
-
 /* A table with no row of headers: the row stays, to measure the columns by, and takes no room */
 .fold-room > table.data-table.dt-bare > thead > tr > th {
     height: 0;
@@ -726,7 +695,8 @@ button:disabled:hover {
     opacity: .55;
 }
 
-.data-table .dt-icon {
+.data-table .dt-icon,
+.dt-whole .dt-icon {
     margin-right: .4rem;
     vertical-align: -.15em;
 }
@@ -766,7 +736,35 @@ button:disabled:hover {
     overflow-wrap: anywhere;
 }
 
-/* What folded out of a row, under it: one line each, its label and its value */
+/* A row clicked, whole, in a bar pinned to the foot of the view, so the rows stay where they
+   were clicked: the same bar for every table, the process tree's included */
+.dt-whole {
+    position: sticky;
+    /* A page's padding is the edge its bar sticks at: past it, to the window's own edge */
+    bottom: calc(-1 * var(--foot, 0px));
+    z-index: 2;
+    margin-top: .75rem;
+    padding: .6rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, .12);
+}
+
+.dt-whole-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .2rem .75rem;
+    margin-bottom: .4rem;
+    overflow-wrap: anywhere;
+}
+
+.dt-whole-head .link {
+    margin-left: auto;
+}
+
+/* What a row says, in its bar: one line each, its label and its value */
 .fold-details {
     display: grid;
     grid-template-columns: 7.5rem minmax(0, 1fr);
@@ -1637,6 +1635,7 @@ article.list {
     display: flex;
     flex-direction: column;
     gap: .9rem;
+    --foot: 1.25rem;
     padding: 1.25rem 1.5rem;
 }
 
@@ -2188,6 +2187,7 @@ button.palette-hit.on {
     }
 
     article.list {
+        --foot: 1rem;
         padding: 1rem;
     }
 

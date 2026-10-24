@@ -28,9 +28,9 @@ const processes = {
             </div>
         </template>
     </items-view>
-    <div v-if="(picked !== null)" class="proc-picked">
+    <div v-if="(picked !== null)" class="dt-whole">
         <template v-if="(picked_in(items_now) !== null)">
-            <div class="proc-picked-head">
+            <div class="dt-whole-head">
                 <b>{{ picked }}</b>
                 <span class="muted">{{ picked_in(items_now).user }} · started by {{ parent_text(items_now, picked_in(items_now)) }} · {{ picked_in(items_now).state }}</span>
                 <button type="button" class="link" @click="picked = null">Close</button>
@@ -43,7 +43,7 @@ const processes = {
                 <dt>Started</dt><dd>{{ children_text(items_now, picked_in(items_now)) }}</dd>
             </dl>
         </template>
-        <div v-else class="proc-picked-head">
+        <div v-else class="dt-whole-head">
             <span class="muted">Process {{ picked }} is not running any more.</span>
             <button type="button" class="link" @click="picked = null">Close</button>
         </div>

@@ -32,7 +32,7 @@ import module_kind from './module_kind.js';
 //     columns_added  columns of the module's own, beside the manifest's: {at, key, label, …},
 //                    `at` the place among them (the machine a volume is on)
 //     row_class      (item) => classes of its row, such as dim
-//     more           (item, key) => whether that cell has more to say in the row's details
+//     more           (item, key) => whether that cell has more to say in the row's bar
 //     reading        what is said while the list is read, when it takes a while
 //     empty          what is said when there is no item at all
 //     none_shown     what is said when the module's filter leaves none
@@ -155,7 +155,7 @@ const items_view = {
             }
             return Object.assign({}, this.kind_now, {columns}, (this.item_key === null) ? {} : {key: this.item_key});
         },
-        // A cell with nothing to say is left out of the row's details, unless its column says
+        // A cell with nothing to say is left out of the row's bar, unless its column says
         // what nothing is
         // A group's row is its first cell across the table, the actions' cell too
         table_columns: function () {
@@ -303,7 +303,7 @@ const items_view = {
         unit_text: function (value, column) {
             return (column.unit === 'count') ? format_count(value) : format_bytes(value);
         },
-        // A cell cut to its row reads whole in the row's details, when it is long enough to
+        // A cell cut to its row reads whole in the row's bar, when it is long enough to
         // have been cut
         cell_more: function (row, key) {
             if ((this.more !== null) && this.more(row.item, key)) {

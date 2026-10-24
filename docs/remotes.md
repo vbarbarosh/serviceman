@@ -461,7 +461,7 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | Logline's viewer not answering                     | A request to it, the way Open Logline goes.                                                                          |
 
 Health shows the rest beside them, said but not counted as problems, one table per part with a
-column per check; a click on a row opens every check's detail under it. Logline's store counts as
+column per check; a click on a row shows every check's detail in a bar at the foot of the view. Logline's store counts as
 working while the machines' lines are taken: its address is theirs to reach, and serviceman may
 not be able to look it up.
 

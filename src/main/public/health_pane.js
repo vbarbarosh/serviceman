@@ -6,9 +6,9 @@ import format_ms from './format_ms.js';
 const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
 
 // How everything is: what is wrong first, as cards that say why and what mends it, then a table
-// per kind of thing, a row per thing and a column per check. A row opens on a click to say what
-// stands behind each check, and what a narrow screen folded away; nothing here is changed by
-// hand, it follows the checks.
+// per kind of thing, a row per thing and a column per check. A click on a row shows it whole at
+// the foot of the view: what stands behind each check, and what a narrow screen folded away.
+// Nothing here is changed by hand, it follows the checks.
 const health_pane = {
     template: `
 <article id="detail" class="list health">
@@ -139,7 +139,7 @@ const health_pane = {
         checks_in: function (row, label) {
             return row.checks.filter(v => v.label === label);
         },
-        // A check has more to say when it has a detail: its row opens to say it
+        // A check has more to say when it has a detail: its row's bar says it
         more: function (row, label) {
             return this.checks_in(row, label).some(v => v.detail !== null);
         },
