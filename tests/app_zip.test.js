@@ -149,3 +149,37 @@ test('a folder picked in the page is an app as a zip is, and goes into the tar f
     const no_run = app_folder_read([{path: 'site/index.html', file: new File(['<p>'], 'index.html')}]);
     assert.match(no_run.problem, /^site\/ has no bin\/run/);
 });
+
+// A new version's own data/ stays on this computer: a zip's folder entries and a picked
+// folder's files under data/ are set apart, the rest is read again as the app, and the page is
+// told how many files data/ held
+test('a new version is sent without its own data/, and says how many files that held', async function () {
+    const app_data_apart = (await import(path.join(PUBLIC, 'app_data_apart.js'))).default;
+    const app_folder_read = (await import(path.join(PUBLIC, 'app_folder_read.js'))).default;
+    const app_zip_read = (await import(path.join(PUBLIC, 'app_zip_read.js'))).default;
+
+    const zipped = await app_zip_read(new File([zip_make([
+        {name: 'lab/', mode: 0o40755},
+        {name: 'lab/bin/run', mode: 0o100755, text: '#!/bin/sh\n'},
+        {name: 'lab/presets/1080x1080.json', mode: 0o100644, text: '{}'},
+        {name: 'lab/data/', mode: 0o40755},
+        {name: 'lab/data/settings.json', mode: 0o100600, text: '{"key": "secret"}'},
+        {name: 'lab/data/presets/old/config.json', mode: 0o100644, text: '{}'},
+        {name: 'lab/database.txt', mode: 0o100644, text: 'not data/'},
+    ])], 'lab.zip'));
+    const apart = app_data_apart(zipped);
+    assert.strictEqual(apart.data_files, 2);
+    assert.deepStrictEqual(apart.app.entries.map(v => v.name), ['lab/', 'lab/bin/run', 'lab/presets/1080x1080.json', 'lab/database.txt']);
+    assert.deepStrictEqual([apart.app.label, apart.app.top, apart.app.files, apart.app.size, apart.app.problem], ['lab.zip', 'lab/', 3, 10 + 2 + 9, null]);
+
+    const picked = app_folder_read([
+        {path: 'notes/bin/run', file: new File(['#!/bin/sh\n'], 'run')},
+        {path: 'notes/data/logs/app.log', file: new File(['a line\n'], 'app.log')},
+    ]);
+    const folder = app_data_apart(picked);
+    assert.strictEqual(folder.data_files, 1);
+    assert.deepStrictEqual(folder.app.entries.map(v => v.name), ['notes/bin/run']);
+
+    const none = app_folder_read([{path: 'notes/bin/run', file: new File(['#!/bin/sh\n'], 'run')}]);
+    assert.deepStrictEqual(app_data_apart(none), {app: none, data_files: null}, 'a version with no data/ is sent as it is');
+});

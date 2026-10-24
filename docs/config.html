@@ -1389,12 +1389,14 @@ folder goes;</li>
 <li><code>bin/configure</code>, then <code>bin/build</code>, run in it, for those of the two it holds;</li>
 <li>the new version starts, whatever the app was doing before.</li>
 </ol>
-<p><code>data/</code> is the app&#39;s alone, and what a new version brings in its own <code>data/</code> is never merged
-into it: a folder picked from a working copy brings that machine&#39;s saves, keys and
-<code>data/logs/</code>, which have no place in the running app. A <code>data/</code> the new files brought is taken
-only by an app that has none yet; otherwise it is left out, and the page says so with how many
-files it held. What the app ships (presets, templates, assets) goes in a folder of its own
-beside <code>bin/</code>, which every new version replaces.</p>
+<p><code>data/</code> is the app&#39;s alone, and a new version&#39;s own <code>data/</code> never reaches it: a folder picked
+from a working copy holds that computer&#39;s saves, keys (a <code>settings.json</code>) and <code>data/logs/</code>,
+which have no place in the running app. The page does not send it at all: it stays on your
+computer, and the bar says how many files it held. What the app ships (presets, templates,
+assets) goes in a folder of its own beside <code>bin/</code>, which every new version replaces; an app
+with no <code>data/</code> yet makes its own. Files put in <code>&lt;folder&gt;.new</code> some other way meet the same rule
+at step 4: a <code>data/</code> among them is taken only by an app that has none, and otherwise left out,
+which the answer and the log say as <code>data_dropped</code>.</p>
 <p>Nothing starts the app from step 2 until step 6: a restart it was waiting for is called off,
 a request that wakes it waits and gets the new version, and a second new version is refused
 until this one is in. <code>bin/run</code> never meets a folder whose <code>bin/configure</code> has not finished.</p>

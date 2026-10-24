@@ -1,6 +1,7 @@
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
+import app_data_apart from './app_data_apart.js';
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
 import app_folder_read from './app_folder_read.js';
@@ -1468,7 +1469,7 @@ const service_page = {
             <code>{{ version_new.label }}</code> <span class="muted">— {{ version_new.files === 1 ? 'one file' : version_new.files + ' files' }}, {{ size_text(version_new.size) }}.</span>
             Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ setup_text(version_new) }}, and <code>data/</code> is put back; the app is down meanwhile, and starts on the new version.
         </p>
-        <p v-if="(version_new.done && version_new.data_dropped)" class="warn">It brought a <code>data/</code> of its own{{ data_text(version_new) }}, which was left out: <code>data/</code> is the app's alone, and nothing is merged into it. What the app ships goes outside <code>data/</code>.</p>
+        <p v-if="(version_new.problem === null && version_new.data_files !== null)" class="warn">Its own <code>data/</code>{{ data_text(version_new) }} stays on this computer: <code>data/</code> is the app's alone, and nothing is sent into it. What the app ships goes outside <code>data/</code>.</p>
         <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }}</p>
         <div class="acts">
             <button v-if="(version_new.error !== null)" type="button" class="primary" :disabled="version_busy" @click="version_replace">Try again</button>
@@ -1517,8 +1518,8 @@ const service_page = {
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
         // version_new: a new version of an app folder, a folder or a zip read and on its way
-        // (app_entries_read, with the service it is for, done, error, and data_dropped once
-        // serviceman says it left out a data/ the new files brought)
+        // (app_entries_read without its own data/, with how many files that held, the service
+        // it is for, done and error)
         return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: ''};
     },
     computed: {
@@ -1580,11 +1581,10 @@ const service_page = {
             const setup = app_setup_text(files);
             return (setup === '') ? '' : `, ${setup}`;
         },
-        // How many files a new version's own data/ held, as a clause: ', 31 files'
+        // How many files a new version's own data/ held, as a clause: ', 31 files,'
         data_text: function (version) {
-            const count = version.entries.filter(v => (v.dir === false) && v.name.slice(version.top.length).startsWith('data/')).length;
-            const files = (count === 1) ? 'one file' : `${count} files`;
-            return (count === 0) ? '' : `, ${files}`;
+            const files = (version.data_files === 1) ? 'one file' : `${version.data_files} files`;
+            return (version.data_files === 0) ? '' : `, ${files},`;
         },
         version_picked: async function (event) {
             const picked = await app_files_pick(event.target);
@@ -1593,8 +1593,9 @@ const service_page = {
                 return;
             }
             const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
+            const apart = app_data_apart(read);
             this.version_note = '';
-            this.version_new = Object.assign(read, {service: this.view.name, done: false, error: null, data_dropped: false});
+            this.version_new = Object.assign(apart.app, {data_files: apart.data_files, service: this.view.name, done: false, error: null});
             if (read.problem === null) {
                 await this.version_replace();
             }
@@ -1622,7 +1623,6 @@ const service_page = {
                 if (answer.ok === false) {
                     throw new Error(said.error);
                 }
-                zip.data_dropped = (said.data_dropped === true);
                 zip.done = true;
             }
             catch (error) {
