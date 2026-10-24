@@ -34,6 +34,7 @@ const load_test_stop = require('../helpers/load_test_stop');
 const load_test_url = require('../helpers/load_test_url');
 const log_event = require('../helpers/log_event');
 const log_within = require('../helpers/log_within');
+const logline_admin_call = require('../helpers/logline_admin_call');
 const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
@@ -309,6 +310,14 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/logline/place') && (req.method === 'GET')) {
         await logline_place_answer(app, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/logline/days') && (req.method === 'GET')) {
+        await logline_days_answer(app, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/logline/days/forget') && (req.method === 'POST')) {
+        await logline_days_forget(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/logline/update') && (req.method === 'POST')) {
@@ -2068,6 +2077,53 @@ async function logline_place_answer(app, res)
         files: files.map(v => ({path: v.path, state: v.state})),
         differs: files.filter(v => v.state !== 'same').length,
     });
+}
+
+// GET /api/v1/logline/days
+// What each day of lines takes in Logline, as Logline's /days says it with the admin token;
+// what keeps it from being asked, or Logline's refusal, said as the error
+async function logline_days_answer(app, res)
+{
+    if (app.config.logline === null) {
+        send_json(res, 409, {error: 'the config has no logline: say where Logline is first'});
+        return;
+    }
+    try {
+        send_json(res, 200, await logline_admin_call(app, 'GET', new URL('/days', app.config.logline.endpoint)));
+    }
+    catch (error) {
+        send_json(res, 409, {error: error.message});
+    }
+}
+
+// POST /api/v1/logline/days/forget (body)
+// {before: '2026-10-17'}: every day of lines before that one dropped in Logline, for good.
+// Logline checks the day and answers what went:
+//
+//     {before, dropped: [{day, rows, bytes}], rows, bytes}
+async function logline_days_forget(app, req, res)
+{
+    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const before = String(((body === null) || (body.before === undefined) || (body.before === null)) ? '' : body.before);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(before) === false) {
+        send_json(res, 400, {error: 'before: a day, 2026-10-17'});
+        return;
+    }
+    if (app.config.logline === null) {
+        send_json(res, 409, {error: 'the config has no logline: say where Logline is first'});
+        return;
+    }
+    let done;
+    try {
+        done = await logline_admin_call(app, 'POST', new URL('/days/forget', app.config.logline.endpoint), {before});
+    }
+    catch (error) {
+        log_event(app, 'logline_days_forget_error', {before, reason: error.message});
+        send_json(res, 409, {error: error.message});
+        return;
+    }
+    log_event(app, 'logline_days_forgotten', {before, days: done.dropped.length, rows: done.rows, bytes: done.bytes});
+    send_json(res, 200, done);
 }
 
 // POST /api/v1/logline/update

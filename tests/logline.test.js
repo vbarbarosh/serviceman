@@ -7,6 +7,7 @@ const config_from_json = require('../src/main/src/helpers/config_from_json');
 const crypto = require('crypto');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
+const http = require('http');
 const lines_serve = require('../logline/lines/src/lines_serve');
 const logline_sweep = require('../src/main/src/helpers/logline_sweep');
 const os = require('os');
@@ -232,6 +233,68 @@ test('Logline is entered on the page: the address in the config, the admin token
 });
 
 // What the Logs tab sends when Logline's address is saved
+// Logline's page asks for the days of lines and drops the old ones through serviceman, which asks
+// Logline with the admin token: a day it is given is checked here, and again by Logline
+test('Logline\'s days are told and the old ones dropped through serviceman, with the admin token', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-logline-'));
+    let parts = [{id: '20261015', rows: '10', bytes: '2000', raw: '9000'}, {id: '20261024', rows: '3', bytes: '400', raw: '1500'}];
+    const clickhouse = http.createServer(function (req, res) {
+        const sql = new URL(req.url, 'http://clickhouse').searchParams.get('query');
+        const dropped = /DROP PARTITION ID '(\d+)'/.exec(sql);
+        if (dropped !== null) {
+            parts = parts.filter(v => v.id !== dropped[1]);
+            res.end('');
+            return;
+        }
+        res.end(sql.includes('system.parts') ? parts.map(v => JSON.stringify(v)).join('\n') : `${JSON.stringify({today: '2026-10-24', engine: 'MergeTree'})}\n`);
+    });
+    await new Promise(v => clickhouse.listen(0, '127.0.0.1', v));
+    const lines = lines_serve({admin_token: ADMIN_TOKEN, admin_ips: ['127.0.0.1'], clickhouse: `http://127.0.0.1:${clickhouse.address().port}`, table: 'default.otel_logs', tokens_file: path.join(dir, 'tokens.json'), uid: 'ctest0000000'});
+    await new Promise(v => lines.listen(0, '127.0.0.1', v));
+    t.after(function () {
+        for (const server of [clickhouse, lines]) {
+            server.closeAllConnections();
+            server.close();
+        }
+    });
+    const json = {
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        logline: {endpoint: `http://127.0.0.1:${lines.address().port}/lines`, admin: 'logline'},
+        remotes: [],
+        services: [],
+    };
+    const running = await serviceman_start(t, json, path.join(dir, 'state'));
+    async function call(method, asked, body) {
+        const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: asked, method, body: (body === undefined) ? undefined : JSON.stringify(body)});
+        return {status: answer.status, body: JSON.parse(answer.body)};
+    }
+
+    // No admin token kept yet: Logline is not asked, and the page is told why
+    const unkept = await call('GET', '/api/v1/logline/days');
+    assert.strictEqual(unkept.status, 409);
+    assert.match(unkept.body.error, /the Secrets library has no "logline"/);
+    fs.writeFileSync(path.join(dir, 'state', 'secrets.json'), JSON.stringify({global: {logline: ADMIN_TOKEN}}));
+
+    const days = await call('GET', '/api/v1/logline/days');
+    assert.strictEqual(days.status, 200);
+    assert.deepStrictEqual(days.body.days.map(v => [v.day, v.bytes]), [['2026-10-15', 2000], ['2026-10-24', 400]]);
+    assert.strictEqual((await call('POST', '/api/v1/logline/days/forget', {before: 'last week'})).status, 400, 'not a day: Logline is not asked');
+    const ahead = await call('POST', '/api/v1/logline/days/forget', {before: '2026-10-30'});
+    assert.strictEqual(ahead.status, 409);
+    assert.match(ahead.body.error, /^Logline refused POST \/days\/forget: before: 2026-10-30 is after today/);
+    const done = await call('POST', '/api/v1/logline/days/forget', {before: '2026-10-17'});
+    assert.strictEqual(done.status, 200);
+    assert.deepStrictEqual(done.body, {before: '2026-10-17', dropped: [{day: '2026-10-15', rows: 10, bytes: 2000}], rows: 10, bytes: 2000});
+    assert.deepStrictEqual(parts.map(v => v.id), ['20261024']);
+
+    // Another admin token than Logline's: refused there, and said here
+    fs.writeFileSync(path.join(dir, 'state', 'secrets.json'), JSON.stringify({global: {logline: 'f'.repeat(64)}}));
+    const wrong = await call('POST', '/api/v1/logline/days/forget', {before: '2026-10-24'});
+    assert.strictEqual(wrong.status, 409);
+    assert.match(wrong.body.error, /the admin token, from an admin address, is required/);
+});
+
 async function logline_put(port, body)
 {
     const answer = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/logline', method: 'PUT', body: JSON.stringify(body)});

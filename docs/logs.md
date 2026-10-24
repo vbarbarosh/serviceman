@@ -424,6 +424,8 @@ keeps its own copy, so a machine with no link still writes its log.
 | `logline_update_put`    | The files that differed were put in Logline's folder on its machine; `files=` how many. |
 | `logline_update_ok`     | Its project was started again; `restarted=` the services that mount a file that was put. |
 | `logline_update_error`  | The update stopped, and why: Logline's machine not found, a file not put, docker failing. |
+| `logline_days_forgotten` | The days of lines before `before=` were dropped in Logline from its page; `days=`, `rows=`, `bytes=` what went. |
+| `logline_days_forget_error` | Dropping them failed, and why: Logline away or refusing, or ClickHouse refusing a day. |
 
 ### Problems
 

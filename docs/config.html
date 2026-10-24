@@ -1054,6 +1054,14 @@ put (a file is replaced whole, and a container keeps the old one until it starts
 machine is the one the service named <code>logline</code> is on, and the folder is the one its containers
 were started from; <code>.env</code> and what Logline keeps are the machine&#39;s and stay. Logline has to be
 started there once by hand, the first time.</p>
+<p><strong>Space</strong> on Logline&#39;s page says what its lines take, day by day: a bar a day from the oldest to
+today, and the days in a table with their size, their lines and their size before compression.
+<strong>Delete older than</strong> a week, 2 weeks or a month drops the days before that whole: Logline keeps
+a day as one piece of its table, so a day goes at once and its space with it, and today never
+goes. Picking a period turns the days it would delete red before anything goes, and the delete
+is asked once more. serviceman asks Logline for both with the admin token, as for the tokens, so
+nobody who only opens Logline&#39;s viewer can delete. A table that deletes lines by itself (a TTL)
+says so there.</p>
 <p>A remote with <code>&quot;logs&quot;: &quot;all&quot;</code> is told the endpoint and a token of its own. Logline binds that
 token to the machine&#39;s addresses, which the agent says when it dials in; the token works from
 those addresses and nowhere else. serviceman keeps the tokens it was given in

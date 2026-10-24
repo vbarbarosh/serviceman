@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const http = require('http');
 const ip_allowed = require('./ip_allowed');
 const lines_from_json = require('./lines_from_json');
+const log_days = require('./log_days');
 const log_say = require('./log_say');
 const rows_from_lines = require('./rows_from_lines');
 const token_find = require('./token_find');
@@ -16,13 +17,14 @@ const DEDUP_RETRY_MS = 60000;
 const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 
 // Logline's one door. Machines POST their lines to /lines; serviceman asks /tokens for the
-// token each machine sends. A token works only from the addresses it was issued for.
+// token each machine sends, /days for what each day of lines takes, and /days/forget to drop
+// the days before one. A token works only from the addresses it was issued for.
 //
 // config: {port, bind, admin_token, admin_ips, admin_off, clickhouse, table, tokens_file, uid}
 // `admin_off` says why no token may be issued, when admin_token is null
 function lines_serve(config)
 {
-    const app = {config, tokens: tokens_read(config.tokens_file)};
+    const app = {config, tokens: tokens_read(config.tokens_file), forgetting: false};
     const server = http.createServer(function (req, res) {
         request_handle(app, req, res).catch(function (error) {
             log_say(config.uid, 'lines_error', {method: req.method, path: req.url, reason: error.message});
@@ -51,7 +53,15 @@ async function request_handle(app, req, res)
         token_delete(app, req, res, decodeURIComponent(revoke[1]));
         return;
     }
-    send_json(res, 404, {error: 'POST /lines, POST /tokens and DELETE /tokens/<name> are all there is'});
+    if ((req.method === 'GET') && (url.pathname === '/days')) {
+        await days_get(app, req, res);
+        return;
+    }
+    if ((req.method === 'POST') && (url.pathname === '/days/forget')) {
+        await days_forget(app, req, res);
+        return;
+    }
+    send_json(res, 404, {error: 'POST /lines, POST /tokens, DELETE /tokens/<name>, GET /days and POST /days/forget are all there is'});
 }
 
 // POST /lines (body, header:authorization)
@@ -160,13 +170,68 @@ function token_delete(app, req, res, name)
     send_json(res, 200, {removed});
 }
 
+// GET /days (header:authorization)
+// What each day of lines takes, as log_days says it. Asked by serviceman, with the admin token:
+// the sizes are no secret, but the door beside it drops lines.
+async function days_get(app, req, res)
+{
+    if (admin_refused(app, req, res, 'days are not told here')) {
+        return;
+    }
+    try {
+        send_json(res, 200, Object.assign({table: app.config.table}, await log_days(app.config.clickhouse, app.config.table)));
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+    }
+}
+
+// POST /days/forget (body, header:authorization)
+// {before: '2026-10-17'} -> {before, dropped: [{day, rows, bytes}], rows, bytes}: every day of
+// lines before that one dropped. One at a time: a second ask while one runs is refused.
+async function days_forget(app, req, res)
+{
+    if (admin_refused(app, req, res, 'no day is dropped here')) {
+        return;
+    }
+    const body = await body_read(req, res);
+    if (body === null) {
+        return;
+    }
+    let json;
+    try {
+        json = JSON.parse(body.toString('utf8'));
+    }
+    catch (error) {
+        send_json(res, 400, {error: error.message});
+        return;
+    }
+    if (app.forgetting) {
+        send_json(res, 409, {error: 'days are being dropped already: ask again once that is done'});
+        return;
+    }
+    app.forgetting = true;
+    try {
+        const done = await log_days.forget(app.config.clickhouse, app.config.table, (json === null) ? undefined : json.before);
+        log_say(app.config.uid, 'days_forgotten', {before: done.before, days: done.dropped.length, rows: done.rows, bytes: done.bytes});
+        send_json(res, 200, done);
+    }
+    catch (error) {
+        log_say(app.config.uid, 'days_forget_error', {before: (json === null) ? undefined : json.before, reason: error.message});
+        send_json(res, error.status || 502, {error: error.message});
+    }
+    finally {
+        app.forgetting = false;
+    }
+}
+
 // Whether this is not the admin — the wrong token, or the right one from elsewhere — answered
-// if so
-function admin_refused(app, req, res)
+// if so. Without an admin token nobody is: what is then not done here is said.
+function admin_refused(app, req, res, undone = 'no token is issued here')
 {
     const from = req.socket.remoteAddress;
     if ((app.config.admin_token === null) || (app.config.admin_token === undefined)) {
-        send_json(res, 503, {error: `no token is issued here: ${app.config.admin_off || 'ADMIN_TOKEN is not set'}`});
+        send_json(res, 503, {error: `${undone}: ${app.config.admin_off || 'ADMIN_TOKEN is not set'}`});
         return true;
     }
     const given = crypto.createHash('sha256').update(bearer_of(req)).digest();

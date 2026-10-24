@@ -1,10 +1,11 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import logline_days from './logline_days.js';
 import logline_stage from './logline_stage.js';
 
 // Logline: where every line of every remote flows. Not a service like the rest — the one place
 // the fleet's logs end up — so it has a page of its own: how it stands, how each remote's
-// sending stands, and where it is.
+// sending stands, what its lines take day by day, and where it is.
 const logline_pane = {
     template: `
 <article id="detail" class="logline">
@@ -40,6 +41,7 @@ const logline_pane = {
         <pre v-if="((run !== null) && (run.text !== ''))" class="logline-run">{{ run.text }}</pre>
         <p v-if="((run !== null) && (updating === false))" :class="((run.phase === 'done') ? 'muted' : 'bad')">{{ run.said }}</p>
     </div>
+    <logline-days v-if="(logline !== null)"/>
     <h2>Remotes</h2>
     <data-table :columns="columns" :rows="rows" row_key="name" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs — add a remote first.">
         <template #cell="{row, column}">
@@ -99,7 +101,7 @@ const logline_pane = {
     </div>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'logline-days': logline_days},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {

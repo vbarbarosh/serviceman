@@ -231,6 +231,15 @@ machine is the one the service named `logline` is on, and the folder is the one 
 were started from; `.env` and what Logline keeps are the machine's and stay. Logline has to be
 started there once by hand, the first time.
 
+**Space** on Logline's page says what its lines take, day by day: a bar a day from the oldest to
+today, and the days in a table with their size, their lines and their size before compression.
+**Delete older than** a week, 2 weeks or a month drops the days before that whole: Logline keeps
+a day as one piece of its table, so a day goes at once and its space with it, and today never
+goes. Picking a period turns the days it would delete red before anything goes, and the delete
+is asked once more. serviceman asks Logline for both with the admin token, as for the tokens, so
+nobody who only opens Logline's viewer can delete. A table that deletes lines by itself (a TTL)
+says so there.
+
 A remote with `"logs": "all"` is told the endpoint and a token of its own. Logline binds that
 token to the machine's addresses, which the agent says when it dials in; the token works from
 those addresses and nowhere else. serviceman keeps the tokens it was given in

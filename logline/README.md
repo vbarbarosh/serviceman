@@ -145,8 +145,11 @@ serviceman asks for the tokens and hands them to its machines; the design is in 
 | `POST /lines`          | a machine      | Stores a batch whole, or answers why not. The same bytes sent twice are stored once. |
 | `POST /tokens`         | serviceman     | `{name, ips}` → `{name, token}`: a token bound to those addresses.  |
 | `DELETE /tokens/<name>`| serviceman     | Takes a token back.                                                 |
+| `GET /days`            | serviceman     | Each day of lines: `{table, today, ttl, days: [{day, rows, bytes, raw}], undated}`, from the sizes of the table's parts. |
+| `POST /days/forget`    | serviceman     | `{before: '2026-10-17'}`: drops every day before that one whole, oldest first; today is never dropped. |
 
-`POST /tokens` and `DELETE` need `ADMIN_TOKEN`, from an address in `ADMIN_IPS`. Set both in
+`POST /tokens`, `DELETE`, `GET /days` and `POST /days/forget` need `ADMIN_TOKEN`, from an
+address in `ADMIN_IPS`. Set both in
 `.env`, with `TAILSCALE_IP` — port 3000 is opened on that address and nowhere else, with nothing
 in front of it, so every caller arrives with its own address: `lines` runs on the machine's own
 network, not behind Docker's, whose rules a Tailscale update can put out of order (then every
@@ -162,7 +165,9 @@ is the `remote`. A line in the rules' form, `[group_uid][sender] details`, also 
 `LogAttributes`.
 
 The endpoint writes as ClickHouse user `lines` ([`config/clickhouse.xml`](config/clickhouse.xml)):
-insert into `otel_logs`, and the one setting that makes a resend harmless — nothing else.
+insert into `otel_logs`, the one setting that makes a resend harmless, and for the admin, the
+sizes of its parts and dropping its days (`otel_logs` is partitioned by day, so a day goes whole,
+at once, with no rewrite of the rest) — nothing else.
 
 ```bash
 cd lines && bin/test                              # unit tests

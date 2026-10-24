@@ -31,7 +31,8 @@
         <!-- The lines endpoint: it inserts into the log table, and turns on the setting that
              stores a batch sent twice once. ClickStack's materialized views run as whoever
              inserts: they read otel_logs and write their rollup tables, so those grants are
-             the insert's too. -->
+             the insert's too. For the admin alone, it tells each day's size, from the sizes of
+             the table's parts, and drops whole days: DROP PARTITION is an ALTER DELETE. -->
         <lines>
             <password></password>
             <networks>
@@ -46,8 +47,10 @@
             <quota>default</quota>
             <access_management>0</access_management>
             <grants>
-                <query>GRANT INSERT, SELECT, ALTER MODIFY SETTING ON default.otel_logs</query>
+                <query>GRANT INSERT, SELECT, ALTER MODIFY SETTING, ALTER DELETE ON default.otel_logs</query>
                 <query>GRANT INSERT ON default.*</query>
+                <query>GRANT SELECT(database, table, active, partition_id, rows, bytes_on_disk, data_uncompressed_bytes) ON system.parts</query>
+                <query>GRANT SELECT(database, name, engine_full) ON system.tables</query>
             </grants>
         </lines>
     </users>

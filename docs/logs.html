@@ -1544,6 +1544,14 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>logline_update_error</code></td>
 <td>The update stopped, and why: Logline&#39;s machine not found, a file not put, docker failing.</td>
 </tr>
+<tr>
+<td><code>logline_days_forgotten</code></td>
+<td>The days of lines before <code>before=</code> were dropped in Logline from its page; <code>days=</code>, <code>rows=</code>, <code>bytes=</code> what went.</td>
+</tr>
+<tr>
+<td><code>logline_days_forget_error</code></td>
+<td>Dropping them failed, and why: Logline away or refusing, or ClickHouse refusing a day.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="problems"><a class="anchor" href="#problems" aria-hidden="true" tabindex="-1">#</a>Problems</h3>

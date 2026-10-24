@@ -68,6 +68,29 @@ test('lines go in once however often they are sent, only with a token from its o
     assert.deepStrictEqual((await clickhouse_query(CLICKHOUSE, `SELECT count() FROM ${table}`)).trim(), '2');
 });
 
+// The days a table keeps, from ClickHouse's own parts, and the days before one dropped whole:
+// what partition ids look like, and that DROP PARTITION ID takes them, only a real one says
+test('the days of lines are told, and the days before one are dropped', {skip: (CLICKHOUSE === undefined) ? 'CLICKHOUSE is not set' : false}, async function (t) {
+    const table = `default.lines_test_${crypto.randomBytes(4).toString('hex')}`;
+    const ddl = fs.readFileSync(path.join(__dirname, 'otel_logs.sql'), 'utf8').replace('{table}', table);
+    await clickhouse_query(CLICKHOUSE, ddl);
+    t.after(() => clickhouse_query(CLICKHOUSE, `DROP TABLE IF EXISTS ${table}`));
+    const rows = ['2026-09-20 10:00:00', '2026-09-21 10:00:00', '2026-09-21 11:00:00', '2026-09-22 10:00:00'].map(v => JSON.stringify({Timestamp: v, ServiceName: 'test', Body: v}));
+    await clickhouse_query(CLICKHOUSE, `INSERT INTO ${table} (Timestamp, ServiceName, Body) FORMAT JSONEachRow`, rows.join('\n'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lines-'));
+    const running = await serve(t, {clickhouse: CLICKHOUSE, table, tokens_file: path.join(dir, 'tokens.json')});
+
+    const days = await call(running, 'GET', '/days', ADMIN_TOKEN);
+    assert.strictEqual(days.status, 200);
+    assert.deepStrictEqual(days.body.days.map(v => [v.day, v.rows]), [['2026-09-20', 1], ['2026-09-21', 2], ['2026-09-22', 1]]);
+    assert.ok(days.body.days.every(v => v.bytes > 0));
+    assert.match(days.body.today, /^\d{4}-\d{2}-\d{2}$/);
+    const done = await call(running, 'POST', '/days/forget', ADMIN_TOKEN, {before: '2026-09-22'});
+    assert.strictEqual(done.status, 200);
+    assert.deepStrictEqual(done.body.dropped.map(v => v.day), ['2026-09-20', '2026-09-21']);
+    assert.strictEqual((await clickhouse_query(CLICKHOUSE, `SELECT count() FROM ${table}`)).trim(), '1');
+});
+
 async function serve(t, options)
 {
     const server = lines_serve(Object.assign({admin_token: ADMIN_TOKEN, admin_ips: ['127.0.0.1'], uid: 'ctest0000000'}, options));

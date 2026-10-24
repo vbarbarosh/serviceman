@@ -1782,6 +1782,11 @@ button.chip.on {
     border-radius: 0 7px 7px 0;
 }
 
+/* A middle choice of three shares its borders with both sides */
+.seg button:not(:first-child):not(:last-child) {
+    margin-left: -1px;
+}
+
 .seg button.on {
     background: var(--hover);
     color: var(--accent);
@@ -2295,6 +2300,72 @@ article.logline > p {
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+/* What Logline's lines take: a bar a day from the oldest to today, red for the days a delete
+   would take; the bars share the card's width, however many days there are */
+.logline-days {
+    padding: .75rem 1rem;
+}
+
+.ld-total {
+    flex-wrap: wrap;
+}
+
+.ld-total b {
+    font-size: 1.25rem;
+}
+
+.ld-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 5rem;
+    margin: .75rem 0 .25rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.ld-day {
+    display: flex;
+    flex: 1 1 0;
+    align-items: flex-end;
+    min-width: 1px;
+    max-width: 1.5rem;
+    height: 100%;
+}
+
+.ld-day i {
+    display: block;
+    width: 100%;
+    min-height: 1px;
+    border-radius: 2px 2px 0 0;
+    background: var(--accent);
+}
+
+.ld-day.gone i {
+    background: var(--bad);
+}
+
+.ld-day:hover i {
+    opacity: .7;
+}
+
+.ld-axis {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: .25rem 1rem;
+    margin-bottom: .75rem;
+    font-size: .85rem;
+}
+
+.data-table tr.gone td {
+    color: var(--bad);
+}
+
+.ld-forget {
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .logline-dirs {
