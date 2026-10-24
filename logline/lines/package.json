@@ -10,6 +10,6 @@
         "test": "node --test 'src/**/*.test.js' 'tests/**/*.test.js'"
     },
     "dependencies": {
-        "@vbarbarosh/node-helpers": "^3.78.0"
+        "@vbarbarosh/node-helpers": "^3.78.1"
     }
 }
