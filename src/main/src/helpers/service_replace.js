@@ -27,6 +27,12 @@ const CONFIGURE_TIMEOUT_MS = 600000;
 // There is no way back to the old version once the folders are swapped. A new version that
 // cannot be set up stays in place, its data/ in it, and the service says why it failed; it is
 // not started until somebody asks, since bin/run in a folder that is not set up is a crash.
+//
+// A data/ the new files brought is never merged into the app's: a folder picked from a working
+// copy brings that machine's own saves, keys and logs. It is set aside whole, and said:
+//
+//     {data_dropped}  true when the new files brought a data/ of their own and the app's own
+//                     was kept in its place
 async function service_replace(app, service)
 {
     const folder = service_app_folder(service);
@@ -42,11 +48,12 @@ async function service_replace(app, service)
     service.state.work = 'taking its new version';
     service.state.doing = service.state.work;
     service.state.said = [];
+    let data_dropped = false;
     try {
         const remote = (instance.remote === null) ? remote_reserve(app, service, instance, []) : remote_from_instance(app, service, instance);
         await folder_check(app, remote, folder);
         await service_hold(app, service, 'a new version is put in its place', async function () {
-            await folder_swap(app, remote, folder);
+            data_dropped = await folder_swap(app, remote, folder);
             await configure(app, remote, service, folder).catch(function (error) {
                 set_up_failed(service, error);
                 throw error;
@@ -59,14 +66,15 @@ async function service_replace(app, service)
         await service_ensure_running(app, service);
     }
     catch (error) {
-        log_event(app, 'service_replace_end_error', {service: service.name, reason: error.message});
+        log_event(app, 'service_replace_end_error', {service: service.name, reason: error.message, data_dropped});
         throw error;
     }
     finally {
         service.state.work = null;
         service.state.doing = null;
     }
-    log_event(app, 'service_replace_end_ok', {service: service.name});
+    log_event(app, 'service_replace_end_ok', {service: service.name, data_dropped});
+    return {data_dropped};
 }
 
 // Refused before anything is stopped: there is nothing to put in place, or a replace before
@@ -84,6 +92,7 @@ async function folder_check(app, remote, folder)
 
 // The new files become the folder, and data/ comes over from the old one. A rename that fails
 // before the new folder is in place puts the old one back, so the app is never without one.
+// True when a data/ the new files brought went, for the app's own.
 async function folder_swap(app, remote, folder)
 {
     const disk = remote_disk(app, remote);
@@ -98,13 +107,16 @@ async function folder_swap(app, remote, folder)
         throw error;
     }
     const data = `${folder}/data`;
+    let out = false;
     if (await exists(disk, `${old}/data`)) {
         if (await exists(disk, data)) {
             await disk.remove(data);
+            out = true;
         }
         await disk.rename(`${old}/data`, data);
     }
     await disk.remove(old);
+    return out;
 }
 
 // The new version is in place and not set up. It is not started by anything but a person

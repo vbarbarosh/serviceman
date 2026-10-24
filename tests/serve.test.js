@@ -1361,12 +1361,13 @@ test('an app folder takes a new version and keeps its data/', async function () 
         const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
         assert.strictEqual(replaced.status, 200, replaced.body);
         assert.strictEqual(JSON.parse(replaced.body).phase, 'running', 'it was running, so it runs again');
+        assert.strictEqual(JSON.parse(replaced.body).data_dropped, true, 'the data/ the new files brought is said to be left out');
 
         const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(second.body, 'v2 configured, data: written by v1');
         assert.strictEqual(fs.existsSync(`${folder}.new`), false);
         assert.strictEqual(fs.existsSync(`${folder}.old`), false);
-        assert.ok(running.app.log_lines.some(v => /\[service_replace_end_ok\] service=appdir/.test(v)));
+        assert.ok(running.app.log_lines.some(v => /\[service_replace_end_ok\] service=appdir data_dropped=true/.test(v)));
 
         // Nothing waits beside it: refused, and nothing touched
         const nothing = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
@@ -1437,11 +1438,15 @@ test('an app folder is configured, then built, before it runs, and so is its new
         const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(first.body, 'v1 configured, data: none', 'no bin/build: configured only');
 
+        // v2 brings a data/ to an app that has none yet: it is the app's from now on
         app_version_write(`${folder}.new`, 'v2', 'test -e configured.txt && echo built > built.txt');
+        fs.mkdirSync(path.join(`${folder}.new`, 'data'));
+        fs.writeFileSync(path.join(`${folder}.new`, 'data', 'kept.txt'), 'brought by v2');
         const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
         assert.strictEqual(replaced.status, 200, replaced.body);
+        assert.strictEqual(JSON.parse(replaced.body).data_dropped, false, 'the app had no data/, so the one brought is taken');
         const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
-        assert.strictEqual(second.body, 'v2 configured, built, data: none', 'bin/build runs, after bin/configure');
+        assert.strictEqual(second.body, 'v2 configured, built, data: brought by v2', 'bin/build runs, after bin/configure');
 
         app_version_write(`${folder}.new`, 'v3', 'echo "v3 does not build" >&2; exit 1');
         const failed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});

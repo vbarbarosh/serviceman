@@ -541,6 +541,13 @@ all that outlives a new version:
 5. `bin/configure`, then `bin/build`, run in it, for those of the two it holds;
 6. the new version starts, whatever the app was doing before.
 
+`data/` is the app's alone, and what a new version brings in its own `data/` is never merged
+into it: a folder picked from a working copy brings that machine's saves, keys and
+`data/logs/`, which have no place in the running app. A `data/` the new files brought is taken
+only by an app that has none yet; otherwise it is left out, and the page says so with how many
+files it held. What the app ships (presets, templates, assets) goes in a folder of its own
+beside `bin/`, which every new version replaces.
+
 Nothing starts the app from step 2 until step 6: a restart it was waiting for is called off,
 a request that wakes it waits and gets the new version, and a second new version is refused
 until this one is in. `bin/run` never meets a folder whose `bin/configure` has not finished.

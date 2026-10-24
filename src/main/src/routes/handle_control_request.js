@@ -1319,10 +1319,11 @@ function handle_action(app, req, res, name, action)
         // Asking is a change: whatever serviceman gave up on, it tries again now
         service_try_again(app, service);
     }
-    // The page that sent the new version waits for it to be in, and is told what failed
+    // The page that sent the new version waits for it to be in, and is told what failed, or
+    // whether a data/ the new files brought was set aside for the app's own
     if (action === 'replace') {
-        service_replace(app, service).then(function () {
-            send_json(res, 200, view_from_service(service));
+        service_replace(app, service).then(function (done) {
+            send_json(res, 200, Object.assign(view_from_service(service), {data_dropped: done.data_dropped}));
         }, function (error) {
             log_event(app, 'control_error', {service: service.name, reason: error.message});
             send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
