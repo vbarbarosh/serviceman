@@ -981,8 +981,9 @@ the install line, <code>bin/serviceman-agent</code> and the agent&#39;s docker i
 with <code>SERVICEMAN_LOG_DIR</code> unset or <code>none</code> has no servermon and so no numbers; <code>bin/status</code>, the
 Overview and Health say so.</p>
 <p>One more thing its page reads on the spot and keeps nowhere. <strong>Processes</strong> is every process
-on that machine, as the tree it is: each one under the one that started it, and a branch folds
-away. Typing in its box keeps the processes whose command, user or pid match, with the ones
+on that machine, as the tree it is: each one under the one that started it. It starts with the
+first level open, and a click on a process opens the ones it started, or closes them, and shows
+it whole in a bar at the foot of the view: its full command, its parent and every number. Typing in its box keeps the processes whose command, user or pid match, with the ones
 above them dimmed so each keeps its place in the tree; <strong>List</strong> lists them heaviest CPU first
 instead, and a column&#39;s header sorts by it, RSS for the heaviest in memory. It is <code>ps</code> run over there when the pane opens and when <strong>Read again</strong>
 is pressed, never on a clock. The ports it listens on are in the <strong>Firewall</strong> tab, below.</p>

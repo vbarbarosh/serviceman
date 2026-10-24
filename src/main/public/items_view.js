@@ -38,6 +38,9 @@ import module_kind from './module_kind.js';
 //     none_shown     what is said when the module's filter leaves none
 //     head           false for a table with no row of column headers
 //     actions_label  the header of the actions' column
+//     pick           (item) => the page shows the item whole, its own way: a click on its row
+//                    picks it, and opens or closes the branch it heads; no mark down the left
+//                    edge, no details under a row. picked is the key of the one picked
 //
 // Slots
 //     tools          {items}: the module's own buttons, after the filter
@@ -75,7 +78,7 @@ const items_view = {
     </div>
     <slot name="summary" :items="all" :matches="matches" :answer="answer"/>
     <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted">{{ empty }}</p>
-    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => (v.group === null)" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" @sort="sort_by" @branch="branch_toggle">
+    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => (v.group === null)" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
         <template #cell="{row, column, more}">
             <div v-if="(row.group !== null)" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
             <slot v-else :name="('cell-' + column.key)" :item="row.item" :row="row" :more="more">
@@ -126,6 +129,8 @@ const items_view = {
         none_shown: {type: String, default: 'Nothing here matches.'},
         head: {type: Boolean, default: true},
         actions_label: {type: String, default: ''},
+        pick: {type: Function, default: null},
+        picked: {default: null},
     },
     emits: ['answer'],
     data: function () {
@@ -251,10 +256,14 @@ const items_view = {
                     this.report(outcome.error, true);
                     return;
                 }
+                const first = (this.read_once === false);
                 this.read_items = Array.isArray(outcome) ? outcome : outcome.items;
                 this.answer = outcome;
                 this.commands = outcome.commands;
                 this.read_once = true;
+                if (first) {
+                    this.closed_from_start();
+                }
                 this.$emit('answer', outcome);
                 this.report(`read ${new Date().toLocaleTimeString()}`, false);
             }
@@ -339,6 +348,14 @@ const items_view = {
             }
             return (this.closed[row.key] === true) ? 'closed' : 'open';
         },
+        // A click on a row picks it for the page, and opens what it heads, or closes it
+        row_pick: function (row) {
+            if (row.group !== null) {
+                return;
+            }
+            this.branch_toggle(row);
+            this.pick(row.item);
+        },
         branch_toggle: function (row) {
             if ((row.children === 0) || (this.foldable === false)) {
                 return;
@@ -349,6 +366,21 @@ const items_view = {
             else {
                 this.closed[row.key] = true;
             }
+        },
+        // A tree whose kind says how many levels start open (tree.open) shows those alone at
+        // first, every branch below folded and a click away; a read again keeps what was opened
+        closed_from_start: function () {
+            const tree = this.kind_here.tree;
+            if ((tree === undefined) || (typeof tree.open !== 'number')) {
+                return;
+            }
+            const closed = {};
+            for (const row of items_rows(this.shown, this.kind_here, {query: '', sort: null, closed: {}})) {
+                if ((row.depth >= tree.open) && (row.children > 0)) {
+                    closed[row.key] = true;
+                }
+            }
+            this.closed = closed;
         },
         // Everything at once, both ways: folded, the tree is its roots; unfolded, all of it
         fold_all: function () {

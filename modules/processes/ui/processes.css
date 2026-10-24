@@ -10,3 +10,40 @@
     margin: .6rem 0 .2rem;
     font-size: .9rem;
 }
+
+/* The process clicked, whole: its command as it was typed, wrapped, and its numbers */
+.proc-picked {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: .75rem;
+    padding: .6rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, .12);
+}
+.proc-picked-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem .75rem;
+    align-items: baseline;
+}
+.proc-picked-head .link {
+    margin-left: auto;
+}
+.proc-command {
+    display: block;
+    margin: .4rem 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.proc-numbers {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: .15rem .75rem;
+    margin: 0;
+}
+.proc-numbers dd {
+    margin: 0;
+}

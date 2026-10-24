@@ -37,6 +37,8 @@ import {Comment} from 'vue';
 //     limit      how many rows are shown before a button shows the other ones
 //     on_row     (row, event) => a click on the row is the page's (a folder opened): the
 //                details open on the row's mark instead
+//     marks      false for a table with no mark down its left edge and no details under a
+//                row: the page shows a row whole its own way, picked by on_row
 //     actions_label, actions_fold   the actions column's header, and when it folds (0: first)
 //     sort       {key, down}: the column sorted by, emitting sort(key) on a header's click
 //     selected   the keys of the rows ticked, a box on each row, emitting selected(keys)
@@ -137,6 +139,7 @@ const data_table = {
         branch: {type: Function, default: null},
         limit: {type: Number, default: null},
         on_row: {type: Function, default: null},
+        marks: {type: Boolean, default: true},
         actions_label: {type: String, default: ''},
         actions_fold: {type: Number, default: 0},
         sort: {type: Object, default: null},
@@ -223,10 +226,10 @@ const data_table = {
             return this.has_actions && folded.includes('actions') && ((this.acts === null) || this.acts(row));
         },
         caret_shown: function (folded) {
-            return this.rows_shown.some(v => this.opens_now(v, folded));
+            return this.marks && this.rows_shown.some(v => this.opens_now(v, folded));
         },
         is_open: function (row, folded) {
-            return (this.opened[this.key_of(row)] === true) && this.opens_now(row, folded);
+            return this.marks && (this.opened[this.key_of(row)] === true) && this.opens_now(row, folded);
         },
         toggle: function (row, folded) {
             if (this.opens_now(row, folded) === false) {
@@ -248,7 +251,7 @@ const data_table = {
             this.toggle(row, folded);
         },
         row_classes: function (row, folded) {
-            const out = {foldable: (this.on_row !== null) || this.opens_now(row, folded), open: this.is_open(row, folded), chosen: (this.chosen !== null) && this.chosen(row)};
+            const out = {foldable: (this.on_row !== null) || (this.marks && this.opens_now(row, folded)), open: this.is_open(row, folded), chosen: (this.chosen !== null) && this.chosen(row)};
             if (this.row_class !== null) {
                 for (const name of [].concat(this.row_class(row) || [])) {
                     out[name] = true;

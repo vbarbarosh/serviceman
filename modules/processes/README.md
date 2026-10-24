@@ -1,10 +1,12 @@
 # processes
 
 Everything running on one machine, for a web page: every process as the tree it is, each
-under the one that started it, with its user, CPU, memory, how long it has run and its state. A
-branch folds away, Fold all leaves the roots, a filter keeps every match in its place in the
-tree, and List puts the heaviest CPU first, a column's header sorting by it. A command too long
-for its row reads whole when the row opens.
+under the one that started it, with its user, CPU, memory, how long it has run and its state. It
+starts with the first level open; a click on a process opens the ones it started, or closes
+them, and shows it whole in a bar at the foot of the view: its full command and every number,
+which a narrow screen folds out of its row. Fold all leaves the roots, a filter keeps every
+match in its place in the tree, and List puts the heaviest CPU first, a column's header sorting
+by it.
 
 It has two halves and knows nothing of where the machine is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request

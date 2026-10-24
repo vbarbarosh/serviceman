@@ -14,7 +14,8 @@ const processes_manifest = {
             read: {right: {right: 'processes', said: 'read the processes'}},
             key: 'pid',
             search: ['command', 'user', 'pid'],
-            tree: {id: 'pid', parent: 'ppid'},
+            // The first level open, under the first processes; a click opens the rest
+            tree: {id: 'pid', parent: 'ppid', open: 1},
             sort: {key: 'cpu', down: true},
             columns: [
                 {key: 'command', label: 'Command', as: 'code', clip: true},
