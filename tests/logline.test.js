@@ -45,7 +45,8 @@ test('a machine switched on is told where to send and with which token, bound to
         control: {host: 'serviceman.localhost', port: 0},
         logline: {endpoint: `http://127.0.0.1:${logline.port}/lines`, admin: 'logline'},
         remotes: [{name: 'vps1', token: TOKEN, logs: 'all'}],
-        services: [],
+        // An app folder: its data/logs is read too, its lines under its name
+        services: [{name: 'notes', type: 'shell', remote: 'vps1', command: 'bin/run', cwd: '/srv/apps/notes', publish: {host: 'notes.localhost', port: 8080}}],
     };
     const running = await serviceman_start(t, json, path.join(dir, 'state'));
     fs.writeFileSync(path.join(dir, 'state', 'secrets.json'), JSON.stringify({global: {logline: ADMIN_TOKEN}}));
@@ -54,6 +55,7 @@ test('a machine switched on is told where to send and with which token, bound to
 
     await wait_until(() => remote.state.logline_floor !== null);
     const told = JSON.parse(fs.readFileSync(path.join(agent_dir, 'logline', 'settings.json'), 'utf8'));
+    assert.deepStrictEqual(told.dirs, [{path: '/srv/apps/notes/data/logs', service: 'notes', optional: true}]);
     assert.strictEqual(told.endpoint, json.logline.endpoint);
     assert.strictEqual(told.logs, 'all');
     assert.strictEqual(told.floor, remote.state.logline_floor);
@@ -94,7 +96,7 @@ test('a machine switched on is told where to send and with which token, bound to
     assert.strictEqual(running.app.log_lines.filter(v => v.includes('[logline_told]')).length, told_lines, 'it said what it knows at hello, and nothing needed telling');
 
     // Taken out of the config, the machine has its token taken back
-    await app_apply_config(running.app, config_from_json(Object.assign({}, json, {remotes: []}), __dirname));
+    await app_apply_config(running.app, config_from_json(Object.assign({}, json, {remotes: [], services: []}), __dirname));
     await wait_until(() => JSON.parse(fs.readFileSync(path.join(dir, 'logline-tokens.json'), 'utf8')).tokens.length === 0);
     assert.strictEqual(running.app.log_lines.some(v => /\[logline_token_revoked\] remote=vps1/.test(v)), true);
 });

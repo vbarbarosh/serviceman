@@ -241,6 +241,40 @@ test('whatever order appends, syncs, batches, acks and restarts come in, every s
 });
 
 // Everything the spool holds, sent: each line as "file: line"
+// An app's data/logs is made by the app when it first writes a log: missing until then, and
+// no error; once made, every file in it is new and read from its start, under the app's name
+test('a folder that may be missing is no error, and once made its files are read from their start', async function () {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'files-'));
+    const was = process.env.SERVICEMAN_AGENT_DIR;
+    process.env.SERVICEMAN_AGENT_DIR = path.join(home, 'agent');
+    try {
+        const logs = path.join(home, 'notes', 'data', 'logs');
+        const said = [];
+        const spool = logline_spool(path.join(home, 'spool'), {cap_bytes: 1e9, sync_ms: 60000});
+        const files = logline_files({spool, host: 'box', dirs: [{path: logs, service: 'notes', optional: true}], floor: '2026-09-26T00:00:00.000000000Z', say: v => said.push(v)});
+        await timers.setTimeout(50);
+        assert.deepStrictEqual(files.errors(), {});
+        fs.mkdirSync(logs, {recursive: true});
+        fs.writeFileSync(path.join(logs, 'app.log'), 'the first line it wrote\n');
+        await timers.setTimeout(1200);
+        spool.flush();
+        const cut = spool.batch(1000, 1e7);
+        const lines = JSON.parse(cut.body);
+        assert.deepStrictEqual(lines.map(v => [v.labels.service, v.line]), [['notes', 'the first line it wrote']]);
+        assert.deepStrictEqual(said, [], 'nothing said about the folder that was missing');
+        files.stop();
+        spool.close();
+    }
+    finally {
+        if (was === undefined) {
+            delete process.env.SERVICEMAN_AGENT_DIR;
+        }
+        else {
+            process.env.SERVICEMAN_AGENT_DIR = was;
+        }
+    }
+});
+
 function spool_drain(spool, logs)
 {
     spool.flush();

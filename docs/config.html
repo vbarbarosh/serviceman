@@ -1377,6 +1377,12 @@ folder goes;</li>
 <p>Whatever fails before <code>data/</code> is across puts the old folder back as it was and starts it
 again: the app runs the version it had, and the new files wait in <code>&lt;folder&gt;.new</code> to be looked
 at. <code>POST /api/v1/services/&lt;name&gt;/replace</code> is step 2 onwards, for whoever put the files there.</p>
+<p>An app folder&#39;s <code>data/</code> is its storage without anything to set: <strong>Storage</strong> lists it beside
+what other services keep, and nothing but a person removes it. What the app writes to
+<code>data/logs/</code> goes to Logline wherever its machine sends its lines there: the agent reads every
+file in that folder, from the first line once the app makes it, and the lines carry the app&#39;s
+name as <code>service</code>, so <strong>Logs in Logline</strong> on the app&#39;s page shows them with the rest of its
+lines. The app&#39;s <strong>Storage</strong> card says where they go, or why they stay on the machine.</p>
 <h3 id="storage"><a class="anchor" href="#storage" aria-hidden="true" tabindex="-1">#</a>Storage</h3>
 <p>A program that keeps something names the paths it keeps:</p>
 <pre><code class="language-json">&quot;volumes&quot;: [&quot;:/app/data&quot;]

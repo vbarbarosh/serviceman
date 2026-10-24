@@ -23,13 +23,24 @@ function agent_logline_set(params)
         token: (logs === 'all') ? params.token : null,
         logs,
         floor: (logs === 'off') ? null : (((was.logs === 'all') && (was.floor !== null)) ? was.floor : new Date().toISOString()),
-        dirs: ((logs === 'all') && Array.isArray(params.dirs)) ? params.dirs.map(v => ({path: String(v.path), service: ((v.service === undefined) || (v.service === null)) ? null : String(v.service)})) : [],
+        dirs: ((logs === 'all') && Array.isArray(params.dirs)) ? params.dirs.map(dir_of) : [],
     };
     if (JSON.stringify(settings) !== JSON.stringify(was)) {
         // Mode 600: the token lets this machine write to the log
         file_write_synced(agent_logline_path('settings.json'), `${JSON.stringify(settings, null, 4)}\n`);
     }
     return {logs: settings.logs, floor: settings.floor};
+}
+
+// A folder whose files are read: its path, the service its lines are of, and whether it may be
+// missing — an app's data/logs, made by the app when it first writes a log
+function dir_of(said)
+{
+    const out = {path: String(said.path), service: ((said.service === undefined) || (said.service === null)) ? null : String(said.service)};
+    if (said.optional === true) {
+        out.optional = true;
+    }
+    return out;
 }
 
 module.exports = agent_logline_set;

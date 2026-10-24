@@ -3,6 +3,7 @@ const log_event = require('./log_event');
 const logline_token = require('./logline_token');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
+const service_app_folder = require('./service_app_folder');
 
 // Tells a connected machine where its lines go and with what token — or that they go nowhere.
 // The machine writes the answer down before acting on it, so it keeps sending to the last
@@ -63,7 +64,22 @@ async function answer_make(app, remote)
     const kept = await logline_token(app, remote.name, ips);
     remote.state.logline_ips = kept.ips;
     remote.state.logline_issued_at = (kept.issued_at === undefined) ? null : kept.issued_at;
-    return {endpoint: logline.endpoint, token: kept.token, logs: 'all', dirs: (remote.log_dirs === undefined) ? [] : remote.log_dirs};
+    const dirs = (remote.log_dirs === undefined) ? [] : remote.log_dirs;
+    return {endpoint: logline.endpoint, token: kept.token, logs: 'all', dirs: dirs.concat(app_log_dirs(app, remote))};
+}
+
+// Every app folder on that machine writes its logs to data/logs, its lines under its own name.
+// The folder may not be made yet, and that is no error: optional.
+function app_log_dirs(app, remote)
+{
+    const out = [];
+    for (const service of app.services) {
+        const folder = service_app_folder(service);
+        if ((folder !== null) && (service.remotes[0] === remote.name)) {
+            out.push({path: `${folder}/data/logs`, service: service.name, optional: true});
+        }
+    }
+    return out;
 }
 
 // What a telling amounts to, the way the agent says it at hello: the token by its hash, so the

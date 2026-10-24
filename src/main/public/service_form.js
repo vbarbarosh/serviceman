@@ -963,10 +963,12 @@ const service_form = {
             }
             if (id === 'keep') {
                 const kept = model.volumes.filter(v => v.target !== '').map(v => v.target);
-                // An app folder is its own storage: it stays, and its data/ outlives a new zip
+                // An app folder is its own storage: it stays, its data/ outlives a new version, and
+                // what it writes to data/logs/ is sent to Logline where its machine sends any
                 const app_folder = (model.type === 'shell') && (model.command === 'bin/run') && model.cwd.startsWith('/');
                 if (app_folder) {
-                    lines.push(`${model.cwd} stays; its data/ is kept through a new version`);
+                    lines.push(`keeps ${model.cwd}/data/ through a new version`);
+                    lines.push(this.app_logs_text(model.places[0].text));
                 }
                 if (kept.length > 0) {
                     lines.push(`keeps ${kept.join(', ')}`);
@@ -1005,6 +1007,14 @@ const service_form = {
                 }
             }
             return {lines, warn, fix};
+        },
+        // Where an app's data/logs/ goes: Logline, when its machine sends its lines there
+        app_logs_text: function (place) {
+            const found = this.remotes.find(v => v.name === place);
+            if ((found === undefined) || (found.logline.endpoint === null)) {
+                return 'data/logs/ stays on the machine: no Logline is set';
+            }
+            return (found.logline.logs === 'all') ? 'data/logs/ goes to Logline' : `data/logs/ would go to Logline: ${this.place_text(place)} sends nothing there now`;
         },
         place_text: function (value) {
             const found = this.remotes.find(v => v.name === value);

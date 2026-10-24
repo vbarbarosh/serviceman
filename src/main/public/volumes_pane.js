@@ -104,6 +104,9 @@ const volumes_pane = {
             if (item.kind === 'kept') {
                 return 'a folder under the agent';
             }
+            if (item.kind === 'app') {
+                return 'an app\'s own, kept through a new version';
+            }
             return (item.kind === 'volume') ? 'a docker volume' : 'a folder';
         },
         remote_title: function (name) {

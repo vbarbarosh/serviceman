@@ -529,6 +529,13 @@ Whatever fails before `data/` is across puts the old folder back as it was and s
 again: the app runs the version it had, and the new files wait in `<folder>.new` to be looked
 at. `POST /api/v1/services/<name>/replace` is step 2 onwards, for whoever put the files there.
 
+An app folder's `data/` is its storage without anything to set: **Storage** lists it beside
+what other services keep, and nothing but a person removes it. What the app writes to
+`data/logs/` goes to Logline wherever its machine sends its lines there: the agent reads every
+file in that folder, from the first line once the app makes it, and the lines carry the app's
+name as `service`, so **Logs in Logline** on the app's page shows them with the rest of its
+lines. The app's **Storage** card says where they go, or why they stay on the machine.
+
 ### Storage
 
 A program that keeps something names the paths it keeps:

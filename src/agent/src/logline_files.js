@@ -64,6 +64,16 @@ function scan(ctx, run)
             delete run.errors[dir.path];
         }
         catch (error) {
+            // A folder that may be missing and is: nothing to read yet, and nothing wrong. It
+            // counts as looked at, so every file in it, once it is made, is read from its start
+            if ((dir.optional === true) && (error.code === 'ENOENT')) {
+                delete run.errors[dir.path];
+                if (run.seen.dirs.includes(dir.path) === false) {
+                    run.seen.dirs.push(dir.path);
+                    changed = true;
+                }
+                continue;
+            }
             if (run.errors[dir.path] !== error.message) {
                 ctx.say('logline_dir_error', {dir: dir.path, reason: error.message, then: 'looked at again every second'});
             }
