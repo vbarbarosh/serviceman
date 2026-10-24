@@ -756,6 +756,10 @@ give rights and show by: its kinds of items and the commands on them, in
 <td><code>GET &lt;base&gt;/usage?path=/var&amp;extras=1</code></td>
 <td>what takes the space in one folder: the host&#39;s <code>usage({path, extras})</code></td>
 </tr>
+<tr>
+<td><code>GET &lt;base&gt;/usage/progress?path=/var</code></td>
+<td>how a count of that folder goes while it runs: the host&#39;s <code>usage_progress({path})</code></td>
+</tr>
 </tbody></table>
 </div>
 <pre><code>{at, commands: [&#39;df -PkT&#39;, &#39;df -PiT&#39;],
@@ -770,9 +774,11 @@ them.</li>
 <li><code>key_of</code> names the pool whose key this small volume holds (Ubuntu&#39;s encrypted ZFS), or null.</li>
 <li><code>usage</code> answers <code>{path, total, files, folders: [{path, size}], unread: [path], took_ms, extras}</code>: the folders in that folder with their sizes, biggest first, counted on its own disk
 alone (<code>du -x</code> over there), <code>files</code> what lies in the folder itself, <code>unread</code> the folders that
-could not be read, whose size is then in no folder. With <code>extras=1</code>, <code>extras</code> is
-<code>{docker: [{what, size}], journal}</code>, what docker and the journal say they keep, <code>null</code> where
-they cannot say. Only names and sizes: nothing is read out of a file. A path that is not from
+could not be read, whose size is then in no folder; <code>rooted</code> is true when the machine counted
+it as root, which reads every folder. With <code>extras=1</code>, <code>extras</code> is <code>{docker: [{what, size}], docker_root, journal}</code>, what docker and the journal say they keep and the folder docker keeps
+it in, <code>null</code> where they cannot say.</li>
+<li><code>usage_progress</code> answers <code>{path, counting, took_ms, folders: [{path, size}], waiting, waiting_shown: [path]}</code>: the folders counted so far, biggest first, how many are still to
+come and the first of them by name. <code>counting</code> is false when no count of that folder runs. Only names and sizes: nothing is read out of a file. A path that is not from
 the root is a 400.</li>
 <li><strong>Refusals:</strong> a read that throws is a 502 with its message, or the status the error carries;
 any other door or method is a 404.</li>

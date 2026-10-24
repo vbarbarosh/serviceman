@@ -87,7 +87,7 @@ const UPTIME_DAYS_MOST = 90;
 
 // What the host asks for every half minute, and every time it measures the link. These would
 // bury everything worth reading, so they are done quietly.
-const QUIET = ['ping', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'package_list', 'term_list'];
+const QUIET = ['ping', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'disk_usage_progress', 'package_list', 'term_list'];
 
 // The work worth bracketing: a line that fetches a repo, an image that has to come down, a
 // shell line somebody wrote. It takes seconds, so a reader wants to see it start and wait.
@@ -452,6 +452,9 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'disk_usage') {
         return await agent_disk_usage(params, options);
+    }
+    if (method === 'disk_usage_progress') {
+        return agent_disk_usage.progress(params);
     }
     if (method === 'package_list') {
         return await agent_package_list(options);

@@ -18,6 +18,9 @@ async function serve(read)
             usage: async function (params) {
                 return {asked: params};
             },
+            usage_progress: async function (params) {
+                return {progress: params};
+            },
             tail: req.url.slice('/disks'.length).split('?')[0],
         });
     });
@@ -89,6 +92,9 @@ test('disks: usage counts the folder asked, from the root, with docker and the j
         assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=/&extras=1`, 'GET'), {status: 200, body: {asked: {path: '/', extras: true}}});
         assert.strictEqual((await fetch_json(`${running.base}/usage?path=var`, 'GET')).status, 400);
         assert.strictEqual((await fetch_json(`${running.base}/usage`, 'GET')).status, 400);
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage/progress?path=/var&extras=1`, 'GET'), {status: 200, body: {progress: {path: '/var'}}});
+        assert.strictEqual((await fetch_json(`${running.base}/usage/progress?path=var`, 'GET')).status, 400);
+        assert.strictEqual((await fetch_json(`${running.base}/usage/progress`, 'POST')).status, 404);
     }
     finally {
         running.close();

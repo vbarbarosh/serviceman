@@ -397,6 +397,11 @@ async function control_answer(app, req, res)
                     throw Object.assign(new Error(`the agent on ${remote.name} is from before counting what takes a disk — its page says how it updates`), {status: 400});
                 }
                 return remote_call(app, remote, 'disk_usage', asked, DISK_USAGE_TIMEOUT_MS);
+            }, usage_progress: function (asked) {
+                if (remote_can(remote, 'disk_usage_live') === false) {
+                    throw Object.assign(new Error(`the agent on ${remote.name} is from before a count that shows its folders as it goes`), {status: 400});
+                }
+                return remote_call(app, remote, 'disk_usage_progress', asked, MACHINE_READ_TIMEOUT_MS);
             }};
         });
         return;
@@ -633,6 +638,7 @@ async function handle_machine_read(app, res, name, method, what)
 // GET /api/v1/remotes/<name>/processes
 // GET /api/v1/remotes/<name>/disks
 // GET /api/v1/remotes/<name>/disks/usage (query)
+// GET /api/v1/remotes/<name>/disks/usage/progress (query)
 // What is running on that machine and its disks, through the Processes and Disks modules: the
 // doors are the module's, and its read is the agent running ps or df over there as its own
 // user, so what comes back is what that user may see. The refusals are this host's own.

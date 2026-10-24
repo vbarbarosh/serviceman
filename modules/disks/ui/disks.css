@@ -56,10 +56,19 @@
 }
 .du-name {
     display: flex;
-    gap: .4rem;
+    flex-wrap: wrap;
+    gap: 0 .4rem;
     align-items: baseline;
     min-width: 0;
     overflow-wrap: anywhere;
+}
+/* A name keeps its line and a note goes under it, rather than the two squeezing each other
+   down to a letter a line */
+.du-name > :not(.du-fold) {
+    min-width: 0;
+}
+.du-name > .muted {
+    flex: 1 1 14rem;
 }
 .du-fold {
     flex: none;
@@ -76,10 +85,55 @@
     height: .5rem;
     margin: 0;
 }
-.du-bar > span {
+.du-bar > i {
     display: block;
     height: 100%;
     background: var(--accent);
+}
+/* What no folder holds is a row like the others, its bar in the colour of a warning */
+.du-row.unseen .du-name {
+    color: var(--fg);
+    font-style: italic;
+}
+.du-row.unseen .du-bar > i {
+    background: var(--bad);
+}
+/* A count still going: its clock, and a bar that moves while nothing else does */
+.du-live {
+    margin: .5rem 0 .75rem;
+}
+.du-live-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .75rem;
+    align-items: baseline;
+    margin: .25rem 0;
+}
+.du-clock {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+.du-live-bar {
+    display: block;
+    max-width: none;
+    height: .5rem;
+}
+.du-row.waiting .du-bar {
+    background: linear-gradient(90deg, var(--line) 0%, var(--accent) 50%, var(--line) 100%) 0 0/200% 100%;
+    animation: du-waiting 1.5s linear infinite;
+}
+@keyframes du-waiting {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: -100% 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .du-row.waiting .du-bar {
+        animation: none;
+    }
 }
 @media (max-width: 600px) {
     .du-row {

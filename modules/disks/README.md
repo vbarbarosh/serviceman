@@ -38,6 +38,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 |---|---|
 | `GET <base>` | what the host's `read()` answers, below |
 | `GET <base>/usage?path=/var&extras=1` | what takes the space in one folder: the host's `usage({path, extras})` |
+| `GET <base>/usage/progress?path=/var` | how a count of that folder goes while it runs: the host's `usage_progress({path})` |
 
     {at, commands: ['df -PkT', 'df -PiT'],
      items: [{device, type, mounts, disk, total, used, free, inodes_total, inodes_used,
@@ -51,9 +52,13 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 - `usage` answers `{path, total, files, folders: [{path, size}], unread: [path], took_ms,
   extras}`: the folders in that folder with their sizes, biggest first, counted on its own disk
   alone (`du -x` over there), `files` what lies in the folder itself, `unread` the folders that
-  could not be read, whose size is then in no folder. With `extras=1`, `extras` is
-  `{docker: [{what, size}], journal}`, what docker and the journal say they keep, `null` where
-  they cannot say. Only names and sizes: nothing is read out of a file. A path that is not from
+  could not be read, whose size is then in no folder; `rooted` is true when the machine counted
+  it as root, which reads every folder. With `extras=1`, `extras` is `{docker: [{what, size}],
+  docker_root, journal}`, what docker and the journal say they keep and the folder docker keeps
+  it in, `null` where they cannot say.
+- `usage_progress` answers `{path, counting, took_ms, folders: [{path, size}], waiting,
+  waiting_shown: [path]}`: the folders counted so far, biggest first, how many are still to
+  come and the first of them by name. `counting` is false when no count of that folder runs. Only names and sizes: nothing is read out of a file. A path that is not from
   the root is a 400.
 - **Refusals:** a read that throws is a 502 with its message, or the status the error carries;
   any other door or method is a 404.

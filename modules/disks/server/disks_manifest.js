@@ -27,9 +27,10 @@ const disks_manifest = {
         },
     ],
     // What takes the space in one folder: the names and sizes of the folders in it, never what
-    // is in a file
+    // is in a file; and how such a count goes while it runs
     doors: [
         {door: 'usage', re: '^/usage$', methods: ['GET'], said: 'what takes the space in one folder: its folders, biggest first', right: {right: 'disks', said: 'read the disks'}},
+        {door: 'usage_progress', re: '^/usage/progress$', methods: ['GET'], said: 'how a count of a folder goes: the folders counted so far', right: {right: 'disks', said: 'read the disks'}},
     ],
 };
 

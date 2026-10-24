@@ -73,6 +73,7 @@ const modules_served = [
             return disks_serve(req, res, {
                 read: () => machine_read('disk_list'),
                 usage: async v => remote_call(app, await online(remote), 'disk_usage', v, DISK_USAGE_TIMEOUT_MS),
+                usage_progress: async v => remote_call(app, await online(remote), 'disk_usage_progress', v, READ_TIMEOUT_MS),
                 tail,
             });
         },

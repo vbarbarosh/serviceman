@@ -1,5 +1,6 @@
 const agent_apt = require('./agent_apt');
 const agent_built = require('./agent_built');
+const agent_disk_usage = require('./agent_disk_usage');
 const agent_port_list = require('./agent_port_list');
 const agent_root_socket = require('./agent_root_socket');
 const agent_say = require('./agent_say');
@@ -170,6 +171,12 @@ async function method_run(state, options, job, say)
         // agent in a person's session is its own and nothing else. Here it is every one on
         // the machine — sshd, resolved, the daemons nobody logs in as.
         return await agent_port_list();
+    }
+    if (method === 'disk_usage') {
+        // du reads only names and sizes, and as the agent's user it cannot read /root,
+        // /var/lib/docker or another person's folders: their sizes are the space nobody can find.
+        // Here every folder is counted, each one said as du finishes it.
+        return await agent_disk_usage.root(job.params, say);
     }
     if (method === 'apt_upgrade') {
         return await agent_apt(state, options, say);

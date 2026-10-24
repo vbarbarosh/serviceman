@@ -328,12 +328,16 @@ instead, and a column's header sorts by it, RSS for the heaviest in memory. It i
 is pressed, never on a clock. The ports it listens on are in the **Firewall** tab, below.
 
 **Disks** is every filesystem mounted there, from `df`, and **What takes the space** counts
-where a disk's space went: its folders, biggest first, each with its share, and a click on one
-opens the folders inside it. It is `du -x` run over there, on that disk alone, when asked: a
-minute on a big disk. Above the folders it says what such a count cannot see: the folders the
-agent could not read (it runs as its user), the space in no folder counted (those folders, or
-files deleted while a program still holds them open), and, for `/`, what docker and the system
-journal say they keep. A machine's Overview leads there from its Disk card.
+where a disk's space went: its folders, biggest first, each with its share of what the disk
+uses, and a click on one opens the folders inside it. It is `du -x` run over there, on that disk
+alone, when asked: a minute on a big disk. While it runs, the folders already counted show at
+once and can be opened, with a clock, a bar of what has been found so far, and the folders still
+to come. It is counted as root where the machine has the agent's root half, and every folder is
+seen; without one it runs as the agent's user, and the tree still adds up to what the disk
+uses: a folder it could not read says so, docker's folder and the journal's take the size
+docker and journald say they keep, and **In no folder counted** is the rest (those folders, or
+files deleted while a program still holds them open). Above the tree, for `/`, what docker and
+the system journal say they keep. A machine's Overview leads there from its Disk card.
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
