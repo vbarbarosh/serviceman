@@ -144,6 +144,10 @@ const service_status = {
             if (view.type === 'external') {
                 return 'serviceman passes requests on and never starts or stops it';
             }
+            // No failed start behind it: what failed was the setting up of a new version
+            if (view.gave_up && (view.failures === 0)) {
+                return 'serviceman does not start it until asked — Start tries again';
+            }
             if (view.gave_up) {
                 return `it failed ${view.failures} times in a row, so serviceman stopped trying — Start tries again`;
             }
@@ -1591,7 +1595,7 @@ const service_page = {
             try {
                 await fetch(`/api/v1/remotes/${encodeURIComponent(machine)}/fs/delete`, {method: 'POST', body: JSON.stringify({path: `${folder}.new`})});
                 await app_files_send(zip, machine, `${folder}.new`, v => this.version_note = v);
-                this.version_note = 'putting it in place…';
+                this.version_note = 'putting it in place, setting it up, starting it…';
                 const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/replace`, {method: 'POST'});
                 const said = await answer.json();
                 if (answer.ok === false) {

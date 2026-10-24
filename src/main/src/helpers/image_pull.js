@@ -22,14 +22,19 @@ async function image_pull(app, remote, service, loud)
     // does, and which machine paid for it is half of what the line is for
     const where = remote.name;
     log_event(app, 'image_pull_begin', {service: service.name, image: service.image, remote: where});
-    if (loud === true) {
+    // The words are its own only when nothing bigger holds the page — a new version put in
+    // place — and the download's progress takes them over from there
+    const own = (loud === true) && (service.state.doing === null);
+    if (own) {
         service.state.doing = `downloading ${service.image}`;
+    }
+    if (loud === true) {
         service_said(app, {service: service.name, text: `the image ${service.image} is not on this machine yet — downloading it`});
     }
     const pulled = (loud === true)
         ? await shell_progress_docker_pull(app, remote, service)
         : await docker_shell(app, remote, ['pull', service.image]);
-    if (loud === true) {
+    if (own) {
         service.state.doing = null;
     }
     if (pulled.ok) {

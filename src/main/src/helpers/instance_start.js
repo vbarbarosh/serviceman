@@ -1,6 +1,7 @@
 const agent_reset = require('./agent_reset');
 const docker_start = require('./docker_start');
 const format_seconds = require('../../../helpers/format_seconds');
+const instance_stop = require('./instance_stop');
 const log_event = require('./log_event');
 const log_group = require('./log_group');
 const log_words = require('../../../helpers/log_words');
@@ -24,6 +25,7 @@ function instance_start(app, service, instance)
     instance.start_promise = out;
     function clear() {
         instance.start_promise = null;
+        instance.start_under_way = false;
     }
     out.then(clear, clear);
     return out;
@@ -37,6 +39,11 @@ async function start_after_stop(app, service, instance)
     if (service.state.stop_promise !== null) {
         await service.state.stop_promise.catch(function () {});
     }
+    // Its folder is being worked on — a new version put in place: the start runs after, in
+    // the folder as the work left it, and never in one that is half of two versions
+    while (service.state.hold_promise !== null) {
+        await service.state.hold_promise;
+    }
     if (service_gave_up(service)) {
         // Nothing has changed since it last failed, so this would be the same work and the same
         // end. What clears it: a person asking, its machine coming back, its definition edited.
@@ -46,6 +53,9 @@ async function start_after_stop(app, service, instance)
     service.state.said = [];
     log_event(app, 'service_start_begin', {service: service.name, instance: instance.slot, type: service.type, of: service.remotes});
     instance.phase = 'starting';
+    instance.start_under_way = true;
+    // A stop from here on is a stop of this start: the start ends when it sees it
+    instance.asked_to_stop = false;
     instance.last_error = null;
     service.state.last_error = null;
     // A machine is reserved before anything is started, and a machine that will not take it is
@@ -57,6 +67,11 @@ async function start_after_stop(app, service, instance)
             return await start_on(app, service, instance, remote, time0);
         }
         catch (error) {
+            if (instance.asked_to_stop) {
+                // Stopped on its way up: the stop says what it is now, and nothing failed
+                log_event(app, 'service_start_end_error', `${format_seconds(Date.now() - time0)} ${log_words({service: service.name, instance: instance.slot, reason: error.message})}`);
+                throw error;
+            }
             if ((instance.remote !== null) && (refused.includes(instance.remote) === false) && more_to_try(app, service, refused, instance)) {
                 log_event(app, 'service_start_retry', {service: service.name, instance: instance.slot, remote: instance.remote, reason: error.message});
                 refused.push(instance.remote);
@@ -81,6 +96,12 @@ async function start_after_stop(app, service, instance)
 async function start_on(app, service, instance, remote, time0)
 {
     const upstream = await driver_start(app, remote, service, instance);
+    if (instance.asked_to_stop) {
+        // The stop came while the driver was at work, maybe before there was a program to
+        // stop: whatever the driver started after it is stopped now
+        await stop_again(app, service, instance);
+        throw new Error(`${service.name}: it was stopped while it was starting`);
+    }
     // The pool is made before the probe, because the probe asks through it
     agent_reset(app, service, instance);
     const answered = (upstream === null) ? null : await wait_http_answer(app, service, instance, upstream, service.policy.start_timeout_ms);
@@ -94,6 +115,14 @@ async function start_on(app, service, instance, remote, time0)
     log_event(app, 'service_start_end_ok', `${format_seconds(Date.now() - time0)} ${log_words(Object.assign({service: service.name, instance: instance.slot, remote: remote.name}, ready_words(service, upstream), {answered}))}`);
     pool_pump(app, service);
     return instance;
+}
+
+async function stop_again(app, service, instance)
+{
+    if (instance.stop_promise !== null) {
+        await instance.stop_promise.catch(function () {});
+    }
+    await instance_stop(app, service, instance, 'it was asked to stop while it was starting');
 }
 
 // Another machine is only worth trying while one is left that has not said no

@@ -24,7 +24,6 @@ async function shell_start_on(app, remote, service, instance)
         env: Object.assign({}, secrets_env(secrets), program_env(service)),
     });
     instance.pid = answer.pid;
-    instance.asked_to_stop = false;
     return (service.port === null) ? null : {host: '127.0.0.1', port: service.port};
 }
 

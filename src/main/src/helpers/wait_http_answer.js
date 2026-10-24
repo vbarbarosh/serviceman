@@ -23,17 +23,24 @@ const TAIL_LINES = 10;
 // This asks for a page instead, and waits for an answer. Any answer counts: a 404 or a 500 is
 // still something inside speaking HTTP. It goes through the very pool the requests will use,
 // so a service on a remote is probed down its own tunnel.
+//
+// What it is waiting for is the step the page shows, unless something bigger is under way —
+// a new version put in place — whose words the page keeps, and which this neither covers nor
+// clears.
 async function wait_http_answer(app, service, instance, upstream, timeout_ms)
 {
+    const doing = {said: null};
     try {
-        return await wait_answer(app, service, instance, upstream, timeout_ms);
+        return await wait_answer(app, service, instance, upstream, timeout_ms, doing);
     }
     finally {
-        service.state.doing = null;
+        if ((doing.said !== null) && (service.state.doing === doing.said)) {
+            service.state.doing = null;
+        }
     }
 }
 
-async function wait_answer(app, service, instance, upstream, timeout_ms)
+async function wait_answer(app, service, instance, upstream, timeout_ms, doing)
 {
     const time0 = Date.now();
     const deadline = time0 + timeout_ms;
@@ -50,11 +57,18 @@ async function wait_answer(app, service, instance, upstream, timeout_ms)
         if (Date.now() >= deadline) {
             throw new Error(`nothing answered on ${upstream.host}:${upstream.port} — ${answer.reason}${port_hint(service)}`);
         }
+        // Stopped on its way up: nothing is going to answer
+        if (instance.asked_to_stop) {
+            throw new Error(`${service.name}: it was stopped before it answered`);
+        }
         // What is being waited for is the step the page shows, beside its own clock — not a
         // line of the story every few seconds, which would bury what the service itself says.
         // It becomes a line once, and again when the reason changes: a reset turning into a
         // refusal is news, the same refusal for a minute is not.
-        service.state.doing = `waiting for an answer on ${upstream.host}:${upstream.port} — ${answer.reason}`;
+        if ((service.state.doing === null) || (service.state.doing === doing.said)) {
+            doing.said = `waiting for an answer on ${upstream.host}:${upstream.port} — ${answer.reason}`;
+            service.state.doing = doing.said;
+        }
         if (Date.now() - said_at > SAY_EVERY_MS) {
             said_at = Date.now();
             if (answer.reason !== reason_said) {

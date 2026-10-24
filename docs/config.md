@@ -500,8 +500,10 @@ that carries the program:
 
 The program moved on — a commit was pushed — and the config did not change, so serviceman has
 no reason to notice. **Fetch again** on its page (`POST /api/v1/services/<name>/update`) is how
-you say so: it stops the service if it runs, runs the `update` line, or the `install` line in
-an empty folder when there is no `update` line, and starts it again if it was running.
+you say so: it stops the service whatever it is doing, runs the `update` line, or the `install`
+line in an empty folder when there is no `update` line, and starts it again if it was running,
+starting or failed. Nothing starts it while the line runs: a restart it was waiting for is
+called off, and a request that wakes it waits for the line to end.
 
 Nothing else about the service moves. It keeps its name, its address, its folder — the name of
 that folder is made from the service's name, not from a moment in time — and its storage, which
@@ -520,16 +522,25 @@ on its page, in place of **Fetch again**. What the app keeps lives in its `data/
 all that outlives a new version:
 
 1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`;
-2. serviceman stops the app, sets the folder aside as `<folder>.old` and puts `<folder>.new` in
-   its place;
-3. `bin/configure`, then `bin/build`, run in it, for those of the two it holds;
+2. serviceman stops the app, whatever it is doing: running, starting, or failed and waiting to
+   be started again;
+3. it sets the folder aside as `<folder>.old` and puts `<folder>.new` in its place;
 4. `data/` is moved over from the old folder, over any `data/` the new files brought, and the old
    folder goes;
-5. the app starts again if it was running.
+5. `bin/configure`, then `bin/build`, run in it, for those of the two it holds;
+6. the new version starts, whatever the app was doing before.
 
-Whatever fails before `data/` is across puts the old folder back as it was and starts it
-again: the app runs the version it had, and the new files wait in `<folder>.new` to be looked
-at. `POST /api/v1/services/<name>/replace` is step 2 onwards, for whoever put the files there.
+Nothing starts the app from step 2 until step 6: a restart it was waiting for is called off,
+a request that wakes it waits and gets the new version, and a second new version is refused
+until this one is in. `bin/run` never meets a folder whose `bin/configure` has not finished.
+
+There is no way back once the folders are swapped. A new version whose `bin/configure` or
+`bin/build` fails stays in place, with `data/` in it, and is not started: the app shows as
+failed, with what the step said, and a request is answered with that, until **Start** runs it
+as it is or another new version comes. Only a swap that cannot be made (the folder will not
+move) leaves the old version where it was, stopped until something wakes it.
+`POST /api/v1/services/<name>/replace` is step 2 onwards, for whoever put the files there; it
+answers once the new version has started, or with what failed.
 
 An app folder's `data/` is its storage without anything to set: **Storage** lists it beside
 what other services keep, and nothing but a person removes it. What the app writes to

@@ -40,6 +40,9 @@ function program_ended(app, remote, message)
     instance.restarts++;
     log_event(app, 'program_restart_wait', {service: service.name, in: format_seconds(wait_ms), restart: instance.restarts});
     instance.restart_timer = setTimeout(function () {
+        // A timer that is not null is one still waiting: that is how a service is seen to be
+        // meant to be up while it pauses between restarts
+        instance.restart_timer = null;
         restart_now(app, service, instance);
     }, wait_ms);
     instance.restart_timer.unref();

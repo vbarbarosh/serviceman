@@ -29,6 +29,7 @@ async function stop_now(app, service, instance, reason)
     instance.phase = 'stopping';
     instance.asked_to_stop = true;
     clearTimeout(instance.restart_timer);
+    instance.restart_timer = null;
     log_event(app, 'service_stop_begin', {service: service.name, instance: instance.slot, reason});
     try {
         if (service.type === 'docker') {

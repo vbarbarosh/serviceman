@@ -13,6 +13,9 @@ function state_from_service(service)
         // What serviceman is doing to it right now, in words, when that is nothing the phase
         // can say: fetching the program takes minutes and the service is stopped the whole time
         doing: null,
+        // The work serviceman does to it as a whole, which another such work waits for: a new
+        // version put in place, the program fetched again. A start is not one of them.
+        work: null,
         // How far that work is, from 0 to 1, when it is the kind of work that can be measured,
         // and the numbers behind it in words
         progress: null,
@@ -24,6 +27,8 @@ function state_from_service(service)
         gave_up_at: null,
         stopped_at: null,
         stop_promise: null,
+        // Work on its folder that every start waits for: a new version being put in place
+        hold_promise: null,
         // How long the last copy took to answer, from the order to start to the first reply.
         // It is what a visitor waits through, and what the autoscaler has to start ahead of.
         cold_start_ms: null,
@@ -67,6 +72,9 @@ function instance_new(slot)
         inflight: 0,
         requests: 0,
         start_promise: null,
+        // The start is past what it waits for and at work: a hold waits for it to end, where
+        // a start still waiting for the hold would wait for the hold forever
+        start_under_way: false,
         stop_promise: null,
         pid: null,
         asked_to_stop: false,

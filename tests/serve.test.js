@@ -1379,9 +1379,10 @@ test('an app folder takes a new version and keeps its data/', async function () 
     }
 });
 
-// A new version whose bin/configure fails leaves the app as it ran: the old folder is the app
-// again, data/ in it, and the new one waits where it was sent, to be looked at
-test('an app folder whose new version cannot be configured keeps the version it had', async function () {
+// There is no way back once the folders are swapped: a new version whose bin/configure fails
+// is the app from then on, data/ in it, the old one gone, and the service says why; it is not
+// started, by a request either, until somebody asks
+test('an app folder whose new version cannot be configured keeps the new version, not set up', async function () {
     const port = await free_port();
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
     const folder = path.join(dir, 'appdir');
@@ -1391,6 +1392,7 @@ test('an app folder whose new version cannot be configured keeps the version it 
     const running = await serviceman_start([
         {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
     ]);
+    const service = running.app.service_by_name.appdir;
     try {
         app_version_write(`${folder}.new`, 'v2');
         fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'configure'), '#!/bin/sh\necho "v2 cannot be set up here" >&2\nexit 1\n', {mode: 0o755});
@@ -1398,13 +1400,20 @@ test('an app folder whose new version cannot be configured keeps the version it 
         const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
         assert.strictEqual(replaced.status, 502);
         assert.match(JSON.parse(replaced.body).error, /v2 cannot be set up here/);
-        assert.strictEqual(service_phase(running.app.service_by_name.appdir), 'running', 'it was running, and runs the version it had');
-        assert.strictEqual(running.app.service_by_name.appdir.state.last_error, null, 'nothing about the app failed');
+        assert.strictEqual(service_phase(service), 'stopped', 'not started: bin/run in a folder that is not set up is a crash');
+        const view = view_from_service(service);
+        assert.strictEqual(view.gave_up, true, 'the page shows it failed');
+        assert.match(view.error, /v2 cannot be set up here.*the new version is in place, but not set up/);
 
-        const answer = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
-        assert.strictEqual(answer.body, 'v1 configured, data: written by v1');
-        assert.ok(fs.existsSync(path.join(`${folder}.new`, 'server.js')), 'the version that failed waits where it was sent');
-        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+        assert.ok(fs.existsSync(path.join(folder, 'server.js')));
+        assert.match(fs.readFileSync(path.join(folder, 'server.js'), 'utf8'), /'v2 '/, 'the new version is the folder');
+        assert.strictEqual(fs.readFileSync(path.join(folder, 'data', 'kept.txt'), 'utf8'), 'written by v1', 'data/ is in it');
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false);
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false, 'the old version is gone');
+
+        const asked = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(asked.status, 502, 'a request is told why, and runs nothing');
+        assert.strictEqual(service_phase(service), 'stopped');
     }
     finally {
         await running.close();
@@ -1438,8 +1447,9 @@ test('an app folder is configured, then built, before it runs, and so is its new
         const failed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
         assert.strictEqual(failed.status, 502);
         assert.match(JSON.parse(failed.body).error, /v3 does not build/);
-        const third = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
-        assert.strictEqual(third.body, 'v2 configured, built, data: none', 'the version it had');
+        assert.strictEqual(service_phase(running.app.service_by_name.appdir), 'stopped', 'v3 is in place, not built, and not started');
+        assert.ok(fs.existsSync(path.join(folder, 'configured.txt')), 'v3 was configured before its build failed');
+        assert.match(fs.readFileSync(path.join(folder, 'server.js'), 'utf8'), /'v3 '/);
     }
     finally {
         await running.close();
@@ -1464,6 +1474,101 @@ test('an app folder with bin/configure as its line is built when its new version
         assert.strictEqual(replaced.status, 200, replaced.body);
         const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(second.body, 'v2 configured, built, data: none');
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// The app is stopped whatever it is doing, and nothing starts it before its new version is set
+// up: not the restart of a bin/run that falls over at once, not a request. The new version is
+// started after bin/configure, and data/ comes across.
+test('an app folder in its restart pause takes a new version, and bin/run waits for bin/configure', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    const story = path.join(dir, 'story.txt');
+    app_version_write(folder, 'v1');
+    fs.writeFileSync(path.join(folder, 'bin', 'run'), `#!/bin/sh\necho "run v1" >> ${story}\nexit 3\n`, {mode: 0o755});
+    fs.mkdirSync(path.join(folder, 'data'));
+    fs.writeFileSync(path.join(folder, 'data', 'kept.txt'), 'written by v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run', policy: {restart: 'on_failure'}},
+    ]);
+    const service = running.app.service_by_name.appdir;
+    try {
+        // v1 falls over at once, and waits to be started again
+        service_ensure_running(running.app, service).catch(function () {});
+        await wait_until(() => running.app.log_lines.some(v => /\[program_restart_wait\] service=appdir/.test(v)), 10000);
+
+        app_version_write(`${folder}.new`, 'v2');
+        fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'configure'), [
+            '#!/bin/sh',
+            `echo "configure begin" >> ${story}`,
+            'sleep 2.5',
+            'echo configured > configured.txt',
+            `echo "configure end" >> ${story}`,
+            '',
+        ].join('\n'), {mode: 0o755});
+        fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'run'), `#!/bin/sh\necho "run v2" >> ${story}\nexec ${process.execPath} server.js\n`, {mode: 0o755});
+        const replaced = fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        await wait_until(() => fs.readFileSync(story, 'utf8').includes('configure begin'), 10000);
+        assert.strictEqual(service.state.doing, 'taking its new version');
+        const again = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(again.status, 409, 'a second replace waits for the first');
+        // A visitor while it is set up waits for it, and gets the new version
+        const visit = fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+
+        const answer = await replaced;
+        assert.strictEqual(answer.status, 200, answer.body);
+        assert.strictEqual(JSON.parse(answer.body).phase, 'running', 'the new one is started');
+        assert.strictEqual((await visit).body, 'v2 configured, data: written by v1');
+
+        const lines = fs.readFileSync(story, 'utf8').trim().split('\n');
+        const begin = lines.indexOf('configure begin');
+        const end = lines.indexOf('configure end');
+        assert.ok((begin !== -1) && (end > begin), lines.join(' | '));
+        assert.deepStrictEqual(lines.slice(begin + 1, end), [], 'nothing ran while bin/configure did');
+        assert.deepStrictEqual(lines.slice(end + 1), ['run v2'], 'v2 is started once, after it');
+        assert.strictEqual(service.state.doing, null);
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// The same with nothing to wait an answer from: a program with no port is up as soon as it
+// runs, so between two falls there is no start on the way, only the timer of the next one
+test('an app folder with no port, between two restarts, takes a new version, and bin/run waits for bin/configure', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    const story = path.join(dir, 'story.txt');
+    fs.mkdirSync(path.join(folder, 'bin'), {recursive: true});
+    fs.writeFileSync(path.join(folder, 'bin', 'run'), `#!/bin/sh\necho "run v1" >> ${story}\nexit 3\n`, {mode: 0o755});
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', cwd: folder, command: 'bin/run', policy: {start: 'always', restart: 'on_failure'}},
+    ]);
+    const service = running.app.service_by_name.appdir;
+    try {
+        // It starts with serviceman, falls over, and waits to be started again
+        await wait_until(() => service.state.instances[0].restart_timer !== null, 10000);
+        assert.strictEqual(service.state.instances[0].start_promise, null, 'nothing on the way: only the timer');
+
+        fs.mkdirSync(path.join(`${folder}.new`, 'bin'), {recursive: true});
+        fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'configure'), `#!/bin/sh\necho "configure begin" >> ${story}\nsleep 2.5\necho "configure end" >> ${story}\n`, {mode: 0o755});
+        fs.writeFileSync(path.join(`${folder}.new`, 'bin', 'run'), `#!/bin/sh\necho "run v2" >> ${story}\nexec sleep 30\n`, {mode: 0o755});
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(replaced.status, 200, replaced.body);
+        assert.strictEqual(service_phase(service), 'running');
+
+        const lines = fs.readFileSync(story, 'utf8').trim().split('\n');
+        const begin = lines.indexOf('configure begin');
+        const end = lines.indexOf('configure end');
+        assert.ok((begin !== -1) && (end > begin), lines.join(' | '));
+        assert.deepStrictEqual(lines.slice(begin + 1), ['configure end', 'run v2'], 'no v1 restart during or after bin/configure, and v2 once after it');
     }
     finally {
         await running.close();
