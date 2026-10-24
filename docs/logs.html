@@ -1075,6 +1075,30 @@ config is shortened, because the real one was a scratch folder.</p>
 <td>A copy was stopped: the pool is bigger than the work.</td>
 </tr>
 <tr>
+<td><code>service_replace_begin</code></td>
+<td>An app folder takes the new version sent to <code>&lt;folder&gt;.new</code>, and what it was doing.</td>
+</tr>
+<tr>
+<td><code>service_replace_end_ok</code></td>
+<td>The new version is in and started; <code>data_dropped</code> when it brought a <code>data/</code> of its own, set aside.</td>
+</tr>
+<tr>
+<td><code>service_replace_end_error</code></td>
+<td>What refused or failed: nothing waiting, a <code>.old</code> left, <code>bin/configure</code> or <code>bin/build</code>.</td>
+</tr>
+<tr>
+<td><code>service_zip_begin</code></td>
+<td>A new version came as a zip, by <code>PUT</code>, and how big.</td>
+</tr>
+<tr>
+<td><code>service_zip_end_ok</code></td>
+<td>Its files went to the machine and the replace is done: how many, their bytes, and the files of its own <code>data/</code> left out.</td>
+</tr>
+<tr>
+<td><code>service_zip_end_error</code></td>
+<td>Why not: no app in the zip, a token that does not see the machine, or what the replace said.</td>
+</tr>
+<tr>
 <td><code>image_pull_begin</code></td>
 <td>An image is missing on a machine and is being fetched.</td>
 </tr>

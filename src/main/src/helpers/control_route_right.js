@@ -9,12 +9,14 @@ const module_route = require('./module_route');
 //     right    its name, as a token holds it
 //     said     what a refusal says the token may not do
 //     methods  the methods it allows
-//     re       the route, the machine's name its first group
+//     re       the route, the machine's name its first group; a route of a service names no
+//              machine here, and the route itself keeps the token to the machines it sees
 const RIGHTS = [
     {right: 'status', said: 'read the status', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/status$/},
     {right: 'metrics', said: 'read the charts', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/metrics$/},
     {right: 'metrics', said: 'read the uptime', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/uptime$/},
     {right: 'ports', said: 'read the ports', methods: ['GET', 'HEAD'], re: /^\/api\/v1\/remotes\/([^/]+)\/ports$/},
+    {right: 'versions', said: 'send a new version of an app', methods: ['PUT'], re: /^\/api\/v1\/services\/[^/]+\/zip$/},
 ];
 
 // The right a request needs, {right, said, remote}, remote null for one of no machine; null

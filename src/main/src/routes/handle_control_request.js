@@ -3,6 +3,7 @@ const agent_install_sh = require('../helpers/agent_install_sh');
 const app_apply_config = require('../helpers/app_apply_config');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
+const body_bytes_read = require('../body_bytes_read');
 const body_read = require('../body_read');
 const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
@@ -65,6 +66,7 @@ const service_replace = require('../helpers/service_replace');
 const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
+const service_zip_replace = require('../helpers/service_zip_replace');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
 const stream_open = require('../helpers/stream_open');
@@ -83,8 +85,11 @@ const volumes_serve = require('../../../../modules/volumes/server/volumes_serve'
 const wants_html = require('../wants_html');
 
 const BODY_LIMIT_BYTES = 1024*1024;
+// A zip of an app folder, held whole while it is read: an app, not a disk image
+const ZIP_LIMIT_BYTES = 256*1024*1024;
 
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
+const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -470,6 +475,11 @@ async function control_answer(app, req, res)
     const action = RE_ACTION.exec(url.pathname);
     if (action !== null) {
         handle_action(app, req, res, decodeURIComponent(action[1]), action[2]);
+        return;
+    }
+    const zip = RE_ZIP.exec(url.pathname);
+    if (zip !== null) {
+        await handle_zip(app, req, res, decodeURIComponent(zip[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -1335,6 +1345,43 @@ function handle_action(app, req, res, name, action)
         log_event(app, 'control_error', {service: service.name, reason: error.message});
     });
     send_json(res, 202, view_from_service(service));
+}
+
+// PUT /api/v1/services/<name>/zip   a new version of an app folder, the zip as the body
+// What the page does when a zip is picked on a service's page, as one call for a script:
+// `curl -T app.zip`. The caller waits for the new version to be in and running, and is told
+// what failed, or how many files of a data/ the zip brought were left out.
+async function handle_zip(app, req, res, name)
+{
+    if (req.method !== 'PUT') {
+        send_json(res, 405, {error: 'a new version is a PUT with the zip as its body: curl -T app.zip'});
+        return;
+    }
+    const service = app.service_by_name[name];
+    if (service === undefined) {
+        send_json(res, 404, {error: `no service named ${name}`});
+        return;
+    }
+    let zip;
+    try {
+        zip = await body_bytes_read(req, ZIP_LIMIT_BYTES);
+    }
+    catch (error) {
+        send_json(res, 413, {error: `the zip was not read whole: ${error.message}`});
+        return;
+    }
+    if (zip.length === 0) {
+        send_json(res, 400, {error: 'the body is empty: the zip goes as the body, curl -T app.zip'});
+        return;
+    }
+    try {
+        const done = await service_zip_replace(app, service, zip, req.control_token);
+        send_json(res, 200, Object.assign(view_from_service(service), done));
+    }
+    catch (error) {
+        log_event(app, 'control_error', {service: service.name, reason: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+    }
 }
 
 // GET /api/v1/secrets

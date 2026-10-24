@@ -252,6 +252,12 @@ config is shortened, because the real one was a scratch folder.
 | `service_try_again`       | Something changed, so the count starts over.                |
 | `service_scale_up`        | Another copy was warmed: the queue, or the pool being busy. |
 | `service_scale_down`      | A copy was stopped: the pool is bigger than the work.       |
+| `service_replace_begin`   | An app folder takes the new version sent to `<folder>.new`, and what it was doing. |
+| `service_replace_end_ok`  | The new version is in and started; `data_dropped` when it brought a `data/` of its own, set aside. |
+| `service_replace_end_error` | What refused or failed: nothing waiting, a `.old` left, `bin/configure` or `bin/build`. |
+| `service_zip_begin`       | A new version came as a zip, by `PUT`, and how big.         |
+| `service_zip_end_ok`      | Its files went to the machine and the replace is done: how many, their bytes, and the files of its own `data/` left out. |
+| `service_zip_end_error`   | Why not: no app in the zip, a token that does not see the machine, or what the replace said. |
 | `image_pull_begin`        | An image is missing on a machine and is being fetched.      |
 | `image_pull_end_ok`       | It is there now, and how long it took.                      |
 | `image_pull_end_error`    | It could not be fetched; the first visitor will try again.  |

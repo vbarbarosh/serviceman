@@ -12,6 +12,7 @@ const RIGHTS_SAID = {
     containers: 'its docker containers',
     files: 'the file manager, within the folders below and nothing above them',
     terminals: 'list, make, join and end its kept terminals: a shell on the machine',
+    versions: 'send a new version of an app folder on it, as a zip: curl -T app.zip',
 };
 
 // The tokens of the control door: each one for an agent or a program, with the machines it

@@ -28,6 +28,7 @@ const timers = require('timers/promises');
 const view_from_service = require('../src/main/src/helpers/view_from_service');
 const volume_text = require('../src/helpers/volume_text');
 const ws = require('ws');
+const zip_bytes = require('./fixtures/zip_bytes');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const DOCKER_BIN = path.join(__dirname, 'bin', 'docker');
@@ -1380,6 +1381,83 @@ test('an app folder takes a new version and keeps its data/', async function () 
     }
 });
 
+// From a script, the same in one call: the zip as the body of a PUT, read on this side, its
+// own data/ left out and counted, its files sent beside the folder and put in its place
+test('an app folder takes a new version as a zip sent by PUT, and keeps its data/', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    fs.mkdirSync(path.join(folder, 'data'));
+    fs.writeFileSync(path.join(folder, 'data', 'kept.txt'), 'written by v1');
+    // A second machine, with no agent, for a token that sees it alone
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ], {config: {remotes: [{name: 'vps1', token: TOKEN}, {name: 'vps2', token: 'fedcba9876543210fedcba9876543210'}]}});
+    try {
+        const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(first.body, 'v1 configured, data: written by v1');
+
+        // Zipped as a working copy is: one top folder, its own data/ in it
+        const v2 = path.join(dir, 'v2');
+        app_version_write(v2, 'v2');
+        fs.mkdirSync(path.join(v2, 'data'));
+        fs.writeFileSync(path.join(v2, 'data', 'kept.txt'), 'the zip\'s own, never sent');
+        const zip = folder_zip(v2, 'app-v2');
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zip});
+        assert.strictEqual(replaced.status, 200, replaced.body);
+        const said = JSON.parse(replaced.body);
+        assert.strictEqual(said.phase, 'running', 'it was running, so it runs again');
+        assert.strictEqual(said.files, 3, 'bin/configure, bin/run and server.js went');
+        assert.strictEqual(said.data_files, 1, 'the zip\'s own data/ was left out on this side');
+        assert.strictEqual(said.data_dropped, false, 'so none of it reached the machine');
+
+        const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(second.body, 'v2 configured, data: written by v1');
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false);
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+        assert.ok(running.app.log_lines.some(v => /\[service_zip_end_ok\] service=appdir files=3 bytes=\d+ data_files=1/.test(v)));
+
+        // Refused before anything is sent, and said with the page's words: no app in it, not a
+        // zip at all, nothing at all, and the wrong verb
+        const no_run = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: folder_zip(path.join(v2, 'data'), 'notes')});
+        assert.strictEqual(no_run.status, 400, no_run.body);
+        assert.match(JSON.parse(no_run.body).error, /appdir\.zip has no bin\/run/);
+        const not_zip = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: Buffer.from('not a zip at all')});
+        assert.strictEqual(not_zip.status, 400);
+        assert.match(JSON.parse(not_zip.body).error, /is not a zip/);
+        const empty = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT'});
+        assert.strictEqual(empty.status, 400);
+        assert.match(JSON.parse(empty.body).error, /the body is empty/);
+        const posted = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'POST', body: zip});
+        assert.strictEqual(posted.status, 405);
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false, 'nothing was sent');
+        const third = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(third.body, 'v2 configured, data: written by v1', 'the app is as it was');
+
+        // A token sends one with the versions right, to the machines it sees and no other
+        const reader = await token_make(running, {label: 'a reader', remotes: ['vps1'], rights: ['status']});
+        const no_right = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zip, token: reader});
+        assert.deepStrictEqual([no_right.status, JSON.parse(no_right.body).error], [403, 'the token "a reader" may not send a new version of an app']);
+        const away = await token_make(running, {label: 'the deployer of vps2', remotes: ['vps2'], rights: ['versions']});
+        const not_seen = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zip, token: away});
+        assert.deepStrictEqual([not_seen.status, JSON.parse(not_seen.body).error], [403, 'the token "the deployer of vps2" may not see vps1']);
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false, 'refused before anything is sent');
+        const deployer = await token_make(running, {label: 'the deployer', remotes: ['vps1'], rights: ['versions']});
+        const v3 = path.join(dir, 'v3');
+        app_version_write(v3, 'v3');
+        const sent = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: folder_zip(v3, 'app-v3'), token: deployer});
+        assert.strictEqual(sent.status, 200, sent.body);
+        assert.strictEqual(JSON.parse(sent.body).data_files, null, 'this one brought no data/');
+        const fourth = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(fourth.body, 'v3 configured, data: written by v1');
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // There is no way back once the folders are swapped: a new version whose bin/configure fails
 // is the app from then on, data/ in it, the old one gone, and the service says why; it is not
 // started, by a request either, until somebody asks
@@ -2169,6 +2247,37 @@ function app_version_write(folder, version, built)
         '}).listen(Number(process.env.PORT), \'127.0.0.1\');',
         '',
     ].join('\n'));
+}
+
+// A token of the control door, made as the Tokens tab makes one; what comes back is the token
+async function token_make(running, body)
+{
+    const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify(body)});
+    assert.strictEqual(answer.status, 200, answer.body);
+    return JSON.parse(answer.body).token;
+}
+
+// A folder as a zip, as a working copy is zipped on unix: everything under one top folder,
+// each file with its mode
+function folder_zip(folder, top)
+{
+    const files = [{name: `${top}/`, bytes: null}];
+    folder_walk(folder, `${top}/`, files);
+    return zip_bytes(files);
+}
+
+function folder_walk(dir, prefix, files)
+{
+    for (const name of fs.readdirSync(dir).sort()) {
+        const full = path.join(dir, name);
+        const stat = fs.statSync(full);
+        if (stat.isDirectory()) {
+            files.push({name: `${prefix}${name}/`, bytes: null});
+            folder_walk(full, `${prefix}${name}/`, files);
+            continue;
+        }
+        files.push({name: `${prefix}${name}`, bytes: fs.readFileSync(full), mode: stat.mode & 0o7777});
+    }
 }
 
 async function serviceman_start(services, options)

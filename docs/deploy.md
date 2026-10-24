@@ -186,9 +186,12 @@ Even on this machine, and through the control socket, nothing gets in without a 
   gets past it. A folder not there yet lists empty and is made by the first write into it.
   Copies between machines stay the owner's. `terminals` lists, makes, joins, signals and ends the kept terminals of its
   machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
-  to them. It is shown once, and only its hash is kept, in
-  `data/control_tokens.json`. It never touches the config, a secret, a service or another
-  machine, and opens no other shell. **Edit…** changes its label, machines (**every
+  to them. `versions` sends a new version of an app folder on its machines, as a zip
+  (`PUT /api/v1/services/<name>/zip`,
+  [A new version of an app folder](config.md#a-new-version-of-an-app-folder)): what it sends
+  runs there as the app, so it is a key to those apps. It is shown once, and only its hash is kept, in
+  `data/control_tokens.json`. It never touches the config, a secret, another
+  machine, or a service but the one it sends a new version to, and opens no other shell. **Edit…** changes its label, machines (**every
   machine**, those added later too, is one tick), rights and folders in place, the token
   staying the same; **Rotate…** gives it a new value, shown once, the old one refused at once;
   **Revoke…** ends it.
