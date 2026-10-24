@@ -1437,11 +1437,11 @@ const service_page = {
                     {{ (view.doing === null ? 'Fetch again' : 'Fetching…') }}
                 </button>
                 <template v-if="(view.app_folder !== null)">
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.folder.click()">
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer, put in place as soon as it is picked: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.folder.click()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
                         New folder…
                     </button>
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.zip.click()">
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip, put in place as soon as it is picked: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.zip.click()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V5M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
                         New zip…
                     </button>
@@ -1458,18 +1458,20 @@ const service_page = {
         </div>
         <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">Logs in Logline ↗</a>
     </div>
-    <!-- A new version of an app folder: what it is, what happens to the folder, then Replace -->
-    <div v-if="(version_new !== null)" class="version-wrap"><div class="version-bar" :class="{failed: (version_new.problem !== null || version_new.error !== null)}">
+    <!-- A new version of an app folder goes in as soon as it is picked: the browser's pick is
+         the ask. The bar says what it is, what happens to the folder, and how far it got; it
+         stays with its own service when the page walks to another -->
+    <div v-if="version_shown" class="version-wrap"><div class="version-bar" :class="{failed: (version_new.problem !== null || version_new.error !== null)}">
         <p v-if="(version_new.problem !== null)" class="err">{{ version_new.problem }}</p>
         <p v-else-if="version_new.done">{{ version_new.label }} is the app now, with its data/ as it was.</p>
         <p v-else>
             <code>{{ version_new.label }}</code> <span class="muted">— {{ version_new.files === 1 ? 'one file' : version_new.files + ' files' }}, {{ size_text(version_new.size) }}.</span>
-            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ setup_text(version_new) }}, and <code>data/</code> is put back{{ view.phase === 'running' ? '; the app stops meanwhile and starts again' : '' }}.
+            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ setup_text(version_new) }}, and <code>data/</code> is put back; the app is down meanwhile, and starts on the new version.
         </p>
-        <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }} — {{ view.name }} runs the version it had, data/ as it was; the new files wait in <code>{{ view.app_folder }}.new</code>.</p>
+        <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }}</p>
         <div class="acts">
-            <button v-if="(version_new.problem === null && version_new.done === false)" type="button" class="primary" :disabled="version_busy" @click="version_replace">{{ version_busy ? 'Replacing…' : 'Replace' }}</button>
-            <button type="button" :disabled="version_busy" @click="version_new = null">{{ (version_new.problem === null && version_new.done === false) ? 'Cancel' : 'Close' }}</button>
+            <button v-if="(version_new.error !== null)" type="button" class="primary" :disabled="version_busy" @click="version_replace">Try again</button>
+            <button v-if="(version_busy === false)" type="button" @click="version_new = null">Close</button>
             <span class="muted">{{ version_note }}</span>
         </div>
     </div></div>
@@ -1513,8 +1515,8 @@ const service_page = {
     emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
-        // version_new: a new version of an app folder, a folder or a zip read and waiting for
-        // Replace (app_entries_read, with done and error)
+        // version_new: a new version of an app folder, a folder or a zip read and on its way
+        // (app_entries_read, with the service it is for, done and error)
         return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: ''};
     },
     computed: {
@@ -1539,6 +1541,9 @@ const service_page = {
         },
         waiting: function () {
             return (this.busy === true) || (this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping');
+        },
+        version_shown: function () {
+            return (this.version_new !== null) && (this.version_new.service === this.view.name);
         },
     },
     watch: {
@@ -1581,22 +1586,30 @@ const service_page = {
             }
             const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
             this.version_note = '';
-            this.version_new = Object.assign(read, {done: false, error: null});
+            this.version_new = Object.assign(read, {service: this.view.name, done: false, error: null});
+            if (read.problem === null) {
+                await this.version_replace();
+            }
         },
         // The new files go beside the folder, to <folder>.new, and serviceman puts them in its
-        // place; what a try before left there goes first, so the new version is these files alone
+        // place; what a try before left there goes first, so the new version is these files alone.
+        // The service, its folder and its machine are taken once: the page may walk to another
+        // service meanwhile.
         version_replace: async function () {
             const zip = this.version_new;
+            const name = this.view.name;
             const folder = this.view.app_folder;
             const running = this.view.instances.find(v => v.remote !== null);
             const machine = (running === undefined) ? this.place.name : running.remote;
+            let sent = false;
             this.version_busy = true;
             zip.error = null;
             try {
                 await fetch(`/api/v1/remotes/${encodeURIComponent(machine)}/fs/delete`, {method: 'POST', body: JSON.stringify({path: `${folder}.new`})});
                 await app_files_send(zip, machine, `${folder}.new`, v => this.version_note = v);
+                sent = true;
                 this.version_note = 'putting it in place, setting it up, starting it…';
-                const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/replace`, {method: 'POST'});
+                const answer = await fetch(`/api/v1/services/${encodeURIComponent(name)}/replace`, {method: 'POST'});
                 const said = await answer.json();
                 if (answer.ok === false) {
                     throw new Error(said.error);
@@ -1604,7 +1617,9 @@ const service_page = {
                 zip.done = true;
             }
             catch (error) {
-                zip.error = error.message;
+                // Before the files are all there, nothing of the app was touched; after, what
+                // serviceman says is where it stopped
+                zip.error = sent ? error.message : `${error.message} — nothing was replaced: ${name} is as it was.`;
             }
             finally {
                 this.version_busy = false;

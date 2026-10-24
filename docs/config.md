@@ -530,7 +530,9 @@ form makes one) takes a new version the two ways it was made: **New folder…** 
 on its page, in place of **Fetch again**. What the app keeps lives in its `data/`, and that is
 all that outlives a new version:
 
-1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`;
+1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`,
+   as soon as it is picked: the browser's pick is the only ask. One that is no app (empty, with
+   no `bin/run`, holding links) is said on the page, and nothing is sent;
 2. serviceman stops the app, whatever it is doing: running, starting, or failed and waiting to
    be started again;
 3. it sets the folder aside as `<folder>.old` and puts `<folder>.new` in its place;

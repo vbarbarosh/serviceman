@@ -836,6 +836,12 @@ ul.tried {
     min-height: 0;
 }
 
+/* A new version on its way is a row of its own between the crumbs and the tabs: without one
+   of its own the tabs take the stretched row, and the pane is pushed under the page's foot */
+#page:has(> .version-wrap) {
+    grid-template-rows: auto auto auto 1fr;
+}
+
 /* Where a page sits: its kind, the machine it runs on, then its own name */
 .crumbs {
     display: flex;

@@ -1378,7 +1378,9 @@ form makes one) takes a new version the two ways it was made: <strong>New folder
 on its page, in place of <strong>Fetch again</strong>. What the app keeps lives in its <code>data/</code>, and that is
 all that outlives a new version:</p>
 <ol>
-<li>the page reads the folder or the zip and sends its files beside the folder, to <code>&lt;folder&gt;.new</code>;</li>
+<li>the page reads the folder or the zip and sends its files beside the folder, to <code>&lt;folder&gt;.new</code>,
+as soon as it is picked: the browser&#39;s pick is the only ask. One that is no app (empty, with
+no <code>bin/run</code>, holding links) is said on the page, and nothing is sent;</li>
 <li>serviceman stops the app, whatever it is doing: running, starting, or failed and waiting to
 be started again;</li>
 <li>it sets the folder aside as <code>&lt;folder&gt;.old</code> and puts <code>&lt;folder&gt;.new</code> in its place;</li>
