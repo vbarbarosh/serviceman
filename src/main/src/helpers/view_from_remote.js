@@ -73,6 +73,7 @@ function machine_of(state)
         arch: resources.arch,
         node: resources.node,
         dir: (resources.dir === undefined) ? null : resources.dir,
+        services: services_of(resources),
         docker: resources.docker,
         // null says the agent is from before the naming — not the same as an empty list
         can: Array.isArray(resources.can) ? resources.can : null,
@@ -100,6 +101,19 @@ function machine_of(state)
         // null is no door — an agent from before them, or one whose link is not up.
         door: ((stats === null) || (stats.door === undefined)) ? null : stats.door,
     };
+}
+
+// The folder its agent installs into. An agent before 1.23 does not say, and installs into
+// services/ under its own folder unless it was told another
+function services_of(resources)
+{
+    if (typeof resources.services === 'string') {
+        return resources.services;
+    }
+    if (typeof resources.dir === 'string') {
+        return `${resources.dir.replace(/\/+$/, '')}/services`;
+    }
+    return null;
 }
 
 module.exports = view_from_remote;

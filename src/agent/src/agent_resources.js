@@ -6,6 +6,7 @@ const agent_doors_state = require('./agent_doors_state');
 const agent_logline_read = require('./agent_logline_read');
 const agent_os = require('./agent_os');
 const agent_peer_serve = require('./agent_peer_serve');
+const agent_services_dir = require('./agent_services_dir');
 const agent_shell = require('./agent_shell');
 const crypto = require('crypto');
 const docker_socket_path = require('../../helpers/docker_socket_path');
@@ -42,6 +43,9 @@ async function agent_resources(options)
         // Where this agent lives. What a service keeps is a folder under it, and the host has
         // to write that path into a `docker run` line it builds here.
         dir: agent_dir(),
+        // Where what it installs lives, the app folders sent to it as a zip among them: a page
+        // that sends one writes its files there
+        services: agent_services_dir(),
         // Where other machines see this one: what Logline binds this machine's token to
         addresses: agent_addresses(),
         // What it was last told about Logline, so the host tells it only what changed. The

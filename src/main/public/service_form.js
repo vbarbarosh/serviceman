@@ -34,9 +34,6 @@ const SHORT_WORDS = {
     shell: 'a folder with bin/run in it, on a machine of yours',
 };
 
-// Where a zip dropped on the form is unpacked on its machine, by the app's name
-const ZIP_HOME = '~/apps';
-
 // The ports an app folder is given, the first one free from here: well away from serviceman's
 // own and from what most dev servers take
 const APP_PORT_FIRST = 8080;
@@ -815,7 +812,10 @@ const service_form = {
                 out.command = 'A program needs the line that runs it.';
             }
             if ((model.type === 'shell') && this.simple && this.creating) {
-                if (this.tried && (model.cwd === '')) {
+                if (this.tried && (model.cwd === '') && (this.app_zip !== null)) {
+                    out.cwd = 'Its machine has not said where its agent keeps what it installs — it is offline, or has not dialled in yet: type a folder for the zip.';
+                }
+                else if (this.tried && (model.cwd === '')) {
                     out.cwd = 'Where the app is on that machine is needed: the folder with bin/run in it.';
                 }
                 else if ((this.app_zip !== null) && (this.app_zip.problem !== null)) {
@@ -1128,6 +1128,9 @@ const service_form = {
                 return;
             }
             this.ports_read();
+            if (this.app_zip !== null) {
+                this.zip_follow(this.app_zip.name);
+            }
             this.app_look();
         },
         // The whole form takes over from what the short one would make
@@ -1158,16 +1161,25 @@ const service_form = {
                 this.short_kind('shell');
             }
             const name = name_free(name_from_folder(file.name.replace(/\.zip$/i, '')), this.names || []);
-            const zip = Object.assign(await app_zip_read(file), {name, folder: `${ZIP_HOME}/${name}`});
             const given = (this.app_zip === null) ? '' : this.app_zip.folder;
-            if ((this.m.cwd === '') || (this.m.cwd === given)) {
-                this.m.cwd = zip.folder;
-            }
-            this.app_zip = zip;
+            this.app_zip = Object.assign(await app_zip_read(file), {name, folder: given});
+            this.zip_follow(name);
             this.app_look();
         },
+        // A zip goes where its machine's agent keeps everything it installs, in a folder named
+        // after the app, and follows the machine while the folder is still the one given here
+        zip_follow: function (name) {
+            const zip = this.app_zip;
+            const found = this.remotes.find(v => v.name === this.m.places[0].text);
+            const home = ((found === undefined) || (found.machine === null) || (found.machine.services === null)) ? null : found.machine.services;
+            const folder = (home === null) ? '' : `${home.replace(/\/+$/, '')}/${name}`;
+            if ((this.m.cwd === '') || (this.m.cwd === zip.folder)) {
+                this.m.cwd = folder;
+            }
+            zip.folder = folder;
+        },
         zip_forget: function () {
-            if (this.m.cwd === this.app_zip.folder) {
+            if ((this.app_zip.folder !== '') && (this.m.cwd === this.app_zip.folder)) {
                 this.m.cwd = '';
             }
             this.app_zip = null;
