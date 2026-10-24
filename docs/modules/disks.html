@@ -727,8 +727,8 @@ the base, and decides who may ask.</p>
 run over there by the machine&#39;s agent. <strong>What takes the space</strong>, on the list or on a disk&#39;s row,
 counts that disk&#39;s folders and shows them biggest first, each with its share; a click on a folder
 opens the folders inside it, counted then. Above them it says what the count cannot see: the
-folders the agent could not read, the space in no folder counted, and what docker and the
-system journal keep. A machine&#39;s Overview leads there from its Disk card.</p>
+folders the agent could not read, files deleted but still held open, the space in no folder
+counted, and what docker and the system journal keep. A machine&#39;s Overview leads there from its Disk card.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/disks_serve.js         the HTTP API, given read()
 server/disks_manifest.js      its kinds of items and the commands on them
@@ -772,11 +772,15 @@ tmpfs, overlay and loop mounts, which the list hides until asked.</li>
 <li><code>total</code>, <code>used</code>, <code>free</code> are bytes; the inodes are <code>null</code> where the filesystem does not count
 them.</li>
 <li><code>key_of</code> names the pool whose key this small volume holds (Ubuntu&#39;s encrypted ZFS), or null.</li>
-<li><code>usage</code> answers <code>{path, total, files, folders: [{path, size}], unread: [path], took_ms, extras}</code>: the folders in that folder with their sizes, biggest first, counted on its own disk
-alone (<code>du -x</code> over there), <code>files</code> what lies in the folder itself, <code>unread</code> the folders that
-could not be read, whose size is then in no folder; <code>rooted</code> is true when the machine counted
-it as root, which reads every folder. With <code>extras=1</code>, <code>extras</code> is <code>{docker: [{what, size}], docker_root, journal}</code>, what docker and the journal say they keep and the folder docker keeps
-it in, <code>null</code> where they cannot say.</li>
+<li><code>usage</code> answers <code>{path, total, files, folders: [{path, size}], unread: [path], took_ms, type, parts: [{path, size}], deleted, extras}</code>: the folders in that folder with their sizes,
+biggest first, counted on its own disk alone (<code>du -x</code> over there), <code>files</code> what lies in the
+folder itself, <code>unread</code> the folders that could not be read, whose size is then in no folder;
+<code>rooted</code> is true when the machine counted it as root, which reads every folder. <code>type</code> is
+the filesystem&#39;s, <code>parts</code> the places in the folder where the same disk is mounted again on
+its own (a btrfs subvolume), counted apart and added in. <code>deleted</code> is <code>{size, programs: [{pid, name, size}]}</code>, files deleted but still open on that disk, for a folder a disk is mounted at
+(<code>null</code> for any other, and absent from an older agent). With <code>extras=1</code>, <code>extras</code> is
+<code>{docker: [{what, size}], docker_root, docker_driver, journal}</code>, what docker and the journal
+say they keep, the folder docker keeps it in and how, <code>null</code> where they cannot say.</li>
 <li><code>usage_progress</code> answers <code>{path, counting, took_ms, folders: [{path, size}], waiting, waiting_shown: [path]}</code>: the folders counted so far, biggest first, how many are still to
 come and the first of them by name. <code>counting</code> is false when no count of that folder runs. Only names and sizes: nothing is read out of a file. A path that is not from
 the root is a 400.</li>

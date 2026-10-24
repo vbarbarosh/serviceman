@@ -990,14 +990,20 @@ is pressed, never on a clock. The ports it listens on are in the <strong>Firewal
 <p><strong>Disks</strong> is every filesystem mounted there, from <code>df</code>, and <strong>What takes the space</strong> counts
 where a disk&#39;s space went: its folders, biggest first, each with its share of what the disk
 uses, and a click on one opens the folders inside it. It is <code>du -x</code> run over there, on that disk
-alone, when asked: a minute on a big disk. While it runs, the folders already counted show at
+alone, when asked: a minute on a big disk. Where the same disk is mounted again inside the
+folder on its own (a btrfs subvolume such as <code>/home</code>, which <code>du -x</code> stops at), that part is
+counted too and added where it sits. While it runs, the folders already counted show at
 once and can be opened, with a clock, a bar of what has been found so far, and the folders still
 to come. It is counted as root where the machine has the agent&#39;s root half, and every folder is
 seen; without one it runs as the agent&#39;s user, and the tree still adds up to what the disk
 uses: a folder it could not read says so, docker&#39;s folder and the journal&#39;s take the size
-docker and journald say they keep, and <strong>In no folder counted</strong> is the rest (those folders, or
-files deleted while a program still holds them open). Above the tree, for <code>/</code>, what docker and
-the system journal say they keep. A machine&#39;s Overview leads there from its Disk card.</p>
+docker and journald say they keep, and on btrfs, docker&#39;s layers (subvolumes <code>du -x</code> does not go
+into) take the size docker says. <strong>Deleted files, still open</strong> is what files deleted while a
+program still holds them open take on that disk, found through the programs&#39; open files and
+named by program: every program as root, only the agent&#39;s user&#39;s own without. <strong>In no folder
+counted</strong> is the rest, and says only what is known of it: the folders that could not be read,
+and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Above the tree, for
+<code>/</code>, what docker and the system journal say they keep. A machine&#39;s Overview leads there from its Disk card.</p>
 <p><strong>Packages</strong> is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package&#39;s need, and — from
 <code>apt-get -s upgrade --with-new-pkgs</code>, a dry run that needs no root — the version an upgrade would bring, marked

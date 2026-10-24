@@ -1,5 +1,6 @@
 const child_process = require('child_process');
 const fs = require('fs');
+const mounts_read = require('./mounts_read');
 const path = require('path');
 
 const RUN_TIMEOUT_MS = 600000;
@@ -268,34 +269,6 @@ function link_read(file)
     catch {
         return null;
     }
-}
-
-// /proc/<pid>/mountinfo: 36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root rw
-// peers are the optional fields between the options and the dash: shared:N, master:N
-function mounts_read(file)
-{
-    let text = '';
-    try {
-        text = fs.readFileSync(file, 'utf8');
-    }
-    catch {
-        return [];
-    }
-    const out = [];
-    for (const line of text.split('\n')) {
-        const halves = line.split(' - ');
-        if (halves.length < 2) {
-            continue;
-        }
-        const fields = halves[0].split(' ');
-        out.push({point: octal_unescape(fields[4]), source: octal_unescape(halves[1].split(' ')[1]), peers: fields.slice(6)});
-    }
-    return out;
-}
-
-function octal_unescape(text)
-{
-    return String(text).replace(/\\([0-7]{3})/g, (match, code) => String.fromCharCode(parseInt(code, 8)));
 }
 
 module.exports = {

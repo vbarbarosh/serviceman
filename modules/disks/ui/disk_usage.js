@@ -6,8 +6,9 @@ import format_bytes from '../../format_bytes.js';
 // while it is counted, the folders done so far show at once, already to be opened, with a
 // clock and the folders still to come. What the agent could not read is in the tree too: a
 // folder it could not read says so, docker's and the journal's own folders take the size they
-// say they keep, and what is still in no folder is a row of its own. The space has to add up
-// to what the disk uses, or the tree does not say where it went.
+// say they keep, files deleted but still open are a row of their own, and so is what is still
+// in no folder. The space has to add up to what the disk uses, or the tree does not say where
+// it went; and what the tree says of a row is what was counted or said, never a guess.
 //
 //     disk  {mounts, used, total}, the row of the disk list
 const PROGRESS_EVERY_MS = 1000;
@@ -93,27 +94,47 @@ const disk_usage = {
             return out;
         },
         // The folders whose size the count could not see but somebody else can say: docker's,
-        // as docker counts it, and the journal's, as journald does. [{path, size, who}]
+        // as docker counts it, and the journal's, as journald does, where the agent's user could
+        // not read them; and docker's layers on btrfs, each a subvolume du -x does not go into
+        // (its volumes are plain folders, counted). [{path, size, who, here}], here the word on
+        // the folder itself.
         known: function () {
-            if ((this.top === undefined) || (this.top.state !== 'done') || (this.top.answer.rooted === true)) {
+            if ((this.top === undefined) || (this.top.state !== 'done')) {
                 return [];
             }
-            const extras = this.top.answer.extras || {};
+            const answer = this.top.answer;
+            const extras = answer.extras || {};
             const said = [];
             if ((typeof extras.docker_root === 'string') && Array.isArray(extras.docker)) {
-                said.push({path: extras.docker_root, size: extras.docker.reduce((sum, v) => sum + v.size, 0), who: 'docker'});
+                if ((answer.rooted !== true) && this.unreadable(extras.docker_root)) {
+                    const size = extras.docker.reduce((sum, v) => sum + v.size, 0);
+                    said.push({path: extras.docker_root, size, who: 'docker', here: `could not be read: docker says it keeps ${format_bytes(size)} here`});
+                }
+                else if (extras.docker_driver === 'btrfs') {
+                    const size = extras.docker.filter(v => v.what !== 'local volumes').reduce((sum, v) => sum + v.size, 0);
+                    said.push({path: extras.docker_root, size, who: 'docker', here: `with ${format_bytes(size)} docker says it keeps here in btrfs subvolumes, which the count does not go into`});
+                }
             }
-            if (extras.journal > 0) {
-                said.push({path: '/var/log/journal', size: extras.journal, who: 'the journal'});
+            if ((extras.journal > 0) && (answer.rooted !== true) && this.unreadable('/var/log/journal')) {
+                said.push({path: '/var/log/journal', size: extras.journal, who: 'the journal', here: `could not be read: the journal says it keeps ${format_bytes(extras.journal)} here`});
             }
-            return said.filter(v => (v.size > 0) && this.inside(v.path, this.root) && this.unreadable(v.path));
+            return said.filter(v => (v.size > 0) && this.inside(v.path, this.root));
+        },
+        // Files deleted while a program still holds them open, on this disk, as the agent found
+        // them; null where it did not look (an agent from before) or found none
+        deleted: function () {
+            if ((this.top === undefined) || (this.top.state !== 'done')) {
+                return null;
+            }
+            const deleted = this.top.answer.deleted;
+            return ((deleted === undefined) || (deleted === null) || (deleted.size === 0)) ? null : deleted;
         },
         // What the disk uses that no folder holds, as far as the count and what was said go
         unseen: function () {
             if ((this.top === undefined) || (this.top.state !== 'done')) {
                 return 0;
             }
-            const missing = this.disk.used - this.top.answer.total - this.known.reduce((sum, v) => sum + v.size, 0);
+            const missing = this.disk.used - this.top.answer.total - this.known.reduce((sum, v) => sum + v.size, 0) - ((this.deleted === null) ? 0 : this.deleted.size);
             return (missing > Math.max(UNSEEN_LEAST, this.disk.used*UNSEEN_SHARE)) ? missing : 0;
         },
         // A bar is a share of what the disk uses, so the bars of the tree add up to it
@@ -139,6 +160,15 @@ const disk_usage = {
             if (extras.journal > 0) {
                 out.push({tone: '', text: `The system journal takes ${format_bytes(extras.journal)}.`});
             }
+            const parts = (answer.parts || []).map(v => v.path);
+            if (parts.length > 0) {
+                const one = (parts.length === 1);
+                out.push({tone: '', text: `${parts.join(', ')} ${one ? 'is' : 'are'} this disk too, mounted on ${one ? 'its' : 'their'} own: counted with it.`});
+            }
+            const elsewhere = this.disk.mounts.filter(v => (this.inside(v, this.root) === false));
+            if (elsewhere.length > 0) {
+                out.push({tone: '', text: `This disk is also mounted at ${elsewhere.join(', ')}, outside ${this.root}: not counted here.`});
+            }
             out.push({tone: 'muted', text: `Counted ${(answer.rooted === true) ? 'as root' : 'as the agent\'s user'} in ${(answer.took_ms/1000).toFixed(1)}s, this disk alone.`});
             return out;
         },
@@ -159,8 +189,11 @@ const disk_usage = {
                 if ((here.state === 'done') && (here.answer.files > 0)) {
                     list.push(Object.assign(row_said(path, depth, 'files here'), {key: `${path}#files`, size: here.answer.files, share: here.answer.files/self.scale}));
                 }
+                if ((path === self.root) && (self.deleted !== null)) {
+                    list.push(Object.assign(row_said(path, depth, 'Deleted files, still open'), {key: `${path}#deleted`, code: false, unseen: true, said: true, note: self.deleted_note(here.answer), size: self.deleted.size, share: self.deleted.size/self.scale}));
+                }
                 if ((path === self.root) && (self.unseen > 0)) {
-                    list.push(Object.assign(row_said(path, depth, 'In no folder counted'), {key: `${path}#unseen`, code: false, unseen: true, said: true, note: (here.answer.rooted === true) ? 'files deleted while a program still holds them open' : 'in folders the agent could not read, or files deleted while a program still holds them open', size: self.unseen, share: self.unseen/self.scale}));
+                    list.push(Object.assign(row_said(path, depth, 'In no folder counted'), {key: `${path}#unseen`, code: false, unseen: true, said: true, note: self.unseen_note(here.answer), size: self.unseen, share: self.unseen/self.scale}));
                 }
                 list.sort((a, b) => b.size - a.size);
                 for (const row of list) {
@@ -215,9 +248,10 @@ const disk_usage = {
             const known = this.known.filter(v => this.inside(v.path, folder.path));
             const extra = known.reduce((sum, v) => sum + v.size, 0);
             const unread = this.unread.has(folder.path);
+            const exact = known.find(v => v.path === folder.path);
             let note = '';
-            if (known.some(v => v.path === folder.path)) {
-                note = `could not be read: ${known[0].who} says it keeps ${format_bytes(extra)} here`;
+            if (exact !== undefined) {
+                note = exact.here;
             }
             else if (extra > 0) {
                 note = `with ${format_bytes(extra)} that ${known.map(v => v.who).join(' and ')} ${(known.length === 1) ? 'keeps' : 'keep'} in it`;
@@ -228,6 +262,21 @@ const disk_usage = {
             const size = folder.size + extra;
             const open = (this.open[folder.path] === true);
             return {key: folder.path, path: folder.path, name: folder.path.split('/').pop(), code: true, note, depth, size, share: size/this.scale, folder: (unread === false), open, unseen: false, waiting: false, said: (extra > 0)};
+        },
+        // "held by java (pid 812), nginx (pid 90)"; as a user, only the user's own programs show
+        deleted_note: function (answer) {
+            const by = this.deleted.programs.map(v => `${v.name} (pid ${v.pid})`).join(', ');
+            return `held by ${by}${(answer.rooted === true) ? '' : ', as far as the agent\'s user can see'}`;
+        },
+        // Only what is known: the folders the agent could not read, and on btrfs, where du -x
+        // does not go. Why the rest is in no folder, the count cannot tell.
+        unseen_note: function (answer) {
+            const unread = (answer.rooted !== true) ? answer.unread.length : 0;
+            const said = (unread > 0) ? [`with what the ${unread} ${(unread === 1) ? 'folder' : 'folders'} the agent could not read hold`] : ['no folder the count reached holds it'];
+            if (answer.type === 'btrfs') {
+                said.push('it does not go into btrfs subvolumes mounted nowhere, snapshots among them');
+            }
+            return said.join('; ');
         },
         // The row for what a count has yet to say: how long it has gone, and what comes next
         row_waiting: function (path, depth) {

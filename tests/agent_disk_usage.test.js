@@ -1,6 +1,8 @@
+const agent_deleted_open = require('../src/agent/src/agent_deleted_open');
 const agent_disk_usage = require('../src/agent/src/agent_disk_usage');
 const assert = require('assert');
 const fs = require('fs');
+const mounts_read = require('../src/agent/src/mounts_read');
 const net = require('net');
 const os = require('os');
 const path = require('path');
@@ -34,6 +36,8 @@ test('a folder is counted as its folders, biggest first, its own files apart, an
     }
     assert.strictEqual(answer.extras, null, 'docker and the journal only when asked');
     assert.strictEqual(answer.rooted, false, 'no root half here: counted as this user');
+    assert.deepStrictEqual(answer.parts, [], 'no disk mounted again in it');
+    assert.strictEqual(answer.deleted, null, 'not a place a disk is mounted at: deleted files not looked for');
     await assert.rejects(agent_disk_usage({path: 'var/log'}, {}), /from the root/);
 });
 
@@ -112,4 +116,73 @@ test('a folder du cannot read is found whichever way du names it', function () {
         'du: fts_read failed: No such file or directory',
     ].join('\n');
     assert.deepStrictEqual(agent_disk_usage.unread_of(text), ['/var/lib/docker', '/root', '/var/log/journal', '/proc/1/fd']);
+});
+
+// btrfs: / on @ and /home on @home are one filesystem (mountinfo's dev), but stat gives each
+// subvolume a dev of its own, so du -x stops at /home. /home and what is mounted under it from
+// the same disk are counted apart; another disk, a network share and the root subvolume bound
+// again (which du -x goes into already) are not.
+test('the same disk mounted again in a folder is counted with it, another disk is not', function () {
+    const mounts = [
+        {point: '/', dev: '0:30'},
+        {point: '/boot', dev: '8:1'},
+        {point: '/home', dev: '0:30'},
+        {point: '/home/user/cache', dev: '0:30'},
+        {point: '/mnt/nas', dev: '0:50'},
+        {point: '/srv/www', dev: '0:30'},
+        {point: '/proc', dev: '0:22'},
+    ];
+    const devs = {'/': 31, '/boot': 2049, '/home': 32, '/home/user/cache': 33, '/mnt/nas': 50, '/srv/www': 31, '/proc': 22};
+    assert.deepStrictEqual(agent_disk_usage.disk_parts('/', mounts, v => devs[v]), ['/home', '/home/user/cache']);
+    assert.deepStrictEqual(agent_disk_usage.disk_parts('/home', mounts, v => devs[v]), ['/home/user/cache']);
+    assert.deepStrictEqual(agent_disk_usage.disk_parts('/boot', mounts, v => devs[v]), []);
+    assert.deepStrictEqual(agent_disk_usage.disk_parts('/', [], v => devs[v]), [], 'no mount table, nothing to add');
+
+    const sizes = new Map([['/', 10e9], ['/usr', 8e9], ['/home', 9e3]]);
+    const counted = agent_disk_usage.sizes_with_parts('/', sizes, [{path: '/home', size: 400e9}, {path: '/home/user/cache', size: 30e9}]);
+    assert.strictEqual(counted.get('/home'), 430e9, '/home takes its own count in place of its mount point\'s, and its cache in it');
+    assert.strictEqual(counted.get('/'), 10e9 - 9e3 + 430e9);
+    assert.strictEqual(counted.get('/usr'), 8e9);
+});
+
+// A file deleted while it is still open keeps its space, in no folder: it is found by its
+// program's open files, on the disk the folder is on, and counted once
+test('a file deleted but still open is found, with the program holding it', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
+    const file = path.join(dir, 'gone.log');
+    fs.writeFileSync(file, Buffer.alloc(2*1024*1024, 1));
+    const fd = fs.openSync(file, 'r');
+    const again = fs.openSync(file, 'r');
+    fs.unlinkSync(file);
+    t.after(function () {
+        fs.closeSync(fd);
+        fs.closeSync(again);
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    const found = agent_deleted_open(dir);
+    const own = found.programs.find(v => v.pid === process.pid);
+    assert.ok(own !== undefined, 'this test holds it');
+    assert.ok((own.size >= 2*1024*1024) && (own.size < 3*1024*1024), 'opened twice, counted once');
+    assert.ok(found.size >= own.size);
+    assert.deepStrictEqual(agent_deleted_open('/no/such/proc', '/no/such/proc'), {size: 0, programs: []});
+});
+
+// mountinfo writes a space in a place's name as \040
+test('the mount table is read with the names as they are', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
+    t.after(function () {
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    fs.writeFileSync(path.join(dir, 'mountinfo'), [
+        '29 1 0:30 /@ / rw,relatime shared:1 - btrfs /dev/nvme0n1p2 rw,subvol=/@',
+        '31 29 0:30 /@home /home rw,relatime shared:2 - btrfs /dev/nvme0n1p2 rw,subvol=/@home',
+        '40 29 8:1 / /media/My\\040Disk rw - ext4 /dev/sda1 rw',
+        '',
+    ].join('\n'));
+    const mounts = mounts_read(path.join(dir, 'mountinfo'));
+    assert.deepStrictEqual(mounts[1], {id: 31, dev: '0:30', root: '/@home', point: '/home', type: 'btrfs', source: '/dev/nvme0n1p2', peers: ['shared:2']});
+    assert.strictEqual(mounts[2].point, '/media/My Disk');
+    assert.strictEqual(mounts_read.mount_of('/home/user', mounts).point, '/home');
+    assert.strictEqual(mounts_read.mount_of('/homework', mounts).point, '/');
 });

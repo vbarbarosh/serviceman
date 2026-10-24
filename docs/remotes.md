@@ -330,14 +330,20 @@ is pressed, never on a clock. The ports it listens on are in the **Firewall** ta
 **Disks** is every filesystem mounted there, from `df`, and **What takes the space** counts
 where a disk's space went: its folders, biggest first, each with its share of what the disk
 uses, and a click on one opens the folders inside it. It is `du -x` run over there, on that disk
-alone, when asked: a minute on a big disk. While it runs, the folders already counted show at
+alone, when asked: a minute on a big disk. Where the same disk is mounted again inside the
+folder on its own (a btrfs subvolume such as `/home`, which `du -x` stops at), that part is
+counted too and added where it sits. While it runs, the folders already counted show at
 once and can be opened, with a clock, a bar of what has been found so far, and the folders still
 to come. It is counted as root where the machine has the agent's root half, and every folder is
 seen; without one it runs as the agent's user, and the tree still adds up to what the disk
 uses: a folder it could not read says so, docker's folder and the journal's take the size
-docker and journald say they keep, and **In no folder counted** is the rest (those folders, or
-files deleted while a program still holds them open). Above the tree, for `/`, what docker and
-the system journal say they keep. A machine's Overview leads there from its Disk card.
+docker and journald say they keep, and on btrfs, docker's layers (subvolumes `du -x` does not go
+into) take the size docker says. **Deleted files, still open** is what files deleted while a
+program still holds them open take on that disk, found through the programs' open files and
+named by program: every program as root, only the agent's user's own without. **In no folder
+counted** is the rest, and says only what is known of it: the folders that could not be read,
+and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Above the tree, for
+`/`, what docker and the system journal say they keep. A machine's Overview leads there from its Disk card.
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
