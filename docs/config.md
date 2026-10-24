@@ -27,7 +27,8 @@ keep their modes, and a folder's, which a browser hands over without any, run wh
 `bin/` or start with `#!`. serviceman chooses where they go: `services/<name>` in the agent's
 own folder, where everything the agent installs lives (`~/serviceman-agent/services/<name>`
 for an agent installed as its user), and never a folder that holds files already. It stays
-there when the service is removed, with the app's `data/`. A folder already on the machine is
+there when the service is removed, with the app's `data/`, which is the service's working space:
+nothing ever merges into it or overwrites it, a new version included. A folder already on the machine is
 named in **All settings…**, as the program's working folder. The name comes from the folder or
 the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
 name. **All settings…** opens every card, with what the short form filled in, for a program of
@@ -527,8 +528,8 @@ its start attempts gets them back, because this is a different program now.
 
 An app folder (`bin/run` in a folder named in `cwd`, as **An app folder** on the New service
 form makes one) takes a new version the two ways it was made: **New folder…** or **New zip…**
-on its page, in place of **Fetch again**. What the app keeps lives in its `data/`, and that is
-all that outlives a new version:
+on its page, in place of **Fetch again**. **`data/` is the service's working space, never merged
+or overwritten:** what the app keeps lives there, and it is all that outlives a new version:
 
 1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`,
    as soon as it is picked: the browser's pick is the only ask. One that is no app (empty, with
@@ -562,7 +563,7 @@ move) leaves the old version where it was, stopped until something wakes it.
 `POST /api/v1/services/<name>/replace` is step 2 onwards, for whoever put the files there; it
 answers once the new version has started, or with what failed.
 
-An app folder's `data/` is its storage without anything to set: **Storage** lists it beside
+An app folder's `data/` is its working space and its storage, with nothing to set: **Storage** lists it beside
 what other services keep, and nothing but a person removes it. What the app writes to
 `data/logs/` goes to Logline wherever its machine sends its lines there: the agent reads every
 file in that folder, from the first line once the app makes it, and the lines carry the app's

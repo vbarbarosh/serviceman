@@ -47,6 +47,12 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
   terminals go on running.
 - **The running serviceman is the docker image.** A change shows only after `bin/build` and a
   restart; say so when handing a change over.
+- **An app folder's `data/` is the service's working space.** A service run as `bin/run` in a
+  folder of its own keeps its state in `data/` (its keys, saves, logs), and nothing serviceman
+  does ever merges into it or overwrites it: a new version, a zip or a folder sends no `data/`
+  of its own and is swapped in around the one there. What an app ships goes beside `bin/`
+  (`presets/`, `build/`). A change to how an app is installed, replaced or sent keeps this so;
+  [A new version of an app folder](docs/config.md#a-new-version-of-an-app-folder) says how.
 - **Plain CSS.** The pages' stylesheets (`src/main/public/serviceman.css`,
   `modules/*/ui/*.css`, `logline/log-ui/styles.css`,
   `src/web-terminal/public/web_terminal.css`) are served as they are, with no preprocessor for
