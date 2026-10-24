@@ -1234,12 +1234,12 @@ pre {
 
 /* A new version of an app folder, said before it replaces anything */
 /* It sits between the crumbs and the tabs, on their panel */
-.zip-wrap {
+.version-wrap {
     padding: .7rem 1.25rem 0;
     background: var(--panel);
 }
 
-.zip-bar {
+.version-bar {
     margin: 0;
     padding: .75rem 1rem;
     border: 1px solid var(--accent);
@@ -1247,20 +1247,20 @@ pre {
     background: var(--hover);
 }
 
-.zip-bar p {
+.version-bar p {
     margin: 0 0 .5rem;
     overflow-wrap: anywhere;
 }
 
-.zip-bar.failed {
+.version-bar.failed {
     border-color: var(--bad);
 }
 
-.zip-bar .err {
+.version-bar .err {
     color: var(--bad);
 }
 
-.zip-bar .acts {
+.version-bar .acts {
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
@@ -1271,6 +1271,11 @@ pre {
 .form .card.dropping {
     border-color: var(--accent);
     background: var(--hover);
+}
+
+/* The folder an app is copied to is a long path with no spaces: it breaks anywhere */
+.form .kinds.short + .card p {
+    overflow-wrap: anywhere;
 }
 
 /* The short form asks one of two */

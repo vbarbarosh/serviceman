@@ -2,7 +2,7 @@
 // name, a file as its name, mode, time and bytes. A name longer than ustar's hundred bytes is
 // split into its prefix at a slash; one that cannot be is refused.
 //
-//     [{path, dir: true}, {path, mode, mtime_s, bytes}]
+//     [{path, dir: true}, {path, mode, mtime_s, bytes}], bytes a Uint8Array or a Blob
 
 const BLOCK = 512;
 
@@ -14,9 +14,11 @@ function tar_blob(items)
             parts.push(header(item.path.replace(/\/*$/, '/'), 0o755, item.mtime_s || 0, 0, '5'));
             continue;
         }
-        parts.push(header(item.path, item.mode, item.mtime_s, item.bytes.length, '0'));
+        // A file of a folder picked in the page stays a Blob: the tar reads it only as it is sent
+        const size = (item.bytes instanceof Blob) ? item.bytes.size : item.bytes.length;
+        parts.push(header(item.path, item.mode, item.mtime_s, size, '0'));
         parts.push(item.bytes);
-        parts.push(new Uint8Array((BLOCK - (item.bytes.length % BLOCK)) % BLOCK));
+        parts.push(new Uint8Array((BLOCK - (size % BLOCK)) % BLOCK));
     }
     // A tar ends with two empty blocks
     parts.push(new Uint8Array(BLOCK*2));

@@ -16,15 +16,18 @@ missing image, a hostname written twice, a duration nobody can read.
 
 Services are created and reshaped on the control page itself. **+ Add service** is a short
 form for the two common kinds. **A docker image** asks for the image; the name comes from it
-and the port defaults to the one the image names, or 80. **An app folder** asks for the folder
-on the machine: it must hold `bin/run`, which serves the app on the port it finds in `PORT`,
-and may hold `bin/configure`, which then runs once before the first start. A `.zip` of such a
-folder, picked or dropped on the form, is read in the page and its files are sent on **Create**
-to a new folder on the machine, with their modes, so the machine needs no `unzip`. Unless
-another is typed, that folder is `services/<name>` in the agent's own folder, where everything
-the agent installs lives (`~/serviceman-agent/services/<name>` for an agent installed as its
-user); it stays there when the service is removed, with the app's `data/`. The name comes from the folder or the zip, and the port is the
-first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
+and the port defaults to the one the image names, or 80. **An app folder** asks for the app's folder
+on this computer, or a `.zip` of it: **A folder…** or **A .zip…**, or either dropped on the
+form. The folder must hold `bin/run`, which serves the app on the port it finds in `PORT`, and
+may hold `bin/configure`, which then runs once before the first start. The page reads it and
+sends its files on **Create** to the machine, so the machine needs no `unzip`: a zip's files
+keep their modes, and a folder's, which a browser hands over without any, run when they are in
+`bin/` or start with `#!`. serviceman chooses where they go: `services/<name>` in the agent's
+own folder, where everything the agent installs lives (`~/serviceman-agent/services/<name>`
+for an agent installed as its user), and never a folder that holds files already. It stays
+there when the service is removed, with the app's `data/`. A folder already on the machine is
+named in **All settings…**, as the program's working folder. The name comes from the folder or
+the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
 name. **All settings…** opens every card, with what the short form filled in, for a program of
 another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
@@ -510,14 +513,15 @@ its start attempts gets them back, because this is a different program now.
 ### A new version of an app folder
 
 An app folder (`bin/run` in a folder named in `cwd`, as **An app folder** on the New service
-form makes one) takes a new version as a zip: **New zip…** on its page, in place of **Fetch
-again**. What the app keeps lives in its `data/`, and that is all that outlives a new version:
+form makes one) takes a new version the two ways it was made: **New folder…** or **New zip…**
+on its page, in place of **Fetch again**. What the app keeps lives in its `data/`, and that is
+all that outlives a new version:
 
-1. the page reads the zip and sends its files beside the folder, to `<folder>.new`;
+1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`;
 2. serviceman stops the app, sets the folder aside as `<folder>.old` and puts `<folder>.new` in
    its place;
 3. `bin/configure` runs in it;
-4. `data/` is moved over from the old folder, over any `data/` the zip brought, and the old
+4. `data/` is moved over from the old folder, over any `data/` the new files brought, and the old
    folder goes;
 5. the app starts again if it was running.
 

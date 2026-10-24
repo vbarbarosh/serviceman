@@ -119,3 +119,33 @@ function tar_read(tar)
     assert.strictEqual(parser.end(), null, 'the tar ends where it should');
     return out;
 }
+
+// A folder picked in the page comes as files with their paths and no modes: it is judged as a
+// zip is, under its one top folder, and its files reach the tar as they are, read only then
+test('a folder picked in the page is an app as a zip is, and goes into the tar file by file', async function () {
+    const app_folder_read = (await import(path.join(PUBLIC, 'app_folder_read.js'))).default;
+    const tar_blob = (await import(path.join(PUBLIC, 'tar_blob.js'))).default;
+    const picked = [
+        {path: 'notes/bin/run', file: new File(['#!/bin/sh\nexec node server.js\n'], 'run', {lastModified: 1761300000000})},
+        {path: 'notes/bin/configure', file: new File(['#!/bin/sh\n'], 'configure')},
+        {path: 'notes/server.js', file: new File(['require("http");\n'], 'server.js')},
+    ];
+    const app = app_folder_read(picked);
+    assert.deepStrictEqual([app.label, app.top, app.files, app.configure, app.problem], ['notes/', 'notes/', 3, true, null]);
+    assert.strictEqual(app.size, 30 + 10 + 17);
+    const items = [];
+    for (const entry of app.entries) {
+        items.push({path: entry.name.slice(app.top.length), mode: 0o644, mtime_s: entry.mtime_s, bytes: await entry.bytes()});
+    }
+    const read = tar_read(Buffer.from(await tar_blob(items).arrayBuffer()));
+    assert.deepStrictEqual(read.map(v => [v.name, v.text]), [
+        ['bin/run', '#!/bin/sh\nexec node server.js\n'],
+        ['bin/configure', '#!/bin/sh\n'],
+        ['server.js', 'require("http");\n'],
+    ]);
+
+    const empty = app_folder_read([]);
+    assert.match(empty.problem, /is empty/);
+    const no_run = app_folder_read([{path: 'site/index.html', file: new File(['<p>'], 'index.html')}]);
+    assert.match(no_run.problem, /^site\/ has no bin\/run/);
+});

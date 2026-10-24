@@ -1,8 +1,10 @@
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
+import app_files_pick from './app_files_pick.js';
+import app_files_send from './app_files_send.js';
+import app_folder_read from './app_folder_read.js';
 import app_zip_read from './app_zip_read.js';
-import app_zip_send from './app_zip_send.js';
 import authwall_pane from './authwall_pane.js';
 import config_read from './config_read.js';
 import data_table from './data_table.js';
@@ -1430,11 +1432,16 @@ const service_page = {
                     {{ (view.doing === null ? 'Fetch again' : 'Fetching…') }}
                 </button>
                 <template v-if="(view.app_folder !== null)">
-                    <button type="button" :disabled="(waiting || zip_busy)" title="A new version of the app, as a zip: everything in its folder but data/ is replaced, bin/configure runs, and data/ is put back" @click="$refs.zip.click()">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V5M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
-                        {{ zip_busy ? 'Replacing…' : 'New zip…' }}
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer: everything in its folder but data/ is replaced, bin/configure runs, and data/ is put back" @click="$refs.folder.click()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
+                        New folder…
                     </button>
-                    <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="zip_picked">
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip: everything in its folder but data/ is replaced, bin/configure runs, and data/ is put back" @click="$refs.zip.click()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V5M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
+                        New zip…
+                    </button>
+                    <input ref="folder" type="file" webkitdirectory hidden @change="version_picked">
+                    <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="version_picked">
                 </template>
             </template>
             <button type="button" title="A new service that starts from this one's settings" @click="$emit('clone', view)">
@@ -1447,18 +1454,18 @@ const service_page = {
         <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">Logs in Logline ↗</a>
     </div>
     <!-- A new version of an app folder: what it is, what happens to the folder, then Replace -->
-    <div v-if="(zip_new !== null)" class="zip-wrap"><div class="zip-bar" :class="{failed: (zip_new.problem !== null || zip_new.error !== null)}">
-        <p v-if="(zip_new.problem !== null)" class="err">{{ zip_new.problem }}</p>
-        <p v-else-if="zip_new.done">{{ zip_new.file.name }} is the app now, with its data/ as it was.</p>
+    <div v-if="(version_new !== null)" class="version-wrap"><div class="version-bar" :class="{failed: (version_new.problem !== null || version_new.error !== null)}">
+        <p v-if="(version_new.problem !== null)" class="err">{{ version_new.problem }}</p>
+        <p v-else-if="version_new.done">{{ version_new.label }} is the app now, with its data/ as it was.</p>
         <p v-else>
-            <code>{{ zip_new.file.name }}</code> <span class="muted">— {{ zip_new.files === 1 ? 'one file' : zip_new.files + ' files' }}.</span>
-            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ zip_new.configure ? ', bin/configure runs' : '' }}, and <code>data/</code> is put back{{ view.phase === 'running' ? '; the app stops meanwhile and starts again' : '' }}.
+            <code>{{ version_new.label }}</code> <span class="muted">— {{ version_new.files === 1 ? 'one file' : version_new.files + ' files' }}, {{ size_text(version_new.size) }}.</span>
+            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ version_new.configure ? ', bin/configure runs' : '' }}, and <code>data/</code> is put back{{ view.phase === 'running' ? '; the app stops meanwhile and starts again' : '' }}.
         </p>
-        <p v-if="(zip_new.error !== null)" class="err">{{ zip_new.error }} — {{ view.name }} runs the version it had, data/ as it was; the new files wait in <code>{{ view.app_folder }}.new</code>.</p>
+        <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }} — {{ view.name }} runs the version it had, data/ as it was; the new files wait in <code>{{ view.app_folder }}.new</code>.</p>
         <div class="acts">
-            <button v-if="(zip_new.problem === null && zip_new.done === false)" type="button" class="primary" :disabled="zip_busy" @click="zip_replace">{{ zip_busy ? 'Replacing…' : 'Replace' }}</button>
-            <button type="button" :disabled="zip_busy" @click="zip_new = null">{{ (zip_new.problem === null && zip_new.done === false) ? 'Cancel' : 'Close' }}</button>
-            <span class="muted">{{ zip_note }}</span>
+            <button v-if="(version_new.problem === null && version_new.done === false)" type="button" class="primary" :disabled="version_busy" @click="version_replace">{{ version_busy ? 'Replacing…' : 'Replace' }}</button>
+            <button type="button" :disabled="version_busy" @click="version_new = null">{{ (version_new.problem === null && version_new.done === false) ? 'Cancel' : 'Close' }}</button>
+            <span class="muted">{{ version_note }}</span>
         </div>
     </div></div>
     <div class="tabbar">
@@ -1501,9 +1508,9 @@ const service_page = {
     emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
-        // zip_new: a new version of an app folder, read and waiting for Replace (app_zip_read,
-        // with done and error)
-        return {original: null, original_state: 'reading', edit_key: 0, zip_new: null, zip_busy: false, zip_note: ''};
+        // version_new: a new version of an app folder, a folder or a zip read and waiting for
+        // Replace (app_entries_read, with done and error)
+        return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: ''};
     },
     computed: {
         // The name beside the title, unless it only repeats it
@@ -1553,28 +1560,32 @@ const service_page = {
                 this.edit_key++;
             }
         },
-        zip_picked: async function (event) {
-            const file = event.target.files[0];
+        size_text: function (bytes) {
+            return format_bytes(bytes);
+        },
+        version_picked: async function (event) {
+            const picked = await app_files_pick(event.target);
             event.target.value = '';
-            if (file === undefined) {
+            if (picked === null) {
                 return;
             }
-            this.zip_note = '';
-            this.zip_new = Object.assign(await app_zip_read(file), {done: false, error: null});
+            const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
+            this.version_note = '';
+            this.version_new = Object.assign(read, {done: false, error: null});
         },
-        // The zip's files go beside the folder, to <folder>.new, and serviceman puts them in its
-        // place; what a try before left there goes first, so the new version is this zip alone
-        zip_replace: async function () {
-            const zip = this.zip_new;
+        // The new files go beside the folder, to <folder>.new, and serviceman puts them in its
+        // place; what a try before left there goes first, so the new version is these files alone
+        version_replace: async function () {
+            const zip = this.version_new;
             const folder = this.view.app_folder;
             const running = this.view.instances.find(v => v.remote !== null);
             const machine = (running === undefined) ? this.place.name : running.remote;
-            this.zip_busy = true;
+            this.version_busy = true;
             zip.error = null;
             try {
                 await fetch(`/api/v1/remotes/${encodeURIComponent(machine)}/fs/delete`, {method: 'POST', body: JSON.stringify({path: `${folder}.new`})});
-                await app_zip_send(zip, machine, `${folder}.new`, v => this.zip_note = v);
-                this.zip_note = 'putting it in place…';
+                await app_files_send(zip, machine, `${folder}.new`, v => this.version_note = v);
+                this.version_note = 'putting it in place…';
                 const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/replace`, {method: 'POST'});
                 const said = await answer.json();
                 if (answer.ok === false) {
@@ -1586,8 +1597,8 @@ const service_page = {
                 zip.error = error.message;
             }
             finally {
-                this.zip_busy = false;
-                this.zip_note = '';
+                this.version_busy = false;
+                this.version_note = '';
             }
         },
         // A card saved: the app hears which service it was — a renamed one moves the page —
