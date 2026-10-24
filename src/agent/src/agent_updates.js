@@ -4,49 +4,73 @@ const fs = require('fs');
 
 const UPDATES_FILE = '/var/lib/update-notifier/updates-available';
 const REBOOT_FILE = '/var/run/reboot-required';
+// What changes when packages are installed, and when apt learns of new ones
+const APT_STATE = ['/var/lib/dpkg/status', '/var/lib/apt/lists'];
 
-// What ubuntu counted for its own login banner, and — after an upgrade this agent ran — what
-// apt says now. The banner file is written once a day, so on its own it would go on saying
-// "28 to install" for hours after the 28 were installed. Counting from apt costs a second and
-// reads the whole package list, which is why it is done when something changed and not on
-// every heartbeat.
+// What an upgrade would install, as apt counts it: the very upgrade Install runs, so a machine
+// just upgraded says 0. Counting reads the whole package list and costs a second, so it is done
+// again only when that list or what is installed changed.
+//
+// Ubuntu's login banner file is no use for it: it counts a full upgrade, with what `upgrade`
+// keeps back (phased updates above all), and it is written again at the next login — so it
+// said "19 to install" again right after the 19 were installed. It is read only where apt
+// cannot be asked.
+//
+// held: what apt keeps back even so, phased updates Ubuntu hands out a few machines at a time;
+// waiting on Ubuntu, not on anyone here, and not counted as to install.
 let counted = null;
-let counted_at = 0;
+let counted_mark = null;
 let wanted = false;
 
 async function agent_updates(options)
 {
-    if (wanted) {
+    const mark = apt_mark();
+    if (wanted || (mark !== counted_mark)) {
         wanted = false;
+        counted_mark = mark;
         counted = await counts_from_apt(options);
-        counted_at = Date.now();
     }
     const reboot = fs.existsSync(REBOOT_FILE);
+    if (counted !== null) {
+        return {pending: counted.pending, security: counted.security, held: counted.held, reboot};
+    }
     const said = counts_from_file();
-    // Whichever of the two knows about the newer state of the machine
-    if ((counted !== null) && ((said === null) || (counted_at > file_at()))) {
-        return {pending: counted.pending, security: counted.security, reboot};
-    }
     if (said === null) {
-        return reboot ? {pending: null, security: null, reboot} : null;
+        return reboot ? {pending: null, security: null, held: null, reboot} : null;
     }
-    return {pending: said.pending, security: said.security, reboot};
+    return {pending: said.pending, security: said.security, held: null, reboot};
 }
 
-// Ask apt what an upgrade would install now. `-s` changes nothing and needs no root, so this
-// is safe to run as whoever the agent is.
+// Ask apt what the upgrade Install runs would install now. `-s` changes nothing and needs no
+// root, so this is safe to run as whoever the agent is.
 async function counts_from_apt(options)
 {
-    const answer = await agent_shell([agent_apt_binary(options), '-s', 'upgrade']);
+    const answer = await agent_shell([agent_apt_binary(options), '-s', 'upgrade', '--with-new-pkgs']);
     if (answer.ok === false) {
         return null;
     }
     const lines = answer.stdout.split('\n').filter(v => v.startsWith('Inst '));
+    // "3 upgraded, 1 newly installed, 0 to remove and 2 not upgraded."
+    const summary = /(\d+) not upgraded/.exec(answer.stdout);
     return {
         pending: lines.length,
         // apt names the archive a package comes from, and a security archive says so
         security: lines.filter(v => /-security[ /\]]/.test(v)).length,
+        held: (summary === null) ? 0 : parseInt(summary[1], 10),
     };
+}
+
+// When what is installed, or what apt knows of, last changed: a count from before is stale
+function apt_mark()
+{
+    return APT_STATE.map(function (file) {
+        try {
+            return fs.statSync(file).mtimeMs;
+        }
+        catch {
+            return 0;
+        }
+    }).join(' ');
 }
 
 function counts_from_file()
@@ -70,17 +94,7 @@ function counts_from_file()
     }
 }
 
-function file_at()
-{
-    try {
-        return fs.statSync(UPDATES_FILE).mtimeMs;
-    }
-    catch {
-        return 0;
-    }
-}
-
-// Said by an upgrade that has just ended: what is waiting is not what the file says any more
+// Said by an upgrade that has just ended: count again, whatever the files' times say
 agent_updates.recount = function () {
     wanted = true;
 };

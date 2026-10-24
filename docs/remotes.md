@@ -328,7 +328,7 @@ is pressed, never on a clock. The ports it listens on are in the **Firewall** ta
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
-`apt-get -s upgrade`, a dry run that needs no root — the version an upgrade would bring, marked
+`apt-get -s upgrade --with-new-pkgs`, a dry run that needs no root — the version an upgrade would bring, marked
 when it comes from a security archive. Held and half-installed packages say so. The dry run
 reads the lists the last `apt-get update` left, so "to update" is as fresh as those; the
 Configure tab installs them.
@@ -341,10 +341,18 @@ the end of the upgrade's lines, with Docker's reason, and on the Health page.
 ## Its updates
 
 A machine's **Configure** tab says what apt has waiting, and **Install them** runs
-`apt-get update`, then `apt-get upgrade`, answering its questions as a person would and keeping
+`apt-get update`, then `apt-get upgrade --with-new-pkgs` (an update that brings a new package
+with it, a new kernel's, is installed too; nothing is removed), answering its questions as a person would and keeping
 every config file you changed. Every line apt prints is shown while it runs; **Cancel** stops
 it. A root agent runs `apt-get`; one that runs as a user runs `sudo -n apt-get`, so sudo on that
 machine has to let it without a password.
+
+What is waiting is counted by apt, with the same upgrade as a dry run, so a machine just
+upgraded says nothing waits; it is counted again whenever what is installed, or what apt
+knows of, changes. Ubuntu's own count, on its login banner, is larger: it counts a full
+upgrade, with what `upgrade` keeps back. What apt keeps back even so, mostly phased updates
+Ubuntu hands out to a few machines at a time, is shown apart as **held back**: it is not
+waiting on you, and Install does not count it.
 
 **Install updates on N**, at the top of **Remotes**, does the same on every machine the list
 shows that has something waiting: the filter and the chips narrow it, and each machine can be

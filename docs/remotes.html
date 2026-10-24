@@ -988,7 +988,7 @@ instead, and a column&#39;s header sorts by it, RSS for the heaviest in memory. 
 is pressed, never on a clock. The ports it listens on are in the <strong>Firewall</strong> tab, below.</p>
 <p><strong>Packages</strong> is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package&#39;s need, and — from
-<code>apt-get -s upgrade</code>, a dry run that needs no root — the version an upgrade would bring, marked
+<code>apt-get -s upgrade --with-new-pkgs</code>, a dry run that needs no root — the version an upgrade would bring, marked
 when it comes from a security archive. Held and half-installed packages say so. The dry run
 reads the lists the last <code>apt-get update</code> left, so &quot;to update&quot; is as fresh as those; the
 Configure tab installs them.</p>
@@ -998,10 +998,17 @@ Docker to answer and starts again each one that is not running. What cannot star
 the end of the upgrade&#39;s lines, with Docker&#39;s reason, and on the Health page.</p>
 <h2 id="its-updates"><a class="anchor" href="#its-updates" aria-hidden="true" tabindex="-1">#</a>Its updates</h2>
 <p>A machine&#39;s <strong>Configure</strong> tab says what apt has waiting, and <strong>Install them</strong> runs
-<code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping
+<code>apt-get update</code>, then <code>apt-get upgrade --with-new-pkgs</code> (an update that brings a new package
+with it, a new kernel&#39;s, is installed too; nothing is removed), answering its questions as a person would and keeping
 every config file you changed. Every line apt prints is shown while it runs; <strong>Cancel</strong> stops
 it. A root agent runs <code>apt-get</code>; one that runs as a user runs <code>sudo -n apt-get</code>, so sudo on that
 machine has to let it without a password.</p>
+<p>What is waiting is counted by apt, with the same upgrade as a dry run, so a machine just
+upgraded says nothing waits; it is counted again whenever what is installed, or what apt
+knows of, changes. Ubuntu&#39;s own count, on its login banner, is larger: it counts a full
+upgrade, with what <code>upgrade</code> keeps back. What apt keeps back even so, mostly phased updates
+Ubuntu hands out to a few machines at a time, is shown apart as <strong>held back</strong>: it is not
+waiting on you, and Install does not count it.</p>
 <p><strong>Install updates on N</strong>, at the top of <strong>Remotes</strong>, does the same on every machine the list
 shows that has something waiting: the filter and the chips narrow it, and each machine can be
 unticked. They all start at once, each its own apt, with a row each for how it goes and its last

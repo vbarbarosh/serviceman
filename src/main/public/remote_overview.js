@@ -229,10 +229,12 @@ const remote_overview = {
             if (updates.pending === null) {
                 return 'unknown';
             }
+            // Kept back by apt, phased updates above all: they come when Ubuntu hands them out
+            const held = (updates.held > 0) ? `; ${updates.held} held back by Ubuntu` : '';
             if (updates.pending === 0) {
-                return 'nothing';
+                return `nothing${held}`;
             }
-            return `${updates.pending}${(updates.security > 0) ? `, ${updates.security} of them security` : ''}`;
+            return `${updates.pending}${(updates.security > 0) ? `, ${updates.security} of them security` : ''}${held}`;
         },
         logs_sent: function () {
             return (this.view.logline.logs === 'all');

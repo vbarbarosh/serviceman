@@ -11,7 +11,7 @@ const FORMAT = '${db:Status-Abbrev}\\t${Package}\\t${Architecture}\\t${Version}\
 // None of it needs root; the dry run reads the lists the last `apt-get update` left.
 async function agent_package_list(options)
 {
-    const argvs = [['dpkg-query', '-W', '-f', FORMAT], ['apt-mark', 'showmanual'], ['apt-mark', 'showhold'], [agent_apt_binary(options), '-s', 'upgrade']];
+    const argvs = [['dpkg-query', '-W', '-f', FORMAT], ['apt-mark', 'showmanual'], ['apt-mark', 'showhold'], [agent_apt_binary(options), '-s', 'upgrade', '--with-new-pkgs']];
     const status = await agent_shell(argvs[0]);
     if (status.ok === false) {
         throw new Error(/ENOENT/.test(status.stderr) ? 'this machine has no dpkg: it is not a Debian or an Ubuntu' : `dpkg-query: ${status.stderr}`);

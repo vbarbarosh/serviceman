@@ -8,6 +8,8 @@ const stream_terminal_text = require('../../helpers/stream_terminal_text');
 // What a person would type, with the answers to its questions given in advance: nothing here
 // may stop and wait for a keyboard, because there is nobody at this end of it. A config file
 // the machine's owner changed is kept as it is — apt asking about it is apt asking a person.
+// --with-new-pkgs installs an update that brings a new package with it, a new kernel's above
+// all, which a plain upgrade keeps back for good; nothing is ever removed.
 const ANSWERS = '-y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef';
 const KEEP_LINES = 200;
 const KILL_AFTER_MS = 10000;
@@ -23,7 +25,7 @@ function agent_apt_upgrade(state, options, say)
     // where the agent is not root, so a sudoers line may name apt-get and nothing else; a line
     // that named a shell would be root with extra words.
     const apt = apt_command(options);
-    const line = `${apt} update && ${apt} ${ANSWERS} upgrade`;
+    const line = `${apt} update && ${apt} ${ANSWERS} upgrade --with-new-pkgs`;
     const child = child_process.spawn('/bin/sh', ['-c', line], {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: true,
@@ -55,8 +57,7 @@ function agent_apt_upgrade(state, options, say)
         state.apt = null;
         const cancelled = (state.apt_cancelled === true);
         state.apt_cancelled = false;
-        // What is waiting has just changed, and the file ubuntu keeps the count in is written
-        // once a day — so the next answer is counted from apt itself
+        // What is waiting has just changed: the next answer is counted again
         agent_updates.recount();
         return {
             ok: (all[0] === 0),

@@ -74,11 +74,13 @@ const apt_all_section = {
                 if ((updates === null) || (updates.pending === null)) {
                     return Object.assign(row, {text: 'says nothing of updates'});
                 }
+                // Held back is waiting on Ubuntu's phasing, not on an install: said, never ticked
+                const held = (updates.held > 0) ? ` · ${updates.held} held back` : '';
                 if (updates.pending === 0) {
-                    return Object.assign(row, {tone: 'running', text: 'up to date'});
+                    return Object.assign(row, {tone: 'running', text: `up to date${held}`});
                 }
                 const security = (updates.security > 0) ? `, ${updates.security} security` : '';
-                return Object.assign(row, {able: true, tone: (updates.security > 0) ? 'failed' : '', text: `${updates.pending} to install${security}`});
+                return Object.assign(row, {able: true, tone: (updates.security > 0) ? 'failed' : '', text: `${updates.pending} to install${security}${held}`});
             });
         },
         ticked: function () {
