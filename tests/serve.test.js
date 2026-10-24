@@ -1412,6 +1412,65 @@ test('an app folder whose new version cannot be configured keeps the version it 
     }
 });
 
+// The New service form's line for an app folder sets it up as the rules have a fresh checkout
+// made ready: bin/configure, then bin/build, each when the folder has it. A new version that
+// brings bin/build is built; one whose bin/build fails leaves the version it had running.
+test('an app folder is configured, then built, before it runs, and so is its new version', async function () {
+    const app_setup_line = (await import(path.join(__dirname, '..', 'src', 'main', 'public', 'app_setup_line.js'))).default;
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: app_setup_line}, command: 'bin/run'},
+    ]);
+    try {
+        const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(first.body, 'v1 configured, data: none', 'no bin/build: configured only');
+
+        app_version_write(`${folder}.new`, 'v2', 'test -e configured.txt && echo built > built.txt');
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(replaced.status, 200, replaced.body);
+        const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(second.body, 'v2 configured, built, data: none', 'bin/build runs, after bin/configure');
+
+        app_version_write(`${folder}.new`, 'v3', 'echo "v3 does not build" >&2; exit 1');
+        const failed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(failed.status, 502);
+        assert.match(JSON.parse(failed.body).error, /v3 does not build/);
+        const third = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(third.body, 'v2 configured, built, data: none', 'the version it had');
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// An app folder made before the form's line ran bin/build has bin/configure alone as its
+// line: a new version that brings bin/build is built after it all the same
+test('an app folder with bin/configure as its line is built when its new version has bin/build', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ]);
+    try {
+        await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        app_version_write(`${folder}.new`, 'v2', 'test -e configured.txt && echo built > built.txt');
+        const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
+        assert.strictEqual(replaced.status, 200, replaced.body);
+        const second = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(second.body, 'v2 configured, built, data: none');
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('a service that keeps data may name one machine, and its volumes are mounted where it runs', function () {
     const remotes = [{name: 'laptop', token: '0123456789abcdef0123456789abcdef'}, {name: 'aaa', token: 'fedcba9876543210fedcba9876543210'}];
     const one = config_from_json({remotes, services: [{
@@ -1981,10 +2040,13 @@ function config_json(services, extra)
 // servicemans that must see the same ones; `config` is more of the config; `agent_env` is
 // what the agent is started with
 // An app folder of one version: bin/configure marks it, bin/run serves the version, whether it
-// was configured, and what data/ holds
-function app_version_write(folder, version)
+// was configured and built, and what data/ holds; bin/build is there when built gives its line
+function app_version_write(folder, version, built)
 {
     fs.mkdirSync(path.join(folder, 'bin'), {recursive: true});
+    if (built !== undefined) {
+        fs.writeFileSync(path.join(folder, 'bin', 'build'), `#!/bin/sh\n${built}\n`, {mode: 0o755});
+    }
     fs.writeFileSync(path.join(folder, 'bin', 'configure'), '#!/bin/sh\necho configured > configured.txt\n', {mode: 0o755});
     fs.writeFileSync(path.join(folder, 'bin', 'run'), `#!/bin/sh\nexec ${process.execPath} server.js\n`, {mode: 0o755});
     fs.writeFileSync(path.join(folder, 'server.js'), [
@@ -1992,7 +2054,8 @@ function app_version_write(folder, version)
         'require(\'http\').createServer(function (req, res) {',
         '    const configured = fs.existsSync(\'configured.txt\') ? \'configured\' : \'not configured\';',
         '    const data = fs.existsSync(\'data/kept.txt\') ? fs.readFileSync(\'data/kept.txt\', \'utf8\') : \'none\';',
-        `    res.end(\'${version} \' + configured + \', data: \' + data);`,
+        '    const built = fs.existsSync(\'built.txt\') ? \', built\' : \'\';',
+        `    res.end(\'${version} \' + configured + built + \', data: \' + data);`,
         '}).listen(Number(process.env.PORT), \'127.0.0.1\');',
         '',
     ].join('\n'));

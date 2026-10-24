@@ -131,7 +131,7 @@ test('a folder picked in the page is an app as a zip is, and goes into the tar f
         {path: 'notes/server.js', file: new File(['require("http");\n'], 'server.js')},
     ];
     const app = app_folder_read(picked);
-    assert.deepStrictEqual([app.label, app.top, app.files, app.configure, app.problem], ['notes/', 'notes/', 3, true, null]);
+    assert.deepStrictEqual([app.label, app.top, app.files, app.configure, app.build, app.problem], ['notes/', 'notes/', 3, true, false, null]);
     assert.strictEqual(app.size, 30 + 10 + 17);
     const items = [];
     for (const entry of app.entries) {

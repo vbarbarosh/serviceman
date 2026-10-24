@@ -4,6 +4,7 @@ import agent_pill from './agent_pill.js';
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
 import app_folder_read from './app_folder_read.js';
+import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
 import authwall_pane from './authwall_pane.js';
 import config_read from './config_read.js';
@@ -1432,11 +1433,11 @@ const service_page = {
                     {{ (view.doing === null ? 'Fetch again' : 'Fetching…') }}
                 </button>
                 <template v-if="(view.app_folder !== null)">
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer: everything in its folder but data/ is replaced, bin/configure runs, and data/ is put back" @click="$refs.folder.click()">
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.folder.click()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
                         New folder…
                     </button>
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip: everything in its folder but data/ is replaced, bin/configure runs, and data/ is put back" @click="$refs.zip.click()">
+                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.zip.click()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V5M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
                         New zip…
                     </button>
@@ -1459,7 +1460,7 @@ const service_page = {
         <p v-else-if="version_new.done">{{ version_new.label }} is the app now, with its data/ as it was.</p>
         <p v-else>
             <code>{{ version_new.label }}</code> <span class="muted">— {{ version_new.files === 1 ? 'one file' : version_new.files + ' files' }}, {{ size_text(version_new.size) }}.</span>
-            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ version_new.configure ? ', bin/configure runs' : '' }}, and <code>data/</code> is put back{{ view.phase === 'running' ? '; the app stops meanwhile and starts again' : '' }}.
+            Everything in <code>{{ view.app_folder }}</code> but <code>data/</code> is replaced{{ setup_text(version_new) }}, and <code>data/</code> is put back{{ view.phase === 'running' ? '; the app stops meanwhile and starts again' : '' }}.
         </p>
         <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }} — {{ view.name }} runs the version it had, data/ as it was; the new files wait in <code>{{ view.app_folder }}.new</code>.</p>
         <div class="acts">
@@ -1562,6 +1563,11 @@ const service_page = {
         },
         size_text: function (bytes) {
             return format_bytes(bytes);
+        },
+        // What runs in a new version before it starts, as a clause: ', bin/configure and bin/build run'
+        setup_text: function (files) {
+            const setup = app_setup_text(files);
+            return (setup === '') ? '' : `, ${setup}`;
         },
         version_picked: async function (event) {
             const picked = await app_files_pick(event.target);

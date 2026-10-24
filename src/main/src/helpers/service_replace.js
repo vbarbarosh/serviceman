@@ -12,12 +12,13 @@ const service_ensure_running = require('./service_ensure_running');
 const service_phase = require('./service_phase');
 const service_try_again = require('./service_try_again');
 
-// Ten minutes, as an install: bin/configure may fetch everything an app needs
+// Ten minutes, as an install: bin/configure may fetch everything an app needs, and bin/build
+// build it
 const CONFIGURE_TIMEOUT_MS = 600000;
 
 // An app folder takes a new version of itself. Its files were sent beside it, to <folder>.new;
-// that folder becomes the app's, bin/configure runs in it, and what the app keeps, data/, is
-// moved over from the old one last, over any data/ the new files brought.
+// that folder becomes the app's, bin/configure and bin/build run in it, and what the app
+// keeps, data/, is moved over from the old one last, over any data/ the new files brought.
 //
 // The old folder waits as <folder>.old until data/ is across. Whatever fails before then puts
 // it back as it was, so a version that cannot be configured leaves the app as it ran, and
@@ -101,22 +102,24 @@ async function folder_replace(app, remote, service, folder)
     await disk.remove(old);
 }
 
-// The install line when the app has one, which marks the folder as installed; bin/configure
-// itself when the app had none and the new version brings one
+// The install line when the app has one, which marks the folder as installed: the line the
+// New service form gives an app folder runs bin/configure, then bin/build, for those it holds.
+// An app with no line, or with bin/configure alone as the form gave it before, gets those
+// steps here instead, for the ones its new version brings.
 async function configure(app, remote, disk, service, folder)
 {
+    const bin = await disk.list(`${folder}/bin`).catch(() => ({items: []}));
+    let steps = ['configure', 'build'].filter(v => bin.items.some(vv => vv.name === v));
     if (service.lifecycle.install !== null) {
         await program_install(app, remote, service, true);
-        return;
+        steps = (service.lifecycle.install === 'bin/configure') ? steps.filter(v => v === 'build') : [];
     }
-    const bin = await disk.list(`${folder}/bin`).catch(() => ({items: []}));
-    if (bin.items.some(v => v.name === 'configure') === false) {
-        return;
-    }
-    const secrets = await secrets_deliver(app, remote, service);
-    const answer = await remote_call(app, remote, 'program_step', {service: service.name, cwd: folder, line: 'bin/configure', env: program_env(service), image: service.image, user: service.user, secrets}, CONFIGURE_TIMEOUT_MS);
-    if (answer.ok === false) {
-        throw new Error(`${service.name}: bin/configure failed — ${answer.stderr}`);
+    for (const step of steps) {
+        const secrets = await secrets_deliver(app, remote, service);
+        const answer = await remote_call(app, remote, 'program_step', {service: service.name, cwd: folder, line: `bin/${step}`, env: program_env(service), image: service.image, user: service.user, secrets}, CONFIGURE_TIMEOUT_MS);
+        if (answer.ok === false) {
+            throw new Error(`${service.name}: bin/${step} failed — ${answer.stderr}`);
+        }
     }
 }
 

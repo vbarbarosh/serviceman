@@ -730,7 +730,9 @@ form for the two common kinds. <strong>A docker image</strong> asks for the imag
 and the port defaults to the one the image names, or 80. <strong>An app folder</strong> asks for the app&#39;s folder
 on this computer, or a <code>.zip</code> of it: <strong>A folder…</strong> or <strong>A .zip…</strong>, or either dropped on the
 form. The folder must hold <code>bin/run</code>, which serves the app on the port it finds in <code>PORT</code>, and
-may hold <code>bin/configure</code>, which then runs once before the first start. The page reads it and
+may hold <code>bin/configure</code> and <code>bin/build</code>, which then run once before the first start, in that
+order, as a fresh checkout is made ready: its install line is
+<code>if [ -e bin/configure ]; then bin/configure; fi &amp;&amp; if [ -e bin/build ]; then bin/build; fi</code>. The page reads it and
 sends its files on <strong>Create</strong> to the machine, so the machine needs no <code>unzip</code>: a zip&#39;s files
 keep their modes, and a folder&#39;s, which a browser hands over without any, run when they are in
 <code>bin/</code> or start with <code>#!</code>. serviceman chooses where they go: <code>services/&lt;name&gt;</code> in the agent&#39;s
@@ -1369,7 +1371,7 @@ all that outlives a new version:</p>
 <li>the page reads the folder or the zip and sends its files beside the folder, to <code>&lt;folder&gt;.new</code>;</li>
 <li>serviceman stops the app, sets the folder aside as <code>&lt;folder&gt;.old</code> and puts <code>&lt;folder&gt;.new</code> in
 its place;</li>
-<li><code>bin/configure</code> runs in it;</li>
+<li><code>bin/configure</code>, then <code>bin/build</code>, run in it, for those of the two it holds;</li>
 <li><code>data/</code> is moved over from the old folder, over any <code>data/</code> the new files brought, and the old
 folder goes;</li>
 <li>the app starts again if it was running.</li>

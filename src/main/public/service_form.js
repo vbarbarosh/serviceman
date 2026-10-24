@@ -1,6 +1,8 @@
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
 import app_folder_read from './app_folder_read.js';
+import app_setup_line from './app_setup_line.js';
+import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
@@ -24,7 +26,7 @@ const KIND_NAMES = {
 };
 
 // What the short form makes: an image, or an app folder, a program of one shape. bin/run serves
-// it on PORT; bin/configure, when it has one, sets it up once before the first run.
+// it on PORT; bin/configure, then bin/build, for those it has, set it up once before the first run.
 const SHORT_KINDS = ['docker', 'shell'];
 
 const SHORT_NAMES = {
@@ -185,7 +187,7 @@ const service_form = {
                             <code>{{ app_files.label }}</code> <span v-if="(app_files.files > 0)" class="muted">— {{ app_files.files === 1 ? 'one file' : app_files.files + ' files' }}, {{ size_text(app_files.size) }}</span> <button type="button" class="link" @click="app_files = null">not this one</button>
                         </p>
                         <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
-                        <p v-else-if="(app_files !== null)" class="muted">Copied to <code>{{ app_dir }}</code> on {{ place_text(m.places[0].text) }}; {{ app_files.configure ? 'bin/configure runs once, then bin/run' : 'bin/run, with nothing to configure first' }}, on port {{ app_port }} as <code>PORT</code>.</p>
+                        <p v-else-if="(app_files !== null)" class="muted">Copied to <code>{{ app_dir }}</code> on {{ place_text(m.places[0].text) }}; {{ app_steps }}, on port {{ app_port }} as <code>PORT</code>.</p>
                         <p v-else class="muted">Its folder on this computer, with <code>bin/run</code> in it, or a .zip of that folder: picked, or dropped here. serviceman copies it to the machine it runs on, into a folder of its own.</p>
                     </div>
                 </template>
@@ -722,6 +724,12 @@ const service_form = {
             const name = (this.m.name === '') ? this.easy_name : this.m.name;
             return ((this.app_home === null) || (name === '')) ? '' : `${this.app_home}/${name}`;
         },
+        // What runs in the app folder picked, in order: bin/configure and bin/build once, for
+        // those it has, then bin/run
+        app_steps: function () {
+            const setup = (this.app_files === null) ? '' : app_setup_text(this.app_files);
+            return (setup === '') ? 'bin/run, with nothing to configure or build first' : `${setup} once, then bin/run`;
+        },
         // Whether what is made fills itself in from the short form: an image always does, an
         // app folder while it is made there
         made_short: function () {
@@ -884,10 +892,11 @@ const service_form = {
                 out.port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
             }
             else {
-                // An app folder is one shape of program: bin/run on its port, bin/configure
-                // first when the folder has one, in the folder serviceman gives it
+                // An app folder is one shape of program: bin/run on its port, bin/configure and
+                // bin/build first when the folder has them, in the folder serviceman gives it
                 const files = this.app_files;
-                Object.assign(out, {command: 'bin/run', install: ((files !== null) && files.configure) ? 'bin/configure' : '', port: String(this.app_port), image: '', cwd: this.app_dir});
+                const setup = (files !== null) && (files.configure || files.build);
+                Object.assign(out, {command: 'bin/run', install: setup ? app_setup_line : '', port: String(this.app_port), image: '', cwd: this.app_dir});
             }
             if ((name !== '') && model.hosts.every(v => v.text === '')) {
                 out.hosts = [{key: 'easy', text: this.host_from_name(name)}];

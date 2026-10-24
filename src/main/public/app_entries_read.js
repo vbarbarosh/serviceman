@@ -5,14 +5,15 @@
 //     entries    [{name, dir, link, mode, mtime_s, size, bytes()}], names with / between folders
 //     label      what was picked, as the page names it: notes.zip, notes/
 //
-//     {label, top, files, size, configure, entries, problem}
+//     {label, top, files, size, configure, build, entries, problem}
 //     top        the folder everything is in, 'appdir/', or '' when bin/run is at the top
 //     files      how many files, folders not counted
 //     size       their bytes together
 //     configure  whether it has bin/configure
+//     build      whether it has bin/build
 function app_entries_read(label, entries, problem)
 {
-    const out = {label, top: '', files: 0, size: 0, configure: false, entries, problem};
+    const out = {label, top: '', files: 0, size: 0, configure: false, build: false, entries, problem};
     // bin/run at the top is an app as it is; one folder holding everything is the app's folder
     const tops = Array.from(new Set(entries.map(v => v.name.slice(0, v.name.indexOf('/') + 1))));
     const at_top = entries.some(v => v.name === 'bin/run');
@@ -22,6 +23,7 @@ function app_entries_read(label, entries, problem)
     out.files = names.length;
     out.size = files.reduce((total, v) => total + v.size, 0);
     out.configure = names.includes('bin/configure');
+    out.build = names.includes('bin/build');
     if ((out.problem === null) && entries.some(v => v.link)) {
         out.problem = `${label} holds links, which are not sent: put the files they point at in their place.`;
     }
