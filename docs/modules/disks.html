@@ -724,7 +724,11 @@ that talks to an HTTP API under one base URL. The server half is that API, as on
 handler that asks the host to <strong>read</strong> the list. The host gives the read, mounts the handler at
 the base, and decides who may ask.</p>
 <p>serviceman is the first host: its Disks tab of a machine is this component, and the read is <code>df</code>
-run over there by the machine&#39;s agent.</p>
+run over there by the machine&#39;s agent. <strong>What takes the space</strong>, on the list or on a disk&#39;s row,
+counts that disk&#39;s folders and shows them biggest first, each with its share; a click on a folder
+opens the folders inside it, counted then. Above them it says what the count cannot see: the
+folders the agent could not read, the space in no folder counted, and what docker and the
+system journal keep. A machine&#39;s Overview leads there from its Disk card.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/disks_serve.js         the HTTP API, given read()
 server/disks_manifest.js      its kinds of items and the commands on them
@@ -748,6 +752,10 @@ give rights and show by: its kinds of items and the commands on them, in
 <td><code>GET &lt;base&gt;</code></td>
 <td>what the host&#39;s <code>read()</code> answers, below</td>
 </tr>
+<tr>
+<td><code>GET &lt;base&gt;/usage?path=/var&amp;extras=1</code></td>
+<td>what takes the space in one folder: the host&#39;s <code>usage({path, extras})</code></td>
+</tr>
 </tbody></table>
 </div>
 <pre><code>{at, commands: [&#39;df -PkT&#39;, &#39;df -PiT&#39;],
@@ -760,6 +768,12 @@ tmpfs, overlay and loop mounts, which the list hides until asked.</li>
 <li><code>total</code>, <code>used</code>, <code>free</code> are bytes; the inodes are <code>null</code> where the filesystem does not count
 them.</li>
 <li><code>key_of</code> names the pool whose key this small volume holds (Ubuntu&#39;s encrypted ZFS), or null.</li>
+<li><code>usage</code> answers <code>{path, total, files, folders: [{path, size}], unread: [path], took_ms, extras}</code>: the folders in that folder with their sizes, biggest first, counted on its own disk
+alone (<code>du -x</code> over there), <code>files</code> what lies in the folder itself, <code>unread</code> the folders that
+could not be read, whose size is then in no folder. With <code>extras=1</code>, <code>extras</code> is
+<code>{docker: [{what, size}], journal}</code>, what docker and the journal say they keep, <code>null</code> where
+they cannot say. Only names and sizes: nothing is read out of a file. A path that is not from
+the root is a 400.</li>
 <li><strong>Refusals:</strong> a read that throws is a 502 with its message, or the status the error carries;
 any other door or method is a 404.</li>
 </ul>

@@ -12,7 +12,11 @@ handler that asks the host to **read** the list. The host gives the read, mounts
 the base, and decides who may ask.
 
 serviceman is the first host: its Disks tab of a machine is this component, and the read is `df`
-run over there by the machine's agent.
+run over there by the machine's agent. **What takes the space**, on the list or on a disk's row,
+counts that disk's folders and shows them biggest first, each with its share; a click on a folder
+opens the folders inside it, counted then. Above them it says what the count cannot see: the
+folders the agent could not read, the space in no folder counted, and what docker and the
+system journal keep. A machine's Overview leads there from its Disk card.
 
 ## Layout
 
@@ -33,6 +37,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>` | what the host's `read()` answers, below |
+| `GET <base>/usage?path=/var&extras=1` | what takes the space in one folder: the host's `usage({path, extras})` |
 
     {at, commands: ['df -PkT', 'df -PiT'],
      items: [{device, type, mounts, disk, total, used, free, inodes_total, inodes_used,
@@ -43,6 +48,13 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 - `total`, `used`, `free` are bytes; the inodes are `null` where the filesystem does not count
   them.
 - `key_of` names the pool whose key this small volume holds (Ubuntu's encrypted ZFS), or null.
+- `usage` answers `{path, total, files, folders: [{path, size}], unread: [path], took_ms,
+  extras}`: the folders in that folder with their sizes, biggest first, counted on its own disk
+  alone (`du -x` over there), `files` what lies in the folder itself, `unread` the folders that
+  could not be read, whose size is then in no folder. With `extras=1`, `extras` is
+  `{docker: [{what, size}], journal}`, what docker and the journal say they keep, `null` where
+  they cannot say. Only names and sizes: nothing is read out of a file. A path that is not from
+  the root is a 400.
 - **Refusals:** a read that throws is a 502 with its message, or the status the error carries;
   any other door or method is a 404.
 

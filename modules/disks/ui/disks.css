@@ -5,3 +5,87 @@
 .disk-lock {
     margin-left: .4rem;
 }
+
+/* What takes the space: a tree of folders, a row each, its bar the share of the disk */
+.disk-usage {
+    margin-top: 1.5rem;
+}
+.disk-usage h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    overflow-wrap: anywhere;
+}
+.du-notes {
+    margin: .5rem 0 .75rem;
+    padding-left: 1.2rem;
+}
+.du-notes li {
+    margin: .2rem 0;
+    overflow-wrap: anywhere;
+}
+.du-tree {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+}
+.du-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(4rem, 12rem) 5.5rem;
+    gap: .75rem;
+    align-items: center;
+    width: 100%;
+    padding: .4rem .5rem .4rem calc(.5rem + var(--depth)*1.25rem);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.du-row:hover:not(:disabled) {
+    background: var(--hover);
+}
+.du-row:disabled {
+    cursor: default;
+    opacity: 1;
+}
+.du-row.dim .du-name {
+    color: var(--muted);
+}
+.du-name {
+    display: flex;
+    gap: .4rem;
+    align-items: baseline;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.du-fold {
+    flex: none;
+    width: 1em;
+    color: var(--muted);
+}
+.du-size {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.du-bar {
+    display: block;
+    height: .5rem;
+    margin: 0;
+}
+.du-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+@media (max-width: 600px) {
+    .du-row {
+        grid-template-columns: minmax(0, 1fr) 5rem;
+    }
+    .du-bar {
+        display: none;
+    }
+}

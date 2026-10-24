@@ -15,7 +15,10 @@ async function serve(read)
                 asked++;
                 return read();
             },
-            tail: req.url.slice('/disks'.length),
+            usage: async function (params) {
+                return {asked: params};
+            },
+            tail: req.url.slice('/disks'.length).split('?')[0],
         });
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
@@ -73,6 +76,19 @@ test('disks: any other door or method is a 404, and the machine is not asked', a
         assert.deepStrictEqual(await fetch_json(`${running.base}/other`, 'GET'), {status: 404, body: {error: 'no such door: /other'}});
         assert.deepStrictEqual(await fetch_json(running.base, 'POST'), {status: 404, body: {error: 'no such door: '}});
         assert.strictEqual(running.asked(), 0);
+    }
+    finally {
+        running.close();
+    }
+});
+
+test('disks: usage counts the folder asked, from the root, with docker and the journal when asked', async function () {
+    const running = await serve(() => ANSWER);
+    try {
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=${encodeURIComponent('/var/log')}`, 'GET'), {status: 200, body: {asked: {path: '/var/log', extras: false}}});
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=/&extras=1`, 'GET'), {status: 200, body: {asked: {path: '/', extras: true}}});
+        assert.strictEqual((await fetch_json(`${running.base}/usage?path=var`, 'GET')).status, 400);
+        assert.strictEqual((await fetch_json(`${running.base}/usage`, 'GET')).status, 400);
     }
     finally {
         running.close();

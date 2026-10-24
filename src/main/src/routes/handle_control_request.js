@@ -110,6 +110,8 @@ const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
 const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages(\/.*)?$/;
 // ps and ss answer at once; the wait is for a machine thinking about it
 const MACHINE_READ_TIMEOUT_MS = 15000;
+// A count of a whole disk reads every folder on it; the agent gives up a little before this
+const DISK_USAGE_TIMEOUT_MS = 300000;
 const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
 const RE_REMOTE_AGENT = /^\/api\/v1\/remotes\/([^/]+)\/agent-update$/;
 // A screen is a few megabytes over a link, and a machine that will not take the picture says
@@ -389,7 +391,14 @@ async function control_answer(app, req, res)
     }
     const remote_disks = RE_REMOTE_DISKS.exec(url.pathname);
     if (remote_disks !== null) {
-        await handle_machine_module(app, req, res, decodeURIComponent(remote_disks[1]), ((remote_disks[2] === undefined) ? '' : remote_disks[2]), disks_serve, 'disk_list', 'the disk list');
+        await handle_machine_module(app, req, res, decodeURIComponent(remote_disks[1]), ((remote_disks[2] === undefined) ? '' : remote_disks[2]), disks_serve, 'disk_list', 'the disk list', function (remote) {
+            return {usage: function (asked) {
+                if (remote_can(remote, 'disk_usage') === false) {
+                    throw Object.assign(new Error(`the agent on ${remote.name} is from before counting what takes a disk — its page says how it updates`), {status: 400});
+                }
+                return remote_call(app, remote, 'disk_usage', asked, DISK_USAGE_TIMEOUT_MS);
+            }};
+        });
         return;
     }
     const remote_packages = RE_REMOTE_PACKAGES.exec(url.pathname);
@@ -623,10 +632,12 @@ async function handle_machine_read(app, res, name, method, what)
 
 // GET /api/v1/remotes/<name>/processes
 // GET /api/v1/remotes/<name>/disks
+// GET /api/v1/remotes/<name>/disks/usage (query)
 // What is running on that machine and its disks, through the Processes and Disks modules: the
 // doors are the module's, and its read is the agent running ps or df over there as its own
 // user, so what comes back is what that user may see. The refusals are this host's own.
-async function handle_machine_module(app, req, res, name, tail, serve, method, what)
+// more(remote): what else the module is given beside read, as its serve takes it
+async function handle_machine_module(app, req, res, name, tail, serve, method, what, more)
 {
     const remote = app.remote_by_name[name];
     if (remote === undefined) {
@@ -641,10 +652,10 @@ async function handle_machine_module(app, req, res, name, tail, serve, method, w
         send_json(res, 400, {error: `the agent on ${name} is from before ${what} — its page says how it updates`});
         return;
     }
-    await serve(req, res, {
+    await serve(req, res, Object.assign({
         read: () => remote_call(app, remote, method, {}, MACHINE_READ_TIMEOUT_MS),
         tail,
-    });
+    }, (more === undefined) ? {} : more(remote)));
 }
 
 // GET /api/v1/remotes/<name>/fs (query)

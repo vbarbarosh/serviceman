@@ -38,7 +38,7 @@ const remote_overview = {
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-tiles">
-            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note">{{ tile.text }}</overview-tile>
+            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="$emit('tab', $event)">{{ tile.text }}</overview-tile>
         </div>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
@@ -202,7 +202,7 @@ const remote_overview = {
             out.push({icon: 'memory', label: 'Memory', text: (mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`, value: (mem_used === null) ? 0 : mem_used, note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
             const disk = machine.disk;
             const disk_used = (disk.free === null) ? null : 1 - disk.free/disk.total;
-            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`});
+            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`, go: 'What takes it', tab: 'disks'});
             if (machine.temperature !== null) {
                 out.push({icon: 'thermometer', label: 'Temperature', text: `${machine.temperature.c}°C`, value: machine.temperature.c/100, note: machine.temperature.of});
             }

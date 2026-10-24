@@ -31,6 +31,8 @@ const volumes_serve = require('../../../modules/volumes/server/volumes_serve');
 // serviceman waits for a machine
 const READ_TIMEOUT_MS = 15000;
 const UFW_TIMEOUT_MS = 40000;
+// A count of a whole disk reads every folder on it; the agent gives up a little before this
+const DISK_USAGE_TIMEOUT_MS = 300000;
 const VOLUME_TIMEOUT_MS = 600000;
 // How long a request that came before the agent's hello waits for it: it says hello within a
 // second of module-host's start, and again a second after a link that dropped
@@ -67,7 +69,12 @@ const modules_served = [
         ui: path.join(MODULES, 'disks/ui'),
         manifest: disks_manifest,
         serve: function (req, res, tail) {
-            return disks_serve(req, res, {read: () => machine_read('disk_list'), tail});
+            const {app, remote} = machine_host();
+            return disks_serve(req, res, {
+                read: () => machine_read('disk_list'),
+                usage: async v => remote_call(app, await online(remote), 'disk_usage', v, DISK_USAGE_TIMEOUT_MS),
+                tail,
+            });
         },
     },
     {

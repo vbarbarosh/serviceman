@@ -1,6 +1,7 @@
 // What the Disks module holds and does, for its host to route, check and show: one kind, the
-// mounted file systems of the machine, read and nothing else. Its columns are how a page draws
-// them (items_view): Disk and Space used never folded, Inodes free first and Free last.
+// mounted file systems of the machine, read and nothing else, and one door that counts what
+// takes the space in a folder. Its columns are how a page draws them (items_view): Disk and
+// Space used never folded, Inodes free first and Free last.
 const disks_manifest = {
     module: 'disks',
     title: 'Disks',
@@ -25,7 +26,11 @@ const disks_manifest = {
             commands: [],
         },
     ],
-    doors: [],
+    // What takes the space in one folder: the names and sizes of the folders in it, never what
+    // is in a file
+    doors: [
+        {door: 'usage', re: '^/usage$', methods: ['GET'], said: 'what takes the space in one folder: its folders, biggest first', right: {right: 'disks', said: 'read the disks'}},
+    ],
 };
 
 module.exports = disks_manifest;

@@ -1,3 +1,4 @@
+import disk_usage from './disk_usage.js';
 import format_bytes from '../../format_bytes.js';
 import items_view from '../../items_view.js';
 
@@ -14,6 +15,7 @@ const disks = {
     <items-view :base="base" module="disks" :offline="offline" :connected_at="connected_at" :filter="(show_all ? null : (v => v.disk))" :filter_name="(show_all ? 'all' : 'disks')" :row_class="v => ((v.disk === false) ? 'dim' : [])" :more="(v, key) => ((key === 'mounts') && (v.mounts.length > 4))" empty="Nothing is mounted on this machine." none_shown="No disks of its own — everything mounted here is tmpfs, overlay or a loop image. The chip above shows them.">
         <template #tools="{items}">
             <span>{{ summary_of(items) }}</span>
+            <button v-if="(usage_disk === null && items.some(v => v.disk))" type="button" title="Count what the folders of the main disk hold, biggest first" @click="usage_disk = main_disk(items)">What takes the space</button>
             <button type="button" class="chip" :class="{on: show_all}" :title="(show_all ? 'Show the disks alone' : 'Show tmpfs, overlay and loop mounts too')" @click="show_all = (show_all === false)">everything mounted <span class="muted">{{ items.length }}</span></button>
         </template>
         <template #cell-mounts="{item, more}">
@@ -22,10 +24,14 @@ const disks = {
             <div v-if="((item.key_of !== undefined) && (item.key_of !== null))" class="muted">holds the key of {{ item.key_of }}</div>
         </template>
         <template #cell-type="{item}">{{ item.type }}<span v-if="item.encrypted" class="tag disk-lock">encrypted</span></template>
+        <template #actions="{item}">
+            <button v-if="item.disk" type="button" :class="{on: (usage_disk !== null && usage_disk.device === item.device)}" title="Count what its folders hold, biggest first" @click="usage_disk = item">What takes it</button>
+        </template>
     </items-view>
+    <disk-usage v-if="(usage_disk !== null)" :key="usage_disk.device" :base="base" :disk="usage_disk" @close="usage_disk = null"/>
 </article>
 `,
-    components: {'items-view': items_view},
+    components: {'disk-usage': disk_usage, 'items-view': items_view},
     props: {
         base: {type: String, required: true},
         offline: {type: Boolean, default: false},
@@ -34,7 +40,8 @@ const disks = {
         connected_at: {type: Number, default: null},
     },
     data: function () {
-        return {show_all: false};
+        // usage_disk: the disk whose folders are being counted, a row of the list
+        return {show_all: false, usage_disk: null};
     },
     methods: {
         // The disks together, as the card on the Remotes page counts them
@@ -50,6 +57,11 @@ const disks = {
                 total += item.total;
             }
             return `${disks.length} ${plural(disks.length, 'disk', 'disks')} · ${format_bytes(used)} of ${format_bytes(total)} used`;
+        },
+        // The disk a machine is about: the one mounted at /, else the fullest
+        main_disk: function (items) {
+            const disks = items.filter(v => v.disk);
+            return disks.find(v => v.mounts.includes('/')) || disks.slice().sort((a, b) => b.used - a.used)[0];
         },
         // The other places a device is mounted at, the first three, as its row says them
         also_text: function (mounts) {

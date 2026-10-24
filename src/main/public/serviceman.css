@@ -2394,6 +2394,11 @@ article.ov-pane {
     white-space: nowrap;
 }
 
+.ov-tile .ov-go {
+    align-self: flex-start;
+    font-size: .85rem;
+}
+
 /* The machine's history: the range to pick above, a chart a card, two side by side where they
    fit. A chart keeps its height whatever it holds; its value is the last point, or the one under
    the cursor, which runs through every chart at once. */

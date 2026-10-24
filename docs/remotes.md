@@ -326,6 +326,14 @@ above them dimmed so each keeps its place in the tree; **List** lists them heavi
 instead, and a column's header sorts by it, RSS for the heaviest in memory. It is `ps` run over there when the pane opens and when **Read again**
 is pressed, never on a clock. The ports it listens on are in the **Firewall** tab, below.
 
+**Disks** is every filesystem mounted there, from `df`, and **What takes the space** counts
+where a disk's space went: its folders, biggest first, each with its share, and a click on one
+opens the folders inside it. It is `du -x` run over there, on that disk alone, when asked: a
+minute on a big disk. Above the folders it says what such a count cannot see: the folders the
+agent could not read (it runs as its user), the space in no folder counted (those folders, or
+files deleted while a program still holds them open), and, for `/`, what docker and the system
+journal say they keep. A machine's Overview leads there from its Disk card.
+
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
 `apt-get -s upgrade --with-new-pkgs`, a dry run that needs no root — the version an upgrade would bring, marked

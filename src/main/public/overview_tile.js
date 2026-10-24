@@ -10,9 +10,12 @@ const overview_tile = {
     <b><slot/></b>
     <div v-if="(share !== null)" class="meter" :class="level"><i :style="{width: (Math.max(2, Math.round(share*100)) + '%')}"></i></div>
     <small class="muted">{{ note }}</small>
+    <button v-if="(go !== undefined && go !== null)" type="button" class="link ov-go" @click="$emit('tab', tab)">{{ go }}</button>
 </div>
 `,
-    props: ['icon', 'label', 'value', 'note'],
+    // go: a link under the note to the tab that says more, tab its name
+    props: ['icon', 'label', 'value', 'note', 'go', 'tab'],
+    emits: ['tab'],
     computed: {
         icons: function () {
             return overview_icons;

@@ -3,7 +3,12 @@
 // {device, type, mounts, disk, total, used, free, inodes_total, inodes_used, inodes_free,
 // encrypted, key_of}. It is read when asked and kept nowhere.
 //
-//     options = {read, tail}
+// And `usage({path, extras})`, what takes the space in one folder of that machine, counted on
+// that one disk: {path, total, files, folders: [{path, size}], unread: [path], took_ms, extras}.
+// files is what lies in the folder itself, unread what could not be read; extras, when asked,
+// what docker and the journal keep, which the folders do not always show.
+//
+//     options = {read, usage, tail}
 async function disks_serve(req, res, options)
 {
     const tail = options.tail;
@@ -11,6 +16,17 @@ async function disks_serve(req, res, options)
         // GET <base>
         if (((tail === '') || (tail === '/')) && (req.method === 'GET')) {
             send_json(res, 200, await options.read());
+            return;
+        }
+        // GET <base>/usage?path=/var&extras=1
+        if ((tail.split('?')[0] === '/usage') && (req.method === 'GET') && (options.usage !== undefined)) {
+            const query = new URL(req.url, 'http://host').searchParams;
+            const asked = query.get('path');
+            if ((asked === null) || (asked.startsWith('/') === false)) {
+                send_json(res, 400, {error: 'path: the folder to count, from the root: /var'});
+                return;
+            }
+            send_json(res, 200, await options.usage({path: asked, extras: (query.get('extras') === '1')}));
             return;
         }
         send_json(res, 404, {error: `no such door: ${tail}`});
