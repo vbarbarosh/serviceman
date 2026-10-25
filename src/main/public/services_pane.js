@@ -45,7 +45,7 @@ const services_pane = {
             <span v-if="(column.key === 'name')" class="row-of">
                 <button type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
                 <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
-                <logs-link :url="logs_url('service', row.name)" kind="service"/>
+                <logs-link :url="logs_url('service', row.name, row.remotes)" kind="service"/>
             </span>
             <template v-else-if="(column.key === 'address')">
                 <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
@@ -150,8 +150,8 @@ const services_pane = {
         },
     },
     methods: {
-        logs_url: function (kind, name) {
-            return logline_link(this.state.logline, kind, name);
+        logs_url: function (kind, name, remotes) {
+            return logline_link(this.state.logline, kind, name, remotes);
         },
         is_shown: function (service, wanted) {
             if ((this.show === 'running') && (service.phase !== 'running')) {
@@ -180,6 +180,7 @@ const services_pane = {
                 name: service.name,
                 title: service.title || service.name,
                 name_shown: is_name_in_title(service.title, service.name) === false,
+                remotes: service.remotes,
                 phase: (service.doing === null) ? service.phase : 'starting',
                 host,
                 url: this.url_of(host),

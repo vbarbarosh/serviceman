@@ -48,11 +48,21 @@ test('a container as a File Manager disk: list, stat through a link, read a rang
     await disk.rename('/app/a.txt', '/app/conf/a.txt');
     await disk.mkdir('/app/new/deep');
     await disk.remove('/app/conf');
-    assert.deepStrictEqual(engine.cmds.slice(-3), [['mv', '/app/a.txt', '/app/conf/a.txt'], ['mkdir', '-p', '/app/new/deep'], ['rm', '-rf', '/app/conf']]);
+    assert.deepStrictEqual(engine.cmds.slice(-3), [['mv', '--', '/app/a.txt', '/app/conf/a.txt'], ['mkdir', '-p', '--', '/app/new/deep'], ['rm', '-rf', '--', '/app/conf']]);
     assert.throws(() => disk.remove('/'), /not a thing the File Manager deletes/);
     await assert.rejects(disk.mkdir('/fail'), /mkdir: cannot create/);
     assert.strictEqual((await bytes(disk.tar('/app', ['conf', 'a.txt']))).toString(), 'TARBYTES');
-    assert.deepStrictEqual(engine.cmds[engine.cmds.length - 1], ['tar', '-cf', '-', '-C', '/app', 'conf', 'a.txt']);
+    assert.deepStrictEqual(engine.cmds[engine.cmds.length - 1], ['tar', '-cf', '-', '-C', '/app', '--', 'conf', 'a.txt']);
+
+    // A name that looks like a flag, or a relative one, is a path from the root after `--`:
+    // never an option of rm, mv, mkdir or find (SM-154)
+    await disk.remove('-rf');
+    await disk.rename('--help', 'x/../-v');
+    await disk.mkdir('../-p');
+    assert.deepStrictEqual(engine.cmds.slice(-3), [['rm', '-rf', '--', '/-rf'], ['mv', '--', '/--help', '/-v'], ['mkdir', '-p', '--', '/-p']]);
+    assert.throws(() => disk.remove('a/..'), /not a thing the File Manager deletes/);
+    await disk.list('-delete');
+    assert.deepStrictEqual(engine.cmds[engine.cmds.length - 1].slice(0, 2), ['find', '/-delete']);
 });
 
 test('a container says the room left on the disk of a folder, made or not yet, as its df does', async function (t) {
@@ -90,7 +100,7 @@ test('many files as one tar go to docker as they come, into a folder made first 
 
     // A folder that is not there is made first; a body of no known length goes chunked
     await disk.write_tar('/app/new/deep', stream.Readable.from([tarred]));
-    assert.deepStrictEqual(engine.cmds, [['mkdir', '-p', '/app/new/deep']]);
+    assert.deepStrictEqual(engine.cmds, [['mkdir', '-p', '--', '/app/new/deep']]);
     assert.deepStrictEqual([engine.puts[1].url, engine.puts[1].length, engine.puts[1].body.length], [`/containers/${ID}/archive?path=%2Fapp%2Fnew%2Fdeep`, undefined, 2048]);
 
     // A body that breaks on the way stops the copy, and says why
@@ -156,7 +166,7 @@ async function engine_start(t)
                     const counted = (out.df_inodes === 'counted') ? '100 30 70 30%' : '0 0 0 -';
                     return res.end(frame(1, `Filesystem Inodes IUsed IFree IUse% Mounted on\noverlay ${counted} /\n`));
                 }
-                if ((cmd[1] === '-p') && (cmd[2] === '/fail')) {
+                if ((cmd[1] === '-p') && (cmd[3] === '/fail')) {
                     execs[start[1]].code = 1;
                     return res.end(frame(2, 'mkdir: cannot create directory /fail\n'));
                 }

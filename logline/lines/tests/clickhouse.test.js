@@ -91,6 +91,16 @@ test('the days of lines are told, and the days before one are dropped', {skip: (
     assert.strictEqual((await clickhouse_query(CLICKHOUSE, `SELECT count() FROM ${table}`)).trim(), '1');
 });
 
+test('what breaks inside is said in Logline’s own log, never to the machine', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lines-'));
+    // A tokens file edited by hand, one entry without its token: looking the token up throws
+    fs.writeFileSync(path.join(dir, 'tokens.json'), JSON.stringify({tokens: [{name: 'vps1', ips: ['127.0.0.1']}]}));
+    const running = await serve(t, {clickhouse: 'http://127.0.0.1:1', table: 'default.none', tokens_file: path.join(dir, 'tokens.json')});
+    const answer = await call(running, 'POST', '/lines', 'whatever', []);
+    assert.strictEqual(answer.status, 500);
+    assert.deepStrictEqual(answer.body, {error: 'Logline could not take that: its log says why'}, 'a fixed text: nothing of this host’s insides (SM-163)');
+});
+
 async function serve(t, options)
 {
     const server = lines_serve(Object.assign({admin_token: ADMIN_TOKEN, admin_ips: ['127.0.0.1'], uid: 'ctest0000000'}, options));

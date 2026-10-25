@@ -26,7 +26,7 @@ function container_disk(connect, id)
 {
     return {
         list: async function (asked) {
-            const dir = ((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked);
+            const dir = ((asked === null) || (asked === '')) ? await working_dir(connect, id) : rooted(asked);
             const answer = await exec_run(connect, id, ['find', dir, '-mindepth', '1', '-maxdepth', '1', '-exec', 'stat', '-L', '-c', LIST_FORMAT, '{}', '+']);
             if ((answer.code !== 0) && (answer.stdout === '')) {
                 throw new Error(answer.stderr.trim() || `find ended with ${answer.code} in the container`);
@@ -43,37 +43,44 @@ function container_disk(connect, id)
             return {path: dir, items};
         },
         stat: async function (asked) {
-            return (await path_resolved(connect, id, path.posix.normalize(asked))).stat;
+            return (await path_resolved(connect, id, rooted(asked))).stat;
         },
         read: function (asked, range) {
-            return stream.Readable.from(file_bytes(connect, id, path.posix.normalize(asked), range));
+            return stream.Readable.from(file_bytes(connect, id, rooted(asked), range));
         },
         tar: function (dir, names) {
-            return stream.Readable.from(exec_bytes(connect, id, ['tar', '-cf', '-', '-C', path.posix.normalize(dir)].concat(names)));
+            return stream.Readable.from(exec_bytes(connect, id, ['tar', '-cf', '-', '-C', rooted(dir), '--'].concat(names)));
         },
         write: function (dir, name, source) {
-            return file_put(connect, id, path.posix.normalize(dir), name, source);
+            return file_put(connect, id, rooted(dir), name, source);
         },
         write_tar: function (dir, source) {
-            return tar_put(connect, id, path.posix.normalize(dir), source);
+            return tar_put(connect, id, rooted(dir), source);
         },
         rename: function (from, to) {
-            return exec_or_throw(connect, id, ['mv', path.posix.normalize(from), path.posix.normalize(to)]);
+            return exec_or_throw(connect, id, ['mv', '--', rooted(from), rooted(to)]);
         },
         remove: function (asked) {
-            const full = path.posix.normalize(asked);
+            const full = rooted(asked);
             if (full === '/') {
                 throw new Error('/ is not a thing the File Manager deletes');
             }
-            return exec_or_throw(connect, id, ['rm', '-rf', full]);
+            return exec_or_throw(connect, id, ['rm', '-rf', '--', full]);
         },
         mkdir: function (asked) {
-            return exec_or_throw(connect, id, ['mkdir', '-p', path.posix.normalize(asked)]);
+            return exec_or_throw(connect, id, ['mkdir', '-p', '--', rooted(asked)]);
         },
         room: async function (asked) {
-            return await disk_room(connect, id, ((asked === null) || (asked === '')) ? await working_dir(connect, id) : path.posix.normalize(asked));
+            return await disk_room(connect, id, ((asked === null) || (asked === '')) ? await working_dir(connect, id) : rooted(asked));
         },
     };
+}
+
+// A path asked for, as one argv from the root: `a/../b` is `/b`, and `-rf` is `/-rf`, a name
+// after the commands' `--` and never a flag of find's, which takes no `--` before its path
+function rooted(asked)
+{
+    return path.posix.resolve('/', asked);
 }
 
 // Where the container starts: its working folder, or the root
@@ -266,7 +273,7 @@ async function file_put(connect, id, dir, name, source)
 async function tar_put(connect, id, dir, source)
 {
     if (await path_stat(connect, id, dir) === null) {
-        await exec_or_throw(connect, id, ['mkdir', '-p', dir]);
+        await exec_or_throw(connect, id, ['mkdir', '-p', '--', dir]);
     }
     const size = Number((source.headers === undefined) ? NaN : source.headers['content-length']);
     const headers = Number.isInteger(size) ? {'host': 'docker', 'content-type': 'application/x-tar', 'content-length': size} : {'host': 'docker', 'content-type': 'application/x-tar'};

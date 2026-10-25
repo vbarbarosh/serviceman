@@ -16,10 +16,19 @@
 <link rel="stylesheet" href="/modules/disks/disks.css">
 <link rel="stylesheet" href="/modules/packages/packages.css">
 <script>
-document.documentElement.dataset.theme = (localStorage.getItem('serviceman.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+// Storage that throws, in a private window or with site data blocked, is a choice not kept
+function kept(name) {
+    try {
+        return localStorage.getItem(name);
+    }
+    catch {
+        return null;
+    }
+}
+document.documentElement.dataset.theme = (kept('serviceman.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 // The chosen skin goes on before the first paint, after serviceman.css so it overrides it
 (function () {
-    const skin = localStorage.getItem('serviceman.skin');
+    const skin = kept('serviceman.skin');
     if ((skin === null) || (skin === '')) {
         return;
     }

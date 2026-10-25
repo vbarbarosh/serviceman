@@ -7,9 +7,14 @@ function theme_switch()
 {
     return {
         stamp: `
-const kept = localStorage.getItem('serviceman.theme');
-if (kept) {
-    document.documentElement.dataset.theme = kept;
+try {
+    const kept = localStorage.getItem('serviceman.theme');
+    if (kept) {
+        document.documentElement.dataset.theme = kept;
+    }
+}
+catch {
+    // Storage that throws, in a private window say, is a theme not kept
 }
 `,
         button: `<button type="button" id="theme" title="Light or dark">
@@ -21,7 +26,12 @@ document.getElementById('theme').addEventListener('click', function () {
     const now = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
     const next = (now === 'dark' ? 'light' : 'dark');
     document.documentElement.dataset.theme = next;
-    localStorage.setItem('serviceman.theme', next);
+    try {
+        localStorage.setItem('serviceman.theme', next);
+    }
+    catch {
+        // Not kept, but switched for this page
+    }
 });
 `,
     };

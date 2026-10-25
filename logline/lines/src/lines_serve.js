@@ -27,8 +27,10 @@ function lines_serve(config)
     const app = {config, tokens: tokens_read(config.tokens_file), forgetting: false};
     const server = http.createServer(function (req, res) {
         request_handle(app, req, res).catch(function (error) {
+            // The reason goes to the log, where whoever runs Logline reads it; a machine is told
+            // that it did not work, and nothing of this host's insides
             log_say(config.uid, 'lines_error', {method: req.method, path: req.url, reason: error.message});
-            send_json(res, 500, {error: error.message});
+            send_json(res, 500, {error: 'Logline could not take that: its log says why'});
         });
     });
     // The first batch waits for the first try, so it is not the one batch that could be stored

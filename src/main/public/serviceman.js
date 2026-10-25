@@ -43,6 +43,8 @@ import service_shell from './service_shell.js';
 import services_pane from './services_pane.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
+import storage_get from './storage_get.js';
+import storage_set from './storage_set.js';
 import tokens_form from './tokens_form.js';
 import volumes_pane from './volumes_pane.js';
 
@@ -217,7 +219,7 @@ const service_logs = {
     props: ['view', 'logline'],
     computed: {
         url: function () {
-            return logline_link(this.logline, 'service', this.view.name);
+            return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
         },
     },
 };
@@ -1531,7 +1533,7 @@ const service_page = {
             return is_name_in_title(this.view.title, this.view.name) === false;
         },
         logline_url: function () {
-            return logline_link(this.logline, 'service', this.view.name);
+            return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
         },
         tab_now: function () {
             return tab_allowed(this.view, this.tab) ? this.tab : 'overview';
@@ -1849,7 +1851,7 @@ const app = {
             remote_name: null,
             busy: {},
             theme: document.documentElement.dataset.theme,
-            skin: localStorage.getItem('serviceman.skin') || '',
+            skin: storage_get('serviceman.skin') || '',
             skins: [],
             skin_menu: false,
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
@@ -2436,7 +2438,7 @@ const app = {
         // Closing the bar keeps only what is wrong now: one that is mended and comes back is new
         problems_close: function () {
             this.problems_seen = this.problems.map(problem_seen_key);
-            localStorage.setItem('serviceman.problems_seen', JSON.stringify(this.problems_seen));
+            storage_set('serviceman.problems_seen', JSON.stringify(this.problems_seen));
         },
         authwall_show: function () {
             this.panes_close();
@@ -2693,7 +2695,7 @@ const app = {
         theme_toggle: function () {
             this.theme = (this.theme === 'dark') ? 'light' : 'dark';
             document.documentElement.dataset.theme = this.theme;
-            localStorage.setItem('serviceman.theme', this.theme);
+            storage_set('serviceman.theme', this.theme);
         },
         skins_load: async function () {
             try {
@@ -2711,12 +2713,7 @@ const app = {
         },
         skin_pick: function (name) {
             this.skin = name;
-            if (name === '') {
-                localStorage.removeItem('serviceman.skin');
-            }
-            else {
-                localStorage.setItem('serviceman.skin', name);
-            }
+            storage_set('serviceman.skin', (name === '') ? null : name);
             let link = document.getElementById('skin-css');
             if (name === '') {
                 if (link !== null) {
@@ -2867,7 +2864,7 @@ function problem_seen_key(problem)
 function problems_seen_read()
 {
     try {
-        const seen = JSON.parse(localStorage.getItem('serviceman.problems_seen'));
+        const seen = JSON.parse(storage_get('serviceman.problems_seen'));
         return Array.isArray(seen) ? seen : [];
     }
     catch {
