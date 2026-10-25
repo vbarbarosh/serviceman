@@ -1,3 +1,4 @@
+const log_text = require('../../../helpers/log_text');
 const log_trim = require('./log_trim');
 const log_words = require('../../../helpers/log_words');
 const log_write = require('./log_write');
@@ -23,8 +24,9 @@ function log_line(app, uid, subject, words)
 {
     const head = `[${uid}][${subject}]`;
     // The details are free text when the caller writes them itself, and key=value when it
-    // hands over the values and lets this end write them
-    const said = (typeof words === 'string') ? words : log_words(words);
+    // hands over the values and lets this end write them; text that could pass for another
+    // line is quoted (log_text)
+    const said = (typeof words === 'string') ? log_text(words) : log_words(words);
     const tail = (said === '') ? head : `${head} ${log_trim(said, LINE_BYTES - TIME_BYTES - head.length - ROOM)}`;
     const line = `[${new Date().toISOString()}]${tail}`;
     log_write(app, line);

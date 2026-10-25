@@ -209,11 +209,12 @@ function announce_tags(app)
 }
 
 // The control page reads the config, edits it, opens shells inside containers and holds the
-// remote tokens, and it asks for no password. What can reach it is said out loud, at the start.
+// remote tokens, and the owner's token alone opens it. What can reach its door is said out
+// loud, at the start.
 function announce_reach(app)
 {
     if (app.config.control.exposed) {
-        log_event(app, 'serviceman_exposed', {control: 'anyone who reaches it', password: 'none', wall: 'yours to put in front'});
+        log_event(app, 'serviceman_exposed', {control: 'anyone who reaches it', opens_it: 'the owner\'s token', wall: 'yours to put in front'});
         return;
     }
     if (open_to_all(app.config.control.bind) || open_to_all(app.config.listen.host)) {

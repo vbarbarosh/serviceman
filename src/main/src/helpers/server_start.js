@@ -9,6 +9,7 @@ const http = require('http');
 const log_event = require('./log_event');
 const net = require('net');
 const render_error_page = require('./render_error_page');
+const url_logged = require('./url_logged');
 
 // Opens the doors: the service port, and the control port when the config asks for one
 async function server_start(app)
@@ -150,7 +151,9 @@ function answer(app, req, res, handler)
 {
     const promise = handler(app, req, res);
     promise.catch(function (error) {
-        log_event(app, 'serviceman_error', {host: req.headers.host, path: req.url, error: error.stack});
+        // The address without its values, and the reason without the stack: the log is read by
+        // more eyes than the code is
+        log_event(app, 'serviceman_error', {host: req.headers.host, path: url_logged(req.url), error: error.message});
         render_error_page(res, 500, 'serviceman broke on this request', error.message);
     });
 }

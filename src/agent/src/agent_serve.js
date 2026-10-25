@@ -52,6 +52,7 @@ const agent_version = require('../version.json');
 const agent_volume_link_safe = require('./agent_volume_link_safe');
 const agent_volume_terminals = require('./agent_volume_terminals');
 const agent_volumes_link = require('./agent_volumes_link');
+const argv_logged = require('../../helpers/argv_logged');
 const format_seconds = require('../../helpers/format_seconds');
 const last_line = require('../../helpers/last_line');
 const link_read = require('../../helpers/link_read');
@@ -346,8 +347,9 @@ function sender_of(slow, failed)
 function asked_words(message)
 {
     const params = ((message.params === undefined) || (message.params === null)) ? {} : message.params;
+    // A command line with its env values dropped: a value given that way is a secret as often as not
     if (message.method === 'docker') {
-        return {argv: (params.argv === undefined) ? '' : params.argv.join(' ')};
+        return {argv: (params.argv === undefined) ? '' : argv_logged(params.argv).join(' ')};
     }
     if (message.method === 'dir_create') {
         return {path: params.path};
@@ -371,7 +373,7 @@ function asked_words(message)
         return {cwd: params.cwd, line: params.install};
     }
     if (message.method === 'program_start') {
-        return {service: params.name, slot: params.slot, cwd: params.cwd, argv: (params.argv === undefined) ? '' : params.argv.join(' ')};
+        return {service: params.name, slot: params.slot, cwd: params.cwd, argv: (params.argv === undefined) ? '' : argv_logged(params.argv).join(' ')};
     }
     if ((message.method === 'program_stop') || (message.method === 'program_probe')) {
         return {service: params.name, slot: params.slot};

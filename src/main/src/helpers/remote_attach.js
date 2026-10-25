@@ -12,6 +12,7 @@ const link_send_message = require('../../../helpers/link_send_message');
 const load_test_said = require('./load_test_said');
 const log_bind = require('./log_bind');
 const log_event = require('./log_event');
+const log_ids_valid = require('../../../helpers/log_ids_valid');
 const log_line = require('./log_line');
 const log_scope = require('./log_scope');
 const logline_tell = require('./logline_tell');
@@ -203,6 +204,12 @@ function message_read(app, remote, message)
 // link it came in on, said once, the first time that group has anything to say here.
 function remote_said(app, remote, message)
 {
+    // A line's group and sender have a shape, and a machine's that do not are not written: a
+    // sender with a bracket or a space in it would be a line of another shape in this file
+    if (log_ids_valid(String(message.group), String(message.sender)) === false) {
+        link_error(app, remote, {reason: 'log_line_shape', group: String(message.group).slice(0, 40), sender: String(message.sender).slice(0, 40)});
+        return;
+    }
     const text = (typeof message.words === 'string') ? message.words : null;
     const words = ((message.words === null) || (typeof message.words !== 'object')) ? {} : message.words;
     const group = String(message.group);

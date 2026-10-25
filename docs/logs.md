@@ -211,7 +211,7 @@ config is shortened, because the real one was a scratch folder.
 | `serviceman_tag_nowhere` | A service asks for a tag nothing carries yet.                 |
 | `serviceman_closed`      | The control page answers this machine only.                   |
 | `serviceman_exposed`     | `control.exposed` is on, and what that means.                 |
-| `serviceman_error`       | serviceman broke on a request; the stack is in the words.     |
+| `serviceman_error`       | serviceman broke on a request; the reason is in the words.    |
 | `serviceman_end_ok`      | It stopped on a signal, and the containers were left running. |
 | `serviceman_end_error`   | A program would not stop; it left anyway, and says why.       |
 | `group_spawn`            | A group began, and the group it came from.                    |

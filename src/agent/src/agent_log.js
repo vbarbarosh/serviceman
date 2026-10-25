@@ -7,6 +7,12 @@ const path = require('path');
 // logs/servermon/: logs/agent/20261018.txt.
 //
 // A folder that cannot be written stops the file log. It never stops the agent.
+//
+// The lines are the agent's user's alone: a command line, a path, a machine's name, and what
+// a program printed are nobody else's on the machine to read.
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
+
 const file_log = {
     dir: process.env.SERVICEMAN_LOG_DIR || '',
     day: null,
@@ -27,11 +33,17 @@ function agent_log(line)
             file_log.stream.end();
         }
         try {
-            fs.mkdirSync(dir, {recursive: true});
+            fs.mkdirSync(dir, {recursive: true, mode: DIR_MODE});
+            fs.chmodSync(dir, DIR_MODE);
             if (file_log.day === null) {
                 days_moved(file_log.dir, dir);
             }
-            file_log.stream = fs.createWriteStream(path.join(dir, `${day}.txt`), {flags: 'a'});
+            // The file is made here, before the stream opens it, so its mode is set before
+            // anything is in it; a day's file from before this rule is taken in too
+            const file = path.join(dir, `${day}.txt`);
+            fs.closeSync(fs.openSync(file, 'a', FILE_MODE));
+            fs.chmodSync(file, FILE_MODE);
+            file_log.stream = fs.createWriteStream(file, {flags: 'a', mode: FILE_MODE});
         }
         catch (error) {
             file_log.dead = true;

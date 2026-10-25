@@ -1,6 +1,7 @@
 const agent_link = require('./agent_link');
 const agent_log = require('./agent_log');
 const link_send_message = require('../../helpers/link_send_message');
+const log_text = require('../../helpers/log_text');
 const log_words = require('../../helpers/log_words');
 
 // One line, in the shape every serviceman line has: `[time][group][sender] details`. The group
@@ -12,8 +13,9 @@ const log_words = require('../../helpers/log_words');
 function agent_say(group, sender, details, service)
 {
     // Free text when the caller writes it itself — a line a command printed is already a line,
-    // and nothing is gained by wrapping it in a key
-    const words = (typeof details === 'string') ? details : log_words(details);
+    // and nothing is gained by wrapping it in a key; one that could pass for another line is
+    // quoted (log_text)
+    const words = (typeof details === 'string') ? log_text(details) : log_words(details);
     const time = new Date().toISOString();
     const tail = `[${group}][${sender}]${(words === '') ? '' : ` ${words}`}`;
     const line = `[${time}]${tail}`;

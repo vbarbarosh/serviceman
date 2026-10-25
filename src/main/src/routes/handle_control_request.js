@@ -232,7 +232,7 @@ async function control_answer(app, req, res)
     // A HEAD asks, it changes nothing — a player probing a file is not a change. Nor is each
     // part of a file sent in parts: the file is written down once, when it is in.
     if ((req.method !== 'GET') && (req.method !== 'HEAD') && (RE_UPLOAD_PART.test(url.pathname) === false)) {
-        log_event(app, 'control_change', {client: req.socket.remoteAddress, method: req.method, path: req.url});
+        log_event(app, 'control_change', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url)});
     }
     if (url.pathname === '/api/v1/status') {
         send_json(res, 200, state_from_app(app));

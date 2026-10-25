@@ -156,14 +156,15 @@ test('the log says what happened without keeping what was said', async function 
     try {
         await fetch_host({port: running.port, host: 'site.test', path: '/?password=hunter2'});
         await fetch_host({port: running.control_port, host: 'evil.example', path: '/api/v1/config?peek=1'});
-        await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/site/start', method: 'POST'});
+        await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/site/start?note=hunter3', method: 'POST'});
         await timers.setTimeout(100);
 
         const lines = fs.readFileSync(path.join(dir, log_day()), 'utf8');
         assert.match(lines, /\[request_begin\] GET \/\?password=\*\*\* {"from":"","host":"site\.test","ip":"127\.0\.0\.1"}/);
         assert.strictEqual(lines.includes('hunter2'), false, 'the visitor\'s secret is not kept');
         assert.match(lines, /\[control_refused\] client=127\.0\.0\.1 host=evil\.example method=GET path=\/api\/v1\/config\?peek=\*\*\* reason=not_this_machine/);
-        assert.match(lines, /\[control_change\] client=127\.0\.0\.1 method=POST path=\/api\/v1\/services\/site\/start/);
+        assert.match(lines, /\[control_change\] client=127\.0\.0\.1 method=POST path=\/api\/v1\/services\/site\/start\?note=\*\*\*/);
+        assert.strictEqual(lines.includes('hunter3'), false, 'a change is written down without the values it carried');
     }
     finally {
         running.app.file_log.stream.end();
