@@ -239,12 +239,14 @@ function token_view(token)
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,
-// never sent by another site, never read by a script
+// never sent by another site, never read by a script, and never over plain http once the page
+// came over https (a TLS front in front of the control door says so in x-forwarded-proto)
 function cookie_of(req, value, max_age_s)
 {
     const host = String((req.headers.host === undefined) ? '' : req.headers.host).replace(/:\d+$/, '');
     const named = /^[a-z0-9.-]+$/i.test(host) && host.includes('.') && (/^[0-9.]+$/.test(host) === false);
-    return `${control_caller.COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${max_age_s}; HttpOnly; SameSite=Strict${named ? `; Domain=${host}` : ''}`;
+    const secure = (req.socket.encrypted === true) || (String((req.headers['x-forwarded-proto'] === undefined) ? '' : req.headers['x-forwarded-proto']).split(',')[0].trim() === 'https');
+    return `${control_caller.COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${max_age_s}; HttpOnly; SameSite=Strict${named ? `; Domain=${host}` : ''}${secure ? '; Secure' : ''}`;
 }
 
 module.exports = handle_control_tokens;

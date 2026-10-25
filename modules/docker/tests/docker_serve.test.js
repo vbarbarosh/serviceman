@@ -175,6 +175,8 @@ async function engine_start(t)
         {Id: 'a'.repeat(64), Names: ['/shop-web-1'], Image: 'shop/web:latest', State: 'running', Status: 'Up 2 hours', Created: 1759400000, Ports: [{PrivatePort: 80, PublicPort: 8080, Type: 'tcp', IP: '0.0.0.0'}, {PrivatePort: 80, PublicPort: 8080, Type: 'tcp', IP: '::'}], Labels: Object.assign({'com.docker.compose.service': 'web'}, shop)},
         {Id: 'b'.repeat(64), Names: ['/shop-db-1'], Image: 'postgres:17', State: 'exited', Status: 'Exited (0) 3 days ago', Created: 1759300000, Ports: [], Labels: Object.assign({'com.docker.compose.service': 'db'}, shop)},
         {Id: 'd'.repeat(64), Names: ['/serviceman-echo'], Image: 'echo', State: 'running', Status: 'Up 5 minutes', Created: 1759410000, Ports: [], Labels: {}},
+        // An engine that lies: an id that is a path, under a friendly name, which no list shows
+        {Id: '../../../../remotes/laptop/packages/upgrade?', Names: ['/friendly'], Image: 'echo', State: 'running', Status: 'Up 1 minute', Created: 1759410001, Ports: [], Labels: {}},
     ];
     containers[0].ImageID = `sha256:${'1'.repeat(64)}`;
     containers[0].Mounts = [{Type: 'volume', Name: 'shop_data', Destination: '/data'}];

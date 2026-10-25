@@ -17,13 +17,14 @@ const remote_docker = {
         },
     },
     methods: {
-        // A container's files, the File Manager's API over a disk inside it
+        // A container's files, the File Manager's API over a disk inside it. The id is the
+        // machine's engine's word, encoded as any word in a path is.
         files_base: function (item) {
-            return `${this.base}/containers/${item.id}/fs`;
+            return `${this.base}/containers/${encodeURIComponent(item.id)}/fs`;
         },
         // A shell in a container, the Terminal module's websocket
         shell_url: function (item) {
-            return `/api/v1/shell?remote=${encodeURIComponent(this.view.name)}&container=${item.id}`;
+            return `/api/v1/shell?remote=${encodeURIComponent(this.view.name)}&container=${encodeURIComponent(item.id)}`;
         },
     },
 };

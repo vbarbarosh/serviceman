@@ -925,7 +925,8 @@ over either port, exactly like an address no service claims.</p>
 <li><strong>The owner&#39;s token</strong> may do everything. serviceman makes it the first time it starts and
 keeps it in <code>data/owner.token</code>, readable by you alone; <code>bin/owner-token</code> prints it.
 <code>SERVICEMAN_OWNER_TOKEN</code> gives one of your own instead, and then no file is written. The page
-asks for it once and keeps it in a cookie only its own requests carry; <strong>Sign out</strong> is
+asks for it once and keeps it in a cookie only its own requests carry: never sent on to a
+service, and marked <code>Secure</code> when the page came over https; <strong>Sign out</strong> is
 <code>DELETE /api/v1/session</code>.</li>
 <li><strong>An agent&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
 label, the machines it sees, and its rights on them. The reads are <code>status</code>, <code>metrics</code>,

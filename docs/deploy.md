@@ -175,7 +175,8 @@ Even on this machine, and through the control socket, nothing gets in without a 
 - **The owner's token** may do everything. serviceman makes it the first time it starts and
   keeps it in `data/owner.token`, readable by you alone; `bin/owner-token` prints it.
   `SERVICEMAN_OWNER_TOKEN` gives one of your own instead, and then no file is written. The page
-  asks for it once and keeps it in a cookie only its own requests carry; **Sign out** is
+  asks for it once and keeps it in a cookie only its own requests carry: never sent on to a
+  service, and marked `Secure` when the page came over https; **Sign out** is
   `DELETE /api/v1/session`.
 - **An agent's token** is made on the page's **Tokens** tab, for an agent or a program: a
   label, the machines it sees, and its rights on them. The reads are `status`, `metrics`,

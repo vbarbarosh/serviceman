@@ -42,6 +42,9 @@ test('the page signs in once with the owner\'s token and gets a cookie; an agent
     const cookie = signed.headers['set-cookie'][0];
     assert.match(cookie, /^serviceman_token=sm_[A-Za-z0-9_-]+; Path=\/; Max-Age=\d+; HttpOnly; SameSite=Strict; Domain=serviceman\.localhost$/);
     const pair = cookie.split(';')[0];
+    // Behind a TLS front the page came over https, and the cookie never travels over plain http
+    const fronted = await call(running, 'POST', '/api/v1/session', {token: running.owner}, null, {host: 'serviceman.localhost', 'x-forwarded-proto': 'https'});
+    assert.match(fronted.headers['set-cookie'][0], /; Domain=serviceman\.localhost; Secure$/);
     assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, null, {cookie: pair})).status, 200);
     assert.strictEqual((await call(running, 'GET', '/', null, null, {cookie: `other=1; ${pair}`, accept: 'text/html'})).status, 200);
 

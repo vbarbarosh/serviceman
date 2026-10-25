@@ -168,7 +168,14 @@ async function containers_serve(ctx, res)
         send_json(res, 502, {error: engine_said(answer)});
         return;
     }
-    send_json(res, 200, {items: JSON.parse(answer.body).filter(v => is_helper(v) === false).map(v => container_view(ctx, v))});
+    send_json(res, 200, {items: JSON.parse(answer.body).filter(v => (is_helper(v) === false) && id_valid(v.Id)).map(v => container_view(ctx, v))});
+}
+
+// An id as an engine gives one, and nothing else: the page puts it in a path of this host, and
+// a machine's engine is not this host's to trust
+function id_valid(id)
+{
+    return (typeof id === 'string') && /^(sha256:)?[0-9a-f]{12,64}$/.test(id);
 }
 
 function container_view(ctx, item)
@@ -205,16 +212,16 @@ async function store_serve(ctx, res, kind)
             return;
         }
         const body = JSON.parse(listed.body);
-        const users = JSON.parse(containers.body).filter(v => is_helper(v) === false).map(v => ({id: v.Id, name: name_of(v), state: v.State, image: v.ImageID, mounts: Array.isArray(v.Mounts) ? v.Mounts : [], networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
+        const users = JSON.parse(containers.body).filter(v => (is_helper(v) === false) && id_valid(v.Id)).map(v => ({id: v.Id, name: name_of(v), state: v.State, image: v.ImageID, mounts: Array.isArray(v.Mounts) ? v.Mounts : [], networks: Object.keys((v.NetworkSettings && v.NetworkSettings.Networks) || {})}));
         if (kind === 'images') {
-            send_json(res, 200, {items: body.map(v => image_view(v, users))});
+            send_json(res, 200, {items: body.filter(v => id_valid(v.Id)).map(v => image_view(v, users))});
             return;
         }
         if (kind === 'volumes') {
             send_json(res, 200, {items: (Array.isArray(body.Volumes) ? body.Volumes : []).map(v => volume_view(v, users))});
             return;
         }
-        send_json(res, 200, {items: body.map(v => network_view(v, users))});
+        send_json(res, 200, {items: body.filter(v => id_valid(v.Id)).map(v => network_view(v, users))});
     }
     catch (error) {
         send_json(res, 502, {error: error.message});

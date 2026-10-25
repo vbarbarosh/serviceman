@@ -316,7 +316,7 @@ const docker = {
             this.asking = '';
             this.report(`${CONTAINER_DOING[action]} ${item.name}…`, false);
             try {
-                const answer = await fetch(`${this.base}/containers/${item.id}/${action}`, {method: 'POST'});
+                const answer = await fetch(`${this.base}/containers/${encodeURIComponent(item.id)}/${action}`, {method: 'POST'});
                 if (answer.ok === false) {
                     this.report((await answer.json()).error, true);
                     return;
@@ -338,7 +338,7 @@ const docker = {
         },
         // An image pulled again under its name, its progress as it comes
         pull: function (item) {
-            return this.run_stream(`pull ${item.tags[0]}`, `${this.base}/images/${bare_id(item.id)}/pull`);
+            return this.run_stream(`pull ${item.tags[0]}`, `${this.base}/images/${encodeURIComponent(bare_id(item.id))}/pull`);
         },
         // A command on the machine whose answer is text written as it goes, shown as it comes
         // The answer is one JSON object a line: {text}, {progress}, {step, steps, name}, {end, said}

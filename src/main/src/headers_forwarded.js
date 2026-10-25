@@ -1,11 +1,21 @@
+const control_caller = require('./helpers/control_caller');
+
 const HOP_BY_HOP = ['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'];
 
-// The request headers as the service should see them: hop-by-hop dropped, the caller announced
+// The request headers as the service should see them: hop-by-hop dropped, the page's own
+// cookie dropped, the caller announced
 function headers_forwarded(req, keep_upgrade)
 {
     const out = {};
     for (const name of Object.keys(req.headers)) {
         if (HOP_BY_HOP.includes(name) && (keep_upgrade !== true)) {
+            continue;
+        }
+        if (name === 'cookie') {
+            const kept = cookie_without(req.headers.cookie, control_caller.COOKIE);
+            if (kept !== '') {
+                out.cookie = kept;
+            }
             continue;
         }
         out[name] = req.headers[name];
@@ -18,6 +28,14 @@ function headers_forwarded(req, keep_upgrade)
     out['x-forwarded-proto'] = proto_of(req);
     out['x-forwarded-host'] = req.headers.host || '';
     return out;
+}
+
+// The cookie header without the page's own cookie, which is for the control door alone: a
+// browser sends it to every name under the control host, and a service published there would
+// read the owner's token out of every request
+function cookie_without(header, name)
+{
+    return String(header).split(';').map(v => v.trim()).filter(v => (v !== '') && (v.split('=')[0].trim() !== name)).join('; ');
 }
 
 // What the visitor spoke. This host answers http, so a request that reached it directly is
