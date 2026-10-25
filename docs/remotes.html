@@ -803,8 +803,9 @@ ssh vps1 /opt/serviceman/bin/serviceman-agent --url … --token …
 <p>One folder, and everything about that machine&#39;s half is inside it — <code>/opt/serviceman-agent</code> as
 root, <code>~/serviceman-agent</code> otherwise:</p>
 <pre><code>agent.js       the agent, one file, node and nothing else
+agent.js.sig   the host&#39;s signature of it
 servermon.js   the machine&#39;s load every second, written and kept running by the agent
-env            where the host is, and the token. Mode 600.
+env            where the host is, the token, and the host&#39;s public key. Mode 600.
 status         what the agent is doing right now, rewritten every few seconds
 logs/agent/    the agent&#39;s log, one file a day: logs/agent/20260823.txt
 logs/servermon/  servermon&#39;s, a JSON line a second, one file a day: logs/servermon/20260823.jsonl
@@ -852,6 +853,18 @@ said: each ask after that is <code>remote_update_not_taken</code>, and the machi
 Agent. An agent recent enough to know keeps what its <code>bin/update</code> printed in
 <code>logs/update.log</code> and answers the next ask with it, as <code>remote_update_refused</code>.</p>
 <p><code>&quot;agent_update&quot;: false</code> in the config leaves every machine as it is, to be updated by hand.</p>
+<p><strong>A new agent is the host&#39;s or nothing.</strong> The host signs the agent file with a key of its own
+(<code>data/agent_sign.key</code>, made once) and serves the signature at <code>/api/v1/agent.js.sig</code> and the
+public key at <code>/api/v1/agent.pub</code>. The installer writes that key into the machine&#39;s <code>env</code> as
+<code>SERVICEMAN_HOST_KEY</code>, trusting the host it fetched the installer from, the same moment the
+token was handed over. From then on the machine takes a new agent, over the link or through
+<code>bin/update</code>, only when this host signed it, and refuses any other with
+<code>remote_update_refused</code>. A machine&#39;s root half (<code>sudo bin/install-root</code>) runs a copy of the
+agent file and of node that are root&#39;s alone, in <code>/usr/local/lib/serviceman-agent</code>, with the
+host&#39;s key pinned beside them; when an update replaced the session&#39;s file, the root half takes
+it as its copy only when the host signed it, then starts afresh. A machine installed before
+this has no key yet: its next <code>bin/update</code> pins one, and <code>sudo bin/install-root</code> run once again
+moves its root half to the copy.</p>
 <h2 id="keep-it-up"><a class="anchor" href="#keep-it-up" aria-hidden="true" tabindex="-1">#</a>Keep it up</h2>
 <p><code>bin/install</code> does it — the system&#39;s systemd when run as root, your own systemd otherwise, with
 lingering so it survives a logout. It is written by the installer with the paths already in it,

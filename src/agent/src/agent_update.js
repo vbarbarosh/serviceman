@@ -1,5 +1,6 @@
 const agent_dir = require('./agent_dir');
 const agent_say = require('./agent_say');
+const agent_signed = require('../../helpers/agent_signed');
 const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -71,6 +72,12 @@ function agent_update(params, group)
         // repo has source under it, and source is never overwritten from a link.
         if (fs.readFileSync(own, 'utf8').includes('modules["agent/index"]') === false) {
             return {started: false, reason: `${own} is not a bundled agent — this one runs from the repo and updates with it`};
+        }
+        // A machine that knows its host's key takes a file that host signed and no other: the
+        // link is a token over plain http, and the file runs as this user from now on
+        const key = String((process.env.SERVICEMAN_HOST_KEY === undefined) ? '' : process.env.SERVICEMAN_HOST_KEY).trim();
+        if ((key !== '') && (agent_signed(params.text, params.signature, key) === false)) {
+            return {started: false, reason: 'the file is not signed by the host this machine was installed from — nothing was written'};
         }
         fs.writeFileSync(`${own}.new`, params.text);
         fs.renameSync(`${own}.new`, own);

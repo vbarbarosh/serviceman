@@ -1,3 +1,5 @@
+const agent_sign_key = require('../src/main/src/helpers/agent_sign_key');
+const agent_signature = require('../src/main/src/helpers/agent_signature');
 const agent_update = require('../src/agent/src/agent_update');
 const assert = require('assert');
 const fs = require('fs');
@@ -47,6 +49,61 @@ test('a bin/update that fails is said on the next ask, and the ask after that tr
         else {
             process.env.SERVICEMAN_AGENT_DIR = was;
         }
+    }
+});
+
+// The ask carries the file for a machine with no bin/update; a machine that knows its host's
+// key writes it only when that host signed it
+test('an agent file sent over the link is written only when the host this machine knows signed it', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-update-signed-'));
+    const was = {dir: process.env.SERVICEMAN_AGENT_DIR, key: process.env.SERVICEMAN_HOST_KEY, argv1: process.argv[1], exit: process.exit};
+    let exited = false;
+    try {
+        process.env.SERVICEMAN_AGENT_DIR = dir;
+        const own = path.join(dir, 'agent.js');
+        fs.writeFileSync(own, 'modules["agent/index"] = 1; // the old agent\n');
+        process.argv[1] = own;
+        process.exit = function () {
+            exited = true;
+        };
+        const app = {state_dir: path.join(dir, 'state')};
+        const key = agent_sign_key(app);
+        process.env.SERVICEMAN_HOST_KEY = key.public_line;
+        const text = 'modules["agent/index"] = 2; // the new agent\n';
+
+        for (const bad of [{text}, {text, signature: 'AAAA'}, {text, signature: agent_signature({state_dir: path.join(dir, 'other')}, text)}, {text: `${text} `, signature: agent_signature(app, text)}]) {
+            const refused = agent_update(bad, 'c1');
+            assert.strictEqual(refused.started, false);
+            assert.match(refused.reason, /not signed by the host this machine was installed from/);
+        }
+        assert.strictEqual(fs.readFileSync(own, 'utf8'), 'modules["agent/index"] = 1; // the old agent\n', 'nothing was written');
+
+        assert.deepStrictEqual(agent_update({text, signature: agent_signature(app, text)}, 'c1'), {started: true});
+        assert.strictEqual(fs.readFileSync(own, 'utf8'), text);
+        await timers.setTimeout(300);
+        assert.strictEqual(exited, true, 'the old one steps aside for the file it wrote');
+
+        // A machine with no key yet takes the file as before, and pins one at its next bin/update
+        delete process.env.SERVICEMAN_HOST_KEY;
+        assert.deepStrictEqual(agent_update({text: `${text}// again\n`}, 'c1'), {started: true});
+        await timers.setTimeout(300);
+    }
+    finally {
+        process.exit = was.exit;
+        process.argv[1] = was.argv1;
+        if (was.dir === undefined) {
+            delete process.env.SERVICEMAN_AGENT_DIR;
+        }
+        else {
+            process.env.SERVICEMAN_AGENT_DIR = was.dir;
+        }
+        if (was.key === undefined) {
+            delete process.env.SERVICEMAN_HOST_KEY;
+        }
+        else {
+            process.env.SERVICEMAN_HOST_KEY = was.key;
+        }
+        fs.rmSync(dir, {recursive: true, force: true});
     }
 });
 

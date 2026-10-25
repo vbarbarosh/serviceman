@@ -100,15 +100,46 @@ if [ -n "$root_half" ] && [ "$(id -u)" != 0 ]; then
 fi
 
 mkdir -p "$prefix/bin" "$prefix/logs" "$prefix/services"
-curl -fsSL "$url/api/v1/agent.js" -o "$prefix/agent.js.new"
+
+# From the host: the agent, the host's signature of it, and the key that checks it, each the
+# way this script came, over a port or a socket file
+host_get() {
+    case "$url" in
+        unix://*) curl -fsSL --unix-socket "\${url#unix://}" "http://localhost$1" -o "$2";;
+        *) curl -fsSL "$url$1" -o "$2";;
+    esac
+}
+host_get /api/v1/agent.js "$prefix/agent.js.new"
+host_get /api/v1/agent.js.sig "$prefix/agent.js.sig.new"
+host_get /api/v1/agent.pub "$prefix/host.pub.new"
+host_key=$(cat "$prefix/host.pub.new")
+rm -f "$prefix/host.pub.new"
+
+# A machine that has an agent takes a new one from the host that installed it and no other:
+# the agent already here checks the signature with the key it was given, and that key stays.
+# The first install trusts the host this script came from, the moment the token was handed
+# over as well. An agent from before signatures cannot check, and takes this one as the first.
+if [ -f "$prefix/agent.js" ] && [ -f "$prefix/env" ]; then
+    known=$(grep '^SERVICEMAN_HOST_KEY=' "$prefix/env" || true)
+    known=\${known#SERVICEMAN_HOST_KEY=}
+    if [ -n "$known" ] && "$node_bin" "$prefix/agent.js" --help 2>/dev/null | grep -q -- '--verify'; then
+        if ! "$node_bin" "$prefix/agent.js" --verify "$prefix/agent.js.new" "$prefix/agent.js.sig.new" "$known"; then
+            rm -f "$prefix/agent.js.new" "$prefix/agent.js.sig.new"
+            echo "serviceman: the agent from $url is not signed by the host this machine was installed from — nothing was changed" >&2
+            exit 1
+        fi
+        host_key=$known
+    fi
+fi
 mv "$prefix/agent.js.new" "$prefix/agent.js"
+mv "$prefix/agent.js.sig.new" "$prefix/agent.js.sig"
 
 env_file=$prefix/env
 
 # What serviceman writes in there, and what it does not. A line of your own — a PATH for a node
 # that lives in a home folder, anything the programs on this machine need — is kept as it was:
 # this file is yours as much as it is ours.
-mine='^SERVICEMAN_(URL|TOKEN|AGENT_DIR|LOG_DIR|SERVICES_DIR|TAGS|MACHINE|DIR|DOCKER)='
+mine='^SERVICEMAN_(URL|TOKEN|AGENT_DIR|LOG_DIR|SERVICES_DIR|TAGS|MACHINE|DIR|DOCKER|HOST_KEY)='
 yours=''
 if [ -f "$env_file" ]; then
     yours=$(grep -Ev "$mine" "$env_file" || true)
@@ -118,6 +149,8 @@ umask 077
 {
     echo "SERVICEMAN_URL=$url"
     echo "SERVICEMAN_TOKEN=$token"
+    # The host's public key, one line: an update over the link is taken only when this host signed it
+    echo "SERVICEMAN_HOST_KEY=$host_key"
     echo "SERVICEMAN_AGENT_DIR=$prefix"
     # A machine kept up by systemd has nobody watching its stdout, so the agent keeps its own
     # daily files beside itself
@@ -378,10 +411,14 @@ UPDATEEOF
 cat > "$prefix/bin/install-root" <<INSTALLROOTEOF
 #!/bin/sh
 
-# Gives this machine its root half: the same agent file, kept up by the system's systemd,
-# dialling nowhere and listening on one socket that only the person named below may open.
-# Everything the host asks for that has to be root is done there, so nothing needs sudo and
-# no line in sudoers says which commands are allowed.
+# Gives this machine its root half: the same agent, kept up by the system's systemd, dialling
+# nowhere and listening on one socket that only the person named below may open. Everything
+# the host asks for that has to be root is done there, so nothing needs sudo and no line in
+# sudoers says which commands are allowed.
+#
+# It runs a copy of the agent file and of node that are root's alone, so what the person's
+# own user may write is never what root runs; the host's key is pinned beside the copy, and
+# an update's new file is taken as the copy only when the host signed it.
 #
 # Run it with sudo. --remove takes it away again.
 
@@ -389,6 +426,7 @@ set -eu
 
 prefix=$prefix
 node_bin=$node_bin
+root_dir=/usr/local/lib/serviceman-agent
 unit=/etc/systemd/system/serviceman-agent-root.service
 socket=/run/serviceman-root.sock
 
@@ -408,13 +446,28 @@ fi
 # Whose agent may ask: the person who ran sudo, or whoever owns the folder it lives in
 user=\\\${SUDO_USER:-\\$(stat -c %U "\\$prefix")}
 
+# The copy that is root's alone, unless the folder is root's already, as it is when the agent
+# was installed as root: then both halves run the one file
+if [ "\\$(stat -c %U "\\$prefix")" = root ]; then
+    root_dir=\\$prefix
+else
+    mkdir -p "\\$root_dir"
+    chmod 755 "\\$root_dir"
+    cp "\\$node_bin" "\\$root_dir/node.new" && mv "\\$root_dir/node.new" "\\$root_dir/node"
+    cp "\\$prefix/agent.js" "\\$root_dir/agent.js.new" && mv "\\$root_dir/agent.js.new" "\\$root_dir/agent.js"
+    chmod 755 "\\$root_dir/node" "\\$root_dir/agent.js"
+    known=\\$(grep '^SERVICEMAN_HOST_KEY=' "\\$prefix/env" || true)
+    printf '%s\\n' "\\\${known#SERVICEMAN_HOST_KEY=}" > "\\$root_dir/host.pub"
+    node_bin=\\$root_dir/node
+fi
+
 cat > "\\$unit" <<UNITEOF
 [Unit]
 Description=serviceman agent, the root half
 After=network.target
 
 [Service]
-ExecStart=$node_bin $prefix/agent.js --role root --for \\$user
+ExecStart=\\$node_bin \\$root_dir/agent.js --role root --for \\$user --root-source \\$prefix/agent.js
 Restart=always
 RestartSec=5
 KillMode=process

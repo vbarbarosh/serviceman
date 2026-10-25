@@ -81,6 +81,23 @@ test('one install line with no node says so before sudo, writes nothing, and giv
 
 // Piped from curl, the shell reads the whole script before running a line of it: an early exit
 // no longer closes the pipe under curl ("curl: (23) Failure writing output")
+// A new agent is the host's or nothing: the installer fetches the signature and the key with
+// the file, keeps the key in env, and the root half runs a root-owned copy with the key beside it
+test('install.sh fetches the agent with its signature and the host\'s key, over a port or a socket, and the root half runs a copy of its own', function () {
+    const script = agent_install_sh('http://127.0.0.1:9');
+    assert.ok(script.includes('host_get /api/v1/agent.js "$prefix/agent.js.new"'));
+    assert.ok(script.includes('host_get /api/v1/agent.js.sig "$prefix/agent.js.sig.new"'));
+    assert.ok(script.includes('host_get /api/v1/agent.pub "$prefix/host.pub.new"'));
+    assert.ok(script.includes('unix://*) curl -fsSL --unix-socket "${url#unix://}" "http://localhost$1" -o "$2";;'));
+    assert.ok(script.includes('echo "SERVICEMAN_HOST_KEY=$host_key"'));
+    assert.ok(script.includes('--verify "$prefix/agent.js.new" "$prefix/agent.js.sig.new" "$known"'));
+    assert.ok(script.includes('root_dir=/usr/local/lib/serviceman-agent'));
+    assert.ok(script.includes('ExecStart=\\$node_bin \\$root_dir/agent.js --role root --for \\$user --root-source \\$prefix/agent.js'));
+    assert.ok(script.includes('> "\\$root_dir/host.pub"'));
+    // The env file keeps a key it has: an update writes the known one back, never a new one unchecked
+    assert.ok(script.includes('host_key=$known'));
+});
+
 test('install.sh runs nothing until it is read to the end', function () {
     const lines = agent_install_sh('http://127.0.0.1:9').trimEnd().split('\n');
     assert.strictEqual(lines.at(-1), 'main "$@"');
@@ -128,7 +145,7 @@ function make_machine({systemd, linger = false, sudo = 'password', xdg, node = t
     let script = agent_install_sh('http://127.0.0.1:9');
     if (!node) {
         script = script.replace(' /usr/local/bin/node /opt/node/bin/node;', ';');
-        for (const tool of ['sh', 'id', 'uname', 'mkdir', 'mv', 'grep', 'cat', 'chmod', 'stat', 'wc']) {
+        for (const tool of ['sh', 'id', 'uname', 'mkdir', 'mv', 'rm', 'grep', 'cat', 'chmod', 'stat', 'wc']) {
             fs.symlinkSync(child_process.execFileSync('sh', ['-c', `command -v ${tool}`], {encoding: 'utf8'}).trim(), path.join(bin, tool));
         }
     }

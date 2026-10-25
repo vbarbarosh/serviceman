@@ -31,7 +31,11 @@ async function agent_root_current(options, group)
         return false;
     }
     agent_say(group, 'root_update_asked', {running: said.built, serving: agent_built});
-    await agent_root_ask(options, 'restart', {});
+    // A root half that runs a copy of its own says whether it took the new file (agent_root_refresh)
+    const answer = await agent_root_ask(options, 'restart', {});
+    if ((answer !== null) && (typeof answer === 'object') && (answer.refreshed !== undefined)) {
+        agent_say(group, 'root_update_file', {refreshed: answer.refreshed, reason: answer.reason});
+    }
     if (await back_again(options)) {
         said_about = null;
         return true;

@@ -1,3 +1,4 @@
+const agent_signed = require('../src/helpers/agent_signed');
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
@@ -24,8 +25,16 @@ test('the control door wants a token: none, or one nobody holds, gets the sign-i
     assert.strictEqual((await call(running, 'GET', '/api/v1/status', null, 'sm_nobody')).status, 401);
     assert.strictEqual((await call(running, 'GET', '/api/v1/config', null, null)).status, 401);
     assert.strictEqual((await call(running, 'POST', '/api/v1/services/x/start', null, null)).status, 401);
-    // The agent and its installer hold no secret and stay open
-    assert.strictEqual((await call(running, 'GET', '/api/v1/agent.js', null, null)).status, 200);
+    // The agent and its installer hold no secret and stay open; so do the host's signature of
+    // the agent and the public key that checks it, which is what a machine takes an update by
+    const agent = await call(running, 'GET', '/api/v1/agent.js', null, null);
+    assert.strictEqual(agent.status, 200);
+    const signature = await call(running, 'GET', '/api/v1/agent.js.sig', null, null);
+    const key = await call(running, 'GET', '/api/v1/agent.pub', null, null);
+    assert.deepStrictEqual([signature.status, key.status], [200, 200]);
+    assert.strictEqual(agent_signed(agent.body, signature.body.trim(), key.body.trim()), true, 'the file served is the one signed');
+    assert.strictEqual(agent_signed(`${agent.body} `, signature.body.trim(), key.body.trim()), false);
+    assert.strictEqual(fs.statSync(path.join(running.app.state_dir, 'agent_sign.key')).mode & 0o777, 0o600, 'the host\'s key is its own');
 
     const owner = await call(running, 'GET', '/api/v1/status', null, running.owner);
     assert.strictEqual(owner.status, 200);

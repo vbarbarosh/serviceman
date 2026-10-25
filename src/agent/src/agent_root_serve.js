@@ -2,6 +2,7 @@ const agent_apt = require('./agent_apt');
 const agent_built = require('./agent_built');
 const agent_disk_usage = require('./agent_disk_usage');
 const agent_port_list = require('./agent_port_list');
+const agent_root_refresh = require('./agent_root_refresh');
 const agent_root_socket = require('./agent_root_socket');
 const agent_say = require('./agent_say');
 const agent_ufw = require('./agent_ufw');
@@ -158,13 +159,14 @@ async function method_run(state, options, job, say)
         };
     }
     if (method === 'restart') {
-        // An update replaced the file this is running from. Nothing here reloads code, so it
-        // ends and systemd starts the new one — the answer goes first, because after this
-        // there is nobody here to answer with.
+        // An update replaced the session half's file. This half takes it as its own copy when
+        // it is the host's (agent_root_refresh), then ends, and systemd starts the new one —
+        // the answer goes first, because after this there is nobody here to answer with.
+        const taken = agent_root_refresh(options);
         setTimeout(function () {
             process.exit(0);
         }, 200);
-        return {stopping: true};
+        return Object.assign({stopping: true}, taken);
     }
     if (method === 'port_list') {
         // ss names the holder of a socket only to whoever may read that socket, which for the

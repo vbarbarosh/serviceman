@@ -92,8 +92,9 @@ One folder, and everything about that machine's half is inside it — `/opt/serv
 root, `~/serviceman-agent` otherwise:
 
     agent.js       the agent, one file, node and nothing else
+    agent.js.sig   the host's signature of it
     servermon.js   the machine's load every second, written and kept running by the agent
-    env            where the host is, and the token. Mode 600.
+    env            where the host is, the token, and the host's public key. Mode 600.
     status         what the agent is doing right now, rewritten every few seconds
     logs/agent/    the agent's log, one file a day: logs/agent/20260823.txt
     logs/servermon/  servermon's, a JSON line a second, one file a day: logs/servermon/20260823.jsonl
@@ -150,6 +151,19 @@ Agent. An agent recent enough to know keeps what its `bin/update` printed in
 `logs/update.log` and answers the next ask with it, as `remote_update_refused`.
 
 `"agent_update": false` in the config leaves every machine as it is, to be updated by hand.
+
+**A new agent is the host's or nothing.** The host signs the agent file with a key of its own
+(`data/agent_sign.key`, made once) and serves the signature at `/api/v1/agent.js.sig` and the
+public key at `/api/v1/agent.pub`. The installer writes that key into the machine's `env` as
+`SERVICEMAN_HOST_KEY`, trusting the host it fetched the installer from, the same moment the
+token was handed over. From then on the machine takes a new agent, over the link or through
+`bin/update`, only when this host signed it, and refuses any other with
+`remote_update_refused`. A machine's root half (`sudo bin/install-root`) runs a copy of the
+agent file and of node that are root's alone, in `/usr/local/lib/serviceman-agent`, with the
+host's key pinned beside them; when an update replaced the session's file, the root half takes
+it as its copy only when the host signed it, then starts afresh. A machine installed before
+this has no key yet: its next `bin/update` pins one, and `sudo bin/install-root` run once again
+moves its root half to the copy.
 
 ## Keep it up
 

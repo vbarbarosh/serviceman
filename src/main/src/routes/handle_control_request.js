@@ -1,5 +1,7 @@
 const agent_bundle = require('../../../agent/bundler/agent_bundle');
 const agent_install_sh = require('../helpers/agent_install_sh');
+const agent_sign_key = require('../helpers/agent_sign_key');
+const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
@@ -191,9 +193,19 @@ async function control_answer(app, req, res)
         await handle_fs(app, req, res, fs_host, `/file${url.pathname}`);
         return;
     }
-    // The agent is public code and holds no secret; a machine far away must be able to take it
+    // The agent is public code and holds no secret; a machine far away must be able to take it.
+    // Beside it, the host's signature of it and the public key to check it with: a machine
+    // installed from this host takes an update from this host alone.
     if ((url.pathname === '/api/v1/agent.js') && (req.method === 'GET')) {
         send_agent(res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/agent.js.sig') && (req.method === 'GET')) {
+        send_text(res, agent_signature(app, agent_bundle()));
+        return;
+    }
+    if ((url.pathname === '/api/v1/agent.pub') && (req.method === 'GET')) {
+        send_text(res, agent_sign_key(app).public_line);
         return;
     }
     // The installer carries no secret either, and it has to be readable by a machine that has
@@ -1550,6 +1562,14 @@ function send_agent(res)
         'content-disposition': 'attachment; filename="serviceman-agent.js"',
     });
     res.end(text);
+}
+
+// One line of base64 and a newline, as a file beside the agent
+function send_text(res, text)
+{
+    const body = `${text}\n`;
+    res.writeHead(200, {'content-type': 'text/plain; charset=utf-8', 'content-length': Buffer.byteLength(body), 'cache-control': 'no-store'});
+    res.end(body);
 }
 
 // GET /navplace

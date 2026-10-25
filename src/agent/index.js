@@ -20,6 +20,7 @@ const agent_status_ask = require('./src/agent_status_ask');
 const agent_status_serve = require('./src/agent_status_serve');
 const agent_uninstall = require('./src/agent_uninstall');
 const agent_uptime = require('./src/agent_uptime');
+const agent_verify_file = require('./src/agent_verify_file');
 const agent_version = require('./version.json');
 const format_seconds = require('../helpers/format_seconds');
 const log_uid = require('../helpers/log_uid');
@@ -79,6 +80,10 @@ to give and none to get wrong.
             default every tailnet address this machine has, and nothing else
   --once    dial once and exit when the link drops, instead of dialling again
   --status  ask the agent running in this folder what it is doing, and print it
+  --verify <file> <signature file> <key>
+            whether a file is the host's: signed with the host's key, given as
+            one line (SERVICEMAN_HOST_KEY in env). Exits 0 when it is, 1 when
+            not; bin/update asks before it puts a new agent in place
 
 The same file is also the root half of a machine, and then it dials nowhere:
 
@@ -93,6 +98,10 @@ The same file is also the root half of a machine, and then it dials nowhere:
             where that socket is (env SERVICEMAN_ROOT_SOCKET,
             default /run/serviceman-root.sock). The session agent reads the same
             one, and asks it for the work that has to be root.
+  --root-source
+            the session half's agent file (env SERVICEMAN_ROOT_SOURCE): the root
+            half runs a copy of its own, root's alone, and takes that file as
+            the new copy when an update replaced it and the host signed it
 `;
 
 main();
@@ -102,6 +111,11 @@ async function main()
     const argv = process.argv.slice(2);
     if (argv.includes('--help')) {
         console.log(USAGE);
+        return;
+    }
+    if (argv[0] === '--verify') {
+        // Not an agent this time: whether a file is the host's, said by the exit code
+        process.exitCode = agent_verify_file(argv[1], argv[2], argv[3]) ? 0 : 1;
         return;
     }
     if (argv.includes('--status')) {
@@ -257,6 +271,7 @@ function options_from_argv(argv)
         role: text_after(argv, '--role', env.SERVICEMAN_ROLE || ''),
         root_for: text_after(argv, '--for', env.SERVICEMAN_ROOT_FOR || ''),
         root_socket: text_after(argv, '--root-socket', env.SERVICEMAN_ROOT_SOCKET || ''),
+        root_source: text_after(argv, '--root-source', env.SERVICEMAN_ROOT_SOURCE || ''),
         screenshot: text_after(argv, '--screenshot', env.SERVICEMAN_SCREENSHOT || ''),
         http_socket_mode: text_after(argv, '--http-socket-mode', env.SERVICEMAN_HTTP_SOCKET_MODE || ''),
         peer_port: text_after(argv, '--peer-port', env.SERVICEMAN_PEER_PORT || ''),
