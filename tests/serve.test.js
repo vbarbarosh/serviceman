@@ -1487,6 +1487,50 @@ test('an app folder takes a new version as a zip sent by PUT, and keeps its data
     }
 });
 
+// Two deploys at once: the second is refused while the first is still sending, instead of
+// clearing <folder>.new under it, which left the first a folder with half its files
+test('a zip sent while another is on its way is refused, and the first goes in whole', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ]);
+    try {
+        const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(first.body, 'v1 configured, data: none');
+        const zips = [];
+        for (const version of ['v2', 'v3']) {
+            const source = path.join(dir, version);
+            app_version_write(source, version);
+            // Big enough that the tar is still being written when the other one comes
+            fs.mkdirSync(path.join(source, 'build'));
+            fs.writeFileSync(path.join(source, 'build', 'blob.bin'), Buffer.alloc(8*1024*1024, 7));
+            zips.push(folder_zip(source, version));
+        }
+        const answers = await Promise.all(zips.map(v => fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: v})));
+        const statuses = answers.map(v => v.status);
+        assert.deepStrictEqual(statuses.slice().sort(), [200, 409], answers.map(v => v.body).join('\n'));
+        const refused = answers.find(v => v.status === 409);
+        assert.match(JSON.parse(refused.body).error, /^appdir is busy (receiving|taking) its new version: try again when it is done$/);
+        const won = (statuses[0] === 200) ? 'v2' : 'v3';
+        const now = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(now.body, `${won} configured, data: none`);
+        assert.strictEqual(fs.statSync(path.join(folder, 'build', 'blob.bin')).size, 8*1024*1024, 'the build came whole');
+        assert.strictEqual(fs.existsSync(`${folder}.new`), false);
+        assert.strictEqual(fs.existsSync(`${folder}.old`), false);
+
+        // Once it is in, the next one goes
+        const again = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zips[(won === 'v2') ? 1 : 0]});
+        assert.strictEqual(again.status, 200, again.body);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // A name a request brings is looked up in tables with no prototype: a word of the language is
 // a name that is not there, never Object's own, and a secret under it is a secret like another
 test('a service, a machine, a host or a secret\'s owner named constructor is a name and nothing more', async function () {

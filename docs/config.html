@@ -1426,7 +1426,8 @@ left out and counted), sends its files to <code>&lt;folder&gt;.new</code> and go
 when the new version runs: <code>200</code> with the service as the page shows it, <code>data_files</code> how many
 files of the zip&#39;s own <code>data/</code> stayed out, <code>files</code> and <code>bytes</code> what went. What fails is said with
 its status: <code>400</code> for a zip that is no app, broken, or not a zip at all, <code>403</code> for a token that
-does not see the machine or is kept to other apps, <code>409</code> when the app is busy or a <code>&lt;folder&gt;.old</code> is left from before,
+does not see the machine or is kept to other apps, <code>409</code> when the app is busy (another zip on its way
+included: one goes at a time) or a <code>&lt;folder&gt;.old</code> is left from before,
 <code>413</code> for a zip above 256 MB, and <code>502</code> when <code>bin/configure</code> or <code>bin/build</code> failed, the new
 version then in place but not set up, as on the page.</p>
 <p>An app folder&#39;s <code>data/</code> is its working space and its storage, with nothing to set: <strong>Storage</strong> lists it beside

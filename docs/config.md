@@ -582,7 +582,8 @@ left out and counted), sends its files to `<folder>.new` and goes on from step 2
 when the new version runs: `200` with the service as the page shows it, `data_files` how many
 files of the zip's own `data/` stayed out, `files` and `bytes` what went. What fails is said with
 its status: `400` for a zip that is no app, broken, or not a zip at all, `403` for a token that
-does not see the machine or is kept to other apps, `409` when the app is busy or a `<folder>.old` is left from before,
+does not see the machine or is kept to other apps, `409` when the app is busy (another zip on its way
+included: one goes at a time) or a `<folder>.old` is left from before,
 `413` for a zip above 256 MB, and `502` when `bin/configure` or `bin/build` failed, the new
 version then in place but not set up, as on the page.
 

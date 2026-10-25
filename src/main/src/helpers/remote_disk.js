@@ -5,6 +5,9 @@ const tunnel_open = require('./tunnel_open');
 // A folder is a handful of names over a link that is already up; the wait is for a machine
 // thinking about it
 const FS_TIMEOUT_MS = 15000;
+// A delete walks the whole folder: an app's node_modules on a slow disk is minutes. Given up
+// sooner, the agent goes on deleting, and a new version written there meanwhile loses files.
+const REMOVE_TIMEOUT_MS = 600000;
 
 // The disk of one machine as the File Manager module asks for it. Every call goes over the
 // link its agent dialled, and the bytes are kept nowhere on this host. The agent answers as
@@ -53,7 +56,7 @@ function remote_disk(app, remote, options)
             return remote_call(app, remote, 'fs_rename', {from, to, root}, FS_TIMEOUT_MS);
         },
         remove: function (asked) {
-            return remote_call(app, remote, 'fs_delete', {path: asked, root}, FS_TIMEOUT_MS);
+            return remote_call(app, remote, 'fs_delete', {path: asked, root}, REMOVE_TIMEOUT_MS);
         },
         mkdir: function (asked) {
             return remote_call(app, remote, 'dir_create', {path: asked, root}, FS_TIMEOUT_MS);

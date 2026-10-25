@@ -16,6 +16,9 @@ const tar_bytes = require('./tar_bytes');
 // anything is sent, with the sentence the page would show, as error.status 400; what the swap
 // refuses or fails at comes with its own status.
 //
+// The service is busy from the first step: a second zip sent meanwhile is refused with 409,
+// since clearing <folder>.new under one still being written leaves that one half its files.
+//
 //     zip     the bytes of the zip, a Buffer
 //     token   the control token the call came with, undefined for the owner: it may send a new
 //             version only to a machine it sees, and only to the apps it is kept to, if any
@@ -34,21 +37,32 @@ async function service_zip_replace(app, service, zip, token)
         throw status_error(409, `${service.name} is busy ${service.state.work}: try again when it is done`);
     }
     log_event(app, 'service_zip_begin', {service: service.name, bytes: zip.length});
+    service.state.work = 'receiving its new version';
+    service.state.doing = service.state.work;
     try {
-        const read = items_read(service, zip);
-        const remote = remote_from_instance(app, service, service.state.instances[0]);
-        if ((token !== undefined) && (token.remotes.includes('*') === false) && (token.remotes.includes(remote.name) === false)) {
-            throw status_error(403, `the token ${JSON.stringify(token.label)} may not see ${remote.name}`);
+        let read;
+        try {
+            read = items_read(service, zip);
+            const remote = remote_from_instance(app, service, service.state.instances[0]);
+            if ((token !== undefined) && (token.remotes.includes('*') === false) && (token.remotes.includes(remote.name) === false)) {
+                throw status_error(403, `the token ${JSON.stringify(token.label)} may not see ${remote.name}`);
+            }
+            if ((token !== undefined) && Array.isArray(token.services) && (token.services.length > 0) && (token.services.includes(service.name) === false)) {
+                throw status_error(403, `the token ${JSON.stringify(token.label)} may not send a new version of ${service.name}: it is for ${token.services.join(', ')}`);
+            }
+            if (remote_can(remote, 'tar_put') === false) {
+                throw status_error(501, `the agent on ${remote.name} is from before files come in one tar — its page says how it updates`);
+            }
+            const disk = remote_disk(app, remote);
+            await folder_clear(disk, `${folder}.new`);
+            await disk.write_tar(`${folder}.new`, stream.Readable.from([tar_bytes(read.items)]));
         }
-        if ((token !== undefined) && Array.isArray(token.services) && (token.services.length > 0) && (token.services.includes(service.name) === false)) {
-            throw status_error(403, `the token ${JSON.stringify(token.label)} may not send a new version of ${service.name}: it is for ${token.services.join(', ')}`);
+        finally {
+            service.state.work = null;
+            service.state.doing = null;
         }
-        if (remote_can(remote, 'tar_put') === false) {
-            throw status_error(501, `the agent on ${remote.name} is from before files come in one tar — its page says how it updates`);
-        }
-        const disk = remote_disk(app, remote);
-        await folder_clear(disk, `${folder}.new`);
-        await disk.write_tar(`${folder}.new`, stream.Readable.from([tar_bytes(read.items)]));
+        // Nothing waits between the two: service_replace takes the service before its first
+        // await, so no other zip comes between the files sent and their swap
         const done = await service_replace(app, service);
         log_event(app, 'service_zip_end_ok', {service: service.name, files: read.files, bytes: read.bytes, data_files: read.data_files});
         return {data_dropped: done.data_dropped, data_files: read.data_files, files: read.files, bytes: read.bytes};
