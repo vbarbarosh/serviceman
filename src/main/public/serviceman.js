@@ -38,6 +38,7 @@ import remotes_pane from './remotes_pane.js';
 import secrets_form from './secrets_form.js';
 import service_doors from './service_doors.js';
 import service_form from './service_form.js';
+import service_script from './service_script.js';
 import service_shell from './service_shell.js';
 import services_pane from './services_pane.js';
 import settled from './settled.js';
@@ -1501,10 +1502,12 @@ const service_page = {
     <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :original="original" :port="port" :redir="view.redir" @saved="saved">
         <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
+        <service-script v-if="(view.app_folder !== null)" :view="view"/>
     </service-form>
     <article v-else-if="(tab_now === 'overview')" id="detail" class="list svc">
         <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
+        <service-script v-if="(view.app_folder !== null)" :view="view"/>
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
     <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline"/>
@@ -1512,7 +1515,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {ink: tabink, 'service-doors': service_doors, 'service-form': service_form, 'service-logs': service_logs, 'service-shell': service_shell, 'service-status': service_status},
+    components: {ink: tabink, 'service-doors': service_doors, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
     props: ['view', 'busy', 'port', 'remotes', 'names', 'tab', 'theme', 'logline'],
     emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
     data: function () {

@@ -1390,9 +1390,13 @@ test('an app folder takes a new version as a zip sent by PUT, and keeps its data
     app_version_write(folder, 'v1');
     fs.mkdirSync(path.join(folder, 'data'));
     fs.writeFileSync(path.join(folder, 'data', 'kept.txt'), 'written by v1');
-    // A second machine, with no agent, for a token that sees it alone
+    // A second machine, with no agent, for a token that sees it alone; a second app folder,
+    // never started, for a token kept to it alone
+    const notes = path.join(dir, 'notes');
+    app_version_write(notes, 'n1');
     const running = await serviceman_start([
         {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+        {name: 'notes', type: 'shell', publish: {host: 'notes.test', port: await free_port()}, cwd: notes, command: 'bin/run'},
     ], {config: {remotes: [{name: 'vps1', token: TOKEN}, {name: 'vps2', token: 'fedcba9876543210fedcba9876543210'}]}});
     try {
         const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
@@ -1451,6 +1455,18 @@ test('an app folder takes a new version as a zip sent by PUT, and keeps its data
         assert.strictEqual(JSON.parse(sent.body).data_files, null, 'this one brought no data/');
         const fourth = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(fourth.body, 'v3 configured, data: written by v1');
+
+        // A token kept to one app folder sends to it alone, as the service page makes one
+        const kept = await token_make(running, {label: 'the notes deployer', remotes: ['vps1'], rights: ['versions'], services: ['notes']});
+        const other = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zip, token: kept});
+        assert.deepStrictEqual([other.status, JSON.parse(other.body).error], [403, 'the token "the notes deployer" may not send a new version of appdir: it is for notes']);
+        const own = await token_make(running, {label: 'appdir: new versions', remotes: ['vps1'], rights: ['versions'], services: ['appdir']});
+        const v4 = path.join(dir, 'v4');
+        app_version_write(v4, 'v4');
+        const sent_own = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: folder_zip(v4, 'app-v4'), token: own});
+        assert.strictEqual(sent_own.status, 200, sent_own.body);
+        const fifth = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(fifth.body, 'v4 configured, data: written by v1');
     }
     finally {
         await running.close();

@@ -564,7 +564,9 @@ move) leaves the old version where it was, stopped until something wakes it.
 answers once the new version has started, or with what failed.
 
 **From a script, all of it in one call:** the zip as the body of a `PUT`, with the owner's token
-or one with the `versions` right on the app's machine ([a token for every caller](deploy.md#a-token-for-every-caller)):
+or one with the `versions` right on the app's machine ([a token for every caller](deploy.md#a-token-for-every-caller)).
+The service's page shows this line, and **Make a token for …** there makes a token kept to that
+service alone, shown once with the line filled in:
 
     curl -T ai-lab.zip -H "Authorization: Bearer $TOKEN" https://serviceman.example.com/api/v1/services/ai-lab/zip
 
@@ -573,7 +575,7 @@ left out and counted), sends its files to `<folder>.new` and goes on from step 2
 when the new version runs: `200` with the service as the page shows it, `data_files` how many
 files of the zip's own `data/` stayed out, `files` and `bytes` what went. What fails is said with
 its status: `400` for a zip that is no app, broken, or not a zip at all, `403` for a token that
-does not see the machine, `409` when the app is busy or a `<folder>.old` is left from before,
+does not see the machine or is kept to other apps, `409` when the app is busy or a `<folder>.old` is left from before,
 `413` for a zip above 256 MB, and `502` when `bin/configure` or `bin/build` failed, the new
 version then in place but not set up, as on the page.
 

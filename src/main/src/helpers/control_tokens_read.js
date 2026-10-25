@@ -3,12 +3,14 @@ const fs = require('fs');
 
 // Every token made for a caller of the control door, the owner's aside:
 //
-//     {id, label, sha256, remotes, rights, folders, made_at}
+//     {id, label, sha256, remotes, rights, folders, services, made_at}
 //
-// remotes  the machines it sees, by name; ['*'] for every machine, those added later too
-// rights   what it may do with them: the reads, status and metrics among them, and terminals
-//          (control_route_right)
-// folders  the folders its files right is kept within, the first its start; none without it
+// remotes   the machines it sees, by name; ['*'] for every machine, those added later too
+// rights    what it may do with them: the reads, status and metrics among them, terminals and
+//           versions (control_route_right)
+// folders   the folders its files right is kept within, the first its start; none without it
+// services  the app folders its versions right is kept to, by name; none for every app folder
+//           on its machines
 //
 // Read once and kept on the app; a file that is missing or not a list is no tokens at all.
 function control_tokens_read(app)

@@ -18,7 +18,7 @@ const tar_bytes = require('./tar_bytes');
 //
 //     zip     the bytes of the zip, a Buffer
 //     token   the control token the call came with, undefined for the owner: it may send a new
-//             version only to a machine it sees
+//             version only to a machine it sees, and only to the apps it is kept to, if any
 //
 //     {data_dropped, data_files, files, bytes}
 //     data_dropped  what service_replace says: a data/ among the new files was set aside
@@ -39,6 +39,9 @@ async function service_zip_replace(app, service, zip, token)
         const remote = remote_from_instance(app, service, service.state.instances[0]);
         if ((token !== undefined) && (token.remotes.includes('*') === false) && (token.remotes.includes(remote.name) === false)) {
             throw status_error(403, `the token ${JSON.stringify(token.label)} may not see ${remote.name}`);
+        }
+        if ((token !== undefined) && Array.isArray(token.services) && (token.services.length > 0) && (token.services.includes(service.name) === false)) {
+            throw status_error(403, `the token ${JSON.stringify(token.label)} may not send a new version of ${service.name}: it is for ${token.services.join(', ')}`);
         }
         if (remote_can(remote, 'tar_put') === false) {
             throw status_error(501, `the agent on ${remote.name} is from before files come in one tar — its page says how it updates`);

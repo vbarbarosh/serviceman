@@ -58,6 +58,12 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     assert.deepStrictEqual([bad.status, JSON.parse(bad.body).error], [400, 'no remote named "nowhere"']);
     assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['vps1'], rights: ['shell']}, running.owner)).status, 400);
     assert.strictEqual((await call(running, 'POST', '/api/v1/tokens', {label: '', remotes: ['vps1'], rights: ['status']}, running.owner)).status, 400);
+    // A versions right kept to apps names app folders of the config; without that right the apps mean nothing
+    const no_app = await call(running, 'POST', '/api/v1/tokens', {label: 'x', remotes: ['vps1'], rights: ['versions'], services: ['nowhere']}, running.owner);
+    assert.deepStrictEqual([no_app.status, JSON.parse(no_app.body).error], [400, 'no app folder named "nowhere"']);
+    const plain = await token_make(running, {label: 'plain', remotes: ['vps1'], rights: ['status'], services: ['nowhere']});
+    assert.deepStrictEqual(plain.item.services, []);
+    assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${plain.item.id}`, null, running.owner)).status, 200);
     const made = await token_make(running, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics']});
     assert.match(made.token, /^sm_[A-Za-z0-9_-]{43}$/);
     const kept = fs.readFileSync(path.join(running.app.state_dir, 'control_tokens.json'), 'utf8');
@@ -68,7 +74,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     const status = JSON.parse((await call(running, 'GET', '/api/v1/status', null, made.token)).body);
     assert.deepStrictEqual(Object.keys(status).sort(), ['now', 'remotes', 'services', 'started_at', 'token']);
     assert.deepStrictEqual(status.remotes.map(v => v.name), ['vps1']);
-    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics'], folders: []});
+    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics'], folders: [], services: []});
     assert.strictEqual(JSON.stringify(status).includes(TOKEN), false);
 
     // A read of its machine goes on to the route; another machine, another read, any write is refused
@@ -99,6 +105,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
     assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'processes', 'disks', 'packages', 'containers', 'files', 'terminals']);
+    assert.deepStrictEqual(listed.services, [], 'no app folder in this config');
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);
     assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${made.item.id}`, null, running.owner)).status, 200);

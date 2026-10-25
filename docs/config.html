@@ -1409,7 +1409,9 @@ move) leaves the old version where it was, stopped until something wakes it.
 <code>POST /api/v1/services/&lt;name&gt;/replace</code> is step 2 onwards, for whoever put the files there; it
 answers once the new version has started, or with what failed.</p>
 <p><strong>From a script, all of it in one call:</strong> the zip as the body of a <code>PUT</code>, with the owner&#39;s token
-or one with the <code>versions</code> right on the app&#39;s machine (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>):</p>
+or one with the <code>versions</code> right on the app&#39;s machine (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>).
+The service&#39;s page shows this line, and <strong>Make a token for …</strong> there makes a token kept to that
+service alone, shown once with the line filled in:</p>
 <pre><code>curl -T ai-lab.zip -H &quot;Authorization: Bearer $TOKEN&quot; https://serviceman.example.com/api/v1/services/ai-lab/zip
 </code></pre>
 <p>serviceman reads the zip as the page does (one top folder, or <code>bin/run</code> at the top; its <code>data/</code>
@@ -1417,7 +1419,7 @@ left out and counted), sends its files to <code>&lt;folder&gt;.new</code> and go
 when the new version runs: <code>200</code> with the service as the page shows it, <code>data_files</code> how many
 files of the zip&#39;s own <code>data/</code> stayed out, <code>files</code> and <code>bytes</code> what went. What fails is said with
 its status: <code>400</code> for a zip that is no app, broken, or not a zip at all, <code>403</code> for a token that
-does not see the machine, <code>409</code> when the app is busy or a <code>&lt;folder&gt;.old</code> is left from before,
+does not see the machine or is kept to other apps, <code>409</code> when the app is busy or a <code>&lt;folder&gt;.old</code> is left from before,
 <code>413</code> for a zip above 256 MB, and <code>502</code> when <code>bin/configure</code> or <code>bin/build</code> failed, the new
 version then in place but not set up, as on the page.</p>
 <p>An app folder&#39;s <code>data/</code> is its working space and its storage, with nothing to set: <strong>Storage</strong> lists it beside

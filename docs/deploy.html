@@ -939,10 +939,12 @@ machines, a shell on each of them that goes anywhere, so treat such a token like
 to them. <code>versions</code> sends a new version of an app folder on its machines, as a zip
 (<code>PUT /api/v1/services/&lt;name&gt;/zip</code>,
 <a href="config.html#a-new-version-of-an-app-folder">A new version of an app folder</a>): what it sends
-runs there as the app, so it is a key to those apps. It is shown once, and only its hash is kept, in
+runs there as the app, so it is a key to those apps; <strong>Apps</strong> keeps it to the app folders
+ticked, and a service&#39;s page makes one for that service alone, <strong>Make a token for …</strong>, with
+the curl line beside it. It is shown once, and only its hash is kept, in
 <code>data/control_tokens.json</code>. It never touches the config, a secret, another
 machine, or a service but the one it sends a new version to, and opens no other shell. <strong>Edit…</strong> changes its label, machines (<strong>every
-machine</strong>, those added later too, is one tick), rights and folders in place, the token
+machine</strong>, those added later too, is one tick), rights, folders and apps in place, the token
 staying the same; <strong>Rotate…</strong> gives it a new value, shown once, the old one refused at once;
 <strong>Revoke…</strong> ends it.</li>
 </ul>

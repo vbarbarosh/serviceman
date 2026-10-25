@@ -458,8 +458,8 @@ list, in a bar under its header and first on its Health page.
 | `control_error`              | An action asked from the page failed.                                     |
 | `control_token_refused`      | A request with no token, one nobody holds, or one asking past its rights. |
 | `control_token_used`         | An agent's token was used, by its label, and for what.                    |
-| `control_token_made`         | An agent's token was made: its label, machines and rights.                |
-| `control_token_changed`      | Its label, machines, rights or folders were changed; the token stayed.    |
+| `control_token_made`         | An agent's token was made: its label, machines, rights, folders and apps. |
+| `control_token_changed`      | Its label, machines, rights, folders or apps were changed; the token stayed. |
 | `control_token_rotated`      | It was given a new value; the old one is refused from then on.            |
 | `control_token_revoked`      | One was revoked.                                                          |
 | `control_signed_in`          | The page was signed in with the owner's token.                            |

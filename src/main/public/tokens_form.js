@@ -23,7 +23,7 @@ const tokens_form = {
     template: `
 <article id="detail" class="form">
     <h1>Tokens</h1>
-    <p class="muted">Each one lets an agent or a program do what you tick with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the config, the secrets, the services or another machine.</p>
+    <p class="muted">Each one lets an agent or a program do what you tick with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the config, the secrets, another machine, or a service but the one its versions right sends a new version to.</p>
     <p class="muted tk-row">
         <span>This page is signed in with the owner's token, which <code>bin/owner-token</code> prints.<template v-if="(owner_token_file !== null)"> Should it leak, delete <code>{{ owner_token_file }}</code> and restart serviceman: a new one is made, and every page signs in again.</template></span>
         <button type="button" @click="sign_out">Sign out</button>
@@ -33,7 +33,7 @@ const tokens_form = {
         <template v-for="item of tokens" :key="item.id">
             <dt>{{ item.label }}</dt>
             <dd class="tk-row">
-                <span class="muted">{{ machines_text(item) }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template> · {{ used_text(item) }}</span>
+                <span class="muted">{{ machines_text(item) }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template><template v-if="(item.services.length > 0)"> of <code>{{ item.services.join(', ') }}</code></template> · {{ used_text(item) }}</span>
                 <template v-if="(asking.id !== item.id)">
                     <button type="button" :disabled="busy" @click="edit_open(item)">Edit…</button>
                     <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'rotate'}">Rotate…</button>
@@ -76,6 +76,13 @@ const tokens_form = {
                 <p class="muted">One a line, the same on each of its machines; <code>~</code> is that machine's home. A folder not there yet is made when something is first written into it. A link inside that leads out is refused too.</p>
             </div>
         </template>
+        <template v-if="rights_chosen.includes('versions')">
+            <label>Apps</label>
+            <div class="tk-checks">
+                <label v-for="name of services" :key="name" class="check"><input type="checkbox" :value="name" v-model="services_chosen"> {{ name }}</label>
+                <span class="muted">{{ (services.length === 0) ? 'no app folder yet' : 'none ticked: every app folder on its machines' }}</span>
+            </div>
+        </template>
     </div>
     <div v-if="(made !== null)" class="tk-made">
         <p><b>{{ made.label }}</b>: copy it now, it is not shown again.</p>
@@ -107,6 +114,8 @@ const tokens_form = {
             tokens: [],
             rights: [],
             remotes: [],
+            // The app folders a versions right can be kept to
+            services: [],
             socket: null,
             port: null,
             owner_token_file: null,
@@ -117,6 +126,7 @@ const tokens_form = {
             remotes_chosen: [],
             rights_chosen: ['status'],
             folders: '',
+            services_chosen: [],
             // The token just made or rotated, the one time it is shown: {label, token}
             made: null,
             copied: '',
@@ -153,6 +163,7 @@ const tokens_form = {
             this.tokens = body.tokens;
             this.rights = body.rights;
             this.remotes = body.remotes;
+            this.services = body.services;
             this.socket = body.socket;
             this.port = body.port;
             this.owner_token_file = body.owner_token_file;
@@ -180,6 +191,7 @@ const tokens_form = {
             this.remotes_chosen = item.remotes.filter(v => (v !== '*'));
             this.rights_chosen = item.rights.slice();
             this.folders = item.folders.join('\n');
+            this.services_chosen = item.services.slice();
             this.made = null;
             this.note = '';
             this.bad = false;
@@ -192,9 +204,10 @@ const tokens_form = {
             this.remotes_chosen = [];
             this.rights_chosen = ['status'];
             this.folders = '';
+            this.services_chosen = [];
         },
         save: async function () {
-            const body = {label: this.label, remotes: this.every ? ['*'] : this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list};
+            const body = {label: this.label, remotes: this.every ? ['*'] : this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list, services: this.services_chosen};
             const editing = this.editing;
             const loaded = await this.call((editing === null) ? '/api/v1/tokens' : `/api/v1/tokens/${editing.id}`, (editing === null) ? 'POST' : 'PUT', body);
             if (loaded === null) {

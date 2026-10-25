@@ -9,11 +9,13 @@ const crypto = require('crypto');
 const log_event = require('../helpers/log_event');
 const path = require('path');
 const send_json = require('../helpers/send_json');
+const service_app_folder = require('../helpers/service_app_folder');
 
 const BODY_LIMIT_BYTES = 16*1024;
 const LABEL_MAX = 100;
 const FOLDER_MAX = 500;
 const FOLDERS_MAX = 20;
+const SERVICES_MAX = 50;
 // A year: the page stays signed in until its owner signs out or the token changes
 const COOKIE_MAX_AGE_S = 365*24*60*60;
 const RE_TOKEN = /^\/api\/v1\/tokens\/([0-9a-f]+)$/;
@@ -21,8 +23,8 @@ const RE_TOKEN_ROTATE = /^\/api\/v1\/tokens\/([0-9a-f]+)\/rotate$/;
 
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
-// GET /api/v1/tokens                 the tokens made, and the rights there are
-// POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders}, said once
+// GET /api/v1/tokens                 the tokens made; the rights there are, the machines and the app folders
+// POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders, services}, said once
 // PUT /api/v1/tokens/<id> (body)     the same fields, changed; the token itself stays
 // POST /api/v1/tokens/<id>/rotate    a new value, said once; the old one is refused at once
 // DELETE /api/v1/tokens/<id>         revoked, at once
@@ -43,7 +45,7 @@ async function handle_control_tokens(app, req, res, url)
         }
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'GET')) {
-        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name), socket: socket_shown(app), port: control_port(app), owner_token_file: (String(process.env.SERVICEMAN_OWNER_TOKEN || '').trim() === '') ? 'data/owner.token' : null});
+        send_json(res, 200, {tokens: control_tokens_read(app).map(token_view), rights: control_route_right.RIGHTS, remotes: app.remotes.map(v => v.name), services: app_folders(app), socket: socket_shown(app), port: control_port(app), owner_token_file: (String(process.env.SERVICEMAN_OWNER_TOKEN || '').trim() === '') ? 'data/owner.token' : null});
         return true;
     }
     if ((url.pathname === '/api/v1/tokens') && (req.method === 'POST')) {
@@ -145,8 +147,8 @@ function token_rotate(app, res, id)
     send_json(res, 200, {token, item: token_view(item)});
 }
 
-// The label, machines, rights and folders a request asks a token to have, checked, or null
-// with the 400 that says what is wrong already sent. A machine of `*` is every machine,
+// The label, machines, rights, folders and apps a request asks a token to have, checked, or
+// null with the 400 that says what is wrong already sent. A machine of `*` is every machine,
 // those added later too.
 async function fields_read(app, req, res)
 {
@@ -183,12 +185,29 @@ async function fields_read(app, req, res)
         send_json(res, 400, {error: `the files right is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
         return null;
     }
-    return {label, remotes, rights, folders};
+    // The versions right is of every app folder on its machines, or kept to the apps named
+    const services = (Array.isArray(asked.services) && rights.includes('versions')) ? Array.from(new Set(asked.services.map(v => String(v).trim()).filter(v => (v !== '')))) : [];
+    const not_app = services.filter(v => (app_folders(app).includes(v) === false));
+    if (not_app.length > 0) {
+        send_json(res, 400, {error: `no app folder named ${not_app.map(v => JSON.stringify(v)).join(', ')}`});
+        return null;
+    }
+    if (services.length > SERVICES_MAX) {
+        send_json(res, 400, {error: `the versions right is kept to at most ${SERVICES_MAX} apps`});
+        return null;
+    }
+    return {label, remotes, rights, folders, services};
 }
 
 function fields_logged(item)
 {
-    return {id: item.id, label: item.label, remotes: item.remotes.join(','), rights: item.rights.join(','), folders: item.folders.join(',')};
+    return {id: item.id, label: item.label, remotes: item.remotes.join(','), rights: item.rights.join(','), folders: item.folders.join(','), services: item.services.join(',')};
+}
+
+// The services a versions right can be kept to: the app folders, by name
+function app_folders(app)
+{
+    return app.services.filter(v => (service_app_folder(v) !== null)).map(v => v.name);
 }
 
 // The control socket as it is named from serviceman's own folder, data/serviceman.sock, the
@@ -216,7 +235,7 @@ function control_port(app)
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: Array.isArray(token.folders) ? token.folders : [], made_at: token.made_at, rotated_at: (token.rotated_at === undefined) ? null : token.rotated_at, used_at: (token.used_at === undefined) ? null : token.used_at};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: Array.isArray(token.folders) ? token.folders : [], services: Array.isArray(token.services) ? token.services : [], made_at: token.made_at, rotated_at: (token.rotated_at === undefined) ? null : token.rotated_at, used_at: (token.used_at === undefined) ? null : token.used_at};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,
