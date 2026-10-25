@@ -1468,7 +1468,7 @@ async function secrets_save(app, req, res)
         }
         value = from;
     }
-    const bag = (service === '') ? kept.global : ((kept.services[service] === undefined) ? {} : kept.services[service]);
+    const bag = (service === '') ? kept.global : ((kept.services[service] === undefined) ? Object.create(null) : kept.services[service]);
     if (value === '') {
         delete bag[name];
     }

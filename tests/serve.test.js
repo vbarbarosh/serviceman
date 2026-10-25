@@ -1478,6 +1478,32 @@ test('an app folder takes a new version as a zip sent by PUT, and keeps its data
     }
 });
 
+// A name a request brings is looked up in tables with no prototype: a word of the language is
+// a name that is not there, never Object's own, and a secret under it is a secret like another
+test('a service, a machine, a host or a secret\'s owner named constructor is a name and nothing more', async function () {
+    const running = await serviceman_start([]);
+    try {
+        for (const [method, asked] of [['GET', '/api/v1/remotes/constructor/ports'], ['GET', '/api/v1/remotes/__proto__/ports'], ['GET', '/api/v1/remotes/toString/metrics'], ['POST', '/api/v1/services/constructor/start'], ['POST', '/api/v1/services/hasOwnProperty/stop'], ['PUT', '/api/v1/services/constructor/zip']]) {
+            const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: asked, method});
+            assert.strictEqual(answer.status, 404, `${method} ${asked}: ${answer.status} ${answer.body.slice(0, 120)}`);
+        }
+        const host = await fetch_host({port: running.port, host: 'constructor', path: '/'});
+        assert.strictEqual(host.status, 404);
+
+        // A secret under the service name constructor: kept, listed, taken away; the host goes on
+        const written = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets', method: 'POST', body: JSON.stringify({service: 'constructor', name: 'keys', value: 'x'})});
+        assert.strictEqual(written.status, 200, written.body);
+        assert.deepStrictEqual(JSON.parse(written.body).services, [{service: 'constructor', name: 'keys', length: 1}]);
+        assert.strictEqual(typeof Object.keys, 'function', 'Object.keys is still itself');
+        assert.strictEqual((await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/status'})).status, 200);
+        const removed = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets', method: 'POST', body: JSON.stringify({service: 'constructor', name: 'keys', value: ''})});
+        assert.deepStrictEqual(JSON.parse(removed.body).services, []);
+    }
+    finally {
+        await running.close();
+    }
+});
+
 // There is no way back once the folders are swapped: a new version whose bin/configure fails
 // is the app from then on, data/ in it, the old one gone, and the service says why; it is not
 // started, by a request either, until somebody asks

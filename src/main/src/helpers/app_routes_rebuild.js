@@ -1,8 +1,9 @@
-// app.services is the source of truth; the lookup tables are derived from it
+// app.services is the source of truth; the lookup tables are derived from it. They are looked
+// up with names and hosts a request brings, so they have no prototype (app_from_config).
 function app_routes_rebuild(app)
 {
-    app.service_by_name = {};
-    app.routes_exact = {};
+    app.service_by_name = Object.create(null);
+    app.routes_exact = Object.create(null);
     app.routes_wildcard = [];
     for (const service of app.services) {
         app.service_by_name[service.name] = service;

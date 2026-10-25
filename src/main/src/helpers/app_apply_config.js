@@ -161,7 +161,7 @@ function remotes_apply(app, config, note)
         }
     }
     app.remotes = next;
-    app.remote_by_name = {};
+    app.remote_by_name = Object.create(null);
     for (const remote of next) {
         app.remote_by_name[remote.name] = remote;
     }

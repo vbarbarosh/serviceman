@@ -6,16 +6,18 @@ const remote_state = require('./remote_state');
 const state_dir_from_env = require('./state_dir_from_env');
 const state_from_service = require('./state_from_service');
 
-// The running picture of the config: every service gets a state object the handlers mutate
+// The running picture of the config: every service gets a state object the handlers mutate.
+// The tables by name are looked up with names a request brings, so they have no prototype: a
+// service or a machine called `constructor` is one that is not there, not Object's own.
 function app_from_config(config)
 {
     const out = {
         config,
         services: [],
-        service_by_name: {},
+        service_by_name: Object.create(null),
         remotes: [],
-        remote_by_name: {},
-        routes_exact: {},
+        remote_by_name: Object.create(null),
+        routes_exact: Object.create(null),
         routes_wildcard: [],
         log_lines: [],
         // The group every other group hangs off; main.js makes it when the process starts

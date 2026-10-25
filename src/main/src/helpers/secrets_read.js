@@ -8,6 +8,9 @@ const secrets_path = require('./secrets_path');
 //
 // A secret belongs to one service: two services may both want a `token`, and they are not the
 // same token. The library is where a value that serves several of them is written down once.
+//
+// The bags are keyed by names a request brings, so they have no prototype: a service or a
+// secret called `constructor` is a name like any other, and never Object's own.
 function secrets_read(app)
 {
     let text;
@@ -15,11 +18,11 @@ function secrets_read(app)
         text = fs.readFileSync(secrets_path(app), 'utf8');
     }
     catch {
-        return {global: {}, services: {}};
+        return {global: bag_of(null), services: services_of(null)};
     }
     const kept = JSON.parse(text);
     if ((kept === null) || (typeof kept !== 'object') || Array.isArray(kept)) {
-        return {global: {}, services: {}};
+        return {global: bag_of(null), services: services_of(null)};
     }
     return {
         global: bag_of(kept.global),
@@ -29,7 +32,7 @@ function secrets_read(app)
 
 function bag_of(json)
 {
-    const out = {};
+    const out = Object.create(null);
     if ((json === null) || (json === undefined) || (typeof json !== 'object')) {
         return out;
     }
@@ -43,7 +46,7 @@ function bag_of(json)
 
 function services_of(json)
 {
-    const out = {};
+    const out = Object.create(null);
     if ((json === null) || (json === undefined) || (typeof json !== 'object')) {
         return out;
     }
