@@ -1,3 +1,4 @@
+const caller_allowed = require('./caller_allowed');
 const pty_spawn = require('./pty_spawn');
 const session_name_from_path = require('./session_name_from_path');
 const terminal_attach = require('../../../modules/terminal/server/terminal_attach');
@@ -8,9 +9,14 @@ const ws = require('ws');
 const sockets = new ws.WebSocketServer({noServer: true});
 
 // The page's websocket, on the page's own path. /<name> attaches to the kept session of that
-// name, starting it when there is none; / opens a shell that ends with the socket.
-function socket_answer(req, socket, head)
+// name, starting it when there is none; / opens a shell that ends with the socket. Without the
+// token there is no handshake at all: a terminal is a shell for whoever reaches it.
+function socket_answer(req, socket, head, token)
 {
+    if (caller_allowed(req, token) === false) {
+        socket.end('HTTP/1.1 401 Unauthorized\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
+        return;
+    }
     const pathname = new URL(req.url, 'http://web-terminal.invalid').pathname;
     const name = session_name_from_path(pathname);
     sockets.handleUpgrade(req, socket, head, function (client) {

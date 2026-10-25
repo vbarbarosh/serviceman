@@ -4,7 +4,10 @@
 #
 #     bin/vendor
 #     docker build -f src/web-terminal/Dockerfile -t web-terminal .
-#     docker run --rm -p 127.0.0.1:3000:3000 web-terminal
+#     docker run --rm -p 127.0.0.1:3000:3000 -e WEB_TERMINAL_TOKEN=wt_… web-terminal
+#
+# Every terminal is a shell of the user `term`, not of root: what a page may do in the
+# container is what that user may.
 
 FROM node:24-bookworm-slim AS deps
 WORKDIR /app
@@ -28,7 +31,9 @@ COPY src/web-terminal ./src/web-terminal
 ENV SHELL=/bin/bash
 # A shell whose page closed is reaped by tini, whether or not docker put its own init in front
 ENV TINI_SUBREAPER=1
-WORKDIR /root
+RUN useradd --create-home --shell /bin/bash term
+USER term
+WORKDIR /home/term
 EXPOSE 3000
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "/app/src/web-terminal/index.js"]
