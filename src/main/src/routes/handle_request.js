@@ -148,14 +148,15 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
     const remainder = pathname.slice(route.path.length);
     if ((remainder || '/').startsWith(RESERVED_PREFIX)) {
         // The waiting page polls this from a visitor's browser: it says whether the service is
-        // up, and nothing else about it
+        // up, and nothing else about it; a reason and what the program printed go to a visitor
+        // as they go on the page, through error_detail and said_of, that is not at all
         send_json(res, 200, {
             phase: service_phase(service),
             doing: service.state.doing,
             progress: service.state.progress,
             progress_text: service.state.progress_text,
-            error: service.state.last_error,
-            said: service.state.said,
+            error: (service.state.last_error === null) ? null : error_detail(app, req, service.state.last_error),
+            said: said_of(app, req, service),
         });
         return;
     }

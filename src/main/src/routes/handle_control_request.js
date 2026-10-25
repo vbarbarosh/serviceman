@@ -6,6 +6,7 @@ const app_apply_config = require('../helpers/app_apply_config');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_bytes_read = require('../body_bytes_read');
+const body_json = require('../body_json');
 const body_read = require('../body_read');
 const config_file_save = require('../helpers/config_file_save');
 const config_from_json = require('../helpers/config_from_json');
@@ -58,6 +59,7 @@ const remote_update_call = require('../helpers/remote_update_call');
 const render_error_page = require('../helpers/render_error_page');
 const render_index_collection = require('../render_index_collection');
 const render_sign_in_page = require('../helpers/render_sign_in_page');
+const route_param = require('../helpers/route_param');
 const secrets_read = require('../helpers/secrets_read');
 const secrets_write = require('../helpers/secrets_write');
 const send_json = require('../helpers/send_json');
@@ -167,7 +169,27 @@ function handle_control_request(app, req, res)
     socket_pending(req.socket, res);
     // Under the connection it came in on, not a group of its own: what a control request
     // causes gets groups, the asking does not
-    return log_within(req.socket.log_group, () => control_answer(app, req, res));
+    return log_within(req.socket.log_group, () => control_answer(app, req, res).catch(e => status_answer(req, res, e)));
+}
+
+// What is wrong with a request is answered with its own status: a body that is not JSON (400),
+// one above the limit (413), a Host that is no host name (400). Anything else is serviceman's
+// own fault and goes on to the 500 page.
+function status_answer(req, res, error)
+{
+    if ((typeof error.status !== 'number') || res.headersSent) {
+        throw error;
+    }
+    if (error.status === 413) {
+        // The rest of the body is never read: the connection closes behind the answer
+        res.once('finish', function () {
+            req.destroy();
+        });
+        res.writeHead(413, {'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', connection: 'close'});
+        res.end(JSON.stringify({error: error.message}));
+        return;
+    }
+    send_json(res, error.status, {error: error.message});
 }
 
 async function control_answer(app, req, res)
@@ -352,12 +374,12 @@ async function control_answer(app, req, res)
     }
     const remote_agent = RE_REMOTE_AGENT.exec(url.pathname);
     if ((remote_agent !== null) && (req.method === 'POST')) {
-        await handle_agent_update(app, res, decodeURIComponent(remote_agent[1]));
+        await handle_agent_update(app, res, route_param(remote_agent[1]));
         return;
     }
     const remote_logs = RE_REMOTE_LOGS.exec(url.pathname);
     if ((remote_logs !== null) && (req.method === 'PUT')) {
-        await remote_logs_put(app, req, res, decodeURIComponent(remote_logs[1]));
+        await remote_logs_put(app, req, res, route_param(remote_logs[1]));
         return;
     }
     // A module answers only what its manifest names; anything else is no door of it
@@ -368,17 +390,17 @@ async function control_answer(app, req, res)
     }
     const remote_docker = RE_REMOTE_DOCKER.exec(url.pathname);
     if (remote_docker !== null) {
-        await handle_docker(app, req, res, decodeURIComponent(remote_docker[1]), (remote_docker[2] === undefined) ? '' : remote_docker[2]);
+        await handle_docker(app, req, res, route_param(remote_docker[1]), (remote_docker[2] === undefined) ? '' : remote_docker[2]);
         return;
     }
     const remote_firewall = RE_REMOTE_FIREWALL.exec(url.pathname);
     if (remote_firewall !== null) {
-        await handle_firewall(app, req, res, decodeURIComponent(remote_firewall[1]), (remote_firewall[2] === undefined) ? '' : remote_firewall[2]);
+        await handle_firewall(app, req, res, route_param(remote_firewall[1]), (remote_firewall[2] === undefined) ? '' : remote_firewall[2]);
         return;
     }
     const remote_volumes = RE_REMOTE_VOLUMES.exec(url.pathname);
     if (remote_volumes !== null) {
-        await handle_volumes(app, req, res, decodeURIComponent(remote_volumes[1]), (remote_volumes[2] === undefined) ? '' : remote_volumes[2]);
+        await handle_volumes(app, req, res, route_param(remote_volumes[1]), (remote_volumes[2] === undefined) ? '' : remote_volumes[2]);
         return;
     }
     const transfers = RE_TRANSFERS.exec(url.pathname);
@@ -388,37 +410,37 @@ async function control_answer(app, req, res)
     }
     const remote_fs = RE_REMOTE_FS.exec(url.pathname);
     if (remote_fs !== null) {
-        await handle_fs(app, req, res, decodeURIComponent(remote_fs[1]), (remote_fs[2] === undefined) ? '' : remote_fs[2]);
+        await handle_fs(app, req, res, route_param(remote_fs[1]), (remote_fs[2] === undefined) ? '' : remote_fs[2]);
         return;
     }
     const remote_processes = RE_REMOTE_PROCESSES.exec(url.pathname);
     if (remote_processes !== null) {
-        await handle_machine_module(app, req, res, decodeURIComponent(remote_processes[1]), ((remote_processes[2] === undefined) ? '' : remote_processes[2]), processes_serve, 'proc_list', 'the process list');
+        await handle_machine_module(app, req, res, route_param(remote_processes[1]), ((remote_processes[2] === undefined) ? '' : remote_processes[2]), processes_serve, 'proc_list', 'the process list');
         return;
     }
     const remote_metrics = RE_REMOTE_METRICS.exec(url.pathname);
     if ((remote_metrics !== null) && (req.method === 'GET')) {
-        await handle_remote_metrics(app, res, decodeURIComponent(remote_metrics[1]), url.searchParams.get('range'));
+        await handle_remote_metrics(app, res, route_param(remote_metrics[1]), url.searchParams.get('range'));
         return;
     }
     const remote_uptime = RE_REMOTE_UPTIME.exec(url.pathname);
     if ((remote_uptime !== null) && (req.method === 'GET')) {
-        await handle_remote_uptime(app, res, decodeURIComponent(remote_uptime[1]), url.searchParams.get('days'));
+        await handle_remote_uptime(app, res, route_param(remote_uptime[1]), url.searchParams.get('days'));
         return;
     }
     const remote_terminals = RE_REMOTE_TERMINALS.exec(url.pathname);
     if (remote_terminals !== null) {
-        await handle_terminals(app, req, res, decodeURIComponent(remote_terminals[1]), (remote_terminals[2] === undefined) ? '' : remote_terminals[2]);
+        await handle_terminals(app, req, res, route_param(remote_terminals[1]), (remote_terminals[2] === undefined) ? '' : remote_terminals[2]);
         return;
     }
     const remote_ports = RE_REMOTE_PORTS.exec(url.pathname);
     if ((remote_ports !== null) && (req.method === 'GET')) {
-        await handle_machine_read(app, res, decodeURIComponent(remote_ports[1]), 'port_list', 'the port list');
+        await handle_machine_read(app, res, route_param(remote_ports[1]), 'port_list', 'the port list');
         return;
     }
     const remote_disks = RE_REMOTE_DISKS.exec(url.pathname);
     if (remote_disks !== null) {
-        await handle_machine_module(app, req, res, decodeURIComponent(remote_disks[1]), ((remote_disks[2] === undefined) ? '' : remote_disks[2]), disks_serve, 'disk_list', 'the disk list', function (remote) {
+        await handle_machine_module(app, req, res, route_param(remote_disks[1]), ((remote_disks[2] === undefined) ? '' : remote_disks[2]), disks_serve, 'disk_list', 'the disk list', function (remote) {
             return {usage: function (asked) {
                 if (remote_can(remote, 'disk_usage') === false) {
                     throw Object.assign(new Error(`the agent on ${remote.name} is from before counting what takes a disk — its page says how it updates`), {status: 400});
@@ -435,21 +457,21 @@ async function control_answer(app, req, res)
     }
     const remote_packages = RE_REMOTE_PACKAGES.exec(url.pathname);
     if (remote_packages !== null) {
-        await handle_packages(app, req, res, decodeURIComponent(remote_packages[1]), (remote_packages[2] === undefined) ? '' : remote_packages[2]);
+        await handle_packages(app, req, res, route_param(remote_packages[1]), (remote_packages[2] === undefined) ? '' : remote_packages[2]);
         return;
     }
     const remote_screenshot = RE_REMOTE_SCREENSHOT.exec(url.pathname);
     if ((remote_screenshot !== null) && (req.method === 'POST')) {
-        await handle_screenshot(app, res, decodeURIComponent(remote_screenshot[1]));
+        await handle_screenshot(app, res, route_param(remote_screenshot[1]));
         return;
     }
     const remote_path = RE_REMOTE.exec(url.pathname);
     if ((remote_path !== null) && (req.method === 'PUT')) {
-        await remote_update(app, req, res, decodeURIComponent(remote_path[1]));
+        await remote_update(app, req, res, route_param(remote_path[1]));
         return;
     }
     if ((remote_path !== null) && (req.method === 'DELETE')) {
-        await remote_delete(app, req, res, decodeURIComponent(remote_path[1]));
+        await remote_delete(app, req, res, route_param(remote_path[1]));
         return;
     }
     if ((url.pathname === '/api/v1/load-tests') && (req.method === 'POST')) {
@@ -463,36 +485,36 @@ async function control_answer(app, req, res)
     }
     const load_test_do = RE_LOAD_TEST_DO.exec(url.pathname);
     if ((load_test_do !== null) && (req.method === 'POST')) {
-        await load_test_act(app, res, decodeURIComponent(load_test_do[1]), load_test_do[2]);
+        await load_test_act(app, res, route_param(load_test_do[1]), load_test_do[2]);
         return;
     }
     const load_test_path = RE_LOAD_TEST.exec(url.pathname);
     if ((load_test_path !== null) && (req.method === 'PUT')) {
-        await load_test_update(app, req, res, decodeURIComponent(load_test_path[1]));
+        await load_test_update(app, req, res, route_param(load_test_path[1]));
         return;
     }
     if ((load_test_path !== null) && (req.method === 'DELETE')) {
-        await load_test_delete(app, res, decodeURIComponent(load_test_path[1]));
+        await load_test_delete(app, res, route_param(load_test_path[1]));
         return;
     }
     const service_path = RE_SERVICE.exec(url.pathname);
     if ((service_path !== null) && (req.method === 'PUT')) {
-        await service_update(app, req, res, decodeURIComponent(service_path[1]));
+        await service_update(app, req, res, route_param(service_path[1]));
         return;
     }
     if ((service_path !== null) && (req.method === 'DELETE')) {
-        await service_delete(app, req, res, decodeURIComponent(service_path[1]));
+        await service_delete(app, req, res, route_param(service_path[1]));
         return;
     }
 
     const action = RE_ACTION.exec(url.pathname);
     if (action !== null) {
-        handle_action(app, req, res, decodeURIComponent(action[1]), action[2]);
+        handle_action(app, req, res, route_param(action[1]), action[2]);
         return;
     }
     const zip = RE_ZIP.exec(url.pathname);
     if (zip !== null) {
-        await handle_zip(app, req, res, decodeURIComponent(zip[1]));
+        await handle_zip(app, req, res, route_param(zip[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -528,7 +550,7 @@ function page_known(app, pathname)
 {
     let parts;
     try {
-        parts = pathname.split('/').filter(v => v !== '').map(v => decodeURIComponent(v));
+        parts = pathname.split('/').filter(v => v !== '').map(v => route_param(v));
     }
     catch {
         return false;
@@ -1428,7 +1450,7 @@ function secrets_list(app, res)
 // empty endpoint takes Logline out of the config, and no machine sends anything anywhere.
 async function logline_put(app, req, res)
 {
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const endpoint = String(((body.endpoint === undefined) || (body.endpoint === null)) ? '' : body.endpoint).trim();
     const ui = String(((body.ui === undefined) || (body.ui === null)) ? '' : body.ui).trim();
     const admin_token = String(((body.admin_token === undefined) || (body.admin_token === null)) ? '' : body.admin_token).trim();
@@ -1470,7 +1492,7 @@ async function logline_put(app, req, res)
 // ever going out to a page and back.
 async function secrets_save(app, req, res)
 {
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const service = String(((body.service === undefined) || (body.service === null)) ? '' : body.service).trim();
     const name = String((body.name === undefined) ? '' : body.name).trim();
     if ((RE_SECRET.test(name) === false) || ((service !== '') && (RE_SECRET.test(service) === false))) {
@@ -1539,12 +1561,19 @@ function send_install(app, req, res)
     res.end(text);
 }
 
-// Where the machine reached this host: what it asked for, and the scheme it must have used
+// Where the machine reached this host: what it asked for, and the scheme it must have used.
+// The Host header goes into a line of the installer, so only a host name, an address or a
+// socket path makes it there: anything else is answered 400 and written nowhere.
 function where_from(app, req)
 {
     const host = String(req.headers.host || '').trim();
     if ((host === '') || (host === 'localhost')) {
         return `http://127.0.0.1:${app.config.control.port}`;
+    }
+    if (/^([a-z0-9._-]+|\[[0-9a-f:.]+\])(:\d{1,5})?$/i.test(host) === false) {
+        const refusal = new Error(`the Host header is not a host name: ${JSON.stringify(host.slice(0, 80))}`);
+        refusal.status = 400;
+        throw refusal;
     }
     return `${(req.socket.encrypted === true) ? 'https' : 'http'}://${host}`;
 }
@@ -1652,7 +1681,7 @@ async function config_send(app, res)
 // POST /api/v1/config/check (body)
 async function config_check(app, req, res)
 {
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const refused = config_refused(String(body.text), app.config.base_dir);
     if (refused !== null) {
         send_json(res, 200, {ok: false, error: refused});
@@ -1673,7 +1702,7 @@ async function config_write(app, req, res)
         send_json(res, 400, {error: 'serviceman runs without a config file'});
         return;
     }
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const text = String(body.text);
     const on_disk = await fs.promises.readFile(app.config.path, 'utf8');
     if (text_hash(on_disk) !== body.hash) {
@@ -1695,7 +1724,7 @@ async function config_write(app, req, res)
 // POST /api/v1/services (body)
 async function service_create(app, req, res)
 {
-    const service = service_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)));
+    const service = service_from_body(await body_json(req, BODY_LIMIT_BYTES));
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
@@ -1712,7 +1741,7 @@ async function service_create(app, req, res)
 // PUT /api/v1/services/<name> (body)
 async function service_update(app, req, res, name)
 {
-    const service = service_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)));
+    const service = service_from_body(await body_json(req, BODY_LIMIT_BYTES));
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
@@ -1743,7 +1772,7 @@ async function service_delete(app, req, res, name)
 // POST /api/v1/load-tests (body)
 async function load_test_create(app, req, res)
 {
-    const test = load_test_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)));
+    const test = load_test_from_body(await body_json(req, BODY_LIMIT_BYTES));
     await config_file_mutate(app, res, function (json) {
         json.load_tests = json.load_tests || [];
         if (json.load_tests.some(v => v.name === test.name)) {
@@ -1757,7 +1786,7 @@ async function load_test_create(app, req, res)
 // PUT /api/v1/load-tests/<name> (body)
 async function load_test_update(app, req, res, name)
 {
-    const test = load_test_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)));
+    const test = load_test_from_body(await body_json(req, BODY_LIMIT_BYTES));
     await config_file_mutate(app, res, function (json) {
         const at = (json.load_tests || []).findIndex(v => v.name === name);
         if (at === -1) {
@@ -1859,7 +1888,7 @@ function load_test_from_body(body)
 // Who may add themselves: the whole `join` block at once, or null for nobody
 async function join_save(app, req, res)
 {
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const join = ((body.join === undefined) || (body.join === null)) ? null : object_from_body(body, 'join');
     await config_file_mutate(app, res, function (json) {
         if (join === null) {
@@ -1874,7 +1903,7 @@ async function join_save(app, req, res)
 // POST /api/v1/remotes (body)
 async function remote_create(app, req, res)
 {
-    const remote = object_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)), 'remote');
+    const remote = object_from_body(await body_json(req, BODY_LIMIT_BYTES), 'remote');
     if (remote === null) {
         send_json(res, 400, {error: 'the body carries no remote object'});
         return;
@@ -1898,7 +1927,7 @@ async function remote_create(app, req, res)
 // PUT /api/v1/remotes/<name> (body)
 async function remote_update(app, req, res, name)
 {
-    const remote = object_from_body(JSON.parse(await body_read(req, BODY_LIMIT_BYTES)), 'remote');
+    const remote = object_from_body(await body_json(req, BODY_LIMIT_BYTES), 'remote');
     if (remote === null) {
         send_json(res, 400, {error: 'the body carries no remote object'});
         return;
@@ -1920,7 +1949,7 @@ async function remote_update(app, req, res, name)
 // them means.
 async function remote_logs_put(app, req, res, name)
 {
-    const json = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const json = await body_json(req, BODY_LIMIT_BYTES);
     if ((json === null) || (typeof json !== 'object') || ((json.logs !== undefined) && (json.logs !== 'all') && (json.logs !== 'off')) || ((json.logs === undefined) && (json.dirs === undefined))) {
         send_json(res, 400, {error: '{"logs": "all"} or {"logs": "off"}, and "dirs": [{"path": …, "service": …}]'});
         return;
@@ -2173,7 +2202,7 @@ async function logline_days_answer(app, res)
 //     {before, dropped: [{day, rows, bytes}], rows, bytes}
 async function logline_days_forget(app, req, res)
 {
-    const body = JSON.parse(await body_read(req, BODY_LIMIT_BYTES));
+    const body = await body_json(req, BODY_LIMIT_BYTES);
     const before = String(((body === null) || (body.before === undefined) || (body.before === null)) ? '' : body.before);
     if (/^\d{4}-\d{2}-\d{2}$/.test(before) === false) {
         send_json(res, 400, {error: 'before: a day, 2026-10-17'});

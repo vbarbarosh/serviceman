@@ -27,7 +27,11 @@ async function serve_static_file(app, service, req, res, prefix)
     const found = await stat_or_null(target);
     if ((found !== null) && found.isDirectory()) {
         if (pathname.endsWith('/') === false) {
-            res.writeHead(301, {location: `${mount}${pathname}/`});
+            // The address as it was asked for, still encoded, with one leading slash: decoded,
+            // `/%2F%2Fevil.example%2F..%2Fvendor` resolves inside the folder but reads as another
+            // host in a Location line
+            const asked = String(req.url).split('?')[0].replace(/^\/+/, '/');
+            res.writeHead(301, {location: `${mount}${asked}/`});
             res.end();
             return;
         }

@@ -263,6 +263,31 @@ test('the modules say what they hold and do; a door none names is a 404, and a r
     }
 });
 
+// What is wrong with a request is answered with its status and nothing of serviceman's own:
+// never a 500 with the exception in it
+test('bad input gets its own status: a body that is not JSON, one too big, a word no address encodes, a cookie of %, a Host no name, an address of slashes', async function (t) {
+    const running = await serviceman_start(t);
+    const not_json = await fetch_host({port: running.port, host: '127.0.0.1', path: '/api/v1/services', method: 'POST', body: '{bad', token: running.owner});
+    assert.deepStrictEqual([not_json.status, JSON.parse(not_json.body).error.startsWith('the body is not JSON')], [400, true]);
+    const big = await fetch_host({port: running.port, host: '127.0.0.1', path: '/api/v1/services', method: 'POST', body: 'x'.repeat(2*1024*1024), token: running.owner});
+    assert.deepStrictEqual([big.status, JSON.parse(big.body).error], [413, 'the body is above 1048576 bytes']);
+    const odd = await call(running, 'GET', '/api/v1/remotes/%zz/ports', null, running.owner);
+    assert.strictEqual(odd.status, 404, odd.body.slice(0, 120));
+    const cookie = await call(running, 'GET', '/api/v1/status', null, null, {cookie: 'serviceman_token=%'});
+    assert.strictEqual(cookie.status, 401);
+    const host = await call(running, 'GET', '/api/v1/install.sh', null, null, {host: 'evil\'; echo pwned; \''});
+    assert.deepStrictEqual([host.status, JSON.parse(host.body).error.startsWith('the Host header is not a host name')], [400, true]);
+    const named = await call(running, 'GET', '/api/v1/install.sh', null, null, {host: 'serviceman.example.com:3001'});
+    assert.strictEqual(named.status, 200);
+    assert.match(named.body, /url='http:\/\/serviceman\.example\.com:3001'/);
+    // A folder's redirect keeps the address as it was asked, encoded: no other host in it
+    const slashes = await call(running, 'GET', '/%2F%2Fevil.example%2F..%2Fvendor', null, running.owner);
+    assert.strictEqual(slashes.status, 301);
+    assert.strictEqual(slashes.headers.location, '/%2F%2Fevil.example%2F..%2Fvendor/');
+    assert.strictEqual(new URL(slashes.headers.location, 'http://control.test').host, 'control.test');
+    assert.strictEqual(running.app.log_lines.some(v => v.includes('[serviceman_error]')), false, 'nothing of it was serviceman\'s fault');
+});
+
 async function serviceman_start(t)
 {
     const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tokens-'));

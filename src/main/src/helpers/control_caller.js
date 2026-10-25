@@ -36,10 +36,21 @@ function token_given(req)
         const at = cookie.indexOf('=');
         if ((at !== -1) && (cookie.slice(0, at).trim() === COOKIE)) {
             const value = cookie.slice(at + 1).trim();
-            return (value === '') ? null : decodeURIComponent(value);
+            return (value === '') ? null : cookie_decoded(value);
         }
     }
     return null;
+}
+
+// A cookie that is not valid percent-encoding holds no token: a stranger's `%`, not a 500
+function cookie_decoded(value)
+{
+    try {
+        return decodeURIComponent(value);
+    }
+    catch {
+        return null;
+    }
 }
 
 control_caller.COOKIE = COOKIE;

@@ -262,4 +262,6 @@ anyone who asks, and `GET /api/v1/remote` is where an agent dials in with its to
 A visitor whose service is down gets a page that says it did not answer, and nothing else —
 no ports, no container names, no docker output, no remote names. The reason goes to the log
 and to callers from this machine. The one address a visitor may poll,
-`/__serviceman__/status.json`, answers `{"phase": "running"}` and nothing more.
+`/__serviceman__/status.json`, answers the phase and how far a start is, and of a failure the
+same short line as the page, with no output of the program; the reason and the output go to
+callers from this machine, as the page's do.
