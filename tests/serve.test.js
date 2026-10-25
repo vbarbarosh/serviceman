@@ -880,6 +880,8 @@ test('the config is read, checked, saved and applied from the control page', asy
         ],
     });
     try {
+        // The file is the operator's alone, every machine's token in it; a save keeps it so
+        fs.chmodSync(running.config_path, 0o600);
         const loaded = await fetch_host({port: running.control_port, path: '/api/v1/config'});
         assert.strictEqual(loaded.status, 200);
         const editor = JSON.parse(loaded.body);
@@ -910,6 +912,7 @@ test('the config is read, checked, saved and applied from the control page', asy
         assert.ok(outcome.notes.some(v => /extra: new service/.test(v)));
         assert.ok(outcome.notes.some(v => /site: removed from the config/.test(v)));
         assert.strictEqual(fs.readFileSync(running.config_path, 'utf8'), next_text);
+        assert.strictEqual(fs.statSync(running.config_path).mode & 0o777, 0o600, 'the editor\'s save kept the mode');
 
         assert.strictEqual(running.app.service_by_name.edit.state.instances[0], kept_instance);
         assert.strictEqual(kept_instance.phase, 'running');
@@ -925,6 +928,11 @@ test('the config is read, checked, saved and applied from the control page', asy
         const broken = await fetch_host({port: running.control_port, path: '/api/v1/config', method: 'POST', body: JSON.stringify({text: 'not a json', hash: outcome.hash})});
         assert.strictEqual(broken.status, 400);
         assert.strictEqual(fs.readFileSync(running.config_path, 'utf8'), next_text);
+
+        // A card's save goes through the other writer, and keeps the mode as well
+        const added = await fetch_host({port: running.control_port, path: '/api/v1/services', method: 'POST', body: JSON.stringify({service: {name: 'added', type: 'external', publish: {host: 'added.test'}, upstream: `127.0.0.1:${far.port}`}})});
+        assert.strictEqual(added.status, 200, added.body);
+        assert.strictEqual(fs.statSync(running.config_path).mode & 0o777, 0o600, 'the card\'s save kept the mode');
     }
     finally {
         far.close();

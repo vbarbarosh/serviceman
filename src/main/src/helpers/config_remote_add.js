@@ -1,4 +1,5 @@
 const app_apply_config = require('./app_apply_config');
+const config_file_save = require('./config_file_save');
 const config_from_json = require('./config_from_json');
 const config_locked = require('./config_locked');
 const fs = require('fs');
@@ -26,10 +27,7 @@ async function remote_write(app, remote)
     }
     json.remotes.push(remote);
     const config = config_from_json(json, app.config.base_dir);
-    const text = `${JSON.stringify(json, null, 4)}\n`;
-    const tmp_path = `${app.config.path}.serviceman-save`;
-    await fs.promises.writeFile(tmp_path, text);
-    await fs.promises.rename(tmp_path, app.config.path);
+    await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     await app_apply_config(app, config);
 }
 

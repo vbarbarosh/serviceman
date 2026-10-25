@@ -5,6 +5,7 @@ const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_bytes_read = require('../body_bytes_read');
 const body_read = require('../body_read');
+const config_file_save = require('../helpers/config_file_save');
 const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
 const container_disk = require('../../../../modules/docker/server/container_disk');
@@ -1659,9 +1660,7 @@ async function config_write(app, req, res)
         return;
     }
     const config = config_from_json(JSON.parse(text), app.config.base_dir);
-    const tmp_path = `${app.config.path}.serviceman-save`;
-    await fs.promises.writeFile(tmp_path, text);
-    await fs.promises.rename(tmp_path, app.config.path);
+    await config_file_save(app.config.path, text);
     log_event(app, 'config_saved', {hash: text_hash(text)});
     const applied = await app_apply_config(app, config);
     send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes, hash: text_hash(text)});
@@ -2029,10 +2028,7 @@ async function config_file_write(app, res, change, miss_status)
         send_json(res, 400, {error: error.message});
         return;
     }
-    const text = `${JSON.stringify(json, null, 4)}\n`;
-    const tmp_path = `${app.config.path}.serviceman-save`;
-    await fs.promises.writeFile(tmp_path, text);
-    await fs.promises.rename(tmp_path, app.config.path);
+    await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     const applied = await app_apply_config(app, config);
     send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes});
 }
