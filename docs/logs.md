@@ -327,6 +327,7 @@ minute, and they would bury the rest.
 | `agent_begin`             | What this agent is: version, build, node, machine, host.    |
 | `agent_connect_begin`     | It is dialling the host.                                    |
 | `agent_connect_end_ok`    | The host took it, and which remote it is.                   |
+| `agent_token_own`         | Joined, the host handed it a token of its own, kept beside the agent. |
 | `agent_connect_end_error` | The host could not be reached, and why.                     |
 | `agent_connect_wait`      | How long before it tries again.                             |
 | `agent_link_end`          | The link closed, and how long it held.                      |
@@ -386,12 +387,13 @@ keeps its own copy, so a machine with no link still writes its log.
 |------------------------|------------------------------------------------------------------|
 | `remote_reserved`      | The machine an instance will run on, chosen from its list.       |
 | `remote_joined`        | A machine added itself with the join token, and what it claimed. |
+| `remote_claimed`       | It dialled with its own token: the join token joins nothing under its name now. |
 | `remote_online`        | An agent dialled in, and what its machine is.                    |
 | `remote_offline`       | The link dropped, and how long it held.                          |
 | `remote_measure_ok`    | How far away it is and how fast the link runs.                   |
 | `remote_measure_error` | The first measure after hello failed.                            |
 | `remote_ping_error`    | The regular ping failed; `link=` says what became of it.         |
-| `remote_refused`       | A token no remote holds, or one already in use.                  |
+| `remote_refused`       | A token no remote holds, one already in use, or the join token for a machine that joined before. |
 | `remote_link_error`    | The link itself misbehaved; the reason is in the words.          |
 | `remote_said`          | The agent asked for a line to be written.                        |
 | `remote_service_lost`  | A dropped link put a service out of reach.                       |

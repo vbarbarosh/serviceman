@@ -337,7 +337,11 @@ serviceman-agent --url https://serviceman.example.com --token <the join token> -
 
 serviceman writes the new machine into this file — with a secret of its own, the tags it was
 allowed to claim, and the `machine` it says it is — and it appears on the control page like any
-other. The same machine coming back takes its own entry again instead of leaving a dead one.
+other. That secret is handed to the machine as it joins, and its agent keeps it beside itself
+(`token` in its folder) and dials with it from then on: the same machine coming back takes its
+own entry again instead of leaving a dead one, and once it has dialled with its own token the
+join token is refused for its name (`remote_refused` with `joined_before`), so whoever holds the
+join token cannot come back as a machine that already joined.
 
 **A tag in the config is a fact; a tag from a machine is a claim.** A machine may only claim
 what `tags_allowed` lists; anything else is dropped and written to the log. The join token is

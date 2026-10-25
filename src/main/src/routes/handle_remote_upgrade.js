@@ -2,8 +2,10 @@ const crypto = require('crypto');
 const log_event = require('../helpers/log_event');
 const log_group_from = require('../helpers/log_group_from');
 const remote_attach = require('../helpers/remote_attach');
+const remote_claimed_mark = require('../helpers/remote_claimed_mark');
 const remote_join = require('../helpers/remote_join');
 const remote_removed_of = require('../helpers/remote_removed_of');
+const remotes_claimed_read = require('../helpers/remotes_claimed_read');
 
 // A machine says which machine it is: its hostname, a container id, anything stable
 const RE_MACHINE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
@@ -27,10 +29,11 @@ function handle_remote_upgrade(app, req, socket, head)
 
 async function link_join(app, req, socket, head)
 {
-    const remote = await remote_of(app, req, socket);
-    if (remote === null) {
+    const found = await remote_of(app, req, socket);
+    if (found === null) {
         return;
     }
+    const remote = found.remote;
     // One agent per token: a second one is refused rather than taking the link from the first,
     // so a stolen token cannot push the real machine out. A link this end has not noticed is
     // dead keeps the door shut until tcp keepalive drops it.
@@ -38,7 +41,17 @@ async function link_join(app, req, socket, head)
         refuse(app, socket, 409, 'Conflict', `an agent is already connected as remote ${remote.name}`, {remote: remote.name, from: socket.remoteAddress, reason: 'token_in_use'});
         return;
     }
-    socket.write(`HTTP/1.1 101 Switching Protocols\r\nupgrade: serviceman\r\nserviceman-remote: ${remote.name}\r\nconnection: Upgrade\r\n\r\n`);
+    // A machine that added itself is handed the token of its own the config holds for it, and
+    // dials with that from now on; once it has, the join token joins nothing under its name
+    if (found.joined) {
+        socket.write(`HTTP/1.1 101 Switching Protocols\r\nupgrade: serviceman\r\nserviceman-remote: ${remote.name}\r\nserviceman-token: ${remote.token}\r\nconnection: Upgrade\r\n\r\n`);
+    }
+    else {
+        if ((remote.machine !== undefined) && (remote.machine !== null) && remote_claimed_mark(app, remote.name)) {
+            log_event(app, 'remote_claimed', {remote: remote.name, machine: remote.machine});
+        }
+        socket.write(`HTTP/1.1 101 Switching Protocols\r\nupgrade: serviceman\r\nserviceman-remote: ${remote.name}\r\nconnection: Upgrade\r\n\r\n`);
+    }
     if (head.length > 0) {
         socket.unshift(head);
     }
@@ -46,12 +59,13 @@ async function link_join(app, req, socket, head)
 }
 
 // Which remote this link belongs to: the one whose token it holds, or — when the config lets a
-// machine add itself — a new one it has just become. Anything else is turned away.
+// machine add itself — a new one it has just become, `joined` then. Anything else is turned
+// away, the join token for a machine that has dialled with its own token among it.
 async function remote_of(app, req, socket)
 {
     const known = remote_find_by_token(app, req.headers.authorization);
     if (known !== null) {
-        return known;
+        return {remote: known, joined: false};
     }
     // A machine this host took away while it was not looking. It is told so, in a word it can
     // act on: it stops dialling and takes itself off that machine.
@@ -69,7 +83,12 @@ async function remote_of(app, req, socket)
         refuse(app, socket, 400, 'Bad Request', 'a machine that adds itself must say which machine it is', {from: socket.remoteAddress, reason: 'no_machine'});
         return null;
     }
-    return await remote_join(app, machine, tags_claimed(req), socket.remoteAddress);
+    const before = app.remotes.find(v => v.machine === machine);
+    if ((before !== undefined) && remotes_claimed_read(app).has(before.name)) {
+        refuse(app, socket, 403, 'Forbidden', `${machine} joined before and holds a token of its own: the join token joins a machine once`, {remote: before.name, machine, from: socket.remoteAddress, reason: 'joined_before'});
+        return null;
+    }
+    return {remote: await remote_join(app, machine, tags_claimed(req), socket.remoteAddress), joined: true};
 }
 
 // What the machine says it is. The config decides which of it is kept.

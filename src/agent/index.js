@@ -18,6 +18,8 @@ const agent_servermon = require('./src/agent_servermon');
 const agent_sleep_watch = require('./src/agent_sleep_watch');
 const agent_status_ask = require('./src/agent_status_ask');
 const agent_status_serve = require('./src/agent_status_serve');
+const agent_token_keep = require('./src/agent_token_keep');
+const agent_token_read = require('./src/agent_token_read');
 const agent_uninstall = require('./src/agent_uninstall');
 const agent_uptime = require('./src/agent_uptime');
 const agent_verify_file = require('./src/agent_verify_file');
@@ -130,6 +132,12 @@ async function main()
         agent_root_serve(options);
         return;
     }
+    // A machine that added itself with the join token was handed a token of its own, kept
+    // beside the agent: that is the one it dials with, whatever it was started with
+    const own = agent_token_read();
+    if (own !== null) {
+        options.token = own;
+    }
     const missing = missing_option(options);
     if (missing !== null) {
         console.error(`serviceman-agent: ${missing}\n\n${USAGE}`);
@@ -208,6 +216,12 @@ async function main()
             wait_ms = FIRST_WAIT_MS;
             up_at = Date.now();
             agent_say(group, 'agent_connect_end_ok', {remote: link.name});
+            // Handed a token of its own as it joined: kept, and dialled with from now on
+            if ((link.token_given !== null) && (link.token_given !== options.token)) {
+                agent_token_keep(link.token_given);
+                options.token = link.token_given;
+                agent_say(group, 'agent_token_own', {kept: `${agent_token_read.FILE} beside the agent`, then: 'the join token is not used again here'});
+            }
             status.phase = 'online';
             status.remote = link.name;
             status.since = up_at;

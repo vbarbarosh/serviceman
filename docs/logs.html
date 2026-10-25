@@ -1236,6 +1236,10 @@ minute, and they would bury the rest.</p>
 <td>The host took it, and which remote it is.</td>
 </tr>
 <tr>
+<td><code>agent_token_own</code></td>
+<td>Joined, the host handed it a token of its own, kept beside the agent.</td>
+</tr>
+<tr>
 <td><code>agent_connect_end_error</code></td>
 <td>The host could not be reached, and why.</td>
 </tr>
@@ -1413,6 +1417,10 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td>A machine added itself with the join token, and what it claimed.</td>
 </tr>
 <tr>
+<td><code>remote_claimed</code></td>
+<td>It dialled with its own token: the join token joins nothing under its name now.</td>
+</tr>
+<tr>
 <td><code>remote_online</code></td>
 <td>An agent dialled in, and what its machine is.</td>
 </tr>
@@ -1434,7 +1442,7 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 </tr>
 <tr>
 <td><code>remote_refused</code></td>
-<td>A token no remote holds, or one already in use.</td>
+<td>A token no remote holds, one already in use, or the join token for a machine that joined before.</td>
 </tr>
 <tr>
 <td><code>remote_link_error</code></td>

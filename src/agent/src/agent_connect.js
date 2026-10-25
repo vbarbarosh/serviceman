@@ -9,6 +9,8 @@ const LINK_PATH = '/api/v1/remote';
 //
 // The token is the whole introduction: serviceman looks up the remote that holds it and says
 // which one it was in the answer, so this end knows the name it was given without being told.
+// A machine adding itself with the join token is handed a token of its own in the answer,
+// `token_given`, to dial with from then on.
 //
 // The door is a host and a port, or a socket file — `unix:///run/serviceman.sock`. A socket file
 // is what an ssh forward hands you, so an agent can reach a serviceman that listens on nothing.
@@ -39,7 +41,8 @@ function agent_connect(options)
                 // A socket file has no connection to keep alive; the file is either there or gone
                 socket.setKeepAlive(true, KEEPALIVE_MS);
             }
-            resolve({socket, name: answer.headers['serviceman-remote'] || '?'});
+            const given = String(answer.headers['serviceman-token'] || '').trim();
+            resolve({socket, name: answer.headers['serviceman-remote'] || '?', token_given: (given === '') ? null : given});
         });
         request.on('response', function (answer) {
             const chunks = [];

@@ -342,9 +342,11 @@ test('a machine nobody wrote down adds itself with the join token, and claims on
         services: [{name: 'far', type: 'docker', remotes: ['#gpu'], publish: {host: 'far.test', port: 80}, image: 'demo/far'}],
     }, null, 4));
     const app = app_from_config(await profile_from_db(config_path));
+    app.state_dir = path.join(dir, 'state');
     const servers = await server_start(app);
     const control_port = servers.control.address().port;
-    const agent = agent_start(control_port, JOIN_TOKEN, ['--machine', 'box-17', '--tag', 'gpu', '--tag', 'secret']);
+    const agent_dir = path.join(dir, 'agent');
+    const agent = agent_start(control_port, JOIN_TOKEN, ['--machine', 'box-17', '--tag', 'gpu', '--tag', 'secret'], {SERVICEMAN_AGENT_DIR: agent_dir});
     try {
         await wait_until(() => app.remote_by_name['auto-box-17'] !== undefined);
         const joined = app.remote_by_name['auto-box-17'];
@@ -360,13 +362,32 @@ test('a machine nobody wrote down adds itself with the join token, and claims on
         assert.deepStrictEqual(written.remotes.map(v => [v.name, v.machine, v.tags]), [['auto-box-17', 'box-17', ['gpu']]]);
         assert.deepStrictEqual(Object.keys(written), ['listen', 'control', 'join', 'remotes', 'services']);
 
-        // The same machine coming back takes its own entry instead of leaving a dead one
+        // The secret was handed to the machine as it joined, and its agent keeps it beside itself
+        await wait_until(() => fs.existsSync(path.join(agent_dir, 'token')));
+        assert.strictEqual(fs.readFileSync(path.join(agent_dir, 'token'), 'utf8').trim(), joined.token);
+        assert.strictEqual(fs.statSync(path.join(agent_dir, 'token')).mode & 0o777, 0o600);
+
+        // The same machine coming back takes its own entry instead of leaving a dead one: it
+        // dials with its own token now, and from then on the join token joins nothing under
+        // its name, though it was started with it
         agent.kill('SIGKILL');
         await wait_until(() => app.remote_by_name['auto-box-17'].state.phase === 'offline');
-        const again = agent_start(control_port, JOIN_TOKEN, ['--machine', 'box-17', '--tag', 'gpu']);
+        const again = agent_start(control_port, JOIN_TOKEN, ['--machine', 'box-17', '--tag', 'gpu'], {SERVICEMAN_AGENT_DIR: agent_dir});
         try {
             await wait_until(() => app.remote_by_name['auto-box-17'].state.phase === 'online', 15000);
             assert.strictEqual(app.remotes.length, 1, 'one machine, one entry');
+            await wait_until(() => app.log_lines.some(v => /\[remote_claimed\] remote=auto-box-17 machine=box-17/.test(v)));
+            assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(app.state_dir, 'remotes_claimed.json'), 'utf8')), ['auto-box-17']);
+            // Whoever holds the join token and the machine's name is turned away now
+            const impostor = agent_start(control_port, JOIN_TOKEN, ['--machine', 'box-17', '--once'], {SERVICEMAN_AGENT_DIR: path.join(dir, 'impostor')});
+            const said = await new Promise(function (resolve) {
+                let text = '';
+                impostor.stdout.on('data', v => text += v.toString('utf8'));
+                impostor.on('close', () => resolve(text));
+            });
+            assert.match(said, /403 box-17 joined before and holds a token of its own: the join token joins a machine once/);
+            assert.strictEqual(app.log_lines.some(v => /\[remote_refused\] remote=auto-box-17 machine=box-17 from=127\.0\.0\.1 reason=joined_before/.test(v)), true);
+            assert.strictEqual(app.remote_by_name['auto-box-17'].state.phase, 'online', 'the real one is untouched');
         }
         finally {
             again.kill('SIGKILL');
