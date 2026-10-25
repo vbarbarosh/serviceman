@@ -14,7 +14,9 @@
 
 FROM node:24-alpine AS build
 WORKDIR /src
-COPY package.json ./package.json
+COPY package.json package-lock.json ./
+# The bundler needs the helpers it is written with; the agent it writes needs nothing
+RUN npm ci --omit=dev
 COPY src ./src
 RUN node src/agent/bin/build /serviceman-agent.js
 

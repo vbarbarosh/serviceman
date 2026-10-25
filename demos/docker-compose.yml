@@ -30,7 +30,7 @@ services:
             # issues. Needs HTTPS turned on for the tailnet.
             TS_SERVE: 1
         volumes:
-            - data:/data
+            - data:/app/data
             - tailscale:/var/lib/tailscale
             # The door for an agent on this machine: it dials
             # `--url unix:///run/serviceman/serviceman.sock`, and no port is opened for it.

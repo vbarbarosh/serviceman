@@ -19,11 +19,13 @@ cd $scriptdir/..
 # meant to carry them. TS_AUTHKEY from the environment joins the tailnet by itself; without it,
 # the log has the link to open. SERVICEMAN_OWNER_TOKEN, when set, is the control page's owner
 # token; without it serviceman makes one in data/owner.token, which bin/owner-token prints.
+# Both go in by name: docker reads them from this environment, so neither value stands on the
+# command line for every process list to read.
 docker run --rm --init \
     -p 127.0.0.1:3000:3000 \
     -p 127.0.0.1:3001:3001 \
     -v $PWD/data:/app/data \
-    -e TS_AUTHKEY=${TS_AUTHKEY:-} \
-    -e SERVICEMAN_OWNER_TOKEN=${SERVICEMAN_OWNER_TOKEN:-} \
+    -e TS_AUTHKEY \
+    -e SERVICEMAN_OWNER_TOKEN \
     -v serviceman-tailscale:/var/lib/tailscale \
     serviceman

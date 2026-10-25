@@ -832,20 +832,14 @@ nothing itself, so it needs no docker socket and no docker command.</p>
 <td><code>SERVICEMAN_OWNER_TOKEN</code></td>
 <td>The owner&#39;s token of the control page, instead of <code>data/owner.token</code>.</td>
 </tr>
-<tr>
-<td><code>TS_HOSTNAME</code></td>
-<td>The name on the tailnet. Default <code>serviceman</code>.</td>
-</tr>
-<tr>
-<td><code>TS_SERVE</code></td>
-<td><code>1</code> puts <code>tailscale serve</code> in front, so the address is <strong>https</strong>.</td>
-</tr>
-<tr>
-<td><code>TS_EXTRA_ARGS</code></td>
-<td>More for <code>tailscale up</code> — <code>--advertise-tags=tag:server</code>, and the rest.</td>
-</tr>
 </tbody></table>
 </div>
+<p><code>bin/run</code> hands these two to docker by name, from your environment, so neither value stands on
+its command line; a container&#39;s environment is still readable by whoever may run <code>docker inspect</code>, so prefer <code>data/owner.token</code>, made by serviceman and readable by you alone, over
+<code>SERVICEMAN_OWNER_TOKEN</code>.
+| <code>TS_HOSTNAME</code>            | The name on the tailnet. Default <code>serviceman</code>.                           |
+| <code>TS_SERVE</code>               | <code>1</code> puts <code>tailscale serve</code> in front, so the address is <strong>https</strong>.        |
+| <code>TS_EXTRA_ARGS</code>          | More for <code>tailscale up</code> — <code>--advertise-tags=tag:server</code>, and the rest.   |</p>
 <p>A first run writes <code>data/serviceman.json</code> if there is none; after that the file is yours and
 nothing here writes over it. Every start reads it and says what will not work in a container —
 a door on the loopback, a control page that is not <code>exposed</code>, a control socket nothing outside

@@ -15,12 +15,12 @@ set -eu
 
 TS_SOCKET=/var/run/tailscale/tailscaled.sock
 TS_PROXY=localhost:1055
-CONFIG=${SERVICEMAN_CONFIG:-/data/serviceman.json}
+CONFIG=${SERVICEMAN_CONFIG:-/app/data/serviceman.json}
 WAIT_TRIES=100
 
 LOG_DIR=${SERVICEMAN_LOG_DIR:-/app/data/logs}
 
-mkdir -p /data /var/lib/tailscale /var/run/tailscale
+mkdir -p "$(dirname "$CONFIG")" /var/lib/tailscale /var/run/tailscale
 
 # tailscaled talks in its own file beside serviceman's, so stdout is serviceman's alone.
 # With the file log turned off it stays on stdout.

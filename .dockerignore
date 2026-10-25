@@ -10,3 +10,6 @@ docs
 *.zip
 logline/lines/node_modules
 logline/lines/data
+.env
+**/.env
+**/data

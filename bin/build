@@ -10,6 +10,15 @@ scriptname=`basename $script`
 
 cd $scriptdir/..
 
+# A .env in the checkout holds tokens, Logline's admin token above all, and COPY would bake it
+# into the image: the build stops until it is moved out
+for env_file in .env logline/.env logline/lines/.env; do
+    if [ -f "$env_file" ]; then
+        echo "bin/build: $env_file is in the checkout and would go into the image — move it out, then build" >&2
+        exit 1
+    fi
+done
+
 # --pull: the base images are fetched again rather than taken from the cache, so tailscale and
 # node are the newest of their channels each time
 docker build --pull -t serviceman .

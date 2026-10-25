@@ -36,10 +36,9 @@ bin/test
 # Increase a version without commiting it and making a tag
 npm version $1 --no-git-tag-version
 
-# The version is stamped into the agent bundle, so it is built again
-bin/agent-bundle
-
-git add package.json serviceman-agent.js
+# The agent file is not kept in the repository: a machine takes it from the host it dials,
+# /api/v1/agent.js, built from source there
+git add package.json
 if test -e package-lock.json; then
     git add package-lock.json
 fi

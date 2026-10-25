@@ -112,6 +112,11 @@ nothing itself, so it needs no docker socket and no docker command.
 |--------------------------|--------------------------------------------------------------------------|
 | `TS_AUTHKEY`             | Joins the tailnet with no hands. Without it, `docker logs` has the link. |
 | `SERVICEMAN_OWNER_TOKEN` | The owner's token of the control page, instead of `data/owner.token`.    |
+
+`bin/run` hands these two to docker by name, from your environment, so neither value stands on
+its command line; a container's environment is still readable by whoever may run `docker
+inspect`, so prefer `data/owner.token`, made by serviceman and readable by you alone, over
+`SERVICEMAN_OWNER_TOKEN`.
 | `TS_HOSTNAME`            | The name on the tailnet. Default `serviceman`.                           |
 | `TS_SERVE`               | `1` puts `tailscale serve` in front, so the address is **https**.        |
 | `TS_EXTRA_ARGS`          | More for `tailscale up` — `--advertise-tags=tag:server`, and the rest.   |
