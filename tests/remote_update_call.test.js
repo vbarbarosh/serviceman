@@ -1,4 +1,7 @@
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const test = require('node:test');
 
 const STALE = 'bin/update ran to the end, and this agent is still the old one — it said: serviceman: the agent is up';
@@ -7,13 +10,15 @@ test('an agent from before the fix that refuses over the last run is asked once 
     const answers = [{started: false, reason: STALE}, {started: true}];
     const asked = stub_remote_call(answers);
     const remote_update_call = require('../src/main/src/helpers/remote_update_call');
-    assert.deepStrictEqual(await remote_update_call({}, {name: 'vps1'}), {started: true});
+    // The ask carries the host's signature of the file, from the key in the state dir
+    const app = {state_dir: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-sign-'))};
+    assert.deepStrictEqual(await remote_update_call(app, {name: 'vps1'}), {started: true});
     assert.strictEqual(asked.length, 2);
 
     // Any other refusal is the answer as it is, asked once
     answers.push({started: false, reason: 'bin/update failed with code 7: curl: (7) Failed to connect'});
     asked.length = 0;
-    assert.deepStrictEqual(await remote_update_call({}, {name: 'vps1'}), {started: false, reason: 'bin/update failed with code 7: curl: (7) Failed to connect'});
+    assert.deepStrictEqual(await remote_update_call(app, {name: 'vps1'}), {started: false, reason: 'bin/update failed with code 7: curl: (7) Failed to connect'});
     assert.strictEqual(asked.length, 1);
 });
 

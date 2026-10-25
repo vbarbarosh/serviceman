@@ -1,5 +1,8 @@
 const agent_bundle = require('../src/agent/bundler/agent_bundle');
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const remote_state = require('../src/main/src/helpers/remote_state');
 const test = require('node:test');
 const timers = require('timers/promises');
@@ -11,7 +14,8 @@ test('an agent that says it started and comes back as itself is said to be stuck
     require.cache[remote_call_path] = {id: remote_call_path, filename: remote_call_path, loaded: true, exports: remote_call_stuck};
     const remotes_update = require('../src/main/src/helpers/remotes_update');
     const remote = {name: 'vps1', state: Object.assign(remote_state(), {phase: 'online', agent_built: 'an old build'})};
-    const app = {config: {agent_update: true}, remotes: [remote], log_lines: []};
+    // The ask carries the host's signature of the file, from the key in the state dir
+    const app = {config: {agent_update: true}, remotes: [remote], log_lines: [], state_dir: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-sign-'))};
 
     remotes_update(app);
     await timers.setImmediate();
