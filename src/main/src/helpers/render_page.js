@@ -1,3 +1,4 @@
+const html_escape = require('./html_escape');
 const page_tokens = require('./page_tokens');
 const theme_switch = require('./theme_switch');
 
@@ -118,7 +119,7 @@ function render_page(page)
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${page.title}</title>
+<title>${html_escape(page.title)}</title>
 <style>${PAGE_CSS}</style>
 <script>${theme.stamp}</script>
 <main>${page.body}</main>

@@ -95,7 +95,7 @@ async function send_file(res, file_path, method, stamp)
         'content-type': mime_type_from_path(file_path),
         'content-length': found.size,
         'last-modified': found.mtime.toUTCString(),
-    }, (stamp === null) ? {} : {'cache-control': 'no-cache'}));
+    }, (stamp === null) ? {} : {'cache-control': 'no-cache'}, page_headers(file_path)));
     if (method === 'HEAD') {
         res.end();
         return;
@@ -115,12 +115,19 @@ async function send_file(res, file_path, method, stamp)
 async function send_stamped(res, file_path, method, stamp)
 {
     const text = asset_stamped(await fs.promises.readFile(file_path, 'utf8'), stamp);
-    res.writeHead(200, {
+    res.writeHead(200, Object.assign({
         'content-type': mime_type_from_path(file_path),
         'content-length': Buffer.byteLength(text),
         'cache-control': 'no-cache',
-    });
+    }, page_headers(file_path)));
     res.end((method === 'HEAD') ? undefined : text);
+}
+
+// A page served here is nobody's to frame: a file on a machine's own name is same-site with
+// the control page, and a frame of it is a frame of the owner's
+function page_headers(file_path)
+{
+    return /\.html$/.test(file_path) ? {'content-security-policy': 'frame-ancestors \'none\''} : {};
 }
 
 module.exports = serve_static_file;

@@ -35,7 +35,7 @@ form_el.addEventListener('submit', async function (event) {
 // What the control page answers a browser that brings no token, or one nobody holds
 function render_sign_in_page(res)
 {
-    res.writeHead(401, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store'});
+    res.writeHead(401, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': 'frame-ancestors \'none\''});
     res.end(render_page({title: 'serviceman', body: BODY, script: SCRIPT}));
 }
 

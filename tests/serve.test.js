@@ -263,6 +263,7 @@ test('the control page lists the services and starts and stops them', async func
         const page = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/'});
         assert.strictEqual(page.status, 200);
         assert.match(page.body, /<title>serviceman<\/title>/);
+        assert.strictEqual(page.headers['content-security-policy'], 'frame-ancestors \'none\'', 'the control page is nobody\'s to frame');
 
         // The page answers on the addresses it has, and a mistyped one is a 404 — not the
         // front page opening whatever it opens first

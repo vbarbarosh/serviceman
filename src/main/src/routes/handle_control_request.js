@@ -755,6 +755,9 @@ async function handle_fs(app, req, res, name, tail)
         disk: remote_disk(app, remote, (token === undefined) ? undefined : {root: token.folders}),
         tail,
         name: remote.name,
+        // A file opened under the machine's own name has an origin of its own; one opened on
+        // the control origin runs as nobody
+        sandbox: (fs_host_of(app, req) === null),
         log: function (event, fields) {
             log_event(app, event, Object.assign({remote: remote.name}, fields));
         },
@@ -794,6 +797,9 @@ async function handle_docker(app, req, res, name, tail)
             disk: container_disk(connect, files[1]),
             tail: (files[2] === undefined) ? '' : files[2],
             name: files[1].slice(0, 12),
+            // A container's files open on the control origin, and a hostile image's page in
+            // them would run as the owner: sandboxed, it runs as nobody
+            sandbox: true,
             log: function (event, fields) {
                 log_event(app, event, Object.assign({remote: remote.name, container: files[1].slice(0, 12)}, fields));
             },

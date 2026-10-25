@@ -1864,11 +1864,15 @@ test('a folder of a machine is read from its page, and a folder that is not ther
         assert.match(got.headers['content-type'], /^text\/plain/);
         assert.strictEqual(got.headers['content-length'], '6');
         assert.strictEqual(got.headers['accept-ranges'], 'bytes');
+        // On the control origin a file is sandboxed: a page in it runs as nobody, not the owner
+        assert.strictEqual(got.headers['content-security-policy'], 'sandbox');
 
-        // The same file under the machine's own name, whole disk under the address's root
+        // The same file under the machine's own name, whole disk under the address's root, and
+        // as itself there: that origin is the machine's files' own
         const sub = await fetch_host({port: running.control_port, host: 'ui1.fs.serviceman.localhost', path: url_path(path.join(dir, 'hello.txt'))});
         assert.strictEqual(sub.status, 200);
         assert.strictEqual(sub.body, 'hello\n');
+        assert.strictEqual(sub.headers['content-security-policy'], undefined);
 
         // And on the door the services answer on, where the control page is reachable too: the
         // page builds the address from the port it was opened on

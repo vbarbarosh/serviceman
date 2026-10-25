@@ -59,15 +59,17 @@ const TYPE_BY_EXT = {
 // the disk is — a machine over a link, a folder here — is the host's business, and so is who
 // may ask.
 //
-//     options = {disk, tail, log, name}
+//     options = {disk, tail, log, name, sandbox}
 //     log(event, fields)  what was done, for the host's own log
 //     name                a tar of the root folder is saved under this
+//     sandbox             true when a file served as itself is on the host's own origin: a
+//                         page in it then runs as nobody, not as the host's page
 async function file_manager_serve(req, res, options)
 {
     const url = new URL(req.url, 'http://file-manager.invalid');
     const tail = options.tail;
     const log = (options.log === undefined) ? function () {} : options.log;
-    const ctx = {disk: options.disk, log, name: (options.name === undefined) ? 'files' : options.name};
+    const ctx = {disk: options.disk, log, name: (options.name === undefined) ? 'files' : options.name, sandbox: (options.sandbox === true)};
     if (((tail === '') || (tail === '/')) && (req.method === 'GET')) {
         await list_serve(ctx, req, res, url);
         return;
@@ -378,6 +380,11 @@ async function file_serve(ctx, req, res, asked)
     };
     if (range !== null) {
         headers['content-range'] = `bytes ${range.start}-${range.end}/${stat.size}`;
+    }
+    // A file served on the host's own origin would run as the host's page: a page in it, with
+    // the host's cookie, is the owner. Sandboxed, it has an origin of its own and no script.
+    if (ctx.sandbox === true) {
+        headers['content-security-policy'] = 'sandbox';
     }
     res.writeHead((range === null) ? 200 : 206, headers);
     if (req.method === 'HEAD') {

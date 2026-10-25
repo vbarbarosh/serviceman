@@ -34,6 +34,11 @@ test('every door of the API answers from the disk it was given, under the base t
     assert.deepStrictEqual([whole.status, whole.body, whole.headers['content-type'], whole.headers['accept-ranges']], [200, 'hello world', 'text/plain; charset=utf-8', 'bytes']);
     const page = await call(running, 'GET', '/fs/file/home/me/page.html');
     assert.strictEqual(page.headers['content-type'], 'text/html; charset=utf-8', 'a page opens as a page');
+    assert.strictEqual(page.headers['content-security-policy'], undefined, 'on an origin of its own, as itself');
+    // On the host's own origin a page in a file would be the owner's page: it is sandboxed there
+    const boxed = await serve(t, {disk, name: 'box', sandbox: true, log: () => {}});
+    const sandboxed = await call(boxed, 'GET', '/fs/file/home/me/page.html');
+    assert.deepStrictEqual([sandboxed.status, sandboxed.headers['content-security-policy'], sandboxed.body], [200, 'sandbox', '<p>a page</p>']);
     const named = await call(running, 'GET', `/fs/file/home/me/${encodeURIComponent('привет.txt')}`);
     assert.strictEqual(named.body, 'hi');
     assert.match(named.headers['content-disposition'], /^inline; filename="_\.txt"; filename\*=UTF-8''%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82\.txt$/);
