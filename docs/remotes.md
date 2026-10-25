@@ -538,7 +538,9 @@ meanwhile serves what it served before.
 
 What the table cannot route still goes to serviceman over the link, as every request did before
 the doors routed themselves: a name the table does not have, a service serviceman answers
-itself. Those stop when serviceman does.
+itself. There it is held to the door's rules the same way, a websocket handshake as a request:
+the name's service, behind its wall, and never the control page. Those stop when serviceman
+does.
 
 **A service on this machine** is found the way it is now: a container by asking docker for the
 port it has — and starting it first, if it is stopped, which is how a sleeping service wakes

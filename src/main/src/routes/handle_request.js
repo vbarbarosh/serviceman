@@ -1,9 +1,9 @@
 const client_address = require('../client_address');
+const door_inbound = require('../helpers/door_inbound');
 const error_detail = require('../error_detail');
 const format_seconds = require('../../../helpers/format_seconds');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_request = require('./handle_control_request');
-const inbound_rule = require('../helpers/inbound_rule');
 const log_bind = require('../helpers/log_bind');
 const log_event = require('../helpers/log_event');
 const log_group_from = require('../helpers/log_group_from');
@@ -48,36 +48,24 @@ function handle_request(app, req, res)
 {
     const host = String(req.headers.host || '').toLowerCase().split(':')[0];
     // A request that came in through a machine's door is answered by the service that machine's
-    // door was told to answer this name with, and by nothing else. The door is on a public
-    // address and the file mode in front of it only says who may knock; what may be reached
-    // through it is said here — the control page never among it.
-    let inbound = null;
-    let wall = null;
-    if (req.socket.tunnel_from !== undefined) {
-        const from = app.remote_by_name[req.socket.tunnel_from];
-        const rule = (from === undefined) ? null : inbound_rule(from, host);
-        // A name with a wall in front of it: the wall's own pages — its sign-in, its callbacks —
-        // are answered by the wall on that same name, and everything else is answered by the
-        // service once the wall has said the visitor may pass
-        const walled = ((rule === null) || (rule.auth === null)) ? null : app.service_by_name[rule.auth] || null;
-        const own = (walled !== null) && wall_ask.own(pathname_of(req));
-        const named = own ? rule.auth : ((rule === null) ? null : rule.service);
-        wall = own ? null : walled;
-        inbound = ((rule === null) || rule.off) ? null : app.service_by_name[named] || null;
-        if (inbound === null) {
-            // A name that is switched off says so, because the answer is the same 404 either
-            // way and the difference is the whole of what somebody is looking for
-            const off = ((rule !== null) && rule.off) ? {off: true} : {};
-            // Async because what answers a request is a promise here, always: the caller
-            // hangs its own error handling off the one it gets back
-            return log_group_from(req.socket.log_group, async function () {
-                log_event(app, 'inbound_refused', Object.assign({remote: req.socket.tunnel_from, host}, off));
-                // The visitor learns nothing of which machine this is or why: the log has that
-                res.writeHead(404, {'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store'});
-                res.end('404 Not Found\n');
-            });
-        }
+    // door was told to answer this name with, behind its wall, and by nothing else: the
+    // control page never among it (door_inbound, which reads a websocket handshake the same way)
+    const door = door_inbound(app, req, host, pathname_of(req));
+    if ((door !== null) && (door.service === null)) {
+        // A name that is switched off says so, because the answer is the same 404 either
+        // way and the difference is the whole of what somebody is looking for
+        const off = door.off ? {off: true} : {};
+        // Async because what answers a request is a promise here, always: the caller
+        // hangs its own error handling off the one it gets back
+        return log_group_from(req.socket.log_group, async function () {
+            log_event(app, 'inbound_refused', Object.assign({remote: req.socket.tunnel_from, host}, off));
+            // The visitor learns nothing of which machine this is or why: the log has that
+            res.writeHead(404, {'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store'});
+            res.end('404 Not Found\n');
+        });
     }
+    const inbound = (door === null) ? null : door.service;
+    const wall = (door === null) ? null : door.wall;
     // The control page, and a machine's files under it — phone.fs.<control host> — are the
     // control's to answer on this door as well; the control decides who may have them
     if ((inbound === null) && (app.config.control.host !== null) && ((host === app.config.control.host) || (fs_host_of(app, req) !== null))) {

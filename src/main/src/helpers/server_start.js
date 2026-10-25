@@ -52,7 +52,9 @@ function service_server(app)
             socket.destroy();
         });
         const host = String(req.headers.host || '').toLowerCase().split(':')[0];
-        if ((app.config.control.host !== null) && (host === app.config.control.host)) {
+        // A handshake that came in through a machine's door is a service's or nobody's: the
+        // control page is never reached that way, as handle_request says of a request
+        if ((socket.tunnel_from === undefined) && (app.config.control.host !== null) && (host === app.config.control.host)) {
             handle_control_upgrade(app, req, socket, head);
             return;
         }
