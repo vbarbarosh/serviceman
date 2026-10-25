@@ -1463,8 +1463,12 @@ test('an app folder takes a new version as a zip sent by PUT, and keeps its data
         const own = await token_make(running, {label: 'appdir: new versions', remotes: ['vps1'], rights: ['versions'], services: ['appdir']});
         const v4 = path.join(dir, 'v4');
         app_version_write(v4, 'v4');
+        // A build bigger than one frame of the link carries: the tar goes to the machine in pieces
+        fs.mkdirSync(path.join(v4, 'build'));
+        fs.writeFileSync(path.join(v4, 'build', 'blob.bin'), Buffer.alloc(17*1024*1024, 7));
         const sent_own = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: folder_zip(v4, 'app-v4'), token: own});
         assert.strictEqual(sent_own.status, 200, sent_own.body);
+        assert.ok(JSON.parse(sent_own.body).bytes > 17*1024*1024, 'the whole build went');
         const fifth = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(fifth.body, 'v4 configured, data: written by v1');
     }
