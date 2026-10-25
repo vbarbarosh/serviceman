@@ -61,6 +61,7 @@ const log_uid = require('../../helpers/log_uid');
 const log_words = require('../../helpers/log_words');
 const shell_pty_argv = require('../../helpers/shell_pty_argv');
 const shell_stream = require('../../helpers/shell_stream');
+const term_size_valid = require('../../helpers/term_size_valid');
 
 const AGENT_VERSION = agent_version.version;
 // How often the machine says its numbers again, and what it can be asked for now: servermon's
@@ -549,8 +550,9 @@ async function method_run(options, state, method, params, say, group)
         return agent_volume_terminals(answer);
     }
     if (method === 'shell_resize') {
+        // A size the pane cannot have is dropped: the holder would die of it, and the shell with it
         const found = state.streams[params.id];
-        if ((found !== undefined) && (typeof found.socket.resize === 'function')) {
+        if ((found !== undefined) && (typeof found.socket.resize === 'function') && term_size_valid(params.cols, params.rows)) {
             found.socket.resize(params.cols, params.rows);
         }
         return {};

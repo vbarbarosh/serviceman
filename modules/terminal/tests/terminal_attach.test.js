@@ -42,6 +42,41 @@ test('the pane and the far end are joined both ways, and either end going away e
     assert.strictEqual(failed.closed, true);
 });
 
+test('a frame that is not what a pane sends is dropped, and a handler that fails closes this pane alone', function () {
+    const client = client_fake();
+    const stream = stream_fake();
+    const sizes = [];
+    terminal_attach(client, stream, {note: 'x', resize: v => sizes.push(v), end: function () {}});
+    // Input that is no text: a number, null, an object, none at all
+    for (const data of [123, null, {a: 1}, ['x'], undefined]) {
+        client.emit('message', JSON.stringify({type: 'input', data}));
+    }
+    client.emit('message', JSON.stringify(null));
+    client.emit('message', JSON.stringify('input'));
+    // A size no terminal has: text, an object, zero, a fraction, a window no size holds
+    for (const [cols, rows] of [['x&y=1', {}], ['80', '24'], [0, 24], [80, -1], [80.5, 24], [70000, 24], [80, 1e9], [null, null]]) {
+        client.emit('message', JSON.stringify({type: 'resize', cols, rows}));
+    }
+    assert.deepStrictEqual(stream.written, []);
+    assert.deepStrictEqual(sizes, []);
+    assert.strictEqual(client.closed, false, 'dropped, and the pane stays');
+    client.emit('message', JSON.stringify({type: 'input', data: 'ls\r'}));
+    client.emit('message', JSON.stringify({type: 'resize', cols: 1, rows: 4096}));
+    assert.deepStrictEqual(stream.written, ['ls\r']);
+    assert.deepStrictEqual(sizes, [{cols: 1, rows: 4096}]);
+
+    // The far end refuses a write: this pane closes, nothing is thrown at the host
+    const broken = stream_fake();
+    broken.write = function () {
+        throw new Error('write after end');
+    };
+    const other = client_fake();
+    terminal_attach(other, broken, {note: 'x', resize: function () {}, end: function () {}});
+    other.emit('message', JSON.stringify({type: 'input', data: 'ls\r'}));
+    assert.strictEqual(other.closed, true);
+    assert.strictEqual(client.closed, false);
+});
+
 test('a refusal is a note that says why, without ok, and the socket closes', function () {
     const client = client_fake();
     terminal_refuse(client, 'box is not connected');

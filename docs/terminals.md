@@ -62,7 +62,8 @@ stays.
   it printed before, and scrolls back through it.
 - Send text messages, json: `{"type": "input", "data": "ls\r"}` types (Enter is `\r`), and
   `{"type": "resize", "cols": 120, "rows": 40}` sets the size. Send a resize first: a new
-  terminal starts at 80×24.
+  terminal starts at 80×24. A message that is not one of these, input that is not text, or a
+  size no terminal has (whole numbers from 1 to 4096) is dropped.
 - Closing the socket leaves the terminal running. It ends when someone types `exit` in it,
   or ends it as above, and then the socket closes from the far end.
 

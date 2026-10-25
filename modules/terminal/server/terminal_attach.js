@@ -1,7 +1,13 @@
+const term_size_valid = require('../../../src/helpers/term_size_valid');
+
 // A terminal pane's websocket joined to the stream at the far end — a shell in a container, a
 // pty on a machine, whatever the host opened. Bytes from the far end go out as binary
 // messages; the pane sends json: {type: 'input', data} and {type: 'resize', cols, rows}.
 // The first word the pane gets is the note, {type: 'note', text, ok: true}.
+//
+// A frame is whoever sits at the pane, so only what a pane sends gets through: text as input,
+// a size a terminal can have; anything else is dropped. A handler that fails closes this pane
+// and nothing else: the host goes on.
 //
 //     options = {note, resize, end}
 //     resize({cols, rows})   the far end takes the pane's size
@@ -18,16 +24,11 @@ function terminal_attach(client, stream, options)
         client.close();
     });
     client.on('message', function (raw) {
-        const message = message_from_raw(raw);
-        if (message === null) {
-            return;
+        try {
+            message_take(stream, options, message_from_raw(raw));
         }
-        if (message.type === 'input') {
-            stream.write(message.data);
-            return;
-        }
-        if (message.type === 'resize') {
-            options.resize({cols: message.cols, rows: message.rows});
+        catch {
+            client.close();
         }
     });
     client.on('close', function () {
@@ -35,6 +36,20 @@ function terminal_attach(client, stream, options)
         options.end();
     });
     client.send(JSON.stringify({type: 'note', text: options.note, ok: true}));
+}
+
+function message_take(stream, options, message)
+{
+    if ((message === null) || (typeof message !== 'object')) {
+        return;
+    }
+    if ((message.type === 'input') && (typeof message.data === 'string')) {
+        stream.write(message.data);
+        return;
+    }
+    if ((message.type === 'resize') && term_size_valid(message.cols, message.rows)) {
+        options.resize({cols: message.cols, rows: message.rows});
+    }
 }
 
 function message_from_raw(raw)

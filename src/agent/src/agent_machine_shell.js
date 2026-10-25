@@ -30,7 +30,10 @@ while True:
     if 3 in ready:
         lines = os.read(3, 256).decode('utf8', 'replace').split()
         if len(lines) >= 2:
-            resize(fd, int(lines[-2]), int(lines[-1]))
+            try:
+                resize(fd, int(lines[-2]), int(lines[-1]))
+            except (ValueError, OverflowError, struct.error):
+                pass
     if fd in ready:
         try:
             data = os.read(fd, 65536)

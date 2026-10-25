@@ -767,7 +767,8 @@ real tty to draw. The first of them is the history, so a terminal joined again s
 it printed before, and scrolls back through it.</li>
 <li>Send text messages, json: <code>{&quot;type&quot;: &quot;input&quot;, &quot;data&quot;: &quot;ls\r&quot;}</code> types (Enter is <code>\r</code>), and
 <code>{&quot;type&quot;: &quot;resize&quot;, &quot;cols&quot;: 120, &quot;rows&quot;: 40}</code> sets the size. Send a resize first: a new
-terminal starts at 80×24.</li>
+terminal starts at 80×24. A message that is not one of these, input that is not text, or a
+size no terminal has (whole numbers from 1 to 4096) is dropped.</li>
 <li>Closing the socket leaves the terminal running. It ends when someone types <code>exit</code> in it,
 or ends it as above, and then the socket closes from the far end.</li>
 </ul>

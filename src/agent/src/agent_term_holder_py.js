@@ -31,7 +31,7 @@ def size_read(signum, frame):
         with open(base + '.size') as f:
             cols, rows = f.read().split()[:2]
         resize(int(cols), int(rows))
-    except (OSError, ValueError):
+    except (OSError, ValueError, OverflowError, struct.error):
         pass
 
 def meta_write():
