@@ -21,10 +21,13 @@ function agent_file_part_put(target)
     if (offset > had) {
         throw new Error(`the file has ${had} bytes so far, and a part cannot start at ${offset}`);
     }
+    // The parts gather in a file this agent made, never through a link planted under that
+    // name: opened following no link, cut through the same handle
+    const fd = fs.openSync(where.part, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW, 0o644);
     if (offset < had) {
-        fs.truncateSync(where.part, offset);
+        fs.ftruncateSync(fd, offset);
     }
-    const file = fs.createWriteStream(where.part, {flags: 'a'});
+    const file = fs.createWriteStream(where.part, {fd});
     const out = new EventEmitter();
     out.destroyed = false;
     out.setNoDelay = function () {};
@@ -54,10 +57,12 @@ function agent_file_part_put(target)
     return out;
 }
 
+// How much of the file is in: of the part file itself, never of whatever a link under that
+// name points at
 function size_or_zero(file)
 {
     try {
-        return fs.statSync(file).size;
+        return fs.lstatSync(file).size;
     }
     catch {
         return 0;

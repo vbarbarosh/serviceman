@@ -3,6 +3,9 @@ const https = require('https');
 
 const KEEPALIVE_MS = 30000;
 const LINK_PATH = '/api/v1/remote';
+// How long a knock waits for an answer: a door that takes the call and says nothing, a proxy
+// half open, is given up and dialled again later. The env name is for a test that cannot wait.
+const DIAL_TIMEOUT_MS = parseInt(process.env.SERVICEMAN_DIAL_TIMEOUT_MS || '15000', 10);
 
 // One knock on the serviceman door. It answers 101 and the socket becomes the link, or it
 // answers with the reason it will not.
@@ -32,10 +35,15 @@ function agent_connect(options)
                 'serviceman-tags': options.tags.join(','),
             },
         }));
+        request.setTimeout(DIAL_TIMEOUT_MS, function () {
+            request.destroy(new Error(`no answer within ${DIAL_TIMEOUT_MS}ms`));
+        });
         request.on('upgrade', function (answer, socket, head) {
             if (head.length > 0) {
                 socket.unshift(head);
             }
+            // The knock's deadline is not the link's: a link is kept by its beats
+            socket.setTimeout(0);
             socket.setNoDelay(true);
             if (url.protocol !== 'unix:') {
                 // A socket file has no connection to keep alive; the file is either there or gone

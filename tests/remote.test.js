@@ -399,6 +399,27 @@ test('a machine nobody wrote down adds itself with the join token, and claims on
     }
 });
 
+// The host gives a link ten seconds to say hello; a docker that hangs must not take the
+// machine's hello with it
+test('a machine whose docker hangs still says hello in time, with no docker in it', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-hung-docker-'));
+    fs.writeFileSync(path.join(dir, 'docker'), '#!/bin/sh\nsleep 60\n', {mode: 0o755});
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}]);
+    const remote = running.app.remote_by_name.vps1;
+    const agent = agent_start(running.control_port, TOKEN, [], {SERVICEMAN_DOCKER: path.join(dir, 'docker')});
+    try {
+        const began = Date.now();
+        await wait_until(() => remote.state.phase === 'online', 9000);
+        assert.ok(Date.now() - began < 9000, 'the hello came within the host\'s patience');
+        assert.strictEqual(remote.state.resources.docker, null, 'no docker, rather than no hello');
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('a machine that dies is offline at once, not when the next ping notices', async function () {
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}]);
     const remote = running.app.remote_by_name.vps1;
@@ -455,7 +476,10 @@ test('a machine that added itself cannot grow tags it was never allowed', async 
     const app = app_from_config(await profile_from_db(config_path));
     const servers = await server_start(app);
     const port = servers.control.address().port;
-    const first = agent_start(port, JOIN_TOKEN, ['--machine', 'box-3', '--tag', 'gpu']);
+    // A machine that adds itself is handed a token of its own and keeps it beside the agent:
+    // this one keeps it in a folder of its own, so no later agent of this file dials with it
+    const agent_dir = path.join(dir, 'agent');
+    const first = agent_start(port, JOIN_TOKEN, ['--machine', 'box-3', '--tag', 'gpu'], {SERVICEMAN_AGENT_DIR: agent_dir});
     try {
         await wait_until(() => app.remote_by_name['auto-box-3'] !== undefined);
         await wait_until(() => app.remote_by_name['auto-box-3'].state.phase === 'online');
@@ -465,7 +489,7 @@ test('a machine that added itself cannot grow tags it was never allowed', async 
         // not only on the first link
         first.kill('SIGKILL');
         await wait_until(() => app.remote_by_name['auto-box-3'].state.phase === 'offline', 3000);
-        const again = agent_start(port, JOIN_TOKEN, ['--machine', 'box-3', '--tag', 'gpu', '--tag', 'secret']);
+        const again = agent_start(port, JOIN_TOKEN, ['--machine', 'box-3', '--tag', 'gpu', '--tag', 'secret'], {SERVICEMAN_AGENT_DIR: agent_dir});
         try {
             await wait_until(() => app.remote_by_name['auto-box-3'].state.phase === 'online', 15000);
             assert.deepStrictEqual(remote_tags(app.remote_by_name['auto-box-3']), ['gpu']);

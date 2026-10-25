@@ -12,12 +12,16 @@ const crypto = require('crypto');
 const docker_socket_path = require('../../helpers/docker_socket_path');
 const os = require('os');
 
+// A docker that does not answer in this is a docker that is not there for the hello: the host
+// gives a link ten seconds to say hello, and a hung daemon must not keep the machine off it
+const DOCKER_SAY_MS = 4000;
+
 // What the machine is: said once, when the link opens
 async function agent_resources(options)
 {
     const cpus = os.cpus();
     const disk = await agent_disk(options.dir);
-    const docker = await agent_shell([options.docker, 'version', '--format', '{{.Server.Version}}']);
+    const docker = await agent_shell([options.docker, 'version', '--format', '{{.Server.Version}}'], {timeout: DOCKER_SAY_MS});
     const can = await agent_can(options);
     return {
         hostname: os.hostname(),

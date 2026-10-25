@@ -30,7 +30,11 @@ function agent_file_put(target)
     const written = replaced ? fs.realpathSync(full) : full;
     const mode = replaced ? fs.statSync(written).mode & 0o7777 : null;
     const part = path.join(path.dirname(written), `.${path.basename(written)}.part`);
-    const file = fs.createWriteStream(part);
+    // The part is a file this agent makes, never one that was waiting there: a link planted
+    // under that name would carry the bytes to wherever it points. A part a cut-off copy left
+    // behind is cleared first, and the name is opened for a new file alone, following no link.
+    fs.rmSync(part, {force: true});
+    const file = fs.createWriteStream(part, {fd: fs.openSync(part, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o644)});
     const out = new EventEmitter();
     let bytes = 0;
     out.destroyed = false;
@@ -59,6 +63,10 @@ function agent_file_put(target)
     // it landed
     file.on('finish', function () {
         try {
+            // Still the file this agent wrote, not something put in its place meanwhile
+            if (fs.lstatSync(part).isFile() === false) {
+                throw new Error(`${part} is not the file that was written`);
+            }
             if (mode !== null) {
                 fs.chmodSync(part, mode);
             }

@@ -226,33 +226,6 @@ function frame_read(options, state, kind, body, group)
     call_run(options, state, state.link, message, group);
 }
 
-// The link's one clock: the beat and the stats go when their time comes. A tick that itself
-// ran half a minute late means the machine slept; the slept-on link is closed and dialled fresh.
-function tick(options, state, socket, group)
-{
-    const now = Date.now();
-    const late = now - state.tick_at;
-    state.tick_at = now;
-    if (late >= SLEPT_MS) {
-        agent_say(group, 'agent_woke', {slept: format_seconds(late), then: 'dialling fresh'});
-        socket.destroy();
-        return;
-    }
-    if (now >= state.beat_at) {
-        state.beat_at = now + BEAT_EVERY_MS;
-        try {
-            link_send_message(socket, {type: 'beat'});
-        }
-        catch {
-            // The link is gone; the close is what says so
-        }
-    }
-    if (now >= state.stats_at) {
-        state.stats_at = now + STATS_EVERY_MS;
-        stats_send(options, socket, group);
-    }
-}
-
 // A link that drops takes every stream through it with it; the sockets on this machine close
 function streams_drop(state)
 {

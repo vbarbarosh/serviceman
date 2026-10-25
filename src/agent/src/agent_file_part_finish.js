@@ -13,7 +13,12 @@ async function agent_file_part_finish(params)
     if ((size === 0) && (fs.existsSync(where.part) === false)) {
         fs.writeFileSync(where.part, '');
     }
-    const have = fs.statSync(where.part).size;
+    // The parts are a file this agent wrote, not a link somebody put under that name meanwhile
+    const part = fs.lstatSync(where.part);
+    if (part.isFile() === false) {
+        throw new Error(`${where.part} is not the file that was written`);
+    }
+    const have = part.size;
     if (have !== size) {
         throw new Error(`the file has ${have} bytes so far, not ${size}`);
     }
