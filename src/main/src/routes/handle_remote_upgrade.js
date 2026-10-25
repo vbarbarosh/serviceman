@@ -75,7 +75,9 @@ async function remote_of(app, req, socket)
         return null;
     }
     if ((app.config.join === null) || (token_same(app.config.join.token, req.headers.authorization) === false)) {
-        refuse(app, socket, 403, 'Forbidden', 'no remote in the config holds that token', {from: socket.remoteAddress, reason: 'unknown_token'});
+        // Marked, so an agent dialling with a token it kept from a host that has since lost
+        // its data/, or from another host, tries the token it was started with next
+        refuse(app, socket, 403, 'Forbidden', 'no remote in the config holds that token', {from: socket.remoteAddress, reason: 'unknown_token'}, 'unknown_token');
         return null;
     }
     const machine = String(req.headers['serviceman-machine'] || '').trim();

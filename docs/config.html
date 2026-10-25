@@ -1139,7 +1139,10 @@ other. That secret is handed to the machine as it joins, and its agent keeps it 
 (<code>token</code> in its folder) and dials with it from then on: the same machine coming back takes its
 own entry again instead of leaving a dead one, and once it has dialled with its own token the
 join token is refused for its name (<code>remote_refused</code> with <code>joined_before</code>), so whoever holds the
-join token cannot come back as a machine that already joined.</p>
+join token cannot come back as a machine that already joined. A host that no longer knows the
+kept token (its <code>data/</code> gone, or another host altogether) refuses it as <code>unknown_token</code>, and the
+agent dials next with the token it was started with: the join token joins it again, and the
+token handed then takes the old one&#39;s place (<code>agent_token_unknown</code> in the agent&#39;s log).</p>
 <p><strong>A tag in the config is a fact; a tag from a machine is a claim.</strong> A machine may only claim
 what <code>tags_allowed</code> lists; anything else is dropped and written to the log. The join token is
 the trust boundary of the fleet — whoever holds it gets a machine in and the work that goes
@@ -1432,6 +1435,10 @@ what other services keep, and nothing but a person removes it. What the app writ
 file in that folder, from the first line once the app makes it, and the lines carry the app&#39;s
 name as <code>service</code>, so <strong>Logs in Logline</strong> on the app&#39;s page shows them with the rest of its
 lines. The app&#39;s <strong>Storage</strong> card says where they go, or why they stay on the machine.</p>
+<p>A service&#39;s <strong>Logs in Logline</strong> shows the lines of the machines its config names and no other&#39;s:
+<code>service</code> is a label a machine writes as it likes, and <code>remote</code> the one Logline writes from the
+machine&#39;s token, so a machine cannot put its lines under a service it does not run. A service
+run here, with no machine named, is shown by its name alone.</p>
 <h3 id="storage"><a class="anchor" href="#storage" aria-hidden="true" tabindex="-1">#</a>Storage</h3>
 <p>A program that keeps something names the paths it keeps:</p>
 <pre><code class="language-json">&quot;volumes&quot;: [&quot;:/app/data&quot;]

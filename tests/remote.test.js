@@ -464,6 +464,36 @@ test('two changes to the config at once are written one after the other, and nei
     }
 });
 
+test('a machine whose kept token the host no longer knows dials with the one it was started with, and keeps the new one', async function () {
+    const running = await serviceman_start_file({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        join: {token: JOIN_TOKEN, tags_allowed: ['gpu'], name_prefix: 'auto-'},
+        services: [],
+    });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forgot-'));
+    const agent_dir = path.join(dir, 'agent');
+    fs.mkdirSync(agent_dir);
+    // The token kept from a host whose data/ is gone, or from another host altogether: this
+    // host knows no such token, and the agent's first dial is refused
+    const stale = 'stale0000stale0000stale0000stale0000stale0000stale0000stale00000';
+    fs.writeFileSync(path.join(agent_dir, 'token'), `${stale}\n`, {mode: 0o600});
+    const agent = agent_start(running.control_port, JOIN_TOKEN, ['--machine', 'box-9', '--tag', 'gpu'], {SERVICEMAN_AGENT_DIR: agent_dir});
+    try {
+        await wait_until(() => running.app.log_lines.some(v => /\[remote_refused\] from=127\.0\.0\.1 reason=unknown_token/.test(v)));
+        // The next dial is with the join token it was started with: it joins, and the token
+        // handed then takes the stale one's place beside the agent
+        await wait_until(() => (running.app.remote_by_name['auto-box-9'] !== undefined) && (running.app.remote_by_name['auto-box-9'].state.phase === 'online'), 15000);
+        const joined = running.app.remote_by_name['auto-box-9'];
+        await wait_until(() => fs.readFileSync(path.join(agent_dir, 'token'), 'utf8').trim() !== stale);
+        assert.strictEqual(fs.readFileSync(path.join(agent_dir, 'token'), 'utf8').trim(), joined.token);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('a machine that added itself cannot grow tags it was never allowed', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-claim-'));
     const config_path = path.join(dir, 'serviceman.json');

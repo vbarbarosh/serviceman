@@ -341,7 +341,10 @@ other. That secret is handed to the machine as it joins, and its agent keeps it 
 (`token` in its folder) and dials with it from then on: the same machine coming back takes its
 own entry again instead of leaving a dead one, and once it has dialled with its own token the
 join token is refused for its name (`remote_refused` with `joined_before`), so whoever holds the
-join token cannot come back as a machine that already joined.
+join token cannot come back as a machine that already joined. A host that no longer knows the
+kept token (its `data/` gone, or another host altogether) refuses it as `unknown_token`, and the
+agent dials next with the token it was started with: the join token joins it again, and the
+token handed then takes the old one's place (`agent_token_unknown` in the agent's log).
 
 **A tag in the config is a fact; a tag from a machine is a claim.** A machine may only claim
 what `tags_allowed` lists; anything else is dropped and written to the log. The join token is
@@ -589,6 +592,11 @@ what other services keep, and nothing but a person removes it. What the app writ
 file in that folder, from the first line once the app makes it, and the lines carry the app's
 name as `service`, so **Logs in Logline** on the app's page shows them with the rest of its
 lines. The app's **Storage** card says where they go, or why they stay on the machine.
+
+A service's **Logs in Logline** shows the lines of the machines its config names and no other's:
+`service` is a label a machine writes as it likes, and `remote` the one Logline writes from the
+machine's token, so a machine cannot put its lines under a service it does not run. A service
+run here, with no machine named, is shown by its name alone.
 
 ### Storage
 

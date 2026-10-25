@@ -328,6 +328,7 @@ minute, and they would bury the rest.
 | `agent_connect_begin`     | It is dialling the host.                                    |
 | `agent_connect_end_ok`    | The host took it, and which remote it is.                   |
 | `agent_token_own`         | Joined, the host handed it a token of its own, kept beside the agent. |
+| `agent_token_unknown`     | The host does not know the kept token: the next dial is with the one the agent was started with. |
 | `agent_connect_end_error` | The host could not be reached, and why.                     |
 | `agent_connect_wait`      | How long before it tries again.                             |
 | `agent_link_end`          | The link closed, and how long it held.                      |

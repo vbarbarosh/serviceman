@@ -133,7 +133,9 @@ async function main()
         return;
     }
     // A machine that added itself with the join token was handed a token of its own, kept
-    // beside the agent: that is the one it dials with, whatever it was started with
+    // beside the agent: that is the one it dials with, whatever it was started with. The one
+    // it was started with is kept in hand for a host that no longer knows the kept one.
+    const started_with = options.token;
     const own = agent_token_read();
     if (own !== null) {
         options.token = own;
@@ -241,6 +243,13 @@ async function main()
                 const uninstalled = await agent_uninstall(options);
                 agent_say(group, uninstalled.removed ? 'agent_uninstall_ok' : 'agent_uninstall_refused', uninstalled);
                 return;
+            }
+            // The host does not know the token this machine kept: its data/ is gone, or this
+            // is another host. The next dial is with the token the agent was started with, the
+            // join token as a rule, and a token handed then is kept in place of the old one.
+            if ((error.refused === 'unknown_token') && (options.token !== started_with) && (started_with !== undefined)) {
+                options.token = started_with;
+                agent_say(group, 'agent_token_unknown', {kept: `${agent_token_read.FILE} beside the agent`, then: 'dialling with the token the agent was started with'});
             }
         }
         if (options.once) {
