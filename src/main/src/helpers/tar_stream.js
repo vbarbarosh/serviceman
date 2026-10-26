@@ -1,27 +1,34 @@
+const stream = require('stream');
+
 // Files as one ustar tar, as the page makes one for the File Manager's tar upload
 // (src/main/public/tar_blob.js): a folder as its name, a file as its name, mode, time and
-// bytes. A name longer than ustar's hundred bytes is split into its prefix at a slash; one that
-// cannot be is refused.
+// bytes. It is made as it is read, one file at a time, so a tar of gigabytes holds no more
+// than a chunk of one in memory. A name longer than ustar's hundred bytes is split into its
+// prefix at a slash; one that cannot be is refused.
 //
-//     [{path, dir: true, mtime_s}, {path, mode, mtime_s, bytes}], bytes a Buffer
+//     [{path, dir: true, mtime_s}, {path, mode, mtime_s, size, stream()}]
+//     stream()  the file's bytes, a Readable of exactly size bytes
 
 const BLOCK = 512;
 
-function tar_bytes(items)
+function tar_stream(items)
 {
-    const parts = [];
+    return stream.Readable.from(tar_chunks(items), {objectMode: false});
+}
+
+async function* tar_chunks(items)
+{
     for (const item of items) {
         if (item.dir) {
-            parts.push(header(item.path.replace(/\/*$/, '/'), 0o755, item.mtime_s || 0, 0, '5'));
+            yield header(item.path.replace(/\/*$/, '/'), 0o755, item.mtime_s || 0, 0, '5');
             continue;
         }
-        parts.push(header(item.path, item.mode, item.mtime_s, item.bytes.length, '0'));
-        parts.push(item.bytes);
-        parts.push(Buffer.alloc((BLOCK - (item.bytes.length % BLOCK)) % BLOCK));
+        yield header(item.path, item.mode, item.mtime_s, item.size, '0');
+        yield* item.stream();
+        yield Buffer.alloc((BLOCK - (item.size % BLOCK)) % BLOCK);
     }
     // A tar ends with two empty blocks
-    parts.push(Buffer.alloc(BLOCK*2));
-    return Buffer.concat(parts);
+    yield Buffer.alloc(BLOCK*2);
 }
 
 function header(path, mode, mtime_s, size, type)
@@ -71,4 +78,4 @@ function text_put(block, at, length, text)
     block.write(text, at, length, 'utf8');
 }
 
-module.exports = tar_bytes;
+module.exports = tar_stream;

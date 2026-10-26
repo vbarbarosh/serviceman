@@ -11,6 +11,11 @@ const net = require('net');
 const render_error_page = require('./render_error_page');
 const url_logged = require('./url_logged');
 
+// How long one request may take to come in whole. Node's own five minutes cut a zip of an app
+// sent over a slow uplink (300 MB at 8 Mbit/s is five minutes); a request whose headers are
+// slow is still cut by headersTimeout.
+const REQUEST_TIMEOUT_MS = 3600000;
+
 // Opens the doors: the service port, and the control port when the config asks for one
 async function server_start(app)
 {
@@ -45,6 +50,7 @@ function service_server(app)
         guard_streams(req, res);
         answer(app, req, res, handle_request);
     });
+    out.requestTimeout = REQUEST_TIMEOUT_MS;
     out.on('connection', function (socket) {
         connection_group(app, socket);
     });
@@ -93,6 +99,7 @@ function control_server(app)
         guard_streams(req, res);
         answer(app, req, res, handle_control_request);
     });
+    out.requestTimeout = REQUEST_TIMEOUT_MS;
     out.on('connection', function (socket) {
         connection_group(app, socket);
     });

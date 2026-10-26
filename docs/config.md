@@ -578,13 +578,16 @@ service alone, shown once with the line filled in:
     curl -T ai-lab.zip -H "Authorization: Bearer $TOKEN" https://serviceman.example.com/api/v1/services/ai-lab/zip
 
 serviceman reads the zip as the page does (one top folder, or `bin/run` at the top; its `data/`
-left out and counted), sends its files to `<folder>.new` and goes on from step 2. It answers
+left out and counted), sends its files to `<folder>.new` and goes on from step 2. The zip is
+written to a file in the temp dir as it comes and read from there a file at a time, so its size
+costs disk, not memory: a zip of 400 MB takes some 50 MB while it goes. A zip64 (above 4 GiB, or
+more than 65535 files) is read as any other. It answers
 when the new version runs: `200` with the service as the page shows it, `data_files` how many
 files of the zip's own `data/` stayed out, `files` and `bytes` what went. What fails is said with
 its status: `400` for a zip that is no app, broken, or not a zip at all, `403` for a token that
 does not see the machine or is kept to other apps, `409` when the app is busy (another zip on its way
 included: one goes at a time) or a `<folder>.old` is left from before,
-`413` for a zip above 256 MB, and `502` when `bin/configure` or `bin/build` failed, the new
+`413` for a zip above 64 GiB, `507` when serviceman's disk has no room for it, and `502` when `bin/configure` or `bin/build` failed, the new
 version then in place but not set up, as on the page.
 
 An app folder's `data/` is its working space and its storage, with nothing to set: **Storage** lists it beside

@@ -1,12 +1,12 @@
 const app_zip_items = require('./app_zip_items');
+const fs = require('fs');
 const log_event = require('./log_event');
 const remote_can = require('./remote_can');
 const remote_disk = require('./remote_disk');
 const remote_from_instance = require('./remote_from_instance');
 const service_app_folder = require('./service_app_folder');
 const service_replace = require('./service_replace');
-const stream = require('stream');
-const tar_bytes = require('./tar_bytes');
+const tar_stream = require('./tar_stream');
 
 // An app folder takes a new version sent as a zip, in one call: what the page does in three
 // when a zip is picked on it. The zip is read here, its data/ left out, its files sent beside
@@ -19,7 +19,7 @@ const tar_bytes = require('./tar_bytes');
 // The service is busy from the first step: a second zip sent meanwhile is refused with 409,
 // since clearing <folder>.new under one still being written leaves that one half its files.
 //
-//     zip     the bytes of the zip, a Buffer
+//     zip     the path of the zip, read from the disk a file at a time
 //     token   the control token the call came with, undefined for the owner: it may send a new
 //             version only to a machine it sees, and only to the apps it is kept to, if any
 //
@@ -36,13 +36,13 @@ async function service_zip_replace(app, service, zip, token)
     if (service.state.work !== null) {
         throw status_error(409, `${service.name} is busy ${service.state.work}: try again when it is done`);
     }
-    log_event(app, 'service_zip_begin', {service: service.name, bytes: zip.length});
+    log_event(app, 'service_zip_begin', {service: service.name, bytes: fs.statSync(zip).size});
     service.state.work = 'receiving its new version';
     service.state.doing = service.state.work;
     try {
         let read;
         try {
-            read = items_read(service, zip);
+            read = await items_read(service, zip);
             const remote = remote_from_instance(app, service, service.state.instances[0]);
             if ((token !== undefined) && (token.remotes.includes('*') === false) && (token.remotes.includes(remote.name) === false)) {
                 throw status_error(403, `the token ${JSON.stringify(token.label)} may not see ${remote.name}`);
@@ -55,7 +55,7 @@ async function service_zip_replace(app, service, zip, token)
             }
             const disk = remote_disk(app, remote);
             await folder_clear(disk, `${folder}.new`);
-            await disk.write_tar(`${folder}.new`, stream.Readable.from([tar_bytes(read.items)]));
+            await disk.write_tar(`${folder}.new`, tar_stream(read.items));
         }
         finally {
             service.state.work = null;
@@ -74,10 +74,10 @@ async function service_zip_replace(app, service, zip, token)
 }
 
 // The zip as its files, or the refusal: a zip that is no app is the sender's to fix
-function items_read(service, zip)
+async function items_read(service, zip)
 {
     try {
-        return app_zip_items(`${service.name}.zip`, zip);
+        return await app_zip_items(`${service.name}.zip`, zip);
     }
     catch (error) {
         throw status_error(400, error.message);

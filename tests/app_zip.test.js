@@ -2,6 +2,7 @@ const assert = require('assert');
 const path = require('path');
 const tar_parser = require('../modules/file_manager/server/tar_parser');
 const test = require('node:test');
+const zip_bytes = require('./fixtures/zip_bytes');
 const zlib = require('zlib');
 
 const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
@@ -52,6 +53,16 @@ test('a zip read in the page comes out as a tar of the same files, with their mo
 test('what is not a zip is said to be one it cannot read', async function () {
     const zip_entries = (await import(path.join(PUBLIC, 'zip_entries.js'))).default;
     await assert.rejects(zip_entries(new Blob(['just some text, not a zip'])), /it is not a zip/);
+});
+
+// A zip above 4 GiB, or of more than 65535 files, keeps its sizes and places in zip64 fields:
+// the page reads it as serviceman reads one sent by PUT
+test('a zip64 is read in the page as a plain zip is', async function () {
+    const zip_entries = (await import(path.join(PUBLIC, 'zip_entries.js'))).default;
+    const zip = zip_bytes([{name: 'lab/bin/run', bytes: Buffer.from('#!/bin/sh\n')}, {name: 'lab/big.txt', bytes: Buffer.from('x'.repeat(100000))}], {zip64: true});
+    const entries = await zip_entries(new Blob([zip]));
+    assert.deepStrictEqual(entries.map(v => [v.name, v.size]), [['lab/bin/run', 10], ['lab/big.txt', 100000]]);
+    assert.strictEqual(Buffer.from(await entries[1].bytes()).toString(), 'x'.repeat(100000));
 });
 
 // A zip as `zip` on unix makes one: each file's local header and bytes, then the list of them

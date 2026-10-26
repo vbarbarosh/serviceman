@@ -1,7 +1,7 @@
 // The files of a zip, read in the page: each one's name, mode and time, and its bytes when asked
 // for. A zip dropped on the page goes to a machine as its files, so nothing on that machine has
-// to unpack it. Stored and deflated entries are read; zip64 and encrypted ones are refused with
-// a sentence that says so.
+// to unpack it. Stored and deflated entries are read, zip64 too, for a zip above 4 GiB or of
+// more than 65535 files; encrypted ones are refused with a sentence that says so.
 //
 //     [{name, dir, link, mode, mtime_s, size, bytes()}]
 //     link     a symbolic link, which a zip made on unix may hold
@@ -9,8 +9,11 @@
 //     bytes()  a promise of its bytes, as a Uint8Array
 
 const END_SIGNATURE = 0x06054b50;
+const END64_SIGNATURE = 0x06064b50;
+const END64_LOCATOR_SIGNATURE = 0x07064b50;
 const ENTRY_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
+const EXTRA_ZIP64 = 0x0001;
 // The end record is 22 bytes, after it a comment of up to 64 KiB
 const END_SEARCH_BYTES = 22 + 65535;
 const MADE_ON_UNIX = 3;
@@ -33,11 +36,10 @@ async function zip_entries(blob)
     if (end === -1) {
         throw new Error('it is not a zip: it has no list of its files at its end');
     }
-    const count = tail.getUint16(end + 10, true);
-    const size = tail.getUint32(end + 12, true);
-    const offset = tail.getUint32(end + 16, true);
-    if ((count === 0xffff) || (offset === 0xffffffff)) {
-        throw new Error('it is a zip64, which is not read here: zip it again as a plain zip');
+    const tail_start = Math.max(0, blob.size - END_SEARCH_BYTES);
+    const {count, size, offset} = await list_where(blob, tail, tail_start, end);
+    if (offset + size > blob.size) {
+        throw new Error('it is a broken zip: its list of files is cut short');
     }
     const list = new DataView(await blob.slice(offset, offset + size).arrayBuffer());
     const names = new TextDecoder();
@@ -52,14 +54,15 @@ async function zip_entries(blob)
         const method = list.getUint16(at + 10, true);
         const time = list.getUint16(at + 12, true);
         const date = list.getUint16(at + 14, true);
-        const packed = list.getUint32(at + 20, true);
-        const length = list.getUint32(at + 24, true);
         const name_bytes = list.getUint16(at + 28, true);
         const extra_bytes = list.getUint16(at + 30, true);
         const comment_bytes = list.getUint16(at + 32, true);
         const attributes = list.getUint32(at + 38, true);
-        const local = list.getUint32(at + 42, true);
+        if (at + 46 + name_bytes + extra_bytes > list.byteLength) {
+            throw new Error('it is a broken zip: its list of files is cut short');
+        }
         const name = names.decode(new Uint8Array(list.buffer, list.byteOffset + at + 46, name_bytes));
+        const {packed, length, local} = sizes_read(list, at, at + 46 + name_bytes, extra_bytes);
         at += 46 + name_bytes + extra_bytes + comment_bytes;
         const unix = (made_on === MADE_ON_UNIX) ? (attributes >>> 16) : 0;
         out.push({
@@ -71,6 +74,62 @@ async function zip_entries(blob)
             size: length,
             bytes: () => entry_bytes(blob, {name, flags, method, packed, local}),
         });
+    }
+    return out;
+}
+
+// How many files the list holds, where it starts and how long it is. A zip64 keeps them in a
+// record of its own, the end record saying only that it is one.
+async function list_where(blob, tail, tail_start, end)
+{
+    const count = tail.getUint16(end + 10, true);
+    const size = tail.getUint32(end + 12, true);
+    const offset = tail.getUint32(end + 16, true);
+    if ((count !== 0xffff) && (size !== 0xffffffff) && (offset !== 0xffffffff)) {
+        return {count, size, offset};
+    }
+    // The locator is the 20 bytes just before the end record, and says where the zip64 one is
+    const locator = tail_start + end - 20;
+    const found = new DataView(await blob.slice(Math.max(0, locator), Math.max(0, locator + 20)).arrayBuffer());
+    if ((locator < 0) || (found.byteLength < 20) || (found.getUint32(0, true) !== END64_LOCATOR_SIGNATURE)) {
+        if ((count === 0xffff) && (size !== 0xffffffff) && (offset !== 0xffffffff)) {
+            // Exactly 65535 files in a plain zip
+            return {count, size, offset};
+        }
+        throw new Error('it is a broken zip64: it has no record of where its list is');
+    }
+    const record_at = Number(found.getBigUint64(8, true));
+    const record = new DataView(await blob.slice(record_at, record_at + 56).arrayBuffer());
+    if ((record.byteLength < 56) || (record.getUint32(0, true) !== END64_SIGNATURE)) {
+        throw new Error('it is a broken zip64: its list is not where it says');
+    }
+    return {count: Number(record.getBigUint64(32, true)), size: Number(record.getBigUint64(40, true)), offset: Number(record.getBigUint64(48, true))};
+}
+
+// A file's sizes and where it begins; one above 4 GiB, or further than that into the zip, keeps
+// them in its zip64 extra field, in this order, each only when the list's own says 0xffffffff
+function sizes_read(list, at, extra_at, extra_bytes)
+{
+    const out = {packed: list.getUint32(at + 20, true), length: list.getUint32(at + 24, true), local: list.getUint32(at + 42, true)};
+    const wide = ['length', 'packed', 'local'].filter(v => out[v] === 0xffffffff);
+    if (wide.length === 0) {
+        return out;
+    }
+    const extra_end = extra_at + extra_bytes;
+    for (let i = extra_at; i + 4 <= extra_end; i += 4 + list.getUint16(i + 2, true)) {
+        if (list.getUint16(i, true) !== EXTRA_ZIP64) {
+            continue;
+        }
+        const end = Math.min(extra_end, i + 4 + list.getUint16(i + 2, true));
+        let field = i + 4;
+        for (const key of wide) {
+            if (field + 8 > end) {
+                break;
+            }
+            out[key] = Number(list.getBigUint64(field, true));
+            field += 8;
+        }
+        break;
     }
     return out;
 }

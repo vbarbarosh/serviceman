@@ -5,7 +5,7 @@ const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
-const body_bytes_read = require('../body_bytes_read');
+const body_file_write = require('../body_file_write');
 const body_json = require('../body_json');
 const body_read = require('../body_read');
 const config_file_save = require('../helpers/config_file_save');
@@ -46,6 +46,7 @@ const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
 const module_mount_of = require('../helpers/module_mount_of');
 const module_route = require('../helpers/module_route');
+const os = require('os');
 const packages_serve = require('../../../../modules/packages/server/packages_serve');
 const path = require('path');
 const processes_serve = require('../../../../modules/processes/server/processes_serve');
@@ -90,8 +91,9 @@ const volumes_serve = require('../../../../modules/volumes/server/volumes_serve'
 const wants_html = require('../wants_html');
 
 const BODY_LIMIT_BYTES = 1024*1024;
-// A zip of an app folder, held whole while it is read: an app, not a disk image
-const ZIP_LIMIT_BYTES = 256*1024*1024;
+// A zip of an app folder, written to a file while it comes and read from there a file at a
+// time: an app with its models and assets, not a disk image
+const ZIP_LIMIT_BYTES = 64*1024*1024*1024;
 
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
 const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
@@ -1403,25 +1405,34 @@ async function handle_zip(app, req, res, name)
         send_json(res, 404, {error: `no service named ${name}`});
         return;
     }
-    let zip;
+    // A folder of its own in the temp dir: two zips on their way never share a file, and what
+    // a crash leaves there goes with the container
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-zip-'));
+    const zip = path.join(dir, `${name}.zip`);
     try {
-        zip = await body_bytes_read(req, ZIP_LIMIT_BYTES);
+        let written;
+        try {
+            written = await body_file_write(req, zip, ZIP_LIMIT_BYTES);
+        }
+        catch (error) {
+            send_json(res, (error.status === undefined) ? 400 : error.status, {error: `the zip was not read whole: ${error.message}`});
+            return;
+        }
+        if (written.bytes === 0) {
+            send_json(res, 400, {error: 'the body is empty: the zip goes as the body, curl -T app.zip'});
+            return;
+        }
+        try {
+            const done = await service_zip_replace(app, service, zip, req.control_token);
+            send_json(res, 200, Object.assign(view_from_service(service), done));
+        }
+        catch (error) {
+            log_event(app, 'control_error', {service: service.name, reason: error.message});
+            send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+        }
     }
-    catch (error) {
-        send_json(res, 413, {error: `the zip was not read whole: ${error.message}`});
-        return;
-    }
-    if (zip.length === 0) {
-        send_json(res, 400, {error: 'the body is empty: the zip goes as the body, curl -T app.zip'});
-        return;
-    }
-    try {
-        const done = await service_zip_replace(app, service, zip, req.control_token);
-        send_json(res, 200, Object.assign(view_from_service(service), done));
-    }
-    catch (error) {
-        log_event(app, 'control_error', {service: service.name, reason: error.message});
-        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+    finally {
+        fs.rmSync(dir, {recursive: true, force: true});
     }
 }
 
