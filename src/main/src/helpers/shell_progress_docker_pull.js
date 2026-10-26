@@ -1,6 +1,7 @@
 const docker_pull_progress = require('./docker_pull_progress');
 const docker_shell = require('./docker_shell');
 const log_event = require('./log_event');
+const service_copy_start = require('./service_copy_start');
 
 // `docker pull` for a service, run where that service runs, with the download turned into
 // something a person can read: one sentence with a percentage, kept fresh while it downloads.
@@ -15,6 +16,7 @@ async function shell_progress_docker_pull(app, remote, service)
     service.state.pull = docker_pull_progress(service.image);
     service.state.progress = null;
     service.state.progress_text = null;
+    const copy_stop = service_copy_start(service, {title: `Pulling ${service.image} to ${remote.name}`, unit: 'layer', files: null, files_done: 0, bytes: null, bytes_done: 0, ratio: 0, now: null});
     try {
         const answer = await docker_shell(app, remote, ['pull', service.image], service.name, true);
         if ((answer.ok === false) && no_pty(answer)) {
@@ -26,6 +28,7 @@ async function shell_progress_docker_pull(app, remote, service)
         return answer;
     }
     finally {
+        copy_stop();
         service.state.pull = null;
         service.state.progress = null;
         service.state.progress_text = null;

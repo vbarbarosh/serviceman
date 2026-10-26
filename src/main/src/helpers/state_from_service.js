@@ -20,6 +20,9 @@ function state_from_service(service)
         // and the numbers behind it in words
         progress: null,
         progress_text: null,
+        // Bytes going somewhere for it, as the page draws every copy (service_copy_start): a
+        // new version on its way to the machine, an image coming down; null while none
+        copy: null,
         // The reading of a download while one is running
         pull: null,
         // Starts that failed in a row, and when serviceman stopped trying because of them

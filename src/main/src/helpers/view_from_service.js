@@ -55,6 +55,7 @@ function view_from_service(service, now)
         doing: (state.doing === undefined) ? null : state.doing,
         progress: (state.progress === undefined) ? null : state.progress,
         progress_text: (state.progress_text === undefined) ? null : state.progress_text,
+        copy: copy_view((state.copy === undefined) ? null : state.copy, at),
         said: state.said.slice(-SAID_LINES),
         upstream: (running.length > 0) ? running[0].upstream : null,
         started_at: oldest_started_at(state.instances),
@@ -156,6 +157,19 @@ function newest_idle_ms(instances, at)
         }
     }
     return out;
+}
+
+// A copy as the page's panel takes it (copy_progress), with the time left worked out here, on
+// this host's clock: by bytes when they are all known, else by how far it is
+function copy_view(copy, at)
+{
+    if (copy === null) {
+        return null;
+    }
+    const ms = at - copy.began_ms;
+    const ratio = ((copy.ratio !== null) && (copy.ratio !== undefined)) ? copy.ratio : (((copy.bytes === null) || (copy.bytes === 0)) ? null : copy.bytes_done/copy.bytes);
+    const left_ms = ((ratio === null) || (ratio <= 0.01) || (ms < 2000)) ? null : ms*(1 - ratio)/ratio;
+    return {title: copy.title, unit: copy.unit, state: 'going', files: copy.files, files_done: copy.files_done, failed: 0, bytes: copy.bytes, bytes_done: copy.bytes_done, ratio: (copy.ratio === undefined) ? null : copy.ratio, samples: copy.samples, left_ms, now: copy.now};
 }
 
 module.exports = view_from_service;

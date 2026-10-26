@@ -57,8 +57,9 @@ function docker_pull_progress(image)
             count(layers, download);
             return true;
         },
-        // What to tell the person waiting, and how full to draw the bar. null while docker
-        // has named no layer yet.
+        // What to tell the person waiting, and how full to draw the bar, with the numbers behind
+        // it: layers, how many are in, the bytes that arrived. null while docker has named no
+        // layer yet.
         status: function () {
             const names = Object.keys(layers);
             if (names.length === 0) {
@@ -73,9 +74,12 @@ function docker_pull_progress(image)
                     text: `Downloading ${image} — ${Math.round(ratio*100)}%`,
                     detail: download_detail(download, names.length - pulled, names.length, ratio, time0),
                     ratio,
+                    layers: names.length,
+                    pulled,
+                    bytes_done: download.done,
                 };
             }
-            return {text: `Unpacking ${image}`, detail: `${format_bytes(download.done)} in ${names.length} layers`, ratio: 1};
+            return {text: `Unpacking ${image}`, detail: `${format_bytes(download.done)} in ${names.length} layers`, ratio: 1, layers: names.length, pulled, bytes_done: download.done};
         },
     };
 }

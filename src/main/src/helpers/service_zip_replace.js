@@ -5,7 +5,9 @@ const remote_can = require('./remote_can');
 const remote_disk = require('./remote_disk');
 const remote_from_instance = require('./remote_from_instance');
 const service_app_folder = require('./service_app_folder');
+const service_copy_start = require('./service_copy_start');
 const service_replace = require('./service_replace');
+const tar_counted = require('./tar_counted');
 const tar_stream = require('./tar_stream');
 
 // An app folder takes a new version sent as a zip, in one call: what the page does in three
@@ -64,7 +66,13 @@ async function service_zip_replace(app, service, zip, token, signal)
             const disk = remote_disk(app, remote);
             await folder_clear(disk, `${folder}.new`);
             hung_up_check(signal);
-            await disk.write_tar(`${folder}.new`, tar_stream_stopped(tar_stream(read.items), signal));
+            const copy_stop = service_copy_start(service, {title: `New version to ${remote.name}`, unit: 'file', files: read.files, files_done: 0, bytes: tar_counted.size_of(read.items), bytes_done: 0, ratio: null, now: null});
+            try {
+                await disk.write_tar(`${folder}.new`, tar_stream_stopped(tar_counted(tar_stream(read.items), read.items, service.state.copy), signal));
+            }
+            finally {
+                copy_stop();
+            }
             hung_up_check(signal);
         }
         finally {

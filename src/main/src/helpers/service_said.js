@@ -24,6 +24,11 @@ function service_said(app, words)
             service.state.doing = status.text;
             service.state.progress = status.ratio;
             service.state.progress_text = status.detail;
+            // And the copy the page draws it as, the layers counted as files
+            const copy = service.state.copy;
+            if ((copy !== null) && (copy !== undefined) && (copy.unit === 'layer')) {
+                Object.assign(copy, {files: status.layers, files_done: status.pulled, bytes_done: status.bytes_done, ratio: status.ratio});
+            }
         }
         return;
     }

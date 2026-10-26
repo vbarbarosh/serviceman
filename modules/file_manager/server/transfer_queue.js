@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const path = require('path');
+const stream = require('stream');
 
 // A part of a copy between two disks. The link to a disk has no body limit, so a part is only
 // how much a dropped connection costs.
@@ -22,6 +23,12 @@ const LEFT_KEPT = 20;
 
 // How much older than its finish a file may look and still be the one that finish made
 const FINISH_SLACK_MS = 10*60*1000;
+
+// The speed across a copy, for its graph: sampled every second, as how fast the last three
+// seconds went; past the most points kept, every other one goes
+const SAMPLE_MS = 1000;
+const SAMPLE_SPAN_MS = 3000;
+const SAMPLES_MAX = 400;
 
 // Copies of files and folders from one disk to another, run by the server and not by a page:
 // a page may close, the copy goes on. One copy at a time, in the order they were asked for. A
@@ -95,6 +102,10 @@ function item_make(from, to)
         left: {links: 0, others: 0, unread: 0, names: []},
         began_at: null,
         began_ms: null,
+        // The speed at each point of the way, for the page's graph: [{x, y}], x 0 to 1, y bytes a second
+        samples: [],
+        // What is on its way now: {label, size, done}, a file of a folder or a tar of its small ones
+        now: null,
         phase: 'waiting',
         said: '',
         wait_s: 0,
@@ -119,7 +130,13 @@ async function queue_run(queue, ctx)
             if (item === undefined) {
                 break;
             }
-            await transfer_run(item, ctx);
+            const sampler_stop = sampler_start(item);
+            try {
+                await transfer_run(item, ctx);
+            }
+            finally {
+                sampler_stop();
+            }
             // A folder's walk is many names, and nobody asks for them once it is over
             item.walk = null;
         }
@@ -162,7 +179,8 @@ async function transfer_run(item, ctx)
             }
             else {
                 const landed = await piece_copy(item, item.piece, from, to, ctx, function () {
-                    item.received = item.piece.received;
+                    item.received = Math.min(item.piece.size, item.piece.received + piece_flowing(item.piece));
+                    item.now = {label: item.name, size: item.piece.size, done: item.received};
                     if (item.began_at === null) {
                         item.began_at = item.received;
                     }
@@ -237,14 +255,31 @@ async function piece_copy(item, piece, from, to, ctx, moved)
     while ((piece.received < piece.size) && (item.cancelled === false)) {
         const last = Math.min(piece.size, piece.received + ctx.part_bytes) - 1;
         const source = from.read(piece.from_path, {start: piece.received, end: last});
-        // Cancel ends the part on its way at once, rather than when its link gives up
+        // What the part has carried so far counts as it goes, so a big file's copy moves
+        // smoothly and not a part at a time; a part that fails is read again from the disk's
+        // word. Counted on the way through, never by listening: a listener would set the bytes
+        // flowing before the disk is there to take them.
+        piece.flowing = 0;
+        const counted = new stream.Transform({
+            transform: function (chunk, encoding, callback) {
+                piece.flowing += chunk.length;
+                moved();
+                callback(null, chunk);
+            },
+        });
+        source.on('error', e => counted.destroy(e));
+        source.pipe(counted);
+        // Cancel ends the part on its way at once, rather than when its link gives up: the
+        // stream the disk reads too, since the source may have handed it all its bytes already
         item.abort = function () {
             source.destroy(new Error('the copy was given up'));
+            counted.destroy(new Error('the copy was given up'));
         };
         try {
-            piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, source)).received;
+            piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, counted)).received;
         }
         finally {
+            piece.flowing = 0;
             delete item.abort;
         }
         moved();
@@ -351,7 +386,9 @@ async function file_step(item, step, from, to, ctx, progressed)
     }
     try {
         const landed = await piece_copy(item, item.piece, from, to, ctx, function () {
-            item.received = walk.bytes_done + item.piece.received;
+            const done = Math.min(item.piece.size, item.piece.received + piece_flowing(item.piece));
+            item.received = walk.bytes_done + done;
+            item.now = {label: `${item.name}/${file.path}`, size: item.piece.size, done};
             progressed();
         });
         if (landed === null) {
@@ -378,9 +415,11 @@ async function tar_copy(item, step, from, to, progressed)
     const names = step.files.map(v => `${item.name}/${v.path}`).concat(step.dirs.map(v => `${item.name}/${v}`));
     const source = from.tar(parent, names, {paths: true});
     let carried = 0;
+    const label = `${item.name}: ${step.files.length} small ${(step.files.length === 1) ? 'file' : 'files'} in one go`;
     source.on('data', function (chunk) {
         carried += chunk.length;
         item.received = walk.bytes_done + Math.min(step.bytes, carried);
+        item.now = {label, size: step.bytes, done: Math.min(step.bytes, carried)};
     });
     // Cancel ends the tar at once: the files that were whole stay, the one on its way goes
     item.abort = function () {
@@ -602,6 +641,43 @@ function wait_out(item, seconds)
             resolve();
         };
     });
+}
+
+// The speed across one copy while it runs: every second, how fast the last three seconds went
+// (y) at how far the copy has come (x). A copy that carries on from where a drop left it goes
+// back with the graph, never over itself. Answers with the function that stops it.
+function sampler_start(item)
+{
+    const seen = [];
+    const timer = setInterval(function () {
+        if ((item.size === null) || (item.size === 0) || (item.phase !== 'copying')) {
+            seen.length = 0;
+            return;
+        }
+        const now = Date.now();
+        seen.push([now, item.received]);
+        while ((seen.length > 1) && (now - seen[0][0] > SAMPLE_SPAN_MS)) {
+            seen.shift();
+        }
+        if (seen.length < 2) {
+            return;
+        }
+        const speed = Math.max(0, (item.received - seen[0][1])*1000/(now - seen[0][0]));
+        const x = Math.min(1, item.received/item.size);
+        const samples = item.samples.filter(v => v.x <= x);
+        samples.push({x, y: speed});
+        item.samples = (samples.length > SAMPLES_MAX) ? samples.filter((v, index) => (index % 2 === 0)) : samples;
+    }, SAMPLE_MS);
+    timer.unref();
+    return function () {
+        clearInterval(timer);
+    };
+}
+
+// What a part on its way has carried before the disk took it
+function piece_flowing(piece)
+{
+    return (piece.flowing === undefined) ? 0 : piece.flowing;
 }
 
 module.exports = transfer_queue;

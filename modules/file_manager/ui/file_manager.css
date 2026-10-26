@@ -155,19 +155,8 @@ p.fm-foot {
     font-size: .9rem;
 }
 
-.fm-copies {
-    display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 4fr);
-    gap: .4rem .8rem;
-    padding: .7rem .9rem;
-}
-
-.fm-copies > .list-head {
-    grid-column: 1 / -1;
-}
-
-/* Uploads: a head of figures, the graph, the time and files left, the file under way, and the
-   files that failed */
+/* A copy, any copy (copy_progress.js): a head of figures, the graph, the time and files left,
+   the file under way, and rows under it: the files that failed, the other copies */
 .fm-uploads {
     padding: .7rem .9rem;
 }
@@ -175,6 +164,15 @@ p.fm-foot {
 .fm-uploads > .list-head {
     flex-wrap: wrap;
     margin-bottom: .4rem;
+}
+
+/* One more line under the head: why a copy waits, or what a finished one left out */
+.fm-copy-note {
+    margin: 0 0 .3rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .9rem;
 }
 
 .fm-copy-summary {
@@ -345,6 +343,10 @@ p.fm-foot {
     flex: none;
     width: 7rem;
     margin: 0;
+}
+
+.fm-copy-cancel {
+    margin-left: .6rem;
 }
 
 .fm-copy-state > span:not(.meter) {
@@ -544,10 +546,6 @@ p.fm-foot {
     }
 
     /* On a phone the name has a line of its own, the bar and figures under it */
-    .fm-copies {
-        grid-template-columns: 5rem minmax(0, 1fr);
-    }
-
     .fm-uploads .fm-copy {
         flex-wrap: wrap;
         row-gap: .2rem;

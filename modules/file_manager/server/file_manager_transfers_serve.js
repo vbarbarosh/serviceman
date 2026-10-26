@@ -61,7 +61,9 @@ async function file_manager_transfers_serve(req, res, options)
 }
 
 // A copy as the page sees it: no timers, no flags of the queue's own. `ms` is how long it has
-// run, on this host's clock, so a page with a clock of its own can still tell the rate. A
+// run, on this host's clock, so a page with a clock of its own can still tell the rate; samples
+// are the speed across it, [{x, y}], for its graph, and now what is on its way, {label, size,
+// done}. A
 // folder's size and received are of all its files; files and files_done count them, and left
 // says what was not copied: {links, others, unread, names: [{path, said}]}.
 function item_view(item)
@@ -79,6 +81,8 @@ function item_view(item)
         received: item.received,
         began_at: item.began_at,
         ms: (item.began_ms === null) ? 0 : Date.now() - item.began_ms,
+        samples: item.samples,
+        now: item.now,
         phase: item.phase,
         said: item.said,
         wait_s: item.wait_s,

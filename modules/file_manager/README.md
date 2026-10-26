@@ -24,6 +24,8 @@ reached over the link that machine's agent dialled.
     server/file_manager_transfers_serve.js   the HTTP API of those copies
     server/file_manager_transfers_manifest.js   their kind and its commands
     ui/file_manager.js             the component
+    ui/copy_progress.js            one copy as a panel: the graph, speed, time and files left
+    ui/copy_sampler.js             the speed across a copy, sampled for that graph
     ui/upload_queue.js             the uploads, kept by the page so they outlive the component
     ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
     ui/file_manager.css            the component's rules
@@ -232,7 +234,7 @@ left out and said. A folder is never copied into itself.
 
 | Door | What it does |
 |---|---|
-| `GET <base>` | `{items: [{id, from: {disk, path}, to: {disk, dir}, name, size, received, phase, said, wait_s, ms, began_at, path}]}` |
+| `GET <base>` | `{items: [{id, from: {disk, path}, to: {disk, dir}, name, size, received, phase, said, wait_s, ms, began_at, path, samples, now}]}`: `samples` the speed across it, `[{x, y}]`, sampled every second; `now` what is on its way, `{label, size, done}` |
 | `POST <base>` `{from: {disk, path}, to: {disk, dir}}` | a new copy; it waits for the ones before it |
 | `POST <base>/<id>/cancel` | the copy stops and its part goes |
 | `POST <base>/clear` | what is over is taken off the list |
@@ -314,7 +316,10 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
   takes no tar go one by one: in parts that carry on after a break, or whole up to 1 MB.
 - Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
   dashed line; under it the time left and the files left, then the file under way with its own
-  bar, and the last few files that failed. No list of every file. Nothing in it comes and goes
+  bar, and the last few files that failed. No list of every file. Every copy is drawn so, by
+  one component, `copy_progress`: Uploads, Copy to… (the copy under way, or the last one, with
+  the others as rows under it), and a host's own copies, such as a new version of an app sent
+  to its machine or an image coming down, whose files are layers. Nothing in it comes and goes
   while it runs, so nothing under it moves: between two files the last one stays on its line,
   and the Counting card is shaped as Uploads will be. **Pause** stops the stream where it is and
   Uploads stands still as it was, figures, graph and file alike; **Resume** sends what is not in

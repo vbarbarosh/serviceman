@@ -9,6 +9,7 @@ import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
 import authwall_pane from './authwall_pane.js';
 import config_read from './config_read.js';
+import copy_progress from 'file_manager/copy_progress.js';
 import data_table from './data_table.js';
 import file_manager from 'file_manager/file_manager.js';
 import find_palette from './find_palette.js';
@@ -75,7 +76,9 @@ const service_status = {
         <span class="pill" :class="pill">{{ state_text }}</span>
         <span class="muted">{{ state_detail }}</span>
     </div>
-    <template v-if="(view.doing !== null)">
+    <!-- Bytes on their way for it, a new version or an image, drawn as every copy is -->
+    <copy-progress v-if="((view.copy !== null) && (view.copy !== undefined))" :copy="view.copy"/>
+    <template v-else-if="(view.doing !== null)">
         <div class="meter"><i :style="{width: (view.progress === null ? '100%' : (Math.round(view.progress * 100) + '%'))}"/></div>
         <p class="muted">{{ view.doing }}{{ view.progress_text === null ? '' : ' · ' + view.progress_text }}</p>
     </template>
@@ -109,6 +112,7 @@ const service_status = {
     </dl>
 </div>
 `,
+    components: {'copy-progress': copy_progress},
     props: ['view', 'busy', 'port', 'remotes'],
     emits: ['remote'],
     computed: {
@@ -1555,10 +1559,11 @@ const service_page = {
         </p>
         <p v-if="(version_new.problem === null && version_new.data_files !== null)" class="warn">Its own <code>data/</code>{{ data_text(version_new) }} stays on this computer: <code>data/</code> is the app's alone, and nothing is sent into it. What the app ships goes outside <code>data/</code>.</p>
         <p v-if="(version_new.error !== null)" class="err">{{ version_new.error }}</p>
+        <copy-progress v-if="(version_copy !== null)" :copy="version_copy"/>
         <div class="acts">
             <button v-if="(version_new.error !== null)" type="button" class="primary" :disabled="version_busy" @click="version_replace">Try again</button>
             <button v-if="(version_busy === false)" type="button" @click="version_new = null">Close</button>
-            <span class="muted">{{ version_note }}</span>
+            <span v-if="((version_copy === null) || (version_copy.state !== 'going'))" class="muted">{{ version_note }}</span>
         </div>
     </div></div>
     <div class="tabbar">
@@ -1604,15 +1609,15 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
+    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
     props: ['view', 'busy', 'port', 'remotes', 'names', 'tab', 'theme', 'logline', 'control'],
     emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
         // version_new: a new version of an app folder, a folder or a zip read and on its way
         // (app_entries_read without its own data/, with how many files that held, the service
-        // it is for, done and error)
-        return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: ''};
+        // it is for, done and error); version_copy: its files on their way, as every copy is shown
+        return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: '', version_copy: null};
     },
     computed: {
         // The name beside the title, unless it only repeats it
@@ -1691,6 +1696,7 @@ const service_page = {
             const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
             const apart = app_data_apart(read);
             this.version_note = '';
+            this.version_copy = null;
             this.version_new = Object.assign(apart.app, {data_files: apart.data_files, service: this.view.name, done: false, error: null});
             if (read.problem === null) {
                 await this.version_replace();
@@ -1709,9 +1715,10 @@ const service_page = {
             let sent = false;
             this.version_busy = true;
             zip.error = null;
+            this.version_copy = {title: `${zip.label} to ${machine}`, state: 'waiting', files: zip.files, files_done: 0, failed: 0, bytes: null, bytes_done: 0, samples: [], left_ms: null, now: null, note: 'reading the files…', note_bad: false};
             try {
                 await fetch(`/api/v1/remotes/${encodeURIComponent(machine)}/fs/delete`, {method: 'POST', body: JSON.stringify({path: `${folder}.new`})});
-                await app_files_send(zip, machine, `${folder}.new`, v => this.version_note = v);
+                await app_files_send(zip, machine, `${folder}.new`, v => this.version_note = v, this.version_copy);
                 sent = true;
                 this.version_note = 'putting it in place, setting it up, starting it…';
                 const answer = await fetch(`/api/v1/services/${encodeURIComponent(name)}/replace`, {method: 'POST'});

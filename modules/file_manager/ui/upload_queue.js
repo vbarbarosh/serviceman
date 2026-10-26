@@ -1,3 +1,4 @@
+import copy_sampler from './copy_sampler.js';
 import tar_blob from './tar_blob.js';
 import {reactive} from 'vue';
 
@@ -24,14 +25,6 @@ const plans = {};
 // How many folders are asked for at once: a tree of a hundred folders, one after another, is a
 // hundred waits on a far machine
 const MKDIR_AT_ONCE = 6;
-
-// How often the speed is taken for the graph, and over how long a stretch: a file of a few
-// bytes takes no time, so the speed of one instant is mostly zero
-const SAMPLE_MS = 500;
-const SAMPLE_SPAN_MS = 3000;
-
-// The most points the graph keeps; past that, every other one goes
-const SAMPLES_MAX = 400;
 
 // A stream that moves no byte for this long has stalled: it is cut and sent again
 const STALL_MS = 30*1000;
@@ -204,7 +197,7 @@ async function copy(queue)
     queue.paused_ms = 0;
     queue.samples = [];
     report(queue, '', false);
-    const sampler = sampler_start(queue);
+    const sampler_stop = sampler_start(queue);
     try {
         for (;;) {
             if (queue.paused) {
@@ -231,7 +224,7 @@ async function copy(queue)
         }
     }
     finally {
-        clearInterval(sampler);
+        sampler_stop();
         // Cancel stops the queue, not only the file in it: nothing is left looking as though
         // it is still on its way
         for (const item of queue.copies.filter(v => v.phase === 'waiting')) {
@@ -756,41 +749,19 @@ function resume(queue)
     }
 }
 
-// The speed across the copy, for its graph: how far it is and how fast it went over the last
-// few seconds, twice a second while it runs; a pause draws no points
+// The speed across the copy, for its graph (copy_sampler): how far it is and how fast it went
+// over the last few seconds, twice a second while it runs; a pause draws no points
 function sampler_start(queue)
 {
-    const seen = [];
-    return setInterval(function () {
-        if (queue.paused) {
-            seen.length = 0;
-            return;
-        }
+    return copy_sampler(function () {
         let bytes = 0;
         let done = 0;
         for (const item of queue.copies) {
             bytes += item.size;
             done += (item.phase === 'ok') ? item.size : item.sent;
         }
-        const now = Date.now();
-        seen.push([now, done]);
-        while ((seen.length > 1) && (now - seen[0][0] > SAMPLE_SPAN_MS)) {
-            seen.shift();
-        }
-        if ((seen.length < 2) || (bytes === 0)) {
-            return;
-        }
-        const speed = Math.max(0, (done - seen[0][1])*1000/(now - seen[0][0]));
-        const x = Math.min(1, done/bytes);
-        // Files of a cut stream back in line: the graph goes back with them, never over itself
-        while ((queue.samples.length > 0) && (queue.samples.at(-1).x > x)) {
-            queue.samples.pop();
-        }
-        queue.samples.push({x, y: speed});
-        if (queue.samples.length > SAMPLES_MAX) {
-            queue.samples = queue.samples.filter((v, index) => (index % 2 === 0));
-        }
-    }, SAMPLE_MS);
+        return {done, total: bytes, paused: queue.paused};
+    }, queue);
 }
 
 // What is done is taken off the list; what is still on its way stays

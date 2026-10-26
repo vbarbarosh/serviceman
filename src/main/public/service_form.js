@@ -4,6 +4,7 @@ import app_folder_read from './app_folder_read.js';
 import app_setup_line from './app_setup_line.js';
 import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
+import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
 import settled from './settled.js';
@@ -548,6 +549,7 @@ const service_form = {
             </span>
         </div>
     </div>
+    <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
     <div v-if="creating" class="svc-create">
         <button type="button" class="primary" :disabled="busy" @click="create">{{ busy ? 'creating…' : 'Create service' }}</button>
         <button type="button" @click="$emit('close')">Cancel</button>
@@ -561,7 +563,7 @@ const service_form = {
     </div>
 </article>
 `,
-    components: {duration, snip: snippet},
+    components: {'copy-progress': copy_progress, duration, snip: snippet},
     props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken'],
     emits: ['close', 'saved'],
     data: function () {
@@ -605,6 +607,8 @@ const service_form = {
             // The app, a folder or a zip of this computer, read here and sent to its machine
             // as its files on Create (app_entries_read), and the name it gives the app
             app_files: null,
+            // The app's files on their way to its machine, as every copy is shown
+            files_copy: null,
             drop_over: false,
             // The ports its machine listens on now, so the one an app is given is free there
             ports_busy: [],
@@ -1304,7 +1308,8 @@ const service_form = {
         files_send: function (folder) {
             const place = this.m.places[0].text;
             this.busy = true;
-            return app_files_send(this.app_files, place, folder, v => this.report(v, false));
+            this.files_copy = {title: `${this.app_files.label} to ${place}`, state: 'waiting', files: this.app_files.files, files_done: 0, failed: 0, bytes: null, bytes_done: 0, samples: [], left_ms: null, now: null, note: 'reading the files…', note_bad: false};
+            return app_files_send(this.app_files, place, folder, v => this.report(v, false), this.files_copy);
         },
         // One card saved: the whole service is sent, and only this card differs from what was
         section_save: async function () {

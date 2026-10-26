@@ -264,6 +264,50 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
     assert.deepStrictEqual(c.parts, {}, 'the part on its way is taken away');
 });
 
+// The page draws a copy between machines as it draws every copy: the speed across it and the
+// file on its way, kept by the queue, so a page opened halfway sees the graph from the start
+test('a copy keeps the speed across it and what is on its way, a big file counted as it flows', async function () {
+    const film = 'f'.repeat(60);
+    const a = disk_that_copies_folders({'/a/film.bin': film, '/a/set/one.txt': 'one', '/a/set/two.bin': 't'.repeat(30)});
+    const b = disk_that_copies_folders({});
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), part_bytes: 10, small_bytes: 20});
+    // A slow link: each part takes a while to land, its bytes read as they go
+    const write = b.part_write;
+    b.part_write = async function (dir, name, id, offset, source) {
+        await new Promise(v => setTimeout(v, 450));
+        return await write(dir, name, id, offset, source);
+    };
+    const item = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/b'});
+    await until(() => item.received >= 20, 10000);
+    assert.deepStrictEqual(Object.keys(item.now).sort(), ['done', 'label', 'size']);
+    assert.strictEqual(item.now.label, 'film.bin');
+    assert.strictEqual(item.now.size, 60);
+    await until(() => item.phase === 'ok', 10000);
+    assert.strictEqual(b.files['/b/film.bin'], film);
+    assert.ok(item.samples.length >= 1, 'the graph has its points');
+    assert.ok(item.samples.every((v, index) => (v.x > 0) && (v.x <= 1) && ((index === 0) || (v.x >= item.samples[index - 1].x))), JSON.stringify(item.samples));
+    assert.ok(item.samples.some(v => v.y > 0));
+
+    // A folder names what of it is on its way: its small files in one tar, a big one by name.
+    // The disk takes a moment to say the tar is in, so the tar can be seen on its way.
+    const write_tar = b.write_tar;
+    b.write_tar = async function (dir, source) {
+        const written = await write_tar(dir, source);
+        await new Promise(v => setTimeout(v, 300));
+        return written;
+    };
+    const folder = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/c'});
+    const labels = new Set();
+    await until(function () {
+        if (folder.now !== null) {
+            labels.add(`${folder.now.label} ${folder.now.size}`);
+        }
+        return folder.phase === 'ok';
+    }, 10000);
+    assert.deepStrictEqual(Array.from(labels).filter(v => v.startsWith('set/')), ['set/two.bin 30']);
+    assert.ok(Array.from(labels).includes('set: 1 small file in one go 3'), Array.from(labels).join(' | '));
+});
+
 test('the copies API lists, starts, cancels and clears; a copy names known disks only', async function (t) {
     const a = disk_in_memory({'/a/film.bin': 'film'});
     const b = disk_in_memory({});
@@ -284,6 +328,9 @@ test('the copies API lists, starts, cancels and clears; a copy names known disks
     await until(() => queue.items[0].phase === 'ok');
     const listed = JSON.parse((await call(running, 'GET', '/transfers')).body).items;
     assert.deepStrictEqual([listed.length, listed[0].phase, listed[0].received, listed[0].wake], [1, 'ok', 4, undefined]);
+    // What the page draws it with: the speed across it, and what was on its way last
+    assert.ok(Array.isArray(listed[0].samples));
+    assert.deepStrictEqual(listed[0].now, {label: 'film.bin', size: 4, done: 4});
     assert.strictEqual(b.files['/b/film.bin'], 'film');
     assert.strictEqual((await call(running, 'POST', '/transfers/abc123/cancel')).status, 404);
     assert.strictEqual((await call(running, 'POST', '/transfers/clear')).status, 200);
