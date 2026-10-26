@@ -136,7 +136,7 @@ const copy_progress = {
             if ((copy.left_ms === null) || (copy.left_ms === undefined) || (['going', 'retrying', 'paused'].includes(copy.state) === false)) {
                 return '…';
             }
-            return `about ${format_ms(copy.left_ms)}`;
+            return (copy.left_ms < 1000) ? 'less than a second' : `about ${format_ms(copy.left_ms)}`;
         },
         files_left: function () {
             const copy = this.copy;
