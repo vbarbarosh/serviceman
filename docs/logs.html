@@ -693,6 +693,7 @@ img {
 <li><a href="how-it-works.html">How it works</a></li>
 <li class="current"><a href="logs.html" aria-current="page">The log</a><ul class="toc"><li><a href="#what-a-value-looks-like">What a value looks like</a></li><li><a href="#how-long-it-took">How long it took</a></li><li><a href="#the-laws">The laws</a></li><li><a href="#one-sender-one-place">One sender, one place</a></li><li><a href="#traces">Traces</a></li><li><a href="#the-senders">The senders</a></li><li><a href="#what-is-never-written">What is never written</a></li><li><a href="#where-the-lines-go">Where the lines go</a></li></ul></li>
 <li><a href="remotes.html">Remotes</a></li>
+<li><a href="shared-folders.html">Shared folders</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
 </ul>
@@ -1529,6 +1530,60 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <tr>
 <td><code>forward_here_apply_error</code></td>
 <td>Following the config for those forwards failed, and why; the next change is still applied.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="shared-folders"><a class="anchor" href="#shared-folders" aria-hidden="true" tabindex="-1">#</a>Shared folders</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Sender</th>
+<th>What it says</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>shared_home_begin</code></td>
+<td>The home began to be set up on a machine, at its tailnet address.</td>
+</tr>
+<tr>
+<td><code>shared_home_end_ok</code></td>
+<td>Redis and Garage run there, and the volume is made.</td>
+</tr>
+<tr>
+<td><code>shared_home_end_error</code></td>
+<td>Setting it up failed; <code>reason=</code> what the machine said.</td>
+</tr>
+<tr>
+<td><code>shared_folder_created</code></td>
+<td>A folder was made in the volume.</td>
+</tr>
+<tr>
+<td><code>shared_folder_deleted</code></td>
+<td>A folder and its files were deleted, into juicefs&#39;s trash for a day.</td>
+</tr>
+<tr>
+<td><code>shared_mount_set</code></td>
+<td>A folder was given a path and a mode on a machine.</td>
+</tr>
+<tr>
+<td><code>shared_mount_removed</code></td>
+<td>A folder was taken off a machine.</td>
+</tr>
+<tr>
+<td><code>shared_told</code></td>
+<td>A machine was told its table of mounts; <code>mounted=</code> how many are.</td>
+</tr>
+<tr>
+<td><code>shared_tell_error</code></td>
+<td>Telling it failed, and why; tried again every minute, said once per reason.</td>
+</tr>
+<tr>
+<td><code>root_shared_keep_line</code></td>
+<td>On a machine: the root half&#39;s minute mounted, unmounted or started something.</td>
+</tr>
+<tr>
+<td><code>root_shared_keep_error</code></td>
+<td>On a machine: a mount or the home failed, and why; said once per reason.</td>
 </tr>
 </tbody></table>
 </div>

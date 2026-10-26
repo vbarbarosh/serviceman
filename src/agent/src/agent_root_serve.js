@@ -5,6 +5,7 @@ const agent_port_list = require('./agent_port_list');
 const agent_root_refresh = require('./agent_root_refresh');
 const agent_root_socket = require('./agent_root_socket');
 const agent_say = require('./agent_say');
+const agent_shared = require('./agent_shared');
 const agent_ufw = require('./agent_ufw');
 const agent_volume = require('./agent_volume');
 const child_process = require('child_process');
@@ -13,6 +14,10 @@ const log_uid = require('../../helpers/log_uid');
 const net = require('net');
 
 const SOCKET_MODE = 0o600;
+// How often the root half looks over its shared folders: what should be mounted and is not,
+// after a reboot or a home that was away, is mounted again
+const SHARED_KEEP_MS = 60000;
+const SHARED_FIRST_MS = 5000;
 
 // The root half of one machine. It dials nowhere and listens on nothing but a file: no port,
 // no link, no way in from another machine at all. What may reach it is whatever may open that
@@ -36,6 +41,7 @@ function agent_root_serve(options)
     server.listen(path, function () {
         const owner = owner_set(path, options);
         agent_say(boot, 'root_begin', {socket: path, user: owner, root: (process.getuid !== undefined) && (process.getuid() === 0)});
+        shared_keep_start(options, boot);
     });
     for (const signal of ['SIGINT', 'SIGTERM']) {
         process.on(signal, function () {
@@ -65,6 +71,34 @@ function owner_set(path, options)
         // the line above says who that is
         return null;
     }
+}
+
+// The shared folders this machine was told to mount, kept mounted with nobody asking: at the
+// start, which after a reboot is when nothing is, and on the minute. A try that changes nothing
+// says nothing; one that fails says so once per reason.
+function shared_keep_start(options, group)
+{
+    let said = null;
+    async function keep() {
+        try {
+            const answer = await agent_shared(options, {action: 'keep'}, function (stream, text) {
+                agent_say(group, 'root_shared_keep_line', {text});
+            });
+            const failed = (answer.ok === false) ? answer.error : answer.items.filter(v => v.state === 'error').map(v => v.error).join('; ');
+            if ((failed !== '') && (failed !== said)) {
+                agent_say(group, 'root_shared_keep_error', {reason: failed});
+            }
+            said = failed;
+        }
+        catch (error) {
+            if (error.message !== said) {
+                agent_say(group, 'root_shared_keep_error', {reason: error.message});
+            }
+            said = error.message;
+        }
+    }
+    setTimeout(keep, SHARED_FIRST_MS);
+    setInterval(keep, SHARED_KEEP_MS).unref();
 }
 
 // What keeps this half up, taken away. Nothing else on the machine is touched: the unit is
@@ -191,6 +225,9 @@ async function method_run(state, options, job, say)
     }
     if (method === 'volume') {
         return await agent_volume(options, job.params, say);
+    }
+    if (method === 'shared') {
+        return await agent_shared(options, job.params, say);
     }
     if (method === 'uninstall') {
         // The machine has been taken out of the host's config, and the session half is going

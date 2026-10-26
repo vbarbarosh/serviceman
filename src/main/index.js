@@ -34,6 +34,7 @@ const service_phase = require('./src/helpers/service_phase');
 const service_probe = require('./src/helpers/service_probe');
 const service_stop = require('./src/helpers/service_stop');
 const service_waits_for_remote = require('./src/helpers/service_waits_for_remote');
+const shared_tell = require('./src/helpers/shared_tell');
 
 const UPDATE_INTERVAL_MS = 60000;
 // How often the quiet ones are looked at. A machine that is talking costs nothing here, so
@@ -131,6 +132,8 @@ async function main()
             // A forward that could not listen is tried again, on a machine or here
             forwards_tell(app);
             forwards_here(app);
+            // And a table of shared folders a machine did not take, once its root half can
+            shared_tell(app);
         }, LOGLINE_INTERVAL_MS);
         setTimeout(function () {
             problems_tick(app);

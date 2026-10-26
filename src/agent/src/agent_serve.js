@@ -369,6 +369,10 @@ function asked_words(message)
         // Never the key
         return {action: params.action, name: params.name};
     }
+    if (message.method === 'shared') {
+        // Never the passwords: what it is asked to do, and which folder
+        return {action: params.action, name: params.name};
+    }
     return {};
 }
 
@@ -523,6 +527,19 @@ async function method_run(options, state, method, params, say, group)
         });
         agent_volumes_link(options);
         return agent_volume_terminals(answer);
+    }
+    if (method === 'shared') {
+        // Shared folders are root's alone, as volumes are: mount and docker behind a sudoers
+        // line would be root by another name. Every ask but the status carries a secret.
+        if ((params.action !== 'status') && (agent_volume_link_safe(options.url, state.link.remoteAddress) === false)) {
+            return {ok: false, status: 403, code: 'key_not_safe', error: `a key does not travel over ${options.url}: plain http; dial serviceman over https, a tunnel or a socket file`};
+        }
+        return await agent_root_or(options, 'shared', params, say, function (why) {
+            if (why.root_old === true) {
+                return {ok: false, status: 503, error: 'the root half on this machine is from before shared folders; it updates itself within half a minute — ask again then'};
+            }
+            return {ok: false, status: 501, error: 'shared folders need the root agent on this machine; its page says how to install it'};
+        });
     }
     if (method === 'shell_resize') {
         // A size the pane cannot have is dropped: the holder would die of it, and the shell with it

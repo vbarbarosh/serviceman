@@ -25,6 +25,7 @@ const remote_tags = require('./remote_tags');
 const remotes_update = require('./remotes_update');
 const service_probe = require('./service_probe');
 const service_said = require('./service_said');
+const shared_tell = require('./shared_tell');
 const tags_declared = require('./tags_declared');
 const tunnel_inbound = require('./tunnel_inbound');
 const tunnel_read = require('./tunnel_read');
@@ -165,6 +166,11 @@ function message_read(app, remote, message)
         state.forwards_told = null;
         state.forwards_error = null;
         forwards_tell(app);
+        // And its shared folders: what it mounts is kept over there, but a new link is told
+        // afresh, in case the table changed while it was away
+        state.shared_told = null;
+        state.shared_error = null;
+        shared_tell(app);
         return;
     }
     if (message.type === 'stats') {

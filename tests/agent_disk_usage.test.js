@@ -181,7 +181,7 @@ test('the mount table is read with the names as they are', function (t) {
         '',
     ].join('\n'));
     const mounts = mounts_read(path.join(dir, 'mountinfo'));
-    assert.deepStrictEqual(mounts[1], {id: 31, dev: '0:30', root: '/@home', point: '/home', type: 'btrfs', source: '/dev/nvme0n1p2', peers: ['shared:2']});
+    assert.deepStrictEqual(mounts[1], {id: 31, dev: '0:30', root: '/@home', point: '/home', options: ['rw', 'relatime'], type: 'btrfs', source: '/dev/nvme0n1p2', peers: ['shared:2']});
     assert.strictEqual(mounts[2].point, '/media/My Disk');
     assert.strictEqual(mounts_read.mount_of('/home/user', mounts).point, '/home');
     assert.strictEqual(mounts_read.mount_of('/homework', mounts).point, '/');

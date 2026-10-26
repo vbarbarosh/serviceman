@@ -44,6 +44,7 @@ import service_script from './service_script.js';
 import service_shell from './service_shell.js';
 import services_pane from './services_pane.js';
 import settled from './settled.js';
+import shared_folders_pane from './shared_folders_pane.js';
 import snippet from './snippet.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
@@ -1870,6 +1871,11 @@ const app = {
                 <span class="name"><code>{{ item.name }}</code></span>
             </button>
         </div>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'shared-folders'), open: (kind_now === 'shared-folders')}" title="One folder, the same on every machine that mounts it" @click="shared_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M8 13h8M12 10v6"/></svg>
+            <span class="name">Shared folders</span>
+            <span class="muted">{{ shared_count }}</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'secrets'), open: (kind_now === 'secrets')}" @click="secrets_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
             <span class="name">Secrets</span>
@@ -1911,6 +1917,7 @@ const app = {
     </nav>
     <section>
         <config-editor v-if="editor_open" :theme="theme" @close="editor_open = false" @saved="poll"/>
+        <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
         <tokens-form v-else-if="tokens_open"/>
@@ -1933,7 +1940,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -1980,6 +1987,8 @@ const app = {
             secrets_count: '',
             volumes_open: false,
             volumes_count: '',
+            shared_open: false,
+            shared_count: '',
             networking_open: false,
             forwards_open: false,
             networking_key: 0,
@@ -2064,6 +2073,9 @@ const app = {
             if (this.volumes_open) {
                 return `/storage${only}`;
             }
+            if (this.shared_open) {
+                return '/shared-folders';
+            }
             if (this.secrets_open) {
                 return '/secrets';
             }
@@ -2127,6 +2139,9 @@ const app = {
             }
             if (this.volumes_open) {
                 return 'storage';
+            }
+            if (this.shared_open) {
+                return 'shared-folders';
             }
             if (this.secrets_open) {
                 return 'secrets';
@@ -2393,6 +2408,10 @@ const app = {
                 this.volumes_open = true;
                 return;
             }
+            if (route.kind === 'shared-folders') {
+                this.shared_open = true;
+                return;
+            }
             if (route.kind === 'secrets') {
                 this.secrets_open = true;
                 return;
@@ -2454,6 +2473,7 @@ const app = {
                 this.answering = true;
                 this.secrets_count_read();
                 this.volumes_count_read();
+                this.shared_count_read();
                 this.route_settle();
             }
             catch {
@@ -2495,6 +2515,21 @@ const app = {
             const found = this.state.services.find(v => v.name === name);
             if (found !== undefined) {
                 this.select(found);
+            }
+        },
+        shared_show: function () {
+            this.panes_close();
+            this.shared_open = true;
+        },
+        // The folders as kept: the machines are not asked for the rail's count
+        shared_count_read: async function () {
+            try {
+                const answer = await fetch('/api/v1/shared-folders?live=0', {cache: 'no-store'});
+                const body = await answer.json();
+                this.shared_count = (body.home === null) ? 'none' : String(body.folders.length);
+            }
+            catch {
+                this.shared_count = '';
             }
         },
         volumes_count_read: async function () {
@@ -2651,6 +2686,7 @@ const app = {
             this.secrets_open = false;
             this.tokens_open = false;
             this.volumes_open = false;
+            this.shared_open = false;
             this.form_open = false;
             this.remote_form_open = false;
             this.networking_open = false;

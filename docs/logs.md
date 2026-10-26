@@ -419,6 +419,22 @@ keeps its own copy, so a machine with no link still writes its log.
 | `forward_here_close`  | A forward set aside, changed or taken out of the config stopped listening here; its socket file is gone. |
 | `forward_here_apply_error` | Following the config for those forwards failed, and why; the next change is still applied. |
 
+### Shared folders
+
+| Sender                    | What it says                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `shared_home_begin`       | The home began to be set up on a machine, at its tailnet address.      |
+| `shared_home_end_ok`      | Redis and Garage run there, and the volume is made.                    |
+| `shared_home_end_error`   | Setting it up failed; `reason=` what the machine said.                 |
+| `shared_folder_created`   | A folder was made in the volume.                                       |
+| `shared_folder_deleted`   | A folder and its files were deleted, into juicefs's trash for a day.   |
+| `shared_mount_set`        | A folder was given a path and a mode on a machine.                     |
+| `shared_mount_removed`    | A folder was taken off a machine.                                      |
+| `shared_told`             | A machine was told its table of mounts; `mounted=` how many are.       |
+| `shared_tell_error`       | Telling it failed, and why; tried again every minute, said once per reason. |
+| `root_shared_keep_line`   | On a machine: the root half's minute mounted, unmounted or started something. |
+| `root_shared_keep_error`  | On a machine: a mount or the home failed, and why; said once per reason. |
+
 ### Logline
 
 | Sender                  | What it says                                                            |

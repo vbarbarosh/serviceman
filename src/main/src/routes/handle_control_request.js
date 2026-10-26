@@ -32,6 +32,7 @@ const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
+const handle_shared_folders = require('./handle_shared_folders');
 const health_from_views = require('../helpers/health_from_views');
 const load_test_log_path = require('../helpers/load_test_log_path');
 const load_test_run = require('../helpers/load_test_run');
@@ -147,7 +148,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
+const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -275,6 +276,9 @@ async function control_answer(app, req, res)
         return;
     }
     if (await handle_control_tokens(app, req, res, url)) {
+        return;
+    }
+    if (await handle_shared_folders(app, req, res, url)) {
         return;
     }
     if ((url.pathname === '/navplace') && (req.method === 'GET')) {

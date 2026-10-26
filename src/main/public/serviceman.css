@@ -3475,3 +3475,89 @@ article.rf .actions {
     text-transform: uppercase;
 }
 
+
+/* Shared folders: the home's card, then each folder with a row per machine that mounts it */
+.shared-folders .sf-card {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-bottom: 1rem;
+    padding: .8rem 1rem;
+}
+
+.shared-folders .sf-card p,
+.shared-folders .sf-card dl {
+    margin: 0;
+}
+
+.shared-folders .sf-delete {
+    border-color: color-mix(in srgb, var(--bad) 40%, transparent);
+}
+
+.shared-folders .sf-pick,
+.shared-folders .sf-form {
+    flex-wrap: wrap;
+    gap: .6rem;
+}
+
+.shared-folders .sf-pick select,
+.shared-folders .sf-form select,
+.shared-folders .sf-form input {
+    min-width: 0;
+    max-width: 100%;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.shared-folders .sf-pick select:focus,
+.shared-folders .sf-form select:focus,
+.shared-folders .sf-form input:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.shared-folders .sf-form .sf-path {
+    flex: 1 1 14rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.shared-folders .sf-modes {
+    display: inline-flex;
+    gap: .3rem;
+}
+
+.shared-folders .sf-folder {
+    margin-top: 1.4rem;
+}
+
+.shared-folders .sf-head {
+    flex-wrap: wrap;
+}
+
+.shared-folders .sf-head h2 {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The reason under a row wraps in the row's width and widens no column; a refusal is said in
+   the colour of one, by a class of its own, since a .bad in a table cell stays on one line */
+.shared-folders .sf-why {
+    contain: inline-size;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.shared-folders .sf-why-bad {
+    color: var(--bad);
+}
+
+.shared-folders .sf-head h2 .sf-icon {
+    flex: none;
+}

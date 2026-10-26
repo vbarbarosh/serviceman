@@ -6,10 +6,10 @@ const fs = require('fs');
 //
 // dev is its filesystem's: the same for every place one filesystem is mounted, a btrfs
 // subvolume of its own included, though stat gives each subvolume a dev of its own. root is the
-// folder of the filesystem mounted there, peers the fields between the options and the dash:
-// shared:N, master:N.
+// folder of the filesystem mounted there, options this mount's own (ro or rw first), peers the
+// fields between the options and the dash: shared:N, master:N.
 //
-//     [{id, dev, root, point, type, source, peers}]
+//     [{id, dev, root, point, options, type, source, peers}]
 function mounts_read(file)
 {
     let text = '';
@@ -32,6 +32,7 @@ function mounts_read(file)
             dev: fields[2],
             root: octal_unescape(fields[3]),
             point: octal_unescape(fields[4]),
+            options: fields[5].split(','),
             type: after[0],
             source: octal_unescape(after[1]),
             peers: fields.slice(6),
