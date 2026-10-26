@@ -282,7 +282,7 @@ The page half: the host serves `ui/` and maps it, with Vue and a CodeMirror bund
 | `start` | the folder opened first; the disk's starting folder when none |
 | `transfers` | where the host's copies between disks are; without it there is no Copy to… |
 | `disk` | this disk's name among them |
-| `targets` | the other disks a file may be copied to: `[{value, label}]` |
+| `targets` | the disks a file may be copied to, its own first: `[{value, label}]`; Copy to… opens on the first each time |
 
 It emits `path`, the folder it shows, each time it shows another one: the host keeps it where a
 reload finds it and gives it back as `start`. serviceman keeps it in the address,

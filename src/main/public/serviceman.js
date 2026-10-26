@@ -886,10 +886,11 @@ const remote_files = {
     props: ['view', 'remotes', 'control', 'theme', 'start'],
     emits: ['path'],
     computed: {
-        // The other machines a file can be copied to: one that is not connected now takes the
-        // copy when it is back
+        // The machines a file can be copied to: this one first, said so, since a copy within one
+        // machine is the copy most often meant; then the others, and one that is not connected
+        // now takes the copy when it is back
         targets: function () {
-            const out = [];
+            const out = [{value: this.view.name, label: `${this.view.title || this.view.name} (this machine)`}];
             for (const item of ((this.remotes === undefined) ? [] : this.remotes)) {
                 if (item.name !== this.view.name) {
                     out.push({value: item.name, label: (item.phase === 'online') ? (item.title || item.name) : `${item.title || item.name} (${item.phase})`});

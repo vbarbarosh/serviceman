@@ -149,7 +149,7 @@ const file_manager = {
             <a class="button" :href="download_url" download>Download</a>
             <button v-if="(chosen_names.length === 1)" type="button" :disabled="offline" @click="mode_open('rename')">Rename</button>
             <button type="button" :disabled="offline" @click="mode_open('move')">Move to…</button>
-            <button v-if="copy_able" type="button" :disabled="offline" title="Copy to another machine" @click="mode_open('copy')">Copy to…</button>
+            <button v-if="copy_able" type="button" :disabled="offline" title="Copy to another folder, on this machine or another" @click="mode_open('copy')">Copy to…</button>
             <button type="button" class="danger" :disabled="offline" @click="mode_open('delete')">Delete…</button>
             <span class="list-right"><button type="button" @click="chosen = {}">Clear</button></span>
         </template>
@@ -1043,11 +1043,11 @@ const file_manager = {
             if (mode === 'move') {
                 this.move_to = this.path;
             }
+            // Each time on the first machine offered, the one shown, never the last one picked:
+            // a machine kept from a copy before is one nobody looks at the next time
             if (mode === 'copy') {
                 this.copy_dir = this.path;
-                if (this.targets.some(v => v.value === this.copy_disk) === false) {
-                    this.copy_disk = this.targets[0].value;
-                }
+                this.copy_disk = this.targets[0].value;
             }
             const self = this;
             this.$nextTick(function () {
