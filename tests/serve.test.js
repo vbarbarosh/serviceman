@@ -3,6 +3,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const crypto = require('crypto');
 const docker_api_start = require('./fixtures/docker_api_start');
 const docker_spec_hash = require('../src/main/src/helpers/docker_spec_hash');
 const fetch_host = require('./fetch_host');
@@ -1513,7 +1514,7 @@ test('a zip sent while another is on its way is refused, and the first goes in w
         const statuses = answers.map(v => v.status);
         assert.deepStrictEqual(statuses.slice().sort(), [200, 409], answers.map(v => v.body).join('\n'));
         const refused = answers.find(v => v.status === 409);
-        assert.match(JSON.parse(refused.body).error, /^appdir is busy (receiving|taking) its new version: try again when it is done$/);
+        assert.match(JSON.parse(refused.body).error, /^appdir is busy (checking its new version|sending its new version to \S+|taking its new version): try again when it is done$/);
         const won = (statuses[0] === 200) ? 'v2' : 'v3';
         const now = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
         assert.strictEqual(now.body, `${won} configured, data: none`);
@@ -1524,6 +1525,55 @@ test('a zip sent while another is on its way is refused, and the first goes in w
         // Once it is in, the next one goes
         const again = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zips[(won === 'v2') ? 1 : 0]});
         assert.strictEqual(again.status, 200, again.body);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// Ctrl+C on a deploy: the zip came in whole, and the sender hangs up while it goes to the
+// machine. It stops there: no swap, the app as it was, and the next zip goes at once, where it
+// was refused with 409 until the hung-up one had gone all the way
+test('a sender that hangs up while its zip goes to the machine stops it, and the app stays as it was', async function () {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-app-'));
+    const folder = path.join(dir, 'appdir');
+    app_version_write(folder, 'v1');
+    const running = await serviceman_start([
+        {name: 'appdir', type: 'shell', publish: {host: 'appdir.test', port}, cwd: folder, lifecycle: {install: 'bin/configure'}, command: 'bin/run'},
+    ]);
+    try {
+        const first = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(first.body, 'v1 configured, data: none');
+        const source = path.join(dir, 'v2');
+        app_version_write(source, 'v2');
+        // Big enough that the tar is still on its way when the sender hangs up
+        fs.mkdirSync(path.join(source, 'build'));
+        fs.writeFileSync(path.join(source, 'build', 'blob.bin'), crypto.randomBytes(48*1024*1024));
+        const zip = folder_zip(source, 'v2');
+        const service = running.app.service_by_name.appdir;
+        const req = http.request({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', headers: {host: '127.0.0.1', authorization: `Bearer ${fetch_host.OWNER_TOKEN}`, 'content-length': zip.length}});
+        req.on('error', function () {});
+        req.end(zip);
+        while (/^sending/.test(String(service.state.work)) === false) {
+            await timers.setTimeout(2);
+        }
+        req.destroy();
+        while ((service.state.work !== null) || running.app.log_lines.every(v => /\[service_zip_end_/.test(v) === false)) {
+            await timers.setTimeout(10);
+        }
+        assert.ok(running.app.log_lines.some(v => /\[service_zip_end_error\] service=appdir reason=.*the sender hung up/.test(v)), running.app.log_lines.filter(v => /zip/.test(v)).join('\n'));
+        const still = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(still.body, 'v1 configured, data: none', 'never swapped');
+        assert.strictEqual(fs.existsSync(path.join(folder, 'build')), false);
+
+        // The next one goes at once, and clears what the stopped one left
+        const again = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/zip', method: 'PUT', body: zip});
+        assert.strictEqual(again.status, 200, again.body);
+        const now = await fetch_host({port: running.port, host: 'appdir.test', path: '/'});
+        assert.strictEqual(now.body, 'v2 configured, data: none');
+        assert.strictEqual(fs.statSync(path.join(folder, 'build', 'blob.bin')).size, 48*1024*1024, 'the build came whole');
     }
     finally {
         await running.close();

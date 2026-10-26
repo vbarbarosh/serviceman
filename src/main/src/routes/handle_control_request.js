@@ -1422,8 +1422,15 @@ async function handle_zip(app, req, res, name)
             send_json(res, 400, {error: 'the body is empty: the zip goes as the body, curl -T app.zip'});
             return;
         }
+        // A sender that hangs up while its zip is checked or sent stops it there
+        const hang_up = new AbortController();
+        res.on('close', function () {
+            if (res.writableFinished === false) {
+                hang_up.abort();
+            }
+        });
         try {
-            const done = await service_zip_replace(app, service, zip, req.control_token);
+            const done = await service_zip_replace(app, service, zip, req.control_token, hang_up.signal);
             send_json(res, 200, Object.assign(view_from_service(service), done));
         }
         catch (error) {

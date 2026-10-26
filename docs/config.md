@@ -581,7 +581,9 @@ serviceman reads the zip as the page does (one top folder, or `bin/run` at the t
 left out and counted), sends its files to `<folder>.new` and goes on from step 2. The zip is
 written to a file in the temp dir as it comes and read from there a file at a time, so its size
 costs disk, not memory: a zip of 400 MB takes some 50 MB while it goes. A zip64 (above 4 GiB, or
-more than 65535 files) is read as any other. It answers
+more than 65535 files) is read as any other. A sender that hangs up (Ctrl+C on `curl`) stops it while the
+zip is checked or sent to the machine: the app stays as it was, and the next zip goes at once.
+From the swap on it goes to the end, since a folder swapped and not set up cannot start. It answers
 when the new version runs: `200` with the service as the page shows it, `data_files` how many
 files of the zip's own `data/` stayed out, `files` and `bytes` what went. What fails is said with
 its status: `400` for a zip that is no app, broken, or not a zip at all, `403` for a token that
