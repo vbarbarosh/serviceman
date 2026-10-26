@@ -1,5 +1,6 @@
 const link_send_stream = require('../../../helpers/link_send_stream');
 const tunnel_stream = require('./tunnel_stream');
+const tunnel_window = require('../../../helpers/tunnel_window');
 
 const LAST_ID = 0xffffffff;
 
@@ -13,7 +14,7 @@ function tunnel_open(remote, target)
     }
     const socket = state.socket;
     const id = free_id(state);
-    const out = tunnel_stream(socket, id);
+    const out = tunnel_stream(socket, id, false, tunnel_window(target));
     state.streams[id] = out;
     // The far end knows the stream by this number — a resize call has to name it
     out.id = id;

@@ -22,6 +22,7 @@ const terminal_connect = require('../demos/terminal-client/terminal_connect');
 const terminals_list = require('../demos/terminal-client/terminals_list');
 const test = require('node:test');
 const timers = require('timers/promises');
+const tunnel_window = require('../src/helpers/tunnel_window');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -1566,9 +1567,9 @@ test('a file from the page lands on that machine, under the name it was sent wit
         assert.deepStrictEqual(fs.readdirSync(path.join(dir, 'notes')), ['hello.txt']);
         assert.strictEqual(running.app.log_lines.some(v => /\[file_copied\] remote=ui1 /.test(v)), true);
 
-        // One bigger than the window both ends hold open, so the bytes go over in pieces and
-        // the credit comes back for each of them
-        const long = 'x'.repeat(2*1024*1024);
+        // One bigger than the window both ends hold open for a file (4 MB), so the bytes go
+        // over in pieces and the credit comes back for each of them
+        const long = 'x'.repeat(9*1024*1024);
         const big = await file_copy(running, 'ui1', path.join(dir, 'notes'), 'big.txt', long);
         assert.strictEqual(big.body.bytes, long.length);
         assert.strictEqual(fs.readFileSync(path.join(dir, 'notes', 'big.txt'), 'utf8'), long);
@@ -1618,9 +1619,10 @@ test('a file is copied from one machine to another in parts, and carries on when
         assert.strictEqual(started.status, 200);
         const id = started.body.id;
 
-        // The machine it goes to drops once a part is in; the copy waits, and carries on from
-        // where that machine says it stands once it is back
-        await wait_until(() => item_of(running, id).received > 0, 20000);
+        // The machine it goes to drops well into the first part; the copy waits, and carries on
+        // from where that machine says it stands once it is back. What was on its way when the
+        // link dropped, a file stream's window at most, did not land and goes again.
+        await wait_until(() => item_of(running, id).received > 2*tunnel_window.FILE_WINDOW_BYTES, 20000);
         second.kill('SIGKILL');
         await wait_until(() => item_of(running, id).phase === 'retrying', 20000);
         const kept = item_of(running, id).received;
@@ -1634,7 +1636,7 @@ test('a file is copied from one machine to another in parts, and carries on when
         }, 60000);
         const done = item_of(running, id);
         assert.strictEqual(done.size, film.length);
-        assert.ok((kept > 0) && (picked.length > 0) && (Math.min(...picked) >= kept), 'the copy carried on rather than starting over');
+        assert.ok((picked.length > 0) && (Math.min(...picked) > 0) && (Math.min(...picked) >= kept - tunnel_window.FILE_WINDOW_BYTES - 1024*1024), `the copy carried on rather than starting over: ${kept} then ${Math.min(...picked)}`);
         assert.strictEqual(Buffer.compare(fs.readFileSync(path.join(dir, 'b', 'film.bin')), film), 0);
         assert.deepStrictEqual(fs.readdirSync(path.join(dir, 'b')), ['film.bin']);
         assert.strictEqual(running.app.log_lines.some(v => /\[transfer_end_ok\] /.test(v)), true);

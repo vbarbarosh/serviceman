@@ -948,12 +948,15 @@ itself and may throw at once.</p>
 page that closes does not stop it. The copy reads a file in ranges from one disk and writes it
 in parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries
 on from where the other disk says it stands. One copy runs at a time, in the order they were
-asked for.</p>
+asked for. Each is weighed as soon as it is asked for (a file&#39;s size, a folder walked), so the
+page counts every copy in line, not only the one under way. Pause stops the copy under way
+where it stands and starts no other; Resume carries it on from where the disk says it stands,
+and a tar of small files cut by Pause goes again whole.</p>
 <p>A folder is walked on its disk first (<code>tree</code>), then copied in steps, each carried on from
 after a drop:</p>
 <ul>
-<li>its files up to 8 MB in tars of up to 64 MB or 1000 names, with the folders that are empty;
-a tar that fails goes file by file the next time;</li>
+<li>its files up to 32 MB (a part) in tars of up to 64 MB or 1000 names, with the folders that
+are empty; a tar that fails goes file by file the next time;</li>
 <li>each bigger file in parts, as a file alone;</li>
 <li>its links last, made as they were (<code>link_create</code>), so no file of the copy is written through
 one of them.</li>
@@ -984,7 +987,7 @@ await file_manager_transfers_serve(req, res, {queue, tail, disk_known: v =&gt; n
 </thead>
 <tbody><tr>
 <td><code>GET &lt;base&gt;</code></td>
-<td><code>{items: [{id, from: {disk, path}, to: {disk, dir}, name, size, received, phase, said, wait_s, ms, began_at, path, samples, now}]}</code>: <code>samples</code> the speed across it, <code>[{x, y}]</code>, sampled every second; <code>now</code> what is on its way, <code>{label, size, done}</code></td>
+<td><code>{items: [{id, from: {disk, path}, to: {disk, dir}, name, kind, size, files, files_done, left, received, phase, said, wait_s, ms, began_at, path, samples, now}], paused}</code>: <code>size</code> null until it is weighed; <code>ms</code> how long it ran, its pauses aside; <code>samples</code> the speed across it, <code>[{x, y}]</code>, sampled every second; <code>now</code> what is on its way, <code>{label, size, done}</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;</code> <code>{from: {disk, path}, to: {disk, dir}}</code></td>
@@ -998,10 +1001,19 @@ await file_manager_transfers_serve(req, res, {queue, tail, disk_known: v =&gt; n
 <td><code>POST &lt;base&gt;/clear</code></td>
 <td>what is over is taken off the list</td>
 </tr>
+<tr>
+<td><code>POST &lt;base&gt;/pause</code></td>
+<td>the copy under way stops where it stands, and no other starts: <code>{paused}</code></td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/resume</code></td>
+<td>the copies go on: <code>{paused}</code></td>
+</tr>
 </tbody></table>
 </div>
-<p><code>phase</code> is <code>waiting</code>, <code>copying</code>, <code>retrying</code> (with <code>said</code> and <code>wait_s</code>), <code>ok</code>, <code>cancelled</code> or
-<code>error</code>. The list is kept in memory: a server that restarts forgets it, and the part already on
+<p><code>phase</code> is <code>waiting</code>, <code>copying</code>, <code>retrying</code> (with <code>said</code> and <code>wait_s</code>), <code>paused</code>, <code>ok</code>,
+<code>cancelled</code> or <code>error</code>. A copy given up while nothing else is to come ends the pause, so the
+next one asked for starts. The list is kept in memory: a server that restarts forgets it, and the part already on
 the disk is left there.</p>
 <h2 id="plugging-it-into-a-host"><a class="anchor" href="#plugging-it-into-a-host" aria-hidden="true" tabindex="-1">#</a>Plugging it into a host</h2>
 <p>The server half, mounted at a base:</p>
@@ -1111,13 +1123,16 @@ takes no tar go one by one: in parts that carry on after a break, or whole up to
 <li>Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
 dashed line; under it the time left and the files left, then the file under way with its own
 bar, and the last few files that failed. No list of every file. Every copy is drawn so, by
-one component, <code>copy_progress</code>: Uploads, Copy to… (the copy under way, or the last one, with
-the others as rows under it), and a host&#39;s own copies, such as a new version of an app sent
-to its machine or an image coming down, whose files are layers. Nothing in it comes and goes
-while it runs, so nothing under it moves: between two files the last one stays on its line,
-and the Counting card is shaped as Uploads will be. <strong>Pause</strong> stops the stream where it is and
+one component, <code>copy_progress</code>: Uploads, Copy to…, and a host&#39;s own copies, such as a new
+version of an app sent to its machine or an image coming down, whose files are layers. Copy
+to… is drawn as Uploads is: every copy of the disk shown, in line or over, is one copy, its
+files and bytes counted together, with the same Pause, Resume, Cancel and Clear, one line for
+the file on its way, and rows only for what failed. Nothing in it comes and goes while it
+runs, so nothing under it moves: between two files the last one stays on its line, and the
+Counting card is shaped as Uploads will be. <strong>Pause</strong> stops the stream where it is and
 Uploads stands still as it was, figures, graph and file alike; <strong>Resume</strong> sends what is not in
-yet, and the time paused is not counted into the rate.</li>
+yet, and the time paused is not counted into the rate. A copy stopped halfway says so in its
+head.</li>
 <li>A file of a stream is done when the stream ends whole. A stream cut or still for 30 seconds
 lists the folders of its files: what is there at its size and date is done, the rest goes
 again.</li>

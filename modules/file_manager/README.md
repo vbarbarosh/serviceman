@@ -211,8 +211,8 @@ and a tar of small files cut by Pause goes again whole.
 A folder is walked on its disk first (`tree`), then copied in steps, each carried on from
 after a drop:
 
-- its files up to 8 MB in tars of up to 64 MB or 1000 names, with the folders that are empty;
-  a tar that fails goes file by file the next time;
+- its files up to 32 MB (a part) in tars of up to 64 MB or 1000 names, with the folders that
+  are empty; a tar that fails goes file by file the next time;
 - each bigger file in parts, as a file alone;
 - its links last, made as they were (`link_create`), so no file of the copy is written through
   one of them.

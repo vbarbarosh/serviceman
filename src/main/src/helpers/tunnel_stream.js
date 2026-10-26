@@ -1,7 +1,6 @@
 const link_send_stream = require('../../../helpers/link_send_stream');
 const stream = require('stream');
-
-const WINDOW_BYTES = 256*1024;
+const tunnel_window = require('../../../helpers/tunnel_window');
 
 // One stream inside a link. It looks like a socket to node's http, and its bytes ride in
 // frames beside the bytes of every other stream on the same link. Neither end sends more than
@@ -11,12 +10,15 @@ const WINDOW_BYTES = 256*1024;
 // both ends know it by nothing else.
 //
 // `half_open` keeps the way out open after the way in has ended, as a forward needs it to be:
-// a client that says it is done and waits for the answer gets the answer.
-function tunnel_stream(socket, id, half_open)
+// a client that says it is done and waits for the answer gets the answer. `window_bytes` is how
+// much it may send unread (tunnel_window): a stream wider than the default, a file's bytes,
+// also waits for the link to take what it sent, so it never queues up ahead of the others.
+function tunnel_stream(socket, id, half_open, window_bytes)
 {
+    const wide = (window_bytes !== undefined) && (window_bytes > tunnel_window.WINDOW_BYTES);
     const link = {
         send_data: function (chunk) {
-            link_send_stream(socket, 'd', id, chunk);
+            return link_send_stream(socket, 'd', id, chunk);
         },
         send_end: function () {
             link_send_stream(socket, 'e', id);
@@ -28,9 +30,11 @@ function tunnel_stream(socket, id, half_open)
             link_send_stream(socket, 'r', id, bytes_body(bytes));
         },
     };
-    let credit = WINDOW_BYTES;
+    let credit = (window_bytes === undefined) ? tunnel_window.WINDOW_BYTES : window_bytes;
     let unread = 0;
     let held = null;
+    // A wide stream whose last bytes the link has not taken yet
+    let backed_up = false;
     let gone = false;
     let ended = false;
     let timeout_ms = 0;
@@ -40,9 +44,18 @@ function tunnel_stream(socket, id, half_open)
         allowHalfOpen: (half_open === true),
         write: function (chunk, encoding, done) {
             timer_arm();
-            link.send_data(chunk);
+            const room = link.send_data(chunk);
             credit -= chunk.length;
-            if (credit > 0) {
+            if (wide && (room === false)) {
+                backed_up = true;
+                socket.once('drain', function () {
+                    backed_up = false;
+                    if (out.destroyed === false) {
+                        release();
+                    }
+                });
+            }
+            if ((credit > 0) && (backed_up === false)) {
                 done();
                 return;
             }
@@ -87,13 +100,17 @@ function tunnel_stream(socket, id, half_open)
     };
     out.tunnel_credit = function (bytes) {
         credit += bytes;
-        if ((held === null) || (credit <= 0)) {
+        release();
+    };
+    // The write held back goes on once there is room at the far end, and in the link
+    function release() {
+        if ((held === null) || (credit <= 0) || backed_up) {
             return;
         }
         const done = held;
         held = null;
         done();
-    };
+    }
 
     // Node drives a socket, and a socket answers all of these
     out.setNoDelay = function () {

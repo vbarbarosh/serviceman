@@ -13,8 +13,10 @@ const RETRY_MAX_S = 30;
 const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already/;
 
 // A file of a folder up to this size goes with others in one tar; a bigger one goes alone, in
-// parts, so a link that drops costs a part of it and not the whole
-const SMALL_FILE_BYTES = 8*1024*1024;
+// parts, so a link that drops costs a part of it and not the whole. A file no bigger than a part
+// would go in one part anyway, and alone it costs three calls and a pause between it and the
+// next: a folder of songs went one at a time.
+const SMALL_FILE_BYTES = 32*1024*1024;
 // How much one tar of small files carries at most, in bytes and in names
 const BATCH_BYTES = 64*1024*1024;
 const BATCH_NAMES = 1000;
@@ -45,7 +47,7 @@ const SAMPLES_MAX = 400;
 //     disk_of(name)        the disk of that name, or null while it cannot be reached
 //     log(event, fields)   what was done, for the host's own log
 //     part_bytes           how big a part is; 32 MB by default
-//     small_bytes          how big a file of a folder may be and still go in a tar; 8 MB
+//     small_bytes          how big a file of a folder may be and still go in a tar; 32 MB
 //
 // A disk may say what its agent does already, can(feature): a disk without can, or one that
 // cannot do folder_copy, gets a folder file by file, without its links.

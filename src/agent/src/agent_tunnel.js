@@ -9,8 +9,8 @@ const agent_tar_get = require('./agent_tar_get');
 const agent_tar_put = require('./agent_tar_put');
 const link_send_stream = require('../../helpers/link_send_stream');
 const net = require('net');
+const tunnel_window = require('../../helpers/tunnel_window');
 
-const WINDOW_BYTES = 256*1024;
 const LAST_ID = 0xffffffff;
 
 // The far end of a tunnelled stream: a real socket to something on this machine
@@ -58,14 +58,15 @@ function stream_open(state, id, target)
         link_send_stream(state.link, 'x', id, Buffer.from(JSON.stringify({code: 'EBADTARGET', message: error.message})));
         return;
     }
-    stream_attach(state, id, socket);
+    stream_attach(state, id, socket, tunnel_window(target));
 }
 
 // A socket at this end of a stream, whichever end opened it: its bytes go out as frames, what
-// it is sent is written to it, and it says one word when it is over
-function stream_attach(state, id, socket)
+// it is sent is written to it, and it says one word when it is over. It sends no more than its
+// window unread (tunnel_window), and no more while the link has not taken what it sent.
+function stream_attach(state, id, socket, window_bytes)
 {
-    const found = {id, socket, credit: WINDOW_BYTES, ended: false, gone: false};
+    const found = {id, socket, credit: window_bytes, ended: false, gone: false};
     state.streams[id] = found;
     socket.setNoDelay(true);
     socket.on('data', function (chunk) {
@@ -182,7 +183,7 @@ function bytes_body(bytes)
 agent_tunnel.open = function (state, socket, target) {
     const id = free_id(state);
     link_send_stream(state.link, 'o', id, Buffer.from(JSON.stringify(target)));
-    stream_attach(state, id, socket);
+    stream_attach(state, id, socket, tunnel_window.WINDOW_BYTES);
     return id;
 };
 
