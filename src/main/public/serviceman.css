@@ -452,7 +452,7 @@ button:disabled:hover {
 }
 
 /* .bad lets its text wrap everywhere else */
-.fold-room > table > * > tr > :not(.wraps, [data-spread]) .bad {
+.fold-room > table > * > tr > :not(.wraps, [data-spread], .dt-note) .bad {
     white-space: nowrap;
 }
 
@@ -479,6 +479,23 @@ button:disabled:hover {
 
 .fold-room > table.fold-measure > * > tr > [data-spread] > * {
     display: none;
+}
+
+/* A note with no empty cells left to spread over (no row has anything in them) wraps in its own
+   cell, which takes half the table's room at most, a line that reads well, and gives the rest to
+   the other columns; the measure counts it at that width */
+.fold-room:has(> table > * > tr > .dt-note) {
+    container-type: inline-size;
+}
+
+.fold-room > table > * > tr > .dt-note {
+    min-width: min(32rem, 50cqw);
+    white-space: normal;
+}
+
+.fold-room > table > * > tr > .dt-note > * {
+    width: 0;
+    min-width: 100%;
 }
 
 .fold-room > table > thead > tr > th {
@@ -1903,6 +1920,12 @@ button.tag:hover {
 
 .machine-state .pill {
     flex: none;
+}
+
+/* Why it is away sits beside the pill and wraps there, the same in every row, short or long;
+   under the pill only where the cell is narrow */
+.machine-state > .muted {
+    flex: 1 1 12rem;
 }
 
 /* The dot hangs left of the name, so a name that wraps never leaves it alone on a line */

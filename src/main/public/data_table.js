@@ -16,10 +16,12 @@ import {Comment} from 'vue';
 //                that may wrap; clip for one line cut with … (the whole text opens under the
 //                row); align 'right' for figures; sort for a header that sorts on a click;
 //                hide(row) for a cell with nothing to say, left out of the details when its
-//                column folds; spread(row) for the keys of the columns after it that the cell
+//                column folds; a column with nothing to say in any row is left out, header
+//                and all; spread(row) for the keys of the columns after it that the cell
 //                takes over in that row, the ones of them shown (fold_table): a note written
 //                across a row's empty cells, those cells left out and never in its details;
-//                'actions' among them takes the actions' cell too
+//                'actions' among them takes the actions' cell too; with none of them left
+//                (no row has anything in them) the note wraps in its own cell
 //                A row_class of dim fades the row: a row shown for its place, not for itself
 //     rows       the things, one a row, already in their order (and by group, when grouped)
 //     row_key    the field that names a row, or a function of the row
@@ -66,7 +68,7 @@ const data_table = {
             <thead>
                 <tr>
                     <th v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick every row" :checked="all_ticked" @change="tick_all($event.target.checked)"></th>
-                    <th v-for="column of columns" :key="column.key" :data-fold="fold_name(column)" :class="{wraps: (column.wraps === true), 'dt-right': (column.align === 'right')}">
+                    <th v-for="column of columns_shown" :key="column.key" :data-fold="fold_name(column)" :class="{wraps: (column.wraps === true), 'dt-right': (column.align === 'right')}">
                         <button v-if="(column.sort === true)" type="button" class="dt-sort" :class="{on: sorted_by(column)}" @click="$emit('sort', column.key)">{{ column.label }}<span v-if="sorted_by(column)">{{ (sort.down ? ' ↓' : ' ↑') }}</span></button>
                         <template v-else>{{ column.label }}</template>
                     </th>
@@ -80,8 +82,8 @@ const data_table = {
                     </tr>
                     <tr :class="row_classes(row, fold.folded)" @click="row_click(row, fold.folded, $event)">
                         <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
-                        <template v-for="(column, i) of columns" :key="column.key">
-                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="cell_classes(column)" :style="((i === 0) ? indent_of(row) : null)">
+                        <template v-for="(column, i) of columns_shown" :key="column.key">
+                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="[cell_classes(column), {'dt-note': note_of(row, column)}]" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
@@ -161,9 +163,14 @@ const data_table = {
         rows_shown: function () {
             return ((this.limit === null) || this.all_shown) ? this.rows : this.rows.slice(0, this.limit);
         },
+        // The columns with something to say in a row: one empty in every row, or taken over by a
+        // spread cell in every row, is left out, its header too, rather than stand as a bare header
+        columns_shown: function () {
+            return this.columns.filter(v => this.rows.some(vv => said(v, vv) && (this.spread_over(vv).includes(v.key) === false)));
+        },
         // The columns that may fold, the least needed first; the actions before them all
         fold_order: function () {
-            const folding = this.columns.filter(v => Number.isFinite(v.fold)).slice().sort((a, b) => (a.fold - b.fold));
+            const folding = this.columns_shown.filter(v => Number.isFinite(v.fold)).slice().sort((a, b) => (a.fold - b.fold));
             const out = folding.map(v => v.key);
             if (this.has_actions) {
                 const at = folding.findIndex(v => v.fold > this.actions_fold);
@@ -215,16 +222,27 @@ const data_table = {
         spread_over: function (row) {
             return this.columns.flatMap(v => ((v.spread === undefined) ? [] : (v.spread(row) || [])));
         },
+        // The columns a cell spreads over in this row, of the ones the table has
+        spread_keys: function (row, column) {
+            const keys = (column.spread === undefined) ? [] : (column.spread(row) || []);
+            return keys.filter(v => ((v === 'actions') || this.columns_shown.some(vv => (vv.key === v))));
+        },
         // A spread cell's colspan with every column shown, fold_table narrowing it to the shown
         // ones; bound here, so a cell that stops spreading loses it with its data-spread
         spread_span: function (row, column) {
-            const keys = (column.spread === undefined) ? [] : (column.spread(row) || []);
+            const keys = this.spread_keys(row, column);
             return (keys.length === 0) ? undefined : 1 + keys.length;
         },
         // What a cell spreads over, for fold_table to set its colspan; undefined for most cells
         spread_of: function (row, column) {
-            const keys = ((column.spread === undefined) ? [] : (column.spread(row) || []));
+            const keys = this.spread_keys(row, column);
             return (keys.length === 0) ? undefined : keys.join(' ');
+        },
+        // A cell that would spread over columns no row has anything in: its note wraps in its
+        // own cell instead
+        note_of: function (row, column) {
+            const keys = (column.spread === undefined) ? [] : (column.spread(row) || []);
+            return (keys.length > 0) && (this.spread_keys(row, column).length === 0);
         },
         opens_now: function (row, folded) {
             if ((this.details_of(row, folded).length > 0) || ((this.opens !== null) && this.opens(row))) {
@@ -272,7 +290,7 @@ const data_table = {
         },
         // The columns shown now, for a full-width cell to span them all
         span_of: function (folded) {
-            const shown = this.columns.filter(v => (folded.includes(v.key) === false)).length;
+            const shown = this.columns_shown.filter(v => (folded.includes(v.key) === false)).length;
             return (shown + ((this.selected !== undefined) ? 1 : 0) + ((this.has_actions && (folded.includes('actions') === false)) ? 1 : 0));
         },
         tick: function (row, on) {
