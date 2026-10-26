@@ -838,8 +838,11 @@ where it runs, addresses, storage and secrets, when it runs, copies. <strong>Edi
 opens it in place; its <strong>Save</strong> writes that change and nothing else.</li>
 <li><strong>Start</strong>, <strong>Stop</strong> — by hand, whatever the policy says.</li>
 <li><strong>Logs</strong> — a place kept for what the service itself writes. Not implemented yet.</li>
-<li><strong>Shell</strong> — a terminal inside the running container, <code>docker exec</code> in a pane. One
-container at a time, never the host. <code>control.shell: false</code> takes the button away.</li>
+<li><strong>File Manager</strong>, <strong>Shell</strong> — where the service lives. A program&#39;s are its folder on the
+machine that runs it: that machine&#39;s file manager opened there, and a terminal opened there,
+named after the service and kept running on the machine as its other terminals are. A docker
+service&#39;s are inside its running container, <code>docker exec</code> in a pane, one container at a time.
+<code>control.shell: false</code> takes the shells away.</li>
 <li><strong>The front page</strong> — every service, one row each, under the machine it runs on: its
 address, kind and state. A filter and the state chips narrow it; the name in the header
 brings it back. The rail holds one row per kind — Services, Remotes, Addresses, Storage,

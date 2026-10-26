@@ -26,6 +26,8 @@ import logline_stage from './logline_stage.js';
 import map_pane from './map_pane.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
+import program_place from './program_place.js';
+import program_shell from './program_shell.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
 import remote_firewall from './remote_firewall.js';
@@ -1388,16 +1390,94 @@ const remote_page = {
     },
 };
 
-// Which tabs a service can show: logs only for what serviceman drives, a shell only inside a
-// running container. A tab that does not apply falls back to the overview — and the pick
-// stays, so the next service that has the tab opens on it.
+// A service's files: a program's are its folder on its machine, that machine's file manager
+// opened there; a docker service's are inside its container, found by the name serviceman gave it
+const service_files = {
+    template: `
+<remote-files v-if="(view.type === 'shell' && place.remote !== null)" :view="place.remote" :remotes="remotes" :control="control" :theme="theme" :start="place.folder"/>
+<article v-else-if="(view.type === 'shell')" id="detail" class="list fm">
+    <p class="muted">{{ place.why }}</p>
+</article>
+<file-manager v-else-if="(container_id !== null)" id="detail" class="list" :key="container_id" :base="container_base" start="" :theme="theme" :offline="false" :title="(view.title || view.name)" home_title="The container's working folder"/>
+<article v-else id="detail" class="list fm">
+    <p :class="(error === null ? 'muted' : 'bad')">{{ (error === null ? 'finding its container…' : error) }}</p>
+</article>
+`,
+    components: {'file-manager': file_manager, 'remote-files': remote_files},
+    props: ['view', 'remotes', 'control', 'theme'],
+    data: function () {
+        return {container_id: null, error: null};
+    },
+    computed: {
+        place: function () {
+            return program_place(this.view, this.remotes);
+        },
+        // The first copy running, and the machine it runs on
+        running: function () {
+            return this.view.instances.find(v => (v.phase === 'running') && (v.container !== null) && (v.remote !== null)) || null;
+        },
+        container_base: function () {
+            return `/api/v1/remotes/${encodeURIComponent(this.running.remote)}/docker/containers/${encodeURIComponent(this.container_id)}/fs`;
+        },
+    },
+    watch: {
+        running: {
+            immediate: true,
+            handler: function (next, prev) {
+                if ((this.view.type !== 'docker') || ((next !== null) && (prev !== null) && (prev !== undefined) && (next.container === prev.container) && (next.remote === prev.remote))) {
+                    return;
+                }
+                this.container_find();
+            },
+        },
+    },
+    methods: {
+        // The machine's engine knows the container by its id, which the status does not carry
+        container_find: async function () {
+            this.container_id = null;
+            this.error = null;
+            const running = this.running;
+            if (running === null) {
+                this.error = 'It is not running, so it has no container to look into.';
+                return;
+            }
+            try {
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(running.remote)}/docker/containers`, {cache: 'no-store'});
+                const body = await answer.json();
+                // The status is read again every second: the same container is the same pick
+                const now = this.running;
+                if ((now === null) || (now.container !== running.container) || (now.remote !== running.remote)) {
+                    return;
+                }
+                if (answer.ok === false) {
+                    this.error = body.error;
+                    return;
+                }
+                const found = body.items.find(v => v.name === running.container);
+                if (found === undefined) {
+                    this.error = `${running.remote} has no container ${running.container}`;
+                    return;
+                }
+                this.container_id = found.id;
+            }
+            catch (error) {
+                this.error = error.message;
+            }
+        },
+    },
+};
+
+// Which tabs a service can show: logs only for what serviceman drives; the files and a shell
+// of a program on its machine, of a docker service inside its container while it runs. A tab
+// that does not apply falls back to the overview — and the pick stays, so the next service
+// that has the tab opens on it.
 function tab_allowed(view, tab)
 {
     if (tab === 'logs') {
         return view.type !== 'external';
     }
-    if (tab === 'shell') {
-        return (view.type === 'docker') && (view.phase === 'running');
+    if ((tab === 'files') || (tab === 'shell')) {
+        return (view.type === 'shell') || ((view.type === 'docker') && (view.phase === 'running'));
     }
     // Settings are the cards of the overview now; an address that names the tab lands there
     return tab !== 'settings';
@@ -1490,7 +1570,11 @@ const service_page = {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 11h11M4 16h16M4 21h8"/></svg>
                 Logs
             </button>
-            <button v-if="(view.type === 'docker' && view.phase === 'running')" type="button" class="tab" :class="{on: (tab_now === 'shell')}" @click="$emit('tab', 'shell')">
+            <button v-if="inside" type="button" class="tab" :class="{on: (tab_now === 'files')}" @click="$emit('tab', 'files')">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
+                File Manager
+            </button>
+            <button v-if="inside" type="button" class="tab" :class="{on: (tab_now === 'shell')}" @click="$emit('tab', 'shell')">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg>
                 Shell
             </button>
@@ -1513,12 +1597,14 @@ const service_page = {
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
     <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline"/>
+    <service-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme"/>
+    <program-shell v-else-if="(tab_now === 'shell' && view.type === 'shell')" :key="('program-shell-' + view.name)" :view="view" :remotes="remotes" :theme="theme"/>
     <service-shell v-else-if="(tab_now === 'shell')" :key="('shell-' + view.name)" :view="view" :theme="theme"/>
     </keep-alive>
 </div>
 `,
-    components: {ink: tabink, 'service-doors': service_doors, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
-    props: ['view', 'busy', 'port', 'remotes', 'names', 'tab', 'theme', 'logline'],
+    components: {ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
+    props: ['view', 'busy', 'port', 'remotes', 'names', 'tab', 'theme', 'logline', 'control'],
     emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
@@ -1540,6 +1626,10 @@ const service_page = {
         },
         driven: function () {
             return this.view.type !== 'external';
+        },
+        // Whether it has files and a shell to open: Files and Shell show when they do
+        inside: function () {
+            return tab_allowed(this.view, 'files');
         },
         // The machine the breadcrumb goes through: the first one named, not a #tag
         place: function () {
@@ -1837,7 +1927,7 @@ const app = {
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" @close="form_open = false" @saved="form_saved"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
@@ -2268,7 +2358,7 @@ const app = {
                 }
                 this.selected_name = route.name;
                 this.remote_name = null;
-                this.service_tab = ['settings', 'logs', 'shell'].includes(route.tab) ? route.tab : 'overview';
+                this.service_tab = ['settings', 'logs', 'files', 'shell'].includes(route.tab) ? route.tab : 'overview';
                 return;
             }
             if (route.kind === 'remotes') {

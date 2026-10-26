@@ -90,8 +90,11 @@ service, its state, its addresses, its policy and its instances, and it does the
   opens it in place; its **Save** writes that change and nothing else.
 - **Start**, **Stop** — by hand, whatever the policy says.
 - **Logs** — a place kept for what the service itself writes. Not implemented yet.
-- **Shell** — a terminal inside the running container, `docker exec` in a pane. One
-  container at a time, never the host. `control.shell: false` takes the button away.
+- **File Manager**, **Shell** — where the service lives. A program's are its folder on the
+  machine that runs it: that machine's file manager opened there, and a terminal opened there,
+  named after the service and kept running on the machine as its other terminals are. A docker
+  service's are inside its running container, `docker exec` in a pane, one container at a time.
+  `control.shell: false` takes the shells away.
 - **The front page** — every service, one row each, under the machine it runs on: its
   address, kind and state. A filter and the state chips narrow it; the name in the header
   brings it back. The rail holds one row per kind — Services, Remotes, Addresses, Storage,

@@ -607,6 +607,8 @@ test('a service that stopped is not still up: no machine, no address, no clock',
     try {
         assert.strictEqual((await fetch_host({port: running.port, host: 'notes.test', path: '/'})).status, 200);
         assert.ok(view_from_service(service).uptime_ms >= 0, 'while it runs, it has been up for a while');
+        assert.strictEqual(view_from_service(service).instances[0].container, 'serviceman-notes', 'its container, by the name its Files tab finds it by');
+        assert.strictEqual(view_from_service(service).folder, null, 'a folder is a program\'s');
 
         // The container goes without serviceman being told — the machine was rebooted, or
         // somebody stopped it by hand. The next request finds nothing at the address.

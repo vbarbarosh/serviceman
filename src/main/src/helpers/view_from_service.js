@@ -1,3 +1,4 @@
+const docker_container_name = require('./docker_container_name');
 const service_app_folder = require('./service_app_folder');
 const service_inflight = require('./service_inflight');
 const service_phase = require('./service_phase');
@@ -19,7 +20,7 @@ function view_from_service(service, now)
     }
     const instances = [];
     for (const instance of state.instances) {
-        instances.push(view_from_instance(instance, at));
+        instances.push(view_from_instance(service, instance, at));
     }
     const running = instances.filter(v => v.phase === 'running');
     const out = {
@@ -43,6 +44,10 @@ function view_from_service(service, now)
         // The folder of an app folder, which takes a new version with its data/ kept; null for
         // anything else
         app_folder: service_app_folder(service),
+        // Where a program runs on its machine, as the config says it: a path under the agent's
+        // services folder when it is not absolute, that folder itself when null. The page opens
+        // its Files and its Shell there. null for anything but a program.
+        folder: (service.type === 'shell') ? service.cwd : null,
         // Whether there is an image behind it, and so something a pull could bring
         image: (service.type === 'docker') ? service.image : null,
         // Work that the phase does not show, and the last of what it printed while doing it,
@@ -104,10 +109,13 @@ function source_from_service(service)
     return {label: 'Answers at', text: `${service.upstream.host}:${service.upstream.port}`};
 }
 
-function view_from_instance(instance, at)
+function view_from_instance(service, instance, at)
 {
     return {
         slot: instance.slot,
+        // The container a docker service runs in, by the name serviceman gives it: the page
+        // finds its files through it
+        container: (service.type === 'docker') ? docker_container_name(service, instance.slot) : null,
         phase: instance.phase,
         remote: instance.remote,
         upstream: (instance.upstream === null) ? null : `${instance.upstream.host}:${instance.upstream.port}`,
