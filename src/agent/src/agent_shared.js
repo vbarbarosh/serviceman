@@ -2,6 +2,7 @@ const agent_shared_dir = require('./agent_shared_dir');
 const agent_shared_system = require('./agent_shared_system');
 const crypto = require('crypto');
 const path = require('path');
+const reason_from_answer = require('../../helpers/reason_from_answer');
 
 const ACTIONS = ['status', 'apply', 'keep', 'home_up', 'folder_create', 'folder_delete'];
 const JUICEFS_VERSION = '1.4.2';
@@ -591,7 +592,8 @@ async function run_checked(ctx, argv, options)
 
 function last_line(answer)
 {
-    return `${answer.stderr}\n${answer.stdout}`.trim().split('\n').pop() || `ended with ${answer.code}`;
+    const reason = reason_from_answer(answer);
+    return (reason === null) ? `ended with ${answer.code}` : reason;
 }
 
 function refusal(status, message, extra)

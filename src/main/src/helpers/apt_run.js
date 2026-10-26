@@ -2,6 +2,7 @@ const apt_lane = require('./apt_lane');
 const apt_said = require('./apt_said');
 const log_event = require('./log_event');
 const problems_check = require('./problems_check');
+const reason_from_answer = require('../../../helpers/reason_from_answer');
 const remote_call = require('./remote_call');
 const remote_containers_restore = require('./remote_containers_restore');
 const remote_containers_running = require('./remote_containers_running');
@@ -87,10 +88,11 @@ async function apt_ended(app, remote, before, phase, error)
     });
 }
 
+// Why it failed: apt's E: line, not the "Reading package lists..." stdout ended with
 function last_line_of(answer)
 {
-    const said = `${answer.stderr || ''}\n${answer.stdout || ''}`.trim().split('\n').filter(v => v.trim() !== '');
-    return (said.length === 0) ? `apt-get ended with ${answer.code}` : said[said.length - 1];
+    const reason = reason_from_answer(answer);
+    return (reason === null) ? `apt-get ended with ${answer.code}` : reason;
 }
 
 module.exports = apt_run;

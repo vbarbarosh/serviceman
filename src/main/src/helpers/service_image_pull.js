@@ -3,6 +3,7 @@ const docker_inspect = require('./docker_inspect');
 const docker_shell = require('./docker_shell');
 const format_seconds = require('../../../helpers/format_seconds');
 const log_event = require('./log_event');
+const reason_from_answer = require('../../../helpers/reason_from_answer');
 const remote_from_instance = require('./remote_from_instance');
 const remote_reserve = require('./remote_reserve');
 const service_ensure_running = require('./service_ensure_running');
@@ -120,8 +121,8 @@ async function image_id(app, remote, image)
 
 function last_line(answer)
 {
-    const said = `${answer.stderr || ''}${answer.stdout || ''}`.trim().split('\n');
-    return said[said.length - 1];
+    const reason = reason_from_answer(answer);
+    return (reason === null) ? `docker ended with ${answer.code}` : reason;
 }
 
 module.exports = service_image_pull;

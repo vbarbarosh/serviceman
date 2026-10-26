@@ -322,7 +322,23 @@ function refused_throw(answer)
     if (/sudo:.*(password|no tty|askpass)/.test(text)) {
         throw status_error(502, 'ufw needs root, and sudo on that machine asked for a password: give it a root agent');
     }
-    throw status_error(502, text.split('\n').pop() || `ufw ended with ${answer.code}`);
+    throw status_error(502, reason_of(answer) || `ufw ended with ${answer.code}`);
+}
+
+// Why ufw refused, in one line: its ERROR line, else the last of stderr, else of stdout. What
+// came last on stdout is only where it stopped, not why.
+function reason_of(answer)
+{
+    const errors = String(answer.stderr || '').split('\n').filter(v => v.trim() !== '');
+    const flagged = errors.filter(v => /^(ERROR\b|error\b|E:)/.test(v.trim()));
+    if (flagged.length > 0) {
+        return flagged[flagged.length - 1].trim();
+    }
+    if (errors.length > 0) {
+        return errors[errors.length - 1].trim();
+    }
+    const said = String(answer.stdout || '').split('\n').filter(v => v.trim() !== '');
+    return (said.length === 0) ? null : said[said.length - 1].trim();
 }
 
 // ufw answers 0 to a few refusals and says them on stdout: a rule it could not find, one it

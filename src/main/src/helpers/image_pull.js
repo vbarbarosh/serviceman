@@ -1,6 +1,7 @@
 const docker_shell = require('./docker_shell');
 const format_seconds = require('../../../helpers/format_seconds');
 const log_event = require('./log_event');
+const reason_from_answer = require('../../../helpers/reason_from_answer');
 const service_said = require('./service_said');
 const shell_progress_docker_pull = require('./shell_progress_docker_pull');
 
@@ -50,8 +51,8 @@ async function image_pull(app, remote, service, loud)
 // What docker said about it, on one line and without the progress bars
 function reason_of(answer)
 {
-    const said = `${answer.stderr || ''}${answer.stdout || ''}`.trim().split('\n');
-    return said[said.length - 1];
+    const reason = reason_from_answer(answer);
+    return (reason === null) ? `docker ended with ${answer.code}` : reason;
 }
 
 module.exports = image_pull;

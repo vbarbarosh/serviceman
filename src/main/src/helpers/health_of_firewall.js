@@ -1,3 +1,4 @@
+const reason_from_answer = require('../../../helpers/reason_from_answer');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
 
@@ -25,7 +26,7 @@ async function health_of_firewall(app, remote)
         return {state: 'none', text: 'no ufw', detail: 'ufw is not installed there.'};
     }
     if (answer.ok === false) {
-        const why = /sudo:.*(password|no tty|askpass)/.test(text) ? 'ufw needs root, and sudo there asks for a password: give it a root agent.' : (text.split('\n').pop() || `ufw ended with ${answer.code}`);
+        const why = /sudo:.*(password|no tty|askpass)/.test(text) ? 'ufw needs root, and sudo there asks for a password: give it a root agent.' : (reason_from_answer(answer) || `ufw ended with ${answer.code}`);
         return {state: 'none', text: 'cannot ask', detail: why};
     }
     if (/^Status: active/m.test(answer.stdout) === false) {

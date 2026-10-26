@@ -1,6 +1,7 @@
 const agent_volume_system = require('./agent_volume_system');
 const agent_volumes_dir = require('./agent_volumes_dir');
 const path = require('path');
+const reason_from_answer = require('../../helpers/reason_from_answer');
 
 const ACTIONS = ['list', 'create', 'open', 'close', 'grow', 'delete'];
 const RE_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -402,8 +403,8 @@ function command_throw(argv, answer)
     if (answer.code === 0) {
         return;
     }
-    const said = `${answer.stderr}\n${answer.stdout}`.trim().split('\n').pop();
-    throw new Error(`${argv.slice(0, 2).join(' ')} failed: ${said || `ended with ${answer.code}`}`);
+    const said = reason_from_answer(answer);
+    throw new Error(`${argv.slice(0, 2).join(' ')} failed: ${(said === null) ? `ended with ${answer.code}` : said}`);
 }
 
 function size_text(bytes)
