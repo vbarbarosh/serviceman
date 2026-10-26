@@ -3,8 +3,9 @@ const BODY_LIMIT_BYTES = 64*1024;
 const RE_CANCEL = /^\/([0-9a-f]+)\/cancel$/;
 
 // The copies between disks, under whatever base the host mounts them at: what is under way,
-// a new copy, a copy given up, and the list cleared of what is over. The host gives the queue
-// (transfer_queue) and says which disk names there are; who may ask is the host's business.
+// a new copy, a copy given up, all of them paused and resumed, and the list cleared of what is
+// over. The host gives the queue (transfer_queue) and says which disk names there are; who may
+// ask is the host's business.
 //
 //     options = {queue, tail, disk_known}
 //     disk_known(name)   whether a disk of that name is one a copy may name
@@ -15,7 +16,7 @@ async function file_manager_transfers_serve(req, res, options)
     const queue = options.queue;
     // GET <base>
     if (((tail === '') || (tail === '/')) && (req.method === 'GET')) {
-        send_json(res, 200, {items: queue.items.map(item_view)});
+        send_json(res, 200, {items: queue.items.map(item_view), paused: queue.paused});
         return;
     }
     // POST <base> (body)
@@ -57,17 +58,32 @@ async function file_manager_transfers_serve(req, res, options)
         send_json(res, 200, {});
         return;
     }
+    // POST <base>/pause
+    if ((tail === '/pause') && (req.method === 'POST')) {
+        queue.pause();
+        send_json(res, 200, {paused: queue.paused});
+        return;
+    }
+    // POST <base>/resume
+    if ((tail === '/resume') && (req.method === 'POST')) {
+        queue.resume();
+        send_json(res, 200, {paused: queue.paused});
+        return;
+    }
     send_json(res, 404, {error: `no such door: ${url.pathname}`});
 }
 
 // A copy as the page sees it: no timers, no flags of the queue's own. `ms` is how long it has
-// run, on this host's clock, so a page with a clock of its own can still tell the rate; samples
-// are the speed across it, [{x, y}], for its graph, and now what is on its way, {label, size,
-// done}. A
-// folder's size and received are of all its files; files and files_done count them, and left
-// says what was not copied: {links, others, unread, names: [{path, said}]}.
+// run, its pauses aside and up to its end, on this host's clock, so a page with a clock of its
+// own can still tell the rate; samples are the speed across it, [{x, y}], for its graph, and now
+// what is on its way, {label, size, done}. A folder's size and received are of all its files;
+// files and files_done count them, and left says what was not copied: {links, others, unread,
+// names: [{path, said}]}. A size of null is a copy not weighed yet.
 function item_view(item)
 {
+    const now = Date.now();
+    const end = (item.ended_ms === null) ? now : item.ended_ms;
+    const paused = (item.paused_at === null) ? 0 : end - item.paused_at;
     return {
         id: item.id,
         from: item.from,
@@ -80,7 +96,7 @@ function item_view(item)
         left: item.left,
         received: item.received,
         began_at: item.began_at,
-        ms: (item.began_ms === null) ? 0 : Date.now() - item.began_ms,
+        ms: (item.began_ms === null) ? 0 : Math.max(0, end - item.began_ms - item.paused_ms - paused),
         samples: item.samples,
         now: item.now,
         phase: item.phase,

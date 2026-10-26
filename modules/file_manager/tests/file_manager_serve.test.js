@@ -308,6 +308,67 @@ test('a copy keeps the speed across it and what is on its way, a big file counte
     assert.ok(Array.from(labels).includes('set: 1 small file in one go 3'), Array.from(labels).join(' | '));
 });
 
+// Copies between machines are drawn as Uploads is: every copy in line counted at once, and
+// Pause and Resume for all of them
+test('a copy is weighed as soon as it is asked for; Pause stops the one under way where it stands, Resume carries it on', async function () {
+    const film = 'f'.repeat(60);
+    const a = disk_that_copies_folders({'/a/film.bin': film, '/a/set/one.txt': 'one', '/a/set/two.bin': 't'.repeat(30)});
+    const b = disk_that_copies_folders({});
+    const logged = [];
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: v => logged.push(v), part_bytes: 10, small_bytes: 20});
+    // A slow link, and a part that waits on it until it lands or is cut
+    const write = b.part_write;
+    let parts = 0;
+    b.part_write = async function (dir, name, id, offset, source) {
+        await new Promise(function (resolve, reject) {
+            setTimeout(resolve, 150);
+            source.on('error', reject);
+        });
+        parts++;
+        return await write(dir, name, id, offset, source);
+    };
+    const first = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/b'});
+    const second = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/b'});
+    await until(() => second.size !== null);
+    assert.strictEqual(first.phase, 'copying');
+    assert.deepStrictEqual([second.phase, second.kind, second.files, second.size], ['waiting', 'dir', 2, 33], 'the folder in line is counted while the file goes');
+
+    await until(() => first.received >= 20, 10000);
+    queue.pause();
+    assert.strictEqual(queue.paused, true);
+    await until(() => first.phase === 'paused');
+    const parts_paused = parts;
+    await new Promise(v => setTimeout(v, 600));
+    assert.deepStrictEqual([first.phase, second.phase, parts], ['paused', 'waiting', parts_paused], 'nothing goes while paused');
+    assert.strictEqual(b.files['/b/film.bin'], undefined);
+
+    queue.resume();
+    assert.strictEqual(queue.paused, false);
+    await until(() => (second.phase === 'ok') || (second.phase === 'error'), 10000);
+    assert.deepStrictEqual([first.phase, second.phase], ['ok', 'ok']);
+    assert.strictEqual(b.files['/b/film.bin'], film, 'carried on from where the disk said it stood');
+    assert.strictEqual(b.files['/b/set/two.bin'], 't'.repeat(30));
+    assert.deepStrictEqual(b.parts, {});
+    assert.ok(first.paused_ms >= 600, `the pause is kept apart from its run: ${first.paused_ms}`);
+    assert.deepStrictEqual(logged.filter(v => v.startsWith('transfer_') && (v !== 'transfer_begin') && (v !== 'transfer_end_ok')), ['transfer_paused', 'transfer_resumed']);
+
+    // A paused copy given up ends, and the next one asked for starts rather than waiting paused
+    const third = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/c'});
+    await until(() => third.received > 0, 10000);
+    queue.pause();
+    await until(() => third.phase === 'paused');
+    queue.cancel(third.id);
+    await until(() => third.phase === 'cancelled');
+    assert.strictEqual(queue.paused, false);
+    const fourth = queue.add({disk: 'a', path: '/a/set/one.txt'}, {disk: 'b', dir: '/d'});
+    await until(() => fourth.phase === 'ok', 10000);
+    assert.strictEqual(b.files['/d/one.txt'], 'one');
+
+    // Nothing under way is nothing to pause
+    queue.pause();
+    assert.strictEqual(queue.paused, false);
+});
+
 test('the copies API lists, starts, cancels and clears; a copy names known disks only', async function (t) {
     const a = disk_in_memory({'/a/film.bin': 'film'});
     const b = disk_in_memory({});
@@ -333,6 +394,9 @@ test('the copies API lists, starts, cancels and clears; a copy names known disks
     assert.deepStrictEqual(listed[0].now, {label: 'film.bin', size: 4, done: 4});
     assert.strictEqual(b.files['/b/film.bin'], 'film');
     assert.strictEqual((await call(running, 'POST', '/transfers/abc123/cancel')).status, 404);
+    assert.strictEqual(JSON.parse((await call(running, 'GET', '/transfers')).body).paused, false);
+    assert.deepStrictEqual(JSON.parse((await call(running, 'POST', '/transfers/pause')).body), {paused: false}, 'nothing under way, nothing paused');
+    assert.deepStrictEqual(JSON.parse((await call(running, 'POST', '/transfers/resume')).body), {paused: false});
     assert.strictEqual((await call(running, 'POST', '/transfers/clear')).status, 200);
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/transfers')).body).items, []);
 });

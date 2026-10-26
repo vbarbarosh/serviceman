@@ -35,7 +35,11 @@ const SAMPLES_MAX = 400;
 // file goes in parts, and a disk that drops is waited for and asked where the file stands, so
 // the copy carries on from there. A folder is walked on the disk it comes from first; then its
 // small files go in tars of many, its big ones in parts, its links last, and a drop carries on
-// from the step it reached.
+// from the step it reached. Each copy is weighed as soon as it is asked for, a folder walked,
+// so a page counts every copy in line and not only the one under way.
+//
+// Pause stops the copy under way where it is, as a dropped link would, and starts no other;
+// Resume carries it on from where the disk says it stands.
 //
 //     options = {disk_of, log, part_bytes}
 //     disk_of(name)        the disk of that name, or null while it cannot be reached
@@ -46,16 +50,18 @@ const SAMPLES_MAX = 400;
 // A disk may say what its agent does already, can(feature): a disk without can, or one that
 // cannot do folder_copy, gets a folder file by file, without its links.
 //
-// The queue is {items, add(from, to), cancel(id), clear()}, where from is {disk, path} and to
-// is {disk, dir}.
+// The queue is {items, paused, add(from, to), cancel(id), clear(), pause(), resume()}, where
+// from is {disk, path} and to is {disk, dir}.
 function transfer_queue(options)
 {
     const log = (options.log === undefined) ? function () {} : options.log;
-    const ctx = {disk_of: options.disk_of, log, part_bytes: (options.part_bytes === undefined) ? PART_BYTES : options.part_bytes, small_bytes: (options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes};
-    const out = {items: [], running: false};
+    const out = {items: [], running: false, paused: false};
+    const ctx = {disk_of: options.disk_of, log, part_bytes: (options.part_bytes === undefined) ? PART_BYTES : options.part_bytes, small_bytes: (options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes, queue: out, weighed: Promise.resolve()};
     out.add = function (from, to) {
         const item = item_make(from, to);
         out.items.push(item);
+        // One copy weighed after the other, beside the one under way: a page counts it at once
+        ctx.weighed = ctx.weighed.then(() => weigh(item, ctx)).catch(function () {});
         queue_run(out, ctx);
         return item;
     };
@@ -74,13 +80,51 @@ function transfer_queue(options)
         if (item.abort !== undefined) {
             item.abort();
         }
+        // Nothing left to carry on: the next copy asked for starts, rather than waiting paused
+        if (out.items.some(v => (v.cancelled === false) && going(v)) === false) {
+            out.paused = false;
+        }
         return true;
     };
     // What is over is taken off the list; what is still on its way stays
     out.clear = function () {
-        out.items = out.items.filter(v => (v.phase === 'waiting') || (v.phase === 'copying') || (v.phase === 'retrying'));
+        out.items = out.items.filter(going);
+    };
+    // Nothing to stop is nothing to pause
+    out.pause = function () {
+        if (out.paused || (out.items.some(going) === false)) {
+            return;
+        }
+        out.paused = true;
+        const item = out.items.find(v => (v.phase === 'copying') || (v.phase === 'retrying'));
+        if (item === undefined) {
+            return;
+        }
+        if (item.wake !== undefined) {
+            item.wake();
+        }
+        if (item.abort !== undefined) {
+            item.abort();
+        }
+    };
+    out.resume = function () {
+        if (out.paused === false) {
+            return;
+        }
+        out.paused = false;
+        const item = out.items.find(v => v.phase === 'paused');
+        if ((item !== undefined) && (item.wake !== undefined)) {
+            item.wake();
+        }
+        queue_run(out, ctx);
     };
     return out;
+}
+
+// Still to come: waiting its turn, under way, or paused halfway
+function going(item)
+{
+    return ['waiting', 'copying', 'retrying', 'paused'].includes(item.phase);
 }
 
 // One copy as the queue keeps it, before it starts. For a folder, size and received count the
@@ -102,6 +146,10 @@ function item_make(from, to)
         left: {links: 0, others: 0, unread: 0, names: []},
         began_at: null,
         began_ms: null,
+        ended_ms: null,
+        // How long it stood paused, so its rate counts the time it ran
+        paused_ms: 0,
+        paused_at: null,
         // The speed at each point of the way, for the page's graph: [{x, y}], x 0 to 1, y bytes a second
         samples: [],
         // What is on its way now: {label, size, done}, a file of a folder or a tar of its small ones
@@ -126,7 +174,8 @@ async function queue_run(queue, ctx)
     queue.running = true;
     try {
         for (;;) {
-            const item = queue.items.find(v => v.phase === 'waiting');
+            // Paused, no other copy starts; Resume runs the queue again
+            const item = queue.paused ? undefined : queue.items.find(v => v.phase === 'waiting');
             if (item === undefined) {
                 break;
             }
@@ -136,6 +185,7 @@ async function queue_run(queue, ctx)
             }
             finally {
                 sampler_stop();
+                item.ended_ms = Date.now();
             }
             // A folder's walk is many names, and nobody asks for them once it is over
             item.walk = null;
@@ -161,19 +211,13 @@ async function transfer_run(item, ctx)
     }
     while (item.cancelled === false) {
         try {
+            await pause_wait(item, ctx);
+            if (item.cancelled) {
+                break;
+            }
+            await weigh(item, ctx);
             const from = disk_or_throw(disk_of, item.from.disk);
             const to = disk_or_throw(disk_of, item.to.disk);
-            if (item.kind === null) {
-                const stat = await from.stat(item.from.path);
-                if (stat.kind === 'dir') {
-                    folder_check(item);
-                }
-                else {
-                    item.size = stat.size;
-                    item.piece = {from_path: item.from.path, dir: item.to.dir, name: item.name, id: item.id, size: stat.size, mode: stat.mode, received: 0, finish_sent_at: null};
-                }
-                item.kind = stat.kind;
-            }
             if (item.kind === 'dir') {
                 await folder_copy(item, from, to, ctx, progressed);
             }
@@ -200,6 +244,10 @@ async function transfer_run(item, ctx)
             if (item.cancelled) {
                 break;
             }
+            // Cut by Pause: it waits at the top, then goes on from where it stood
+            if (ctx.queue.paused) {
+                continue;
+            }
             if (RE_LASTING.test(error.message)) {
                 item.phase = 'error';
                 item.said = error.message;
@@ -212,6 +260,10 @@ async function transfer_run(item, ctx)
             await wait_out(item, Math.min(RETRY_MAX_S, 2**(failures - 1)));
             if (item.cancelled === false) {
                 item.phase = 'copying';
+            }
+            // A pause that cut the wait short starts the next try from one second again
+            if (ctx.queue.paused) {
+                failures = 0;
             }
         }
     }
@@ -253,6 +305,7 @@ async function piece_copy(item, piece, from, to, ctx, moved)
         return {path: path.posix.join(piece.dir, piece.name)};
     }
     while ((piece.received < piece.size) && (item.cancelled === false)) {
+        paused_throw(ctx.queue);
         const last = Math.min(piece.size, piece.received + ctx.part_bytes) - 1;
         const source = from.read(piece.from_path, {start: piece.received, end: last});
         // What the part has carried so far counts as it goes, so a big file's copy moves
@@ -269,11 +322,12 @@ async function piece_copy(item, piece, from, to, ctx, moved)
         });
         source.on('error', e => counted.destroy(e));
         source.pipe(counted);
-        // Cancel ends the part on its way at once, rather than when its link gives up: the
-        // stream the disk reads too, since the source may have handed it all its bytes already
+        // Cancel and Pause end the part on its way at once, rather than when its link gives
+        // up: the stream the disk reads too, since the source may have handed it all its bytes
+        // already
         item.abort = function () {
-            source.destroy(new Error('the copy was given up'));
-            counted.destroy(new Error('the copy was given up'));
+            source.destroy(new Error('the copy was stopped'));
+            counted.destroy(new Error('the copy was stopped'));
         };
         try {
             piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, counted)).received;
@@ -291,27 +345,56 @@ async function piece_copy(item, piece, from, to, ctx, moved)
     return await to.part_finish(piece.dir, piece.name, piece.id, piece.size, piece.mode);
 }
 
-// A folder, step after step: the walk the first time, then the folder itself, the tars of
-// small files, the big files one by one, and the links
+// What a copy carries, before it goes: a file's size, a folder's walk on the disk it comes
+// from, and the steps that copy it. Once, however many ask: the copy's turn joins a weighing
+// under way; one that failed is tried again on its turn, and fails the copy there.
+function weigh(item, ctx)
+{
+    if (item.weighing === undefined) {
+        item.weighing = weigh_run(item, ctx).finally(function () {
+            delete item.weighing;
+        });
+    }
+    return item.weighing;
+}
+
+async function weigh_run(item, ctx)
+{
+    if ((item.size !== null) || item.cancelled) {
+        return;
+    }
+    const from = disk_or_throw(ctx.disk_of, item.from.disk);
+    const to = disk_or_throw(ctx.disk_of, item.to.disk);
+    const stat = await from.stat(item.from.path);
+    if (stat.kind !== 'dir') {
+        item.piece = {from_path: item.from.path, dir: item.to.dir, name: item.name, id: item.id, size: stat.size, mode: stat.mode, received: 0, finish_sent_at: null};
+        item.kind = stat.kind;
+        item.size = stat.size;
+        return;
+    }
+    folder_check(item);
+    item.kind = 'dir';
+    const walk = await walk_read(from, item.from.path);
+    item.walk = {steps: steps_of(item, walk, from, to, ctx), at: 0, bytes_done: 0};
+    item.files = walk.files.length;
+    item.left.others = walk.others.length;
+    for (const unread of walk.unread) {
+        left_add(item, unread.path, unread.error);
+    }
+    if (item.walk.steps.some(v => v.kind === 'links') === false) {
+        item.left.links = walk.links.length;
+    }
+    item.size = walk.files.reduce((sum, v) => sum + v.size, 0);
+}
+
+// A folder, step after step, from the step it reached: the folder itself, the tars of small
+// files, the big files one by one, and the links
 async function folder_copy(item, from, to, ctx, progressed)
 {
     const root = path.posix.join(item.to.dir, item.name);
-    if (item.walk === null) {
-        const walk = await walk_read(from, item.from.path);
-        item.walk = {steps: steps_of(item, walk, from, to, ctx), at: 0, bytes_done: 0};
-        item.files = walk.files.length;
-        item.size = walk.files.reduce((sum, v) => sum + v.size, 0);
-        item.left.others = walk.others.length;
-        for (const unread of walk.unread) {
-            left_add(item, unread.path, unread.error);
-        }
-        if (item.walk.steps.some(v => v.kind === 'links') === false) {
-            item.left.links = walk.links.length;
-        }
-        progressed();
-    }
     const walk = item.walk;
     while ((walk.at < walk.steps.length) && (item.cancelled === false)) {
+        paused_throw(ctx.queue);
         const step = walk.steps[walk.at];
         if (step.kind === 'root') {
             await to.mkdir(root);
@@ -326,6 +409,11 @@ async function folder_copy(item, from, to, ctx, progressed)
                 await tar_copy(item, step, from, to, progressed);
             }
             catch (error) {
+                // A tar cut by Pause goes again whole: the files it had landed are written over
+                if (ctx.queue.paused) {
+                    item.received = walk.bytes_done;
+                    throw error;
+                }
                 // A tar that failed goes file by file the next time: a file that cannot be
                 // read is then left out alone, and the others still land
                 const alone = step.files.map(v => ({kind: 'file', file: v}));
@@ -421,9 +509,10 @@ async function tar_copy(item, step, from, to, progressed)
         item.received = walk.bytes_done + Math.min(step.bytes, carried);
         item.now = {label, size: step.bytes, done: Math.min(step.bytes, carried)};
     });
-    // Cancel ends the tar at once: the files that were whole stay, the one on its way goes
+    // Cancel and Pause end the tar at once: the files that were whole stay, the one on its
+    // way goes
     item.abort = function () {
-        source.destroy(new Error('the copy was given up'));
+        source.destroy(new Error('the copy was stopped'));
     };
     try {
         await to.write_tar(item.to.dir, source);
@@ -620,6 +709,38 @@ async function finished_already(piece, to)
     }
     piece.received = piece.size;
     return true;
+}
+
+// Paused, the copy stands where it stopped until Resume or Cancel; the time it stands is not
+// counted as its own
+async function pause_wait(item, ctx)
+{
+    if (ctx.queue.paused === false) {
+        return;
+    }
+    item.phase = 'paused';
+    item.paused_at = Date.now();
+    ctx.log('transfer_paused', {id: item.id, bytes: item.received});
+    await new Promise(function (resolve) {
+        item.wake = function () {
+            delete item.wake;
+            resolve();
+        };
+    });
+    item.paused_ms += Date.now() - item.paused_at;
+    item.paused_at = null;
+    item.phase = 'copying';
+    if (item.cancelled === false) {
+        ctx.log('transfer_resumed', {id: item.id});
+    }
+}
+
+// A copy that reaches the next step paused stops there, as a part cut by Pause does
+function paused_throw(queue)
+{
+    if (queue.paused) {
+        throw new Error('the copy was paused');
+    }
 }
 
 // A pause before trying again, counted down for whoever is watching; Cancel ends it at once

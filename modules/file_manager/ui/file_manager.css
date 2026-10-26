@@ -345,10 +345,6 @@ p.fm-foot {
     margin: 0;
 }
 
-.fm-copy-cancel {
-    margin-left: .6rem;
-}
-
 .fm-copy-state > span:not(.meter) {
     min-width: 0;
     overflow: hidden;

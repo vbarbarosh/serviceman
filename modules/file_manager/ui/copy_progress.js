@@ -19,7 +19,7 @@ const BIG_BYTES = 8*1024*1024;
 //         left_ms     the time left, null while it cannot be told yet
 //         now         the file under way, or the last one: {label, done, size, going, said, bad},
 //                     or null; going while its bytes go (unsaid: while the copy goes), said and
-//                     bad for why it waits
+//                     bad for why it waits; size null while not known
 //         summary     the head's line, when the copy says it its own way; else made of the above
 //         unit        what its files are: file by default, layer for an image coming down
 //         ratio       how far it is, 0 to 1, for a copy whose bytes are not all known; else null
@@ -69,6 +69,7 @@ const copy_progress = {
         <span class="fm-copy-state fm-copy-going">
             <span class="meter"><i :style="{width: (Math.max(2, Math.round(now_ratio*100)) + '%')}"/></span>
             <span v-if="((copy.now.said !== undefined) && (copy.now.said !== ''))" :class="(copy.now.bad ? 'bad' : 'muted')" :title="copy.now.said">{{ copy.now.said }}</span>
+            <span v-else-if="(copy.now.size === null)"></span>
             <span v-else-if="now_going" class="muted">{{ format_bytes(copy.now.done) }} of {{ format_bytes(copy.now.size) }}</span>
             <span v-else class="muted">{{ format_bytes(copy.now.size) }}</span>
         </span>
@@ -95,11 +96,12 @@ const copy_progress = {
             return ((this.copy.unit === undefined) || (this.copy.unit === null)) ? ['file', 'files'] : [this.copy.unit, `${this.copy.unit}s`];
         },
         // "48% · 1417 of 2940 files · 1.4GB of 2.9GB"; the speed and the time left are under the
-        // graph. One file has no percent: its own line says it all.
+        // graph. One file has no percent: its own line says it all. A copy stopped halfway says
+        // so, however it says the rest.
         summary: function () {
             const copy = this.copy;
             if ((copy.summary !== undefined) && (copy.summary !== null) && (copy.summary !== '')) {
-                return copy.summary;
+                return (copy.state === 'stopped') ? `${copy.summary} · stopped` : copy.summary;
             }
             if (copy.state === 'counting') {
                 return `Counting… ${copy.files_done} ${plural(copy.files_done, ...this.units)} · ${format_bytes(copy.bytes_done)} so far`;
@@ -154,9 +156,13 @@ const copy_progress = {
             const now = this.copy.now;
             return (now.going === undefined) ? (this.copy.state === 'going') : (now.going === true);
         },
+        // An empty file is whole; one of a size not known yet has not started
         now_ratio: function () {
             const now = this.copy.now;
-            return ((now.size === null) || (now.size === 0)) ? 1 : Math.min(1, now.done/now.size);
+            if (now.size === null) {
+                return 0;
+            }
+            return (now.size === 0) ? 1 : Math.min(1, now.done/now.size);
         },
         // The graph's lines, on a box of 1000 by 100: the speed scaled to the fastest seen, with
         // a little room above it; the speed now while the copy goes

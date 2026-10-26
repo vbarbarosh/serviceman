@@ -203,7 +203,10 @@ A file or a folder goes from one disk to another through the server, which runs 
 page that closes does not stop it. The copy reads a file in ranges from one disk and writes it
 in parts to the other (32 MB each), so a disk that drops is waited for, and the copy carries
 on from where the other disk says it stands. One copy runs at a time, in the order they were
-asked for.
+asked for. Each is weighed as soon as it is asked for (a file's size, a folder walked), so the
+page counts every copy in line, not only the one under way. Pause stops the copy under way
+where it stands and starts no other; Resume carries it on from where the disk says it stands,
+and a tar of small files cut by Pause goes again whole.
 
 A folder is walked on its disk first (`tree`), then copied in steps, each carried on from
 after a drop:
@@ -234,13 +237,16 @@ left out and said. A folder is never copied into itself.
 
 | Door | What it does |
 |---|---|
-| `GET <base>` | `{items: [{id, from: {disk, path}, to: {disk, dir}, name, size, received, phase, said, wait_s, ms, began_at, path, samples, now}]}`: `samples` the speed across it, `[{x, y}]`, sampled every second; `now` what is on its way, `{label, size, done}` |
+| `GET <base>` | `{items: [{id, from: {disk, path}, to: {disk, dir}, name, kind, size, files, files_done, left, received, phase, said, wait_s, ms, began_at, path, samples, now}], paused}`: `size` null until it is weighed; `ms` how long it ran, its pauses aside; `samples` the speed across it, `[{x, y}]`, sampled every second; `now` what is on its way, `{label, size, done}` |
 | `POST <base>` `{from: {disk, path}, to: {disk, dir}}` | a new copy; it waits for the ones before it |
 | `POST <base>/<id>/cancel` | the copy stops and its part goes |
 | `POST <base>/clear` | what is over is taken off the list |
+| `POST <base>/pause` | the copy under way stops where it stands, and no other starts: `{paused}` |
+| `POST <base>/resume` | the copies go on: `{paused}` |
 
-`phase` is `waiting`, `copying`, `retrying` (with `said` and `wait_s`), `ok`, `cancelled` or
-`error`. The list is kept in memory: a server that restarts forgets it, and the part already on
+`phase` is `waiting`, `copying`, `retrying` (with `said` and `wait_s`), `paused`, `ok`,
+`cancelled` or `error`. A copy given up while nothing else is to come ends the pause, so the
+next one asked for starts. The list is kept in memory: a server that restarts forgets it, and the part already on
 the disk is left there.
 
 ## Plugging it into a host
@@ -317,13 +323,16 @@ What the dialogs take, a drop takes, as the rulebook's UIM-04 to UIM-06 ask:
 - Uploads shows the speed across the copy as a graph, the part done shaded and the speed now a
   dashed line; under it the time left and the files left, then the file under way with its own
   bar, and the last few files that failed. No list of every file. Every copy is drawn so, by
-  one component, `copy_progress`: Uploads, Copy to… (the copy under way, or the last one, with
-  the others as rows under it), and a host's own copies, such as a new version of an app sent
-  to its machine or an image coming down, whose files are layers. Nothing in it comes and goes
-  while it runs, so nothing under it moves: between two files the last one stays on its line,
-  and the Counting card is shaped as Uploads will be. **Pause** stops the stream where it is and
+  one component, `copy_progress`: Uploads, Copy to…, and a host's own copies, such as a new
+  version of an app sent to its machine or an image coming down, whose files are layers. Copy
+  to… is drawn as Uploads is: every copy of the disk shown, in line or over, is one copy, its
+  files and bytes counted together, with the same Pause, Resume, Cancel and Clear, one line for
+  the file on its way, and rows only for what failed. Nothing in it comes and goes while it
+  runs, so nothing under it moves: between two files the last one stays on its line, and the
+  Counting card is shaped as Uploads will be. **Pause** stops the stream where it is and
   Uploads stands still as it was, figures, graph and file alike; **Resume** sends what is not in
-  yet, and the time paused is not counted into the rate.
+  yet, and the time paused is not counted into the rate. A copy stopped halfway says so in its
+  head.
 - A file of a stream is done when the stream ends whole. A stream cut or still for 30 seconds
   lists the folders of its files: what is there at its size and date is done, the rest goes
   again.

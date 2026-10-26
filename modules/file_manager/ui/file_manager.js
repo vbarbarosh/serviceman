@@ -199,19 +199,18 @@ const file_manager = {
         </div>
     </copy-progress>
     <!-- Copies between this disk and another, run by the server: they go on with the page closed.
-         The one under way, or the last one, has the panel every copy has; the others are rows
-         under it, one line each -->
-    <copy-progress v-if="(transfer_shown !== null)" :copy="transfer_copy">
+         All of them are one copy, as Uploads is: one count, Pause, the file on its way -->
+    <copy-progress v-if="(transfers_here.length > 0)" :copy="transfer_copy">
         <template #acts>
-            <button v-if="transfer_going_of(transfer_shown)" type="button" @click="transfer_cancel(transfer_shown)">Cancel</button>
-            <button v-if="(transfers_here.some(v => transfer_going_of(v)) === false)" type="button" @click="transfers_clear">Clear</button>
+            <button v-if="(transfer_going && (transfers_paused === false))" type="button" @click="transfers_pause">Pause</button>
+            <button v-if="(transfer_going && transfers_paused)" type="button" class="primary" @click="transfers_resume">Resume</button>
+            <button v-if="transfer_going" type="button" @click="transfers_cancel">Cancel</button>
+            <button v-else type="button" @click="transfers_clear">Clear</button>
         </template>
-        <div v-for="item of transfers_rest" :key="item.id" class="fm-copy">
-            <code :title="(item.from.disk + ':' + item.from.path + ' → ' + item.to.disk + ':' + item.to.dir)">{{ item.name }}</code>
-            <span v-if="(item.phase === 'waiting')" class="fm-copy-state muted">{{ transfer_where(item) }} · waiting<button type="button" class="link fm-copy-cancel" @click="transfer_cancel(item)">Cancel</button></span>
-            <span v-else-if="(item.phase === 'ok')" class="fm-copy-state" :title="transfer_done_title(item)"><span class="muted">{{ transfer_done(item) }}</span><span v-if="(item.said !== '')" class="bad"> · {{ item.said }}</span></span>
-            <span v-else-if="(item.phase === 'cancelled')" class="fm-copy-state muted">{{ transfer_where(item) }} · stopped — {{ (item.kind === 'dir') ? item.said : 'nothing landed' }}</span>
-            <span v-else class="fm-copy-state bad" :title="(transfer_where(item) + ' · ' + item.said)">{{ transfer_where(item) }} · {{ item.said }}</span>
+        <!-- What failed or was left out stays in view, the last few of it, until Clear -->
+        <div v-for="item of transfer_failed" :key="item.id" class="fm-copy">
+            <code :title="item.title">{{ item.name }}</code>
+            <span class="fm-copy-state bad" :title="item.title">{{ item.said }}</span>
         </div>
     </copy-progress>
     <!-- The whole row is the control: a folder opens, a file takes the tick -->
@@ -347,6 +346,8 @@ const file_manager = {
             active: true,
             // The copies between disks the host is running, as it last said
             transfer_items: [],
+            // The host's copies are paused: none goes until Resume
+            transfers_paused: false,
             copy_disk: '',
             copy_dir: '',
         };
@@ -362,57 +363,170 @@ const file_manager = {
         transfers_here: function () {
             return this.transfer_items.filter(v => (v.from.disk === this.disk) || (v.to.disk === this.disk));
         },
-        // The copy the panel shows: the one under way, else the one that ended last
+        transfer_going: function () {
+            return this.transfers_here.some(transfer_going_of);
+        },
+        // Every copy of this disk at once, as Uploads counts its files: the files and bytes in,
+        // and how long the copies have run and what they carried in that time, for their rate.
+        // A copy not weighed yet (a folder still walked) is counted once it is.
+        transfer_total: function () {
+            const out = {files: 0, files_done: 0, failed: 0, bytes: 0, bytes_done: 0, unweighed: 0, ms: 0, bytes_since: 0, ratio: 0};
+            for (const item of this.transfers_here) {
+                const dir = (item.kind === 'dir');
+                if (item.size === null) {
+                    if (item.phase === 'error') {
+                        out.files++;
+                        out.failed++;
+                    }
+                    else if (transfer_going_of(item)) {
+                        out.unweighed++;
+                    }
+                    continue;
+                }
+                const files = dir ? item.files : 1;
+                const done = dir ? item.files_done : ((item.phase === 'ok') ? 1 : 0);
+                out.files += files;
+                out.files_done += done;
+                out.bytes += item.size;
+                out.bytes_done += (item.phase === 'ok') ? item.size : item.received;
+                // What a folder left out, and what a copy that failed did not carry
+                if ((item.phase === 'ok') || (item.phase === 'error')) {
+                    out.failed += files - done;
+                }
+                if (item.ms > 0) {
+                    out.ms += item.ms;
+                    out.bytes_since += ((item.phase === 'ok') ? item.size : item.received) - ((item.began_at === null) ? 0 : item.began_at);
+                }
+            }
+            out.ratio = (out.bytes === 0) ? ((out.files === 0) ? 0 : out.files_done/out.files) : Math.min(1, out.bytes_done/out.bytes);
+            return out;
+        },
+        // "48% · 1417 of 2940 files · 1.4GB of 2.9GB", as Uploads says it
+        transfer_summary: function () {
+            const total = this.transfer_total;
+            if ((total.files === 0) && (total.unweighed > 0)) {
+                return 'counting what to copy…';
+            }
+            const said = [`${total.files_done} of ${total.files} ${plural(total.files, 'file', 'files')}`, `${format_bytes(total.bytes_done)} of ${format_bytes(total.bytes)}`];
+            if (total.files > 1) {
+                said.unshift(`${Math.floor(total.ratio*100)}%`);
+            }
+            if (total.unweighed > 0) {
+                said.push(`${total.unweighed} more ${plural(total.unweighed, 'copy', 'copies')} counted…`);
+            }
+            if (total.failed > 0) {
+                said.push(`${total.failed} failed`);
+            }
+            return said.join(' · ');
+        },
+        // From the rate the copies have carried at, their pauses aside; null while it is too
+        // early to tell, or while a copy in line is not counted yet
+        transfer_left_ms: function () {
+            const total = this.transfer_total;
+            if ((this.transfer_going === false) || (total.unweighed > 0) || (total.ms <= 2000) || (total.bytes_since <= 0)) {
+                return null;
+            }
+            return Math.max(0, total.bytes - total.bytes_done)*total.ms/total.bytes_since;
+        },
+        // The speed across every copy, each copy's own graph laid where its bytes fall among all
+        transfer_samples: function () {
+            const total = this.transfer_total.bytes;
+            const out = [];
+            let offset = 0;
+            for (const item of this.transfers_here) {
+                if (item.size === null) {
+                    continue;
+                }
+                if ((total > 0) && Array.isArray(item.samples)) {
+                    for (const point of item.samples) {
+                        out.push({x: Math.min(1, (offset + point.x*item.size)/total), y: point.y});
+                    }
+                }
+                offset += item.size;
+            }
+            return out;
+        },
+        // The copy the file line is of: the one under way, else the last that carried anything
+        // (one that failed before its first byte is a row below), else the first in line
         transfer_shown: function () {
-            const going = this.transfers_here.find(v => (v.phase === 'copying') || (v.phase === 'retrying'));
+            const going = this.transfers_here.find(v => ['copying', 'retrying', 'paused'].includes(v.phase));
             if (going !== undefined) {
                 return going;
             }
-            const ended = this.transfers_here.filter(v => ['ok', 'error', 'cancelled'].includes(v.phase));
+            const ended = this.transfers_here.filter(v => ['ok', 'error', 'cancelled'].includes(v.phase) && (v.size !== null));
             if (ended.length > 0) {
                 return ended.at(-1);
             }
-            return (this.transfers_here.length === 0) ? null : this.transfers_here[0];
+            const waiting = this.transfers_here.find(v => v.phase === 'waiting');
+            return (waiting === undefined) ? null : waiting;
         },
-        transfers_rest: function () {
-            return this.transfers_here.filter(v => v !== this.transfer_shown);
-        },
-        // A copy between machines as one copy, for the panel every copy has
+        // Every copy of this disk as one copy, for the panel Uploads has
         transfer_copy: function () {
-            const item = this.transfer_shown;
-            const states = {waiting: 'waiting', copying: 'going', retrying: 'retrying', ok: 'done', error: 'failed', cancelled: 'stopped'};
-            const dir = (item.kind === 'dir');
-            const out = {
-                title: `Copy ${this.transfer_where(item)}`,
-                state: states[item.phase],
-                files: dir ? item.files : ((item.kind === null) ? null : 1),
-                files_done: dir ? item.files_done : ((item.phase === 'ok') ? 1 : 0),
-                failed: (dir || (item.phase !== 'error')) ? 0 : 1,
-                bytes: item.size,
-                bytes_done: item.received,
-                samples: Array.isArray(item.samples) ? item.samples : [],
-                left_ms: this.transfer_left_ms(item),
-                now: null,
-                note: '',
-                note_bad: false,
+            const total = this.transfer_total;
+            const places = new Set(this.transfers_here.map(v => this.transfer_where(v)));
+            let state = 'going';
+            if (this.transfer_going === false) {
+                state = (total.files_done + total.failed === total.files) ? 'done' : 'stopped';
+            }
+            else if (this.transfers_paused) {
+                state = 'paused';
+            }
+            return {
+                title: (places.size === 1) ? `Copy ${Array.from(places)[0]}` : 'Copies',
+                state,
+                summary: this.transfer_summary,
+                files: total.files,
+                files_done: total.files_done,
+                failed: total.failed,
+                bytes: total.bytes,
+                bytes_done: total.bytes_done,
+                samples: this.transfer_samples,
+                left_ms: this.transfer_left_ms,
+                now: this.transfer_now,
             };
+        },
+        // The file line: what is on its way, and while nothing is, why
+        transfer_now: function () {
+            const item = this.transfer_shown;
+            if (item === null) {
+                return null;
+            }
             const now = ((item.now === null) || (item.now === undefined)) ? {label: item.name, size: item.size, done: item.received} : item.now;
-            out.now = {label: now.label, size: now.size, done: now.done, going: (item.phase === 'copying'), said: '', bad: false};
+            const out = {label: now.label, size: now.size, done: now.done, going: ['copying', 'paused'].includes(item.phase), said: '', bad: false};
             if (item.phase === 'waiting') {
-                out.note = 'waiting for the copies before it';
+                out.said = this.transfers_paused ? 'not started yet' : 'waits for a copy between other machines';
             }
-            if ((item.size === null) && (item.phase === 'copying')) {
-                out.note = dir ? 'reading the folder…' : 'weighing the file…';
+            else if ((item.size === null) && transfer_going_of(item)) {
+                out.said = (item.kind === 'dir') ? 'reading the folder…' : 'weighing the file…';
             }
-            if (item.phase === 'retrying') {
-                out.now.said = `${item.said} — trying again in ${item.wait_s}s`;
-                out.now.bad = true;
-            }
-            if (((item.phase === 'ok') || (item.phase === 'error') || (item.phase === 'cancelled')) && (item.said !== '')) {
-                out.note = item.said;
-                out.note_bad = (item.phase !== 'cancelled');
+            else if (item.phase === 'retrying') {
+                out.said = `${item.said} — trying again in ${item.wait_s}s`;
+                out.bad = true;
             }
             return out;
+        },
+        // What failed, the latest few, as Uploads lists its files that failed: a copy that
+        // failed, each name a folder left out, and what else it left out (links, sockets, the
+        // names past those kept). The rest are counted in the line above.
+        transfer_failed: function () {
+            const rows = [];
+            for (const item of this.transfers_here) {
+                if (item.phase === 'error') {
+                    rows.push({id: item.id, name: item.name, said: item.said, title: `${item.from.disk}:${item.from.path} → ${item.to.disk}:${item.to.dir}\n${item.said}`});
+                    continue;
+                }
+                if ((item.phase !== 'ok') || (item.said === '')) {
+                    continue;
+                }
+                const left = item.left;
+                for (const name of left.names) {
+                    rows.push({id: `${item.id}/${name.path}`, name: `${item.name}/${name.path}`, said: name.said, title: `${item.name}/${name.path}\n${name.said}`});
+                }
+                if ((left.unread > left.names.length) || (left.links > 0) || (left.others > 0)) {
+                    rows.push({id: item.id, name: item.name, said: item.said, title: this.transfer_done_title(item)});
+                }
+            }
+            return rows.slice(-COPY_FAILED_ROWS);
         },
         open_root: function () {
             return this.open_base ? this.open_base : `${this.base}/file`;
@@ -1324,7 +1438,9 @@ const file_manager = {
                 const answer = await fetch(this.transfers, {cache: 'no-store'});
                 if (answer.ok) {
                     const before = this.transfer_items;
-                    this.transfer_items = (await answer.json()).items;
+                    const read = await answer.json();
+                    this.transfer_items = read.items;
+                    this.transfers_paused = (read.paused === true);
                     const landed = this.transfer_items.filter(v => (v.phase === 'ok') && (v.to.disk === this.disk) && (v.to.dir === this.path) && before.some(vv => (vv.id === v.id) && (vv.phase !== 'ok')));
                     if (landed.length > 0) {
                         this.reread_soon();
@@ -1334,12 +1450,29 @@ const file_manager = {
             catch {
                 // The next read tries again
             }
-            if (this.transfers_here.some(v => (v.phase === 'waiting') || (v.phase === 'copying') || (v.phase === 'retrying'))) {
+            if (this.transfer_going) {
                 this.transfers_timer = setTimeout(this.transfers_read, TRANSFERS_POLL_MS);
             }
         },
-        transfer_cancel: async function (item) {
-            await fetch(`${this.transfers}/${item.id}/cancel`, {method: 'POST'});
+        // Pause and Resume are the host's: one copy goes at a time, for every machine
+        transfers_pause: async function () {
+            this.transfers_paused = true;
+            await fetch(`${this.transfers}/pause`, {method: 'POST'});
+            this.transfers_read();
+        },
+        transfers_resume: async function () {
+            this.transfers_paused = false;
+            await fetch(`${this.transfers}/resume`, {method: 'POST'});
+            this.transfers_read();
+        },
+        // Cancel stops every copy of this disk, as it stops every upload: the ones in line first,
+        // so none of them starts as the one under way ends
+        transfers_cancel: async function () {
+            const going = this.transfers_here.filter(transfer_going_of);
+            const order = going.filter(v => v.phase === 'waiting').concat(going.filter(v => v.phase !== 'waiting'));
+            for (const item of order) {
+                await fetch(`${this.transfers}/${item.id}/cancel`, {method: 'POST'});
+            }
             this.transfers_read();
         },
         transfers_clear: async function () {
@@ -1356,20 +1489,6 @@ const file_manager = {
                 return `to ${this.target_label(item.to.disk)}, ${item.to.dir.split('/').filter(v => v !== '').pop() || '/'}`;
             }
             return `from ${this.target_label(item.from.disk)}`;
-        },
-        // The time left at the rate this run has carried it, null while too early to tell
-        transfer_left_ms: function (item) {
-            if ((item.phase !== 'copying') || (item.size === null)) {
-                return null;
-            }
-            const sent = item.received - ((item.began_at === null) ? 0 : item.began_at);
-            if ((item.ms <= 2000) || (sent <= 0)) {
-                return null;
-            }
-            return (item.size - item.received)*item.ms/sent;
-        },
-        transfer_going_of: function (item) {
-            return (item.phase === 'copying') || (item.phase === 'retrying') || (item.phase === 'waiting');
         },
         // A copy that is over: where it went and how much; for a folder, how many files
         transfer_done: function (item) {
@@ -1516,6 +1635,12 @@ function editor_changed(doc, original)
         return true;
     }
     return doc.toString() !== original;
+}
+
+// A copy between machines still to come: in line, under way, or paused halfway
+function transfer_going_of(item)
+{
+    return ['waiting', 'copying', 'retrying', 'paused'].includes(item.phase);
 }
 
 function plural(count, one, many)
