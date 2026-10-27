@@ -5,6 +5,7 @@ const agent_port_list = require('./agent_port_list');
 const agent_root_refresh = require('./agent_root_refresh');
 const agent_root_socket = require('./agent_root_socket');
 const agent_say = require('./agent_say');
+const agent_security_sshd = require('./agent_security_sshd');
 const agent_shared = require('./agent_shared');
 const agent_ufw = require('./agent_ufw');
 const agent_volume = require('./agent_volume');
@@ -222,6 +223,10 @@ async function method_run(state, options, job, say)
     }
     if (method === 'ufw') {
         return await agent_ufw(options, job.params);
+    }
+    if (method === 'security_root') {
+        // sshd's own word for what it runs with, and its journal: both are root's to read
+        return await agent_security_sshd(options, {root: true});
     }
     if (method === 'volume') {
         return await agent_volume(options, job.params, say);

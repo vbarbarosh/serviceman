@@ -39,6 +39,7 @@ import remote_processes from './remote_processes.js';
 import remote_shell from './remote_shell.js';
 import remotes_pane from './remotes_pane.js';
 import secrets_form from './secrets_form.js';
+import security_pane from './security_pane.js';
 import service_doors from './service_doors.js';
 import service_form from './service_form.js';
 import service_script from './service_script.js';
@@ -1825,6 +1826,11 @@ const app = {
             <span class="name">Health</span>
             <span :class="health_tally.state" :title="health_tally.title">{{ health_tally.text }}</span>
         </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'security'), open: (kind_now === 'security')}" title="What each machine leaves open to harm: ports, firewall, ssh, updates, its release" @click="security_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span class="name">Security</span>
+            <span :class="security_tally.state" :title="security_tally.title">{{ security_tally.text }}</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'services' && selected_name === null), open: (kind_now === 'services')}" @click="home_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
             <span class="name">Services</span>
@@ -1931,7 +1937,8 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @select="select_named"/>
+        <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
+        <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
         <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
@@ -1948,7 +1955,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -1990,6 +1997,7 @@ const app = {
             tokens_open: false,
             logline_open: false,
             health_open: false,
+            security_open: false,
             authwall_open: false,
             load_tests_open: false,
             secrets_count: '',
@@ -2049,6 +2057,21 @@ const app = {
             }
             return {state: 'muted', text: 'all well', title: 'Nothing is wrong that serviceman can see'};
         },
+        // The Security row's word: how many checks to mend, else to look at
+        security_tally: function () {
+            const security = ((this.state === null) || (this.state.security === undefined)) ? null : this.state.security;
+            if ((security === null) || security.rows.every(v => v.checks.length === 0)) {
+                return {state: 'muted', text: '', title: 'No machine looked at yet'};
+            }
+            const counts = security.counts;
+            if (counts.bad > 0) {
+                return {state: 'bad', text: `${counts.bad} to mend`, title: `${counts.bad} ${(counts.bad === 1) ? 'check says' : 'checks say'} to mend something, ${counts.warn} to look at`};
+            }
+            if (counts.warn > 0) {
+                return {state: 'warn', text: `${counts.warn} to look at`, title: `${counts.warn} ${(counts.warn === 1) ? 'check asks' : 'checks ask'} for a look`};
+            }
+            return {state: 'muted', text: 'nothing found', title: 'Nothing open to harm that serviceman can see'};
+        },
         summary: function () {
             if (this.answering === false) {
                 return 'serviceman is not answering';
@@ -2101,6 +2124,9 @@ const app = {
             }
             if (this.health_open) {
                 return '/health';
+            }
+            if (this.security_open) {
+                return '/security';
             }
             if (this.authwall_open) {
                 return '/authwall';
@@ -2168,6 +2194,9 @@ const app = {
             }
             if (this.health_open) {
                 return 'health';
+            }
+            if (this.security_open) {
+                return 'security';
             }
             if (this.authwall_open) {
                 return 'authwall';
@@ -2444,6 +2473,10 @@ const app = {
                 this.health_open = true;
                 return;
             }
+            if (route.kind === 'security') {
+                this.security_open = true;
+                return;
+            }
             if (route.kind === 'authwall') {
                 this.authwall_open = true;
                 return;
@@ -2568,6 +2601,10 @@ const app = {
             this.panes_close();
             this.health_open = true;
         },
+        security_show: function () {
+            this.panes_close();
+            this.security_open = true;
+        },
         // Closing the bar keeps only what is wrong now: one that is mended and comes back is new
         problems_close: function () {
             this.problems_seen = this.problems.map(problem_seen_key);
@@ -2617,6 +2654,11 @@ const app = {
         remote_configure_show: function (name) {
             this.remote_tab = 'configure';
             this.remote_select_named(name);
+        },
+        // A check of the Security page: the tab of the machine's page that mends it
+        remote_tab_show: function (where) {
+            this.remote_tab = where.tab;
+            this.remote_select_named(where.remote);
         },
         // A count on a machine's card: the list of that kind, holding only what the machine carries
         services_of_remote: function (name) {
@@ -2701,6 +2743,7 @@ const app = {
             this.forwards_open = false;
             this.logline_open = false;
             this.health_open = false;
+            this.security_open = false;
             this.authwall_open = false;
             this.load_tests_open = false;
             this.remotes_open = false;

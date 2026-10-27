@@ -462,6 +462,8 @@ list, in a bar under its header and first on its Health page.
 | `problem_begin`          | Something is wrong, seen twice a check apart: where, what, and why.     |
 | `problem_end`            | It is mended, and how long it lasted.                                   |
 | `problems_check_error`   | A machine could not be looked at, and why; what was wrong there stays.  |
+| `security_checked`       | The Security page looked at a machine: `ports=` it listens on, `knocked=` from outside, `answered=`, or `not_knocked=` why not. |
+| `security_check_error`   | The look at a machine broke, and why; its row says the same.            |
 | `apt_containers_ok`      | After an upgrade, everything that ran before runs again; `started=` names the ones serviceman started. |
 | `apt_containers_down`    | After an upgrade, `down=` names what ran before and cannot start now; the upgrade's own lines say why. |
 | `apt_containers_unknown` | What ran before the upgrade could not be read, so nothing is brought back after it. |

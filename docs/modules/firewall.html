@@ -728,7 +728,7 @@ base, and decides who may ask.</p>
 there was), ufw runs in the machine&#39;s root half, or with <code>sudo -n</code> where it has none, and the
 ports are the list its agent reads with <code>ss</code>.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
-<pre><code>server/firewall_serve.js      the HTTP API, given run(argv) and ports()
+<pre><code>server/firewall_serve.js      the HTTP API, given run(argv) and ports(); .read(run) the firewall alone
 server/firewall_manifest.js   its kinds of items and the commands on them
 ui/firewall.js                the component
 ui/firewall_ports.js          the ports as rows: how far each reaches, what the firewall does
@@ -817,6 +817,10 @@ its list or range, a rule for every port, ssh by name for 22) that holds for eve
 as ufw goes by the first match; rules for one source are said beside it; with none, the
 default (deny while ufw is off, since its status does not say). While the firewall is off the
 row says what it will be once on.</li>
+<li><strong>Docker:</strong> a port its proxy holds (<code>docker-proxy</code>), or one the host says Docker publishes
+(an item with <code>docker: {name, image}</code>), is let in by Docker&#39;s own rules, which come before
+ufw&#39;s: open whatever the rules and the default say, on or off, and said &quot;published by Docker&quot;
+where Allow or Close would be. Closing it is publishing it on another address.</li>
 <li><strong>Close</strong> is offered only where the rule that lets a port in is about that port alone; a range,
 a service by name or the default is changed in the rules.</li>
 </ul>

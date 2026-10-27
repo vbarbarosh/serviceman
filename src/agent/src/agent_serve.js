@@ -37,6 +37,7 @@ const agent_root_or = require('./agent_root_or');
 const agent_say = require('./agent_say');
 const agent_screenshot = require('./agent_screenshot');
 const agent_secrets_put = require('./agent_secrets_put');
+const agent_security = require('./agent_security');
 const agent_shell = require('./agent_shell');
 const agent_stats = require('./agent_stats');
 const agent_term_end = require('./agent_term_end');
@@ -492,6 +493,11 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'term_signal') {
         return await agent_term_signal(params);
+    }
+    if (method === 'security') {
+        // What the Security page shows of this machine: sshd's files and journal read by the
+        // root half where there is one
+        return await agent_security(options);
     }
     if (method === 'apt_upgrade') {
         // The root half of this machine does it where there is one; here, with sudo, where

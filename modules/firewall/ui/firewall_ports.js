@@ -10,12 +10,13 @@ const EXPOSURE = {
 // firewall does to it. One port held by one program over v4 and v6 is one row, as exposed as
 // the most exposed of its addresses; the most exposed come first.
 //
-//     items      the sockets, as the agent lists them: {proto, address, port, state, users}
+//     items      the sockets, as the agent lists them: {proto, address, port, state, users}, and
+//                one Docker publishes may say so: docker {name, image}
 //     addresses  the machine's own addresses, null when its agent does not say
 //     firewall   the module's answer: {installed, active, defaults, rules}, or null
 //
-//     -> [{key, port, proto, state, held, addresses, reach: {exposure, text, tone},
-//          verdict: {kind: open | closed | local | unknown, text, rule, now}}]
+//     -> [{key, port, proto, state, held, addresses, docker, reach: {exposure, text, tone},
+//          verdict: {kind: open | closed | local | unknown, text, rule, now, docker}}]
 function firewall_ports(items, addresses, firewall)
 {
     const by_key = new Map();
@@ -24,10 +25,13 @@ function firewall_ports(items, addresses, firewall)
         const key = `${item.proto}|${item.port}|${held}`;
         const reach = port_reach(item.address, addresses);
         if (by_key.has(key) === false) {
-            by_key.set(key, {key, port: item.port, proto: item.proto.replace(/6$/, ''), state: item.state, held, addresses: [], reach});
+            by_key.set(key, {key, port: item.port, proto: item.proto.replace(/6$/, ''), state: item.state, held, addresses: [], docker: null, reach});
         }
         const row = by_key.get(key);
         row.addresses.push(item.address);
+        if (docker_published(item)) {
+            row.docker = (item.docker === undefined) ? {name: null, image: null} : item.docker;
+        }
         if (EXPOSURE[reach.exposure].rank < EXPOSURE[row.reach.exposure].rank) {
             row.reach = reach;
         }
@@ -48,15 +52,20 @@ function firewall_ports(items, addresses, firewall)
 function verdict(row, firewall)
 {
     if (row.reach.exposure === 'local') {
-        return {kind: 'local', text: 'only this machine can reach it', rule: null, now: true};
+        return {kind: 'local', text: 'only this machine can reach it', rule: null, now: true, docker: false};
+    }
+    // Docker lets in what it publishes by rules of its own, ahead of ufw's: no rule and no
+    // default of the firewall has a say over it, on or off ("Docker and ufw" in Docker's docs)
+    if (row.docker !== null) {
+        return {kind: 'open', text: 'let in by Docker, past ufw', rule: null, now: true, docker: true};
     }
     if ((firewall === null) || (firewall.installed === false)) {
-        return {kind: 'unknown', text: (firewall === null) ? '' : 'no ufw on this machine', rule: null, now: true};
+        return {kind: 'unknown', text: (firewall === null) ? '' : 'no ufw on this machine', rule: null, now: true, docker: false};
     }
     const rules = firewall.rules.filter(v => rule_covers(v, row));
     const everyone = rules.find(v => v.from === 'any');
     const some = rules.filter(v => (v.from !== 'any') && ((everyone === undefined) || (rules.indexOf(v) < rules.indexOf(everyone))));
-    const out = {kind: 'closed', text: '', rule: null, now: firewall.active};
+    const out = {kind: 'closed', text: '', rule: null, now: firewall.active, docker: false};
     if (everyone !== undefined) {
         out.kind = ((everyone.action === 'allow') || (everyone.action === 'limit')) ? 'open' : 'closed';
         out.rule = everyone;
@@ -77,6 +86,13 @@ function verdict(row, firewall)
         out.text = `once on: ${out.text}`;
     }
     return out;
+}
+
+// A socket Docker holds for a container's published port: its proxy, or a port the host found
+// in Docker's own list
+function docker_published(item)
+{
+    return (item.docker !== undefined) || item.users.some(v => v.name === 'docker-proxy');
 }
 
 // Whether a rule is about this port: incoming, its protocol or both, its port within the rule's
@@ -182,5 +198,9 @@ function ip_kind(text)
     }
     return 'public';
 }
+
+// What kind of address a socket is bound to, for a host that wants the same answer: its
+// Security page knocks on a machine at the public ones
+firewall_ports.ip_kind = ip_kind;
 
 export default firewall_ports;

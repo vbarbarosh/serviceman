@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -1070,8 +1070,11 @@ firewall is off, what it will do once on. ufw goes by the first rule that matche
 the rule named; a rule for one source only is said beside it (&quot;kept out by the default, but
 from 10.0.0.0/8&quot;). <strong>Allow</strong> on a row adds a rule for that port; <strong>Close</strong> takes away the rule
 that let it in, with Undo. The tiles count what actually gets through: a port the firewall
-keeps out is counted as kept out, however open its address. A firewall in front of the machine
-(a cloud&#39;s security group) is not seen from here.</p>
+keeps out is counted as kept out, however open its address. A port Docker publishes is let in by
+Docker&#39;s own rules, which come before ufw&#39;s, so it is said open whatever ufw says, on or off,
+with no Allow or Close beside it: publishing it on <code>127.0.0.1</code> or the tailnet address, in its
+<code>docker run</code> or compose file, is what closes it. A firewall in front of the machine (a cloud&#39;s
+security group) is not seen from here; the Security page knocks from outside and sees it.</p>
 <p><code>ss</code> names the holder of a socket only to whoever may read that socket, and the agent in a
 person&#39;s session may read its own and no others — so the port list is asked of the machine&#39;s
 root half where it has one, and every daemon on it is named. A machine with no root half, or
@@ -1083,6 +1086,67 @@ firewall goes on without one; serviceman itself is never shut out, since its age
 ufw runs as root: in the machine&#39;s root half where it has one, else as <code>sudo -n ufw</code>, which
 needs a sudoers line naming ufw. A machine without ufw says so; a root half older than the
 firewall says it is updating. The module is <code>modules/firewall</code>, and its README has the API.</p>
+<h2 id="its-security"><a class="anchor" href="#its-security" aria-hidden="true" tabindex="-1">#</a>Its security</h2>
+<p>The <strong>Security</strong> page, under Health in the rail, says what each machine leaves open to harm: a
+row per machine, a column per check, the worst first, red where something is to be mended,
+orange where it wants a look, grey where there is nothing to say, and why. A click on a row
+shows what stands behind each check and opens the tab of the machine&#39;s page that mends it.
+Each machine is looked over once an hour, as soon as it connects, and on <strong>Check again</strong>, which
+looks at every connected machine at once. A machine that is away keeps its last look, faded.
+Health has a Security column that leads there; nothing here counts as a problem.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Red or orange when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Open to the internet</td>
+<td>Red: a database, cache or queue port the internet gets to (5432, 3306, 6379, 27017, 9200, Docker&#39;s API…); orange: any other, but ssh, 80 and 443, and tailscale&#39;s and WireGuard&#39;s own.</td>
+</tr>
+<tr>
+<td>Firewall</td>
+<td>ufw is installed and off.</td>
+</tr>
+<tr>
+<td>SSH</td>
+<td>Red: sshd takes passwords (<code>PasswordAuthentication</code>, or keyboard-interactive with PAM).</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td>Security updates wait, or the machine wants a restart after an upgrade.</td>
+</tr>
+<tr>
+<td>Auto updates</td>
+<td>unattended-upgrades is not installed, or apt is not told to run it.</td>
+</tr>
+<tr>
+<td>System</td>
+<td>Red: the release&#39;s standard support has ended; orange: it ends within half a year.</td>
+</tr>
+</tbody></table>
+</div>
+<p><strong>What the internet gets to</strong> is knocked, not guessed: serviceman connects to every tcp port the
+machine listens on, at its public address, and drops the connection at once, sending nothing. A
+port that answers is open, whatever the machine&#39;s own firewall says; one that does not answer
+is kept out on the way, by the machine&#39;s firewall or by one in front of it, which the page says
+when the machine&#39;s own view has it open. The public address is one of the machine&#39;s own, or the
+one its agent dials in from when that is public (a cloud machine whose public address is on none
+of its interfaces). The machine serviceman runs on is not knocked: a knock from it on itself
+does not come from outside. Where nobody knocks, the machine&#39;s own view decides, as the Firewall
+tab draws it, Docker&#39;s published ports included; udp is never knocked.</p>
+<p><strong>What the agent reads,</strong> and never changes: sshd&#39;s settings as <code>sshd -T</code> says them, and the
+failed sign-in tries of the last day in its journal (a wrong password, an unknown user, no key;
+counted as lines, from how many addresses), both through the root half where the machine has
+one; without one, the agent reads sshd&#39;s files where it may, and says which it may not
+(Ubuntu&#39;s cloud images keep <code>sshd_config.d</code> root&#39;s alone). The release and the end of its
+support, from <code>/etc/os-release</code> and the machine&#39;s own <code>distro-info</code> list; whether
+unattended-upgrades is installed and <code>APT::Periodic::Unattended-Upgrade</code> set; the containers
+Docker runs and the ports they publish. An agent from before 1.29.0 says none of it, and its
+row says so until it updates.</p>
+<p><code>GET /api/v1/security</code> is the page as JSON; <code>POST /api/v1/security/check</code> is Check again, and
+answers the machines being looked at.</p>
 <h2 id="its-encrypted-volumes"><a class="anchor" href="#its-encrypted-volumes" aria-hidden="true" tabindex="-1">#</a>Its encrypted volumes</h2>
 <p>An encrypted volume is one file on one machine&#39;s disk, LUKS with ext4 inside, opened at a folder
 of that machine: a stolen disk or snapshot shows random bytes and a size. The <strong>Storage</strong> page
@@ -1170,6 +1234,10 @@ not be able to look it up.</p>
 <tr>
 <td>Firewall</td>
 <td>ufw is installed and off. Asked every five minutes, one <code>ufw status</code>; grey where ufw is not there.</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>The Security page&#39;s last look found something to mend or to look at; orange either way.</td>
 </tr>
 <tr>
 <td>Doors</td>

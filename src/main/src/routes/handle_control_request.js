@@ -64,6 +64,8 @@ const render_sign_in_page = require('../helpers/render_sign_in_page');
 const route_param = require('../helpers/route_param');
 const secrets_read = require('../helpers/secrets_read');
 const secrets_write = require('../helpers/secrets_write');
+const security_check = require('../helpers/security_check');
+const security_view = require('../helpers/security_view');
 const send_json = require('../helpers/send_json');
 const serve_static_file = require('../helpers/serve_static_file');
 const service_ensure_running = require('../helpers/service_ensure_running');
@@ -148,7 +150,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['health', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
+const PAGE_PANES = ['health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -320,6 +322,17 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/remotes') && (req.method === 'POST')) {
         await remote_create(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/security') && (req.method === 'GET')) {
+        send_json(res, 200, security_view(app, app.remotes.map(v => view_from_remote(v, Date.now(), app.config.logline)), Date.now()));
+        return;
+    }
+    if ((url.pathname === '/api/v1/security/check') && (req.method === 'POST')) {
+        // Check again: every connected machine now, but one being looked at already; the page
+        // follows each look in its status
+        security_check(app, true);
+        send_json(res, 202, {checking: Array.from(app.security.running.keys())});
         return;
     }
     if ((url.pathname === '/api/v1/apt-upgrade') && (req.method === 'GET')) {
@@ -2303,6 +2316,7 @@ function state_from_app(app)
     const problems = Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since));
     const forwards = app.config.forwards.map(v => view_from_forward(app, v));
     const agent_built = agent_bundle.built_at();
+    const security = security_view(app, remotes, now);
     return {
         now,
         started_at: app.started_at,
@@ -2319,7 +2333,9 @@ function state_from_app(app)
         // What is wrong now, the oldest first: what the last check found and has seen twice
         problems,
         // How everything is, the good with the bad: the Health page
-        health: health_from_views({now, agent_built, logline, services, remotes, forwards, problems}, app.health_seen),
+        health: health_from_views({now, agent_built, logline, services, remotes, forwards, problems, security}, app.health_seen),
+        // What each machine leaves open to harm, as the last look at it found: the Security page
+        security,
         forwards,
         // Where a forward that shows up on serviceman itself puts its socket file
         state_dir: app.state_dir,

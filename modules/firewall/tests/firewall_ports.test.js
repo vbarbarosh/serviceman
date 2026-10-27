@@ -76,6 +76,32 @@ test('while the firewall is off, a port says nothing stands in its way, and what
     ]);
 });
 
+// Docker publishes a container's port by rules of its own, ahead of ufw's: its proxy's socket,
+// or a port the host found in Docker's list, is let in whatever ufw says, on or off; one it
+// publishes on the loopback stays this machine's
+test('a port Docker publishes is let in past the firewall, on or off', async function () {
+    const firewall_ports = await firewall_ports_load();
+    const items = [
+        socket('tcp', '0.0.0.0', 5432, 'docker-proxy'),
+        socket('tcp', '::', 5432, 'docker-proxy'),
+        socket('tcp', '127.0.0.1', 8080, 'docker-proxy'),
+        Object.assign(socket('tcp', '0.0.0.0', 6379, 'x'), {users: [], docker: {name: 'cache', image: 'redis:7'}}),
+        socket('tcp', '0.0.0.0', 22, 'sshd'),
+    ];
+    const on = {installed: true, active: true, defaults: {incoming: 'deny'}, rules: [rule('deny 5432/tcp', {action: 'deny', port: '5432', proto: 'tcp'})]};
+    const rows = firewall_ports(items, PUBLIC, on);
+    const said = Object.fromEntries(rows.map(v => [v.port, [v.reach.exposure, v.verdict.kind, v.verdict.text, v.verdict.docker]]));
+    assert.deepStrictEqual(said, {
+        22: ['open', 'closed', 'kept out by the default', false],
+        5432: ['open', 'open', 'let in by Docker, past ufw', true],
+        6379: ['open', 'open', 'let in by Docker, past ufw', true],
+        8080: ['local', 'local', 'only this machine can reach it', false],
+    });
+    assert.deepStrictEqual(rows.find(v => v.port === 6379).docker, {name: 'cache', image: 'redis:7'}, 'what Docker said of it is kept');
+    const off = firewall_ports(items, PUBLIC, Object.assign({}, on, {active: false}));
+    assert.deepStrictEqual(off.find(v => v.port === 5432).verdict, {kind: 'open', text: 'let in by Docker, past ufw', rule: null, now: true, docker: true}, 'off, it is not "once on": ufw on would not stop it either');
+});
+
 function socket(proto, address, port, name)
 {
     return {proto, address, port, state: proto.startsWith('udp') ? 'UNCONN' : 'LISTEN', users: [{name, pid: 100 + port}]};

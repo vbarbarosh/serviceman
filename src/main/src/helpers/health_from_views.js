@@ -1,4 +1,5 @@
 const format_duration_ms = require('../../../helpers/format_duration_ms');
+const updates_check = require('./updates_check');
 
 // Below these a machine is short of room, and below the second it is about to stop working
 const DISK_LOW = 0.10;
@@ -14,7 +15,8 @@ const STORE_QUIET_MS = 10*60*1000;
 // same as the Problems bar. A check is ok, warn (works, but look), bad (does not work) or none
 // (nothing to say: not set up, not asked yet, not this agent's).
 //
-//     views   {now, agent_built, logline, services, remotes, forwards, problems}, as state_from_app
+//     views   {now, agent_built, logline, services, remotes, forwards, problems, security}, as
+//             state_from_app
 //     seen    {checked_at, items: Map(key => {state, text, detail})}
 function health_from_views(views, seen)
 {
@@ -46,11 +48,14 @@ function machine_row(remote, views, seen, problems)
         checks.push(mem_check(machine));
         checks.push(cpu_check(machine));
         checks.push(servermon_check(machine));
-        checks.push(updates_check(machine));
+        checks.push(updates_check(machine.updates));
         checks.push(docker_check(name, machine, seen, problems));
         checks.push(seen_check('firewall', 'Firewall', `firewall:${name}`, seen));
         if (remote.doors !== null) {
             checks.push(doors_check(remote.doors));
+        }
+        if (views.security !== undefined) {
+            checks.push(security_check_of(name, views.security));
         }
     }
     return row(`remote:${name}`, remote.title || name, {remote: name}, checks.filter(v => v !== null));
@@ -134,24 +139,6 @@ function servermon_check(machine)
     return check('servermon', 'servermon', 'warn', since, `servermon ${since}: the machine's numbers are not known. The agent starts it again within a minute.`);
 }
 
-function updates_check(machine)
-{
-    const updates = machine.updates;
-    if ((updates === null) || (updates === undefined)) {
-        return null;
-    }
-    if (updates.reboot) {
-        return check('updates', 'Updates', 'warn', 'restart wanted', 'An upgrade is in place and waits for the machine to restart.');
-    }
-    if (updates.security > 0) {
-        return check('updates', 'Updates', 'warn', `${updates.security} security`, `${updates.security} security ${plural(updates.security, 'update', 'updates')} of ${updates.pending} pending: Configure, Upgrade.`);
-    }
-    if (updates.pending > 0) {
-        return check('updates', 'Updates', 'ok', `${updates.pending} pending`, null);
-    }
-    return check('updates', 'Updates', 'ok', 'up to date', null);
-}
-
 // What Docker on the machine holds, as the last look found it; what is wrong with a container
 // is the problem said in its words
 function docker_check(name, machine, seen, problems)
@@ -165,6 +152,32 @@ function docker_check(name, machine, seen, problems)
         return null;
     }
     return seen_check('docker', 'Docker', `docker:${name}`, seen);
+}
+
+// What the Security page found on the machine, counted: what to mend, what to look at. Said
+// here, not counted as a problem: an open port is a choice to look at, not a thing broken.
+function security_check_of(name, security)
+{
+    const row = security.rows.find(v => v.remote === name);
+    if (row === undefined) {
+        return check('security', 'Security', 'none', 'not looked at yet', null);
+    }
+    if (row.at === null) {
+        return check('security', 'Security', 'none', row.checking ? 'looking now' : 'not looked at yet', null);
+    }
+    if (row.error !== null) {
+        return check('security', 'Security', 'none', 'not looked at', row.error);
+    }
+    const bad = row.checks.filter(v => v.state === 'bad');
+    const warn = row.checks.filter(v => v.state === 'warn');
+    const said = bad.concat(warn).map(v => `${v.label}: ${v.text}`).join('\n');
+    if (bad.length > 0) {
+        return check('security', 'Security', 'warn', `${bad.length} to mend`, said);
+    }
+    if (warn.length > 0) {
+        return check('security', 'Security', 'warn', `${warn.length} to look at`, said);
+    }
+    return check('security', 'Security', 'ok', 'nothing found', null);
 }
 
 function doors_check(doors)

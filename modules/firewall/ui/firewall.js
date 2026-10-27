@@ -115,6 +115,7 @@ const firewall = {
                     <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
                     <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
                     <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
+                    <span v-else-if="row.verdict.docker" class="muted" title="Docker publishes it on this address, and its rules come before ufw's: publish it on 127.0.0.1 or the tailnet address instead, in its docker run or compose file">published by Docker</span>
                     <span v-else-if="(row.verdict.kind === 'open')" class="muted" title="Let in by the default policy or by a wider rule: change the rules below">by a rule below</span>
                 </template>
             </data-table>

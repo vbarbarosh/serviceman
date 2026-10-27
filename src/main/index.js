@@ -28,6 +28,7 @@ const reap_idle = require('./src/helpers/reap_idle');
 const remote_tags = require('./src/helpers/remote_tags');
 const remotes_measure = require('./src/helpers/remotes_measure');
 const remotes_update = require('./src/helpers/remotes_update');
+const security_check = require('./src/helpers/security_check');
 const server_start = require('./src/helpers/server_start');
 const service_ensure_running = require('./src/helpers/service_ensure_running');
 const service_phase = require('./src/helpers/service_phase');
@@ -150,6 +151,8 @@ function problems_tick(app)
     problems_check(app).catch(function (error) {
         log_event(app, 'problems_check_error', {reason: error.message});
     });
+    // The Security page's looks keep their own hour; the minute only sees which are due
+    security_check(app, false);
 }
 
 function db_path_from_argv(argv)

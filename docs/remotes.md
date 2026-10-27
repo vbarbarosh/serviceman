@@ -421,8 +421,11 @@ firewall is off, what it will do once on. ufw goes by the first rule that matche
 the rule named; a rule for one source only is said beside it ("kept out by the default, but
 from 10.0.0.0/8"). **Allow** on a row adds a rule for that port; **Close** takes away the rule
 that let it in, with Undo. The tiles count what actually gets through: a port the firewall
-keeps out is counted as kept out, however open its address. A firewall in front of the machine
-(a cloud's security group) is not seen from here.
+keeps out is counted as kept out, however open its address. A port Docker publishes is let in by
+Docker's own rules, which come before ufw's, so it is said open whatever ufw says, on or off,
+with no Allow or Close beside it: publishing it on `127.0.0.1` or the tailnet address, in its
+`docker run` or compose file, is what closes it. A firewall in front of the machine (a cloud's
+security group) is not seen from here; the Security page knocks from outside and sees it.
 
 `ss` names the holder of a socket only to whoever may read that socket, and the agent in a
 person's session may read its own and no others — so the port list is asked of the machine's
@@ -436,6 +439,48 @@ firewall goes on without one; serviceman itself is never shut out, since its age
 ufw runs as root: in the machine's root half where it has one, else as `sudo -n ufw`, which
 needs a sudoers line naming ufw. A machine without ufw says so; a root half older than the
 firewall says it is updating. The module is `modules/firewall`, and its README has the API.
+
+## Its security
+
+The **Security** page, under Health in the rail, says what each machine leaves open to harm: a
+row per machine, a column per check, the worst first, red where something is to be mended,
+orange where it wants a look, grey where there is nothing to say, and why. A click on a row
+shows what stands behind each check and opens the tab of the machine's page that mends it.
+Each machine is looked over once an hour, as soon as it connects, and on **Check again**, which
+looks at every connected machine at once. A machine that is away keeps its last look, faded.
+Health has a Security column that leads there; nothing here counts as a problem.
+
+| Check                | Red or orange when                                                                                          |
+|----------------------|-------------------------------------------------------------------------------------------------------------|
+| Open to the internet | Red: a database, cache or queue port the internet gets to (5432, 3306, 6379, 27017, 9200, Docker's API…); orange: any other, but ssh, 80 and 443, and tailscale's and WireGuard's own. |
+| Firewall             | ufw is installed and off.                                                                                   |
+| SSH                  | Red: sshd takes passwords (`PasswordAuthentication`, or keyboard-interactive with PAM).                     |
+| Updates              | Security updates wait, or the machine wants a restart after an upgrade.                                     |
+| Auto updates         | unattended-upgrades is not installed, or apt is not told to run it.                                         |
+| System               | Red: the release's standard support has ended; orange: it ends within half a year.                          |
+
+**What the internet gets to** is knocked, not guessed: serviceman connects to every tcp port the
+machine listens on, at its public address, and drops the connection at once, sending nothing. A
+port that answers is open, whatever the machine's own firewall says; one that does not answer
+is kept out on the way, by the machine's firewall or by one in front of it, which the page says
+when the machine's own view has it open. The public address is one of the machine's own, or the
+one its agent dials in from when that is public (a cloud machine whose public address is on none
+of its interfaces). The machine serviceman runs on is not knocked: a knock from it on itself
+does not come from outside. Where nobody knocks, the machine's own view decides, as the Firewall
+tab draws it, Docker's published ports included; udp is never knocked.
+
+**What the agent reads,** and never changes: sshd's settings as `sshd -T` says them, and the
+failed sign-in tries of the last day in its journal (a wrong password, an unknown user, no key;
+counted as lines, from how many addresses), both through the root half where the machine has
+one; without one, the agent reads sshd's files where it may, and says which it may not
+(Ubuntu's cloud images keep `sshd_config.d` root's alone). The release and the end of its
+support, from `/etc/os-release` and the machine's own `distro-info` list; whether
+unattended-upgrades is installed and `APT::Periodic::Unattended-Upgrade` set; the containers
+Docker runs and the ports they publish. An agent from before 1.29.0 says none of it, and its
+row says so until it updates.
+
+`GET /api/v1/security` is the page as JSON; `POST /api/v1/security/check` is Check again, and
+answers the machines being looked at.
 
 ## Its encrypted volumes
 
@@ -486,6 +531,7 @@ not be able to look it up.
 | Memory, CPU      | Under 5% of the memory is free; the CPU is 90% busy or more.                                           |
 | Updates          | Security updates wait, or the machine wants a restart after an upgrade.                                |
 | Firewall         | ufw is installed and off. Asked every five minutes, one `ufw status`; grey where ufw is not there.     |
+| Security         | The Security page's last look found something to mend or to look at; orange either way.                |
 | Doors            | The machine did not take its door table.                                                               |
 | Forwards         | A forward cannot listen, or one of its two machines is away.                                           |
 

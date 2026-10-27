@@ -401,4 +401,10 @@ function send_json(res, status, value)
     res.end(JSON.stringify(value, null, 4));
 }
 
+// The firewall as GET <base> answers it, for a host that wants it without a request: its
+// Security page reads every machine's this way
+firewall_serve.read = function (run) {
+    return state_read({run});
+};
+
 module.exports = firewall_serve;

@@ -17,7 +17,7 @@ ports are the list its agent reads with `ss`.
 
 ## Layout
 
-    server/firewall_serve.js      the HTTP API, given run(argv) and ports()
+    server/firewall_serve.js      the HTTP API, given run(argv) and ports(); .read(run) the firewall alone
     server/firewall_manifest.js   its kinds of items and the commands on them
     ui/firewall.js                the component
     ui/firewall_ports.js          the ports as rows: how far each reaches, what the firewall does
@@ -81,6 +81,10 @@ addresses and the firewall:
   as ufw goes by the first match; rules for one source are said beside it; with none, the
   default (deny while ufw is off, since its status does not say). While the firewall is off the
   row says what it will be once on.
+- **Docker:** a port its proxy holds (`docker-proxy`), or one the host says Docker publishes
+  (an item with `docker: {name, image}`), is let in by Docker's own rules, which come before
+  ufw's: open whatever the rules and the default say, on or off, and said "published by Docker"
+  where Allow or Close would be. Closing it is publishing it on another address.
 - **Close** is offered only where the rule that lets a port in is about that port alone; a range,
   a service by name or the default is changed in the rules.
 

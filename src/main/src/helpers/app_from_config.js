@@ -42,6 +42,9 @@ function app_from_config(config)
         problems_check: null,
         // What the last check asked and heard, the good with the bad, by key (health_from_views)
         health_seen: {checked_at: null, items: new Map()},
+        // The Security page's last look at each machine, by name, and the looks going on now
+        // (security_check)
+        security: {seen: new Map(), running: new Map()},
         // Where the service door ended up, once it is open
         listen_port: null,
         // What went through each forward, by label: since this serviceman started, and the

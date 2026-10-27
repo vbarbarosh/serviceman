@@ -17,7 +17,7 @@ const health_pane = {
         <span :class="summary.state">{{ summary.text }}</span>
         <span class="muted health-checked" :title="checked_title">{{ checked_text }}</span>
     </div>
-    <p class="muted">Looked at every minute: whether each machine is here and has room, its agent, updates, Docker and firewall; whether each service answers the way a visitor's request reaches it; whether Logline takes every machine's lines; whether each forward listens. A problem shows once it is seen twice in a row, and goes once it is mended.</p>
+    <p class="muted">Looked at every minute: whether each machine is here and has room, its agent, updates, Docker and firewall, and what the Security page last found there; whether each service answers the way a visitor's request reaches it; whether Logline takes every machine's lines; whether each forward listens. A problem shows once it is seen twice in a row, and goes once it is mended.</p>
     <section v-for="item of problems" :key="item.key" class="card problem">
         <div class="problem-head">
             <span class="dot failed"/>
@@ -42,7 +42,7 @@ const health_pane = {
                 <template v-else>
                     <span v-if="(checks_in(row, column.key).length === 0)" class="muted">—</span>
                     <div v-for="check of checks_in(row, column.key)" :key="check.key" class="dt-state" :class="check.state" :title="((more || (check.detail === null)) ? '' : check.detail)">
-                        <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}<span v-if="(more && (check.detail !== null))" class="dt-detail">{{ check.detail }}</span>
+                        <span class="dot" :class="dot_of(check.state)"/><button v-if="(check.key === 'security')" type="button" class="link" title="The Security page" @click="$emit('security')">{{ check.text }}</button><template v-else>{{ check.text }}</template><span v-if="(more && (check.detail !== null))" class="dt-detail">{{ check.detail }}</span>
                     </div>
                 </template>
             </template>
@@ -52,7 +52,7 @@ const health_pane = {
 `,
     components: {'data-table': data_table},
     props: ['state'],
-    emits: ['remote', 'select'],
+    emits: ['remote', 'security', 'select'],
     computed: {
         problems: function () {
             return (this.state.problems === undefined) ? [] : this.state.problems;
