@@ -1058,6 +1058,51 @@ a.tag:hover {
     50% { opacity: .25; }
 }
 
+/* Work going on, in front of the words that say what: a ring that turns for as long as it
+   lasts, so the page shows it moving rather than standing. In a button it takes the button's
+   colour; where motion is turned down it stands still, an open ring all the same. */
+.spin {
+    display: inline-block;
+    flex: none;
+    width: .85em;
+    height: .85em;
+    margin-right: .4em;
+    vertical-align: -.12em;
+    border: 2px solid var(--accent);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin .75s linear infinite;
+}
+
+button .spin {
+    border-color: currentColor;
+    border-right-color: transparent;
+}
+
+/* The ring stays on the line of the words it stands for, however narrow the button */
+button:has(.spin) {
+    white-space: nowrap;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* A machine's name, and beside it the look going on now, on one line */
+.security-when {
+    white-space: nowrap;
+}
+
+.security-when .spin {
+    margin-left: .35em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spin {
+        animation: none;
+    }
+}
+
 h1 {
     margin: 0 0 .2rem;
     font-size: 1.15rem;

@@ -55,7 +55,7 @@ const remote_shell = {
 <article v-else id="detail" class="terminal">
     <h1>{{ view.title || view.name }}</h1>
     <term-tabs :items="shown" :pick="pick" :machine="view.name" :error="error" :commands="picked_commands" @pick="pick = $event" @end="end" @create="create"/>
-    <p class="muted">{{ (loaded ? ('No terminals on ' + view.name + ': + opens one, and it keeps running when the page closes.') : 'opening…') }}</p>
+    <p class="muted"><span v-if="(loaded === false)" class="spin"/>{{ (loaded ? ('No terminals on ' + view.name + ': + opens one, and it keeps running when the page closes.') : 'opening…') }}</p>
 </article>
 `,
     components: {'term-tabs': term_tabs, terminal},

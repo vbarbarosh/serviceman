@@ -25,7 +25,7 @@ const logline_pane = {
     <div class="card logline-place">
         <div class="row-of">
             <b>On its machine</b>
-            <span v-if="(place === null)" class="muted">looking…</span>
+            <span v-if="(place === null)" class="muted"><span class="spin"/>looking…</span>
             <span v-else-if="(place.error !== undefined)" class="bad">{{ place.error }}</span>
             <span v-else-if="(place.differs === 0)" class="muted">{{ place.dir }} on {{ place.remote }}: the same as here</span>
             <span v-else class="busy">{{ place.dir }} on {{ place.remote }}: {{ place.differs }} {{ (place.differs === 1) ? 'file differs' : 'files differ' }} from here</span>
@@ -35,7 +35,7 @@ const logline_pane = {
             <li v-if="(place_changed.length > 8)" class="muted">and {{ place_changed.length - 8 }} more</li>
         </ul>
         <div class="actions">
-            <button type="button" class="primary" :disabled="update_off" :title="update_title" @click="update">{{ (updating ? 'Updating…' : 'Update Logline') }}</button>
+            <button type="button" class="primary" :disabled="update_off" :title="update_title" @click="update"><span v-if="updating" class="spin"/>{{ (updating ? 'Updating…' : 'Update Logline') }}</button>
             <span v-if="((run !== null) && (run.step !== null) && updating)" class="muted">{{ run.step.at }} of {{ run.step.of }}: {{ run.step.name }}</span>
         </div>
         <pre v-if="((run !== null) && (run.text !== ''))" class="logline-run">{{ run.text }}</pre>
@@ -95,7 +95,7 @@ const logline_pane = {
             <div class="actions">
                 <button type="button" :disabled="saving" @click="logline_save">Save</button>
                 <button v-if="(logline !== null)" type="button" @click="editing = false">Cancel</button>
-                <span :class="(form_bad ? 'bad' : 'muted')">{{ form_note }}</span>
+                <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
             </div>
         </div>
     </div>

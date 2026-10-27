@@ -82,7 +82,7 @@ const service_status = {
     <copy-progress v-if="((view.copy !== null) && (view.copy !== undefined))" :copy="view.copy"/>
     <template v-else-if="(view.doing !== null)">
         <div class="meter"><i :style="{width: (view.progress === null ? '100%' : (Math.round(view.progress * 100) + '%'))}"/></div>
-        <p class="muted">{{ view.doing }}{{ view.progress_text === null ? '' : ' · ' + view.progress_text }}</p>
+        <p class="muted"><span class="spin"/>{{ view.doing }}{{ view.progress_text === null ? '' : ' · ' + view.progress_text }}</p>
     </template>
     <p v-if="error_shown" class="bad">{{ view.error }}</p>
     <pre v-if="(tail !== '')" class="tail">{{ tail }}</pre>
@@ -242,7 +242,7 @@ const config_editor = {
         <button type="button" :disabled="busy" @click="save">Save</button>
         <button type="button" :disabled="busy" @click="load">Load again</button>
         <button type="button" @click="$emit('close')">Close</button>
-        <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
     </footer>
 </div>
 `,
@@ -512,7 +512,7 @@ const remote_configure = {
             <span class="cfg-icon" v-html="icon('robot')"></span>
             <b>Agent</b>
             <span v-if="(agent_pill !== null)" class="pill" :class="agent_pill.tone">{{ agent_pill.text }}</span>
-            <button type="button" class="cfg-act" :class="{primary: behind}" :disabled="(offline || updating)" @click="agent_update">{{ (updating ? 'asking…' : (behind ? 'Update the agent' : 'Fetch it again anyway')) }}</button>
+            <button type="button" class="cfg-act" :class="{primary: behind}" :disabled="(offline || updating)" @click="agent_update"><span v-if="updating" class="spin"/>{{ (updating ? 'asking…' : (behind ? 'Update the agent' : 'Fetch it again anyway')) }}</button>
         </div>
         <dl>
             <dt>Running</dt>
@@ -531,7 +531,7 @@ const remote_configure = {
             <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
             <template v-if="(known && apt_able)">
                 <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
-                <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop">{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
+                <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop"><span v-if="cancelling" class="spin"/>{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
             </template>
         </div>
         <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
@@ -542,7 +542,7 @@ const remote_configure = {
             <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping every config file you changed.</p>
             <p v-if="(updates !== null && updates.reboot)" class="muted">An installed update wants the machine restarted.</p>
             <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
-            <p v-if="(apt.phase === 'running')" class="muted">installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
+            <p v-if="(apt.phase === 'running')" class="muted"><span class="spin"/>installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
             <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
             <p v-if="(apt.phase === 'cancelled')" class="muted">Stopped where it stood. A run stopped in the middle of installing may leave a package half-set-up: <code>sudo dpkg --configure -a</code> on that machine finishes what was interrupted, and the Shell tab is one click away.</p>
             <p v-if="(apt.phase === 'error')" class="bad">{{ apt.error }}</p>
@@ -560,7 +560,7 @@ const remote_configure = {
         <div class="cfg-head">
             <span class="cfg-icon" v-html="icon('monitor')"></span>
             <b>Screen</b>
-            <button v-if="(known && shot_able)" type="button" class="cfg-act" :disabled="(shooting || offline)" @click="shoot">{{ (shooting ? 'asking…' : 'Take a picture') }}</button>
+            <button v-if="(known && shot_able)" type="button" class="cfg-act" :disabled="(shooting || offline)" @click="shoot"><span v-if="shooting" class="spin"/>{{ (shooting ? 'asking…' : 'Take a picture') }}</button>
         </div>
         <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
         <p v-else-if="(shot_able === false)" class="muted">The agent on this machine is from before screenshots.</p>
@@ -964,7 +964,7 @@ const remote_logline = {
                 <button type="button" class="danger" :disabled="busy" @click="save('off')">Turn it off</button>
                 <button type="button" @click="asking_off = false">Keep sending</button>
             </template>
-            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+            <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
         </div>
         <dl v-if="(view.logline.logs === 'all')">
             <dt>Sends to</dt>
@@ -1024,7 +1024,7 @@ const remote_logline = {
             <div class="actions">
                 <button type="button" :disabled="saving" @click="dirs_save">Save</button>
                 <button type="button" @click="dirs_editing = false">Cancel</button>
-                <span :class="(form_bad ? 'bad' : 'muted')">{{ form_note }}</span>
+                <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
             </div>
         </div>
     </div>
@@ -1531,11 +1531,13 @@ const service_page = {
                     Restart
                 </button>
                 <button v-if="(view.image !== null)" type="button" :disabled="waiting" title="Ask the registry for that image again. A tag is not a version — this is what fetches one that was pushed over it. What is running is made again from what comes down." @click="$emit('pull', view)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M4 20h16"/><path d="M17 7.5a5 5 0 0 0-9.6-1.2A3.6 3.6 0 0 0 8 13"/></svg>
+                    <svg v-if="(view.doing === null)" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M4 20h16"/><path d="M17 7.5a5 5 0 0 0-9.6-1.2A3.6 3.6 0 0 0 8 13"/></svg>
+                    <span v-else class="spin"/>
                     {{ (view.doing === null ? 'Pull' : 'Pulling…') }}
                 </button>
                 <button v-if="(view.installs === true && view.app_folder === null)" type="button" :disabled="waiting" title="Run the install line again in an empty folder, then start what came back. Storage and secrets stay." @click="$emit('update', view)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+                    <svg v-if="(view.doing === null)" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+                    <span v-else class="spin"/>
                     {{ (view.doing === null ? 'Fetch again' : 'Fetching…') }}
                 </button>
                 <template v-if="(view.app_folder !== null)">
@@ -1555,7 +1557,7 @@ const service_page = {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15.5 4.5H6a1.5 1.5 0 0 0-1.5 1.5v9.5"/></svg>
                 Clone
             </button>
-            <span v-if="(waiting && view.doing === null)" class="muted">{{ view.phase }}…</span>
+            <span v-if="(waiting && view.doing === null)" class="muted"><span class="spin"/>{{ view.phase }}…</span>
             <span v-if="(view.type === 'external')" class="muted">runs somewhere else — serviceman only answers for it</span>
         </div>
         <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">Logs in Logline ↗</a>

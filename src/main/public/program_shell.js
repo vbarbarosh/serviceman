@@ -27,7 +27,7 @@ const program_shell = {
         <p><button type="button" @click="open">Open again</button></p>
     </template>
     <p v-else-if="(error !== null)" class="bad">{{ error }} <button type="button" class="link" @click="open">Try again</button></p>
-    <p v-else class="muted">opening…</p>
+    <p v-else class="muted"><span class="spin"/>opening…</p>
 </article>
 `,
     components: {terminal},

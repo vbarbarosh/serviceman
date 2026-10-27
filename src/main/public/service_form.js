@@ -530,7 +530,7 @@ const service_form = {
             </template>
         </div>
         <div v-if="(section.open && section.last && creating === false)" class="svc-foot">
-            <button type="button" class="primary" :disabled="busy" @click="section_save">{{ busy ? 'saving…' : 'Save' }}</button>
+            <button type="button" class="primary" :disabled="busy" @click="section_save"><span v-if="busy" class="spin"/>{{ busy ? 'saving…' : 'Save' }}</button>
             <button type="button" :disabled="busy" @click="section_cancel">Cancel</button>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </div>
@@ -551,7 +551,7 @@ const service_form = {
     </div>
     <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
     <div v-if="creating" class="svc-create">
-        <button type="button" class="primary" :disabled="busy" @click="create">{{ busy ? 'creating…' : 'Create service' }}</button>
+        <button type="button" class="primary" :disabled="busy" @click="create"><span v-if="busy" class="spin"/>{{ busy ? 'creating…' : 'Create service' }}</button>
         <button type="button" @click="$emit('close')">Cancel</button>
         <button v-if="simple" type="button" class="link" @click="all_settings">All settings…</button>
         <span v-if="(problem_count > 0)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>

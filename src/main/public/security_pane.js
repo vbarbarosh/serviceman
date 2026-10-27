@@ -27,8 +27,8 @@ const security_pane = {
     <div class="list-head">
         <h1>Security</h1>
         <span :class="summary.state">{{ summary.text }}</span>
-        <span class="muted security-checked" :title="checked_title">{{ checked_text }}</span>
-        <button type="button" :disabled="(asking || checking)" @click="check_again">{{ (checking ? 'Checking…' : 'Check again') }}</button>
+        <span class="muted security-checked" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
+        <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
     </div>
     <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported. A click on a row says what stands behind each check, and opens the tab that mends it.</p>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
@@ -38,10 +38,10 @@ const security_pane = {
                 <span class="dt-state" :class="row.state"><span class="dot" :class="dot_of(row.state)"/></span>
                 <button type="button" class="link" :title="('The page of ' + row.name)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
                 <span v-if="(row.phase !== 'online')" class="muted security-when"> offline</span>
-                <span v-else-if="row.checking" class="muted security-when"> looking now</span>
+                <span v-else-if="row.checking" class="muted security-when"> <span class="spin"/>looking now</span>
                 <span v-if="(more && (row.at !== null))" class="dt-detail">looked at {{ format_ms(Math.max(0, state.now - row.at)) }} ago</span>
             </template>
-            <span v-else-if="(row.checks.length === 0)" class="muted">{{ note_of(row) }}</span>
+            <span v-else-if="(row.checks.length === 0)" class="muted"><span v-if="((row.error === null) && row.checking)" class="spin"/>{{ note_of(row) }}</span>
             <template v-else>
                 <div v-for="check of checks_in(row, column.key)" :key="check.key" class="dt-state" :class="check.state" :title="((more || (check.detail === null)) ? '' : check.detail)">
                     <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}
@@ -94,10 +94,13 @@ const security_pane = {
             const times = this.rows.map(v => v.at).filter(v => v !== null);
             return (times.length === 0) ? null : Math.max(...times);
         },
+        // How many machines are being looked at now
+        looking: function () {
+            return this.rows.filter(v => v.checking).length;
+        },
         checked_text: function () {
-            const looking = this.rows.filter(v => v.checking).length;
-            if (looking > 0) {
-                return `looking at ${looking} ${(looking === 1) ? 'machine' : 'machines'}`;
+            if (this.looking > 0) {
+                return `looking at ${this.looking} ${(this.looking === 1) ? 'machine' : 'machines'}`;
             }
             return (this.last_at === null) ? '' : `checked ${format_ms(Math.max(0, this.state.now - this.last_at))} ago`;
         },

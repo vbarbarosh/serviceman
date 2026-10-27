@@ -47,7 +47,7 @@ const logline_days = {
             </div>
             <p class="muted">{{ keep_text }}</p>
         </template>
-        <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
+        <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</p>
     </template>
 </div>
 `,

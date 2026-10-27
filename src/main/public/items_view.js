@@ -64,7 +64,7 @@ const items_view = {
         <input v-if="searched" v-model.trim="query" type="search" :placeholder="search_said" spellcheck="false" :aria-label="search_said">
         <slot name="tools" :items="all"/>
         <span class="list-right">
-            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
             <span v-if="(is_tree && list_able)" class="seg">
                 <button type="button" :class="{on: (sort === null)}" title="Each under the one it belongs to" @click="sort = null">Tree</button>
                 <button type="button" :class="{on: (sort !== null)}" title="One list, sorted by a column: click its header" @click="list_show">List</button>

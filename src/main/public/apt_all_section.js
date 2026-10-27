@@ -11,7 +11,7 @@ const apt_all_section = {
             <b>Install updates</b>
             <span class="muted">{{ ticked.length }} of {{ rows.length }}</span>
             <span class="list-acts">
-                <button type="button" class="primary" :disabled="(ticked.length === 0 || sending)" @click="start">{{ (sending ? 'starting…' : 'Install on ' + ticked.length) }}</button>
+                <button type="button" class="primary" :disabled="(ticked.length === 0 || sending)" @click="start"><span v-if="sending" class="spin"/>{{ (sending ? 'starting…' : 'Install on ' + ticked.length) }}</button>
                 <button type="button" @click="$emit('close')">Close</button>
             </span>
         </div>
@@ -31,7 +31,7 @@ const apt_all_section = {
             <b>{{ (ended ? 'Updates on ' + batch.remotes.length + ' ' + ((batch.remotes.length === 1) ? 'machine' : 'machines') : 'Installing on ' + batch.remotes.length) }}</b>
             <span class="muted">{{ summary }}</span>
             <span class="list-acts">
-                <button v-if="(ended === false)" type="button" :disabled="cancelling" @click="cancel">{{ (cancelling ? 'stopping…' : 'Cancel all') }}</button>
+                <button v-if="(ended === false)" type="button" :disabled="cancelling" @click="cancel"><span v-if="cancelling" class="spin"/>{{ (cancelling ? 'stopping…' : 'Cancel all') }}</button>
                 <button v-else type="button" @click="$emit('close')">Close</button>
             </span>
         </div>

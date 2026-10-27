@@ -141,7 +141,7 @@ const load_tests_pane = {
                     <div v-for="note of (row.said || [])" :key="note.text" class="muted">{{ note.count.toLocaleString() }} {{ (note.users ? ((note.count === 1) ? 'user got' : 'users got') : '×') }} {{ note.text }}</div>
                 </div>
                 <div v-if="(log_id === row.id)" class="lt-room">
-                    <p v-if="(log_text === null)" :class="(log_bad ? 'bad' : 'muted')">{{ log_note }}</p>
+                    <p v-if="(log_text === null)" :class="(log_bad ? 'bad' : 'muted')"><span v-if="(log_bad === false)" class="spin"/>{{ log_note }}</p>
                     <pre v-else class="lt-lines">{{ log_text }}</pre>
                 </div>
             </template>

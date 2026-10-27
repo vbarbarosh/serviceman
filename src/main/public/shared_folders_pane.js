@@ -34,7 +34,7 @@ const shared_folders_pane = {
     <p class="muted">A folder that is the same on every machine that mounts it, each at a path of its own, read-write or read-only. The files are encrypted on each machine before they leave it; their names stay in Redis on the home.</p>
     <div class="card sf-card sf-home">
         <template v-if="(view === null)">
-            <p class="muted">{{ (load_error === '') ? 'reading…' : load_error }}</p>
+            <p class="muted"><span v-if="(load_error === '')" class="spin"/>{{ (load_error === '') ? 'reading…' : load_error }}</p>
         </template>
         <template v-else-if="((home === null) || (home.phase === 'failed'))">
             <p v-if="(home === null)">Shared folders need a home: one of your VPSes, where Redis keeps the names and Garage keeps the bytes, both in docker, reached over the tailnet.</p>
@@ -118,7 +118,7 @@ const shared_folders_pane = {
                 <span v-else-if="(column.key === 'mode')" class="pill" :class="{running: (row.mode === 'rw')}">{{ (row.mode === 'rw') ? 'read-write' : 'read-only' }}</span>
                 <span v-else-if="(column.key === 'state')" class="dt-state">
                     <span class="dot" :class="state_of(row).dot"/>
-                    <span :class="{bad: (state_of(row).dot === 'failed')}">{{ state_label(row) }}</span>
+                    <span :class="{bad: (state_of(row).dot === 'failed')}"><span v-if="(row.leaving === true)" class="spin"/>{{ state_label(row) }}</span>
                 </span>
             </template>
             <template #below="{row}">
