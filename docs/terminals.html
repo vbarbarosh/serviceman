@@ -754,7 +754,9 @@ of <code>SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT S
 front (<code>to: &quot;foreground&quot;</code>; SIGINT there is Ctrl-C, SIGWINCH tells a full-screen program to draw
 itself again).</p>
 <p><strong>End:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/end</code> hangs the shell up, as closing a
-terminal window does; whoever has it open sees it close. Typing <code>exit</code> in it does the same.</p>
+terminal window does; whoever has it open sees it close. Typing <code>exit</code> in it does the same. A
+job the shell left in the background runs on, without the terminal. A holder from an agent
+before 1.27.3, its shell gone and a job still holding the terminal on, is ended outright.</p>
 <p><strong>Join:</strong> <code>POST /api/v1/remotes/&lt;remote&gt;/terminals/&lt;name&gt;/join</code> answers a stream that goes
 both ways, <code>{&quot;stream&quot;: &quot;s_…&quot;, &quot;url&quot;: &quot;/api/v1/streams/s_…&quot;}</code>; open a websocket at that <code>url</code>,
 with the same token, within a minute. A stream is joined once: ask again to join again. The
@@ -770,8 +772,9 @@ it printed before, and scrolls back through it.</li>
 <code>{&quot;type&quot;: &quot;resize&quot;, &quot;cols&quot;: 120, &quot;rows&quot;: 40}</code> sets the size. Send a resize first: a new
 terminal starts at 80×24. A message that is not one of these, input that is not text, or a
 size no terminal has (whole numbers from 1 to 4096) is dropped.</li>
-<li>Closing the socket leaves the terminal running. It ends when someone types <code>exit</code> in it,
-or ends it as above, and then the socket closes from the far end.</li>
+<li>Closing the socket leaves the terminal running. It ends when its shell ends (someone types
+<code>exit</code> in it, or ends it as above), however many jobs the shell left holding the terminal
+on, and then the socket closes from the far end.</li>
 </ul>
 <h2 id="who-may-connect"><a class="anchor" href="#who-may-connect" aria-hidden="true" tabindex="-1">#</a>Who may connect</h2>
 <p>The control page answers only the machine it runs on: a program there connects; one on another
@@ -855,7 +858,10 @@ node demos/terminal-client/attach.js laptop work       # joins work here; Ctrl-]
 <p><code>tests/remote.test.js</code>, &quot;a terminal kept on a machine outlives its page and its agent, and its tab ends it&quot;: a real agent; the client lists, joins,
 types, leaves, the agent is killed and started again, and joined again the terminal hands back
 what it printed; ended, it closes for whoever had it open and leaves the list.</p>
-<p>The same file, &quot;a terminal is made with the variables and the folder asked for&quot;: the shell has them, a terminal
+<p><code>tests/agent_term.test.js</code>: a kept terminal, a machine shell and a web terminal end with
+their shell, a job left in the background running on; a holder from before 1.27.3, its shell
+gone, is ended with its files.</p>
+<p>The same file as the first, &quot;a terminal is made with the variables and the folder asked for&quot;: the shell has them, a terminal
 running already keeps its own, a bad name, a value that is not text and a missing folder are
 refused without repeating the value, and so is an agent from before them.</p>
 

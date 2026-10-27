@@ -8,7 +8,8 @@
 // The socket carries the terminal as it is, bytes both ways, so `socat` joins it by hand. The
 // size is not in the stream: it is written to the .size file and the holder is sent SIGWINCH.
 // The .json beside it says who it is and how many are joined. Ending the shell ends the holder
-// and takes its files with it.
+// and takes its files with it, as closing a window does: what the shell left running in the
+// background may hold the terminal on, and is left to run without it.
 //
 //     python3 -c agent_term_holder_py <base> <cols> <rows> <argv...>
 const agent_term_holder_py = `
@@ -39,6 +40,42 @@ def meta_write():
         json.dump({'pid': os.getpid(), 'shell_pid': pid, 'created_at': created_at, 'clients': len(clients)}, f)
     os.replace(base + '.json.part', base + '.json')
 
+def pass_on(data):
+    global history
+    history += data
+    if len(history) > HISTORY:
+        # Cut at a line, so the first thing replayed is not half an escape
+        cut = history.find(b'\\n', len(history) - HISTORY)
+        del history[:(cut + 1 if cut != -1 else len(history) - HISTORY)]
+    for client in list(clients):
+        try:
+            client.sendall(data)
+        except OSError:
+            clients.remove(client)
+            client.close()
+            meta_write()
+
+# What the shell printed last (its "logout") is still on its way when it ends: it is passed on,
+# and nothing more is waited for
+def last_words():
+    for _ in range(64):
+        if not select.select([fd], [], [], 0)[0]:
+            break
+        try:
+            data = os.read(fd, 65536)
+        except OSError:
+            break
+        if not data:
+            break
+        pass_on(data)
+
+history = bytearray()
+clients = []
+# The shell's end wakes the loop below: SIGCHLD writes a byte into this pipe
+wake_r, wake_w = os.pipe()
+os.set_blocking(wake_w, False)
+signal.set_wakeup_fd(wake_w)
+signal.signal(signal.SIGCHLD, lambda signum, frame: None)
 pid, fd = pty.fork()
 if pid == 0:
     os.execvp(sys.argv[4], sys.argv[4:])
@@ -54,15 +91,18 @@ server.bind(base + '.sock')
 os.chmod(base + '.sock', 0o600)
 server.listen(8)
 signal.signal(signal.SIGWINCH, size_read)
-history = bytearray()
-clients = []
 meta_write()
 try:
     while True:
         try:
-            ready, _, _ = select.select([server, fd] + clients, [], [])
+            ready, _, _ = select.select([server, fd, wake_r] + clients, [], [])
         except InterruptedError:
             continue
+        if wake_r in ready:
+            os.read(wake_r, 256)
+            if os.waitpid(pid, os.WNOHANG)[0] == pid:
+                last_words()
+                break
         if server in ready:
             client, _ = server.accept()
             try:
@@ -78,18 +118,7 @@ try:
                 break
             if not data:
                 break
-            history += data
-            if len(history) > HISTORY:
-                # Cut at a line, so the first thing replayed is not half an escape
-                cut = history.find(b'\\n', len(history) - HISTORY)
-                del history[:(cut + 1 if cut != -1 else len(history) - HISTORY)]
-            for client in list(clients):
-                try:
-                    client.sendall(data)
-                except OSError:
-                    clients.remove(client)
-                    client.close()
-                    meta_write()
+            pass_on(data)
         for client in [v for v in clients if v in ready]:
             try:
                 data = client.recv(65536)

@@ -47,7 +47,9 @@ front (`to: "foreground"`; SIGINT there is Ctrl-C, SIGWINCH tells a full-screen 
 itself again).
 
 **End:** `POST /api/v1/remotes/<remote>/terminals/<name>/end` hangs the shell up, as closing a
-terminal window does; whoever has it open sees it close. Typing `exit` in it does the same.
+terminal window does; whoever has it open sees it close. Typing `exit` in it does the same. A
+job the shell left in the background runs on, without the terminal. A holder from an agent
+before 1.27.3, its shell gone and a job still holding the terminal on, is ended outright.
 
 **Join:** `POST /api/v1/remotes/<remote>/terminals/<name>/join` answers a stream that goes
 both ways, `{"stream": "s_…", "url": "/api/v1/streams/s_…"}`; open a websocket at that `url`,
@@ -64,8 +66,9 @@ stays.
   `{"type": "resize", "cols": 120, "rows": 40}` sets the size. Send a resize first: a new
   terminal starts at 80×24. A message that is not one of these, input that is not text, or a
   size no terminal has (whole numbers from 1 to 4096) is dropped.
-- Closing the socket leaves the terminal running. It ends when someone types `exit` in it,
-  or ends it as above, and then the socket closes from the far end.
+- Closing the socket leaves the terminal running. It ends when its shell ends (someone types
+  `exit` in it, or ends it as above), however many jobs the shell left holding the terminal
+  on, and then the socket closes from the far end.
 
 ## Who may connect
 
@@ -162,6 +165,10 @@ terminals, for a developer to see how the files API is used:
 types, leaves, the agent is killed and started again, and joined again the terminal hands back
 what it printed; ended, it closes for whoever had it open and leaves the list.
 
-The same file, "a terminal is made with the variables and the folder asked for": the shell has them, a terminal
+`tests/agent_term.test.js`: a kept terminal, a machine shell and a web terminal end with
+their shell, a job left in the background running on; a holder from before 1.27.3, its shell
+gone, is ended with its files.
+
+The same file as the first, "a terminal is made with the variables and the folder asked for": the shell has them, a terminal
 running already keeps its own, a bad name, a value that is not text and a missing folder are
 refused without repeating the value, and so is an agent from before them.

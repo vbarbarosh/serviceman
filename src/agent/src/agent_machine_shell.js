@@ -8,20 +8,49 @@ const os = require('os');
 // the shell under a real one. Fd 3 carries the resizes, because the bytes on stdin are the
 // person typing and nothing else.
 const PTY_PY = `
-import fcntl, os, pty, select, struct, sys, termios
+import fcntl, os, pty, select, signal, struct, sys, termios
 
 def resize(fd, cols, rows):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
 
+# What the program printed last (a shell's "logout") is still on its way when it ends: it is
+# passed on, and what it left running in the background, holding the pty, is not waited for
+def last_words():
+    for _ in range(64):
+        if not select.select([fd], [], [], 0)[0]:
+            break
+        try:
+            data = os.read(fd, 65536)
+        except OSError:
+            break
+        if not data:
+            break
+        os.write(1, data)
+
+# The resizes are for this loop alone: a job the program leaves in the background, holding
+# fd 3 on, would keep the pipe open, and the terminal with it, after the program and this end
+os.set_inheritable(3, False)
+# The program's end wakes the loop below: SIGCHLD writes a byte into this pipe
+wake_r, wake_w = os.pipe()
+os.set_blocking(wake_w, False)
+signal.set_wakeup_fd(wake_w)
+signal.signal(signal.SIGCHLD, lambda signum, frame: None)
 pid, fd = pty.fork()
 if pid == 0:
     os.execvp(sys.argv[3], sys.argv[3:])
 resize(fd, int(sys.argv[1]), int(sys.argv[2]))
 while True:
     try:
-        ready, _, _ = select.select([0, fd, 3], [], [])
+        ready, _, _ = select.select([0, fd, 3, wake_r], [], [])
+    except InterruptedError:
+        continue
     except OSError:
         break
+    if wake_r in ready:
+        os.read(wake_r, 256)
+        if os.waitpid(pid, os.WNOHANG)[0] == pid:
+            last_words()
+            break
     if 0 in ready:
         data = os.read(0, 65536)
         if not data:
