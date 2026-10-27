@@ -48,7 +48,7 @@ function machine_row(remote, views, seen, problems)
         checks.push(mem_check(machine));
         checks.push(cpu_check(machine));
         checks.push(servermon_check(machine));
-        checks.push(updates_check(machine.updates));
+        checks.push(updates_check(machine.updates, views.now));
         checks.push(docker_check(name, machine, seen, problems));
         checks.push(seen_check('firewall', 'Firewall', `firewall:${name}`, seen));
         if (remote.doors !== null) {

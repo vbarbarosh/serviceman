@@ -387,6 +387,17 @@ upgrade, with what `upgrade` keeps back. What apt keeps back even so, mostly pha
 Ubuntu hands out to a few machines at a time, is shown apart as **held back**: it is not
 waiting on you, and Install does not count it.
 
+The count is as fresh as apt's package lists: an update published after the last
+`apt-get update` is in no count until the lists are fetched again. The root half fetches them
+itself once they are older than 6 hours (looking every ten minutes; after a fetch that failed,
+an hour later), and marks a fetch that went well as apt marks its daily one, in
+`/var/lib/apt/periodic/update-success-stamp`. A machine with no root half, or whose fetch
+fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
+Security page, its Overview, its Configure tab and the rows of **Install updates on N** no
+longer say **up to date** there but **lists 9 days old**, and why. Its Overview says when the
+lists were fetched (**Lists**), and its Configure tab offers **Fetch the lists and install**:
+Install fetches them first in any case.
+
 **Install updates on N**, at the top of **Remotes**, does the same on every machine the list
 shows that has something waiting: the filter and the chips narrow it, and each machine can be
 unticked. They all start at once, each its own apt, with a row each for how it goes and its last

@@ -1585,6 +1585,14 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>root_shared_keep_error</code></td>
 <td>On a machine: a mount or the home failed, and why; said once per reason.</td>
 </tr>
+<tr>
+<td><code>root_apt_lists_fetched</code></td>
+<td>On a machine: the root half fetched apt&#39;s package lists, older than 6 hours; <code>took_ms=</code>, <code>age_ms=</code> how old they were.</td>
+</tr>
+<tr>
+<td><code>root_apt_lists_error</code></td>
+<td>On a machine: that fetch failed; <code>code=</code> apt&#39;s, <code>reason=</code> its errors; said once per reason, tried again an hour on.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>

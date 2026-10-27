@@ -1,3 +1,5 @@
+import updates_lists from './updates_lists.js';
+
 // What Install them on a machine's Configure tab does, on every machine the Remotes list shows:
 // pick them, then a row for each while apt runs there, all at once. The runs belong to
 // serviceman, not to this page: closed and opened again, it finds them where they are.
@@ -76,6 +78,11 @@ const apt_all_section = {
                 }
                 // Held back is waiting on Ubuntu's phasing, not on an install: said, never ticked
                 const held = (updates.held > 0) ? ` · ${updates.held} held back` : '';
+                // Lists days old count nothing since: the machine's Configure tab fetches them
+                const lists = updates_lists(updates, Date.now());
+                if ((updates.pending === 0) && (lists !== null) && lists.old) {
+                    return Object.assign(row, {text: `lists ${lists.days} days old${held}`});
+                }
                 if (updates.pending === 0) {
                     return Object.assign(row, {tone: 'running', text: `up to date${held}`});
                 }

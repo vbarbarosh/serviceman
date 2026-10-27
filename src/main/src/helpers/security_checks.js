@@ -29,7 +29,7 @@ function security_checks(seen, updates, now)
         open_check(seen),
         firewall_check(seen),
         ssh_check(seen),
-        updates_of(updates),
+        updates_of(updates, now),
         auto_check(seen),
         system_check(seen, now),
     ];
@@ -178,9 +178,9 @@ function failures_line(failures)
     return `${failures.count.toLocaleString('en-US')} failed sign-in tries in the last ${failures.hours} hours (a wrong password, an unknown user, no key), from ${failures.addresses.toLocaleString('en-US')} ${(failures.addresses === 1) ? 'address' : 'addresses'}${top}.`;
 }
 
-function updates_of(updates)
+function updates_of(updates, now)
 {
-    const said = updates_check(updates);
+    const said = updates_check(updates, now);
     if (said === null) {
         return check('updates', 'Updates', 'none', 'not counted', 'Its agent has not counted its updates.', null);
     }

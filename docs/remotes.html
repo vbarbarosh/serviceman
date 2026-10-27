@@ -1041,6 +1041,16 @@ knows of, changes. Ubuntu&#39;s own count, on its login banner, is larger: it co
 upgrade, with what <code>upgrade</code> keeps back. What apt keeps back even so, mostly phased updates
 Ubuntu hands out to a few machines at a time, is shown apart as <strong>held back</strong>: it is not
 waiting on you, and Install does not count it.</p>
+<p>The count is as fresh as apt&#39;s package lists: an update published after the last
+<code>apt-get update</code> is in no count until the lists are fetched again. The root half fetches them
+itself once they are older than 6 hours (looking every ten minutes; after a fetch that failed,
+an hour later), and marks a fetch that went well as apt marks its daily one, in
+<code>/var/lib/apt/periodic/update-success-stamp</code>. A machine with no root half, or whose fetch
+fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
+Security page, its Overview, its Configure tab and the rows of <strong>Install updates on N</strong> no
+longer say <strong>up to date</strong> there but <strong>lists 9 days old</strong>, and why. Its Overview says when the
+lists were fetched (<strong>Lists</strong>), and its Configure tab offers <strong>Fetch the lists and install</strong>:
+Install fetches them first in any case.</p>
 <p><strong>Install updates on N</strong>, at the top of <strong>Remotes</strong>, does the same on every machine the list
 shows that has something waiting: the filter and the chips narrow it, and each machine can be
 unticked. They all start at once, each its own apt, with a row each for how it goes and its last

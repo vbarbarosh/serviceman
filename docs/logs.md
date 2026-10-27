@@ -434,6 +434,8 @@ keeps its own copy, so a machine with no link still writes its log.
 | `shared_tell_error`       | Telling it failed, and why; tried again every minute, said once per reason. |
 | `root_shared_keep_line`   | On a machine: the root half's minute mounted, unmounted or started something. |
 | `root_shared_keep_error`  | On a machine: a mount or the home failed, and why; said once per reason. |
+| `root_apt_lists_fetched`  | On a machine: the root half fetched apt's package lists, older than 6 hours; `took_ms=`, `age_ms=` how old they were. |
+| `root_apt_lists_error`    | On a machine: that fetch failed; `code=` apt's, `reason=` its errors; said once per reason, tried again an hour on. |
 
 ### Logline
 

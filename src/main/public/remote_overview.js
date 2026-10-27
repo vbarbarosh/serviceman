@@ -10,6 +10,7 @@ import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
 import remote_uptime from './remote_uptime.js';
 import to_clipboard from './to_clipboard.js';
+import updates_lists from './updates_lists.js';
 
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
@@ -103,12 +104,17 @@ const remote_overview = {
             </overview-card>
             <overview-card v-if="(updates !== null)" icon="download" title="Updates" tab="configure" go="Configure" @tab="$emit('tab', $event)">
                 <template #aside>
-                    <span v-if="(updates.pending === 0)" class="pill running">up to date</span>
+                    <span v-if="((updates.pending === 0) && (lists !== null) && lists.old)" class="pill">lists {{ lists.days }} days old</span>
+                    <span v-else-if="(updates.pending === 0)" class="pill running">up to date</span>
                     <span v-else-if="((updates.pending > 0) && (updates.security > 0))" class="pill failed">{{ updates.security }} security</span>
                     <span v-else-if="(updates.pending > 0)" class="pill starting">{{ updates.pending }} to install</span>
                 </template>
                 <dt>Waiting</dt>
                 <dd>{{ updates_waiting }}</dd>
+                <template v-if="(lists !== null)">
+                    <dt>Lists</dt>
+                    <dd :class="(lists.old ? 'bad' : '')" :title="(lists.old ? 'What was published since is not counted; Install fetches them first' : '')">fetched {{ lists.ago }}</dd>
+                </template>
                 <template v-if="updates.reboot">
                     <dt>Restart</dt>
                     <dd><span class="bad">an installed update wants one</span></dd>
@@ -223,6 +229,10 @@ const remote_overview = {
         },
         updates: function () {
             return (this.view.machine === null) ? null : this.view.machine.updates;
+        },
+        // How old apt's lists are, so how old the count is
+        lists: function () {
+            return updates_lists(this.updates, Date.now());
         },
         updates_waiting: function () {
             const updates = this.updates;

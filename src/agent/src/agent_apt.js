@@ -1,5 +1,8 @@
+const agent_apt_lists_at = require('./agent_apt_lists_at');
 const agent_updates = require('./agent_updates');
 const child_process = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const stream = require('stream');
 const stream_each = require('@vbarbarosh/node-helpers/src/stream_each');
 const stream_lines = require('@vbarbarosh/node-helpers/src/stream_lines');
@@ -13,25 +16,73 @@ const stream_terminal_text = require('../../helpers/stream_terminal_text');
 const ANSWERS = '-y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef';
 const KEEP_LINES = 200;
 const KILL_AFTER_MS = 10000;
+// A fetch of the lists still going after this is stopped: apt's own timeouts are a few
+// minutes a mirror
+const REFRESH_MAX_MS = 10*60*1000;
 
 // Installs what is waiting, saying every line as apt prints it. One run at a time on a
-// machine: two apt-gets at once is a lock fight, not twice the work.
-function agent_apt_upgrade(state, options, say)
+// machine: two apt-gets at once is a lock fight, not twice the work. A fetch of the lists
+// going on by itself (refresh) is waited for, since Install fetches them again anyway.
+async function agent_apt_upgrade(state, options, say)
 {
+    if ((state.apt_refresh !== undefined) && (state.apt_refresh !== null)) {
+        await state.apt_refresh;
+    }
     if ((state.apt !== undefined) && (state.apt !== null)) {
-        return Promise.resolve({ok: false, stderr: 'apt is already running on this machine'});
+        return {ok: false, stderr: 'apt is already running on this machine'};
     }
     // Both apt-gets are run through whatever this machine says apt-get is — `sudo -n apt-get`
     // where the agent is not root, so a sudoers line may name apt-get and nothing else; a line
     // that named a shell would be root with extra words.
     const apt = apt_command(options);
-    const line = `${apt} update && ${apt} ${ANSWERS} upgrade --with-new-pkgs`;
+    const ran = await apt_run(state, `${apt} update && ${apt} ${ANSWERS} upgrade --with-new-pkgs`, say);
+    const cancelled = (state.apt_cancelled === true);
+    state.apt_cancelled = false;
+    // What is waiting has just changed: the next answer is counted again
+    agent_updates.recount();
+    return {ok: (ran.code === 0), cancelled, code: ran.code, stdout: ran.stdout, stderr: ran.stderr};
+}
+
+// apt's package lists fetched again, with nobody asking: what the machine counts as waiting
+// is then what Install would find. Not while apt runs for anything else. A fetch that went
+// well is marked as apt marks its own daily one, so the lists' age says when apt last looked
+// even where no list changed.
+//
+//     -> {ok, skipped, code, stderr}
+function agent_apt_refresh(state, options)
+{
+    if (((state.apt !== undefined) && (state.apt !== null)) || ((state.apt_refresh !== undefined) && (state.apt_refresh !== null))) {
+        return Promise.resolve({ok: false, skipped: true, code: null, stderr: 'apt is already running on this machine'});
+    }
+    const base = (options.apt_root_dir === undefined) ? '' : options.apt_root_dir;
+    const promise = apt_run(state, `${apt_command(options)} -q update`, null, REFRESH_MAX_MS).then(function (ran) {
+        // Stopped by a Cancel meant for Install: that Install is not this
+        state.apt_cancelled = false;
+        if (ran.code === 0) {
+            stamp_touch(path.join(base, agent_apt_lists_at.STAMP));
+        }
+        agent_updates.recount();
+        return {ok: (ran.code === 0), skipped: false, code: ran.code, stderr: ran.stderr};
+    }).finally(function () {
+        state.apt_refresh = null;
+    });
+    state.apt_refresh = promise;
+    return promise;
+}
+
+// A shell line of apt-gets, its lines kept and said as they come. state.apt is the run going
+// from the first moment to the last, so nothing else starts apt meanwhile.
+//
+//     -> {code, stdout, stderr}: the last lines of each
+function apt_run(state, line, say, max_ms)
+{
     const child = child_process.spawn('/bin/sh', ['-c', line], {
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: true,
         env: Object.assign({}, process.env, {DEBIAN_FRONTEND: 'noninteractive'}),
     });
     state.apt = child;
+    const timer = (max_ms === undefined) ? null : setTimeout(() => kill(child.pid, 'SIGKILL'), max_ms);
     const kept = {stdout: [], stderr: []};
     function read(name, source) {
         return stream.promises.pipeline(source, stream_terminal_text(), stream_lines(), stream_each(function (text) {
@@ -54,19 +105,24 @@ function agent_apt_upgrade(state, options, say)
         });
     });
     return Promise.all([done, read('stdout', child.stdout), read('stderr', child.stderr)]).then(function (all) {
+        clearTimeout(timer);
         state.apt = null;
-        const cancelled = (state.apt_cancelled === true);
-        state.apt_cancelled = false;
-        // What is waiting has just changed: the next answer is counted again
-        agent_updates.recount();
-        return {
-            ok: (all[0] === 0),
-            cancelled,
-            code: all[0],
-            stdout: kept.stdout.join('\n').trim(),
-            stderr: kept.stderr.join('\n').trim(),
-        };
+        return {code: all[0], stdout: kept.stdout.join('\n').trim(), stderr: kept.stderr.join('\n').trim()};
     });
+}
+
+// Touched as `touch` does: made where it is missing, its time now where it is not
+function stamp_touch(file)
+{
+    try {
+        fs.mkdirSync(path.dirname(file), {recursive: true});
+        fs.closeSync(fs.openSync(file, 'a'));
+        const now = new Date();
+        fs.utimesSync(file, now, now);
+    }
+    catch {
+        // The lists are fetched all the same; their folder's time says it a little less well
+    }
 }
 
 // What apt-get is on this machine: as given, or with sudo in front of it where the agent is
@@ -113,5 +169,6 @@ function kill(pid, signal)
 }
 
 agent_apt_upgrade.cancel = agent_apt_cancel;
+agent_apt_upgrade.refresh = agent_apt_refresh;
 
 module.exports = agent_apt_upgrade;

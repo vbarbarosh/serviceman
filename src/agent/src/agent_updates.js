@@ -1,4 +1,5 @@
 const agent_apt_binary = require('./agent_apt_binary');
+const agent_apt_lists_at = require('./agent_apt_lists_at');
 const agent_shell = require('./agent_shell');
 const fs = require('fs');
 
@@ -18,6 +19,10 @@ const APT_STATE = ['/var/lib/dpkg/status', '/var/lib/apt/lists'];
 //
 // held: what apt keeps back even so, phased updates Ubuntu hands out a few machines at a time;
 // waiting on Ubuntu, not on anyone here, and not counted as to install.
+//
+// lists_at: when apt last fetched its package lists, which is how old the count is: what was
+// published since is in no count until they are fetched again (the root half does it every
+// six hours, Install each time).
 let counted = null;
 let counted_mark = null;
 let wanted = false;
@@ -31,14 +36,15 @@ async function agent_updates(options)
         counted = await counts_from_apt(options);
     }
     const reboot = fs.existsSync(REBOOT_FILE);
+    const lists_at = agent_apt_lists_at('');
     if (counted !== null) {
-        return {pending: counted.pending, security: counted.security, held: counted.held, reboot};
+        return {pending: counted.pending, security: counted.security, held: counted.held, reboot, lists_at};
     }
     const said = counts_from_file();
     if (said === null) {
-        return reboot ? {pending: null, security: null, held: null, reboot} : null;
+        return reboot ? {pending: null, security: null, held: null, reboot, lists_at} : null;
     }
-    return {pending: said.pending, security: said.security, held: null, reboot};
+    return {pending: said.pending, security: said.security, held: null, reboot, lists_at};
 }
 
 // Ask apt what the upgrade Install runs would install now. `-s` changes nothing and needs no

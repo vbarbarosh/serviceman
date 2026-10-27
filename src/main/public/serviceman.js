@@ -51,6 +51,7 @@ import snippet from './snippet.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
 import tokens_form from './tokens_form.js';
+import updates_lists from './updates_lists.js';
 import volumes_pane from './volumes_pane.js';
 
 import {createApp} from 'vue';
@@ -529,7 +530,7 @@ const remote_configure = {
             <b>Updates</b>
             <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
             <template v-if="(known && apt_able)">
-                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || updates.pending === 0)" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : 'Install them') }}</button>
+                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
                 <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop">{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
             </template>
         </div>
@@ -537,7 +538,7 @@ const remote_configure = {
         <p v-else-if="(apt_able === false)" class="muted">The agent on this machine is from before installing updates.</p>
         <template v-else>
             <p v-if="(updates === null)" class="muted">This machine says nothing about updates — it is not an ubuntu with update-notifier on it.</p>
-            <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.</p>
+            <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
             <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping every config file you changed.</p>
             <p v-if="(updates !== null && updates.reboot)" class="muted">An installed update wants the machine restarted.</p>
             <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
@@ -657,6 +658,13 @@ const remote_configure = {
         updates: function () {
             return (this.view.machine === null) ? null : this.view.machine.updates;
         },
+        // How old apt's lists are, so how old the count is; lists days old count nothing since
+        lists: function () {
+            return updates_lists(this.updates, Date.now());
+        },
+        lists_old: function () {
+            return (this.lists !== null) && this.lists.old;
+        },
         // The word beside each card's title: where the agent stands against the one served
         agent_pill: function () {
             if (this.served === null) {
@@ -676,6 +684,9 @@ const remote_configure = {
             }
             if (this.updates === null) {
                 return {tone: '', text: 'not known'};
+            }
+            if ((this.updates.pending === 0) && this.lists_old) {
+                return {tone: '', text: `lists ${this.lists.days} days old`};
             }
             if (this.updates.pending === 0) {
                 return {tone: 'running', text: 'up to date'};

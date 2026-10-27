@@ -1,4 +1,5 @@
 const agent_apt = require('./agent_apt');
+const agent_apt_lists_at = require('./agent_apt_lists_at');
 const agent_built = require('./agent_built');
 const agent_disk_usage = require('./agent_disk_usage');
 const agent_port_list = require('./agent_port_list');
@@ -19,6 +20,14 @@ const SOCKET_MODE = 0o600;
 // after a reboot or a home that was away, is mounted again
 const SHARED_KEEP_MS = 60000;
 const SHARED_FIRST_MS = 5000;
+// apt's package lists are fetched again once they are older than this, and after a fetch that
+// failed, no sooner than an hour on; looked at every ten minutes, the first a few minutes after
+// the start, out of the way of a machine that has just booted
+const LISTS_MAX_AGE_MS = 6*3600*1000;
+const LISTS_RETRY_MS = 3600*1000;
+const LISTS_EVERY_MS = 10*60*1000;
+const LISTS_FIRST_MS = 3*60*1000;
+const APT_GET = ['/usr/bin/apt-get', '/bin/apt-get'];
 
 // The root half of one machine. It dials nowhere and listens on nothing but a file: no port,
 // no link, no way in from another machine at all. What may reach it is whatever may open that
@@ -43,6 +52,7 @@ function agent_root_serve(options)
         const owner = owner_set(path, options);
         agent_say(boot, 'root_begin', {socket: path, user: owner, root: (process.getuid !== undefined) && (process.getuid() === 0)});
         shared_keep_start(options, boot);
+        apt_lists_keep_start(state, options, boot);
     });
     for (const signal of ['SIGINT', 'SIGTERM']) {
         process.on(signal, function () {
@@ -100,6 +110,59 @@ function shared_keep_start(options, group)
     }
     setTimeout(keep, SHARED_FIRST_MS);
     setInterval(keep, SHARED_KEEP_MS).unref();
+}
+
+// apt's package lists kept fresh, with nobody asking: the agent counts what is waiting from
+// them, and lists a week old count nothing published that week. What Install would find is
+// then what the machine says. A machine without apt has nothing to keep; a fetch that fails
+// says why once per reason.
+function apt_lists_keep_start(state, options, group)
+{
+    if (((options.apt === undefined) || (options.apt === '')) && (APT_GET.some(v => fs.existsSync(v)) === false)) {
+        return;
+    }
+    const base = (options.apt_root_dir === undefined) ? '' : options.apt_root_dir;
+    let tried = 0;
+    let said = null;
+    async function keep() {
+        const at = agent_apt_lists_at(base);
+        const now = Date.now();
+        if (((at !== null) && (now - at < LISTS_MAX_AGE_MS)) || (now - tried < LISTS_RETRY_MS)) {
+            return;
+        }
+        tried = now;
+        const answer = await agent_apt.refresh(state, options);
+        if (answer.skipped) {
+            // Install or another fetch is at it: the next look tries again
+            tried = 0;
+            return;
+        }
+        if (answer.ok) {
+            agent_say(group, 'root_apt_lists_fetched', {took_ms: Date.now() - now, age_ms: (at === null) ? undefined : (now - at)});
+            said = null;
+            return;
+        }
+        const reason = reason_of(answer);
+        if (reason !== said) {
+            agent_say(group, 'root_apt_lists_error', {code: answer.code, reason});
+        }
+        said = reason;
+    }
+    function keep_safe() {
+        keep().catch(function (error) {
+            agent_say(group, 'root_apt_lists_error', {reason: error.message});
+        });
+    }
+    setTimeout(keep_safe, LISTS_FIRST_MS).unref();
+    setInterval(keep_safe, LISTS_EVERY_MS).unref();
+}
+
+// What apt said of a fetch that failed: its errors, else its last line
+function reason_of(answer)
+{
+    const lines = answer.stderr.split('\n').map(v => v.trim()).filter(v => v !== '');
+    const errors = lines.filter(v => v.startsWith('E:'));
+    return ((errors.length > 0) ? errors.join(' ') : (lines.pop() || `it ended with ${answer.code}`)).slice(0, 500);
 }
 
 // What keeps this half up, taken away. Nothing else on the machine is touched: the unit is
