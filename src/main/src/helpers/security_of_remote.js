@@ -20,9 +20,10 @@ const WILDCARDS = ['*', '0.0.0.0', '::'];
 // with what its firewall does to each, and which of them answer from outside, knocked from here
 // at its public addresses. A part that cannot be asked says why, and the rest goes on.
 //
-//     out   {at, facts, rows, firewall, knocked, errors: {facts, ports, firewall}}
+//     out   {at, facts, rows, firewall, knocked, can_mend, errors: {facts, ports, firewall}}
 //           rows: the Firewall tab's rows (firewall_ports), each with knock: its answer or null
 //           knocked: {addresses, nat, skipped}: where it knocked, or why it did not
+//           can_mend: whether its agent mends with a click (security_mend)
 async function security_of_remote(app, remote)
 {
     const errors = {facts: null, ports: null, firewall: null};
@@ -51,7 +52,7 @@ async function security_of_remote(app, remote)
     if (knocked.skipped === null) {
         await knock_all(rows.filter(v => knock_wanted(v, knocked)).slice(0, KNOCKS_MAX), knocked);
     }
-    return {at: Date.now(), facts, rows, firewall, knocked, errors};
+    return {at: Date.now(), facts, rows, firewall, knocked, can_mend: remote_can(remote, 'security_mend'), errors};
 }
 
 async function facts_read(app, remote)

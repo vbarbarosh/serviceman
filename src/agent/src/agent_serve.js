@@ -499,6 +499,15 @@ async function method_run(options, state, method, params, say, group)
         // root half where there is one
         return await agent_security(options);
     }
+    if (method === 'security_mend') {
+        // Root's alone: sshd's files and apt's are no sudoers line's to write
+        return await agent_root_or(options, 'security_mend', {mend: params.mend}, undefined, function (why) {
+            if (why.root_old === true) {
+                throw new Error('the root half on this machine is from before the Security page\'s mends; it updates itself within half a minute — ask again then');
+            }
+            throw new Error('a click mends this only through the root agent, and this machine has none; its page says how to install it, or its Shell does it by hand');
+        });
+    }
     if (method === 'apt_upgrade') {
         // The root half of this machine does it where there is one; here, with sudo, where
         // there is not

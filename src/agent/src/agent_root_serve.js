@@ -6,6 +6,7 @@ const agent_port_list = require('./agent_port_list');
 const agent_root_refresh = require('./agent_root_refresh');
 const agent_root_socket = require('./agent_root_socket');
 const agent_say = require('./agent_say');
+const agent_security_mend = require('./agent_security_mend');
 const agent_security_sshd = require('./agent_security_sshd');
 const agent_shared = require('./agent_shared');
 const agent_ufw = require('./agent_ufw');
@@ -290,6 +291,11 @@ async function method_run(state, options, job, say)
     if (method === 'security_root') {
         // sshd's own word for what it runs with, and its journal: both are root's to read
         return await agent_security_sshd(options, {root: true});
+    }
+    if (method === 'security_mend') {
+        // What the Security page mends with a click: ssh's passwords off or on again, automatic
+        // updates on; each judged by sshd or apt before it holds
+        return await agent_security_mend(state, options, job.params);
     }
     if (method === 'volume') {
         return await agent_volume(options, job.params, say);

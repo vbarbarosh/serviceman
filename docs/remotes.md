@@ -456,7 +456,8 @@ firewall says it is updating. The module is `modules/firewall`, and its README h
 The **Security** page, under Health in the rail, says what each machine leaves open to harm: a
 row per machine, a column per check, the worst first, red where something is to be mended,
 orange where it wants a look, grey where there is nothing to say, and why. A click on a row
-shows what stands behind each check and opens the tab of the machine's page that mends it.
+shows what stands behind each check, and mends it with a click where the machine's root half
+can (below), else opens the tab of the machine's page that mends it.
 Each machine is looked over once an hour, as soon as it connects, and on **Check again**, which
 looks at every connected machine at once. A machine that is away keeps its last look, faded.
 Health has a Security column that leads there; nothing here counts as a problem.
@@ -482,7 +483,8 @@ tab draws it, Docker's published ports included; udp is never knocked.
 
 **What the agent reads,** and never changes: sshd's settings as `sshd -T` says them, and the
 failed sign-in tries of the last day in its journal (a wrong password, an unknown user, no key;
-counted as lines, from how many addresses), both through the root half where the machine has
+counted as lines, from how many addresses), and, where sshd takes passwords, who signed in over
+the last 30 days and how, by key or by password, all through the root half where the machine has
 one; without one, the agent reads sshd's files where it may, and says which it may not
 (Ubuntu's cloud images keep `sshd_config.d` root's alone). The release and the end of its
 support, from `/etc/os-release` and the machine's own `distro-info` list; whether
@@ -490,8 +492,22 @@ unattended-upgrades is installed and `APT::Periodic::Unattended-Upgrade` set; th
 Docker runs and the ports they publish. An agent from before 1.29.0 says none of it, and its
 row says so until it updates.
 
+**What a click mends,** through the machine's root half, the button saying what it does while
+it does it, the check as the look after it finds it:
+
+| Button                 | What it does                                                                                       |
+|------------------------|----------------------------------------------------------------------------------------------------|
+| Turn passwords off     | Writes `PasswordAuthentication no` and `KbdInteractiveAuthentication no` to `/etc/ssh/sshd_config.d/00-no-passwords.conf`, the first file sshd reads there, so it holds over a cloud image's `yes` without editing it; checks it with `sshd -t`, reloads ssh (`systemctl try-reload-or-restart`, ssh or sshd), and asks `sshd -T` whether passwords are off now. A file sshd refuses, or one that changes nothing (a `yes` above sshd_config's Include), is taken out again, and ssh goes on as it was. Sessions open stay open. Where someone signed in by password in the last 30 days and never by key, it asks first: ssh shuts them out, and the machine's Shell, over the agent's link, does not. |
+| Allow passwords again  | Shown where that file is what turned passwords off: takes it away and reloads ssh.                 |
+| Turn on (Auto updates) | Installs unattended-upgrades where it is missing (apt's lists fetched first), and sets `APT::Periodic::Update-Package-Lists` and `APT::Periodic::Unattended-Upgrade` to `"1"` in `/etc/apt/apt.conf.d/20auto-upgrades`, the rest of that file kept; apt-config says whether it holds. |
+
+A machine with no root half, or an agent from before 1.30.0, has no button: its check says how
+to do it by hand and opens the tab that does.
+
 `GET /api/v1/security` is the page as JSON; `POST /api/v1/security/check` is Check again, and
-answers the machines being looked at.
+answers the machines being looked at; `POST /api/v1/security/mend` `{"remote", "mend"}`
+(`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`) is a click, one at a time a
+machine, and answers once the machine has been looked at again.
 
 ## Its encrypted volumes
 

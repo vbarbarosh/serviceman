@@ -43,6 +43,29 @@ async function agent_apt_upgrade(state, options, say)
     return {ok: (ran.code === 0), cancelled, code: ran.code, stdout: ran.stdout, stderr: ran.stderr};
 }
 
+// Packages installed by name, the lists fetched first (a machine's may be too old to know the
+// package's version, or empty), as Install does it: one apt at a time, a fetch going on waited for
+//
+//     packages  names this agent chose, never a person's words
+//     ->        {ok, code, error}: error, apt's errors or its last line
+async function agent_apt_install(state, options, packages)
+{
+    if ((state.apt_refresh !== undefined) && (state.apt_refresh !== null)) {
+        await state.apt_refresh;
+    }
+    if ((state.apt !== undefined) && (state.apt !== null)) {
+        return {ok: false, code: null, error: 'apt is already running on this machine'};
+    }
+    const apt = apt_command(options);
+    // A fetch that fails for one source still leaves the rest fetched: the install is tried anyway
+    const ran = await apt_run(state, `${apt} -q update; ${apt} ${ANSWERS} install ${packages.join(' ')}`, null);
+    state.apt_cancelled = false;
+    agent_updates.recount();
+    const lines = ran.stderr.split('\n').map(v => v.trim()).filter(v => v !== '');
+    const errors = lines.filter(v => v.startsWith('E:'));
+    return {ok: (ran.code === 0), code: ran.code, error: (ran.code === 0) ? null : ((errors.length > 0) ? errors.join(' ') : (lines.pop() || `it ended with ${ran.code}`))};
+}
+
 // apt's package lists fetched again, with nobody asking: what the machine counts as waiting
 // is then what Install would find. Not while apt runs for anything else. A fetch that went
 // well is marked as apt marks its own daily one, so the lists' age says when apt last looked
@@ -170,5 +193,6 @@ function kill(pid, signal)
 
 agent_apt_upgrade.cancel = agent_apt_cancel;
 agent_apt_upgrade.refresh = agent_apt_refresh;
+agent_apt_upgrade.install = agent_apt_install;
 
 module.exports = agent_apt_upgrade;

@@ -379,6 +379,8 @@ test('a machine without sshd, apt or docker says so part by part', async functio
         os: {id: 'debian', version: '12', name: 'Debian GNU/Linux 12 (bookworm)', codename: 'bookworm', eol: null, eol_extended: null},
         ssh: {installed: false, read: null, error: null, password: null, kbd_interactive: null, use_pam: null, root_login: null, ports: []},
         failures: null,
+        sign_ins: null,
+        own_file: false,
         auto_updates: null,
         docker: null,
     });

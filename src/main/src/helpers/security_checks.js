@@ -13,6 +13,8 @@ const RISKY = {
 const MEANT = ['tcp/80', 'tcp/443', 'udp/443', 'udp/41641', 'udp/51820', 'udp/3478'];
 // How long before its end a release is said to be ending
 const ENDING_MS = 183*24*3600*1000;
+// What turning passwords off is, whoever does it
+const NO_PASSWORDS_HOW = 'PasswordAuthentication no and KbdInteractiveAuthentication no in /etc/ssh/sshd_config.d/00-no-passwords.conf, read before the other files, checked with sshd -t, then ssh reloaded';
 
 // What the Security page says of one machine, a check a column: what is open to the internet,
 // the firewall, ssh, updates, automatic updates and the release. Each is ok, warn (look at it),
@@ -138,7 +140,9 @@ function firewall_check(seen)
 }
 
 // Passwords sshd takes, and root signing in, as sshd itself says them where the root half could
-// ask it, else as its files say; the sign-ins that failed in the last day beside them
+// ask it, else as its files say; the sign-ins that failed in the last day beside them, and, where
+// it takes passwords, who signed in over 30 days and how. Its root half turns passwords off with
+// a click, and on again where that click's file is what turned them off.
 function ssh_check(seen)
 {
     if (seen.facts === null) {
@@ -154,13 +158,64 @@ function ssh_check(seen)
     }
     const how = (ssh.read === 'sshd -T') ? 'as sshd -T says them' : 'as its files say them';
     const kbd = (ssh.kbd_interactive === true) && (ssh.use_pam === true);
+    const able = mend_able(seen);
     if ((ssh.password === true) || kbd) {
         const setting = (ssh.password === true) ? 'PasswordAuthentication yes' : 'KbdInteractiveAuthentication yes with UsePAM yes';
-        const fix = 'Once your key signs in, set PasswordAuthentication no and KbdInteractiveAuthentication no in /etc/ssh/sshd_config and in every file of /etc/ssh/sshd_config.d that says yes, then: sudo systemctl reload ssh';
-        return check('ssh', 'SSH', 'bad', 'passwords on', [`${setting} (${how}): anyone may try passwords.`, tried, fix].filter(v => v !== null).join('\n'), 'shell');
+        const fix = (able === null) ? `Turn passwords off: ${NO_PASSWORDS_HOW}; a file sshd refuses is taken out again.` : `By hand, in its Shell (${able}): ${NO_PASSWORDS_HOW}.`;
+        const lines = [`${setting} (${how}): anyone may try passwords.`, tried, sign_ins_line(seen.facts.sign_ins), fix];
+        const mend = (able === null) ? {key: 'ssh_passwords_off', label: 'Turn passwords off', doing: 'Turning passwords off…', confirm: shut_out_said(seen.facts.sign_ins)} : null;
+        return check('ssh', 'SSH', 'bad', 'passwords on', lines.filter(v => v !== null).join('\n'), (mend === null) ? 'shell' : null, mend);
     }
     const root = (ssh.root_login === 'yes') ? ' Root may sign in, with a key.' : ((ssh.root_login === 'no') ? ' Root may not sign in.' : '');
-    return check('ssh', 'SSH', 'ok', 'keys only', [`Keys only (${how}).${root}`, tried].filter(v => v !== null).join('\n'), null);
+    const own = (seen.facts.own_file === true) ? 'Passwords are off by /etc/ssh/sshd_config.d/00-no-passwords.conf, the file Turn passwords off writes.' : null;
+    const mend = ((own !== null) && (able === null)) ? {key: 'ssh_passwords_on', label: 'Allow passwords again', doing: 'Allowing passwords…', confirm: 'ssh will take passwords again, and anyone may try them. Allow passwords again?'} : null;
+    return check('ssh', 'SSH', 'ok', 'keys only', [`Keys only (${how}).${root}`, tried, own].filter(v => v !== null).join('\n'), null, mend);
+}
+
+// Why a click cannot mend this machine, or null where it can: its root half does it
+function mend_able(seen)
+{
+    if (seen.can_mend !== true) {
+        return 'its agent is from before a click mends it';
+    }
+    if (seen.facts.root !== true) {
+        return 'a click needs the root agent, and it has none';
+    }
+    return null;
+}
+
+// Who signed in over the last days and how: by key, by password, or both
+function sign_ins_line(sign_ins)
+{
+    if ((sign_ins === null) || (sign_ins === undefined)) {
+        return null;
+    }
+    if (sign_ins.error !== undefined) {
+        return `Sign-ins not counted: ${sign_ins.error}`;
+    }
+    if (sign_ins.users.length === 0) {
+        return `Nobody signed in over ssh in the last ${sign_ins.days} days.`;
+    }
+    const users = sign_ins.users.map(function (v) {
+        const ways = [(v.key > 0) ? `${v.key} by key` : null, (v.password > 0) ? `${v.password} by password` : null, (v.other > 0) ? `${v.other} another way` : null].filter(vv => vv !== null);
+        return `${v.user}: ${ways.join(', ')}`;
+    });
+    const more = (sign_ins.more > 0) ? ` and ${sign_ins.more} more` : '';
+    return `Signed in over the last ${sign_ins.days} days: ${users.join('; ')}${more}.`;
+}
+
+// Asked before a click turns passwords off where someone came in by password and never by key:
+// ssh shuts them out; the machine's Shell, over the agent's link, does not
+function shut_out_said(sign_ins)
+{
+    if ((sign_ins === null) || (sign_ins === undefined) || (sign_ins.users === undefined)) {
+        return null;
+    }
+    const shut = sign_ins.users.filter(v => (v.password > 0) && (v.key === 0)).map(v => v.user);
+    if (shut.length === 0) {
+        return null;
+    }
+    return `${shut.join(', ')} signed in with a password in the last ${sign_ins.days} days and never with a key: ssh will shut ${(shut.length === 1) ? 'them' : 'them all'} out. serviceman's Shell stays open. Turn passwords off?`;
 }
 
 function failures_line(failures)
@@ -184,9 +239,10 @@ function updates_of(updates, now)
     if (said === null) {
         return check('updates', 'Updates', 'none', 'not counted', 'Its agent has not counted its updates.', null);
     }
-    return Object.assign(said, {tab: ((said.state === 'warn') && (said.text !== 'restart wanted')) ? 'configure' : null});
+    return Object.assign(said, {tab: ((said.state === 'warn') && (said.text !== 'restart wanted')) ? 'configure' : null, mend: null});
 }
 
+// Whether apt installs security updates by itself; its root half turns it on with a click
 function auto_check(seen)
 {
     if (seen.facts === null) {
@@ -196,11 +252,14 @@ function auto_check(seen)
     if ((auto === null) || (auto === undefined)) {
         return check('auto', 'Auto updates', 'none', 'not apt', 'Not a machine apt updates: nothing here to read.', null);
     }
+    const able = mend_able(seen);
+    const mend = (able === null) ? {key: 'auto_updates_on', label: 'Turn on', doing: 'Turning on…', confirm: null} : null;
+    const how = 'Turn on installs unattended-upgrades where it is missing and sets APT::Periodic::Unattended-Upgrade "1" in /etc/apt/apt.conf.d/20auto-upgrades.';
     if (auto.installed === false) {
-        return check('auto', 'Auto updates', 'warn', 'not installed', 'unattended-upgrades is not installed: security updates wait for somebody to install them.\nsudo apt install unattended-upgrades', 'shell');
+        return check('auto', 'Auto updates', 'warn', 'not installed', ['unattended-upgrades is not installed: security updates wait for somebody to install them.', (able === null) ? how : `By hand, in its Shell (${able}): sudo apt install unattended-upgrades`].join('\n'), (mend === null) ? 'shell' : null, mend);
     }
     if (auto.on === false) {
-        return check('auto', 'Auto updates', 'warn', 'off', `unattended-upgrades is installed and off (APT::Periodic::Unattended-Upgrade is ${(auto.setting === null) ? 'not set' : `"${auto.setting}"`}).\nsudo dpkg-reconfigure -plow unattended-upgrades`, 'shell');
+        return check('auto', 'Auto updates', 'warn', 'off', [`unattended-upgrades is installed and off (APT::Periodic::Unattended-Upgrade is ${(auto.setting === null) ? 'not set' : `"${auto.setting}"`}).`, (able === null) ? how : `By hand, in its Shell (${able}): sudo dpkg-reconfigure -plow unattended-upgrades`].join('\n'), (mend === null) ? 'shell' : null, mend);
     }
     return check('auto', 'Auto updates', 'ok', 'on', 'unattended-upgrades installs security updates by itself.', null);
 }
@@ -231,9 +290,11 @@ function system_check(seen, now)
     return check('system', 'System', 'ok', version, `${os.name}: supported until ${os.eol}.`, null);
 }
 
-function check(key, label, state, text, detail, tab)
+// mend: what a click mends here, {key, label, doing, confirm}, or null; tab: the tab of the
+// machine's page that mends it by hand, where a click cannot
+function check(key, label, state, text, detail, tab, mend)
 {
-    return {key, label, state, text, detail: (detail === undefined) ? null : detail, tab};
+    return {key, label, state, text, detail: (detail === undefined) ? null : detail, tab, mend: (mend === undefined) ? null : mend};
 }
 
 module.exports = security_checks;

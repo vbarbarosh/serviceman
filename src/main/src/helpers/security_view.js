@@ -8,14 +8,16 @@ const RANK = {bad: 0, warn: 1, ok: 2, none: 3};
 // so an upgrade shows at once rather than at the next look.
 //
 //     remotes   the machines' views, as the page gets them (view_from_remote)
-//     out       {checking, rows: [{remote, name, phase, state, at, checking, error, checks}],
+//     out       {checking, rows: [{remote, name, phase, state, at, checking, mending, error, checks}],
 //                counts: {bad, warn}}: the checks to mend and to look at, every machine's
 function security_view(app, remotes, now)
 {
     const rows = remotes.map(function (view) {
         const seen = app.security.seen.get(view.name);
         const checking = app.security.running.has(view.name);
-        const out = {remote: view.name, name: view.title || view.name, phase: view.phase, state: 'none', at: null, checking, error: null, checks: []};
+        // The mend a click started there and that has not ended: its button says so, whoever looks
+        const mending = app.security.mending.has(view.name) ? app.security.mending.get(view.name) : null;
+        const out = {remote: view.name, name: view.title || view.name, phase: view.phase, state: 'none', at: null, checking, mending, error: null, checks: []};
         if (seen === undefined) {
             return out;
         }

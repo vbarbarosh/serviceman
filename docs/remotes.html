@@ -1100,7 +1100,8 @@ firewall says it is updating. The module is <code>modules/firewall</code>, and i
 <p>The <strong>Security</strong> page, under Health in the rail, says what each machine leaves open to harm: a
 row per machine, a column per check, the worst first, red where something is to be mended,
 orange where it wants a look, grey where there is nothing to say, and why. A click on a row
-shows what stands behind each check and opens the tab of the machine&#39;s page that mends it.
+shows what stands behind each check, and mends it with a click where the machine&#39;s root half
+can (below), else opens the tab of the machine&#39;s page that mends it.
 Each machine is looked over once an hour, as soon as it connects, and on <strong>Check again</strong>, which
 looks at every connected machine at once. A machine that is away keeps its last look, faded.
 Health has a Security column that leads there; nothing here counts as a problem.</p>
@@ -1148,15 +1149,43 @@ does not come from outside. Where nobody knocks, the machine&#39;s own view deci
 tab draws it, Docker&#39;s published ports included; udp is never knocked.</p>
 <p><strong>What the agent reads,</strong> and never changes: sshd&#39;s settings as <code>sshd -T</code> says them, and the
 failed sign-in tries of the last day in its journal (a wrong password, an unknown user, no key;
-counted as lines, from how many addresses), both through the root half where the machine has
+counted as lines, from how many addresses), and, where sshd takes passwords, who signed in over
+the last 30 days and how, by key or by password, all through the root half where the machine has
 one; without one, the agent reads sshd&#39;s files where it may, and says which it may not
 (Ubuntu&#39;s cloud images keep <code>sshd_config.d</code> root&#39;s alone). The release and the end of its
 support, from <code>/etc/os-release</code> and the machine&#39;s own <code>distro-info</code> list; whether
 unattended-upgrades is installed and <code>APT::Periodic::Unattended-Upgrade</code> set; the containers
 Docker runs and the ports they publish. An agent from before 1.29.0 says none of it, and its
 row says so until it updates.</p>
+<p><strong>What a click mends,</strong> through the machine&#39;s root half, the button saying what it does while
+it does it, the check as the look after it finds it:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Button</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Turn passwords off</td>
+<td>Writes <code>PasswordAuthentication no</code> and <code>KbdInteractiveAuthentication no</code> to <code>/etc/ssh/sshd_config.d/00-no-passwords.conf</code>, the first file sshd reads there, so it holds over a cloud image&#39;s <code>yes</code> without editing it; checks it with <code>sshd -t</code>, reloads ssh (<code>systemctl try-reload-or-restart</code>, ssh or sshd), and asks <code>sshd -T</code> whether passwords are off now. A file sshd refuses, or one that changes nothing (a <code>yes</code> above sshd_config&#39;s Include), is taken out again, and ssh goes on as it was. Sessions open stay open. Where someone signed in by password in the last 30 days and never by key, it asks first: ssh shuts them out, and the machine&#39;s Shell, over the agent&#39;s link, does not.</td>
+</tr>
+<tr>
+<td>Allow passwords again</td>
+<td>Shown where that file is what turned passwords off: takes it away and reloads ssh.</td>
+</tr>
+<tr>
+<td>Turn on (Auto updates)</td>
+<td>Installs unattended-upgrades where it is missing (apt&#39;s lists fetched first), and sets <code>APT::Periodic::Update-Package-Lists</code> and <code>APT::Periodic::Unattended-Upgrade</code> to <code>&quot;1&quot;</code> in <code>/etc/apt/apt.conf.d/20auto-upgrades</code>, the rest of that file kept; apt-config says whether it holds.</td>
+</tr>
+</tbody></table>
+</div>
+<p>A machine with no root half, or an agent from before 1.30.0, has no button: its check says how
+to do it by hand and opens the tab that does.</p>
 <p><code>GET /api/v1/security</code> is the page as JSON; <code>POST /api/v1/security/check</code> is Check again, and
-answers the machines being looked at.</p>
+answers the machines being looked at; <code>POST /api/v1/security/mend</code> <code>{&quot;remote&quot;, &quot;mend&quot;}</code>
+(<code>ssh_passwords_off</code>, <code>ssh_passwords_on</code>, <code>auto_updates_on</code>) is a click, one at a time a
+machine, and answers once the machine has been looked at again.</p>
 <h2 id="its-encrypted-volumes"><a class="anchor" href="#its-encrypted-volumes" aria-hidden="true" tabindex="-1">#</a>Its encrypted volumes</h2>
 <p>An encrypted volume is one file on one machine&#39;s disk, LUKS with ext4 inside, opened at a folder
 of that machine: a stolen disk or snapshot shows random bytes and a size. The <strong>Storage</strong> page

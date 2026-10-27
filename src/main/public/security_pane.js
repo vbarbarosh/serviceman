@@ -19,8 +19,9 @@ const COLUMNS = [
 
 // What each machine leaves open to harm, worst first: a row per machine, a column per check,
 // as the last look at it found. A click on a row shows what stands behind each check at the foot
-// of the view, with the tab of the machine's page that mends it. Each machine is looked at once
-// an hour and when it connects; Check again looks at every one now.
+// of the view, and mends it with a click where its root half can (ssh's passwords, automatic
+// updates), else opens the tab of the machine's page that mends it. Each machine is looked at
+// once an hour and when it connects; Check again looks at every one now.
 const security_pane = {
     template: `
 <article id="detail" class="list security">
@@ -30,7 +31,7 @@ const security_pane = {
         <span class="muted security-checked" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
         <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
     </div>
-    <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported. A click on a row says what stands behind each check, and opens the tab that mends it.</p>
+    <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
     <data-table :columns="COLUMNS" :rows="rows" row_key="remote" :row_class="row_class" :more="more" empty="No machines yet: a machine is looked at once its agent dials in.">
         <template #cell="{row, column, more}">
@@ -46,7 +47,9 @@ const security_pane = {
                 <div v-for="check of checks_in(row, column.key)" :key="check.key" class="dt-state" :class="check.state" :title="((more || (check.detail === null)) ? '' : check.detail)">
                     <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}
                     <span v-if="(more && (check.detail !== null))" class="dt-detail">{{ check.detail }}</span>
-                    <button v-if="(more && (check.tab !== null) && (check.state !== 'ok') && (row.phase === 'online'))" type="button" class="security-mend" @click="$emit('tab', {remote: row.remote, tab: check.tab})">Open {{ TAB_NAMES[check.tab] }}</button>
+                    <button v-if="(more && (check.mend !== null) && (row.phase === 'online'))" type="button" class="security-mend primary" :disabled="(mending_of(row) !== null)" @click="mend(row, check)"><span v-if="(mending_of(row) === check.mend.key)" class="spin"/>{{ ((mending_of(row) === check.mend.key) ? check.mend.doing : check.mend.label) }}</button>
+                    <button v-else-if="(more && (check.tab !== null) && (check.state !== 'ok') && (row.phase === 'online'))" type="button" class="security-mend" @click="$emit('tab', {remote: row.remote, tab: check.tab})">Open {{ TAB_NAMES[check.tab] }}</button>
+                    <span v-if="(more && (mend_errors[row.remote + ' ' + check.key] !== undefined))" class="dt-detail bad">{{ mend_errors[row.remote + ' ' + check.key] }}</span>
                 </div>
             </template>
         </template>
@@ -59,7 +62,10 @@ const security_pane = {
     data: function () {
         // asked: Check again was pressed and its looks have not shown in the status yet, so the
         // button says Checking from the click on, not a second later
-        return {COLUMNS, TAB_NAMES, asking: false, asked: false, error: null};
+        // mends: the mend a click started on each machine, until a look after it shows; the
+        // status says it too, for a page opened meanwhile. mend_errors: why one failed, by
+        // machine and check, under that check.
+        return {COLUMNS, TAB_NAMES, asking: false, asked: false, error: null, mends: {}, mend_errors: {}};
     },
     computed: {
         security: function () {
@@ -143,6 +149,44 @@ const security_pane = {
                 return 'Looked at once it is back.';
             }
             return 'Not looked at yet: within a minute.';
+        },
+        // The mend going on at a machine: the one clicked here, from the click until a look
+        // after it shows, else the one the status says another page started
+        mending_of: function (row) {
+            const mine = this.mends[row.remote];
+            if ((mine !== undefined) && ((row.at === null) || (row.at < mine.at))) {
+                return mine.key;
+            }
+            return (row.mending === undefined) ? null : row.mending;
+        },
+        // A check mended by the machine's root half. Where it may shut someone out, it asks
+        // first. The button says it is at work from the click on; the check changes with the
+        // look that follows, and a failure is said under it.
+        mend: async function (row, check) {
+            if ((check.mend.confirm !== null) && (window.confirm(check.mend.confirm) === false)) {
+                return;
+            }
+            const at = Date.now();
+            const said = `${row.remote} ${check.key}`;
+            this.mends = Object.assign({}, this.mends, {[row.remote]: {key: check.mend.key, at}});
+            this.mend_errors = Object.fromEntries(Object.entries(this.mend_errors).filter(v => v[0] !== said));
+            let failed = null;
+            try {
+                const answer = await fetch('/api/v1/security/mend', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({remote: row.remote, mend: check.mend.key})});
+                if (answer.ok === false) {
+                    failed = (await answer.json()).error;
+                }
+            }
+            catch {
+                failed = 'the answer never came back';
+            }
+            if (failed !== null) {
+                this.mend_errors = Object.assign({}, this.mend_errors, {[said]: failed});
+                this.mends = Object.fromEntries(Object.entries(this.mends).filter(v => v[0] !== row.remote));
+                return;
+            }
+            // Done and looked at again: the status brings that look within a moment
+            setTimeout(() => (this.mends = Object.fromEntries(Object.entries(this.mends).filter(v => (v[0] !== row.remote) || (v[1].at !== at)))), 10000);
         },
         check_again: async function () {
             this.asking = true;

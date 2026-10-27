@@ -180,6 +180,73 @@ test('Check again looks at every machine, and the status carries what it found',
     }
 });
 
+// A click mends what the machine's root half can: ssh's passwords off, asking first where
+// someone came in only by password; passwords on again where the page's own file turned them
+// off; automatic updates on. An agent from before, or no root half, opens the tab instead.
+test('a check its root half can mend has a button, one it cannot opens the tab that mends it', function () {
+    const sign_ins = {days: 30, users: [{user: 'admin', key: 47, password: 0, other: 0}, {user: 'deploy', key: 0, password: 3, other: 0}], more: 0};
+    const open = security_checks(seen_of({can_mend: true, facts: facts({ssh: ssh({password: true}), sign_ins, auto_updates: {installed: false, on: false, setting: null}})}), null, NOW);
+    const ssh_open = open.find(v => v.key === 'ssh');
+    assert.deepStrictEqual([ssh_open.state, ssh_open.tab, ssh_open.mend.key, ssh_open.mend.label], ['bad', null, 'ssh_passwords_off', 'Turn passwords off']);
+    assert.match(ssh_open.detail, /\nSigned in over the last 30 days: admin: 47 by key; deploy: 3 by password\.\nTurn passwords off: PasswordAuthentication no and KbdInteractiveAuthentication no in \/etc\/ssh\/sshd_config\.d\/00-no-passwords\.conf/);
+    assert.strictEqual(ssh_open.mend.confirm, 'deploy signed in with a password in the last 30 days and never with a key: ssh will shut them out. serviceman\'s Shell stays open. Turn passwords off?');
+    const auto = open.find(v => v.key === 'auto');
+    assert.deepStrictEqual([auto.state, auto.tab, auto.mend.key, auto.mend.label], ['warn', null, 'auto_updates_on', 'Turn on']);
+
+    const keys = security_checks(seen_of({can_mend: true, facts: facts({ssh: ssh({password: true}), sign_ins: {days: 30, users: [{user: 'admin', key: 47, password: 0, other: 0}], more: 0}})}), null, NOW);
+    assert.strictEqual(keys.find(v => v.key === 'ssh').mend.confirm, null, 'nobody is shut out: no question');
+
+    const shut = security_checks(seen_of({can_mend: true, facts: facts({own_file: true})}), null, NOW).find(v => v.key === 'ssh');
+    assert.deepStrictEqual([shut.state, shut.text, shut.mend.key, shut.mend.label], ['ok', 'keys only', 'ssh_passwords_on', 'Allow passwords again']);
+    assert.match(shut.detail, /Passwords are off by \/etc\/ssh\/sshd_config\.d\/00-no-passwords\.conf, the file Turn passwords off writes\.$/);
+    assert.strictEqual(security_checks(seen_of({can_mend: true}), null, NOW).find(v => v.key === 'ssh').mend, null, 'keys only by another file: nothing to undo');
+
+    const older = security_checks(seen_of({can_mend: false, facts: facts({ssh: ssh({password: true})})}), null, NOW).find(v => v.key === 'ssh');
+    assert.deepStrictEqual([older.tab, older.mend], ['shell', null]);
+    assert.match(older.detail, /By hand, in its Shell \(its agent is from before a click mends it\): PasswordAuthentication no/);
+    const rootless = security_checks(seen_of({can_mend: true, facts: facts({root: false, ssh: ssh({password: true}), auto_updates: {installed: true, on: false, setting: '0'}})}), null, NOW);
+    assert.deepStrictEqual(rootless.filter(v => v.mend !== null), [], 'no root half: nothing to click');
+    assert.match(rootless.find(v => v.key === 'ssh').detail, /\(a click needs the root agent, and it has none\)/);
+});
+
+// The mend is refused for a mend it does not know and a machine it does not have; a machine
+// with no root half says so, the refusal is logged, and the machine is not left marked as mended
+test('a mend is refused for what it does not know, and a machine with no root half says why', async function () {
+    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'ui1', token: TOKEN}], services: []}, __dirname);
+    const app = app_from_config(config);
+    const servers = await server_start(app);
+    const control_port = servers.control.address().port;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-security-'));
+    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', path.join(dir, 'no-root.sock'), '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore']});
+    try {
+        const remote = app.remote_by_name.ui1;
+        await wait_until(() => (remote.state.phase === 'online') && (remote.state.resources !== null) && remote.state.resources.can.includes('security_mend'), 15000);
+        const unknown = await control(control_port, 'POST', '/api/v1/security/mend', {remote: 'ui1', mend: 'rm -rf /'});
+        assert.deepStrictEqual([unknown.status, unknown.body.error], [400, 'mend is one of ssh_passwords_off, ssh_passwords_on, auto_updates_on']);
+        const nobody = await control(control_port, 'POST', '/api/v1/security/mend', {remote: 'ghost', mend: 'ssh_passwords_off'});
+        assert.deepStrictEqual([nobody.status, nobody.body.error], [404, 'no remote named "ghost"']);
+        const rootless = await control(control_port, 'POST', '/api/v1/security/mend', {remote: 'ui1', mend: 'ssh_passwords_off'});
+        assert.deepStrictEqual([rootless.status, rootless.body.error], [502, 'remote ui1: a click mends this only through the root agent, and this machine has none; its page says how to install it, or its Shell does it by hand']);
+        assert.strictEqual(app.security.mending.size, 0);
+        assert.ok(app.log_lines.some(v => /\[security_mend_error\] remote=ui1 mend=ssh_passwords_off reason=/.test(v)), 'the refusal is in the log');
+    }
+    finally {
+        agent.kill('SIGKILL');
+        for (const item of app.remotes) {
+            if (item.state.socket !== null) {
+                item.state.socket.destroy();
+            }
+        }
+        for (const door of [servers.server, servers.control, servers.socket]) {
+            if ((door !== null) && (door !== undefined)) {
+                door.close();
+                door.closeAllConnections();
+            }
+        }
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // What security_of_remote answers of a machine, with the given parts in place of the defaults:
 // one Ubuntu 24.04 VPS at 203.0.113.7 with ufw on, keys only and nothing knocked yet
 function seen_of(parts)
@@ -233,9 +300,9 @@ async function port_free()
     return port;
 }
 
-async function control(port, method, pathname)
+async function control(port, method, pathname, body)
 {
-    const answer = await fetch_host({port, host: '127.0.0.1', path: pathname, method});
+    const answer = await fetch_host({port, host: '127.0.0.1', path: pathname, method, body: (body === undefined) ? undefined : JSON.stringify(body), headers: (body === undefined) ? {} : {'content-type': 'application/json'}});
     return {status: answer.status, body: JSON.parse(answer.body)};
 }
 

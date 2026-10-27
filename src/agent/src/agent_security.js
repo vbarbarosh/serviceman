@@ -23,12 +23,16 @@ const ROOT_OLD = 'the root half here is older than this check and updates itself
 // (`root`), the agent's own user what it may where it has none. Every part is read, never
 // changed, and one that cannot be read says why rather than failing the rest.
 //
-//     -> {root, os, ssh, failures, auto_updates, docker}
+//     -> {root, os, ssh, failures, sign_ins, own_file, auto_updates, docker}
+//        sign_ins: who signed in over 30 days and how, where ssh takes passwords; own_file:
+//        whether the Security page's file turned them off
 async function agent_security(options)
 {
     const base = (options.security_root_dir === undefined) ? '' : options.security_root_dir;
     const answers = await Promise.all([sshd_read(options), os_read(base), auto_updates_read(base), docker_read(options)]);
-    return {root: answers[0].root, os: answers[1], ssh: answers[0].ssh, failures: answers[0].failures, auto_updates: answers[2], docker: answers[3]};
+    const sshd = answers[0];
+    // A root half from before the sign-ins says neither
+    return {root: sshd.root, os: answers[1], ssh: sshd.ssh, failures: sshd.failures, sign_ins: (sshd.sign_ins === undefined) ? null : sshd.sign_ins, own_file: (sshd.own_file === true), auto_updates: answers[2], docker: answers[3]};
 }
 
 async function sshd_read(options)

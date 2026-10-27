@@ -126,6 +126,10 @@ const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
 const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages(\/.*)?$/;
 // ps and ss answer at once; the wait is for a machine thinking about it
 const MACHINE_READ_TIMEOUT_MS = 15000;
+// What the Security page mends with a click, and how long one may take: installing
+// unattended-upgrades fetches apt's lists first
+const SECURITY_MENDS = ['ssh_passwords_off', 'ssh_passwords_on', 'auto_updates_on'];
+const SECURITY_MEND_TIMEOUT_MS = 6*60*1000;
 // A count of a whole disk reads every folder on it; the agent gives up a little before this
 const DISK_USAGE_TIMEOUT_MS = 300000;
 const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
@@ -333,6 +337,10 @@ async function control_answer(app, req, res)
         // follows each look in its status
         security_check(app, true);
         send_json(res, 202, {checking: Array.from(app.security.running.keys())});
+        return;
+    }
+    if ((url.pathname === '/api/v1/security/mend') && (req.method === 'POST')) {
+        await handle_security_mend(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/apt-upgrade') && (req.method === 'GET')) {
@@ -1041,6 +1049,51 @@ function handle_apt_all_read(app, res)
         });
     }
     send_json(res, 200, {batch: {started_at: batch.started_at, ended_at: batch.ended_at, held: batch.held, remotes: rows}});
+}
+
+// POST /api/v1/security/mend {"remote": "vps1", "mend": "ssh_passwords_off"}
+// What a check of the Security page mends with a click, done by the machine's root half: ssh's
+// passwords off, or on again where the page's own file turned them off, and automatic updates on.
+// One at a time a machine. The answer comes once it is done and the machine has been looked at
+// again, so the page shows the check as it now is; meanwhile its status says what is being mended.
+async function handle_security_mend(app, req, res)
+{
+    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    if (SECURITY_MENDS.includes(body.mend) === false) {
+        send_json(res, 400, {error: `mend is one of ${SECURITY_MENDS.join(', ')}`});
+        return;
+    }
+    const remote = (typeof body.remote === 'string') ? app.remote_by_name[body.remote] : undefined;
+    if (remote === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(body.remote)}`});
+        return;
+    }
+    if (remote.state.phase !== 'online') {
+        send_json(res, 409, {error: `${remote.name} is not connected`});
+        return;
+    }
+    if (remote_can(remote, 'security_mend') === false) {
+        send_json(res, 400, {error: `the agent on ${remote.name} is from before the Security page's mends; it is asked to update, and can once it has`});
+        return;
+    }
+    if (app.security.mending.has(remote.name)) {
+        send_json(res, 409, {error: `${remote.name} is being mended already: ${app.security.mending.get(remote.name)}`});
+        return;
+    }
+    app.security.mending.set(remote.name, body.mend);
+    try {
+        await remote_call(app, remote, 'security_mend', {mend: body.mend}, SECURITY_MEND_TIMEOUT_MS);
+        log_event(app, 'security_mended', {remote: remote.name, mend: body.mend});
+    }
+    catch (error) {
+        log_event(app, 'security_mend_error', {remote: remote.name, mend: body.mend, reason: error.message});
+        app.security.mending.delete(remote.name);
+        send_json(res, 502, {error: error.message});
+        return;
+    }
+    await security_check.one(app, remote);
+    app.security.mending.delete(remote.name);
+    send_json(res, 200, {remote: remote.name, mend: body.mend});
 }
 
 // POST /api/v1/apt-upgrade {"remotes": ["vps1", "vps2"]}

@@ -30,6 +30,27 @@ function security_check(app, force)
     return out;
 }
 
+// One machine looked at again now, after a look going on there ends: what a click mended shows
+// in the next look, never in one that read the machine before it
+security_check.one = async function (app, remote) {
+    const going = app.security.running.get(remote.name);
+    if (going !== undefined) {
+        await going;
+    }
+    // One started meanwhile read the machine after the mend: that one is waited for
+    const again = app.security.running.get(remote.name);
+    if (again !== undefined) {
+        await again;
+        return;
+    }
+    if (remote.state.phase !== 'online') {
+        return;
+    }
+    const promise = look(app, remote);
+    app.security.running.set(remote.name, promise);
+    await promise;
+};
+
 async function look(app, remote)
 {
     const name = remote.name;
