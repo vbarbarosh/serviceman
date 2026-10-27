@@ -35,6 +35,8 @@ import module_kind from './module_kind.js';
 //     more           (item, key) => whether that cell has more to say in the row's bar
 //     reading        what is said while the list is read, when it takes a while
 //     empty          what is said when there is no item at all
+//     empty_busy     true while that is work going on (the module still asking its machines):
+//                    a ring turns in front of it
 //     none_shown     what is said when the module's filter leaves none
 //     head           false for a table with no row of column headers
 //     actions_label  the header of the actions' column
@@ -77,7 +79,7 @@ const items_view = {
         </span>
     </div>
     <slot name="summary" :items="all" :matches="matches" :answer="answer"/>
-    <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted">{{ empty }}</p>
+    <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted"><span v-if="empty_busy" class="spin"/>{{ empty }}</p>
     <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => (v.group === null)" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
         <template #cell="{row, column, more}">
             <div v-if="(row.group !== null)" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
@@ -126,6 +128,7 @@ const items_view = {
         more: {type: Function, default: null},
         reading: {type: String, default: 'reading…'},
         empty: {type: String, default: 'Nothing here.'},
+        empty_busy: {type: Boolean, default: false},
         none_shown: {type: String, default: 'Nothing here matches.'},
         head: {type: Boolean, default: true},
         actions_label: {type: String, default: ''},

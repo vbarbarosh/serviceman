@@ -23,14 +23,14 @@ const disk_usage = {
         <h2>What takes the space on <code>{{ root }}</code></h2>
         <span class="muted">{{ format_bytes(disk.used) }} used of {{ format_bytes(disk.total) }}</span>
         <div class="list-right">
-            <button type="button" :disabled="counting" @click="count_again">{{ counting ? 'Counting…' : 'Count again' }}</button>
+            <button type="button" :disabled="counting" @click="count_again"><span v-if="counting" class="spin"/>{{ counting ? 'Counting…' : 'Count again' }}</button>
             <button type="button" @click="$emit('close')">Close</button>
         </div>
     </div>
-    <p v-if="(top === undefined)" class="muted">Counting every folder on this disk…</p>
+    <p v-if="(top === undefined)" class="muted"><span class="spin"/>Counting every folder on this disk…</p>
     <div v-else-if="(top.state === 'counting')" class="du-live">
         <p class="du-live-line">
-            <span>Counting every folder on this disk, which can take a minute on a big one</span>
+            <span><span class="spin"/>Counting every folder on this disk, which can take a minute on a big one</span>
             <span class="du-clock">{{ clock_text(now - top.started) }}</span>
         </p>
         <template v-if="(top_progress !== null)">
@@ -47,7 +47,7 @@ const disk_usage = {
             <span class="du-name">
                 <span class="du-fold" aria-hidden="true">{{ row.folder ? (row.open ? '▾' : '▸') : '' }}</span>
                 <code v-if="row.code">{{ row.name }}</code>
-                <span v-else>{{ row.name }}</span>
+                <span v-else><span v-if="row.busy" class="spin"/>{{ row.name }}</span>
                 <span v-if="(row.note !== '')" class="muted">{{ row.note }}</span>
             </span>
             <span class="du-bar meter" :class="{filling: row.waiting}"><i :style="{width: (row.share*100).toFixed(1) + '%'}"></i></span>
@@ -181,7 +181,7 @@ const disk_usage = {
             function walk(path, depth) {
                 const here = self.counted[path];
                 if ((here === undefined) || (here.state === 'failed')) {
-                    out.push(row_said(path, depth, (here === undefined) ? 'counting…' : here.error));
+                    out.push(Object.assign(row_said(path, depth, (here === undefined) ? 'counting…' : here.error), {busy: (here === undefined)}));
                     return;
                 }
                 const folders = (here.state === 'done') ? here.answer.folders : (self.progress[path] || {folders: []}).folders;
@@ -288,7 +288,7 @@ const disk_usage = {
                 const more = (progress.waiting > 5) ? '…' : '';
                 note = `${note} · ${progress.waiting} to go: ${names}${more}`;
             }
-            return Object.assign(row_said(path, depth, 'counting…'), {key: `${path}#counting`, code: false, note, waiting: true});
+            return Object.assign(row_said(path, depth, 'counting…'), {key: `${path}#counting`, code: false, note, waiting: true, busy: true});
         },
         toggle: function (row) {
             if (row.folder === false) {
@@ -375,10 +375,11 @@ const disk_usage = {
     },
 };
 
-// A row that is no folder: a word in place of a name, at the place of the folder it is about
+// A row that is no folder: a word in place of a name, at the place of the folder it is about;
+// busy where the word is work going on (counting…), which turns a ring in front of it
 function row_said(path, depth, name)
 {
-    return {key: `${path}#said`, path, name, code: false, note: '', depth, size: null, share: 0, folder: false, open: false, unseen: false, waiting: false, said: false};
+    return {key: `${path}#said`, path, name, code: false, note: '', depth, size: null, share: 0, folder: false, open: false, unseen: false, waiting: false, said: false, busy: false};
 }
 
 // Many unreadable folders side by side say little one by one: "58 in /tmp" says it whole

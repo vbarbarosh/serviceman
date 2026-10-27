@@ -33,7 +33,7 @@ const docker = {
         <!-- Containers, images, volumes and networks, one at a time, each with its count -->
         <div class="list-head dk-tabs">
             <button v-for="item of TABS" :key="item.value" type="button" class="chip" :class="{on: (tab === item.value)}" @click="tab_open(item.value)">{{ item.label }} <span class="muted">{{ count_of(item.value) }}</span></button>
-            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="(bad === false)" class="spin"/>{{ note }}</span>
             <span v-else-if="(tab === 'containers' && containers !== null)" class="muted">{{ summary }}</span>
             <div class="list-acts">
                 <template v-if="(pruning !== '')">
@@ -54,8 +54,7 @@ const docker = {
              left, and what it printed -->
         <div v-if="(run !== null)" class="card dk-run">
             <div class="list-head">
-                <span v-if="(run.phase === 'running')" class="dk-spin" aria-label="running"/>
-                <b>{{ run.title }}</b>
+                <b><span v-if="(run.phase === 'running')" class="spin" aria-label="running"/>{{ run.title }}</b>
                 <span :class="(run.phase === 'failed' ? 'bad' : 'muted')">{{ run_said }}</span>
                 <div class="list-acts">
                     <button v-if="(run.text !== '')" type="button" class="link" @click="run.log = !run.log">{{ run.log ? 'Hide the log' : 'Show the log' }}</button>
@@ -128,7 +127,7 @@ const docker = {
             <template #cell-project="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.project">{{ item.project }}</span></template>
             <template #cell-used_by="{item, more}"><span :class="{muted: (item.used_by.length === 0), 'dk-cut': (more === false)}" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}</span></template>
             <template #actions="{item, ask}">
-                <button v-if="(volume_way(item) !== null)" type="button" :disabled="(opening !== '' || running_now || offline)" :title="volume_way(item).subtitle" @click="volume_open(item)">{{ (opening === item.name ? 'opening…' : 'Files') }}</button>
+                <button v-if="(volume_way(item) !== null)" type="button" :disabled="(opening !== '' || running_now || offline)" :title="volume_way(item).subtitle" @click="volume_open(item)"><span v-if="(opening === item.name)" class="spin"/>{{ (opening === item.name ? 'opening…' : 'Files') }}</button>
                 <button type="button" class="danger" :disabled="(item.used_by.length > 0 || acting !== '' || running_now || offline)" :title="(item.used_by.length > 0 ? 'A container mounts it' : 'Take it off the machine, with what is in it')" @click="ask('Remove it, and what is in it?', 'Remove', () => remove('volumes', item.name))">Remove…</button>
             </template>
         </items-view>
@@ -671,6 +670,7 @@ const docker = {
             }
             return '';
         },
+        // The head's note is work going on, or what failed: work done clears it
         report: function (note, bad) {
             this.note = note;
             this.bad = bad;

@@ -73,12 +73,12 @@ const volumes = {
     <div v-for="entry of deleting" :key="entry.item.key" class="card vol-undo">
         <span v-if="(entry.phase === 'note')" class="vol-undo-text">{{ entry.text }}</span>
         <span v-else class="vol-undo-text">
-            Deleting <code :title="entry.item.name">{{ entry.item.name }}</code> on {{ entry.item.machine_title }}{{ ((entry.phase === 'waiting') ? ' in ' + entry.left + ' s' : '…') }}
+            <span v-if="(entry.phase !== 'waiting')" class="spin"/>Deleting <code :title="entry.item.name">{{ entry.item.name }}</code> on {{ entry.item.machine_title }}{{ ((entry.phase === 'waiting') ? ' in ' + entry.left + ' s' : '…') }}
         </span>
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <items-view class="vol-table" :items="items" module="volumes" item_key="key" :columns_added="MACHINE_COLUMN" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
+    <items-view class="vol-table" :items="items" module="volumes" item_key="key" :columns_added="MACHINE_COLUMN" :empty_busy="reading" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
         <template #cell-state="{item}">
             <span class="vol-state">
                 <span class="dot" :class="{running: (item.state === 'open'), failed: (item.state === 'missing')}"/>
@@ -93,7 +93,7 @@ const volumes = {
             </span>
         </template>
         <template #actions="{item: row}">
-            <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
+            <span v-if="(pending[row.key] !== undefined)" class="muted"><span class="spin"/>{{ pending[row.key] }}</span>
             <template v-else-if="(row.state === 'open')">
                 <button type="button" :disabled="row.offline" @click="grow_show(row)">Grow…</button>
                 <button type="button" :disabled="row.offline" @click="close(row)">Close</button>

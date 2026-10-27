@@ -17,10 +17,12 @@ const BIG_BYTES = 8*1024*1024;
 //         bytes_done  how many are in
 //         samples     [{x, y}]: the speed (y, bytes a second) at each point of the way (x, 0 to 1)
 //         left_ms     the time left, null while it cannot be told yet
-//         now         the file under way, or the last one: {label, done, size, going, said, bad},
+//         now         the file under way, or the last one: {label, done, size, going, said, bad, busy},
 //                     or null; going while its bytes go (unsaid: while the copy goes), said and
-//                     bad for why it waits; size null while not known
+//                     bad for why it waits, busy while said is work going on (a folder being
+//                     read); size null while not known
 //         summary     the head's line, when the copy says it its own way; else made of the above
+//         counting    true while that line is what there is to copy being counted
 //         unit        what its files are: file by default, layer for an image coming down
 //         ratio       how far it is, 0 to 1, for a copy whose bytes are not all known; else null
 //         note        one more line under the head, '' for none; note_bad for an error's colour
@@ -35,7 +37,7 @@ const copy_progress = {
     <div class="list-head">
         <b>{{ copy.title }}</b>
         <span v-if="(copy.state === 'paused')" class="fm-paused">Paused</span>
-        <span class="muted fm-copy-summary" :title="summary">{{ summary }}</span>
+        <span class="muted fm-copy-summary" :title="summary"><span v-if="summary_busy" class="spin"/>{{ summary }}</span>
         <div class="list-acts"><slot name="acts"/></div>
     </div>
     <p v-if="((copy.note !== undefined) && (copy.note !== ''))" class="fm-copy-note" :class="(copy.note_bad ? 'bad' : 'muted')" :title="copy.note">{{ copy.note }}</p>
@@ -68,7 +70,7 @@ const copy_progress = {
         <code :title="copy.now.label">{{ copy.now.label }}</code>
         <span class="fm-copy-state fm-copy-going">
             <span class="meter"><i :style="{width: (Math.max(2, Math.round(now_ratio*100)) + '%')}"/></span>
-            <span v-if="((copy.now.said !== undefined) && (copy.now.said !== ''))" :class="(copy.now.bad ? 'bad' : 'muted')" :title="copy.now.said">{{ copy.now.said }}</span>
+            <span v-if="((copy.now.said !== undefined) && (copy.now.said !== ''))" :class="(copy.now.bad ? 'bad' : 'muted')" :title="copy.now.said"><span v-if="(copy.now.busy === true)" class="spin"/>{{ copy.now.said }}</span>
             <span v-else-if="(copy.now.size === null)"></span>
             <span v-else-if="now_going" class="muted">{{ format_bytes(copy.now.done) }} of {{ format_bytes(copy.now.size) }}</span>
             <span v-else class="muted">{{ format_bytes(copy.now.size) }}</span>
@@ -94,6 +96,10 @@ const copy_progress = {
         },
         units: function () {
             return ((this.copy.unit === undefined) || (this.copy.unit === null)) ? ['file', 'files'] : [this.copy.unit, `${this.copy.unit}s`];
+        },
+        // Counting what there is to copy, before any number of it is known: a ring at its words
+        summary_busy: function () {
+            return (this.copy.state === 'counting') || (this.copy.counting === true);
         },
         // "48% · 1417 of 2940 files · 1.4GB of 2.9GB"; the speed and the time left are under the
         // graph. One file has no percent: its own line says it all. A copy stopped halfway says

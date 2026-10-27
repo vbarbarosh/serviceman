@@ -122,23 +122,6 @@
     margin: 0;
 }
 
-/* A long action under way: a ring that turns beside its title */
-.dk-spin {
-    flex: none;
-    width: .9rem;
-    height: .9rem;
-    border: 2px solid var(--line);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: dk-spin .8s linear infinite;
-}
-
-@keyframes dk-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
 /* A long name — a registry path, a list of containers — cut, whole in its tooltip and in the
    row's details, so a row keeps its buttons in view */
 .dk-cut {

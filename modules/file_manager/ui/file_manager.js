@@ -163,7 +163,7 @@ const file_manager = {
             </span>
         </template>
     </div>
-    <p v-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note">{{ note_shown }}</p>
+    <p v-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="note_busy" class="spin"/>{{ note_shown }}</p>
     <input ref="picker" type="file" multiple hidden @change="picked">
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
@@ -253,13 +253,13 @@ const file_manager = {
                     </select>
                     <button type="button" class="chip" :class="{on: wrap}" title="Wrap long lines" @click="wrap = !wrap">wrap</button>
                     <a class="button" :href="file_url(open_file)" target="_blank" rel="noreferrer">Open in a tab</a>
-                    <button type="button" class="primary" :disabled="(dirty === false || saving || offline)" title="Ctrl+S" @click="save(false)">{{ saving ? 'saving…' : 'Save' }}</button>
+                    <button type="button" class="primary" :disabled="(dirty === false || saving || offline)" title="Ctrl+S" @click="save(false)"><span v-if="saving" class="spin"/>{{ saving ? 'saving…' : 'Save' }}</button>
                     <button type="button" @click="file_close">Close</button>
                 </span>
             </template>
         </div>
-        <p v-if="(edit_note !== '')" :class="(edit_bad ? 'bad' : 'muted')" class="fm-note">{{ edit_note }}</p>
-        <div v-if="(open_file.state === 'loading')" class="card fm-editor-msg muted">reading {{ open_file.name }}…</div>
+        <p v-if="(edit_note !== '')" :class="(edit_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="saving" class="spin"/>{{ edit_note }}</p>
+        <div v-if="(open_file.state === 'loading')" class="card fm-editor-msg muted"><span class="spin"/>reading {{ open_file.name }}…</div>
         <div v-else-if="(open_file.state === 'binary')" class="card fm-editor-msg">
             <p><b>{{ open_file.name }}</b> is not text, so it is not opened here.</p>
             <p><a :href="file_url(open_file)" target="_blank" rel="noreferrer">Open it in a tab</a> · <a :href="download_one(open_file)" download>Download it</a></p>
@@ -327,6 +327,7 @@ const file_manager = {
             folder_name: '',
             act_note: '',
             act_bad: false,
+            act_busy: false,
             acting: false,
             // The files chosen for this disk, and what became of each. The page keeps them,
             // not this tab: a copy goes on while another tab is open, and is here on coming back.
@@ -475,6 +476,7 @@ const file_manager = {
                 title: (places.size === 1) ? `Copy ${Array.from(places)[0]}` : 'Copies',
                 state,
                 summary: this.transfer_summary,
+                counting: ((total.files === 0) && (total.unweighed > 0)),
                 files: total.files,
                 files_done: total.files_done,
                 failed: total.failed,
@@ -492,12 +494,13 @@ const file_manager = {
                 return null;
             }
             const now = ((item.now === null) || (item.now === undefined)) ? {label: item.name, size: item.size, done: item.received} : item.now;
-            const out = {label: now.label, size: now.size, done: now.done, going: ['copying', 'paused'].includes(item.phase), said: '', bad: false};
+            const out = {label: now.label, size: now.size, done: now.done, going: ['copying', 'paused'].includes(item.phase), said: '', bad: false, busy: false};
             if (item.phase === 'waiting') {
                 out.said = this.transfers_paused ? 'not started yet' : 'waits for a copy between other machines';
             }
             else if ((item.size === null) && transfer_going_of(item)) {
                 out.said = (item.kind === 'dir') ? 'reading the folder…' : 'weighing the file…';
+                out.busy = true;
             }
             else if (item.phase === 'retrying') {
                 out.said = `${item.said} — trying again in ${item.wait_s}s`;
@@ -635,6 +638,10 @@ const file_manager = {
         },
         note_bad: function () {
             return (this.act_note !== '') ? this.act_bad : this.bad;
+        },
+        // An action's note while the machine still works on it turns a ring
+        note_busy: function () {
+            return (this.act_note !== '') && this.act_busy;
         },
         // Every upload at once: files and bytes in, and what the copying under way has done since
         // it began, for its rate. Bytes that were in before (a file carried on) are not its work.
@@ -1267,7 +1274,7 @@ const file_manager = {
         // middle left standing is on the screen, not in somebody's guess
         acts: async function (list, done_word) {
             this.acting = true;
-            this.act_report('asking the disk…', false);
+            this.act_report('asking the disk…', false, true);
             let said = [done_word, false];
             try {
                 for (const [action, request] of list) {
@@ -1292,9 +1299,11 @@ const file_manager = {
                 throw new Error((await answer.json()).error);
             }
         },
-        act_report: function (note, bad) {
+        // busy: the note is work going on, until the next one says how it ended
+        act_report: function (note, bad, busy) {
             this.act_note = note;
             this.act_bad = bad;
+            this.act_busy = (busy === true);
         },
         // A folder's dialog names each file by its way from the folder chosen: photos/2024/a.jpg
         picked: function (event) {
@@ -1406,7 +1415,7 @@ const file_manager = {
         // the host runs them one after another
         copy_start: async function () {
             this.acting = true;
-            this.act_report('asking for the copies…', false);
+            this.act_report('asking for the copies…', false, true);
             let said = ['the copy is on its way, below', false];
             try {
                 for (const name of this.chosen_names) {

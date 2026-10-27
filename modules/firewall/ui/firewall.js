@@ -46,7 +46,7 @@ const firewall = {
     template: `
 <article class="fw">
     <div v-if="(state === null)" class="fw-first">
-        <span :class="(bad ? 'bad' : 'muted')">{{ (note === '' ? 'Asking the machine for its firewall…' : note) }}</span>
+        <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ (note === '' ? 'Asking the machine for its firewall…' : note) }}</span>
         <button v-if="bad" type="button" :disabled="(busy || offline)" @click="read">Read again</button>
     </div>
     <div v-else-if="(state.installed === false)" class="card fw-card">
@@ -59,7 +59,7 @@ const firewall = {
             <span class="dot" :class="{running: state.active}"/>
             <b>{{ (state.active ? 'On' : 'Off') }}</b>
             <span class="muted fw-cut" :title="defaults_text">{{ defaults_text }}</span>
-            <span v-if="(note !== '')" class="fw-cut" :class="(bad ? 'bad' : 'muted')" :title="note">{{ note }}</span>
+            <span v-if="(note !== '')" class="fw-cut" :class="(bad ? 'bad' : 'muted')" :title="note"><span v-if="busy" class="spin"/>{{ note }}</span>
             <div class="list-acts">
                 <button type="button" :class="{primary: (state.active === false)}" :disabled="(busy || offline)" @click="switch_to(state.active ? 'disable' : 'enable')">{{ (state.active ? 'Turn off' : 'Turn on') }}</button>
                 <button type="button" :disabled="(busy || offline)" @click="read">Read again</button>
@@ -75,7 +75,7 @@ const firewall = {
             <button type="button" :disabled="(busy || offline)" @click="undo_run">Undo</button>
             <button type="button" class="link" aria-label="Close" @click="undo = null">×</button>
         </div>
-        <h3 class="fw-title">Listening ports <span :class="(ports_bad ? 'bad' : 'muted')">{{ ports_note }}</span></h3>
+        <h3 class="fw-title">Listening ports <span :class="(ports_bad ? 'bad' : 'muted')"><span v-if="ports_reading" class="spin"/>{{ ports_note }}</span></h3>
         <template v-if="(ports !== null)">
             <div class="fw-tiles">
                 <div class="card fw-tile" :class="{hot: (counts.open > 0)}">
@@ -112,7 +112,7 @@ const firewall = {
                     <span v-else class="muted">{{ row.held }}</span>
                 </template>
                 <template #actions="{row}">
-                    <span v-if="(pending[row.key] !== undefined)" class="muted">{{ pending[row.key] }}</span>
+                    <span v-if="(pending[row.key] !== undefined)" class="muted"><span class="spin"/>{{ pending[row.key] }}</span>
                     <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
                     <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
                     <span v-else-if="row.verdict.docker" class="muted" title="Docker publishes it on this address, and its rules come before ufw's: publish it on 127.0.0.1 or the tailnet address instead, in its docker run or compose file">published by Docker</span>
@@ -131,7 +131,7 @@ const firewall = {
             <template #cell-from="{item}">{{ from_text(item) }}</template>
             <template #cell-to="{item}"><span class="muted">{{ to_text(item) }}</span></template>
             <template #actions="{item: row}">
-                <span v-if="row.pending" class="muted">{{ row.pending }}</span>
+                <span v-if="row.pending" class="muted"><span class="spin"/>{{ row.pending }}</span>
                 <button v-else type="button" class="danger" :aria-label="('Delete ' + row.command)" :title="('Delete ufw ' + row.command)" :disabled="(busy || offline)" @click="remove(row)">Delete</button>
             </template>
         </items-view>
@@ -168,6 +168,7 @@ const firewall = {
             ports: null,
             ports_note: '',
             ports_bad: false,
+            ports_reading: false,
             query: '',
             show: 'all',
             // A port's row while its rule is being written: key → what is being done
@@ -241,6 +242,7 @@ const firewall = {
         ports_read: async function () {
             this.ports_note = 'reading…';
             this.ports_bad = false;
+            this.ports_reading = true;
             try {
                 const answer = await fetch(`${this.base}/ports`, {cache: 'no-store'});
                 const ports = await answer.json();
@@ -255,6 +257,9 @@ const firewall = {
             catch (error) {
                 this.ports_note = error.message;
                 this.ports_bad = true;
+            }
+            finally {
+                this.ports_reading = false;
             }
         },
         // A rule for this port alone, from anywhere
