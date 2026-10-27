@@ -32,8 +32,9 @@ async function terminal_serve(req, res, options)
         // POST <base>/<name>/signal {signal, to}
         // The × of a terminal's tab ends it: the shell is hung up, as closing a terminal window
         // does, and the terminal is gone at once. A signal goes to its shell (to: shell, the
-        // default), or to what runs in it in front (to: foreground), which SIGINT stops as
-        // Ctrl-C does.
+        // default), to what runs in it in front (to: foreground), which SIGINT stops as
+        // Ctrl-C does, or to every process of its session (to: session), the jobs the shell
+        // left in the background too.
         // POST <base>/<name>/join
         // A terminal not running yet is made by joining it
         const door = RE_DOOR.exec(tail);

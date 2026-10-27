@@ -44,7 +44,9 @@ variables and the folder it was made with.
 of `SIGHUP SIGINT SIGQUIT SIGTERM SIGKILL SIGUSR1 SIGUSR2 SIGSTOP SIGCONT SIGWINCH`: to the shell
 (`to: "shell"`, the default; SIGKILL or SIGHUP there ends the terminal), or to what runs in it in
 front (`to: "foreground"`; SIGINT there is Ctrl-C, SIGWINCH tells a full-screen program to draw
-itself again).
+itself again), or to every process of its session (`to: "session"`): each process group whose
+session the shell leads, the jobs it left in the background too, even when the shell itself is
+gone. It answers the groups it reached, `{"pgids": […]}`; an agent before 1.28.0 refuses it.
 
 **End:** `POST /api/v1/remotes/<remote>/terminals/<name>/end` hangs the shell up, as closing a
 terminal window does; whoever has it open sees it close. Typing `exit` in it does the same. A

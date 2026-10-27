@@ -36,7 +36,7 @@ joins them here, under the base it mounts it at — serviceman's is
 |---|---|
 | `GET <base>` | `term_list`: `{items: [{name, created_at, attached, cwd, command}]}` |
 | `POST <base>` `{name, cols, rows, env, cwd}` | `term_create`; no name is the first number no terminal has |
-| `POST <base>/<name>/signal` `{signal, to}` | `term_signal`: to its shell, or to what runs in front (`to: foreground`) |
+| `POST <base>/<name>/signal` `{signal, to}` | `term_signal`: to its shell, to what runs in front (`to: foreground`), or to every process of its session (`to: session`) |
 | `POST <base>/<name>/end` | `term_end`: the shell hung up, the terminal gone |
 | `POST <base>/<name>/join` | the host's `join(name)`: `{stream, url}`, a stream both ways, the WebSocket to open at `url`; 501 without one |
 
