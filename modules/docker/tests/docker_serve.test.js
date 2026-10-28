@@ -172,7 +172,7 @@ test('the disk each project takes: docker\'s count, its containers\' logs and it
     const disk = JSON.parse((await call(running, 'GET', '/docker/disk')).body);
     assert.deepStrictEqual(asked, ['/var/lib/docker/containers', '/srv/shop']);
     const shop = disk.projects.find(v => v.project === 'shop');
-    assert.deepStrictEqual([shop.parts, shop.total, shop.unread], [{image: 1000, written: 300, volumes: 5000, logs: 900, folder: 40}, 7240, 1]);
+    assert.deepStrictEqual([shop.parts, shop.total, shop.unread], [{image: 1000, old: 0, written: 300, volumes: 5000, logs: 900, folder: 40}, 7240, 1]);
     assert.deepStrictEqual(disk.containers['a'.repeat(64)], {written: 300, log: 700});
     assert.deepStrictEqual(disk.missing, {logs: null, folders: null});
 
@@ -189,11 +189,46 @@ test('the disk each project takes: docker\'s count, its containers\' logs and it
     });
     const refused = JSON.parse((await call(refusing, 'GET', '/docker/disk')).body);
     assert.deepStrictEqual(refused.missing, {logs: 'only root may read /var/lib/docker/containers', folders: 'only root may read /srv/shop'});
-    assert.deepStrictEqual(refused.projects.find(v => v.project === 'shop').parts, {image: 1000, written: 300, volumes: 5000, logs: null, folder: null});
+    assert.deepStrictEqual(refused.projects.find(v => v.project === 'shop').parts, {image: 1000, old: 0, written: 300, volumes: 5000, logs: null, folder: null});
 
     // A host with no counts of its own: docker's count alone
     const bare = await serve(t, {connect: () => net.connect(engine.socket), run: async () => ({ok: true})});
     assert.strictEqual(JSON.parse((await call(bare, 'GET', '/docker/disk')).body).missing.logs, 'this host does not count folders');
+});
+
+// Free space: down, the project's old images taken away, up from the images it runs; each line
+// a step prints said as it prints it, once; a container that does not run after it fails it,
+// whatever compose answered
+test('free space takes a project down, removes its old images and brings it up; a container left stopped fails it', async function (t) {
+    const engine = await engine_start(t, {images: [{Id: `sha256:${'7'.repeat(64)}`, RepoTags: ['shop/web:0.9'], Size: 800, Created: 1759000000}]});
+    let breaks = false;
+    const running = await serve(t, {
+        connect: () => net.connect(engine.socket),
+        run: async function (argv, said) {
+            said(`ran ${argv[argv.length - 1]}`);
+            if (breaks && argv.includes('up')) {
+                engine.containers[0].State = 'exited';
+            }
+            return {ok: true, code: 0, stdout: `ran ${argv[argv.length - 1]}\n`, stderr: ''};
+        },
+    });
+    const freed = said((await call(running, 'POST', '/docker/projects/shop/free')).body);
+    assert.deepStrictEqual(freed, [
+        {step: 1, steps: 3, name: 'down', text: '$ docker compose -p shop -f /srv/shop/compose.yml -f /srv/shop/compose.prod.yml down'},
+        {text: 'ran down'},
+        {step: 2, steps: 3, name: 'remove its old images', text: '$ docker image rm, for each image of shop no container runs: 1'},
+        {progress: {done: 0, total: 1, unit: 'images', bytes: 0}},
+        {text: 'removed shop/web:0.9 (800B)'},
+        {progress: {done: 1, total: 1, unit: 'images', bytes: 800}},
+        {step: 3, steps: 3, name: 'up -d', text: '$ docker compose -p shop -f /srv/shop/compose.yml -f /srv/shop/compose.prod.yml up -d'},
+        {text: 'ran -d'},
+        {end: 'done', said: 'shop: down, then 1 of 1 old image removed (800B of 800B), then up -d'},
+    ]);
+    assert.ok(engine.asked.includes(`DELETE /images/${'7'.repeat(64)}?force=1`), 'removed by its id, forced');
+
+    breaks = true;
+    const broken = said((await call(running, 'POST', '/docker/projects/shop/free')).body);
+    assert.deepStrictEqual(broken[broken.length - 1], {end: 'failed', said: 'shop: down, then 1 of 1 old image removed (800B of 800B), then up -d, but shop-web-1 is not running'});
 });
 
 test('an engine that cannot be reached is a 502 with the reason', async function (t) {
@@ -205,8 +240,9 @@ test('an engine that cannot be reached is a 502 with the reason', async function
     assert.deepStrictEqual([disk.status, /ENOENT/.test(JSON.parse(disk.body).error)], [502, true]);
 });
 
-// The part of the Engine API the module asks for, on a socket file of its own
-async function engine_start(t)
+// The part of the Engine API the module asks for, on a socket file of its own; more.images are
+// images beside the usual three, and out.containers the containers, for a test to change
+async function engine_start(t, more)
 {
     const socket = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'docker-engine-')), 'docker.sock');
     const out = {socket, asked: []};
@@ -248,9 +284,14 @@ async function engine_start(t)
             Volumes: [{Name: 'shop_data', Labels: {'com.docker.compose.project': 'shop'}, UsageData: {Size: 5000, RefCount: 1}}],
             BuildCache: [],
         },
+        '/system/df?type=image': {Images: [{Id: `sha256:${'1'.repeat(64)}`, RepoTags: ['shop/web:latest'], Size: 1000, SharedSize: 0}]},
         '/info': {DockerRootDir: '/var/lib/docker'},
         '/version': {Components: [{Name: 'Engine'}]},
     };
+    if ((more !== undefined) && Array.isArray(more.images)) {
+        stores['/images/json'].push(...more.images);
+    }
+    out.containers = containers;
     out.created = [];
     let busybox = false;
     const server = http.createServer(function (req, res) {

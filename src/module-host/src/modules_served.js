@@ -5,7 +5,7 @@ const disks_serve = require('../../../modules/disks/server/disks_serve');
 const docker_exec_connect = require('../../main/src/helpers/docker_exec_connect');
 const docker_manifest = require('../../../modules/docker/server/docker_manifest');
 const docker_serve = require('../../../modules/docker/server/docker_serve');
-const docker_shell = require('../../main/src/helpers/docker_shell');
+const docker_shell_said = require('../../main/src/helpers/docker_shell_said');
 const file_manager_manifest = require('../../../modules/file_manager/server/file_manager_manifest');
 const file_manager_serve = require('../../../modules/file_manager/server/file_manager_serve');
 const firewall_manifest = require('../../../modules/firewall/server/firewall_manifest');
@@ -132,7 +132,7 @@ const modules_served = [
             }
             await docker_serve(req, res, {
                 connect,
-                run: v => docker_shell(app, remote, v),
+                run: (argv, said) => docker_shell_said(app, remote, argv, said),
                 stream: v => stream_open(app, {title: v, base: '/api/docker'}),
                 tail,
                 du: async v => remote_call(app, await online(remote), 'disk_usage', {path: v}, DISK_USAGE_TIMEOUT_MS),

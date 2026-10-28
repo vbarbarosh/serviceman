@@ -24,6 +24,7 @@ const disks_serve = require('../../../../modules/disks/server/disks_serve');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
 const docker_serve = require('../../../../modules/docker/server/docker_serve');
 const docker_shell = require('../helpers/docker_shell');
+const docker_shell_said = require('../helpers/docker_shell_said');
 const file_manager_serve = require('../../../../modules/file_manager/server/file_manager_serve');
 const file_manager_transfers_serve = require('../../../../modules/file_manager/server/file_manager_transfers_serve');
 const firewall_serve = require('../../../../modules/firewall/server/firewall_serve');
@@ -869,7 +870,7 @@ async function handle_docker(app, req, res, name, tail)
     }
     await docker_serve(req, res, {
         connect,
-        run: v => docker_shell(app, remote, v),
+        run: (argv, said) => docker_shell_said(app, remote, argv, said),
         stream: v => stream_open(app, {title: v, base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/docker`}),
         tail,
         own: v => v.startsWith('serviceman-'),

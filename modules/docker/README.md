@@ -43,6 +43,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | `POST <base>/containers/<id>/restart` | restarts it |
 | `POST <base>/projects/<project>/update` | `docker compose pull`, then `up -d`: only what changed is made again |
 | `POST <base>/projects/<project>/recreate` | `docker compose pull`, `down`, `up -d`: every container is made again |
+| `POST <base>/projects/<project>/free` | `docker compose down`, its old images removed, `up -d`: what it no longer needs taken off the disk (below) |
 | `GET <base>/images` | `{items: [{id, tags, size, created_ms, used_by, dangling, read_only}]}` |
 | `POST <base>/images/<id>/remove` | takes it away; one a container was made from is refused (409) |
 | `POST <base>/images/<id>/pull` | pulled again under its first name: text, a line when a layer says something new, then `done` or `failed` |
@@ -70,25 +71,54 @@ far it is (a pull adds up its layers' bytes; a prune counts what it took, one at
 last `{end: done | failed, said}`. A host that keeps streams (`stream` below) gets those lines
 in one, and the answer is at once `202 {stream, url}`: the action goes on when the page goes,
 and the page reads it at `url`; given `streams`, a page that opens finds one still running and
-shows it again from its first line. Without, the lines are the answer itself. The page draws it
-as one panel: a spinner and the time so far, the step, a bar with its percent and the time left
-at the rate so far, and the log; every other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with `{error}`.
+shows it again from its first line. Without, the lines are the answer itself. A step's `{text}`
+is each line compose prints as it prints it, where the host's `run` hands them over as they
+come (`run(argv, said)`); otherwise all of them when the step ends. After a project's last
+step, each of its containers that ran before runs again, or the action ends `failed` naming the
+ones that do not, whatever compose answered (podman-compose answers 0 when its `podman run`
+fails). The page draws it in a window over the tab: a ring and the time so far, the step, a bar
+with its percent and the time left at the rate so far, and every line as a terminal shows it,
+the commands bright, the newest in view; every other button is greyed until it ends. Hidden, it
+goes on, and the tab's head says so and opens it again. An engine that cannot be reached, or
+refuses, is a 502 with `{error}`.
+
+## Free space
+
+A project's **Free space…** takes away what it holds and no longer needs: `docker compose down`
+(its containers go, and what they wrote over their image and logged with them), its old images
+removed, `docker compose up -d` from the images it runs, so nothing is pulled. The images it runs
+stay: taking them away, up would only download the same bytes again. Its volumes and its folder
+stay too.
+
+Its **old images** are the images no container runs whose every name is of a repository its
+containers were made from: an earlier pull whose tag moved on (untagged, its digest still names
+the repository), or a tag the compose file no longer names. One also called by another
+repository's name is not the project's alone and stays, and so is one called by the very name
+the compose file gives, a pull that up has not used yet. Each is sized as removing it frees, the
+layers it shares with other images left out (docker's `/system/df`), and removed by its id, forced
+(no container was made from it; one that runs is refused, forced or not). They are found before
+`down`, while its containers still say which images they run.
+
+The page asks first, in the window: the three steps, what each takes away by the last count (the
+old images by name), and about how much it frees; the run follows in the same window.
 
 ## What each project holds on the disk
 
-`GET <base>/disk` adds up, for each compose project, what it keeps on the machine's disk, in five
+`GET <base>/disk` adds up, for each compose project, what it keeps on the machine's disk, in six
 parts that never overlap:
 
 | Part | What it is | Counted by |
 |---|---|---|
 | image | every image its containers were made from, each once, whole (its layers shared with other images too, as `docker images` says it) | docker (`/system/df`) |
+| old | its old images (Free space, above), each as much as removing it frees | docker |
 | written | what its containers wrote over their image: each one's own overlay layer (`SizeRw`) | docker |
 | volumes | the named volumes its containers mount, and the ones compose made for it that nothing mounts | docker (`UsageData`) |
 | logs | each container's folder under docker's root, `containers/<id>` (podman's `overlay-containers/<id>`): its log, its settings | the host's `du` |
 | folder | the project's folder, from its containers' label: its compose file and the folders it binds there | the host's `du` |
 
-    {projects: [{project, dir, total, parts: {image, written, volumes, logs, folder}, unread,
-                 images: [{id, name, size, shared}], volumes: [{name, size, shared}]}],
+    {projects: [{project, dir, total, parts: {image, old, written, volumes, logs, folder}, unread,
+                 images: [{id, name, size, shared}], old: [{id, name, size, shared}],
+                 volumes: [{name, size, shared}]}],
      containers: {<id>: {written, log}}, volumes: {<name>: size},
      totals: {images, images_unused, written, volumes, logs, folders, build_cache},
      missing: {logs, folders}, took_ms}
@@ -106,7 +136,8 @@ project's folder is in no part.
 The page reads it beside the list, never holding the list back, and keeps the last count in view
 while the next is made. Over the tree, what docker holds in all, as a bar of its parts in the
 colours every bar under it uses; on each project's row, its size as such a bar, as long as its
-share of the biggest project's, in line with its containers' own (what each wrote, and its log);
+share of the biggest project's, its old images hatched, in line with its containers' own (what
+each wrote, and its log);
 a click on it lists the parts under the project's name, with its images, volumes and folder. The
 Volumes tab has each volume's size. On a phone a project's size is its figure alone, and a
 container's status folds into its row's bar before its size.
@@ -157,7 +188,8 @@ host's import map.
     // every request under /docker goes to the module; the host checks who may ask first
     await docker_serve(req, res, {
         connect: () => net.connect('/var/run/docker.sock'),
-        run: argv => run_docker(argv),        // -> {ok, code, stdout, stderr}
+        // -> {ok, code, stdout, stderr}; said(line), optional, each line as it is printed
+        run: (argv, said) => run_docker(argv, said),
         tail: '/containers',                  // the address after the base
         own: v => v.startsWith('serviceman-'), // containers someone else runs: shown, no actions
         // optional: where a long action says its lines, kept by the host -> {id, url, write, end}
@@ -196,7 +228,9 @@ all.
   `docker_serve`: `connect` is a stream through the link to the socket the agent reports
   (`docker_exec_connect`), `run` is the agent's docker command (`docker_shell`), and
   serviceman's own containers, `serviceman-…`, are shown without actions — their service
-  starts and stops them; `stream` is one of serviceman's (`stream_open`), read at
+  starts and stops them; `run` hands each line over as the machine prints it
+  (`docker_shell_said`: the call names a `#docker:` lane, and the agent says each line up the
+  link); `stream` is one of serviceman's (`stream_open`), read at
   `/api/v1/streams/<id>`; `du` is the agent's count of a folder (`disk_usage`), the Disks tab's
   own, as root where the machine has its root half: without one, docker's folder is root's alone,
   and the logs are not counted
@@ -209,7 +243,6 @@ all.
 
 ## Not yet
 
-- a step's output comes when the step ends, not line by line
 - logs, inspect, pull of a new image by name, run
 - the size of a folder a project binds from outside its own folder
 

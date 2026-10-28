@@ -596,26 +596,17 @@ button:disabled:hover {
     text-align: right;
 }
 
-.data-table .dt-actions button {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--accent);
-    font: inherit;
-    transition: color .12s ease;
-}
-
-.data-table .dt-actions button:hover {
-    background: none;
-    text-decoration: underline;
-}
-
-.data-table .dt-actions button.danger {
-    color: var(--bad);
+/* A row's actions are the page's buttons, a size smaller, so a row keeps its height and a
+   button never reads as a link to elsewhere; a link among them stays a link */
+.data-table .dt-actions button:not(.link) {
+    padding: .05rem .55rem;
+    font-size: .875em;
+    line-height: 1.5;
+    white-space: nowrap;
 }
 
 .data-table .dt-actions > * + * {
-    margin-left: .75rem;
+    margin-left: .4rem;
 }
 
 .data-table .dt-actions label {
@@ -724,7 +715,7 @@ button:disabled:hover {
 }
 
 .data-table .dt-confirm button {
-    margin-left: .75rem;
+    margin-left: .4rem;
 }
 
 /* A cell that says a state: its dot, then its words in the state's colour */

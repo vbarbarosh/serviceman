@@ -38,6 +38,7 @@ const docker_manifest = {
             commands: [
                 {command: 'update', on: 'item', said: 'pull its images, make again what changed', answer: 'stream'},
                 {command: 'recreate', on: 'item', said: 'pull its images, take it down, bring it up', answer: 'stream'},
+                {command: 'free', on: 'item', said: 'take it down, remove its old images no container runs, bring it up from the images it runs', answer: 'stream', danger: true},
             ],
         },
         {

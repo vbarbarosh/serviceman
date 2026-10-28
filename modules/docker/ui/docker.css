@@ -36,23 +36,141 @@
     margin-left: .45rem;
 }
 
-.dk-run {
+/* A long action's window, over the tab: its head, how far it is, and its lines as a terminal
+   shows them, the newest in view */
+.dk-window {
+    width: min(60rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 3rem);
     padding: 0;
-    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--fg);
+    box-shadow: 0 18px 50px rgb(0 0 0 / .35);
 }
 
-.dk-run .list-head {
-    padding: .6rem .9rem;
+.dk-window[open] {
+    display: flex;
+    flex-direction: column;
 }
 
+.dk-window::backdrop {
+    background: rgb(0 0 0 / .45);
+}
+
+.dk-window-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .3rem .9rem;
+    padding: .8rem 1rem .6rem;
+}
+
+.dk-window-head > b {
+    font-size: 1.05rem;
+}
+
+.dk-window-head .spin {
+    margin-right: .45rem;
+}
+
+.dk-window-x {
+    margin-left: auto;
+    padding: 0 .55rem;
+    font-size: 1.2rem;
+    line-height: 1.6;
+}
+
+.dk-window .dk-progress {
+    padding: 0 1rem .6rem;
+}
+
+.dk-window-acts {
+    display: flex;
+    gap: .5rem;
+    justify-content: flex-end;
+    padding: .7rem 1rem .9rem;
+}
+
+/* The lines as a terminal shows them, whatever the page's theme: the commands bright, what they
+   printed under them */
 .dk-output {
-    max-height: 22rem;
-    margin: 0;
-    padding: .6rem .9rem;
-    border-top: 1px solid var(--line);
+    flex: 1 1 auto;
+    min-height: 12rem;
+    max-height: 60vh;
+    margin: 0 1rem;
+    padding: .7rem .9rem;
+    border-radius: 6px;
+    background: #16150f;
+    color: #d9d4c7;
     overflow: auto;
-    font-size: .8rem;
+    font: .82rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.dk-output .dk-command {
+    margin-top: .5rem;
+    color: #f2c08a;
+    font-weight: 600;
+}
+
+.dk-output .dk-command:first-child {
+    margin-top: 0;
+}
+
+.dk-caret {
+    color: #d9d4c7;
+    animation: dk-blink 1s steps(1) infinite;
+}
+
+@keyframes dk-blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-caret {
+        animation: none;
+    }
+}
+
+/* A run hidden, in the tab's head: what it is and where it stands, a click from its window */
+.dk-run-chip .spin {
+    margin-right: .35rem;
+}
+
+/* Free space, before it runs: the three steps, what each takes away, the old images by name */
+.dk-free-steps {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    margin: .2rem 1rem 0;
+    padding-left: 1.4rem;
+}
+
+.dk-free-steps > li > code {
+    margin-right: .6rem;
+    font-weight: 600;
+}
+
+.dk-free-steps > li > span {
+    color: var(--muted);
+}
+
+.dk-free-steps > li > b {
+    margin-left: .6rem;
+}
+
+.dk-free-images {
+    margin: .35rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--fg);
+}
+
+.dk-free-sum {
+    margin: .9rem 1rem 0;
 }
 
 /* An opened container: the way back, its name, and which of its two views is shown */
@@ -192,6 +310,12 @@
 
 .dk-written {
     background: var(--busy);
+}
+
+/* What no container runs any more, the image's colour struck through: there, and of no use */
+.dk-old {
+    background: repeating-linear-gradient(135deg, var(--accent) 0 2px, transparent 2px 5px);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .dk-volumes {

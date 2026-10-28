@@ -1,5 +1,7 @@
 const apt_lane = require('./apt_lane');
 const apt_said = require('./apt_said');
+const docker_lane = require('./docker_lane');
+const docker_shell_said = require('./docker_shell_said');
 const door_peer_known = require('./door_peer_known');
 const doors_tell = require('./doors_tell');
 const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
@@ -241,6 +243,10 @@ function remote_said(app, remote, message)
     }
     if ((typeof message.service === 'string') && message.service.startsWith(k6_lane) && (text !== null)) {
         load_test_said(app, message.service, text);
+        return;
+    }
+    if ((typeof message.service === 'string') && message.service.startsWith(docker_lane) && (text !== null)) {
+        docker_shell_said.said(message.service, text);
         return;
     }
     service_said(app, (text === null) ? words : {service: message.service, text});

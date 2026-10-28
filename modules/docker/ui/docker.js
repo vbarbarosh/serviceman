@@ -33,6 +33,7 @@ const docker = {
         <!-- Containers, images, volumes and networks, one at a time, each with its count -->
         <div class="list-head dk-tabs">
             <button v-for="item of TABS" :key="item.value" type="button" class="chip" :class="{on: (tab === item.value)}" @click="tab_open(item.value)">{{ item.label }} <span class="muted">{{ count_of(item.value) }}</span></button>
+            <button v-if="((run !== null) && (window_open === false))" type="button" class="chip dk-run-chip" :class="{bad: (run.phase === 'failed')}" title="Show its window again" @click="window_show"><span v-if="(run.phase === 'running')" class="spin"/>{{ run.title }}: {{ (run.phase === 'running' ? 'running' : run.phase) }}</button>
             <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="(bad === false)" class="spin"/>{{ note }}</span>
             <span v-else-if="(tab === 'containers' && containers !== null)" class="muted">{{ summary }}</span>
             <div class="list-acts">
@@ -50,23 +51,6 @@ const docker = {
                 </template>
             </div>
         </div>
-        <!-- A long action as it goes: that it runs and for how long, which step, how far, what is
-             left, and what it printed -->
-        <div v-if="(run !== null)" class="card dk-run">
-            <div class="list-head">
-                <b><span v-if="(run.phase === 'running')" class="spin" aria-label="running"/>{{ run.title }}</b>
-                <span :class="(run.phase === 'failed' ? 'bad' : 'muted')">{{ run_said }}</span>
-                <div class="list-acts">
-                    <button v-if="(run.text !== '')" type="button" class="link" @click="run.log = !run.log">{{ run.log ? 'Hide the log' : 'Show the log' }}</button>
-                    <button type="button" :disabled="(run.phase === 'running')" @click="run = null">Close</button>
-                </div>
-            </div>
-            <div v-if="(run.progress !== null && run.progress.total > 0)" class="dk-progress">
-                <span class="meter"><i :style="{width: (Math.max(1, Math.round(run_ratio * 100)) + '%')}"/></span>
-                <span class="muted">{{ run_progress_text }}</span>
-            </div>
-            <pre v-show="run.log" ref="output" class="dk-output">{{ run.text }}</pre>
-        </div>
         <!-- Containers as a tree: each compose project a branch that folds, its row its name, the
              disk it takes (a click says of what) and Update or Down and up for the whole
              project; a container of none a root. A row's buttons show where the pointer or the
@@ -78,7 +62,7 @@ const docker = {
                     <span class="dk-disk-head"><span v-if="disk_reading" class="spin"/>{{ disk_head }}</span>
                     <span v-if="(disk !== null)" class="dk-bar dk-bar-wide" aria-hidden="true"><i v-for="part of disk_segments(disk_totals, disk_all)" :key="part.key" :class="('dk-' + part.key)" :style="{width: (part.share + '%')}"/></span>
                     <span v-for="part of disk_totals" :key="part.key" class="dk-key"><i :class="('dk-' + part.key)"/>{{ part.label }} <b>{{ format_bytes(part.size) }}</b></span>
-                    <button v-if="((disk !== null) && (disk.totals.images_unused > 0))" type="button" class="link" title="The Images tab, where Prune unused takes them away" @click="tab_open('images')">{{ format_bytes(disk.totals.images_unused) }} of images no container uses</button>
+                    <span v-if="((disk !== null) && (disk.totals.images_unused > 0))" class="dk-key"><i class="dk-old"/><button type="button" class="link" title="The Images tab, where Prune unused takes them away; a project's own old images go with its Free space" @click="tab_open('images')">{{ format_bytes(disk.totals.images_unused) }} of images no container uses</button></span>
                     <span v-if="(disk_missing !== '')" class="muted">{{ disk_missing }}</span>
                     <span v-if="(disk_error !== '')" class="bad">the disk was not counted: {{ disk_error }}</span>
                 </div>
@@ -107,6 +91,7 @@ const docker = {
                 <template v-if="(group_of(group).dir !== null)">
                     <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, then up -d: only what changed is made again" @click="project_act(group, 'update')">Update</button>
                     <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, down, up -d: every container is made again" @click="ask('Every container down and up?', 'Down and up', () => project_act(group, 'recreate'))">Down and up…</button>
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" title="down, its old images removed, up -d: what it no longer needs, taken off the disk" @click="free_ask(group)">Free space…</button>
                 </template>
             </template>
             <template #cell-name="{item, more}">
@@ -175,6 +160,57 @@ const docker = {
             </template>
         </items-view>
     </template>
+    <!-- A long action in a window over the tab: that it runs and for how long, which step, how far,
+         and every line it printed as it printed it, as a terminal shows them. It goes on when the
+         window is hidden, the tab's head saying so. Free space opens it first on what it would
+         take away, and runs on the click. -->
+    <dialog ref="run_window" class="dk-window" :aria-label="window_title" @cancel.prevent="window_x">
+        <template v-if="(freeing !== null)">
+            <div class="dk-window-head">
+                <b>Free space: {{ freeing.project }}</b>
+                <button type="button" class="dk-window-x" aria-label="Close" @click="window_x">×</button>
+            </div>
+            <ol class="dk-free-steps">
+                <li>
+                    <code>down</code>
+                    <span>its containers stop and go, and what they wrote and logged with them</span>
+                    <b>{{ freeing_size('containers') }}</b>
+                </li>
+                <li>
+                    <code>remove its old images</code>
+                    <span>{{ (freeing.old.length === 0 ? 'none: every image of its repositories is one a container runs' : (freeing.old.length + ' ' + plural(freeing.old.length, 'version', 'versions') + ' of its images no container runs')) }}</span>
+                    <b>{{ freeing_size('old') }}</b>
+                    <ul v-if="(freeing.old.length > 0)" class="dk-free-images">
+                        <li v-for="item of freeing.old" :key="item.id"><span class="dk-cut" :title="item.name">{{ image_short(item.name) }}</span> <span class="muted">{{ format_bytes(item.size) }}{{ shared_said(item.shared) }}</span></li>
+                    </ul>
+                </li>
+                <li>
+                    <code>up -d</code>
+                    <span>from the images it runs now: nothing is pulled</span>
+                </li>
+            </ol>
+            <p class="dk-free-sum">Frees about <b>{{ freeing_size('all') }}</b>. Its volumes and its folder stay; it is down for the seconds between.</p>
+            <div class="dk-window-acts">
+                <button type="button" class="primary" :disabled="(running_now || offline)" @click="free_run">Free space</button>
+                <button type="button" @click="window_x">Cancel</button>
+            </div>
+        </template>
+        <template v-else-if="(run !== null)">
+            <div class="dk-window-head">
+                <b><span v-if="(run.phase === 'running')" class="spin" aria-label="running"/>{{ run.title }}</b>
+                <span :class="(run.phase === 'failed' ? 'bad' : 'muted')">{{ run_said }}</span>
+                <button type="button" class="dk-window-x" :aria-label="(run.phase === 'running' ? 'Hide; it goes on' : 'Close')" :title="(run.phase === 'running' ? 'Hide; it goes on' : 'Close')" @click="window_x">×</button>
+            </div>
+            <div v-if="((run.progress !== null) && (run.progress.total > 0))" class="dk-progress">
+                <span class="meter"><i :style="{width: (Math.max(1, Math.round(run_ratio * 100)) + '%')}"/></span>
+                <span class="muted">{{ run_progress_text }}</span>
+            </div>
+            <div ref="output" class="dk-output" role="log"><div v-for="(line, i) of run.lines" :key="i" :class="{'dk-command': line.startsWith('$ ')}">{{ line }}</div><span v-if="(run.phase === 'running')" class="dk-caret">▍</span></div>
+            <div class="dk-window-acts">
+                <button type="button" @click="window_x">{{ (run.phase === 'running' ? 'Hide; it goes on' : 'Close') }}</button>
+            </div>
+        </template>
+    </dialog>
 </article>
 `,
     components: {'file-manager': file_manager, 'items-view': items_view, terminal},
@@ -211,9 +247,13 @@ const docker = {
             disk_error: '',
             // The projects whose disk is opened into its parts, by name
             parts_open: {},
-            // The long action under way or last done: {title, phase, said, text, log, progress,
-            // step, began, ms}
+            // The long action under way or last done: {title, phase, said, lines, progress, step,
+            // began, ms}
             run: null,
+            // Whether its window is open; hidden, it goes on, and the tab's head says so
+            window_open: false,
+            // Free space asked about, in the window before it runs: {project, old, containers}
+            freeing: null,
             // Ticks once a second while something runs, for the panel's clock
             now: Date.now(),
             // A container or a volume opened in place of the list: {key, title, subtitle, files,
@@ -281,6 +321,12 @@ const docker = {
                 said.push(`~${this.clock_text(ms*(progress.total - progress.done)/gone)} left`);
             }
             return said.join(' · ');
+        },
+        window_title: function () {
+            if (this.freeing !== null) {
+                return `Free space: ${this.freeing.project}`;
+            }
+            return (this.run === null) ? '' : this.run.title;
         },
         running_now: function () {
             return (this.run !== null) && (this.run.phase === 'running');
@@ -490,8 +536,10 @@ const docker = {
             }
         },
         run_begin: function (title, began) {
-            this.run = {title, phase: 'running', said: '', text: '', log: false, progress: null, step: null, began};
+            this.freeing = null;
+            this.run = {title, phase: 'running', said: '', lines: [], progress: null, step: null, began};
             this.clock_start();
+            this.window_show();
             return this.run;
         },
         run_follow: async function (run, answer) {
@@ -539,7 +587,7 @@ const docker = {
                 run.progress = Object.assign({since: (run.progress === null) ? Date.now() : run.progress.since, from: (run.progress === null) ? item.progress.done : run.progress.from}, item.progress);
             }
             if (item.text !== undefined) {
-                run.text += `${item.text}\n`;
+                run.lines.push(...String(item.text).split('\n'));
                 this.output_end();
             }
             if (item.end !== undefined) {
@@ -752,6 +800,61 @@ const docker = {
         volume_label: function (name) {
             return /^[0-9a-f]{64}$/.test(name) ? `${name.slice(0, 12)}…` : name;
         },
+        // The window of a long action, over the tab; it goes on whether it is shown or not
+        window_show: function () {
+            this.window_open = true;
+            const self = this;
+            this.$nextTick(function () {
+                const panel = self.$refs.run_window;
+                if ((panel !== undefined) && (panel.open === false)) {
+                    panel.showModal();
+                }
+                self.output_end();
+            });
+        },
+        window_hide: function () {
+            this.window_open = false;
+            const panel = this.$refs.run_window;
+            if ((panel !== undefined) && panel.open) {
+                panel.close();
+            }
+        },
+        // Its × and Escape: a question is let go, a run still going is hidden, one over is put away
+        window_x: function () {
+            if (this.freeing !== null) {
+                this.freeing = null;
+                this.window_hide();
+                return;
+            }
+            if ((this.run !== null) && (this.run.phase !== 'running')) {
+                this.run = null;
+            }
+            this.window_hide();
+        },
+        // Free space asked about: the window says first what it would take away, by the last count
+        free_ask: function (project) {
+            const disk = this.disk_of(project);
+            const containers = (disk === null) ? null : [disk.parts.written, disk.parts.logs].filter(v => (typeof v === 'number')).reduce((total, v) => total + v, 0);
+            this.freeing = {project, old: (disk === null) ? [] : disk.old, containers, counted: (disk !== null)};
+            this.window_show();
+        },
+        free_run: function () {
+            const project = this.freeing.project;
+            this.freeing = null;
+            return this.project_act(project, 'free');
+        },
+        // What a step of Free space would take away, by the last count
+        freeing_size: function (part) {
+            const freeing = this.freeing;
+            if (freeing.counted === false) {
+                return 'not counted yet';
+            }
+            const old = freeing.old.reduce((total, v) => total + v.size, 0);
+            const sizes = {containers: freeing.containers, old, all: old + (freeing.containers || 0)};
+            return (typeof sizes[part] === 'number') ? format_bytes(sizes[part]) : 'not counted';
+        },
+        shared_said,
+        plural,
         // What docker holds on the disk, read beside the list: a count that may take a while
         // (docker weighs every volume, the host counts folders), so the list does not wait
         // for it, and the last one stays in view while the next is made
@@ -787,6 +890,7 @@ const docker = {
             const disk = this.disk_of(project);
             const out = [
                 {key: 'image', label: 'image', size: disk.parts.image, said: disk.images.map(v => `${image_short(v.name)}${shared_said(v.shared)}`).join(', ')},
+                {key: 'old', label: 'old images', size: disk.parts.old, said: (disk.old.length === 0) ? 'none: no other version of its images is left' : `${disk.old.map(v => `${image_short(v.name)} ${format_bytes(v.size)}${shared_said(v.shared)}`).join(', ')}; no container runs them, and Free space removes them`},
                 {key: 'written', label: 'written', size: disk.parts.written, said: 'what its containers wrote over the image: each one\'s own overlay layer'},
             ];
             if (disk.volumes.length > 0) {
@@ -855,7 +959,7 @@ const TAB_KEY = 'docker.tab';
 let tab_last = null;
 
 // What each project action is called on the screen
-const ACTION_LABELS = {update: 'update', recreate: 'down and up'};
+const ACTION_LABELS = {update: 'update', recreate: 'down and up', free: 'free space'};
 
 // The four lists of a machine's docker, as the tabs show them
 const TABS = [

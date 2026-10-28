@@ -8,7 +8,7 @@ const BODY_LIMIT_BYTES = 64*1024;
 const PROGRESS_EVERY_MS = 250;
 
 const RE_CONTAINER_DO = /^\/containers\/([0-9a-f]{12,64})\/(start|stop|restart|remove)$/;
-const RE_PROJECT_DO = /^\/projects\/([^/]+)\/(update|recreate)$/;
+const RE_PROJECT_DO = /^\/projects\/([^/]+)\/(update|recreate|free)$/;
 const RE_IMAGE_DO = /^\/images\/(sha256:[0-9a-f]{64}|[0-9a-f]{12,64})\/(remove|pull)$/;
 const RE_VOLUME_DO = /^\/volumes\/([^/]+)\/remove$/;
 const RE_VOLUME_HELPER = /^\/volumes\/([^/]+)\/(open|close)$/;
@@ -42,14 +42,18 @@ const NETWORKS_BUILTIN = ['bridge', 'host', 'none', 'podman'];
 
 // What a compose project does for each action, after the project's own flags: update pulls the
 // images and lets `up -d` make again only what changed; recreate takes every container down
-// first, the way it is done by hand in a terminal
+// first, the way it is done by hand in a terminal; free takes it down, removes its old images
+// (OLD_IMAGES, done through the engine) and brings it up from the images it runs, so what its
+// containers wrote and logged goes with them, and nothing is pulled
+const OLD_IMAGES = 'remove its old images';
 const PROJECT_STEPS = {
     update: [['pull'], ['up', '-d']],
     recreate: [['pull'], ['down'], ['up', '-d']],
+    free: [['down'], OLD_IMAGES, ['up', '-d']],
 };
 
 // What a page calls each long action while it runs, and after a reload
-const PROJECT_TITLES = {update: 'update', recreate: 'down and up'};
+const PROJECT_TITLES = {update: 'update', recreate: 'down and up', free: 'free space'};
 const PRUNE_TITLES = {
     'images': 'Removing dangling images',
     'images-all': 'Removing unused images',
@@ -198,7 +202,9 @@ async function disk_serve(ctx, res)
     let info;
     let version;
     try {
-        [df, containers, info, version] = await Promise.all(['/system/df', '/containers/json?all=1', '/info', '/version'].map(v => engine_json(ctx.connect, v)));
+        let listed;
+        [df, containers, info, version, listed] = await Promise.all(['/system/df', '/containers/json?all=1', '/info', '/version', '/images/json'].map(v => engine_json(ctx.connect, v)));
+        df.Images = images_named(Array.isArray(df.Images) ? df.Images : [], listed);
     }
     catch (error) {
         send_json(res, 502, {error: error.message});
@@ -222,6 +228,18 @@ async function disk_serve(ctx, res)
     const answer = docker_disk(df, containers, logs, folders);
     answer.took_ms = Date.now() - began;
     send_json(res, 200, answer);
+}
+
+// The engine's images as its /system/df sizes them, the layers each shares with others said,
+// with their names as /images/json says them: podman's df says a tag without its repository,
+// and its /images/json no shared size. One df does not have is as /images/json says it.
+function images_named(sized, listed)
+{
+    const by_id = new Map(sized.map(v => [String(v.Id).replace(/^sha256:/, ''), v]));
+    return listed.map(function (named) {
+        const counted = by_id.get(String(named.Id).replace(/^sha256:/, ''));
+        return (counted === undefined) ? named : Object.assign({}, counted, {RepoTags: named.RepoTags, RepoDigests: named.RepoDigests});
+    });
 }
 
 // One count of a folder by the host, {total, folders, unread}, or why there is none: an error,
@@ -681,9 +699,11 @@ async function container_do(ctx, res, id, action)
 
 // POST <base>/projects/<name>/update
 // POST <base>/projects/<name>/recreate
+// POST <base>/projects/<name>/free
 // One compose project, step after step, its folder and files taken from its containers' labels
 // — never from the page. The answer is text, written as the steps go: each step's command,
-// then what it printed, then the word that ends it.
+// then each line it prints as it prints it (or all of them when it ends, where the host does
+// not hand them over as they come), then the word that ends it.
 async function project_do(ctx, res, project, action)
 {
     let found;
@@ -698,21 +718,59 @@ async function project_do(ctx, res, project, action)
         send_json(res, 404, {error: `no container says it is of compose project ${project}, with the folder it came from`});
         return;
     }
+    // The old images are found before down, while its containers still say which images they
+    // run: those stay, and up starts from them again
+    let old = [];
+    if (action === 'free') {
+        try {
+            // Sized as the disk's count sizes them, so the run frees what the question said
+            const [df, listed, containers] = await Promise.all(['/system/df?type=image', '/images/json', '/containers/json?all=1'].map(v => engine_json(ctx.connect, v)));
+            const images = images_named(Array.isArray(df.Images) ? df.Images : [], listed);
+            old = docker_disk.old_images(images.filter(v => id_valid(v.Id)), containers.filter(v => (is_helper(v) === false) && id_valid(v.Id)), project);
+        }
+        catch (error) {
+            send_json(res, 502, {error: error.message});
+            return;
+        }
+    }
+    // Which of its containers run now: each one is running again when the steps end, or the
+    // action failed whatever compose answered (podman-compose answers 0 when its podman run fails)
+    let running;
+    try {
+        running = await project_running(ctx, project);
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+        return;
+    }
     const progress = progress_begin(ctx, res, `${project} · ${PROJECT_TITLES[action]}`);
     ctx.log('docker_project_begin', {project, action});
     const steps = PROJECT_STEPS[action];
+    const said = [];
     for (let i = 0; i < steps.length; i++) {
+        if (steps[i] === OLD_IMAGES) {
+            progress_say(progress, {step: i + 1, steps: steps.length, name: OLD_IMAGES, text: `$ docker image rm, for each image of ${project} no container runs: ${old.length}`});
+            said.push(await old_remove(ctx, progress, old));
+            continue;
+        }
         const argv = ['compose', '-p', project].concat(found.files.flatMap(v => ['-f', v]), steps[i]);
         progress_say(progress, {step: i + 1, steps: steps.length, name: steps[i].join(' '), text: `$ docker ${argv.join(' ')}`});
+        // Each line as the command prints it, where the host hands them over as they come
+        let live = false;
         let answer;
         try {
-            answer = await ctx.run(argv);
+            answer = await ctx.run(argv, function (line) {
+                live = true;
+                progress_say(progress, {text: line});
+            });
         }
         catch (error) {
+            // Why it never ran, or never ended, is said whatever came before it
             answer = {ok: false, code: null, stdout: '', stderr: error.message};
+            live = false;
         }
         const printed = `${answer.stdout}${answer.stderr}`.replace(/\n$/, '');
-        if (printed !== '') {
+        if ((live === false) && (printed !== '')) {
             progress_say(progress, {text: printed});
         }
         if (answer.ok === false) {
@@ -720,9 +778,69 @@ async function project_do(ctx, res, project, action)
             ctx.log('docker_project_end_error', {project, action, step: steps[i].join(' ')});
             return;
         }
+        said.push(steps[i].join(' '));
     }
-    progress_end(progress, 'done', `${project}: ${steps.map(v => v.join(' ')).join(', then ')}`);
+    let stopped;
+    try {
+        const now = await project_running(ctx, project);
+        stopped = running.filter(v => (now.includes(v) === false));
+    }
+    catch (error) {
+        stopped = [`(docker said nothing of them: ${error.message})`];
+    }
+    if (stopped.length > 0) {
+        progress_end(progress, 'failed', `${project}: ${said.join(', then ')}, but ${stopped.join(', ')} ${(stopped.length === 1) ? 'is' : 'are'} not running`);
+        ctx.log('docker_project_end_error', {project, action, stopped: stopped.join(' ')});
+        return;
+    }
+    progress_end(progress, 'done', `${project}: ${said.join(', then ')}`);
     ctx.log('docker_project_end_ok', {project, action});
+}
+
+// The names of a project's containers that run now
+async function project_running(ctx, project)
+{
+    const containers = await engine_json(ctx.connect, '/containers/json?all=1');
+    return containers.filter(v => (is_helper(v) === false) && (labels_of(v)[LABEL_PROJECT] === project) && (v.State === 'running')).map(name_of).sort();
+}
+
+// A project's old images taken away one at a time, through the engine, each with what it frees;
+// one the engine keeps (a tag another name needs, a container made since) is said and left. The
+// words for the end: how many went, and how much they freed.
+async function old_remove(ctx, progress, old)
+{
+    if (old.length === 0) {
+        progress_say(progress, {text: 'no old image: every image of its repositories is one a container runs'});
+        return 'no old image to remove';
+    }
+    const total = old.reduce((sum, v) => sum + v.size, 0);
+    let done = 0;
+    let freed = 0;
+    let removed = 0;
+    progress_say(progress, {progress: {done: 0, total: old.length, unit: 'images', bytes: 0}});
+    for (const item of old) {
+        // Forced: its names are all the project's own, and no container runs it or was made from
+        // it; one that runs still refuses, forced or not
+        let answer;
+        try {
+            answer = await engine_call(ctx.connect, 'DELETE', `/images/${item.id}?force=1`);
+        }
+        catch (error) {
+            answer = {status: 0, body: JSON.stringify({message: error.message})};
+        }
+        done++;
+        if (answer.status === 200) {
+            removed++;
+            freed += item.size;
+            progress_say(progress, {text: `removed ${item.name} (${bytes_text(item.size)})`});
+            ctx.log('docker_image_removed', {id: item.id.slice(0, 12), name: item.name});
+        }
+        else {
+            progress_say(progress, {text: `kept ${item.name}: ${engine_said(answer)}`});
+        }
+        progress_say(progress, {progress: {done, total: old.length, unit: 'images', bytes: freed}});
+    }
+    return `${removed} of ${old.length} old ${(old.length === 1) ? 'image' : 'images'} removed (${bytes_text(freed)} of ${bytes_text(total)})`;
 }
 
 // The folder and compose files of a project, as its containers' labels say. Each file is named

@@ -11,18 +11,21 @@ const LABEL_DIR = 'com.docker.compose.project.working_dir';
 // folder (its compose file, the folders it binds), as the host counted them.
 //
 // A project's image is every image its containers were made from, each counted once in it,
-// whole: the layers it shares with other images too, as `docker images` says its size. An
-// image or a volume two projects use is counted in both, and said to be shared; the machine's
-// totals count each once.
+// whole: the layers it shares with other images too, as `docker images` says its size. Its old
+// images are the other versions of those images' repositories that no container runs (an
+// earlier pull, a tag it no longer names), each as much as removing it frees. An image or a
+// volume two projects use is counted in both, and said to be shared; the machine's totals count
+// each once.
 //
 //     df          the Engine API's /system/df
 //     containers  its /containers/json?all=1: the compose labels, and the mounts podman's df
 //                 leaves out
 //     logs        {sizes: Map of container id to bytes} or {error}
 //     folders     Map of a project's folder to {size, unread} or {error}
-//     ->          {projects: [{project, dir, total, parts: {image, written, volumes, logs,
-//                 folder}, unread, images: [{id, name, size, shared}], volumes: [{name, size,
-//                 shared}]}], containers: {<id>: {written, log}}, volumes: {<name>: size},
+//     ->          {projects: [{project, dir, total, parts: {image, old, written, volumes, logs,
+//                 folder}, unread, images: [{id, name, size, shared}], old: [{id, name, size,
+//                 shared}], volumes: [{name, size, shared}]}], containers: {<id>: {written,
+//                 log}}, volumes: {<name>: size},
 //                 totals: {images, images_unused, written, volumes, logs, folders,
 //                 build_cache}, missing: {logs, folders}}
 //
@@ -73,6 +76,14 @@ function docker_disk(df, containers, logs, folders)
         }
     }
 
+    // Which projects an old image is a version of, to say which are shared
+    const old_users = new Map();
+    for (const key of groups.keys()) {
+        for (const item of old_images(Array.from(images.values()), containers, key)) {
+            users_add(old_users, item.id, key);
+        }
+    }
+
     const projects = [];
     for (const [key, group] of groups) {
         const image_list = [];
@@ -83,18 +94,20 @@ function docker_disk(df, containers, logs, folders)
                 image_list.push({id, name: image_name(item, image, id), size: (image === undefined) ? null : image.Size, shared: users_other(image_users, id, key)});
             }
         }
+        const old_list = old_images(Array.from(images.values()), containers, key).map(v => Object.assign(v, {shared: users_other(old_users, v.id, key)}));
         const volume_names = Array.from(volume_users).filter(v => v[1].has(key)).map(v => v[0]).sort();
         const volume_list = volume_names.map(v => ({name: v, size: volume_sizes.has(v) ? volume_sizes.get(v) : null, shared: users_other(volume_users, v, key)}));
         const counted = ((group.dir === null) || (folders.has(group.dir) === false)) ? {} : folders.get(group.dir);
         const parts = {
             image: sum(image_list.map(v => v.size)),
+            old: sum(old_list.map(v => v.size)) || 0,
             written: sum(group.containers.map(v => written.has(v.Id) ? written.get(v.Id) : null)),
             volumes: sum(volume_list.map(v => v.size)),
             logs: (log_sizes === null) ? null : sum(group.containers.map(v => log_sizes.has(v.Id) ? log_sizes.get(v.Id) : 0)),
             folder: (counted.size === undefined) ? null : counted.size,
         };
         // unread: the folders in its folder du could not read, whose size is in no part
-        projects.push({project: group.project, dir: group.dir, total: sum(Object.values(parts)) || 0, parts, unread: counted.unread || 0, images: image_list, volumes: volume_list});
+        projects.push({project: group.project, dir: group.dir, total: sum(Object.values(parts)) || 0, parts, unread: counted.unread || 0, images: image_list, old: old_list, volumes: volume_list});
     }
     projects.sort((a, b) => ((a.project === null) - (b.project === null)) || String(a.project).localeCompare(String(b.project)));
 
@@ -135,6 +148,96 @@ docker_disk.log_sizes = function (counted) {
     }
     return out;
 };
+
+// The old images of one project ('' for the containers in none): the images no container runs
+// whose every name is of a repository its containers were made from, as many bytes as removing
+// each frees, the layers it shares with other images left out where docker says them. An image
+// that is also called by another repository's name is not the project's alone, and stays; so
+// does one called by the very name its containers were made from (the compose file's image): a
+// pull that up has not used yet, which up starts from. The repository is the name each
+// container was made from; only one made from an id is known by the tags its image has now,
+// since one image may carry many.
+//
+//     images      the engine's images: /system/df's, or /images/json's
+//     containers  its /containers/json?all=1
+//     ->          [{id, name, size}]
+function old_images(images, containers, key)
+{
+    const own = containers.filter(v => ((labels_of(v)[LABEL_PROJECT] === undefined) ? '' : labels_of(v)[LABEL_PROJECT]) === key);
+    const used = new Set(containers.map(v => bare_id(v.ImageID || '')));
+    const repos = new Set();
+    const named = new Set();
+    for (const item of own) {
+        if ((typeof item.Image === 'string') && (item.Image !== '') && (/^(sha256:)?[0-9a-f]{12,64}$/.test(item.Image) === false)) {
+            repos.add(repo_of(item.Image));
+            named.add(tag_of(item.Image));
+            continue;
+        }
+        const image = images.find(v => (bare_id(v.Id) === bare_id(item.ImageID || '')));
+        for (const repo of ((image === undefined) ? [] : repos_of(image))) {
+            repos.add(repo);
+        }
+    }
+    const out = [];
+    for (const image of images) {
+        const id = bare_id(image.Id);
+        const names = Array.from(repos_of(image));
+        const tags = (Array.isArray(image.RepoTags) ? image.RepoTags : []).filter(v => (v.startsWith('<none>') === false)).map(tag_of);
+        if (used.has(id) || (names.length === 0) || names.some(v => (repos.has(v) === false)) || tags.some(v => named.has(v))) {
+            continue;
+        }
+        const shared = ((typeof image.SharedSize === 'number') && (image.SharedSize > 0)) ? image.SharedSize : 0;
+        out.push({id, name: old_name(image, repos), size: Math.max(0, image.Size - shared)});
+    }
+    // The biggest first
+    out.sort((a, b) => (b.size - a.size) || a.name.localeCompare(b.name));
+    return out;
+}
+
+docker_disk.old_images = old_images;
+
+// An image's repository: its name without the tag or the digest, docker hub's own the short way,
+// so docker.io/library/postgres:17 and postgres:17 are one
+function repo_of(name)
+{
+    let repo = String(name).replace(/@sha256:[0-9a-f]+$/, '');
+    const at = repo.lastIndexOf(':');
+    if ((at !== -1) && (repo.indexOf('/', at) === -1)) {
+        repo = repo.slice(0, at);
+    }
+    return repo.replace(/^docker\.io\//, '').replace(/^library\//, '');
+}
+
+// An image's name with its tag, the way docker reads it: docker hub's own the short way, and
+// :latest where none is said
+function tag_of(name)
+{
+    const bare = String(name).replace(/@sha256:[0-9a-f]+$/, '');
+    const at = bare.lastIndexOf(':');
+    const tagged = ((at !== -1) && (bare.indexOf('/', at) === -1)) ? bare : `${bare}:latest`;
+    return tagged.replace(/^docker\.io\//, '').replace(/^library\//, '');
+}
+
+// Every repository an image is known by: its tags', and its digests' — an image whose tag moved
+// to a newer pull keeps its digest, which still says where it came from
+function repos_of(image)
+{
+    const names = [].concat(Array.isArray(image.RepoTags) ? image.RepoTags : [], Array.isArray(image.RepoDigests) ? image.RepoDigests : []);
+    return new Set(names.filter(v => (v.startsWith('<none>') === false)).map(repo_of));
+}
+
+// What an old image is called for a project: its tag of the project's repository, or that
+// repository with the start of its id where the tag went to a newer pull
+function old_name(image, repos)
+{
+    const tags = (Array.isArray(image.RepoTags) ? image.RepoTags : []).filter(v => (v.startsWith('<none>') === false));
+    const tag = tags.find(v => repos.has(repo_of(v)));
+    if (tag !== undefined) {
+        return tag;
+    }
+    const repo = Array.from(repos_of(image)).find(v => repos.has(v));
+    return `${(repo === undefined) ? 'untagged' : repo} (${bare_id(image.Id).slice(0, 12)})`;
+}
 
 // Where an engine keeps its containers' folders, under its root; null where it does not say
 docker_disk.logs_folder = function (info, version) {
