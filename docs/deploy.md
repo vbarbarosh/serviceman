@@ -51,6 +51,11 @@ image holds node, tailscale, the packages and the source: change any of those an
 `bin/build` again. `TS_AUTHKEY` is taken from your environment when it is set.
 `demos/docker-compose.yml` is the same image left running on a machine instead.
 
+**Which build runs** is said after serviceman's name at the top of the page: the version in
+`package.json` and the commit `bin/build` built the image from, as `1.0.0 · f21c13d`, with a `+`
+after the commit when the checkout had changes not committed. Run from a checkout without the
+image, serviceman asks git itself; outside a git checkout only the version is said.
+
 **The container keeps a network of its own.** Two ports are published on the machine's
 loopback and nothing else — 3000 for the services, 3001 for the control page — so nothing is
 open on the machine's public address. tailscaled joins the tailnet from inside and hands the

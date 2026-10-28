@@ -1789,6 +1789,7 @@ const app = {
     template: `
 <header>
     <button type="button" class="brand" title="The front page: every service" @click="home_show">serviceman</button>
+    <span v-if="(version !== null)" id="version" :title="version.title">{{ version.number }}<span v-if="(version.commit !== null)" class="version-commit"> · {{ version.commit }}</span></span>
     <button type="button" id="find" title="Find anything by any word: a service, a remote, an address, a folder" @click="find_show">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <span>Find a service, remote, address or folder</span>
@@ -2091,6 +2092,20 @@ const app = {
                 return {state: 'warn', text: `${counts.warn} to look at`, title: `${counts.warn} ${(counts.warn === 1) ? 'check asks' : 'checks ask'} for a look`};
             }
             return {state: 'muted', text: 'nothing found', title: 'Nothing open to harm that serviceman can see'};
+        },
+        // Which serviceman this is, after its name: its version, and the commit it was built from
+        version: function () {
+            if ((this.state === null) || (this.state.serviceman === undefined)) {
+                return null;
+            }
+            const number = this.state.serviceman.version;
+            const commit = this.state.serviceman.commit;
+            if (commit === null) {
+                return {number, commit, title: `serviceman ${number}`};
+            }
+            // A + after the commit: the checkout it was built from had changes not committed
+            const changed = commit.endsWith('+') ? ' with changes not yet committed' : '';
+            return {number, commit, title: `serviceman ${number}, built from commit ${commit.replace(/\+$/, '')}${changed}`};
         },
         summary: function () {
             if (this.answering === false) {

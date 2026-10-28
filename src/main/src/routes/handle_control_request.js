@@ -80,6 +80,7 @@ const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
 const service_zip_replace = require('../helpers/service_zip_replace');
+const serviceman_version = require('../helpers/serviceman_version');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
 const stream_open = require('../helpers/stream_open');
@@ -2431,6 +2432,8 @@ function state_from_app(app)
     return {
         now,
         started_at: app.started_at,
+        // Which serviceman this is: its version and the commit it was built from, for the header
+        serviceman: serviceman_version(),
         // The agent this host serves: a machine running an older one is a machine to update
         agent_built,
         listen: app.config.listen,

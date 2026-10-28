@@ -84,10 +84,12 @@ body:has(#trouble) #app {
     border-color: currentColor;
 }
 
+/* No wider than the window, however much its parts would want: what can give way, does */
 header {
     display: flex;
     gap: .75rem;
     align-items: center;
+    min-width: 0;
     padding: .6rem 1rem;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
@@ -103,6 +105,18 @@ header .brand {
     font-weight: bold;
     letter-spacing: .02em;
     cursor: pointer;
+}
+
+/* Which serviceman this is, close after its name: its version and the commit it was built from;
+   on a screen too narrow for it, the first thing in the header to give way, whole in its tooltip */
+#version {
+    min-width: 0;
+    margin-left: -.35rem;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: .8rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 header .muted {
@@ -2242,12 +2256,14 @@ button.palette-hit.on {
     }
 
     #find {
+        flex: none;
         width: auto;
     }
 
     #find span,
     #find kbd,
-    #summary {
+    #summary,
+    #version .version-commit {
         display: none;
     }
 
