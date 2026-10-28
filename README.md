@@ -125,6 +125,10 @@ them:
 
     npm run lint
 
+serviceman's version, in `package.json`, goes up a patch with every commit, and
+[CHANGELOG.md](CHANGELOG.md) says each change in a line, the newest first;
+`tests/changelog.test.js` fails while the newest there is not the version `package.json` gives.
+
 The agent has a version of its own, in `src/agent/version.json`, and every change to it raises
 that version: `bin/agent-version patch` for a fix, `bin/agent-version minor` for something new.
 A major version is the author's alone. `tests/agent_version.test.js` fails while the agent has

@@ -39,6 +39,11 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
 
 ## Local rules
 
+- **A version per commit.** Every commit raises serviceman's patch version
+  (`npm version patch --no-git-tag-version`, which changes `package.json` and
+  `package-lock.json`) and says what changed under that version on top of `CHANGELOG.md`, in a
+  line or two: short. A minor or major version is the author's (`bin/release`).
+  `tests/changelog.test.js` fails until both are done.
 - **The agent's version.** Every change to `src/agent/**`, or to a `src/helpers` file the
   agent bundles, raises `src/agent/version.json` in the same change: `bin/agent-version patch`
   for a fix, `minor` for something new. A major version is the author's alone.

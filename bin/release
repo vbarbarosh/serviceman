@@ -36,9 +36,18 @@ bin/test
 # Increase a version without commiting it and making a tag
 npm version $1 --no-git-tag-version
 
+# The release says itself on top of the changelog, above the changes it gathers
+version=`node -e 'console.log(require("./package.json").version)'`
+node -e '
+const fs = require("fs");
+const text = fs.readFileSync("CHANGELOG.md", "utf8");
+const at = text.indexOf("\n## ") + 1;
+fs.writeFileSync("CHANGELOG.md", `${text.slice(0, at)}## ${process.argv[1]} — ${process.argv[2]}\n\n- Released.\n\n${text.slice(at)}`);
+' "$version" "`date +%F`"
+
 # The agent file is not kept in the repository: a machine takes it from the host it dials,
 # /api/v1/agent.js, built from source there
-git add package.json
+git add package.json CHANGELOG.md
 if test -e package-lock.json; then
     git add package-lock.json
 fi
