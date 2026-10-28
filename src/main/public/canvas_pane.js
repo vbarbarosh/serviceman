@@ -4,6 +4,8 @@ import storage_set from './storage_set.js';
 
 // One machine's place on the canvas, in canvas units: its drawing, then its name under it
 const CELL = {width: 200, height: 230};
+// How wide a name may be under its drawing, in canvas units: a longer one is cut with an ellipsis
+const NAME_WIDTH = 172;
 // How far the canvas zooms out and in
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
@@ -43,13 +45,14 @@ const canvas_pane = {
                 <pattern id="canvas-dots" :width="(24 * zoom)" :height="(24 * zoom)" patternUnits="userSpaceOnUse" :x="pan.x" :y="pan.y"><circle cx="1.5" cy="1.5" r="1.2" class="canvas-dot"/></pattern>
             </defs>
             <rect :width="size.width" :height="size.height" fill="url(#canvas-dots)"/>
+            <text ref="measure" class="canvas-name" visibility="hidden" aria-hidden="true"></text>
             <g :transform="('translate(' + pan.x + ' ' + pan.y + ') scale(' + zoom + ')')">
                 <g v-for="item of placed" :key="item.name" class="canvas-machine" :class="{dragged: ((drag !== null) && (drag.name === item.name))}" :transform="('translate(' + item.x + ' ' + item.y + ')')" tabindex="0" role="button" :aria-label="(item.title + ': ' + said_of(item))" @pointerdown.stop="press_machine(item, $event)" @keydown.enter="$emit('remote', item.name)">
                     <title>{{ item.title }}: {{ said_of(item) }}</title>
                     <rect class="canvas-hit" x="0" y="-10" :width="CELL.width - 20" :height="CELL.height - 10" rx="14"/>
                     <g transform="translate(20 0) scale(1.4)"><machine-drawing :kind="item.kind" :light="item.light" :work="item.work"/></g>
-                    <text :x="((CELL.width - 20) / 2)" y="166" class="canvas-name" text-anchor="middle">{{ name_short(item.title) }}</text>
-                    <text v-if="(item.light === 'dark')" :x="((CELL.width - 20) / 2)" y="190" class="canvas-away" text-anchor="middle">away</text>
+                    <text :x="((CELL.width - 20) / 2)" y="158" class="canvas-name" text-anchor="middle">{{ name_short(item.title) }}</text>
+                    <text v-if="(item.light === 'dark')" :x="((CELL.width - 20) / 2)" y="176" class="canvas-away" text-anchor="middle">away</text>
                 </g>
             </g>
         </svg>
@@ -83,6 +86,10 @@ const canvas_pane = {
             note: '',
             observer: null,
             fitted: false,
+            // Each name as it fits under its drawing, by the whole name; and what they were
+            // measured with, so that they are measured again only when the names or the font change
+            shown: {},
+            shown_with: '',
         };
     },
     computed: {
@@ -126,6 +133,7 @@ const canvas_pane = {
             if ((this.fitted === false) && (this.machines.length > 0)) {
                 this.$nextTick(this.board_watch);
             }
+            this.$nextTick(this.names_fit);
         },
     },
     methods: {
@@ -138,7 +146,32 @@ const canvas_pane = {
         },
         // A long name keeps the width of its drawing, whole in its tooltip
         name_short: function (name) {
-            return (name.length > 20) ? `${name.slice(0, 19)}…` : name;
+            return (this.shown[name] === undefined) ? name : this.shown[name];
+        },
+        // Every name measured in the font it is drawn in and cut to its width; again when a name
+        // changes, when a skin brings another font, and once a font has loaded
+        names_fit: function () {
+            const measure = this.$refs.measure;
+            if ((measure === undefined) || (measure === null)) {
+                return;
+            }
+            const style = getComputedStyle(measure);
+            const titles = this.machines.map(v => v.title);
+            const with_what = [style.fontFamily, style.fontSize, style.fontWeight].concat(titles).join('\n');
+            if (with_what === this.shown_with) {
+                return;
+            }
+            const shown = {};
+            for (const title of titles) {
+                shown[title] = text_fit(measure, title, NAME_WIDTH);
+            }
+            measure.textContent = '';
+            this.shown = shown;
+            this.shown_with = with_what;
+        },
+        fonts_loaded: function () {
+            this.shown_with = '';
+            this.names_fit();
         },
         // The board's size, followed as the window changes; the first time, every machine in view
         board_watch: function () {
@@ -298,13 +331,39 @@ const canvas_pane = {
     mounted: function () {
         if (this.machines.length > 0) {
             this.board_watch();
+            this.names_fit();
         }
+        document.fonts.addEventListener('loadingdone', this.fonts_loaded);
     },
     unmounted: function () {
         if (this.observer !== null) {
             this.observer.disconnect();
         }
+        document.fonts.removeEventListener('loadingdone', this.fonts_loaded);
     },
 };
+
+// The text whole when it fits the width, else as much of it as fits with an ellipsis, as an SVG
+// text element in the same font measures it
+function text_fit(element, text, width)
+{
+    element.textContent = text;
+    if (element.getComputedTextLength() <= width) {
+        return text;
+    }
+    let low = 0;
+    let high = text.length - 1;
+    while (low < high) {
+        const middle = Math.ceil((low + high)/2);
+        element.textContent = `${text.slice(0, middle)}…`;
+        if (element.getComputedTextLength() <= width) {
+            low = middle;
+        }
+        else {
+            high = middle - 1;
+        }
+    }
+    return `${text.slice(0, low)}…`;
+}
 
 export default canvas_pane;

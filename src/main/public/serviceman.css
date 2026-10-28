@@ -3683,54 +3683,75 @@ article.rf .actions {
     stroke-width: 2;
 }
 
-/* The drawings: dark devices whatever the theme, their screens lit while they are connected */
+/* The drawings in the page's colours, worked out of its tokens so that a skin's colours reach
+   them too: the case a shade of the text over the panel, its units nearer the panel, a lit
+   screen the accent's tint, an off one and a light that is out a deeper shade */
+:root[data-theme="light"] {
+    --device: color-mix(in srgb, var(--fg) 9%, var(--panel));
+    --device-edge: color-mix(in srgb, var(--fg) 28%, var(--panel));
+    --device-unit: color-mix(in srgb, var(--fg) 2%, var(--panel));
+    --device-bay: color-mix(in srgb, var(--fg) 15%, var(--panel));
+    --device-lit: color-mix(in srgb, var(--accent) 28%, var(--panel));
+    --device-off: color-mix(in srgb, var(--fg) 24%, var(--panel));
+}
+
+:root[data-theme="dark"] {
+    --device: color-mix(in srgb, var(--fg) 13%, var(--panel));
+    --device-edge: color-mix(in srgb, var(--fg) 28%, var(--panel));
+    --device-unit: color-mix(in srgb, #000 30%, var(--panel));
+    --device-bay: color-mix(in srgb, var(--fg) 18%, var(--panel));
+    --device-lit: color-mix(in srgb, var(--accent) 40%, var(--panel));
+    --device-off: color-mix(in srgb, #000 45%, var(--panel));
+}
+
 .canvas-body {
-    fill: #2b2e36;
-    stroke: #4a4e5a;
+    fill: var(--device);
+    stroke: var(--device-edge);
     stroke-width: 2;
 }
 
 .canvas-unit {
-    fill: #1f2128;
-    stroke: #3a3d46;
+    fill: var(--device-unit);
+    stroke: var(--device-edge);
+    stroke-width: .75;
 }
 
 .canvas-bay {
-    fill: #33363f;
+    fill: var(--device-bay);
 }
 
 .canvas-base {
-    fill: #3a3d46;
-    stroke: #4a4e5a;
+    fill: var(--device-bay);
+    stroke: var(--device-edge);
     stroke-width: 2;
 }
 
 .canvas-stand {
-    fill: #3a3d46;
+    fill: var(--device-bay);
 }
 
 .canvas-screen {
-    fill: #24618c;
+    fill: var(--device-lit);
 }
 
 .canvas-screen.off {
-    fill: #141416;
+    fill: var(--device-off);
 }
 
 .canvas-name {
     fill: var(--fg);
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .canvas-away {
     fill: var(--busy);
-    font-size: 16px;
+    font-size: 13px;
 }
 
 /* The one light: green all is well, amber something to look at, red something failed, dark away */
 .canvas-light {
-    stroke: #15161a;
+    stroke: var(--device-edge);
     stroke-width: 1;
 }
 
@@ -3750,7 +3771,7 @@ article.rf .actions {
 }
 
 .canvas-light.dark {
-    fill: #2c2d33;
+    fill: var(--device-off);
 }
 
 .canvas-glow {
