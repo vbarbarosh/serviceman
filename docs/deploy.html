@@ -752,10 +752,8 @@ this repo&#39;s <code>data/</code> mounted at <code>/app/data</code>, so its con
 image holds node, tailscale, the packages and the source: change any of those and it wants
 <code>bin/build</code> again. <code>TS_AUTHKEY</code> is taken from your environment when it is set.
 <code>demos/docker-compose.yml</code> is the same image left running on a machine instead.</p>
-<p><strong>Which build runs</strong> is said after serviceman&#39;s name at the top of the page: the version in
-<code>package.json</code> and the commit <code>bin/build</code> built the image from, as <code>1.0.0 · f21c13d</code>, with a <code>+</code>
-after the commit when the checkout had changes not committed. Run from a checkout without the
-image, serviceman asks git itself; outside a git checkout only the version is said.</p>
+<p><strong>Which version runs</strong> is said after serviceman&#39;s name at the top of the page, as <code>v1.0.0</code>:
+the version in <code>package.json</code>, which <code>bin/release</code> raises.</p>
 <p><strong>The container keeps a network of its own.</strong> Two ports are published on the machine&#39;s
 loopback and nothing else — 3000 for the services, 3001 for the control page — so nothing is
 open on the machine&#39;s public address. tailscaled joins the tailnet from inside and hands the

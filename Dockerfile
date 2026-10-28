@@ -43,8 +43,4 @@ ENV SERVICEMAN_CONFIG=/app/data/serviceman.json
 # What serviceman writes down about itself sits beside its config
 ENV SERVICEMAN_STATE_DIR=/app/data
 ENV SERVICEMAN_LOG_DIR=/app/data/logs
-# The commit the image is built from, which the page's header shows after the version: bin/build
-# hands it in, since .git stays out of the build; last, so a new commit rebuilds nothing above
-ARG SERVICEMAN_COMMIT=
-ENV SERVICEMAN_COMMIT=$SERVICEMAN_COMMIT
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -19,13 +19,6 @@ for env_file in .env logline/.env logline/lines/.env; do
     fi
 done
 
-# The commit the image is built from, for the page's header beside the version, with a + when
-# the checkout has changes not committed; none outside a git checkout
-commit=`git rev-parse --short=7 HEAD 2>/dev/null || true`
-if [ -n "$commit" ] && [ -n "`git status --porcelain --untracked-files=no 2>/dev/null`" ]; then
-    commit="$commit+"
-fi
-
 # --pull: the base images are fetched again rather than taken from the cache, so tailscale and
 # node are the newest of their channels each time
-docker build --pull --build-arg SERVICEMAN_COMMIT="$commit" -t serviceman .
+docker build --pull -t serviceman .
