@@ -852,6 +852,15 @@ Secrets — and <strong>Addresses</strong> lists every name that reaches a servi
 service to the machine it runs on (a solid line where it runs now, a dashed one where it
 may), and every machine to Logline where it sends its logs. Pointing at anything lights up
 what it is joined to; clicking opens it. It is at <code>/map</code>.</li>
+<li><strong>Canvas</strong> — every machine on one canvas, drawn as what it is: a server, a laptop or a home
+computer, as its Settings&#39; <strong>Drawn as</strong> says (a server until set). Each has its name and one
+light: green when all is well, amber when its row on Health (Security&#39;s looks among them)
+has something to look at, red when something there or a service on it failed, dark while it
+is away. A blue dashed ring turns around the light while work runs on it: a service starting,
+stopping or pulling there, apt installing, a Docker long action, a mend. Drag to move around,
+the wheel, a pinch, <strong>+</strong> and <strong>−</strong> to zoom, <strong>Fit</strong> for every machine in view; a machine
+dragged stays where it is put, for every page (<code>canvas.json</code> in the state folder, <code>PUT /api/v1/canvas/machines/&lt;name&gt;</code> with <code>{x, y}</code> or <code>{kind}</code>); a click or Enter opens it. It is
+at <code>/canvas</code>.</li>
 <li><strong>Ctrl K</strong> — finds anything by any word it carries: a service, a remote, an address, a
 folder.</li>
 <li><strong>The pencil</strong> — the config file in a code editor, for the edge cases the form leaves

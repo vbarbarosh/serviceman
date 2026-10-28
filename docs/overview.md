@@ -103,6 +103,16 @@ service, its state, its addresses, its policy and its instances, and it does the
   service to the machine it runs on (a solid line where it runs now, a dashed one where it
   may), and every machine to Logline where it sends its logs. Pointing at anything lights up
   what it is joined to; clicking opens it. It is at `/map`.
+- **Canvas** — every machine on one canvas, drawn as what it is: a server, a laptop or a home
+  computer, as its Settings' **Drawn as** says (a server until set). Each has its name and one
+  light: green when all is well, amber when its row on Health (Security's looks among them)
+  has something to look at, red when something there or a service on it failed, dark while it
+  is away. A blue dashed ring turns around the light while work runs on it: a service starting,
+  stopping or pulling there, apt installing, a Docker long action, a mend. Drag to move around,
+  the wheel, a pinch, **+** and **−** to zoom, **Fit** for every machine in view; a machine
+  dragged stays where it is put, for every page (`canvas.json` in the state folder, `PUT
+  /api/v1/canvas/machines/<name>` with `{x, y}` or `{kind}`); a click or Enter opens it. It is
+  at `/canvas`.
 - **Ctrl K** — finds anything by any word it carries: a service, a remote, an address, a
   folder.
 - **The pencil** — the config file in a code editor, for the edge cases the form leaves

@@ -3620,3 +3620,218 @@ article.rf .actions {
 .shared-folders .sf-head h2 .sf-icon {
     flex: none;
 }
+
+/* The Canvas: every machine drawn as what it is, one light each, on a board that pans and zooms */
+.canvas-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1.1rem;
+    margin: 0 0 .8rem;
+}
+
+.canvas-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.canvas-board {
+    position: relative;
+    height: calc(100vh - 15rem);
+    min-height: 26rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+}
+
+.canvas-board.panning {
+    cursor: grabbing;
+}
+
+.canvas-svg {
+    display: block;
+}
+
+.canvas-dot {
+    fill: var(--line);
+}
+
+.canvas-machine {
+    cursor: pointer;
+    outline: none;
+}
+
+.canvas-machine.dragged {
+    cursor: grabbing;
+}
+
+.canvas-hit {
+    fill: transparent;
+    stroke: none;
+}
+
+.canvas-machine:hover .canvas-hit {
+    fill: var(--hover);
+}
+
+.canvas-machine:focus-visible .canvas-hit {
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+/* The drawings: dark devices whatever the theme, their screens lit while they are connected */
+.canvas-body {
+    fill: #2b2e36;
+    stroke: #4a4e5a;
+    stroke-width: 2;
+}
+
+.canvas-unit {
+    fill: #1f2128;
+    stroke: #3a3d46;
+}
+
+.canvas-bay {
+    fill: #33363f;
+}
+
+.canvas-base {
+    fill: #3a3d46;
+    stroke: #4a4e5a;
+    stroke-width: 2;
+}
+
+.canvas-stand {
+    fill: #3a3d46;
+}
+
+.canvas-screen {
+    fill: #24618c;
+}
+
+.canvas-screen.off {
+    fill: #141416;
+}
+
+.canvas-name {
+    fill: var(--fg);
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.canvas-away {
+    fill: var(--busy);
+    font-size: 16px;
+}
+
+/* The one light: green all is well, amber something to look at, red something failed, dark away */
+.canvas-light {
+    stroke: #15161a;
+    stroke-width: 1;
+}
+
+.canvas-light.green,
+.canvas-glow.green {
+    fill: var(--run);
+}
+
+.canvas-light.amber,
+.canvas-glow.amber {
+    fill: var(--busy);
+}
+
+.canvas-light.red,
+.canvas-glow.red {
+    fill: var(--bad);
+}
+
+.canvas-light.dark {
+    fill: #2c2d33;
+}
+
+.canvas-glow {
+    opacity: .28;
+}
+
+/* Work going on: a blue dashed ring turning around the light, still where motion is turned down */
+.canvas-ring {
+    fill: none;
+    stroke: #2f8fd8;
+    stroke-width: 2.2;
+    stroke-dasharray: 3.2 2.6;
+    stroke-linecap: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: canvas-turn 1.6s linear infinite;
+}
+
+.canvas-ring.still {
+    stroke-width: 1.8;
+    animation: none;
+}
+
+@keyframes canvas-turn {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .canvas-ring {
+        animation: none;
+    }
+}
+
+/* Zoom: out, how far, in, every machine in view */
+.canvas-zoom {
+    position: absolute;
+    right: .75rem;
+    bottom: .75rem;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    cursor: default;
+}
+
+.canvas-zoom span {
+    min-width: 3.2rem;
+    color: var(--muted);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.canvas-zoom button {
+    min-width: 2rem;
+    padding: .15rem .5rem;
+}
+
+/* A machine's Settings: how the Canvas draws it, the three drawings to pick from */
+.rf-kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+
+.rf-kind {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .35rem;
+    min-width: 8.5rem;
+    padding: .75rem .9rem .6rem;
+    border-radius: 10px;
+}
+
+.rf-kind.on {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: var(--hover);
+}

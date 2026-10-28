@@ -8,6 +8,7 @@ import app_folder_read from './app_folder_read.js';
 import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
 import authwall_pane from './authwall_pane.js';
+import canvas_pane from './canvas_pane.js';
 import config_read from './config_read.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import data_table from './data_table.js';
@@ -1932,6 +1933,10 @@ const app = {
             <span class="name">Load tests</span>
             <span class="muted">{{ (state.load_tests === undefined) ? 0 : state.load_tests.length }}</span>
         </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'canvas'), open: (kind_now === 'canvas')}" title="Every machine on one canvas, drawn as what it is, with one light: how it stands" @click="canvas_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="11" height="8" rx="1.5"/><path d="M7 12v3M5 15h5"/><rect x="16" y="6" width="5" height="12" rx="1.2"/><circle cx="18.5" cy="9" r="0.8" fill="currentColor"/></svg>
+            <span class="name">Canvas</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'map'), open: (kind_now === 'map')}" @click="map_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7.2 6.5c5 .5 5 4.5 9.6 5.2M7.2 17.5c5-.5 5-4.5 9.6-5.2"/></svg>
             <span class="name">Map</span>
@@ -1956,6 +1961,7 @@ const app = {
         <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
+        <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named"/>
         <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
@@ -1968,7 +1974,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2024,6 +2030,7 @@ const app = {
             remotes_open: false,
             addresses_open: false,
             map_open: false,
+            canvas_open: false,
             // The one machine Services, Storage or Addresses is narrowed to, from its card
             list_remote: null,
             // What the rail's Storage and Secrets rows hold, read with their counts
@@ -2153,6 +2160,9 @@ const app = {
             if (this.map_open) {
                 return '/map';
             }
+            if (this.canvas_open) {
+                return '/canvas';
+            }
             if (this.remotes_open) {
                 return '/remotes';
             }
@@ -2222,6 +2232,9 @@ const app = {
             }
             if (this.map_open) {
                 return 'map';
+            }
+            if (this.canvas_open) {
+                return 'canvas';
             }
             if (this.remotes_open || this.join_form_open || this.remote_form_open || (this.remote_name !== null)) {
                 return 'remotes';
@@ -2506,6 +2519,10 @@ const app = {
                 this.map_open = true;
                 return;
             }
+            if (route.kind === 'canvas') {
+                this.canvas_open = true;
+                return;
+            }
 
             if (route.kind === 'join') {
                 this.join_open();
@@ -2659,6 +2676,10 @@ const app = {
             this.panes_close();
             this.map_open = true;
         },
+        canvas_show: function () {
+            this.panes_close();
+            this.canvas_open = true;
+        },
         // The Disk line of a machine's card: its Disks tab
         remote_disks_show: function (name) {
             this.remote_tab = 'disks';
@@ -2762,6 +2783,7 @@ const app = {
             this.remotes_open = false;
             this.addresses_open = false;
             this.map_open = false;
+            this.canvas_open = false;
             this.list_remote = null;
         },
         tab_pick: function (tab) {

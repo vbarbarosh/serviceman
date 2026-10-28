@@ -8,6 +8,9 @@ const apt_run = require('../helpers/apt_run');
 const body_file_write = require('../body_file_write');
 const body_json = require('../body_json');
 const body_read = require('../body_read');
+const canvas_of = require('../helpers/canvas_of');
+const canvas_view = require('../helpers/canvas_view');
+const canvas_write = require('../helpers/canvas_write');
 const config_file_save = require('../helpers/config_file_save');
 const config_from_json = require('../helpers/config_from_json');
 const config_locked = require('../helpers/config_locked');
@@ -94,6 +97,8 @@ const volumes_of_app = require('../helpers/volumes_of_app');
 const volumes_serve = require('../../../../modules/volumes/server/volumes_serve');
 const wants_html = require('../wants_html');
 
+// How far from the middle of the Canvas a machine may be put
+const CANVAS_REACH = 100000;
 const BODY_LIMIT_BYTES = 1024*1024;
 // A zip of an app folder, written to a file while it comes and read from there a file at a
 // time: an app with its models and assets, not a disk image
@@ -143,6 +148,7 @@ const UFW_TIMEOUT_MS = 40000;
 // Making a volume copies the plain files in, which takes as long as they are big
 const VOLUME_TIMEOUT_MS = 600000;
 const RE_SERVICE = /^\/api\/v1\/services\/([^/]+)$/;
+const RE_CANVAS_MACHINE = /^\/api\/v1\/canvas\/machines\/([^/]+)$/;
 const RE_LOAD_TEST = /^\/api\/v1\/load-tests\/([^/]+)$/;
 const RE_LOAD_TEST_DO = /^\/api\/v1\/load-tests\/([^/]+)\/(run|stop)$/;
 const RE_LOAD_TEST_LOG = /^\/api\/v1\/load-test-runs\/([0-9a-f]+)\/log$/;
@@ -155,7 +161,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
+const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -338,6 +344,11 @@ async function control_answer(app, req, res)
         // follows each look in its status
         security_check(app, true);
         send_json(res, 202, {checking: Array.from(app.security.running.keys())});
+        return;
+    }
+    const canvas_machine = RE_CANVAS_MACHINE.exec(url.pathname);
+    if ((canvas_machine !== null) && (req.method === 'PUT')) {
+        await handle_canvas_machine(app, req, res, route_param(canvas_machine[1]));
         return;
     }
     if ((url.pathname === '/api/v1/security/mend') && (req.method === 'POST')) {
@@ -1065,6 +1076,43 @@ function handle_apt_all_read(app, res)
 // passwords off, or on again where the page's own file turned them off, and automatic updates on.
 // One at a time a machine. The answer comes once it is done and the machine has been looked at
 // again, so the page shows the check as it now is; meanwhile its status says what is being mended.
+// PUT /api/v1/canvas/machines/<name> (body: {x, y} or {kind}, or both)
+// Where a machine stands on the Canvas, or how it is drawn: kept for every page and browser
+async function handle_canvas_machine(app, req, res, name)
+{
+    if (app.remote_by_name[name] === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    let body;
+    try {
+        body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    }
+    catch {
+        send_json(res, 400, {error: 'the body is not JSON'});
+        return;
+    }
+    const place = Object.assign({}, canvas_of(app).machines[name]);
+    if ((body.x !== undefined) || (body.y !== undefined)) {
+        if (![body.x, body.y].every(v => Number.isFinite(v) && (Math.abs(v) <= CANVAS_REACH))) {
+            send_json(res, 400, {error: `x and y are numbers within ${CANVAS_REACH} of the middle`});
+            return;
+        }
+        place.x = Math.round(body.x);
+        place.y = Math.round(body.y);
+    }
+    if (body.kind !== undefined) {
+        if (canvas_of.KINDS.includes(body.kind) === false) {
+            send_json(res, 400, {error: `kind is one of ${canvas_of.KINDS.join(', ')}`});
+            return;
+        }
+        place.kind = body.kind;
+    }
+    canvas_of(app).machines[name] = place;
+    canvas_write(app);
+    send_json(res, 200, {machine: Object.assign({name}, place)});
+}
+
 async function handle_security_mend(app, req, res)
 {
     const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
@@ -2379,6 +2427,7 @@ function state_from_app(app)
     const forwards = app.config.forwards.map(v => view_from_forward(app, v));
     const agent_built = agent_bundle.built_at();
     const security = security_view(app, remotes, now);
+    const health = health_from_views({now, agent_built, logline, services, remotes, forwards, problems, security}, app.health_seen);
     return {
         now,
         started_at: app.started_at,
@@ -2395,7 +2444,9 @@ function state_from_app(app)
         // What is wrong now, the oldest first: what the last check found and has seen twice
         problems,
         // How everything is, the good with the bad: the Health page
-        health: health_from_views({now, agent_built, logline, services, remotes, forwards, problems, security}, app.health_seen),
+        health,
+        // Every machine where it stands on the Canvas, how it is drawn, and its light
+        canvas: canvas_view(app, remotes, health, services),
         // What each machine leaves open to harm, as the last look at it found: the Security page
         security,
         forwards,

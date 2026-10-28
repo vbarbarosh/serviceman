@@ -1,7 +1,15 @@
+import machine_drawing from './machine_drawing.js';
 import settled from './settled.js';
 import state_read from './state_read.js';
 
 const TOKEN_BYTES = 32;
+
+// How a machine may be drawn on the Canvas
+const KINDS = [
+    {kind: 'server', label: 'server'},
+    {kind: 'laptop', label: 'laptop'},
+    {kind: 'home', label: 'home computer'},
+];
 
 // Adding a machine that carries services, without touching the config text
 const remote_form = {
@@ -31,6 +39,21 @@ const remote_form = {
                 <p class="muted">What this machine <em>is</em>. A service can ask for <code>#gpu</code> instead of a name, and every machine carrying the tag will do. The machine may add more with <code>--tag</code> when it connects; those are not written here.</p>
             </div>
         </div>
+    </section>
+    <!-- How it is drawn on the Canvas: not the config's, so a click keeps it at once -->
+    <section v-if="(original !== null)" class="card rf-card">
+        <div class="rf-head">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="11" height="8" rx="1.5"/><path d="M7 12v3M5 15h5"/><rect x="16" y="6" width="5" height="12" rx="1.2"/></svg>
+            <b>Drawn as</b>
+            <span class="muted">how the Canvas draws it; a click keeps it</span>
+        </div>
+        <div class="rf-kinds" role="radiogroup" aria-label="Drawn as">
+            <button v-for="item of KINDS" :key="item.kind" type="button" role="radio" class="rf-kind" :class="{on: (kind === item.kind)}" :aria-checked="(kind === item.kind)" :disabled="(kind === null)" @click="kind_set(item.kind)">
+                <svg viewBox="0 0 100 100" width="88" height="88" aria-hidden="true"><machine-drawing :kind="item.kind" light="green"/></svg>
+                <span>{{ item.label }}</span>
+            </button>
+        </div>
+        <p v-if="(kind_note !== '')" :class="(kind_bad ? 'bad' : 'muted')">{{ kind_note }}</p>
     </section>
     <section class="card rf-card">
         <div class="rf-head">
@@ -77,10 +100,16 @@ const remote_form = {
     </div>
 </article>
 `,
+    components: {'machine-drawing': machine_drawing},
     props: ['original'],
     emits: ['close', 'saved', 'service'],
     data: function () {
         return {
+            KINDS,
+            // How the Canvas draws it, null until read; what came of the last click
+            kind: null,
+            kind_note: '',
+            kind_bad: false,
             model: {
                 name: (this.original === null) ? '' : this.original.name || '',
                 title: (this.original === null) ? '' : this.original.title || '',
@@ -111,6 +140,36 @@ const remote_form = {
         },
     },
     methods: {
+        // How the Canvas draws it now
+        kind_read: async function () {
+            try {
+                const canvas = (await state_read()).canvas;
+                const found = canvas.machines.find(v => (v.name === this.original.name));
+                this.kind = (found === undefined) ? 'server' : found.kind;
+            }
+            catch {
+                this.kind = 'server';
+            }
+        },
+        // Drawn as another kind: kept at once, for the Canvas on every page
+        kind_set: async function (kind) {
+            const before = this.kind;
+            this.kind = kind;
+            this.kind_note = '';
+            this.kind_bad = false;
+            try {
+                const answer = await fetch(`/api/v1/canvas/machines/${encodeURIComponent(this.original.name)}`, {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({kind})});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json()).error);
+                }
+                this.kind_note = `kept: the Canvas draws ${this.original.name} as a ${KINDS.find(v => (v.kind === kind)).label}`;
+            }
+            catch (error) {
+                this.kind = before;
+                this.kind_bad = true;
+                this.kind_note = `not kept: ${(error instanceof TypeError) ? 'the answer never came back' : error.message}`;
+            }
+        },
         click_another_one: function () {
             this.model.token = token_make();
         },
@@ -191,6 +250,11 @@ const remote_form = {
             this.note = note;
             this.bad = bad;
         },
+    },
+    mounted: function () {
+        if (this.original !== null) {
+            this.kind_read();
+        }
     },
 };
 
