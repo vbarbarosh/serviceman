@@ -2,7 +2,8 @@
 // the compose projects they came from, the images, volumes and networks, and what is done to
 // each. A long command answers a stream of its lines, or the lines themselves where the host
 // keeps no streams (answer: stream). Their columns are how a page draws them (items_view), the
-// first to fold the lowest; a container stands with its compose project.
+// first to fold the lowest; a container stands with its compose project, and its status folds
+// before the size the page puts beside it, its dot saying the same.
 const docker_manifest = {
     module: 'docker',
     title: 'Docker',
@@ -20,7 +21,7 @@ const docker_manifest = {
                 {key: 'name', label: 'Container', wraps: true},
                 {key: 'image', label: 'Image', fold: 2, muted: true},
                 {key: 'ports', label: 'Ports', fold: 1, muted: true},
-                {key: 'status', label: 'Status'},
+                {key: 'status', label: 'Status', fold: 3},
             ],
             commands: [
                 {command: 'start', on: 'item', said: 'start it'},
@@ -105,6 +106,7 @@ const docker_manifest = {
     ],
     doors: [
         {door: 'containers/<id>/fs', re: '^/containers/[0-9a-f]{12,64}/fs(/.*)?$', methods: ['GET', 'POST'], said: 'a container\'s files, through the File Manager\'s API'},
+        {door: 'disk', re: '^/disk$', methods: ['GET'], said: 'what docker holds on the disk, for each compose project and in all: its images, what its containers wrote, its volumes, logs and folder'},
     ],
 };
 

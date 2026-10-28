@@ -67,34 +67,61 @@ const docker = {
             </div>
             <pre v-show="run.log" ref="output" class="dk-output">{{ run.text }}</pre>
         </div>
-        <!-- Containers as a tree: each compose project a branch that folds, its row its name, its
-             folder, and Update or Down and up for the whole project; a container of none a root -->
-        <items-view v-if="((tab === 'containers') && (containers !== null))" class="dk-table" :items="container_rows" module="docker" kind="containers" :head="false" actions_label="Change" empty="No containers on this machine, running or not.">
-            <template #group_head="{group}">
-                <div class="dk-group-head">
-                    <b>{{ group_of(group).title }}</b>
-                    <span class="muted" :title="group_of(group).dir">{{ group_of(group).counts }}{{ (group_of(group).dir === null ? '' : ' · ' + group_of(group).dir) }}</span>
-                    <div v-if="(group_of(group).project !== null && group_of(group).dir !== null)" class="list-acts">
-                        <template v-if="(asking === group_of(group).project)">
-                            <span class="bad">Take every container of {{ group_of(group).project }} down, then up again?</span>
-                            <button type="button" class="danger" @click="project_act(group_of(group).project, 'recreate')">Down and up</button>
-                            <button type="button" @click="asking = ''">Cancel</button>
-                        </template>
-                        <template v-else>
-                            <button type="button" class="primary" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, then up -d: only what changed is made again" @click="project_act(group_of(group).project, 'update')">Update</button>
-                            <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, down, up -d: every container is made again" @click="asking = group_of(group).project">Down and up…</button>
-                        </template>
-                    </div>
+        <!-- Containers as a tree: each compose project a branch that folds, its row its name, the
+             disk it takes (a click says of what) and Update or Down and up for the whole
+             project; a container of none a root. A row's buttons show where the pointer or the
+             focus is, and always on a touch screen. Over the tree, what docker holds on the
+             disk in all, its parts in the colours of every bar under it -->
+        <items-view v-if="((tab === 'containers') && (containers !== null))" class="dk-table dk-quiet" :items="container_rows" module="docker" kind="containers" :head="false" :columns_added="DISK_COLUMNS" :group_cells="['disk', 'actions']" actions_label="Change" empty="No containers on this machine, running or not.">
+            <template #summary>
+                <div v-if="((disk !== null) || disk_reading || (disk_error !== ''))" class="dk-disk-sum">
+                    <span class="dk-disk-head"><span v-if="disk_reading" class="spin"/>{{ disk_head }}</span>
+                    <span v-if="(disk !== null)" class="dk-bar dk-bar-wide" aria-hidden="true"><i v-for="part of disk_segments(disk_totals, disk_all)" :key="part.key" :class="('dk-' + part.key)" :style="{width: (part.share + '%')}"/></span>
+                    <span v-for="part of disk_totals" :key="part.key" class="dk-key"><i :class="('dk-' + part.key)"/>{{ part.label }} <b>{{ format_bytes(part.size) }}</b></span>
+                    <button v-if="((disk !== null) && (disk.totals.images_unused > 0))" type="button" class="link" title="The Images tab, where Prune unused takes them away" @click="tab_open('images')">{{ format_bytes(disk.totals.images_unused) }} of images no container uses</button>
+                    <span v-if="(disk_missing !== '')" class="muted">{{ disk_missing }}</span>
+                    <span v-if="(disk_error !== '')" class="bad">the disk was not counted: {{ disk_error }}</span>
                 </div>
             </template>
-            <template #cell-name="{item}">
-                <span class="dot" :class="dot_of(item)"/>
-                <b>{{ (item.service === null ? item.name : item.service) }}</b>
-                <span v-if="(item.service !== null)" class="muted dk-cut" :title="item.name">{{ item.name }}</span>
+            <template #group_head="{group}">
+                <div class="dk-group-head">
+                    <b :title="(group_of(group).dir || '')">{{ group_of(group).title }}</b>
+                    <span v-if="(group_of(group).up < group_of(group).containers.length)" class="dk-down">{{ group_of(group).counts }}</span>
+                </div>
+                <!-- What the project's disk is made of, opened from its size -->
+                <div v-if="((parts_open[group] === true) && (disk_of(group) !== null))" class="dk-parts">
+                    <template v-for="part of parts_of(group)" :key="part.key">
+                        <span class="dk-part-name"><i :class="('dk-' + part.key)"/>{{ part.label }}</span>
+                        <span><b>{{ (part.size === null ? 'not counted' : format_bytes(part.size)) }}</b> <span class="muted">{{ part.said }}</span></span>
+                    </template>
+                </div>
             </template>
-            <template #cell-image="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.image">{{ item.image }}</span></template>
+            <template #group-disk="{group}">
+                <button v-if="(disk_of(group) !== null)" type="button" class="dk-size" :aria-expanded="(parts_open[group] === true)" :title="parts_title(group)" @click="parts_toggle(group)">
+                    <span class="dk-bar" aria-hidden="true"><i v-for="part of disk_segments(parts_of(group), disk_max)" :key="part.key" :class="('dk-' + part.key)" :style="{width: (part.share + '%')}"/></span>
+                    <b>{{ format_bytes(disk_of(group).total) }}</b>
+                </button>
+                <span v-else-if="disk_reading" class="spin" aria-label="counting"/>
+            </template>
+            <template #group_actions="{group, ask}">
+                <template v-if="(group_of(group).dir !== null)">
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, then up -d: only what changed is made again" @click="project_act(group, 'update')">Update</button>
+                    <button type="button" :disabled="(acting !== '' || running_now || offline)" title="docker compose pull, down, up -d: every container is made again" @click="ask('Every container down and up?', 'Down and up', () => project_act(group, 'recreate'))">Down and up…</button>
+                </template>
+            </template>
+            <template #cell-name="{item, more}">
+                <span class="dot" :class="dot_of(item)"/>
+                <b :title="item.name">{{ (item.service === null ? item.name : item.service) }}</b>
+                <span v-if="((item.service !== null) && (more || (name_default(item) === false)))" class="muted dk-cut" :title="item.name">{{ item.name }}</span>
+            </template>
+            <template #cell-image="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.image">{{ (more ? item.image : image_short(item.image)) }}</span></template>
             <template #cell-ports="{item}"><span class="muted">{{ item.ports.join(', ') }}</span></template>
-            <template #cell-status="{item}"><span :class="{bad: (dot_of(item) === 'failed')}">{{ item.status }}</span></template>
+            <template #cell-status="{item}"><span :class="((dot_of(item) === 'failed') ? 'bad' : 'muted')">{{ item.status }}</span></template>
+            <template #cell-disk="{item}">
+                <span v-if="(item.disk.size !== null)" class="muted" :title="item.disk.said">{{ format_bytes(item.disk.size) }}</span>
+                <span v-else-if="disk_reading" class="spin" aria-label="counting"/>
+                <span v-else/>
+            </template>
             <template #actions="{item, ask}">
                 <template v-if="(item.state === 'running')">
                     <button v-if="files_able" type="button" :disabled="running_now" @click="container_open(item, 'files')">Files</button>
@@ -112,7 +139,7 @@ const docker = {
             </template>
         </items-view>
         <!-- Images: what each is called, how big, how old, which containers were made from it -->
-        <items-view v-else-if="((tab === 'images') && (images !== null))" class="dk-table" :items="images_sorted" module="docker" kind="images" actions_label="Change" empty="No images on this machine.">
+        <items-view v-else-if="((tab === 'images') && (images !== null))" class="dk-table dk-quiet" :items="images_sorted" module="docker" kind="images" actions_label="Change" empty="No images on this machine.">
             <template #cell-tags="{item}"><b class="dk-cut" :title="item.tags.join(', ')">{{ (item.tags.length === 0 ? '<none>' : item.tags.join(', ')) }}</b></template>
             <template #cell-id="{item}"><span class="muted">{{ short_id(item.id) }}</span></template>
             <template #cell-used_by="{item, more}"><span :class="{muted: (item.used_by.length === 0), 'dk-cut': (more === false)}" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}{{ (item.read_only ? ' · read-only' : '') }}</span></template>
@@ -121,9 +148,14 @@ const docker = {
                 <button type="button" class="danger" :disabled="(item.used_by.length > 0 || item.read_only || acting !== '' || running_now || offline)" :title="(item.read_only ? 'In a store this engine may only read' : (item.used_by.length > 0 ? 'A container was made from it' : 'Take it off the machine'))" @click="ask('Remove it?', 'Remove', () => remove('images', bare_id(item.id)))">Remove…</button>
             </template>
         </items-view>
-        <!-- Volumes: whose they are, and which containers mount them -->
-        <items-view v-else-if="((tab === 'volumes') && (volumes !== null))" class="dk-table" :items="volumes_sorted" module="docker" kind="volumes" actions_label="Change" empty="No volumes on this machine.">
+        <!-- Volumes: whose they are, how big, and which containers mount them -->
+        <items-view v-else-if="((tab === 'volumes') && (volumes !== null))" class="dk-table dk-quiet" :items="volumes_sorted" module="docker" kind="volumes" :columns_added="SIZE_COLUMNS" actions_label="Change" empty="No volumes on this machine.">
             <template #cell-name="{item}"><b class="dk-cut" :title="item.name">{{ volume_label(item.name) }}</b></template>
+            <template #cell-size="{item}">
+                <span v-if="(typeof item.size === 'number')" class="muted">{{ format_bytes(item.size) }}</span>
+                <span v-else-if="(item.size === 'counting')" class="spin" aria-label="counting"/>
+                <span v-else/>
+            </template>
             <template #cell-project="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.project">{{ item.project }}</span></template>
             <template #cell-used_by="{item, more}"><span :class="{muted: (item.used_by.length === 0), 'dk-cut': (more === false)}" :title="item.used_by.join(', ')">{{ (item.used_by.length === 0 ? 'unused' : item.used_by.join(', ')) }}</span></template>
             <template #actions="{item, ask}">
@@ -132,7 +164,7 @@ const docker = {
             </template>
         </items-view>
         <!-- Networks: whose they are, their addresses, and which containers are on them -->
-        <items-view v-else-if="((tab === 'networks') && (networks !== null))" class="dk-table" :items="networks_sorted" module="docker" kind="networks" actions_label="Change" empty="No networks on this machine.">
+        <items-view v-else-if="((tab === 'networks') && (networks !== null))" class="dk-table dk-quiet" :items="networks_sorted" module="docker" kind="networks" actions_label="Change" empty="No networks on this machine.">
             <template #cell-name="{item}"><b class="dk-cut" :title="item.name">{{ item.name }}</b></template>
             <template #cell-project="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.project">{{ item.project }}</span></template>
             <template #cell-subnet="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.subnet">{{ item.subnet }}</span></template>
@@ -158,6 +190,8 @@ const docker = {
         return {
             TABS,
             PRUNE_ASKS,
+            DISK_COLUMNS,
+            SIZE_COLUMNS,
             tab: tab_kept(),
             containers: null,
             images: null,
@@ -170,9 +204,13 @@ const docker = {
             bad: false,
             // The container being started, stopped or restarted, by id
             acting: '',
-            // The project whose "down and up" is being asked about; a row's removal is asked in
-            // its own actions (data-table's ask)
-            asking: '',
+            // What docker holds on the disk (GET base/disk), the last count while the next is
+            // made; why it was not counted
+            disk: null,
+            disk_reading: false,
+            disk_error: '',
+            // The projects whose disk is opened into its parts, by name
+            parts_open: {},
             // The long action under way or last done: {title, phase, said, text, log, progress,
             // step, began, ms}
             run: null,
@@ -196,8 +234,12 @@ const docker = {
         images_sorted: function () {
             return (this.images === null) ? [] : this.images.slice().sort((a, b) => (a.tags[0] || '~').localeCompare(b.tags[0] || '~') || (b.created_ms - a.created_ms));
         },
+        // Each with its size from the disk's count, 'counting' while the first is made
         volumes_sorted: function () {
-            return (this.volumes === null) ? [] : this.volumes.slice().sort((a, b) => a.name.localeCompare(b.name));
+            const disk = this.disk;
+            const counting = (disk === null) && this.disk_reading;
+            const sized = (this.volumes === null) ? [] : this.volumes.map(v => Object.assign({}, v, {size: counting ? 'counting' : (((disk === null) || (typeof disk.volumes[v.name] !== 'number')) ? null : disk.volumes[v.name])}));
+            return sized.sort((a, b) => a.name.localeCompare(b.name));
         },
         networks_sorted: function () {
             return (this.networks === null) ? [] : this.networks.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -250,9 +292,66 @@ const docker = {
             const up = this.containers.filter(v => v.state === 'running').length;
             return `${this.containers.length} ${plural(this.containers.length, 'container', 'containers')}, ${up} running`;
         },
-        // Every container in the order of its group
+        // Every container in the order of its group, with what it holds on the disk of its own:
+        // what it wrote over its image, and its log
         container_rows: function () {
-            return this.groups.flatMap(v => v.containers);
+            const disk = this.disk;
+            return this.groups.flatMap(v => v.containers).map(function (item) {
+                const own = ((disk === null) || (disk.containers[item.id] === undefined)) ? null : disk.containers[item.id];
+                if (own === null) {
+                    return Object.assign({}, item, {disk: {size: null, said: ''}});
+                }
+                const said = [`${format_bytes(own.written)} written over its image`].concat((own.log === null) ? [] : [`${format_bytes(own.log)} of log and settings`]);
+                return Object.assign({}, item, {disk: {size: (own.written || 0) + (own.log || 0), said: said.join(', ')}});
+            });
+        },
+        // Each project's count by its name
+        disk_by_project: function () {
+            return new Map((this.disk === null) ? [] : this.disk.projects.filter(v => (v.project !== null)).map(v => [v.project, v]));
+        },
+        // The biggest project, the full length of every project's bar
+        disk_max: function () {
+            return Math.max(1, ...Array.from(this.disk_by_project.values()).map(v => v.total));
+        },
+        // The machine's parts, in the colours of the bars
+        disk_totals: function () {
+            if (this.disk === null) {
+                return [];
+            }
+            const totals = this.disk.totals;
+            const parts = [
+                {key: 'image', label: 'images', size: totals.images},
+                {key: 'written', label: 'written', size: totals.written},
+                {key: 'volumes', label: 'volumes', size: totals.volumes},
+                {key: 'logs', label: 'logs', size: totals.logs},
+                {key: 'folder', label: 'folders', size: totals.folders},
+                {key: 'cache', label: 'build cache', size: totals.build_cache},
+            ];
+            return parts.filter(v => (typeof v.size === 'number') && ((v.key !== 'cache') || (v.size > 0)));
+        },
+        disk_all: function () {
+            return Math.max(1, this.disk_totals.reduce((total, v) => total + v.size, 0));
+        },
+        disk_head: function () {
+            if (this.disk === null) {
+                return this.disk_reading ? 'Counting what docker holds on the disk…' : 'Disk';
+            }
+            return `${this.disk_reading ? 'Counting again · docker' : 'Docker'} holds ${format_bytes(this.disk_all)}`;
+        },
+        // What was left out of the count, and why, said once
+        disk_missing: function () {
+            if (this.disk === null) {
+                return '';
+            }
+            const missing = this.disk.missing;
+            const said = [];
+            if (missing.logs !== null) {
+                said.push(`logs not counted: ${missing.logs}`);
+            }
+            if (missing.folders !== null) {
+                said.push(`a folder not counted: ${missing.folders}`);
+            }
+            return said.join('; ');
         },
         // Each compose project by its name, then everything that belongs to none
         groups: function () {
@@ -276,8 +375,8 @@ const docker = {
             }
             for (const group of out) {
                 group.containers.sort((a, b) => ((a.state === 'running') === (b.state === 'running')) ? a.name.localeCompare(b.name) : ((a.state === 'running') ? -1 : 1));
-                const up = group.containers.filter(v => v.state === 'running').length;
-                group.counts = `${up} of ${group.containers.length} running`;
+                group.up = group.containers.filter(v => v.state === 'running').length;
+                group.counts = `${group.up} of ${group.containers.length} running`;
             }
             return out;
         },
@@ -312,7 +411,6 @@ const docker = {
         },
         container_act: async function (item, action) {
             this.acting = item.id;
-            this.asking = '';
             this.report(`${CONTAINER_DOING[action]} ${item.name}…`, false);
             try {
                 const answer = await fetch(`${this.base}/containers/${encodeURIComponent(item.id)}/${action}`, {method: 'POST'});
@@ -332,7 +430,6 @@ const docker = {
         },
         // The steps run on the machine one after another; their output comes in as they print it
         project_act: function (project, action) {
-            this.asking = '';
             return this.run_stream(`${project} · ${ACTION_LABELS[action]}`, `${this.base}/projects/${encodeURIComponent(project)}/${action}`);
         },
         // An image pulled again under its name, its progress as it comes
@@ -472,13 +569,15 @@ const docker = {
         tab_open: function (tab) {
             this.tab = tab;
             tab_keep(tab);
-            this.asking = '';
             this.pruning = '';
             this.report('', false);
             this.tab_read();
         },
-        // What the tab shown lists, read again
+        // What the tab shown lists, read again; the containers and the volumes with the disk
         tab_read: async function () {
+            if ((this.tab === 'containers') || (this.tab === 'volumes')) {
+                this.disk_read();
+            }
             if (this.tab === 'containers') {
                 await this.read();
                 return;
@@ -502,7 +601,6 @@ const docker = {
             }
         },
         remove: async function (kind, key) {
-            this.asking = '';
             this.acting = key;
             this.report(`removing ${(kind === 'images') ? key.slice(0, 12) : key}…`, false);
             try {
@@ -654,6 +752,69 @@ const docker = {
         volume_label: function (name) {
             return /^[0-9a-f]{64}$/.test(name) ? `${name.slice(0, 12)}…` : name;
         },
+        // What docker holds on the disk, read beside the list: a count that may take a while
+        // (docker weighs every volume, the host counts folders), so the list does not wait
+        // for it, and the last one stays in view while the next is made
+        disk_read: async function () {
+            if (this.disk_reading) {
+                return;
+            }
+            this.disk_reading = true;
+            this.disk_error = '';
+            try {
+                const answer = await fetch(`${this.base}/disk`, {cache: 'no-store'});
+                const outcome = await answer.json();
+                if (answer.ok === false) {
+                    this.disk_error = outcome.error;
+                    return;
+                }
+                this.disk = outcome;
+            }
+            catch {
+                this.disk_error = 'the answer never came back';
+            }
+            finally {
+                this.disk_reading = false;
+            }
+        },
+        // A project's count, null before there is one
+        disk_of: function (project) {
+            return this.disk_by_project.has(project) ? this.disk_by_project.get(project) : null;
+        },
+        // A project's disk part by part, each with what it is: its image counted whole, the
+        // other projects that use it too
+        parts_of: function (project) {
+            const disk = this.disk_of(project);
+            const out = [
+                {key: 'image', label: 'image', size: disk.parts.image, said: disk.images.map(v => `${image_short(v.name)}${shared_said(v.shared)}`).join(', ')},
+                {key: 'written', label: 'written', size: disk.parts.written, said: 'what its containers wrote over the image: each one\'s own overlay layer'},
+            ];
+            if (disk.volumes.length > 0) {
+                out.push({key: 'volumes', label: 'volumes', size: disk.parts.volumes, said: disk.volumes.map(v => `${this.volume_label(v.name)}${shared_said(v.shared)}`).join(', ')});
+            }
+            out.push({key: 'logs', label: 'logs', size: disk.parts.logs, said: 'its containers\' logs and settings, in docker\'s own folder'});
+            if (disk.dir !== null) {
+                out.push({key: 'folder', label: 'folder', size: disk.parts.folder, said: `${disk.dir}${(disk.unread > 0) ? ` (and ${disk.unread} ${plural(disk.unread, 'folder', 'folders')} in it only root may read)` : ''}`});
+            }
+            return out;
+        },
+        parts_title: function (project) {
+            return this.parts_of(project).map(v => `${v.label} ${(v.size === null) ? 'not counted' : format_bytes(v.size)}`).join('\n');
+        },
+        parts_toggle: function (project) {
+            this.parts_open[project] = (this.parts_open[project] !== true);
+        },
+        // A bar's pieces, each as long as its share of the whole; one too small to see is a sliver
+        disk_segments: function (parts, full) {
+            return parts.filter(v => (typeof v.size === 'number') && (v.size > 0)).map(v => ({key: v.key, share: Math.max(0.8, (v.size/full)*100)}));
+        },
+        // The name compose gives a container by itself, project, service and number: the row's
+        // service says it already
+        name_default: function (item) {
+            const parts = [item.project, item.service].map(v => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            return new RegExp(`^${parts[0]}[-_]${parts[1]}[-_]\\d+$`).test(item.name);
+        },
+        image_short,
         // A group of the containers by its compose project, null for those of none
         group_of: function (project) {
             return this.groups.find(v => (v.project === project));
@@ -704,6 +865,11 @@ const TABS = [
     {value: 'networks', label: 'Networks'},
 ];
 
+// The containers' own column: what each holds on the disk; its project's total in line with it
+const DISK_COLUMNS = [{at: 4, key: 'disk', label: 'Disk', align: 'right'}];
+// The volumes': each one's size, sortable
+const SIZE_COLUMNS = [{at: 1, key: 'size', label: 'Size', align: 'right', sort: true}];
+
 // What the bar says while a container's action is under way
 const CONTAINER_DOING = {start: 'starting', stop: 'stopping', restart: 'restarting', remove: 'removing'};
 
@@ -750,6 +916,29 @@ function tab_keep(tab)
 function plural(count, one, many)
 {
     return (count === 1) ? one : many;
+}
+
+// An image's name without the registry it came from and its digest, as a row says it: a
+// registry's host has a dot or a port, or is localhost; docker hub's own are library/
+function image_short(name)
+{
+    const parts = name.replace(/@sha256:[0-9a-f]+$/, '').split('/');
+    if ((parts.length > 1) && (/[.:]/.test(parts[0]) || (parts[0] === 'localhost'))) {
+        parts.shift();
+    }
+    if ((parts.length === 2) && (parts[0] === 'library')) {
+        parts.shift();
+    }
+    return parts.join('/');
+}
+
+// The other projects that use an image or a volume too, null for containers in none
+function shared_said(shared)
+{
+    if (shared.length === 0) {
+        return '';
+    }
+    return ` (also ${shared.map(v => ((v === null) ? 'containers in no project' : v)).join(' and ')})`;
 }
 
 // An image's id without its "sha256:", the way the engine takes it in an address too

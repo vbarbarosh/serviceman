@@ -1,8 +1,8 @@
 # docker
 
 The containers of one machine for a web page: every one of them, running or not, each compose
-project together, with its state, image, ports and how long it has been up — and the few things
-done to them most often. A container is started, stopped or restarted; a compose project is
+project together, with its state, image, ports, how long it has been up and what it holds on the
+disk — and the few things done to them most often. A container is started, stopped or restarted; a compose project is
 updated the way it is by hand in its folder, its output shown step by step. A running
 container opens in place: its files through the File Manager module, a shell in it through the
 Terminal module. Beside the containers, tabs list the images, volumes and networks, each with
@@ -20,6 +20,7 @@ machine's agent dialled, and runs compose as the agent's docker command.
 
     server/docker_serve.js   the HTTP API, given connect and run
     server/docker_manifest.js its kinds of items and the commands on them
+    server/docker_disk.js    what docker holds on the disk, added up for each compose project
     server/container_disk.js a File Manager disk inside a container, over the Engine API alone
     ui/docker.js             the component
     ui/docker.css            the component's rules
@@ -36,6 +37,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>/containers` | `{items: [{id, name, image, state, status, created_ms, ports, project, service, dir, own}]}` |
+| `GET <base>/disk` | what docker holds on the disk, for each compose project and in all (below) |
 | `POST <base>/containers/<id>/start` | starts it; one already running is fine as it is |
 | `POST <base>/containers/<id>/stop` | stops it |
 | `POST <base>/containers/<id>/restart` | restarts it |
@@ -71,6 +73,43 @@ and the page reads it at `url`; given `streams`, a page that opens finds one sti
 shows it again from its first line. Without, the lines are the answer itself. The page draws it
 as one panel: a spinner and the time so far, the step, a bar with its percent and the time left
 at the rate so far, and the log; every other button is greyed until it ends. An engine that cannot be reached, or refuses, is a 502 with `{error}`.
+
+## What each project holds on the disk
+
+`GET <base>/disk` adds up, for each compose project, what it keeps on the machine's disk, in five
+parts that never overlap:
+
+| Part | What it is | Counted by |
+|---|---|---|
+| image | every image its containers were made from, each once, whole (its layers shared with other images too, as `docker images` says it) | docker (`/system/df`) |
+| written | what its containers wrote over their image: each one's own overlay layer (`SizeRw`) | docker |
+| volumes | the named volumes its containers mount, and the ones compose made for it that nothing mounts | docker (`UsageData`) |
+| logs | each container's folder under docker's root, `containers/<id>` (podman's `overlay-containers/<id>`): its log, its settings | the host's `du` |
+| folder | the project's folder, from its containers' label: its compose file and the folders it binds there | the host's `du` |
+
+    {projects: [{project, dir, total, parts: {image, written, volumes, logs, folder}, unread,
+                 images: [{id, name, size, shared}], volumes: [{name, size, shared}]}],
+     containers: {<id>: {written, log}}, volumes: {<name>: size},
+     totals: {images, images_unused, written, volumes, logs, folders, build_cache},
+     missing: {logs, folders}, took_ms}
+
+An image or a volume two projects use is counted in both, and `shared` names the others (null
+for containers in no project); the machine's `totals` count each once: the images as docker's
+`LayersSize` (podman says 0 there, and its images' sizes are added), `images_unused` as `docker
+system df` says it can be reclaimed, the build cache without what it shares with images. A size
+docker does not know (a volume of another driver) is null, and so is a part not counted, with
+`missing` saying why once (`only root may read /var/lib/docker/containers`); `unread` is how many
+folders in a project's folder `du` could not read. The host's counts get 20 seconds in all; one
+still going is said so, and goes on, and the next read joins it. A folder bound from outside the
+project's folder is in no part.
+
+The page reads it beside the list, never holding the list back, and keeps the last count in view
+while the next is made. Over the tree, what docker holds in all, as a bar of its parts in the
+colours every bar under it uses; on each project's row, its size as such a bar, as long as its
+share of the biggest project's, in line with its containers' own (what each wrote, and its log);
+a click on it lists the parts under the project's name, with its images, volumes and folder. The
+Volumes tab has each volume's size. On a phone a project's size is its figure alone, and a
+container's status folds into its row's bar before its size.
 
 ## A container's files and shell
 
@@ -123,6 +162,8 @@ host's import map.
         own: v => v.startsWith('serviceman-'), // containers someone else runs: shown, no actions
         // optional: where a long action says its lines, kept by the host -> {id, url, write, end}
         stream: title => a_stream_kept(title),
+        // optional: a folder's size, its folders one level down -> {total, folders: [{path, size}], unread}
+        du: folder => count_folder(folder),
         log: function (event, fields) {
         },
     });
@@ -137,11 +178,17 @@ The page half: the host serves `ui/` and maps it, with Vue, in its import map:
 `streams`, optional, is where the host lists its streams, `GET streams?base=<base>` →
 `{items: [{title, url, started_at, ended_at}]}`.
 
-The host page gives the colours (`--panel`, `--line`, `--muted`) and the classes the module
-shares with it: `card`, `list-head`, `list-acts`, `list-table`, `dot`, `muted`, `bad`,
-`primary`, `danger`. Its four lists are the page's `items_view.js`, given the items the module
-reads, which draws the columns the manifest names: containers as a tree, each compose project a
-branch that folds, its containers under it, and a container of none a root.
+The host page gives the colours (`--panel`, `--line`, `--muted`, `--accent`, `--busy`, `--run`,
+`--idle`) and the classes the module shares with it: `card`, `list-head`, `list-acts`,
+`list-table`, `dot`, `muted`, `bad`, `primary`, `danger`, `spin`. Its four lists are the page's
+`items_view.js`, given the items the module reads, which draws the columns the manifest names:
+containers as a tree, each compose project a branch that folds, its containers under it, and a
+container of none a root; a project's row keeps its size and its actions as cells of its own
+(`group_cells`), in line with its containers'. The lists are quiet: a row says what it is, its
+name and state, its image without the registry it came from, and a container's own name only
+where compose did not make it of the project's and the service's; a row's buttons show where the
+pointer or the focus is, a question asked of it stays, and a screen with no hover shows them
+all.
 
 ## In serviceman
 
@@ -150,7 +197,9 @@ branch that folds, its containers under it, and a container of none a root.
   (`docker_exec_connect`), `run` is the agent's docker command (`docker_shell`), and
   serviceman's own containers, `serviceman-…`, are shown without actions — their service
   starts and stops them; `stream` is one of serviceman's (`stream_open`), read at
-  `/api/v1/streams/<id>`
+  `/api/v1/streams/<id>`; `du` is the agent's count of a folder (`disk_usage`), the Disks tab's
+  own, as root where the machine has its root half: without one, docker's folder is root's alone,
+  and the logs are not counted
 - `/api/v1/remotes/<name>/docker/containers/<id>/fs…` is the File Manager's API over
   `container_disk`; `/api/v1/shell?remote=<name>&container=<id>` is a shell in it
 - `src/main/public/remote_docker.js` is the Docker tab of a machine, which wraps the component
@@ -161,7 +210,8 @@ branch that folds, its containers under it, and a container of none a root.
 ## Not yet
 
 - a step's output comes when the step ends, not line by line
-- logs, inspect, the size of a volume, pull of a new image by name, run
+- logs, inspect, pull of a new image by name, run
+- the size of a folder a project binds from outside its own folder
 
 ## Tests
 

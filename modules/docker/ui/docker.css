@@ -17,22 +17,13 @@
     margin: 0;
 }
 
-/* A compose project's row: its name and folder, its buttons at the end, under it on a phone */
+/* A compose project's row: its name, and how many of its containers run when not all do; its
+   size and its buttons are cells of their own, in line with its containers' */
 .dk-group-head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: .45rem .75rem;
-}
-
-.dk-group-head .muted {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.dk-group-head .list-acts {
-    margin-left: auto;
 }
 
 .dk-table .dot {
@@ -139,4 +130,192 @@
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
+}
+
+/* A quiet list: a row's buttons show where the pointer or the focus is, a question asked of it
+   stays, and a screen with no pointer that hovers shows them all, as before */
+@media (hover: hover) {
+    .dk-quiet .data-table tr > td.dt-actions > :not(.dt-confirm) {
+        transition: opacity .12s ease;
+    }
+
+    .dk-quiet .data-table tr:not(:hover):not(:focus-within) > td.dt-actions > :not(.dt-confirm) {
+        opacity: 0;
+    }
+}
+
+/* A project's row opened into its parts: its fold mark and its name stay on its first line */
+.dk-table tr.iv-group > [data-spread] > .dt-branch,
+.dk-table tr.iv-group > [data-spread] > .iv-group-head {
+    vertical-align: top;
+}
+
+/* A project's row: its actions in the words of its containers' */
+.dk-quiet .data-table tr.iv-group > td.dt-actions {
+    font-size: .875rem;
+    font-weight: 400;
+}
+
+/* How many of a project's containers run, said only when not all of them do */
+.dk-down {
+    color: var(--busy);
+    font-weight: 400;
+}
+
+/* What docker holds on the disk: its parts each a colour, the same in every bar under it */
+.dk-bar {
+    display: inline-flex;
+    width: 7rem;
+    height: .5rem;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.dk-bar i {
+    display: block;
+    height: 100%;
+}
+
+.dk-bar i + i {
+    border-left: 1px solid var(--panel);
+}
+
+.dk-bar-wide {
+    width: 14rem;
+}
+
+.dk-image {
+    background: var(--accent);
+}
+
+.dk-written {
+    background: var(--busy);
+}
+
+.dk-volumes {
+    background: var(--run);
+}
+
+.dk-logs {
+    background: color-mix(in srgb, var(--accent) 40%, var(--panel));
+}
+
+.dk-folder {
+    background: var(--idle);
+}
+
+.dk-cache {
+    background: color-mix(in srgb, var(--idle) 40%, var(--panel));
+}
+
+/* The machine's line over the tree: the total, its bar, each part with its colour */
+.dk-disk-sum {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem 1rem;
+    margin: .7rem 0 .5rem;
+    font-size: .875rem;
+}
+
+.dk-disk-head {
+    font-weight: 600;
+}
+
+.dk-key {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.dk-key b {
+    color: var(--fg);
+    font-weight: 500;
+}
+
+.dk-key > i,
+.dk-part-name > i {
+    flex: none;
+    width: .6rem;
+    height: .6rem;
+    border-radius: 2px;
+}
+
+/* A project's size: its bar and its figure, a click away from its parts */
+.dk-size {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.dk-size:hover {
+    background: none;
+}
+
+.dk-size b {
+    min-width: 4.2rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.dk-table td[data-fold] .spin,
+.dk-table .dt-right .spin {
+    vertical-align: middle;
+}
+
+/* A project's parts, under its name: the colour and the name, the figure and what it is; a
+   grid of its own, which no skin's facts restyle. It wraps in the width the row has, and never
+   widens the column, so the sizes stay where they were when it opens */
+.dk-parts {
+    contain: inline-size;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: .25rem .9rem;
+    max-width: 52rem;
+    margin: .5rem 0 .2rem;
+    color: var(--fg);
+    font-size: .875rem;
+    font-weight: 400;
+}
+
+.dk-part-name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .4rem;
+    color: var(--muted);
+}
+
+.dk-parts > span {
+    overflow-wrap: anywhere;
+}
+
+.dk-parts b {
+    font-weight: 600;
+}
+
+/* On a phone a project's size is its figure alone, so its name keeps the width; its parts open
+   on a click as on a wide screen */
+@media (max-width: 40rem) {
+    .dk-size .dk-bar {
+        display: none;
+    }
+
+    .dk-size b {
+        min-width: 0;
+    }
+
+    .dk-bar-wide {
+        width: 100%;
+    }
 }

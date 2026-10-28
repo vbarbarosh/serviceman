@@ -43,6 +43,10 @@ import module_kind from './module_kind.js';
 //     pick           (item) => the page shows the item whole, its own way: a click on its row
 //                    picks it, and opens or closes the branch it heads; no mark down the left
 //                    edge, no details under a row. picked is the key of the one picked
+//     group_cells    the last columns a group's own row keeps as cells of its own, in line with
+//                    its items' ('actions' among them for its actions), drawn by the slots
+//                    group-<key> and group_actions: a project's total under its containers'
+//                    sizes; its head takes the columns before them
 //
 // Slots
 //     tools          {items}: the module's own buttons, after the filter
@@ -50,6 +54,8 @@ import module_kind from './module_kind.js';
 //                    how many the filter typed lets through, null with none typed
 //     cell-<key>     {item, row, more}: a cell the module draws itself, in place of its `as`
 //     group_head     {group}: a group's own row, across the table, its items under it
+//     group-<key>    {group}: a cell of a group's own row, for a column of group_cells
+//     group_actions  {group, ask}: a group's actions, where group_cells names them
 //     actions        {item, ask}, details {item}, below {item}: as data-table's
 //
 // Emits: answer(outcome), each time the list is read, for what else the module shows of it
@@ -80,9 +86,12 @@ const items_view = {
     </div>
     <slot name="summary" :items="all" :matches="matches" :answer="answer"/>
     <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted"><span v-if="empty_busy" class="spin"/>{{ empty }}</p>
-    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => (v.group === null)" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
+    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => ((v.group === null) || group_cells.includes('actions'))" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
         <template #cell="{row, column, more}">
-            <div v-if="(row.group !== null)" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
+            <template v-if="(row.group !== null)">
+                <div v-if="(column === table_columns[0])" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
+                <slot v-else :name="('group-' + column.key)" :group="row.group"/>
+            </template>
             <slot v-else :name="('cell-' + column.key)" :item="row.item" :row="row" :more="more">
                 <template v-if="none_of(row.item, column)"><span class="muted">{{ column.none }}</span></template>
                 <code v-else-if="(column.as === 'code')" :class="{muted: column.muted}">{{ row.item[column.key] }}</code>
@@ -106,7 +115,7 @@ const items_view = {
             </slot>
             <span v-if="((row.group === null) && (column === table_columns[0]) && (row.hidden > 0))" class="muted"> +{{ row.hidden }}</span>
         </template>
-        <template v-if="($slots.actions !== undefined)" #actions="{row, ask}"><slot v-if="(row.group === null)" name="actions" :item="row.item" :ask="ask"/></template>
+        <template v-if="($slots.actions !== undefined)" #actions="{row, ask}"><slot v-if="(row.group === null)" name="actions" :item="row.item" :ask="ask"/><slot v-else name="group_actions" :group="row.group" :ask="ask"/></template>
         <template v-if="($slots.details !== undefined)" #details="{row}"><slot v-if="(row.group === null)" name="details" :item="row.item"/></template>
         <template v-if="($slots.below !== undefined)" #below="{row}"><slot v-if="(row.group === null)" name="below" :item="row.item"/></template>
     </data-table>
@@ -134,6 +143,7 @@ const items_view = {
         actions_label: {type: String, default: ''},
         pick: {type: Function, default: null},
         picked: {default: null},
+        group_cells: {type: Array, default: () => []},
     },
     emits: ['answer'],
     data: function () {
@@ -160,12 +170,13 @@ const items_view = {
         },
         // A cell with nothing to say is left out of the row's bar, unless its column says
         // what nothing is
-        // A group's row is its first cell across the table, the actions' cell too
+        // A group's row is its first cell across the table, the actions' cell too, but for the
+        // cells it keeps of its own (group_cells)
         table_columns: function () {
             const view = this;
             const keys = this.kind_here.columns.map(v => v.key).concat((this.$slots.actions === undefined) ? [] : ['actions']);
             function group_spread(row) {
-                return (row.group === null) ? null : keys.slice(1);
+                return (row.group === null) ? null : keys.slice(1).filter(v => (view.group_cells.includes(v) === false));
             }
             return this.kind_here.columns.map(function (column, i) {
                 const as = module_kind.AS.includes(column.as) ? column.as : 'text';

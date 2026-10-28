@@ -153,11 +153,56 @@ test('a volume nothing mounts opens through a helper container, which no list sh
     assert.deepStrictEqual(engine.asked.slice(-2), [`POST /containers/${'f'.repeat(64)}/kill`, `DELETE /containers/${'f'.repeat(64)}?force=1`]);
 });
 
+// docker's own count, and the folders it does not count as the host counts them: each
+// container's under docker's root, each project's own; a host that may not read one says so
+test('the disk each project takes: docker\'s count, its containers\' logs and its folder through the host', async function (t) {
+    const engine = await engine_start(t);
+    const asked = [];
+    const running = await serve(t, {
+        connect: () => net.connect(engine.socket),
+        run: async () => ({ok: true}),
+        du: async function (folder) {
+            asked.push(folder);
+            if (folder === '/var/lib/docker/containers') {
+                return {total: 900, folders: [{path: `/var/lib/docker/containers/${'a'.repeat(64)}`, size: 700}, {path: `/var/lib/docker/containers/${'b'.repeat(64)}`, size: 200}], unread: []};
+            }
+            return {total: 40, folders: [], unread: ['/srv/shop/pgdata']};
+        },
+    });
+    const disk = JSON.parse((await call(running, 'GET', '/docker/disk')).body);
+    assert.deepStrictEqual(asked, ['/var/lib/docker/containers', '/srv/shop']);
+    const shop = disk.projects.find(v => v.project === 'shop');
+    assert.deepStrictEqual([shop.parts, shop.total, shop.unread], [{image: 1000, written: 300, volumes: 5000, logs: 900, folder: 40}, 7240, 1]);
+    assert.deepStrictEqual(disk.containers['a'.repeat(64)], {written: 300, log: 700});
+    assert.deepStrictEqual(disk.missing, {logs: null, folders: null});
+
+    // A folder only root may read, as du says it or as it fails
+    const refusing = await serve(t, {
+        connect: () => net.connect(engine.socket),
+        run: async () => ({ok: true}),
+        du: async function (folder) {
+            if (folder === '/srv/shop') {
+                throw new Error('remote laptop: du could not count /srv/shop: du: cannot access \'/srv/shop\': Permission denied');
+            }
+            return {total: 4096, folders: [], unread: [folder]};
+        },
+    });
+    const refused = JSON.parse((await call(refusing, 'GET', '/docker/disk')).body);
+    assert.deepStrictEqual(refused.missing, {logs: 'only root may read /var/lib/docker/containers', folders: 'only root may read /srv/shop'});
+    assert.deepStrictEqual(refused.projects.find(v => v.project === 'shop').parts, {image: 1000, written: 300, volumes: 5000, logs: null, folder: null});
+
+    // A host with no counts of its own: docker's count alone
+    const bare = await serve(t, {connect: () => net.connect(engine.socket), run: async () => ({ok: true})});
+    assert.strictEqual(JSON.parse((await call(bare, 'GET', '/docker/disk')).body).missing.logs, 'this host does not count folders');
+});
+
 test('an engine that cannot be reached is a 502 with the reason', async function (t) {
     const running = await serve(t, {connect: () => net.connect(path.join(os.tmpdir(), 'no-such-docker.sock')), run: async () => ({ok: true})});
     const answer = await call(running, 'GET', '/docker/containers');
     assert.strictEqual(answer.status, 502);
     assert.match(JSON.parse(answer.body).error, /ENOENT/);
+    const disk = await call(running, 'GET', '/docker/disk');
+    assert.deepStrictEqual([disk.status, /ENOENT/.test(JSON.parse(disk.body).error)], [502, true]);
 });
 
 // The part of the Engine API the module asks for, on a socket file of its own
@@ -196,6 +241,15 @@ async function engine_start(t)
             {Id: '5'.repeat(64), Name: 'bridge', Driver: 'bridge', IPAM: {Config: [{Subnet: '10.88.0.0/16'}]}, Labels: {}},
             {Id: '6'.repeat(64), Name: 'shop_default', Driver: 'bridge', IPAM: {Config: [{Subnet: '10.89.0.0/24'}]}, Labels: {'com.docker.compose.project': 'shop'}},
         ],
+        '/system/df': {
+            LayersSize: 2048,
+            Images: [{Id: `sha256:${'1'.repeat(64)}`, RepoTags: ['shop/web:latest'], Size: 1000, SharedSize: 0}],
+            Containers: [{Id: 'a'.repeat(64), SizeRw: 300}, {Id: 'b'.repeat(64)}],
+            Volumes: [{Name: 'shop_data', Labels: {'com.docker.compose.project': 'shop'}, UsageData: {Size: 5000, RefCount: 1}}],
+            BuildCache: [],
+        },
+        '/info': {DockerRootDir: '/var/lib/docker'},
+        '/version': {Components: [{Name: 'Engine'}]},
     };
     out.created = [];
     let busybox = false;

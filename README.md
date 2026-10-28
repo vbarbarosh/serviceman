@@ -101,8 +101,8 @@ manifest names, door by door; and answers every manifest, with where it is mount
 
 - [Disks](modules/disks/README.md) — the disks of a machine: the room and the inodes of every
   filesystem it has mounted
-- [Docker](modules/docker/README.md) — the containers of one machine, its compose projects,
-  images, volumes and networks
+- [Docker](modules/docker/README.md) — the containers of one machine, its compose projects and
+  what each holds on the disk, images, volumes and networks
 - [Files](modules/file_manager/README.md) — a file manager: folders, uploads in parts, a whole
   tree as JSON or events, a folder watched, copies between disks
 - [Firewall](modules/firewall/README.md) — what a machine listens on and what ufw lets through

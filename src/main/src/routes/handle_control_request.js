@@ -873,6 +873,14 @@ async function handle_docker(app, req, res, name, tail)
         stream: v => stream_open(app, {title: v, base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/docker`}),
         tail,
         own: v => v.startsWith('serviceman-'),
+        // The containers' logs and the projects' folders, counted as the Disks tab counts: as
+        // root where the machine has its root half
+        du: function (folder) {
+            if (remote_can(remote, 'disk_usage') === false) {
+                throw new Error(`the agent on ${remote.name} is from before counting folders — its page says how it updates`);
+            }
+            return remote_call(app, remote, 'disk_usage', {path: folder}, DISK_USAGE_TIMEOUT_MS);
+        },
         log: function (event, fields) {
             log_event(app, event, Object.assign({remote: remote.name}, fields));
         },

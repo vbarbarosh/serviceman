@@ -135,6 +135,7 @@ const modules_served = [
                 run: v => docker_shell(app, remote, v),
                 stream: v => stream_open(app, {title: v, base: '/api/docker'}),
                 tail,
+                du: async v => remote_call(app, await online(remote), 'disk_usage', {path: v}, DISK_USAGE_TIMEOUT_MS),
                 log: log_of(app),
             });
         },

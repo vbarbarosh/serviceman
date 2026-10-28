@@ -1,3 +1,4 @@
+const docker_disk = require('./docker_disk');
 const http = require('http');
 const path = require('path');
 
@@ -31,6 +32,11 @@ const PRUNE_NOTHING = {
     networks: 'nothing to remove: every network has a container on it, or is built in',
 };
 
+// How long a read of the disk waits for the host's counts of folders (the containers' logs,
+// each project's folder) before it answers without the ones still going: a count asked for
+// again while it runs joins it, so the next read has them
+const DU_WAIT_MS = 20000;
+
 // The networks every engine has from the start, which nothing removes
 const NETWORKS_BUILTIN = ['bridge', 'host', 'none', 'podman'];
 
@@ -62,10 +68,13 @@ const LABEL_FILES = 'com.docker.compose.project.config_files';
 // runs its docker command — {ok, code, stdout, stderr} — for what only the command does, which
 // is compose. Only the calls below go through; the engine itself is never handed out.
 //
-//     options = {connect, run, tail, log, own, stream}
+//     options = {connect, run, tail, log, own, stream, du}
 //     own(name)       a container someone else runs, shown without actions
 //     stream(title)   a stream the host keeps, {id, url, write(value), end(value)}: where a
 //                     long action says what it does; without one it says it in its answer
+//     du(folder)      a count of a folder on the machine, {total, folders: [{path, size}]},
+//                     its folders one level down: the containers' logs and each project's
+//                     folder, which docker does not count; without one they are not said
 async function docker_serve(req, res, options)
 {
     const url = new URL(req.url, 'http://docker.invalid');
@@ -76,10 +85,16 @@ async function docker_serve(req, res, options)
         log: (options.log === undefined) ? function () {} : options.log,
         own: (options.own === undefined) ? own_none : options.own,
         stream: options.stream,
+        du: options.du,
     };
     // GET <base>/containers
     if ((tail === '/containers') && (req.method === 'GET')) {
         await containers_serve(ctx, res);
+        return;
+    }
+    // GET <base>/disk
+    if ((tail === '/disk') && (req.method === 'GET')) {
+        await disk_serve(ctx, res);
         return;
     }
     // POST <base>/containers/<id>/start
@@ -169,6 +184,77 @@ async function containers_serve(ctx, res)
         return;
     }
     send_json(res, 200, {items: JSON.parse(answer.body).filter(v => (is_helper(v) === false) && id_valid(v.Id)).map(v => container_view(ctx, v))});
+}
+
+// GET <base>/disk
+// What docker holds on the machine's disk, for each compose project and for the machine
+// (docker_disk): docker's own count, and the folders it does not count as the host counts them,
+// for as long as DU_WAIT_MS allows
+async function disk_serve(ctx, res)
+{
+    const began = Date.now();
+    let df;
+    let containers;
+    let info;
+    let version;
+    try {
+        [df, containers, info, version] = await Promise.all(['/system/df', '/containers/json?all=1', '/info', '/version'].map(v => engine_json(ctx.connect, v)));
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+        return;
+    }
+    containers = containers.filter(v => (is_helper(v) === false) && id_valid(v.Id));
+    const deadline = began + DU_WAIT_MS;
+    let logs = {error: 'this host does not count folders'};
+    const folders = new Map();
+    if (ctx.du !== undefined) {
+        const logs_at = docker_disk.logs_folder(info, version);
+        const counted = (logs_at === null) ? {error: 'docker did not say where it keeps its files'} : await du_by(ctx, logs_at, deadline);
+        logs = (counted.error === undefined) ? {sizes: docker_disk.log_sizes(counted)} : {error: counted.error};
+        // A project's folder as its containers' labels say it, the root of the disk aside
+        const dirs = new Set(containers.map(v => labels_of(v)[LABEL_DIR]).filter(v => (typeof v === 'string') && path.posix.isAbsolute(v) && (path.posix.resolve(v) !== '/')));
+        for (const dir of Array.from(dirs).sort()) {
+            const one = await du_by(ctx, dir, deadline);
+            folders.set(dir, (one.error === undefined) ? {size: one.total, unread: one.unread.length} : {error: one.error});
+        }
+    }
+    const answer = docker_disk(df, containers, logs, folders);
+    answer.took_ms = Date.now() - began;
+    send_json(res, 200, answer);
+}
+
+// One count of a folder by the host, {total, folders, unread}, or why there is none: an error,
+// a folder the host may not read, or the time run out
+async function du_by(ctx, folder, deadline)
+{
+    const left = deadline - Date.now();
+    // What it answers while the count goes on
+    const out = {error: `${folder} is still being counted: Read again in a while`};
+    if (left <= 0) {
+        return out;
+    }
+    let timer;
+    const late = new Promise(function (resolve) {
+        timer = setTimeout(() => resolve(out), left);
+    });
+    try {
+        const counted = await Promise.race([ctx.du(folder), late]);
+        if (counted.error !== undefined) {
+            return counted;
+        }
+        const unread = Array.isArray(counted.unread) ? counted.unread : [];
+        if (unread.includes(folder)) {
+            return {error: `only root may read ${folder}`};
+        }
+        return {total: counted.total, folders: Array.isArray(counted.folders) ? counted.folders : [], unread};
+    }
+    catch (error) {
+        return {error: /permission denied/i.test(error.message) ? `only root may read ${folder}` : error.message};
+    }
+    finally {
+        clearTimeout(timer);
+    }
 }
 
 // An id as an engine gives one, and nothing else: the page puts it in a path of this host, and
@@ -271,6 +357,11 @@ function network_view(item, users)
         used_by: users.filter(v => v.networks.includes(item.Name)).map(v => v.name),
         builtin: NETWORKS_BUILTIN.includes(item.Name),
     };
+}
+
+function labels_of(item)
+{
+    return ((item.Labels === null) || (item.Labels === undefined)) ? {} : item.Labels;
 }
 
 // A container this module started to open a volume, which no list shows
@@ -716,6 +807,16 @@ function engine_call(connect, method, path, value)
         request.on('error', reject);
         request.end((body === null) ? undefined : body);
     });
+}
+
+// A GET whose answer is JSON, or the reason it is not
+async function engine_json(connect, pathname)
+{
+    const answer = await engine_call(connect, 'GET', pathname);
+    if (answer.status !== 200) {
+        throw new Error(engine_said(answer));
+    }
+    return JSON.parse(answer.body);
 }
 
 function engine_said(answer)
