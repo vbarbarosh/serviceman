@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#testing-its-link">Testing its link</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -1336,6 +1336,27 @@ says why.</p>
 <p>The agent dials again after 1s, then 2s, doubling to 30s, for as long as it takes. When it
 comes back, a container still running over there is adopted, not started twice, a container
 that has gone becomes stopped, and a service with <code>&quot;start&quot;: &quot;always&quot;</code> is started then.</p>
+<h2 id="testing-its-link"><a class="anchor" href="#testing-its-link" aria-hidden="true" tabindex="-1">#</a>Testing its link</h2>
+<p><strong>Test the link</strong>, under the Link tile of a machine&#39;s Overview, measures the link the way a file
+uses it, in about twenty seconds: zeros sent to the machine as fast as it takes them for eight
+seconds, then from it for eight, a quick call asked every quarter second all the while, and the
+counters of both ends&#39; networks read before and after.</p>
+<p>Each way is a chart: its speed over time, red where its bytes stood a second or more, and in
+amber how long a call waited at that moment, on one scale for both ways. Beside it the speed,
+the longest a call waited and the longest the bytes stood; under them the round trip with the
+link idle, the UDP datagrams each end&#39;s buffers dropped (<code>RcvbufErrors</code>, <code>SndbufErrors</code>) and
+the TCP segments each sent again (<code>RetransSegs</code>), here and on the machine. A machine that is
+not Linux says no counters, shown as <code>—</code>.</p>
+<p>A call waits behind the 4 MB of a file already on their way, so a full link shows calls of a
+second or more and no red. Red, with calls waiting as long, is the way standing. The link is
+busy while it runs, and one test at a time runs for a machine. It needs agent 1.31 or newer;
+an older one is told so. The log says <code>link_test_begin</code>, then <code>link_test_end_ok</code> with the
+numbers, or <code>link_test_end_error</code> and why.</p>
+<pre><code>POST /api/v1/remotes/&lt;name&gt;/link-test
+</code></pre>
+<p>answers, when the test is over, <code>{summary, idle_ms, down, up, here, there}</code>: the numbers in
+<code>summary</code>; each way&#39;s <code>samples</code> (<code>[ms, bytes]</code>), <code>pings</code> (<code>[ms asked, ms waited]</code>) and
+<code>stood_ms</code>; each end&#39;s counters <code>before</code> and <code>after</code>.</p>
 <h2 id="dialling-in-over-a-socket-file"><a class="anchor" href="#dialling-in-over-a-socket-file" aria-hidden="true" tabindex="-1">#</a>Dialling in over a socket file</h2>
 <p>An agent does not need a port at all:</p>
 <pre><code>node serviceman-agent.js --url unix:///run/serviceman-control.sock --token 0c0f…a91b

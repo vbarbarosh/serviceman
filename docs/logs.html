@@ -1450,6 +1450,18 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td>The first measure after hello failed.</td>
 </tr>
 <tr>
+<td><code>link_test_begin</code></td>
+<td>A test of its link began (Test the link).</td>
+</tr>
+<tr>
+<td><code>link_test_end_ok</code></td>
+<td>It is over: <code>idle=</code> round trip, <code>down=</code> and <code>up=</code> speeds, each way&#39;s longest call wait (<code>down_wait=</code>) and longest stand (<code>down_stood=</code>), and what each end dropped and sent again (<code>drops_here=</code>, <code>drops_there=</code>, <code>resends_here=</code>, <code>resends_there=</code>).</td>
+</tr>
+<tr>
+<td><code>link_test_end_error</code></td>
+<td>It could not finish, and why.</td>
+</tr>
+<tr>
 <td><code>remote_ping_error</code></td>
 <td>The regular ping failed; <code>link=</code> says what became of it.</td>
 </tr>

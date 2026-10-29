@@ -594,6 +594,34 @@ The agent dials again after 1s, then 2s, doubling to 30s, for as long as it take
 comes back, a container still running over there is adopted, not started twice, a container
 that has gone becomes stopped, and a service with `"start": "always"` is started then.
 
+## Testing its link
+
+**Test the link**, under the Link tile of a machine's Overview, measures the link the way a file
+uses it, in about twenty seconds: zeros sent to the machine as fast as it takes them for eight
+seconds, then from it for eight, a quick call asked every quarter second all the while, and the
+counters of both ends' networks read before and after.
+
+Each way is a chart: its speed over time, red where its bytes stood a second or more, and in
+amber how long a call waited at that moment, on one scale for both ways. Beside it the speed,
+the longest a call waited and the longest the bytes stood; under them the round trip with the
+link idle, the UDP datagrams each end's buffers dropped (`RcvbufErrors`, `SndbufErrors`) and
+the TCP segments each sent again (`RetransSegs`), here and on the machine. A machine that is
+not Linux says no counters, shown as `—`.
+
+A call waits behind the 4 MB of a file already on their way, so a full link shows calls of a
+second or more and no red. Red, with calls waiting as long, is the way standing. The link is
+busy while it runs, and one test at a time runs for a machine. It needs agent 1.31 or newer;
+an older one is told so. The log says `link_test_begin`, then `link_test_end_ok` with the
+numbers, or `link_test_end_error` and why.
+
+```
+POST /api/v1/remotes/<name>/link-test
+```
+
+answers, when the test is over, `{summary, idle_ms, down, up, here, there}`: the numbers in
+`summary`; each way's `samples` (`[ms, bytes]`), `pings` (`[ms asked, ms waited]`) and
+`stood_ms`; each end's counters `before` and `after`.
+
 ## Dialling in over a socket file
 
 An agent does not need a port at all:

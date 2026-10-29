@@ -2559,6 +2559,138 @@ article.ov-pane {
     font-size: .85rem;
 }
 
+/* A machine's link test, under its tiles: a chart per way and the numbers beside it */
+.lt {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: .8rem 1rem;
+}
+
+.lt p {
+    margin: 0;
+}
+
+.lt-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    align-items: center;
+}
+
+.lt-clock {
+    display: flex;
+    gap: .4rem;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.lt-acts {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+.lt-ways {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: .75rem 1.5rem;
+}
+
+.lt-way {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    min-width: 0;
+}
+
+.lt-way h4 {
+    margin: 0;
+    font-size: .9rem;
+}
+
+.lt-chart {
+    width: 100%;
+    height: 5rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+}
+
+.lt-speed {
+    fill: color-mix(in srgb, var(--accent) 30%, transparent);
+    stroke: var(--accent);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.lt-stood {
+    fill: color-mix(in srgb, var(--bad) 22%, transparent);
+}
+
+.lt-wait {
+    fill: none;
+    stroke: var(--busy);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.lt-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1.1rem;
+    font-size: .85rem;
+}
+
+.lt-legend span {
+    display: flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.lt-key {
+    display: inline-block;
+    width: .9rem;
+    height: .6rem;
+    border-radius: 2px;
+}
+
+.lt-key-speed {
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.lt-key-wait {
+    height: 0;
+    border-top: 2px solid var(--busy);
+    border-radius: 0;
+}
+
+.lt-key-stood {
+    background: color-mix(in srgb, var(--bad) 22%, transparent);
+}
+
+.lt-nums {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .15rem .9rem;
+    margin: 0;
+    font-size: .9rem;
+}
+
+.lt-nums dt {
+    color: var(--muted);
+}
+
+.lt-nums dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.lt-nums .bad {
+    color: var(--bad);
+}
+
 /* The machine's history: the range to pick above, a chart a card, two side by side where they
    fit. A chart keeps its height whatever it holds; its value is the last point, or the one under
    the cursor, which runs through every chart at once. */

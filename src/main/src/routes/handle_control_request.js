@@ -31,6 +31,8 @@ const docker_shell_said = require('../helpers/docker_shell_said');
 const file_manager_serve = require('../../../../modules/file_manager/server/file_manager_serve');
 const file_manager_transfers_serve = require('../../../../modules/file_manager/server/file_manager_transfers_serve');
 const firewall_serve = require('../../../../modules/firewall/server/firewall_serve');
+const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
+const format_duration_ms = require('../../../helpers/format_duration_ms');
 const from_loopback_page = require('../helpers/from_loopback_page');
 const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
@@ -38,6 +40,7 @@ const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
 const handle_shared_folders = require('./handle_shared_folders');
 const health_from_views = require('../helpers/health_from_views');
+const link_test = require('../helpers/link_test');
 const load_test_log_path = require('../helpers/load_test_log_path');
 const load_test_run = require('../helpers/load_test_run');
 const load_test_stop = require('../helpers/load_test_stop');
@@ -141,6 +144,7 @@ const SECURITY_MEND_TIMEOUT_MS = 6*60*1000;
 const DISK_USAGE_TIMEOUT_MS = 300000;
 const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
 const RE_REMOTE_AGENT = /^\/api\/v1\/remotes\/([^/]+)\/agent-update$/;
+const RE_REMOTE_LINK_TEST = /^\/api\/v1\/remotes\/([^/]+)\/link-test$/;
 // A screen is a few megabytes over a link, and a machine that will not take the picture says
 // so quickly; the wait is for the one that thinks about it
 const SCREENSHOT_TIMEOUT_MS = 30000;
@@ -417,6 +421,11 @@ async function control_answer(app, req, res)
         await handle_agent_update(app, res, route_param(remote_agent[1]));
         return;
     }
+    const remote_link_test = RE_REMOTE_LINK_TEST.exec(url.pathname);
+    if ((remote_link_test !== null) && (req.method === 'POST')) {
+        await handle_link_test(app, res, route_param(remote_link_test[1]));
+        return;
+    }
     const remote_logs = RE_REMOTE_LOGS.exec(url.pathname);
     if ((remote_logs !== null) && (req.method === 'PUT')) {
         await remote_logs_put(app, req, res, route_param(remote_logs[1]));
@@ -636,6 +645,72 @@ function cross_site_refuse(app, req, res)
 // The agent on that machine, fetched again now instead of when the clock next comes round.
 // The file goes with the ask, so a machine whose agent the installer did not put there — a
 // container above all — can take it too.
+// POST /api/v1/remotes/<name>/link-test
+// The machine's link, measured: about twenty seconds of bytes both ways, a quick call timed all
+// the while, and what both ends' networks dropped and sent again (link_test). One at a time
+// for a machine: two at once would measure each other.
+async function handle_link_test(app, res, name)
+{
+    const remote = app.remote_by_name[name];
+    if (remote === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    if (remote.state.phase !== 'online') {
+        send_json(res, 409, {error: `${name} is not connected`});
+        return;
+    }
+    if (remote_can(remote, 'net_test') === false) {
+        send_json(res, 400, {error: `the agent on ${name} is from before the link test — its page says how it updates`, old_agent: true});
+        return;
+    }
+    if (remote.state.link_test_running === true) {
+        send_json(res, 409, {error: `a test of the link to ${name} is running already`});
+        return;
+    }
+    remote.state.link_test_running = true;
+    log_event(app, 'link_test_begin', {remote: remote.name});
+    try {
+        const result = await link_test(app, remote);
+        const summary = link_test.summary(result);
+        log_event(app, 'link_test_end_ok', link_test_words(remote, summary));
+        send_json(res, 200, Object.assign({summary}, result));
+    }
+    catch (error) {
+        log_event(app, 'link_test_end_error', {remote: remote.name, reason: error.message});
+        send_json(res, 502, {error: error.message});
+    }
+    finally {
+        remote.state.link_test_running = false;
+    }
+}
+
+// The summary of a link test in the words of its log line: speeds and times written as a
+// person reads them, the counters as numbers
+function link_test_words(remote, summary)
+{
+    return {
+        remote: remote.name,
+        idle: time_words(summary.idle_ms),
+        down: `${format_bytes(summary.down_bps)}/s`,
+        down_wait: time_words(summary.down_wait_ms),
+        down_stood: time_words(summary.down_stood_ms),
+        up: `${format_bytes(summary.up_bps)}/s`,
+        up_wait: time_words(summary.up_wait_ms),
+        up_stood: time_words(summary.up_stood_ms),
+        drops_here: summary.drops_here,
+        drops_there: summary.drops_there,
+        resends_here: summary.resends_here,
+        resends_there: summary.resends_there,
+    };
+}
+
+// A round trip of 61 ms is not "0s"
+function time_words(ms)
+{
+    return (ms < 1000) ? `${ms}ms` : format_duration_ms(ms);
+}
+
 async function handle_agent_update(app, res, name)
 {
     const remote = app.remote_by_name[name];

@@ -6,8 +6,9 @@
 const WINDOW_BYTES = 256*1024;
 const FILE_WINDOW_BYTES = 4*1024*1024;
 
-// The kinds of target whose stream is a file's bytes
-const FILE_KINDS = ['file', 'part', 'tar_put', 'read', 'tar'];
+// The kinds of target whose stream is a file's bytes, and the two of a link test, which stand
+// for a file's bytes
+const FILE_KINDS = ['file', 'part', 'tar_put', 'read', 'tar', 'sink', 'pour'];
 
 function tunnel_window(target)
 {

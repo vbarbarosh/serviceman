@@ -4,6 +4,7 @@ import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import format_ms_ago from './format_ms_ago.js';
+import link_test_panel from './link_test_panel.js';
 import logline_link from './logline_link.js';
 import overview_card from './overview_card.js';
 import overview_tile from './overview_tile.js';
@@ -42,8 +43,9 @@ const remote_overview = {
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-tiles">
-            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="$emit('tab', $event)">{{ tile.text }}</overview-tile>
+            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="tile_go">{{ tile.text }}</overview-tile>
         </div>
+        <link-test-panel v-if="((view.machine !== null) && link_test_open)" :view="view" @close="link_test_open = false"/>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
@@ -152,12 +154,12 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'agent-pill-short': agent_pill_short, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
+    components: {'agent-pill-short': agent_pill_short, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
     props: ['view', 'services', 'served', 'logline'],
     emits: ['select', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine
-        return {raw_open: false, copied: false, copied_timer: null};
+        return {raw_open: false, copied: false, copied_timer: null, link_test_open: false};
     },
     computed: {
         // Its calls waiting for answers while its link stays up, in words; '' while it answers
@@ -223,7 +225,7 @@ const remote_overview = {
                 out.push({icon: 'battery', label: 'Battery', text: `${machine.battery.percent}%`, value: null, note: machine.battery.status});
             }
             if (view.phase === 'online') {
-                out.push({icon: 'link', label: 'Link', text: (view.latency_ms === null) ? '—' : format_ms(view.latency_ms), value: null, note: (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps)});
+                out.push({icon: 'link', label: 'Link', text: (view.latency_ms === null) ? '—' : format_ms(view.latency_ms), value: null, note: (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps), go: 'Test the link', tab: 'link-test'});
             }
             return out;
         },
@@ -265,6 +267,14 @@ const remote_overview = {
     },
     methods: {
         format_ms,
+        // A tile's link opens a tab, except the Link tile's, which opens its test right here
+        tile_go: function (tab) {
+            if (tab === 'link-test') {
+                this.link_test_open = true;
+                return;
+            }
+            this.$emit('tab', tab);
+        },
         raw_toggle: function () {
             this.raw_open = (this.raw_open === false);
         },

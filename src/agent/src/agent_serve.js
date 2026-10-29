@@ -61,6 +61,7 @@ const link_send = require('../../helpers/link_send');
 const link_send_message = require('../../helpers/link_send_message');
 const log_uid = require('../../helpers/log_uid');
 const log_words = require('../../helpers/log_words');
+const net_counters_read = require('../../helpers/net_counters_read');
 const shell_pty_argv = require('../../helpers/shell_pty_argv');
 const shell_stream = require('../../helpers/shell_stream');
 const term_size_valid = require('../../helpers/term_size_valid');
@@ -96,7 +97,7 @@ const UPTIME_DAYS_MOST = 90;
 
 // What the host asks for every half minute, and every time it measures the link. These would
 // bury everything worth reading, so they are done quietly.
-const QUIET = ['ping', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'disk_usage_progress', 'package_list', 'term_list'];
+const QUIET = ['ping', 'net_counters', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'disk_usage_progress', 'package_list', 'term_list'];
 
 // The work worth bracketing: a line that fetches a repo, an image that has to come down, a
 // shell line somebody wrote. It takes seconds, so a reader wants to see it start and wait.
@@ -417,6 +418,9 @@ async function method_run(options, state, method, params, say, group)
 {
     if (method === 'ping') {
         return {at: Date.now()};
+    }
+    if (method === 'net_counters') {
+        return net_counters_read();
     }
     if (method === 'stats') {
         return await agent_stats(options);

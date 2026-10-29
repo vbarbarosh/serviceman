@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.6 — 2026-10-29
+
+- Test the link, under a machine's Link tile: eight seconds of bytes each way, a quick call timed
+  every quarter second, and what both ends dropped and sent again, as a chart per way and the
+  numbers; `POST /api/v1/remotes/<name>/link-test`, `link_test_end_ok` (agent 1.31.0).
+
 ## 1.0.5 — 2026-10-29
 
 - A link whose way to the machine stands is reset after 30 s, and the agent dials a fresh one:

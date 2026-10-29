@@ -395,6 +395,9 @@ keeps its own copy, so a machine with no link still writes its log.
 | `remote_offline`       | The link dropped, and how long it held.                          |
 | `remote_measure_ok`    | How far away it is and how fast the link runs.                   |
 | `remote_measure_error` | The first measure after hello failed.                            |
+| `link_test_begin`      | A test of its link began (Test the link).                        |
+| `link_test_end_ok`     | It is over: `idle=` round trip, `down=` and `up=` speeds, each way's longest call wait (`down_wait=`) and longest stand (`down_stood=`), and what each end dropped and sent again (`drops_here=`, `drops_there=`, `resends_here=`, `resends_there=`). |
+| `link_test_end_error`  | It could not finish, and why.                                    |
 | `remote_ping_error`    | The regular ping failed; `link=` says what became of it.         |
 | `remote_unanswered`    | A call ran out of time while its link stayed up: the machine's calls wait in line. Said once. With a file on the link, `carrying=` files, the `file=` with the most bytes, its `way=` (to or from the machine), `sent=` and `taken=` (what the machine wrote) or `got=`, and `still=` since its bytes last moved. |
 | `remote_answering`     | The first answer after that, a late one too, and how long it went without; the file on the link, the same way. |

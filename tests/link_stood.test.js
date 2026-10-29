@@ -1,22 +1,15 @@
-const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
-const child_process = require('child_process');
-const config_from_json = require('../src/main/src/helpers/config_from_json');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const http = require('http');
+const link_proxy_rig = require('./link_proxy_rig');
 const link_stood = require('../src/main/src/helpers/link_stood');
-const net = require('net');
 const os = require('os');
 const path = require('path');
 const remote_call = require('../src/main/src/helpers/remote_call');
 const remotes_measure = require('../src/main/src/helpers/remotes_measure');
-const server_start = require('../src/main/src/helpers/server_start');
 const test = require('node:test');
 const timers = require('timers/promises');
-
-const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
-const TOKEN = '0123456789abcdef0123456789abcdef';
 
 process.env.SERVICEMAN_AGENT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-'));
 // Half a minute is no test: the way to a machine is taken to stand after 1.5 s here, at both ends
@@ -52,7 +45,7 @@ test('the way to a machine stands when a call waits and a file to it stood, the 
 // The link is reset and the agent dials in again; calls answer on the new link
 test('a link whose way to the machine stood is reset, and the agent dials a fresh one', async function (t) {
     // The agent's own rule kept out of the way, so serviceman's is what acts
-    const running = await rig(t, {pass_reset: true, agent_stood_ms: 60000});
+    const running = await link_proxy_rig(t, {pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
     await stand_and_recover(running);
     assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it stood" waited=\S+ file=big\.tar sent=\d+ taken=\d+ still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
 });
@@ -60,7 +53,7 @@ test('a link whose way to the machine stood is reset, and the agent dials a fres
 // What stands between the two may let the reset through no better than the bytes: the agent,
 // with a file coming in and nothing heard from the host, dials fresh by itself
 test('an agent that hears nothing while a file comes in dials fresh, the reset never reaching it', async function (t) {
-    const running = await rig(t, {pass_reset: false});
+    const running = await link_proxy_rig(t, {pass_reset: false});
     await stand_and_recover(running);
     await wait_until(() => running.agent_said.includes('[agent_host_stood]'), 10000);
 });
@@ -88,96 +81,6 @@ async function stand_and_recover(running)
         clearInterval(clock);
         upload.destroy();
     }
-}
-
-// serviceman and an agent that dials it through a proxy. The proxy carries each link at 1 MB/s
-// toward the agent and can make that way stand, its way back working; `pass_reset` decides
-// whether a link serviceman resets is reset at the agent's end too, or left hanging there.
-async function rig(t, options)
-{
-    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'vps1', token: TOKEN}], services: []}, __dirname);
-    const app = app_from_config(config);
-    const servers = await server_start(app);
-    const control_port = servers.control.address().port;
-    const links = [];
-    const proxy = net.createServer(function (agent) {
-        const up = net.connect(control_port, '127.0.0.1');
-        const link = {carried: 0, stood: false, stand: function () {
-            link.stood = true;
-        }};
-        links.push(link);
-        agent.pipe(up);
-        const queue = [];
-        up.on('data', function (chunk) {
-            queue.push(chunk);
-            if (queue.length > 16) {
-                up.pause();
-            }
-        });
-        const tick = setInterval(function () {
-            let budget = link.stood ? 0 : 10*1024;
-            while ((budget > 0) && (queue.length > 0)) {
-                const chunk = queue[0];
-                const n = Math.min(chunk.length, budget);
-                agent.write(chunk.subarray(0, n));
-                link.carried += n;
-                budget -= n;
-                if (n === chunk.length) {
-                    queue.shift();
-                }
-                else {
-                    queue[0] = chunk.subarray(n);
-                }
-            }
-            if (queue.length <= 16) {
-                up.resume();
-            }
-        }, 10);
-        function end() {
-            clearInterval(tick);
-            up.destroy();
-            if (options.pass_reset) {
-                agent.destroy();
-            }
-        }
-        up.on('close', end);
-        up.on('error', end);
-        agent.on('error', end);
-        agent.on('close', function () {
-            clearInterval(tick);
-            up.destroy();
-        });
-    });
-    await new Promise(v => proxy.listen(0, '127.0.0.1', v));
-    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${proxy.address().port}`, '--token', TOKEN], {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, (options.agent_stood_ms === undefined) ? {} : {SERVICEMAN_STOOD_MS: String(options.agent_stood_ms)})});
-    const out = {app, links, agent_said: ''};
-    agent.stdout.on('data', function (chunk) {
-        out.agent_said += chunk.toString('utf8');
-    });
-    agent.stderr.resume();
-    t.after(function () {
-        agent.kill('SIGKILL');
-        proxy.close();
-        for (const remote of app.remotes) {
-            if (remote.state.socket !== null) {
-                remote.state.socket.destroy();
-            }
-        }
-        for (const door of [servers.server, servers.control, servers.socket]) {
-            if ((door !== null) && (door !== undefined)) {
-                door.close();
-                door.closeAllConnections();
-            }
-        }
-    });
-    const log = console.log;
-    console.log = function () {};
-    t.after(function () {
-        console.log = log;
-    });
-    out.control_port = control_port;
-    await wait_until(() => app.remote_by_name.vps1.state.phase === 'online', 10000);
-    return out;
 }
 
 // The proxy's link now: the last one the agent dialled
