@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.4 — 2026-10-29
+
+- A machine not answering names the file its link carries meanwhile: how much was sent, how much
+  the machine wrote and when its bytes last moved, on its page and in the log's
+  remote_unanswered and remote_answering (`file= sent= taken= still=`).
+
 ## 1.0.3 — 2026-10-29
 
 - A copy between machines whose bytes stand still for 30 s is cut and goes on by itself from

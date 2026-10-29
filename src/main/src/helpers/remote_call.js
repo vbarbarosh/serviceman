@@ -1,4 +1,5 @@
 const format_duration_ms = require('../../../helpers/format_duration_ms');
+const link_carrying = require('./link_carrying');
 const link_send_message = require('../../../helpers/link_send_message');
 const log_event = require('./log_event');
 const remote_call_wait = require('./remote_call_wait');
@@ -34,7 +35,9 @@ function remote_call(app, remote, method, params, timeout_ms)
 
 // A machine whose answer did not come is said once, until it answers again (remote_attach):
 // its link may stay up and its beats keep coming while what is sent to it waits in line, and
-// without this line the log says nothing of it at all
+// without this line the log says nothing of it at all. A file its link carries meanwhile is
+// said with it, and how long its bytes have stood: a link that is full, or one that carries
+// nothing at all.
 function unanswered(app, remote, method, wait_ms)
 {
     if ((remote.state.unanswered_since !== null) && (remote.state.unanswered_since !== undefined)) {
@@ -42,7 +45,7 @@ function unanswered(app, remote, method, wait_ms)
     }
     remote.state.unanswered_since = Date.now() - wait_ms;
     remote.state.unanswered_method = method;
-    log_event(app, 'remote_unanswered', {remote: remote.name, method, waited: format_duration_ms(wait_ms)});
+    log_event(app, 'remote_unanswered', Object.assign({remote: remote.name, method, waited: format_duration_ms(wait_ms)}, link_carrying.words(link_carrying(remote.state, Date.now()))));
 }
 
 module.exports = remote_call;

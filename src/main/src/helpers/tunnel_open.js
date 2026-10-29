@@ -1,4 +1,5 @@
 const link_send_stream = require('../../../helpers/link_send_stream');
+const path = require('path');
 const tunnel_stream = require('./tunnel_stream');
 const tunnel_window = require('../../../helpers/tunnel_window');
 
@@ -18,6 +19,7 @@ function tunnel_open(remote, target)
     state.streams[id] = out;
     // The far end knows the stream by this number — a resize call has to name it
     out.id = id;
+    out.carries = carried_of(target);
     out.on('close', function () {
         delete state.streams[id];
     });
@@ -36,6 +38,31 @@ function free_id(state)
             return state.next_stream_id;
         }
     }
+}
+
+// The file a stream carries, and which way: {way: 'to' or 'from' the machine, name}, or null
+// for a stream that is not a file's bytes (a shell, a port, a watch)
+function carried_of(target)
+{
+    if ((target === null) || (typeof target !== 'object')) {
+        return null;
+    }
+    if (target.file !== undefined) {
+        return {way: 'to', name: String(target.file.name)};
+    }
+    if (target.part !== undefined) {
+        return {way: 'to', name: String(target.part.name)};
+    }
+    if (target.tar_put !== undefined) {
+        return {way: 'to', name: `a tar into ${path.posix.basename(String(target.tar_put.dir)) || '/'}`};
+    }
+    if (target.read !== undefined) {
+        return {way: 'from', name: path.posix.basename(String(target.read.path))};
+    }
+    if (target.tar !== undefined) {
+        return {way: 'from', name: `a tar of ${path.posix.basename(String(target.tar.dir)) || '/'}`};
+    }
+    return null;
 }
 
 module.exports = tunnel_open;

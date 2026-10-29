@@ -570,6 +570,13 @@ not be able to look it up.
 | `[remote_service_lost] service=kept remote=vps1`           | Its containers keep running over there.         |
 | `502 remote vps1 is offline — its agent is not dialled in` | A visitor asked for a service on a dead remote. |
 | `remote vps1: an agent dialled in with the wrong token`    | Someone knocked with the wrong secret.          |
+| `not answering · 1m 12s`                                   | The link is up, and what it was asked waits.    |
+
+A machine **not answering** is one whose calls wait while its link stays up. Every call, every
+file and every keystroke rides that one link in turn, so a big file on its way waits ahead of
+whatever is asked after it: its page names the file, how much of it was sent and written there,
+and when its bytes last moved. Bytes that still move are a link that is full; bytes that stand
+are a link that carries nothing at all.
 
 A service on that machine reads **lost** while the link is down, not stopped: nobody stopped
 it, and this host simply cannot see it. The address it last answered on is kept, and the page

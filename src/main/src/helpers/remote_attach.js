@@ -9,6 +9,7 @@ const format_duration_ms = require('../../../helpers/format_duration_ms');
 const forwards_tell = require('./forwards_tell');
 const image_prepull_start = require('./image_prepull_start');
 const k6_lane = require('./k6_lane');
+const link_carrying = require('./link_carrying');
 const link_read = require('../../../helpers/link_read');
 const link_send_message = require('../../../helpers/link_send_message');
 const load_test_said = require('./load_test_said');
@@ -299,11 +300,11 @@ function link_error(app, remote, words)
 function call_answer(app, remote, id, ok, value)
 {
     // A machine that had stopped answering answers again, late answers included: said once,
-    // with how long it went without
+    // with how long it went without, and the file its link still carries
     const since = remote.state.unanswered_since;
     if ((since !== null) && (since !== undefined)) {
         remote.state.unanswered_since = null;
-        log_event(app, 'remote_answering', {remote: remote.name, after: format_duration_ms(Date.now() - since)});
+        log_event(app, 'remote_answering', Object.assign({remote: remote.name, after: format_duration_ms(Date.now() - since)}, link_carrying.words(link_carrying(remote.state, Date.now()))));
     }
     const call = remote.state.calls[id];
     if (call === undefined) {

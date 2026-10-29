@@ -46,6 +46,7 @@ function tunnel_stream(socket, id, half_open, window_bytes)
             timer_arm();
             const room = link.send_data(chunk);
             credit -= chunk.length;
+            out.sent += chunk.length;
             if (wide && (room === false)) {
                 backed_up = true;
                 socket.once('drain', function () {
@@ -81,10 +82,22 @@ function tunnel_stream(socket, id, half_open, window_bytes)
         },
     });
 
+    // How far its bytes got, both ways, and when they last moved: what a machine whose answers
+    // wait behind them shows (link_carrying)
+    out.wide = wide;
+    out.opened_at = Date.now();
+    out.sent = 0;
+    out.taken = 0;
+    out.taken_at = null;
+    out.got = 0;
+    out.got_at = null;
+
     // What the other end sends
     out.tunnel_data = function (chunk) {
         timer_arm();
         unread += chunk.length;
+        out.got += chunk.length;
+        out.got_at = Date.now();
         out.push(chunk);
     };
     out.tunnel_end = function () {
@@ -102,6 +115,8 @@ function tunnel_stream(socket, id, half_open, window_bytes)
     // watches a copy move ('taken')
     out.tunnel_credit = function (bytes) {
         credit += bytes;
+        out.taken += bytes;
+        out.taken_at = Date.now();
         out.emit('taken', bytes);
         release();
     };
