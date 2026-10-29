@@ -1,3 +1,6 @@
+import remote_dot from './remote_dot.js';
+import remote_state_text from './remote_state_text.js';
+
 // Ctrl K: one box that finds anything on the page by any word it carries — a service by its
 // name, address or image, a machine by its hostname, a folder by its path — and says what kind
 // of thing each hit is. Enter opens the page the hit belongs to.
@@ -60,9 +63,9 @@ const find_palette = {
             for (const remote of remotes) {
                 const machine = ((remote.machine === undefined) || (remote.machine === null)) ? null : remote.machine;
                 const count = services.filter(v => v.remotes.includes(remote.name)).length;
-                const sub = `${(remote.phase === 'online') ? 'online' : 'offline'} · ${count} ${(count === 1) ? 'service' : 'services'}`;
+                const sub = `${remote_state_text(remote).split(' · ')[0]} · ${count} ${(count === 1) ? 'service' : 'services'}`;
                 const words = [remote.name, (machine === null) ? '' : machine.hostname].concat(remote.tags);
-                out.push({kind: 'remote', key: `remote ${remote.name}`, text: remote.title || remote.name, sub, words, phase: (remote.phase === 'online') ? 'running' : 'failed', target: {kind: 'remote', name: remote.name}});
+                out.push({kind: 'remote', key: `remote ${remote.name}`, text: remote.title || remote.name, sub, words, phase: remote_dot(remote), target: {kind: 'remote', name: remote.name}});
             }
             for (const service of services) {
                 const sub = [service.publish.hosts[0] || '', service.phase].filter(v => v !== '').join(' · ');

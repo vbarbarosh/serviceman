@@ -104,7 +104,7 @@ function frame_read(app, remote, kind, body)
         return;
     }
     if (kind === 'b') {
-        call_answer(remote, body.readUInt32BE(0), true, {bytes: body.length - 4});
+        call_answer(app, remote, body.readUInt32BE(0), true, {bytes: body.length - 4});
         return;
     }
     if (kind !== 'm') {
@@ -186,7 +186,7 @@ function message_read(app, remote, message)
         return;
     }
     if (message.type === 'reply') {
-        call_answer(remote, message.id, message.ok, message.ok ? message.value : message.error);
+        call_answer(app, remote, message.id, message.ok, message.ok ? message.value : message.error);
         return;
     }
     if (message.type === 'log') {
@@ -296,8 +296,15 @@ function link_error(app, remote, words)
     log_event(app, 'remote_link_error', Object.assign({remote: remote.name}, words));
 }
 
-function call_answer(remote, id, ok, value)
+function call_answer(app, remote, id, ok, value)
 {
+    // A machine that had stopped answering answers again, late answers included: said once,
+    // with how long it went without
+    const since = remote.state.unanswered_since;
+    if ((since !== null) && (since !== undefined)) {
+        remote.state.unanswered_since = null;
+        log_event(app, 'remote_answering', {remote: remote.name, after: format_duration_ms(Date.now() - since)});
+    }
     const call = remote.state.calls[id];
     if (call === undefined) {
         return;
@@ -326,6 +333,7 @@ function link_gone(app, remote, socket)
     state.gone_reason = null;
     state.socket = null;
     state.phase = 'offline';
+    state.unanswered_since = null;
     state.left_at = Date.now();
     state.latency_ms = null;
     state.throughput_bps = null;

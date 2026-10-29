@@ -1,4 +1,6 @@
 import agent_current from './agent_current.js';
+import remote_dot from './remote_dot.js';
+import remote_state_text from './remote_state_text.js';
 
 // The columns of the map, left to right: what a visitor types, what answers it, where that
 // runs, and where the machines' lines go
@@ -175,17 +177,16 @@ function map_graph(state)
     for (const remote of remotes) {
         machine_index[remote.name] = Object.keys(machine_index).length;
         const machine = (remote.machine === undefined) ? null : remote.machine;
-        const online = (remote.phase === 'online');
         nodes.push({
             id: `m:${remote.name}`,
             kind: 'machine',
             name: remote.name,
             label: remote.title || remote.name,
             sub: (machine === null) ? '' : machine.hostname,
-            phase: online ? 'running' : 'failed',
+            phase: remote_dot(remote),
             host: false,
             behind: agent_current(remote, state.agent_built) === false,
-            hint: `${remote.name} — ${online ? 'online' : 'offline'}`,
+            hint: `${remote.name} — ${remote_state_text(remote).split(' · ')[0]}`,
         });
     }
     // Where each service runs now, or where it may: the machines it names, a #tag standing for

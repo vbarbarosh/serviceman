@@ -1,4 +1,5 @@
 const remote_tags = require('./remote_tags');
+const remote_unanswered = require('./remote_unanswered');
 
 // The picture of one remote the control page reads. `logline` is the config's, null when this
 // host sends nobody's lines anywhere.
@@ -22,6 +23,9 @@ function view_from_remote(remote, now, logline)
         left_at: state.left_at,
         latency_ms: state.latency_ms,
         throughput_bps: state.throughput_bps,
+        // A call it answers in a blink, waiting for its answer longer than it should: {method,
+        // ms, heard_ms}, or null while it answers
+        unanswered: remote_unanswered(state, at),
         // The names this machine's door may serve, and how much is riding its link right now
         inbound: (remote.inbound === undefined) ? [] : remote.inbound,
         streams: Object.keys(state.streams).length,

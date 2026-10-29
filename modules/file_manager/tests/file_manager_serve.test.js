@@ -304,8 +304,104 @@ test('a copy keeps the speed across it and what is on its way, a big file counte
         }
         return folder.phase === 'ok';
     }, 10000);
-    assert.deepStrictEqual(Array.from(labels).filter(v => v.startsWith('set/')), ['set/two.bin 30']);
-    assert.ok(Array.from(labels).includes('set: 1 small file in one go 3'), Array.from(labels).join(' | '));
+    assert.deepStrictEqual(Array.from(labels).filter(v => v.startsWith('set/')), ['set/one.txt 3', 'set/two.bin 30']);
+    assert.ok(Array.from(labels).every(v => v.includes('in one go') === false), Array.from(labels).join(' | '));
+});
+
+// The small files of a folder go as one tar, and the line under the copy names each of them as
+// it goes, read from the tar's own headers: the file, its size and how far it is
+test('a tar of small files names each file as it goes, from its own headers', async function () {
+    const a = disk_that_copies_folders({'/a/set/one.txt': 'one', '/a/set/deep/two.txt': 'two!', '/a/set/three.txt': 'three'});
+    const b = disk_that_copies_folders({});
+    // A slow link: the tar comes a block at a time
+    const tar = a.tar;
+    a.tar = function (dir, names, options) {
+        const original = tar(dir, names, options);
+        return stream.Readable.from((async function* () {
+            const whole = await bytes_of(original);
+            for (let at = 0; at < whole.length; at += 512) {
+                await new Promise(v => setTimeout(v, 40));
+                yield whole.subarray(at, at + 512);
+            }
+        })());
+    };
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), small_bytes: 20});
+    const folder = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/b'});
+    const seen = [];
+    await until(function () {
+        const now = folder.now;
+        if ((now !== null) && ((seen.length === 0) || (seen[seen.length - 1] !== `${now.label} ${now.size}`))) {
+            seen.push(`${now.label} ${now.size}`);
+        }
+        return folder.phase === 'ok';
+    }, 10000);
+    assert.deepStrictEqual(seen, ['set/deep/two.txt 4', 'set/one.txt 3', 'set/three.txt 5']);
+    assert.deepStrictEqual(folder.now, {label: 'set/three.txt', size: 5, done: 5});
+    assert.strictEqual(b.files['/b/set/deep/two.txt'], 'two!');
+});
+
+// A link that stays up and carries nothing never fails by itself. A step whose bytes stand
+// still is cut, says so, and goes on from where it stood: a tar again whole, a part from where
+// the disk says the file is; a disk still taking what it was sent is not cut.
+test('a copy whose bytes stand still is cut and goes on by itself; one still being taken is not', async function () {
+    const a = disk_that_copies_folders({'/a/set/one.txt': 'one', '/a/set/two.txt': 'two', '/a/film.bin': 'f'.repeat(50)});
+    const b = disk_that_copies_folders({});
+    const logged = [];
+    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 20, small_bytes: 10, stall_ms: 300});
+    // The first tar sends its first block and then nothing, as the link did
+    const tar = a.tar;
+    let tars = 0;
+    a.tar = function (dir, names, options) {
+        tars++;
+        const original = tar(dir, names, options);
+        if (tars > 1) {
+            return original;
+        }
+        const out = new stream.Readable({read: function () {}});
+        bytes_of(original).then(v => out.push(v.subarray(0, 512)));
+        return out;
+    };
+    const folder = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/b'});
+    const said = [];
+    await until(function () {
+        if (folder.phase === 'retrying') {
+            said.push(folder.said);
+        }
+        return folder.phase === 'ok';
+    }, 10000);
+    assert.match(said[0], /^nothing moved for \d+s$/);
+    assert.deepStrictEqual([tars, b.tars], [2, ['/b', '/b']], 'the tar went again whole, not file by file');
+    assert.strictEqual(b.files['/b/set/two.txt'], 'two');
+    const stalled = logged.filter(v => v[0] === 'transfer_stalled');
+    assert.deepStrictEqual(stalled.map(v => [v[1].step, v[1].read, v[1].taken]), [['tar', 512, 0]]);
+
+    // The second part of a file is held by a disk that takes nothing and says nothing
+    const write = b.part_write;
+    let parts = 0;
+    b.part_write = function (dir, name, id, offset, source, taken) {
+        parts++;
+        if (parts === 2) {
+            return new Promise((resolve, reject) => source.on('error', reject));
+        }
+        return write(dir, name, id, offset, source, taken);
+    };
+    const film = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/b'});
+    await until(() => film.phase === 'ok', 10000);
+    assert.strictEqual(b.files['/b/film.bin'], 'f'.repeat(50));
+    assert.deepStrictEqual(logged.filter(v => v[0] === 'transfer_stalled').map(v => v[1].step), ['tar', 'part']);
+
+    // A disk that takes a part slowly, a few bytes at a time, past the stall's time: not cut
+    b.part_write = async function (dir, name, id, offset, source, taken) {
+        for (let i = 0; i < 8; i++) {
+            await new Promise(v => setTimeout(v, 100));
+            taken(1);
+        }
+        return await write(dir, name, id, offset, source, taken);
+    };
+    const slow = queue.add({disk: 'a', path: '/a/set/one.txt'}, {disk: 'b', dir: '/s'});
+    await until(() => slow.phase === 'ok', 10000);
+    assert.strictEqual(b.files['/s/one.txt'], 'one');
+    assert.strictEqual(logged.filter(v => v[0] === 'transfer_stalled').length, 2, 'a disk still taking bytes is not cut');
 });
 
 // Copies between machines are drawn as Uploads is: every copy in line counted at once, and
@@ -957,6 +1053,16 @@ function call(running, method, path, body, headers)
         request.on('error', reject);
         request.end(((body === undefined) || (body === null)) ? undefined : body);
     });
+}
+
+// Every byte a stream gives, as one Buffer
+async function bytes_of(readable)
+{
+    const chunks = [];
+    for await (const chunk of readable) {
+        chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
 }
 
 async function until(ok, timeout_ms)

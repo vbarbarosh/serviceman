@@ -1916,6 +1916,12 @@ button.tag:hover {
     color: var(--bad);
 }
 
+/* A machine whose link is up and whose answers do not come */
+.pill.waiting {
+    background: color-mix(in srgb, var(--busy) 16%, transparent);
+    color: var(--busy);
+}
+
 .alert {
     margin: 0;
     padding: .45rem .7rem;

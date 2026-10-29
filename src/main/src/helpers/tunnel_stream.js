@@ -98,8 +98,11 @@ function tunnel_stream(socket, id, half_open, window_bytes)
         }
         out.destroy(error);
     };
+    // The far end read these bytes: room for more, and word that they got there, for whoever
+    // watches a copy move ('taken')
     out.tunnel_credit = function (bytes) {
         credit += bytes;
+        out.emit('taken', bytes);
         release();
     };
     // The write held back goes on once there is room at the far end, and in the link

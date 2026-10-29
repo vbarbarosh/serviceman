@@ -28,6 +28,10 @@ function remote_state()
         gone_reason: null,
         // Whether this end has already said the machine went quiet, so it says it once
         quiet_said: false,
+        // Since when a call it was sent has gone unanswered past its wait, while its link stays
+        // up; null while it answers (remote_call)
+        unanswered_since: null,
+        unanswered_method: null,
         // What the machine says it is, for as long as it is connected
         declared: [],
         resources: null,

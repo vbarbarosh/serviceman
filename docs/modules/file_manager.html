@@ -952,6 +952,17 @@ asked for. Each is weighed as soon as it is asked for (a file&#39;s size, a fold
 page counts every copy in line, not only the one under way. Pause stops the copy under way
 where it stands and starts no other; Resume carries it on from where the disk says it stands,
 and a tar of small files cut by Pause goes again whole.</p>
+<p>A copy whose bytes stand still for 30 s is cut as a dropped link would cut it, and goes on by
+itself from where the disk says it stands, saying <code>nothing moved for 30s</code> and its countdown
+while it waits. A link may stay up and carry nothing, and such a copy never failed by itself:
+it waited until someone pressed Cancel. Bytes count as moving when they come from the disk they
+are on, or when the disk they go to says it took them (<code>taken</code>), so a slow disk still taking
+its last bytes is not cut. A tar that stood goes again whole the first time, and file by file
+the next. The log says how far each end got, <code>transfer_stalled read= taken=</code>: the end that
+stood is the one to look at. Uploads from a page wait as long.</p>
+<p>The line under a copy names the file on its way and how far that file is. A file in parts is
+named by itself; the small files of a tar are named one after another, read from the tar&#39;s own
+headers as its bytes pass, so a folder of thousands of photos shows each photo going.</p>
 <p>A folder is walked on its disk first (<code>tree</code>), then copied in steps, each carried on from
 after a drop:</p>
 <ul>
@@ -973,9 +984,13 @@ left out and said. A folder is never copied into itself.</p>
     },
     log: function (event, fields) {
     },
+    // how long its bytes may stand still before a step is cut and tried again; 30 s
+    stall_ms: 30000,
 });
-
-// every request under /transfers goes here; the host checks who may ask first
+</code></pre>
+<p>A disk that writes bytes may say how many of them it took, as they go: <code>write_tar(dir, source, taken)</code> and <code>part_write(dir, name, id, offset, source, taken)</code> call <code>taken(bytes)</code>. A machine&#39;s
+disk says it each time the agent answers for the bytes it wrote.</p>
+<pre><code>// every request under /transfers goes here; the host checks who may ask first
 await file_manager_transfers_serve(req, res, {queue, tail, disk_known: v =&gt; names.includes(v)});
 </code></pre>
 <div class="table-wrap"><table>

@@ -11,7 +11,7 @@ function remote_blast(app, remote, bytes)
         return Promise.reject(new Error(`remote ${remote.name} is ${state.phase} — its agent is not dialled in`));
     }
     const id = ++state.next_call_id;
-    const out = remote_call_wait(remote, id, BLAST_TIMEOUT_MS);
+    const out = remote_call_wait(remote, id, BLAST_TIMEOUT_MS, 'blast');
     const body = Buffer.alloc(4 + bytes);
     body.writeUInt32BE(id, 0);
     link_send(state.socket, 'b', body);

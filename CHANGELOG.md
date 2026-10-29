@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.3 — 2026-10-29
+
+- A copy between machines whose bytes stand still for 30 s is cut and goes on by itself from
+  where the disk says it stands, where it waited for Cancel; the line under it names the file on
+  its way, read from the tar's headers, not "56 small files in one go".
+- A machine whose calls wait past 10 s says "not answering" beside its name, its dot orange, and
+  the log says once when it stops answering and once when it answers again.
+
 ## 1.0.2 — 2026-10-29
 
 - A machine's lines gather ten seconds before they go to Logline: a batch every ten seconds, not

@@ -394,6 +394,8 @@ keeps its own copy, so a machine with no link still writes its log.
 | `remote_measure_ok`    | How far away it is and how fast the link runs.                   |
 | `remote_measure_error` | The first measure after hello failed.                            |
 | `remote_ping_error`    | The regular ping failed; `link=` says what became of it.         |
+| `remote_unanswered`    | A call ran out of time while its link stayed up: the machine's calls wait in line. Said once. |
+| `remote_answering`     | The first answer after that, a late one too, and how long it went without. |
 | `remote_refused`       | A token no remote holds, one already in use, or the join token for a machine that joined before. |
 | `remote_link_error`    | The link itself misbehaved; the reason is in the words.          |
 | `remote_said`          | The agent asked for a line to be written.                        |

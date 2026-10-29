@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const stream = require('stream');
+const tar_parser = require('./tar_parser');
 
 // A part of a copy between two disks. The link to a disk has no body limit, so a part is only
 // how much a dropped connection costs.
@@ -26,6 +27,12 @@ const LEFT_KEPT = 20;
 // How much older than its finish a file may look and still be the one that finish made
 const FINISH_SLACK_MS = 10*60*1000;
 
+// How long the bytes of a copy may stand still before the step is cut and tried again, as a
+// dropped link would cut it. A link that stays up and carries nothing never fails by itself:
+// a copy waited on one for minutes, Pause and Cancel its only way out. Uploads from a page
+// wait as long (upload_queue).
+const STALL_MS = 30*1000;
+
 // The speed across a copy, for its graph: sampled every second, as how fast the last three
 // seconds went; past the most points kept, every other one goes
 const SAMPLE_MS = 1000;
@@ -48,9 +55,13 @@ const SAMPLES_MAX = 400;
 //     log(event, fields)   what was done, for the host's own log
 //     part_bytes           how big a part is; 32 MB by default
 //     small_bytes          how big a file of a folder may be and still go in a tar; 32 MB
+//     stall_ms             how long its bytes may stand still before a step is cut; 30 s
 //
 // A disk may say what its agent does already, can(feature): a disk without can, or one that
-// cannot do folder_copy, gets a folder file by file, without its links.
+// cannot do folder_copy, gets a folder file by file, without its links. A disk that writes
+// bytes may say how many of them it took, as they go: write_tar(dir, source, taken) and
+// part_write(..., source, taken) call taken(bytes). Bytes coming in or bytes taken, either is
+// the copy moving; neither for stall_ms, and the step is cut and goes on from where it stood.
 //
 // The queue is {items, paused, add(from, to), cancel(id), clear(), pause(), resume()}, where
 // from is {disk, path} and to is {disk, dir}.
@@ -58,7 +69,15 @@ function transfer_queue(options)
 {
     const log = (options.log === undefined) ? function () {} : options.log;
     const out = {items: [], running: false, paused: false};
-    const ctx = {disk_of: options.disk_of, log, part_bytes: (options.part_bytes === undefined) ? PART_BYTES : options.part_bytes, small_bytes: (options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes, queue: out, weighed: Promise.resolve()};
+    const ctx = {
+        disk_of: options.disk_of,
+        log,
+        part_bytes: (options.part_bytes === undefined) ? PART_BYTES : options.part_bytes,
+        small_bytes: (options.small_bytes === undefined) ? SMALL_FILE_BYTES : options.small_bytes,
+        stall_ms: (options.stall_ms === undefined) ? STALL_MS : options.stall_ms,
+        queue: out,
+        weighed: Promise.resolve(),
+    };
     out.add = function (from, to) {
         const item = item_make(from, to);
         out.items.push(item);
@@ -315,9 +334,14 @@ async function piece_copy(item, piece, from, to, ctx, moved)
         // word. Counted on the way through, never by listening: a listener would set the bytes
         // flowing before the disk is there to take them.
         piece.flowing = 0;
+        const watch = stall_watch(item, ctx, {step: 'part', path: piece.from_path}, function (error) {
+            source.destroy(error);
+            counted.destroy(error);
+        });
         const counted = new stream.Transform({
             transform: function (chunk, encoding, callback) {
                 piece.flowing += chunk.length;
+                watch.read(chunk.length);
                 moved();
                 callback(null, chunk);
             },
@@ -332,9 +356,10 @@ async function piece_copy(item, piece, from, to, ctx, moved)
             counted.destroy(new Error('the copy was stopped'));
         };
         try {
-            piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, counted)).received;
+            piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, counted, watch.taken)).received;
         }
         finally {
+            watch.stop();
             piece.flowing = 0;
             delete item.abort;
         }
@@ -376,7 +401,7 @@ async function weigh_run(item, ctx)
     }
     folder_check(item);
     item.kind = 'dir';
-    const walk = await walk_read(from, item.from.path);
+    const walk = await walk_read(item, from, item.from.path, ctx);
     item.walk = {steps: steps_of(item, walk, from, to, ctx), at: 0, bytes_done: 0};
     item.files = walk.files.length;
     item.left.others = walk.others.length;
@@ -408,11 +433,13 @@ async function folder_copy(item, from, to, ctx, progressed)
         }
         else if (step.kind === 'tar') {
             try {
-                await tar_copy(item, step, from, to, progressed);
+                await tar_copy(item, step, from, to, ctx, progressed);
             }
             catch (error) {
-                // A tar cut by Pause goes again whole: the files it had landed are written over
-                if (ctx.queue.paused) {
+                // A tar cut by Pause goes again whole: the files it had landed are written over.
+                // So does one that stood still the first time: the link stood, not its files.
+                if (ctx.queue.paused || ((error.stalled === true) && (step.stalled !== true))) {
+                    step.stalled = (error.stalled === true);
                     item.received = walk.bytes_done;
                     throw error;
                 }
@@ -497,19 +524,27 @@ async function file_step(item, step, from, to, ctx, progressed)
 }
 
 // Small files of a folder as one tar, read on one disk and written on the other as it comes;
-// what it has carried so far counts toward the copy, its headers aside
-async function tar_copy(item, step, from, to, progressed)
+// what it has carried so far counts toward the copy, its headers aside. The line under the copy
+// names the file on its way and how far that file is, read from the tar's own headers as they
+// pass: a tar is files one after another, and the one going is the one to show.
+async function tar_copy(item, step, from, to, ctx, progressed)
 {
     const walk = item.walk;
     const parent = path.posix.dirname(item.from.path);
     const names = step.files.map(v => `${item.name}/${v.path}`).concat(step.dirs.map(v => `${item.name}/${v}`));
     const source = from.tar(parent, names, {paths: true});
+    const parser = tar_parser();
+    let following = true;
     let carried = 0;
-    const label = `${item.name}: ${step.files.length} small ${(step.files.length === 1) ? 'file' : 'files'} in one go`;
+    item.now = (step.files.length > 0) ? {label: `${item.name}/${step.files[0].path}`, size: step.files[0].size, done: 0} : {label: `${item.name}/${step.dirs[0]}/`, size: null, done: 0};
+    const watch = stall_watch(item, ctx, {step: 'tar', files: step.files.length, bytes: step.bytes}, function (error) {
+        source.destroy(error);
+    });
     source.on('data', function (chunk) {
         carried += chunk.length;
+        watch.read(chunk.length);
         item.received = walk.bytes_done + Math.min(step.bytes, carried);
-        item.now = {label, size: step.bytes, done: Math.min(step.bytes, carried)};
+        following = following && tar_now(item, parser, chunk);
     });
     // Cancel and Pause end the tar at once: the files that were whole stay, the one on its
     // way goes
@@ -517,17 +552,44 @@ async function tar_copy(item, step, from, to, progressed)
         source.destroy(new Error('the copy was stopped'));
     };
     try {
-        await to.write_tar(item.to.dir, source);
+        await to.write_tar(item.to.dir, source, watch.taken);
     }
     finally {
+        watch.stop();
         delete item.abort;
     }
     progressed();
 }
 
+// The file a tar carries now, by its own header, as the copy's line: {label, size, done}, a
+// folder named as itself. False once the bytes are no tar it can follow; the line then keeps
+// the last name it had, and the far end says what is wrong with them.
+function tar_now(item, parser, chunk)
+{
+    let pieces;
+    try {
+        pieces = parser.push(chunk);
+    }
+    catch {
+        return false;
+    }
+    for (const piece of pieces) {
+        if (piece.type === 'file') {
+            item.now = {label: piece.name, size: piece.size, done: 0};
+        }
+        else if ((piece.type === 'data') && (item.now !== null)) {
+            item.now.done += piece.bytes.length;
+        }
+        else if (piece.type === 'dir') {
+            item.now = {label: `${piece.name}/`, size: null, done: 0};
+        }
+    }
+    return true;
+}
+
 // Every name under a folder, as the disk it is on walks it: {files, dirs, links, others,
-// unread}, each path relative to the folder
-function walk_read(disk, dir)
+// unread}, each path relative to the folder. A walk that stands still is cut as a copy is.
+function walk_read(item, disk, dir, ctx)
 {
     if (disk.tree === undefined) {
         return Promise.reject(new Error('this disk cannot list a whole tree'));
@@ -535,9 +597,14 @@ function walk_read(disk, dir)
     return new Promise(function (resolve, reject) {
         const walk = {files: [], dirs: [], links: [], others: [], unread: []};
         const stream = disk.tree(dir, {hash: false, skip: []});
+        const watch = stall_watch(item, ctx, {step: 'walk', path: dir}, function (error) {
+            stream.destroy(error);
+        });
+        stream.on('close', watch.stop);
         let rest = '';
         let ended = false;
         stream.on('data', function (chunk) {
+            watch.read(chunk.length);
             const lines = (rest + chunk.toString('utf8')).split('\n');
             rest = lines.pop();
             for (const text of lines) {
@@ -565,8 +632,12 @@ function walk_read(disk, dir)
                 }
             }
         });
-        stream.on('error', reject);
+        stream.on('error', function (error) {
+            watch.stop();
+            reject(error);
+        });
         stream.on('end', function () {
+            watch.stop();
             if (ended === false) {
                 reject(new Error('the walk of the folder stopped short'));
                 return;
@@ -764,6 +835,41 @@ function wait_out(item, seconds)
             resolve();
         };
     });
+}
+
+// A step's bytes, watched from both ends: read(bytes) as they come from the disk they are on,
+// taken(bytes) as the disk they go to says it took them. When neither has moved for stall_ms,
+// cut(error) ends the step with an error that says so, error.stalled, and a line says how far
+// each end got: the end that stood is the one to look at. Answers {read, taken, stop}.
+function stall_watch(item, ctx, words, cut)
+{
+    const seen = {read: 0, taken: 0, moved_at: Date.now()};
+    const timer = setInterval(function () {
+        const still_ms = Date.now() - seen.moved_at;
+        if (still_ms < ctx.stall_ms) {
+            return;
+        }
+        clearInterval(timer);
+        const error = new Error(`nothing moved for ${Math.round(still_ms/1000)}s`);
+        error.stalled = true;
+        ctx.log('transfer_stalled', Object.assign({id: item.id, from: item.from.disk, to: item.to.disk}, words, {read: seen.read, taken: seen.taken, still: `${Math.round(still_ms/1000)}s`}));
+        cut(error);
+    }, Math.min(1000, ctx.stall_ms));
+    // A copy that stands still does not keep the process alive
+    timer.unref();
+    return {
+        read: function (bytes) {
+            seen.read += bytes;
+            seen.moved_at = Date.now();
+        },
+        taken: function (bytes) {
+            seen.taken += bytes;
+            seen.moved_at = Date.now();
+        },
+        stop: function () {
+            clearInterval(timer);
+        },
+    };
 }
 
 // The speed across one copy while it runs: every second, how fast the last three seconds went

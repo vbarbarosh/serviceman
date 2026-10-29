@@ -32,12 +32,14 @@ import program_place from './program_place.js';
 import program_shell from './program_shell.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
+import remote_dot from './remote_dot.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
 import remote_overview from './remote_overview.js';
 import remote_packages from './remote_packages.js';
 import remote_processes from './remote_processes.js';
 import remote_shell from './remote_shell.js';
+import remote_unanswered_said from './remote_unanswered_said.js';
 import remotes_pane from './remotes_pane.js';
 import secrets_form from './secrets_form.js';
 import security_pane from './security_pane.js';
@@ -1264,10 +1266,11 @@ const remote_page = {
     <div class="crumbs">
         <button type="button" class="link" @click="$emit('list')">Remotes</button>
         <span class="muted">›</span>
-        <span class="dot" :class="(view.phase === 'online' ? 'running' : 'failed')"/>
+        <span class="dot" :class="remote_dot(view)" :title="unanswered_said"/>
         <b>{{ view.title || view.name }}</b>
         <code v-if="name_shown" class="muted">{{ view.name }}</code>
         <agent-pill :current="agent_now"/>
+        <span v-if="(unanswered_said !== '')" class="pill waiting" :title="unanswered_said">not answering · {{ format_ms(view.unanswered.ms) }}</span>
         <div class="acts crumb-acts">
             <button type="button" title="A new service, run on this machine" @click="$emit('create', view.name)">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1368,6 +1371,10 @@ const remote_page = {
         tab_now: function () {
             return remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
+        // Its calls waiting for answers while its link stays up, in words; '' while it answers
+        unanswered_said: function () {
+            return remote_unanswered_said(this.view);
+        },
         agent_now: function () {
             return agent_current(this.view, this.served);
         },
@@ -1397,6 +1404,8 @@ const remote_page = {
         },
     },
     methods: {
+        format_ms,
+        remote_dot,
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             const found = (JSON.parse(loaded.text).remotes || []).find(v => v.name === name) || null;
@@ -1865,7 +1874,7 @@ const app = {
         </button>
         <div v-if="(kind_now === 'remotes' && state.remotes.length > 0)" class="rail-tree">
             <button v-for="item of rail_remotes" :key="item.name" type="button" class="row" :class="{on: (item.name === remote_name)}" :title="item.name" @click="remote_select(item)">
-                <dot :phase="(item.phase === 'online' ? 'running' : 'failed')"/>
+                <dot :phase="remote_dot(item)" :title="remote_unanswered_said(item)"/>
                 <span class="name">{{ item.title || item.name }}</span>
                 <svg v-if="(agent_current(item, state.agent_built) === false)" class="agent-behind" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" aria-label="runs an older agent"><title>Runs an older agent than this host serves</title><path d="M12 19V5M6 11l6-6 6 6"/></svg>
             </button>
@@ -2833,6 +2842,8 @@ const app = {
             }
         },
         agent_current,
+        remote_dot,
+        remote_unanswered_said,
         remote_select: function (view) {
             this.panes_close();
             this.remote_name = view.name;

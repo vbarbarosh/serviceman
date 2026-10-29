@@ -64,14 +64,14 @@ function remote_disk(app, remote, options)
         room: function (dir) {
             return remote_call(app, remote, 'fs_room', {path: ((dir === null) || (dir === '')) ? home : dir, root}, FS_TIMEOUT_MS);
         },
-        write_tar: function (dir, source) {
-            return file_send(remote, {tar_put: {dir, root}}, source);
+        write_tar: function (dir, source, taken) {
+            return file_send(remote, {tar_put: {dir, root}}, source, taken);
         },
         part_stat: function (dir, name, id) {
             return remote_call(app, remote, 'file_part_stat', {dir, name, id, root}, FS_TIMEOUT_MS);
         },
-        part_write: function (dir, name, id, offset, source) {
-            return file_send(remote, {part: {dir, name, id, offset, root}}, source);
+        part_write: function (dir, name, id, offset, source, taken) {
+            return file_send(remote, {part: {dir, name, id, offset, root}}, source, taken);
         },
         part_finish: function (dir, name, id, size, mode) {
             return remote_call(app, remote, 'file_part_finish', {dir, name, id, size, mode, root}, FS_TIMEOUT_MS);
@@ -88,11 +88,15 @@ function remote_disk(app, remote, options)
 // The bytes of one file, of one part of it, or of a tar of many, into a stream whose far end
 // writes them. What comes back is the one line the machine writes when they are in — where the
 // file landed and how big it is, how much of it is in so far, or how many files a tar made. The bytes come from a browser's request, or
-// from a file read on another machine.
-function file_send(remote, target, source)
+// from a file read on another machine. taken(bytes), when given, hears each time the machine
+// says it wrote some, so a copy can tell bytes that go from bytes that stand.
+function file_send(remote, target, source, taken)
 {
     return new Promise(function (resolve, reject) {
         const stream = tunnel_open(remote, target);
+        if (taken !== undefined) {
+            stream.on('taken', taken);
+        }
         const said = [];
         stream.on('data', function (chunk) {
             said.push(chunk);

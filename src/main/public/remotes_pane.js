@@ -8,6 +8,9 @@ import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
+import remote_dot from './remote_dot.js';
+import remote_state_text from './remote_state_text.js';
+import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_uptime from './remote_uptime.js';
 
 const REMOTES_VIEW_KEY = 'serviceman.remotes_view';
@@ -47,10 +50,10 @@ const remotes_pane = {
     <div v-if="(view === 'cards')" class="machines">
         <div v-for="card of cards" :key="card.name" class="card machine pick" :class="{away: (card.online === false)}" @click="$emit('select', card.name)">
             <div class="row-of">
-                <span class="dot" :class="(card.online ? 'running' : 'failed')"/>
+                <span class="dot" :class="card.dot"/>
                 <b>{{ card.title }}</b>
                 <code v-if="card.name_shown" class="muted">{{ card.name }}</code>
-                <span class="pill" :class="(card.online ? 'running' : 'failed')">{{ card.pill }}</span>
+                <span class="pill" :class="pill_class(card)">{{ card.pill }}</span>
                 <agent-pill :current="card.agent"/>
             </div>
             <p v-for="line of card.troubles" :key="line" class="alert">{{ line }}</p>
@@ -83,14 +86,14 @@ const remotes_pane = {
     <data-table v-else class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text" :opens="uptime_opens">
         <template #cell="{row, column}">
             <span v-if="(column.key === 'name')" class="machine-name">
-                <span class="dot" :class="(row.online ? 'running' : 'failed')"/>
+                <span class="dot" :class="row.dot"/>
                 <button type="button" class="link" title="The machine's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
                 <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
             </span>
             <!-- A machine with no numbers says why across their empty cells: since when it is away,
                  what waits for it, what went wrong -->
             <span v-else-if="(column.key === 'state')" class="machine-state">
-                <span class="pill" :class="(row.online ? 'running' : 'failed')">{{ row.pill }}</span>
+                <span class="pill" :class="pill_class(row)">{{ row.pill }}</span>
                 <template v-if="(row.bars.length === 0)">
                     <span v-if="(row.online === false)" class="muted">{{ row.away_text }}</span>
                     <span v-for="line of row.troubles" :key="line" class="bad">{{ line }}</span>
@@ -208,6 +211,9 @@ const remotes_pane = {
             const found = card.bars.find(v => v.key === key);
             return (found === undefined) ? null : found;
         },
+        pill_class: function (card) {
+            return {running: 'running', starting: 'waiting', failed: 'failed'}[card.dot];
+        },
         card_of: function (remote, machine) {
             const online = (remote.phase === 'online');
             const services = this.services_of(remote);
@@ -223,13 +229,19 @@ const remotes_pane = {
             if (online && (remote.update_refused !== null) && (remote.update_refused !== undefined)) {
                 troubles.push(`The agent refused an update: ${remote.update_refused}`);
             }
+            const unanswered = remote_unanswered_said(remote);
+            if (unanswered !== '') {
+                troubles.push(unanswered);
+            }
             return {
                 name: remote.name,
                 remote,
                 title: remote.title || remote.name,
                 name_shown: is_name_in_title(remote.title, remote.name) === false,
                 online,
-                pill: online ? `online · ${(remote.latency_ms === null) ? '…' : `${remote.latency_ms}ms`}` : 'offline',
+                // running, waiting while its answers do not come, failed while it is away
+                dot: remote_dot(remote),
+                pill: remote_state_text(remote),
                 agent: agent_current(remote, this.state.agent_built),
                 logs_url: logline_link(this.state.logline, 'remote', remote.name),
                 troubles,

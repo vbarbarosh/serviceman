@@ -3,6 +3,8 @@ import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
+import remote_dot from './remote_dot.js';
+import remote_state_text from './remote_state_text.js';
 
 // The front page: every service, one row each, under the machine it runs on. A filter and the
 // state chips narrow it; nothing here is kept but what the rows say.
@@ -117,8 +119,8 @@ const services_pane = {
             const out = [];
             const group_by_key = {};
             for (const remote of this.remotes) {
-                const phase = (remote.phase === 'online') ? 'running' : 'failed';
-                const text = (remote.phase === 'online') ? `online · ${(remote.latency_ms === null) ? '…' : `${remote.latency_ms}ms`}` : 'offline';
+                const phase = remote_dot(remote);
+                const text = remote_state_text(remote);
                 group_by_key[remote.name] = {key: remote.name, title: remote.title || remote.name, phase, text, rows: []};
             }
             const wanted = this.filter.toLowerCase();

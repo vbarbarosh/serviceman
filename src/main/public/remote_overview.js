@@ -8,6 +8,7 @@ import logline_link from './logline_link.js';
 import overview_card from './overview_card.js';
 import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
+import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_uptime from './remote_uptime.js';
 import to_clipboard from './to_clipboard.js';
 import updates_lists from './updates_lists.js';
@@ -25,7 +26,8 @@ const remote_overview = {
         <div class="ov-head">
             <h1><span class="dot" :class="dot_phase"></span>{{ (view.title || view.name) }}</h1>
             <div class="ov-aside">
-                <span v-if="(view.phase === 'online')" class="pill running">online</span>
+                <span v-if="(unanswered_said !== '')" class="pill waiting" :title="unanswered_said">not answering · {{ format_ms(view.unanswered.ms) }}</span>
+                <span v-else-if="(view.phase === 'online')" class="pill running">online</span>
                 <span v-else-if="(view.phase === 'greeting')" class="pill starting">connecting</span>
                 <span v-else class="pill failed">offline</span>
             </div>
@@ -35,6 +37,7 @@ const remote_overview = {
         </div>
         <p v-if="(view.machine === null)" class="alert">This machine has not connected since serviceman last started, so nothing is known about it yet. A running agent dials in by itself; a machine without one needs it: <button type="button" class="link" @click="$emit('tab', 'install')">Install the agent →</button></p>
         <p v-else-if="(view.phase !== 'online')" class="alert">The agent on this machine is not connected. What is below is what it last said.</p>
+        <p v-if="(unanswered_said !== '')" class="alert">{{ unanswered_said }}. What is below waits for it.</p>
         <p v-if="view.error" class="alert"><strong>Last error</strong> · {{ view.error }}</p>
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
@@ -157,9 +160,13 @@ const remote_overview = {
         return {raw_open: false, copied: false, copied_timer: null};
     },
     computed: {
+        // Its calls waiting for answers while its link stays up, in words; '' while it answers
+        unanswered_said: function () {
+            return remote_unanswered_said(this.view);
+        },
         dot_phase: function () {
             if (this.view.phase === 'online') {
-                return 'running';
+                return (this.unanswered_said === '') ? 'running' : 'starting';
             }
             return (this.view.phase === 'greeting') ? 'starting' : 'stopped';
         },
