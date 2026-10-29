@@ -20,6 +20,8 @@ services:
       - clickhouse_logs:/var/log/clickhouse-server
       # Passwordless, read-only user restricted to private Docker networks.
       - ./config/clickhouse.xml:/etc/clickhouse-server/users.d/log-ui.xml:ro
+      # ClickHouse's own logs: three days of the ones worth a look, none of the rest
+      - ./config/clickhouse-logs.xml:/etc/clickhouse-server/config.d/logs.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping | grep -q Ok"]
       interval: 10s
@@ -27,6 +29,12 @@ services:
       retries: 12
       start_period: 30s
     stop_grace_period: 30s
+    # Logline does not log itself: serviceman's agent on this machine, which follows every
+    # container, leaves one labelled logline=off alone; the log-agent below leaves these out by
+    # name. Without the labels the agent sent the line lines says about every INSERT back as
+    # the next INSERT.
+    labels:
+      logline: "off"
 
   # Focused local log viewer: AND-substring filters, histogram, live polling,
   # and a virtualized infinite list. nginx also proxies browser queries to
@@ -49,6 +57,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    labels:
+      logline: "off"
 
   # The one door machines send their lines to: POST /lines, with a token bound to the address
   # it was issued for. It runs on this machine's own network and listens on its tailnet address
@@ -74,6 +84,8 @@ services:
       CLICKHOUSE: http://lines:@127.0.0.1:8123
     volumes:
       - lines_data:/app/data
+    labels:
+      logline: "off"
 
   # ClickStack Local does not load the OpAMP custom configuration used by the
   # authenticated all-in-one image. This edge agent tails our files and sends
@@ -94,6 +106,8 @@ services:
       # host paths in .env when Docker uses Snap, rootless mode, or data-root.
       - ${DOCKER_ROOT_DIR:-/var/lib/docker}/containers:/var/lib/docker/containers:ro
       - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
+    labels:
+      logline: "off"
 
 # Stop and delete the container, network, and all persisted data:
 # docker compose down -v

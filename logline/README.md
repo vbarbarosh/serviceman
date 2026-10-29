@@ -47,6 +47,13 @@ This is enabled by default. The agent mounts these host resources:
 - `/var/run/docker.sock`, to discover names, IDs, and images as containers
   start and stop
 
+The stack's own containers are left out, so Logline does not log itself: the log-agent skips
+`clickstack`, `log-ui` and itself by name in
+[`config/otel-collector.yaml`](config/otel-collector.yaml), and serviceman's agent on this
+machine, which follows every container, skips all four by their label `logline=off` in
+[`docker-compose.yml`](docker-compose.yml). Without the labels, an agent on this machine sent
+the line `lines` says about every INSERT back as the next INSERT.
+
 First find the paths used by the active Docker daemon:
 
 ```bash
@@ -622,6 +629,28 @@ ORDER BY Timestamp DESC;
 The playground starts reading matched files from the beginning. The `log-agent` remembers offsets while it is running, but this minimal configuration does not persist file offsets across agent/container recreation. Recreating it can therefore ingest existing lines again. Before production use, enable persistent `file_storage`, define rotation/retention, and choose an event ID or deduplication policy.
 
 There is an important modeling distinction: `group_uid` and `parent_group_uid` currently form a graph in log attributes. They are not OpenTelemetry trace/span IDs. If groups represent timed operations and you control the producer, emitting real OTel spans in addition to logs would enable ClickStack's native trace waterfall while retaining these detailed log events.
+
+### ClickHouse's own logs
+
+ClickHouse logs itself into `system.*_log` tables, and left alone they outgrow the lines: 65 GiB
+against 3 GiB after ten days of a busy Logline, most of it `trace_log`, `part_log` and
+`processors_profile_log`. [`config/clickhouse-logs.xml`](config/clickhouse-logs.xml), mounted as
+`config.d/logs.xml`, turns off the four nothing here reads (`trace_log`,
+`processors_profile_log`, `query_views_log`, `query_thread_log`) and keeps three days of the rest
+(`query_log`, `part_log`, `metric_log`, `asynchronous_metric_log`). ClickHouse does not drop a
+table for it: a log turned off keeps its table as it was, and one whose definition changed (the
+three days) is kept as `<name>_0`, written no more. Once, after the first start with the file:
+
+```bash
+docker compose exec clickstack clickhouse-client --query "
+  SELECT name, formatReadableSize(total_bytes) AS size FROM system.tables
+  WHERE database = 'system' AND engine LIKE '%MergeTree' ORDER BY total_bytes DESC"
+docker compose exec clickstack clickhouse-client --multiquery --query "
+  DROP TABLE IF EXISTS system.trace_log; DROP TABLE IF EXISTS system.processors_profile_log;
+  DROP TABLE IF EXISTS system.query_views_log; DROP TABLE IF EXISTS system.query_thread_log;
+  DROP TABLE IF EXISTS system.query_log_0; DROP TABLE IF EXISTS system.part_log_0;
+  DROP TABLE IF EXISTS system.metric_log_0; DROP TABLE IF EXISTS system.asynchronous_metric_log_0"
+```
 
 Stop the service:
 

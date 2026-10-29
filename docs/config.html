@@ -1076,10 +1076,13 @@ switches it, and says where its lines go, from when, how many went and how many 
 the last telling failed if it did.</p>
 <p>A machine switched on follows every container it has — the ones there, the ones stopped, and
 every one started later — from its floor, into a spool on its own disk, and sends the spool to
-Logline in batches. A batch leaves the spool only when Logline has it; while Logline cannot be
-reached the spool grows, up to a gigabyte or a tenth of the disk, and then the machine stops
-reading and docker keeps the lines until there is room. A container labelled <code>logline=off</code> is
-left alone. The agent&#39;s own lines go too — what it connected to, what it was asked, what went
+Logline in batches: what ten seconds gather, or a thousand lines, whichever comes first, so a
+trickle is a batch every ten seconds and not an insert a line. A batch leaves the spool only
+when Logline has it; while Logline cannot be reached the spool grows, up to a gigabyte or a tenth
+of the disk, and then the machine stops reading and docker keeps the lines until there is room.
+A container labelled <code>logline=off</code> is left alone: Logline&#39;s own four carry it, so the machine
+Logline runs on does not send Logline its own lines back. The agent&#39;s own lines go too — what it
+connected to, what it was asked, what went
 wrong — labelled <code>service=serviceman-agent</code>, from the moment collection starts, the lines it
 wrote just before that included. How it is kept from losing or repeating a line is in
 <code>notes/logline.md</code>.</p>

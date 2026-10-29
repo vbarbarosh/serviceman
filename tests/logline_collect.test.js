@@ -160,7 +160,8 @@ async function world_make(t, env)
             fs.writeFileSync(path.join(agent_dir, 'logline', 'settings.json'), JSON.stringify({endpoint: `http://127.0.0.1:${lines_port}/lines`, token: issued.token, logs: 'all', floor}));
             agent = child_process.spawn(process.execPath, [AGENT, '--url', 'http://127.0.0.1:9', '--token', 'fedcba9876543210fedcba9876543210'], {
                 stdio: ['ignore', 'pipe', 'pipe'],
-                env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: agent_dir, DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`, SERVICEMAN_MACHINE: 'testbox', SERVICEMAN_LOG_DIR: 'none'}, env),
+                // Lines gather 200ms here, not the ten seconds of a machine
+                env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: agent_dir, DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`, SERVICEMAN_MACHINE: 'testbox', SERVICEMAN_LOG_DIR: 'none', SERVICEMAN_LOGLINE_GATHER: '200'}, env),
             });
             if (process.env.AGENT_OUT) {
                 agent.stdout.pipe(process.stderr);

@@ -90,7 +90,7 @@ async function apply(options)
     }
     state.early = [];
     state.decided = true;
-    state.ship = logline_ship({spool: state.spool, dir, settings: agent_logline_read, stats: state.stats, say});
+    state.ship = logline_ship({spool: state.spool, dir, settings: agent_logline_read, stats: state.stats, say, gather_ms: gather_ms()});
     say('logline_collect_begin', {floor: settings.floor, docker: socket, cap: state.spool.stats().cap_bytes, endpoint: settings.endpoint, dirs: settings.dirs.map(v => v.path)});
 }
 
@@ -173,6 +173,12 @@ function cap_bytes(dir)
     catch {
         return CAP_BYTES;
     }
+}
+
+// How long lines gather before a batch goes: the shipper's ten seconds, unless a test is in a hurry
+function gather_ms()
+{
+    return process.env.SERVICEMAN_LOGLINE_GATHER ? parseInt(process.env.SERVICEMAN_LOGLINE_GATHER, 10) : undefined;
 }
 
 // What was sent before this process, so the numbers on the page go on from there

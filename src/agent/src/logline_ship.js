@@ -3,6 +3,9 @@ const path = require('path');
 
 const BATCH_LINES = 1000;
 const BATCH_BYTES = 1024*1024;
+// How long lines gather before they go: a trickle is one batch every ten seconds, not an INSERT
+// a line from every machine at once; a batch full before that goes at once
+const GATHER_MS = 10000;
 const SEND_MS = 30000;
 const IDLE_MS = 1000;
 const WAIT_FIRST_MS = 1000;
@@ -17,12 +20,13 @@ const STEADY_MS = 30000;
 //
 // New lines wake an idle loop, never the wait after a failure: the lines this loop says about
 // itself are new lines too, and waking on them sent the same refused batch ten times a second.
-// New settings end that wait, since a new token or endpoint may be the cure.
+// Nor the gather: what comes meanwhile is in the batch when it goes. New settings end any wait,
+// since a new token or endpoint may be the cure.
 //
-// ctx: {spool, dir, settings, stats, say} -> {stop, wake, retry}
+// ctx: {spool, dir, settings, stats, say, gather_ms} -> {stop, wake, retry}
 function logline_ship(ctx)
 {
-    const run = {running: true, wake: null, idle: false};
+    const run = {running: true, wake: null, idle: false, gather_ms: (ctx.gather_ms === undefined) ? GATHER_MS : ctx.gather_ms};
     loop(ctx, run);
     return {
         stop: function () {
@@ -40,7 +44,7 @@ function logline_ship(ctx)
 
 async function loop(ctx, run)
 {
-    const state = {wait_ms: WAIT_FIRST_MS, failed_at: 0};
+    const state = {wait_ms: WAIT_FIRST_MS, failed_at: 0, gather_until: null};
     while (run.running) {
         try {
             await round(ctx, run, state);
@@ -53,14 +57,27 @@ async function loop(ctx, run)
     }
 }
 
-// One batch, sent — or the wait before the next try
+// One batch, sent — or the wait before it: for lines to gather, or after a failure
 async function round(ctx, run, state)
 {
+    const waiting = ctx.spool.stats();
+    if (waiting.waiting_lines === 0) {
+        await idle(run);
+        return;
+    }
+    // The first line seen starts the gather; the batch goes when it is full or the time is up
+    if (state.gather_until === null) {
+        state.gather_until = Date.now() + run.gather_ms;
+    }
+    const full = (waiting.waiting_lines >= BATCH_LINES) || (waiting.waiting_bytes >= BATCH_BYTES);
+    if ((full === false) && (Date.now() < state.gather_until)) {
+        await sleep(run, state.gather_until - Date.now());
+        return;
+    }
     const cut = ctx.spool.batch(BATCH_LINES, BATCH_BYTES);
     if (cut === null) {
-        run.idle = true;
-        await sleep(run, IDLE_MS);
-        run.idle = false;
+        // Counted, not synced yet: the sync that makes them a batch wakes the loop
+        await idle(run);
         return;
     }
     const settings = ctx.settings();
@@ -70,6 +87,7 @@ async function round(ctx, run, state)
     }
     if (answer.ok) {
         ctx.spool.ack(cut);
+        state.gather_until = null;
         stats_add(ctx, cut, 'ok');
         // Working again only once it has gone a while without a failure: a Logline that takes
         // one batch and refuses the next is still failing, and is not said twice a batch
@@ -84,6 +102,7 @@ async function round(ctx, run, state)
         // Nothing will make Logline take it: it is kept aside, whole, and the rest go on
         file_write_synced(path.join(ctx.dir, 'refused', `${cut.first}-${cut.last}.json`), JSON.stringify({answer: answer.text, batch: JSON.parse(cut.body)}));
         ctx.spool.ack(cut);
+        state.gather_until = null;
         stats_add(ctx, cut, answer.text);
         ctx.say('logline_batch_refused', {first: cut.first, last: cut.last, lines: cut.count, reason: answer.text, kept: `refused/${cut.first}-${cut.last}.json`});
         return;
@@ -97,6 +116,14 @@ async function round(ctx, run, state)
     }
     await sleep(run, state.wait_ms);
     state.wait_ms = Math.min(state.wait_ms*2, WAIT_LONGEST_MS);
+}
+
+// Nothing to send: a wait that new lines end
+async function idle(run)
+{
+    run.idle = true;
+    await sleep(run, IDLE_MS);
+    run.idle = false;
 }
 
 // {ok} for a 2xx, {refused} for an answer no retry changes, and why in `text`

@@ -21,7 +21,7 @@ const PROJECT = 'clickstack-playground';
 
 test('the compose file says which service mounts which of Logline\'s files', function () {
     const mounts = compose_mounts(fs.readFileSync(path.join(logline_files.dir, 'docker-compose.yml'), 'utf8'));
-    assert.deepStrictEqual(mounts.clickstack, ['config/clickhouse.xml']);
+    assert.deepStrictEqual(mounts.clickstack, ['config/clickhouse.xml', 'config/clickhouse-logs.xml']);
     assert.deepStrictEqual(mounts['log-ui'].slice().sort(), ['config/nginx.conf', 'log-ui/app.js', 'log-ui/index.html', 'log-ui/styles.css']);
     assert.deepStrictEqual(mounts.lines, []);
 });

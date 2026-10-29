@@ -255,10 +255,13 @@ the last telling failed if it did.
 
 A machine switched on follows every container it has — the ones there, the ones stopped, and
 every one started later — from its floor, into a spool on its own disk, and sends the spool to
-Logline in batches. A batch leaves the spool only when Logline has it; while Logline cannot be
-reached the spool grows, up to a gigabyte or a tenth of the disk, and then the machine stops
-reading and docker keeps the lines until there is room. A container labelled `logline=off` is
-left alone. The agent's own lines go too — what it connected to, what it was asked, what went
+Logline in batches: what ten seconds gather, or a thousand lines, whichever comes first, so a
+trickle is a batch every ten seconds and not an insert a line. A batch leaves the spool only
+when Logline has it; while Logline cannot be reached the spool grows, up to a gigabyte or a tenth
+of the disk, and then the machine stops reading and docker keeps the lines until there is room.
+A container labelled `logline=off` is left alone: Logline's own four carry it, so the machine
+Logline runs on does not send Logline its own lines back. The agent's own lines go too — what it
+connected to, what it was asked, what went
 wrong — labelled `service=serviceman-agent`, from the moment collection starts, the lines it
 wrote just before that included. How it is kept from losing or repeating a line is in
 `notes/logline.md`.
