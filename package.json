@@ -1,6 +1,6 @@
 {
     "name": "serviceman",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "private": true,
     "license": "MIT",
     "description": "Serve services by hostname, start them on the first request, stop them when idle",

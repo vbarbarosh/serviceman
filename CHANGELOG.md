@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.8 — 2026-10-29
+
+- Takes out two files of a terminal a local test opened (src/agent/terminals/), which 1.0.7
+  carried by mistake.
+
 ## 1.0.7 — 2026-10-29
 
 - The dark theme in the colours of the author's Olive 3: an olive page, olive-dark bars, near-black
