@@ -59,6 +59,9 @@ function stream_open(state, id, target)
         return;
     }
     stream_attach(state, id, socket, tunnel_window(target));
+    // A file the host writes here: while one comes in, a host heard from not at all is a way
+    // that stands (agent_serve)
+    state.streams[id].file_in = ((target.file !== undefined) || (target.part !== undefined) || (target.tar_put !== undefined));
 }
 
 // A socket at this end of a stream, whichever end opened it: its bytes go out as frames, what

@@ -578,6 +578,14 @@ whatever is asked after it: its page names the file, how much of it was sent and
 and when its bytes last moved. Bytes that still move are a link that is full; bytes that stand
 are a link that carries nothing at all.
 
+A link that carries nothing to the machine is not waited out. When a call has waited 30 s, a
+file's bytes to the machine have stood 30 s and the machine is still heard, serviceman resets
+the link (`remote_dropped reason="the way to it stood"`) and the agent dials a fresh one. The
+agent does the same by itself when it has heard nothing at all for 30 s while a file comes in
+(`agent_host_stood`), in case the reset is stuck too. The file in flight is cut: an upload in
+parts goes on from its last part, and a copy between machines from where the disk says it
+stands.
+
 A service on that machine reads **lost** while the link is down, not stopped: nobody stopped
 it, and this host simply cannot see it. The address it last answered on is kept, and the page
 says why.

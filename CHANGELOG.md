@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.5 — 2026-10-29
+
+- A link whose way to the machine stands is reset after 30 s, and the agent dials a fresh one:
+  a call waiting 30 s behind a file whose bytes stood 30 s, the machine still heard
+  (`remote_dropped reason="the way to it stood"`), where it waited 1½ to 4 minutes; the agent
+  dials fresh by itself after 30 s of nothing while a file comes in (agent 1.30.2).
+
 ## 1.0.4 — 2026-10-29
 
 - A machine not answering names the file its link carries meanwhile: how much was sent, how much

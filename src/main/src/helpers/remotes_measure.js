@@ -1,3 +1,6 @@
+const format_duration_ms = require('../../../helpers/format_duration_ms');
+const link_reset = require('./link_reset');
+const link_stood = require('./link_stood');
 const log_event = require('./log_event');
 const remote_measure = require('./remote_measure');
 
@@ -35,6 +38,20 @@ async function look_at(app, remote)
         if (socket !== null) {
             socket.destroy();
         }
+        return;
+    }
+    // Heard, and still its calls wait behind a file whose bytes stand: the way to it is stuck,
+    // and a fresh link is what moves again
+    const now = Date.now();
+    const stood = link_stood(state, now);
+    if (stood !== null) {
+        link_reset(app, remote, 'the way to it stood', {
+            waited: format_duration_ms(stood.waited_ms),
+            file: stood.file.name,
+            sent: stood.file.sent,
+            taken: stood.file.taken,
+            still: format_duration_ms(stood.file.still_ms),
+        });
         return;
     }
     const measured = (state.measured_at === null) ? 0 : state.measured_at;

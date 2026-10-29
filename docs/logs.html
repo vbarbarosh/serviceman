@@ -905,7 +905,7 @@ config is shortened, because the real one was a scratch folder.</p>
 </tr>
 <tr>
 <td><code>remote_dropped</code></td>
-<td>A link the host let go on purpose — a changed or removed machine — after telling the agent.</td>
+<td>A link the host let go on purpose — a changed or removed machine — after telling the agent; or reset at once because the way to the machine stood (<code>reason=&quot;the way to it stood&quot;</code>): a quick call <code>waited=</code> 30 s or more, its <code>file=</code> <code>sent=</code> bytes it <code>taken=</code> only part of, <code>still=</code> that long, the machine still heard.</td>
 </tr>
 <tr>
 <td><code>serviceman_route</code></td>
@@ -1259,6 +1259,14 @@ minute, and they would bury the rest.</p>
 <tr>
 <td><code>agent_link_error</code></td>
 <td>The link failed while it was up.</td>
+</tr>
+<tr>
+<td><code>agent_host_quiet</code></td>
+<td>Nothing from the host for 90 s, so the agent dials fresh.</td>
+</tr>
+<tr>
+<td><code>agent_host_stood</code></td>
+<td>Nothing from the host for 30 s while a file comes in: the way here stands, so the agent dials fresh.</td>
 </tr>
 <tr>
 <td><code>agent_call_ok</code></td>

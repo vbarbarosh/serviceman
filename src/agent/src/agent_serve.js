@@ -83,6 +83,12 @@ const SLEPT_MS = 30000;
 // for as long as it likes, and the only way to find out is to hang up and dial again. The env
 // name is for a test that cannot wait a minute and a half.
 const HOST_GONE_MS = parseInt(process.env.SERVICEMAN_HOST_GONE_MS || '90000', 10);
+// Sooner while a file is coming in: its bytes and the host's beats ride the same way, and
+// nothing at all from the host for this long is a way that stands, not a file that is slow.
+// On 2026-10-29 that way stood 1½ to 4 minutes, five times, with this link's way out working
+// all along; the host resets such a link itself, and this is for the reset that does not
+// arrive either.
+const HOST_STOOD_MS = parseInt(process.env.SERVICEMAN_STOOD_MS || '30000', 10);
 
 const TUNNEL_KINDS = ['o', 'd', 'e', 'x', 'r'];
 // The days an uptime answer covers at most: as many as uptime.json keeps
@@ -146,6 +152,11 @@ async function agent_serve(options, socket, group, status)
         }
         if (now - state.heard_at >= HOST_GONE_MS) {
             agent_say(group, 'agent_host_quiet', {silent: format_seconds(now - state.heard_at), then: 'dialling fresh'});
+            socket.destroy();
+            return;
+        }
+        if ((now - state.heard_at >= HOST_STOOD_MS) && file_coming(state)) {
+            agent_say(group, 'agent_host_stood', {silent: format_seconds(now - state.heard_at), then: 'dialling fresh'});
             socket.destroy();
             return;
         }
@@ -225,6 +236,12 @@ function frame_read(options, state, kind, body, group)
         return;
     }
     call_run(options, state, state.link, message, group);
+}
+
+// Whether a file, a part of one or a tar is being written here from the host right now
+function file_coming(state)
+{
+    return Object.keys(state.streams).some(v => state.streams[v].file_in === true);
 }
 
 // A link that drops takes every stream through it with it; the sockets on this machine close

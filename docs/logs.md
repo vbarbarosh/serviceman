@@ -204,7 +204,7 @@ config is shortened, because the real one was a scratch folder.
 | `serviceman_begin`       | The config it read, and how much is in it.                    |
 | `serviceman_listen`      | The address the services are served on.                       |
 | `serviceman_control`     | The hostname and the port of the control page.                |
-| `remote_dropped`         | A link the host let go on purpose — a changed or removed machine — after telling the agent. |
+| `remote_dropped`         | A link the host let go on purpose — a changed or removed machine — after telling the agent; or reset at once because the way to the machine stood (`reason="the way to it stood"`): a quick call `waited=` 30 s or more, its `file=` `sent=` bytes it `taken=` only part of, `still=` that long, the machine still heard. |
 | `serviceman_route`       | One service: its address, its kind, its policy.               |
 | `serviceman_remote`      | One remote, and the door its agent dials.                     |
 | `serviceman_log`         | Where these lines are written.                                |
@@ -333,6 +333,8 @@ minute, and they would bury the rest.
 | `agent_connect_wait`      | How long before it tries again.                             |
 | `agent_link_end`          | The link closed, and how long it held.                      |
 | `agent_link_error`        | The link failed while it was up.                            |
+| `agent_host_quiet`        | Nothing from the host for 90 s, so the agent dials fresh.   |
+| `agent_host_stood`        | Nothing from the host for 30 s while a file comes in: the way here stands, so the agent dials fresh. |
 | `agent_call_ok`           | Something the host asked for is done, in one line.          |
 |                           | A sender that says ok never carries `ok=true` beside it.    |
 | `agent_call_error`        | It failed here, and why.                                    |
