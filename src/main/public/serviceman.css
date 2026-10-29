@@ -13,20 +13,60 @@
     --idle: #9aa1ab;
     --busy: #d38b12;
     --bad: #c0392b;
+    /* The roles the light theme draws with the tokens above, named so the dark one can tell them
+       apart: as they are, a skin's own colours reach them too */
+    --bar: var(--panel);
+    --bar-hover: var(--hover);
+    --sel: var(--hover);
+    --line-strong: var(--line);
+    --link: var(--accent);
+    --on-accent: var(--panel);
+    --code: var(--panel);
+    --run-soft: color-mix(in srgb, var(--run) 14%, transparent);
+    --busy-soft: color-mix(in srgb, var(--busy) 16%, transparent);
+    --busy-text: var(--busy);
+    --bad-soft: color-mix(in srgb, var(--bad) 14%, transparent);
+    --overlay: color-mix(in srgb, #000 40%, transparent);
+    --shadow-pop: 0 8px 28px rgba(0, 0, 0, .18);
+    --shadow-up: 0 -4px 16px rgba(0, 0, 0, .12);
+    --shadow-dialog: 0 20px 50px rgba(0, 0, 0, .25);
+    --focus-ring: 0 0 0 2px var(--panel), 0 0 0 3px var(--fg);
 }
 
+/* Olive 3, the author's own dark theme (Visual Agency): an olive page, near-black cards, a blue
+   accent, each colour by the role it plays there. Red text keeps to a card or its tag: straight
+   on the olive page it reads at 4.2:1. */
 :root[data-theme="dark"] {
-    --bg: #101216;
-    --panel: #171a1f;
-    --fg: #e8eaed;
-    --muted: #939aa4;
-    --line: #272b33;
-    --accent: #6ea0ff;
-    --hover: #1e222a;
-    --run: #46c98b;
-    --idle: #6b727c;
-    --busy: #e0a336;
-    --bad: #ff7b6b;
+    --bg: #3a392e;
+    --panel: #1e1d21;
+    --fg: #e8e6dc;
+    --muted: #bab8ab;
+    --line: #45443a;
+    --accent: #1299da;
+    --hover: #2e2d33;
+    --run: #56db3a;
+    --idle: #bab8ab;
+    --busy: #ff8400;
+    --bad: #ff6b6b;
+    --bar: #302f26;
+    --bar-hover: #49483d;
+    --sel: #16364d;
+    --line-strong: #5e5c4e;
+    --link: #4ec2fb;
+    --on-accent: #101014;
+    --accent-hover: #36ade8;
+    --accent-press: #0e86c2;
+    --code: #18171b;
+    --run-soft: #1e3318;
+    --busy-soft: #3a2810;
+    --busy-text: #ffa21e;
+    --bad-soft: #3b1f22;
+    --bad-edge: #6b2e33;
+    --overlay: rgba(0, 0, 0, .6);
+    --shadow-pop: 0 4px 16px rgba(0, 0, 0, .4);
+    --shadow-up: 0 -4px 16px rgba(0, 0, 0, .4);
+    --shadow-dialog: 0 8px 32px rgba(0, 0, 0, .5);
+    --focus-ring: 0 0 0 2px #3a392e, 0 0 0 4px #1299da;
 }
 
 * {
@@ -92,7 +132,7 @@ header {
     min-width: 0;
     padding: .6rem 1rem;
     border-bottom: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--bar);
 }
 
 /* The name is the way home: a button that looks like the word it always was */
@@ -137,11 +177,16 @@ nav {
     flex-direction: column;
     overflow: auto;
     border-right: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--bar);
 }
 
 nav .row {
     flex: none;
+    background: var(--bar);
+}
+
+nav .row:not(.on):hover {
+    background: var(--bar-hover);
 }
 
 /* Empty space between the services and the two rows that stay at the foot of the rail */
@@ -179,7 +224,7 @@ article {
 
 button {
     padding: .3rem .7rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -247,7 +292,7 @@ button:disabled:hover {
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--panel);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+    box-shadow: var(--shadow-pop);
 }
 
 .skin-card {
@@ -383,7 +428,7 @@ button:disabled:hover {
     display: grid;
     justify-items: center;
     gap: .2rem;
-    color: var(--accent);
+    color: var(--link);
     font-size: .75rem;
     text-align: center;
 }
@@ -747,7 +792,7 @@ button:disabled:hover {
 }
 
 .dt-state.warn {
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 .dt-state.none {
@@ -773,7 +818,7 @@ button:disabled:hover {
     border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--panel);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, .12);
+    box-shadow: var(--shadow-up);
 }
 
 .dt-whole-head {
@@ -874,7 +919,7 @@ ul.tried {
     gap: .5rem;
     align-items: center;
     padding: .7rem 1.25rem 0;
-    background: var(--panel);
+    background: var(--bar);
 }
 
 .crumbs b {
@@ -922,7 +967,7 @@ a.tag:hover {
     flex-wrap: wrap;
     padding: 0 1.25rem;
     border-bottom: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--bar);
 }
 
 /* A nav, but not the rail: the bare nav rule above would stack it and draw the rail's edge */
@@ -995,7 +1040,7 @@ a.tag:hover {
 }
 
 .row.on {
-    background: var(--hover);
+    background: var(--sel);
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -1152,7 +1197,7 @@ dd {
 }
 
 a {
-    color: var(--accent);
+    color: var(--link);
 }
 
 code {
@@ -1165,7 +1210,7 @@ code {
 }
 
 .warn {
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 pre {
@@ -1173,7 +1218,7 @@ pre {
     margin: 0;
     padding: .75rem 1.25rem;
     border-top: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--code);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     line-height: 1.5;
@@ -1226,7 +1271,7 @@ pre {
     width: 100%;
     max-width: 34rem;
     padding: .35rem .55rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -1490,7 +1535,7 @@ pre {
 button.primary {
     border-color: var(--accent);
     background: var(--accent);
-    color: var(--panel);
+    color: var(--on-accent);
 }
 
 button.primary:hover {
@@ -1501,6 +1546,18 @@ button.primary:disabled:hover {
     filter: none;
     border-color: var(--accent);
     background: var(--accent);
+}
+
+/* Olive 3 says the main button's hover and press itself */
+:root[data-theme="dark"] button.primary:not(:disabled):hover {
+    filter: none;
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+}
+
+:root[data-theme="dark"] button.primary:not(:disabled):active {
+    border-color: var(--accent-press);
+    background: var(--accent-press);
 }
 
 button.danger {
@@ -1537,7 +1594,7 @@ button.link {
     padding: 0;
     border: 0;
     background: none;
-    color: var(--accent);
+    color: var(--link);
     text-align: left;
 }
 
@@ -1566,7 +1623,7 @@ button.tab.on {
     width: 100%;
     max-width: 34rem;
     padding: .35rem .55rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -1588,7 +1645,7 @@ pre.tail {
     padding: .75rem 1rem;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: var(--panel);
+    background: var(--code);
     overflow-x: auto;
     font-size: 12.5px;
     line-height: 1.5;
@@ -1621,7 +1678,7 @@ button.command-copy > .gone {
 
 button.command-copy.done {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--link);
 }
 
 .snip-copy {
@@ -1676,7 +1733,7 @@ kbd {
 }
 
 .row.kind.on svg {
-    color: var(--accent);
+    color: var(--link);
 }
 
 .row.kind .bad {
@@ -1684,7 +1741,7 @@ kbd {
 }
 
 .row.kind.open .name {
-    color: var(--accent);
+    color: var(--link);
     font-weight: 600;
 }
 
@@ -1752,7 +1809,7 @@ article.list > p {
 .list-tools input {
     width: 20rem;
     padding: .3rem .6rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -1835,7 +1892,7 @@ button.chip {
 button.chip.on {
     border-color: var(--accent);
     background: var(--hover);
-    color: var(--accent);
+    color: var(--link);
 }
 
 .seg {
@@ -1864,7 +1921,7 @@ button.chip.on {
 
 .seg button.on {
     background: var(--hover);
-    color: var(--accent);
+    color: var(--link);
     font-weight: 600;
 }
 
@@ -1886,7 +1943,7 @@ button.chip.on {
 /* A count on a card that opens its list: the same chip, in the colour of a link */
 button.tag {
     border: 0;
-    color: var(--accent);
+    color: var(--link);
     line-height: inherit;
 }
 
@@ -1907,19 +1964,19 @@ button.tag:hover {
 }
 
 .pill.running {
-    background: color-mix(in srgb, var(--run) 14%, transparent);
+    background: var(--run-soft);
     color: var(--run);
 }
 
 .pill.failed {
-    background: color-mix(in srgb, var(--bad) 14%, transparent);
+    background: var(--bad-soft);
     color: var(--bad);
 }
 
 /* A machine whose link is up and whose answers do not come */
 .pill.waiting {
-    background: color-mix(in srgb, var(--busy) 16%, transparent);
-    color: var(--busy);
+    background: var(--busy-soft);
+    color: var(--busy-text);
 }
 
 .alert {
@@ -2094,13 +2151,13 @@ button.tag:hover {
 }
 
 .apt-all-said .busy {
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 /* A machine in the rail that runs an older agent than this host serves */
 .row .agent-behind {
     flex: none;
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 .bars {
@@ -2129,7 +2186,7 @@ button.tag:hover {
     justify-content: center;
     align-items: flex-start;
     padding: 10vh 1rem 1rem;
-    background: color-mix(in srgb, #000 40%, transparent);
+    background: var(--overlay);
 }
 
 .palette {
@@ -2141,7 +2198,7 @@ button.tag:hover {
     border: 1px solid var(--line);
     border-radius: 12px;
     background: var(--panel);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+    box-shadow: var(--shadow-dialog);
     overflow: hidden;
 }
 
@@ -2226,7 +2283,7 @@ button.palette-hit.on {
 
 .palette-text mark {
     background: none;
-    color: var(--accent);
+    color: var(--link);
     font-weight: 700;
 }
 
@@ -2301,7 +2358,7 @@ button.palette-hit.on {
 a.button {
     display: inline-block;
     padding: .3rem .7rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -2352,7 +2409,7 @@ article.logline > p {
 }
 
 .logline-tile b.busy {
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 .logline-tile b.bad {
@@ -2933,7 +2990,7 @@ article.ov-pane {
 }
 
 .ov-uptime-day.on {
-    box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--fg);
+    box-shadow: var(--focus-ring);
 }
 
 .ov-uptime-tip {
@@ -2946,7 +3003,7 @@ article.ov-pane {
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--panel);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+    box-shadow: var(--shadow-pop);
     overflow-wrap: anywhere;
     opacity: 0;
     visibility: hidden;
@@ -3471,7 +3528,7 @@ article.rf .actions {
 
 .map-node .agent-behind {
     flex: none;
-    color: var(--busy);
+    color: var(--busy-text);
 }
 
 .map-board.focused .map-node {
@@ -3500,7 +3557,7 @@ article.rf .actions {
 .door-add input,
 .door-add select {
     padding: .3rem .6rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -3721,7 +3778,7 @@ article.rf .actions {
     min-width: 0;
     max-width: 100%;
     padding: .35rem .55rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--panel);
     color: var(--fg);
@@ -4011,4 +4068,35 @@ article.rf .actions {
     border-color: var(--accent);
     box-shadow: inset 0 0 0 1px var(--accent);
     background: var(--hover);
+}
+
+/* Olive 3 has no white: the line of trouble is its danger tag across the page, and the ring of
+   work going on the accent */
+:root[data-theme="dark"] #trouble {
+    border-bottom: 1px solid var(--bad-edge);
+    background: var(--bad-soft);
+    color: var(--bad);
+}
+
+:root[data-theme="dark"] .canvas-ring {
+    stroke: var(--accent);
+}
+
+/* An alert in Olive 3's danger tag colours */
+:root[data-theme="dark"] .alert {
+    border-color: var(--bad-edge);
+    background: var(--bad-soft);
+}
+
+/* Olive 3's red keeps to a card or its tag: straight on the olive page it reads at 4.2:1. A
+   message in red is its tag wherever it stands, and so is a red word in the heads that stand
+   on the page */
+:root[data-theme="dark"] p.bad,
+:root[data-theme="dark"] div.bad,
+:root[data-theme="dark"] :is(.list-head, .ov-charts-head) .bad {
+    padding: .05rem .45rem;
+    border-radius: 6px;
+    background: var(--bad-soft);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
 }

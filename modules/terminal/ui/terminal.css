@@ -1,4 +1,4 @@
-/* The Terminal's own rules. The host page gives the colours (--panel, --line) and the
+/* The Terminal's own rules. The host page gives the colours (--code, --line) and the
    page's classes for the note line (muted, bad, link); xterm's own css comes with xterm. */
 
 /* The title, the note, the terminal taking the rest of the height, and what goes under it */
@@ -13,7 +13,7 @@
     margin: .5rem 0;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: var(--panel);
+    background: var(--code, var(--panel));
     overflow: hidden;
 }
 
@@ -29,7 +29,7 @@
    terminal's own theme has anyway. xterm draws a scrollbar of its own, so the browser's, light
    in a dark page, is hidden; the wheel scrolls as before. */
 .terminal .xterm .xterm-viewport {
-    background-color: var(--panel);
+    background-color: var(--code, var(--panel));
     scrollbar-width: none;
 }
 

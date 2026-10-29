@@ -1,11 +1,12 @@
 import {FitAddon} from 'xterm-addon-fit';
 import {Terminal} from 'xterm';
 
+// Olive 3's code and terminal colour, its text, its accent and its selected background
 const THEME_DARK = {
-    background: '#171a1f',
-    foreground: '#e8eaed',
-    cursor: '#6ea0ff',
-    selectionBackground: '#2a3140',
+    background: '#18171b',
+    foreground: '#e8e6dc',
+    cursor: '#1299da',
+    selectionBackground: '#16364d',
 };
 
 const THEME_LIGHT = {

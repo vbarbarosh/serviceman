@@ -93,7 +93,7 @@
 }
 
 /* The lines as a terminal shows them, whatever the page's theme: the commands bright, what they
-   printed under them */
+   printed under them (in the dark theme, Olive 3's terminal colours, at the end of this file) */
 .dk-output {
     flex: 1 1 auto;
     min-height: 12rem;
@@ -276,7 +276,7 @@
 
 /* How many of a project's containers run, said only when not all of them do */
 .dk-down {
-    color: var(--busy);
+    color: var(--busy-text, var(--busy));
     font-weight: 400;
 }
 
@@ -442,4 +442,27 @@
     .dk-bar-wide {
         width: 100%;
     }
+}
+
+/* Olive 3: its large shadow and its overlay, and the lines in its terminal colours */
+:root[data-theme="dark"] .dk-window {
+    box-shadow: var(--shadow-dialog);
+}
+
+:root[data-theme="dark"] .dk-window::backdrop {
+    background: var(--overlay);
+}
+
+:root[data-theme="dark"] .dk-output,
+:root[data-theme="dark"] .dk-caret {
+    background: var(--code);
+    color: var(--fg);
+}
+
+:root[data-theme="dark"] .dk-caret {
+    background: none;
+}
+
+:root[data-theme="dark"] .dk-output .dk-command {
+    color: var(--busy-text);
 }

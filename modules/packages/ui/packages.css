@@ -4,7 +4,7 @@
 
 /* The version an upgrade would bring, under the one installed */
 .package-next {
-    color: var(--accent);
+    color: var(--link, var(--accent));
     white-space: nowrap;
 }
 

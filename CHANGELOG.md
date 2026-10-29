@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.7 — 2026-10-29
+
+- The dark theme in the colours of the author's Olive 3: an olive page, olive-dark bars, near-black
+  cards, a blue accent, each by its role, in both skins, the terminal, the docker log and the
+  pages a visitor sees; red text keeps to a card or its tag. The light theme is as it was.
+
 ## 1.0.6 — 2026-10-29
 
 - Test the link, under a machine's Link tile: eight seconds of bytes each way, a quick call timed

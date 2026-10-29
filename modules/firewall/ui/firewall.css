@@ -96,7 +96,7 @@
 }
 
 .fw-limit {
-    color: var(--busy, #d38b12);
+    color: var(--busy-text, var(--busy, #d38b12));
 }
 
 /* The row that adds a rule: its fields side by side, wrapping on a narrow page */
@@ -184,7 +184,7 @@
 }
 
 .fw-tile.warm b {
-    color: var(--busy);
+    color: var(--busy-text, var(--busy));
 }
 
 .fw-filter {

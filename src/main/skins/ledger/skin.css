@@ -1,5 +1,6 @@
 /* Ledger: the classic structure on warm paper — IBM Plex, dotted leaders in the rail, ruled
-   fact rows, small-caps labels. Falls back to the system faces when the fonts cannot load. */
+   fact rows, small-caps labels. Falls back to the system faces when the fonts cannot load. Its
+   colours are the light theme's; in the dark theme it keeps its faces and takes the page's. */
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root[data-theme="light"] {
@@ -16,19 +17,7 @@
     --bad: #a63a2b;
 }
 
-:root[data-theme="dark"] {
-    --bg: #151310;
-    --panel: #1b1915;
-    --fg: #e9e4da;
-    --muted: #97907f;
-    --line: #2a271f;
-    --accent: #d98e5f;
-    --hover: #232019;
-    --run: #57b287;
-    --idle: #6f695e;
-    --busy: #cfa04a;
-    --bad: #e07a63;
-}
+/* The dark theme is the page's own, Olive 3: the author's dark colours whatever the skin */
 
 body {
     font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;

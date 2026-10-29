@@ -63,7 +63,7 @@ button.fm-crumb {
     padding: .15rem .4rem;
     border-color: transparent;
     background: none;
-    color: var(--accent);
+    color: var(--link, var(--accent));
 }
 
 button.fm-crumb:hover {
@@ -130,7 +130,7 @@ p.fm-note {
 }
 
 .fm-table svg.fm-dir {
-    color: var(--accent);
+    color: var(--link, var(--accent));
 }
 
 .fm-table svg.fm-file {
@@ -145,7 +145,7 @@ p.fm-note {
     place-items: center;
     border-radius: 10px;
     background: var(--panel);
-    color: var(--accent);
+    color: var(--link, var(--accent));
     font-weight: 600;
     pointer-events: none;
 }
@@ -228,7 +228,7 @@ p.fm-foot {
     padding: 0 .5rem;
     border-radius: 10px;
     background: color-mix(in srgb, var(--busy, #d38b12) 18%, transparent);
-    color: var(--busy, #d38b12);
+    color: var(--busy-text, var(--busy, #d38b12));
     font-size: .8rem;
     font-weight: 600;
 }
@@ -285,7 +285,7 @@ p.fm-foot {
     padding: 0 .3rem;
     transform: translateY(-120%);
     background: var(--panel);
-    color: var(--accent);
+    color: var(--link, var(--accent));
     font-size: .85rem;
     font-weight: 600;
     transition: top .5s ease;
@@ -450,7 +450,7 @@ p.fm-foot {
 }
 
 .svc-warn {
-    color: var(--busy, #d38b12);
+    color: var(--busy-text, var(--busy, #d38b12));
 }
 
 .form .svc-body {
@@ -524,7 +524,7 @@ p.fm-foot {
 
 .pill.starting {
     background: color-mix(in srgb, var(--busy, #d38b12) 16%, transparent);
-    color: var(--busy, #d38b12);
+    color: var(--busy-text, var(--busy, #d38b12));
 }
 
 @media (max-width: 40rem) {
@@ -593,7 +593,7 @@ p.fm-foot {
 }
 
 .fm-dirty {
-    color: var(--busy, #d38b12);
+    color: var(--busy-text, var(--busy, #d38b12));
     font-size: .9rem;
 }
 

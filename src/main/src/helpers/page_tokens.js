@@ -17,18 +17,19 @@ const LIGHT = {
     bad: '#c0392b',
 };
 
+// Olive 3, the author's own dark theme, by the role each colour plays
 const DARK = {
-    bg: '#101216',
-    panel: '#171a1f',
-    fg: '#e8eaed',
-    muted: '#939aa4',
-    line: '#272b33',
-    accent: '#6ea0ff',
-    hover: '#1e222a',
-    run: '#46c98b',
-    idle: '#6b727c',
-    busy: '#e0a336',
-    bad: '#ff7b6b',
+    bg: '#3a392e',
+    panel: '#1e1d21',
+    fg: '#e8e6dc',
+    muted: '#bab8ab',
+    line: '#45443a',
+    accent: '#1299da',
+    hover: '#2e2d33',
+    run: '#56db3a',
+    idle: '#bab8ab',
+    busy: '#ff8400',
+    bad: '#ff6b6b',
 };
 
 // Dark twice on purpose: once for a visitor who has never chosen, and once for one who has.
