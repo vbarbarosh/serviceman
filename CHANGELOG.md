@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.10 — 2026-10-30
+
+- A token's `forwards` right: `GET /api/v1/forwards` and `PUT /api/v1/forwards` see and write
+  the forwards between its machines alone, the others kept as they were.
+
 ## 1.0.9 — 2026-10-30
 
 - The dark theme's loose ends: scrollbars, checkboxes and select lists dark (they were white),

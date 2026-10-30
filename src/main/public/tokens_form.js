@@ -13,6 +13,7 @@ const RIGHTS_SAID = {
     files: 'the file manager, within the folders below and nothing above them',
     terminals: 'list, make, join and end its kept terminals: a shell on the machine',
     versions: 'send a new version of an app folder on it, as a zip: curl -T app.zip',
+    forwards: 'read and write the forwards between its machines: a way to what listens there, as ssh -L',
 };
 
 // The tokens of the control door: each one for an agent or a program, with the machines it
@@ -23,7 +24,7 @@ const tokens_form = {
     template: `
 <article id="detail" class="form">
     <h1>Tokens</h1>
-    <p class="muted">Each one lets an agent or a program do what you tick with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the config, the secrets, another machine, or a service but the one its versions right sends a new version to.</p>
+    <p class="muted">Each one lets an agent or a program do what you tick with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the secrets, another machine, the config but the forwards its forwards right writes between its machines, or a service but the one its versions right sends a new version to.</p>
     <p class="muted tk-row">
         <span>This page is signed in with the owner's token, which <code>bin/owner-token</code> prints.<template v-if="(owner_token_file !== null)"> Should it leak, delete <code>{{ owner_token_file }}</code> and restart serviceman: a new one is made, and every page signs in again.</template></span>
         <button type="button" @click="sign_out">Sign out</button>

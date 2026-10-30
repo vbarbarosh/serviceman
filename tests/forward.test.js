@@ -19,6 +19,7 @@ const tunnel_inbound = require('../src/main/src/helpers/tunnel_inbound');
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN_LAPTOP = 'cccccccccccccccccccccccccccccccc';
 const TOKEN_VPS = 'dddddddddddddddddddddddddddddddd';
+const TOKEN_VPS2 = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
 // The author's case: a port on a VPS shows up as a socket file on the laptop. Bytes go both
 // ways through both links, the socket is the agent's user's alone, and the page sees the counts.
@@ -255,6 +256,91 @@ test('the page writes the forwards into the config file', async function () {
     finally {
         servers.control.close();
         servers.server.close();
+    }
+});
+
+// Visual Agency's case: its token carries sockets between the machines it sees, and reads and
+// writes those forwards alone; the owner's, and any of another machine, stay as they were
+test('a token with the forwards right reads and writes the forwards between its machines alone', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-token-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    const before = [
+        {label: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', socket: '~/repos/loki.sock'}},
+        {label: 'db on vps2', from: {remote: 'vps2', port: 5432}, to: {remote: 'laptop', port: 5432}},
+        {label: 'logline here', from: {remote: 'vps1', port: 8123}, to: {here: true, socket: 'sockets/logline.sock'}, off: true},
+        {label: 'a lan box', from: {remote: 'vps1', host: '10.0.0.5', port: 80}, to: {remote: 'laptop', port: 8080}},
+        {label: 'grafana', from: {remote: 'laptop', port: 3000}, to: {remote: 'vps1', port: 3000}, off: true},
+    ];
+    fs.writeFileSync(config_path, JSON.stringify({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: remotes_json().concat([{name: 'vps2', token: TOKEN_VPS2}]), forwards: before, services: []}));
+    const config = config_from_json(JSON.parse(fs.readFileSync(config_path, 'utf8')), dir);
+    config.path = config_path;
+    const app = app_from_config(config);
+    app.state_dir = dir;
+    const servers = await server_start(app);
+    const port = servers.control.address().port;
+    function call(method, body, token) {
+        return fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method, token, body: (body === undefined) ? undefined : JSON.stringify({forwards: body})});
+    }
+    function file_forwards() {
+        return JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards;
+    }
+    try {
+        const made = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'visual-agency', remotes: ['vps1', 'laptop'], rights: ['forwards']})});
+        assert.strictEqual(made.status, 200, made.body);
+        const token = JSON.parse(made.body).token;
+
+        // The owner's sees them all; the token those between its machines, as the file writes them
+        assert.deepStrictEqual(JSON.parse((await call('GET')).body).forwards, before);
+        assert.deepStrictEqual(JSON.parse((await call('GET', undefined, token)).body).forwards, [before[0], before[4]]);
+        const config_read = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/config', token});
+        assert.deepStrictEqual([config_read.status, JSON.parse(config_read.body).error], [403, 'the token "visual-agency" has no right to this'], 'the rest of the config is the owner\'s');
+
+        // Its list takes the place of its forwards; the others stay, where they were
+        const own = {label: 'Visual Agency: notes/loki.sock on vps1', from: {remote: 'laptop', socket: '~/repos/loki.sock'}, to: {remote: 'vps1', socket: '~/visual-agency/notes/loki.sock'}};
+        const written = await call('PUT', [before[4], own], token);
+        assert.strictEqual(written.status, 200, written.body);
+        assert.deepStrictEqual(file_forwards(), [before[4], own, before[1], before[2], before[3]]);
+        assert.deepStrictEqual(app.config.forwards.map(v => v.label), ['grafana', 'Visual Agency: notes/loki.sock on vps1', 'db on vps2', 'logline here', 'a lan box']);
+        assert.deepStrictEqual(JSON.parse((await call('GET', undefined, token)).body).forwards, [before[4], own]);
+
+        // A forward past its machines is refused, said with the forward that named it, and the
+        // file stays as it was
+        const refused = [
+            [[own, {label: 'x', from: {remote: 'vps2', port: 1}, to: {remote: 'vps1', port: 2}}], 'forwards[1]: the token "visual-agency" may not see vps2'],
+            [[{label: 'x', from: {remote: 'vps1', port: 1}, to: {remote: 'vps2', port: 2}}], 'forwards[0]: the token "visual-agency" may not see vps2'],
+            [[{label: 'x', from: {remote: 'vps1', port: 1}, to: {here: true, port: 2}}], 'forwards[0]: the token "visual-agency" may not open a forward on serviceman itself'],
+            [[{label: 'x', from: {remote: 'vps1', host: '10.0.0.5', port: 1}, to: {remote: 'laptop', port: 2}}], 'forwards[0]: the token "visual-agency" may not reach an address beyond its machines'],
+        ];
+        for (const [list, error] of refused) {
+            const answer = await call('PUT', list, token);
+            assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, error]);
+        }
+        const twice = await call('PUT', [{label: 'db on vps2', from: {remote: 'vps1', port: 1}, to: {remote: 'laptop', port: 2}}], token);
+        assert.strictEqual(twice.status, 400);
+        assert.match(JSON.parse(twice.body).error, /"db on vps2" is used twice$/);
+        assert.deepStrictEqual(file_forwards(), [before[4], own, before[1], before[2], before[3]]);
+        assert.strictEqual(app.log_lines.some(v => /\[control_token_refused\] .*token=visual-agency method=PUT path=\/api\/v1\/forwards reason="may not see vps2"/.test(v)), true);
+
+        // An empty list takes its forwards away, and only them
+        assert.strictEqual((await call('PUT', [], token)).status, 200);
+        assert.deepStrictEqual(file_forwards(), [before[1], before[2], before[3]]);
+
+        // Every machine is every machine; serviceman itself and an address beyond are still the owner's
+        const every = JSON.parse((await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'every machine', remotes: ['*'], rights: ['forwards']})})).body).token;
+        assert.deepStrictEqual(JSON.parse((await call('GET', undefined, every)).body).forwards, [before[1]]);
+
+        // Without the right neither is let in
+        const reader = JSON.parse((await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'a reader', remotes: ['vps1'], rights: ['status']})})).body).token;
+        const read = await call('GET', undefined, reader);
+        assert.deepStrictEqual([read.status, JSON.parse(read.body).error], [403, 'the token "a reader" may not read the forwards']);
+        const write = await call('PUT', [], reader);
+        assert.deepStrictEqual([write.status, JSON.parse(write.body).error], [403, 'the token "a reader" may not write the forwards']);
+        assert.deepStrictEqual(file_forwards(), [before[1], before[2], before[3]]);
+    }
+    finally {
+        servers.control.close();
+        servers.server.close();
+        fs.rmSync(dir, {recursive: true, force: true});
     }
 });
 

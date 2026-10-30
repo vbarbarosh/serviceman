@@ -205,6 +205,14 @@ needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machin
 says what happens while one of them is away, and [onto serviceman itself](remotes.md#a-forward-onto-serviceman-itself)
 where its socket lands.
 
+A program reads the list with `GET /api/v1/forwards`, `{"forwards": [...]}` as this file writes
+them, and writes it back whole, changed, with `PUT /api/v1/forwards`. A token with the
+`forwards` right ([A token for every caller](deploy.md#a-token-for-every-caller)) gets the
+forwards between its machines alone, both ends on them, and the list it writes takes their
+place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
+its machines: one onto serviceman itself (`to.here`) or to an address beyond the machine
+(`from.host`) is the owner's, and a `403` says which forward named it.
+
 ### Logline
 
 [Logline](../logline/) is where the remotes' logs go: one endpoint, and ClickHouse behind it.

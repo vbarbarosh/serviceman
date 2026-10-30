@@ -200,9 +200,13 @@ Even on this machine, and through the control socket, nothing gets in without a 
   [A new version of an app folder](config.md#a-new-version-of-an-app-folder)): what it sends
   runs there as the app, so it is a key to those apps; **Apps** keeps it to the app folders
   ticked, and a service's page makes one for that service alone, **Make a token for …**, with
-  the curl line beside it. It is shown once, and only its hash is kept, in
-  `data/control_tokens.json`. It never touches the config, a secret, another
-  machine, or a service but the one it sends a new version to, and opens no other shell. **Edit…** changes its label, machines (**every
+  the curl line beside it. `forwards` reads and writes the [forwards](config.md#forwards)
+  between its machines, both ends on them (`GET` and `PUT /api/v1/forwards`), and leaves every
+  other forward as it was: a way to whatever listens on their loopback and in their sockets, as
+  `ssh -L` is, so it is a key to those. It is shown once, and only its hash is kept, in
+  `data/control_tokens.json`. It never touches a secret, another machine, the config but the
+  forwards between its machines, or a service but the one it sends a new version to, and opens
+  no other shell. **Edit…** changes its label, machines (**every
   machine**, those added later too, is one tick), rights, folders and apps in place, the token
   staying the same; **Rotate…** gives it a new value, shown once, the old one refused at once;
   **Revoke…** ends it.
@@ -247,6 +251,8 @@ the control hostname over the service port.
 | `GET /api/v1/config`                     | The config file as text, with its hash.         |
 | `POST /api/v1/config/check`              | Read a config and say what is wrong with it.    |
 | `POST /api/v1/config`                    | Write it, and apply it to the running services. |
+| `GET /api/v1/forwards`                   | The forwards, as the config file writes them; a token's, those between its machines. |
+| `PUT /api/v1/forwards`                   | Write them back whole, and tell the machines.   |
 | `POST /api/v1/services`                  | Add a service.                                  |
 | `PUT /api/v1/services/<name>`            | Reshape one.                                    |
 | `DELETE /api/v1/services/<name>`         | Take one away.                                  |
@@ -255,7 +261,6 @@ the control hostname over the service port.
 | `POST /api/v1/services/<name>/stop`      | Stop it now.                                    |
 | `POST /api/v1/services/<name>/update`    | Fetch the program again, then start it again.   |
 | `POST /api/v1/services/<name>/pull`      | Fetch the image again; remake what runs on it.  |
-
 | `GET /api/v1/image-ports?image=&remote=` | What ports an image says it exposes, asked of that machine's docker. |
 | `POST /api/v1/remotes`                   | Add a remote.                                   |
 | `PUT /api/v1/remotes/<name>`             | Reshape one.                                    |

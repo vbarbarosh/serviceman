@@ -1020,6 +1020,13 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 needs it only on <code>from</code>. <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>
 says what happens while one of them is away, and <a href="remotes.html#a-forward-onto-serviceman-itself">onto serviceman itself</a>
 where its socket lands.</p>
+<p>A program reads the list with <code>GET /api/v1/forwards</code>, <code>{&quot;forwards&quot;: [...]}</code> as this file writes
+them, and writes it back whole, changed, with <code>PUT /api/v1/forwards</code>. A token with the
+<code>forwards</code> right (<a href="deploy.html#a-token-for-every-caller">A token for every caller</a>) gets the
+forwards between its machines alone, both ends on them, and the list it writes takes their
+place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
+its machines: one onto serviceman itself (<code>to.here</code>) or to an address beyond the machine
+(<code>from.host</code>) is the owner&#39;s, and a <code>403</code> says which forward named it.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>

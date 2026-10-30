@@ -33,6 +33,7 @@ const file_manager_transfers_serve = require('../../../../modules/file_manager/s
 const firewall_serve = require('../../../../modules/firewall/server/firewall_serve');
 const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
 const format_duration_ms = require('../../../helpers/format_duration_ms');
+const forward_token_refusal = require('../helpers/forward_token_refusal');
 const from_loopback_page = require('../helpers/from_loopback_page');
 const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
@@ -382,6 +383,10 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/skins') && (req.method === 'GET')) {
         send_json(res, 200, {skins: await skins_read(SKINS_ROOT)});
+        return;
+    }
+    if ((url.pathname === '/api/v1/forwards') && (req.method === 'GET')) {
+        await forwards_send(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/forwards') && (req.method === 'PUT')) {
@@ -2240,8 +2245,25 @@ function service_names_remote(service, name)
     return Array.isArray(service.remotes) && service.remotes.includes(name);
 }
 
+// GET /api/v1/forwards
+// The forwards as the config file writes them, for a list to be changed and written back whole.
+// An agent's token gets the ones of its machines alone (forward_token_refusal).
+async function forwards_send(app, req, res)
+{
+    if (app.config.path === undefined) {
+        send_json(res, 400, {error: 'serviceman runs without a config file'});
+        return;
+    }
+    const json = JSON.parse(await fs.promises.readFile(app.config.path, 'utf8'));
+    const forwards = Array.isArray(json.forwards) ? json.forwards : [];
+    const token = req.control_token;
+    send_json(res, 200, {forwards: (token === undefined) ? forwards : forwards.filter(v => (forward_token_refusal(v, token) === null))});
+}
+
 // PUT /api/v1/forwards {"forwards": [...]}
-// The whole list, as the page edits it: written to the config, and the machines told
+// The whole list, as the page edits it: written to the config, and the machines told. An
+// agent's token writes the list GET gave it: its forwards take the place of the ones of its
+// machines, and every other forward stays as it was, where it was.
 async function forwards_put(app, req, res)
 {
     const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
@@ -2249,14 +2271,46 @@ async function forwards_put(app, req, res)
         send_json(res, 400, {error: 'forwards: a list is required'});
         return;
     }
+    const token = req.control_token;
+    if (token !== undefined) {
+        for (let i = 0; i < body.forwards.length; i++) {
+            const refused = forward_token_refusal(body.forwards[i], token);
+            if (refused !== null) {
+                log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, token: token.label, method: req.method, path: url_logged(req.url), reason: refused});
+                send_json(res, 403, {error: `forwards[${i}]: the token ${JSON.stringify(token.label)} ${refused}`});
+                return;
+            }
+        }
+    }
     await config_file_mutate(app, res, function (json) {
-        if (body.forwards.length === 0) {
+        const forwards = (token === undefined) ? body.forwards : forwards_of_token(json.forwards, body.forwards, token);
+        if (forwards.length === 0) {
             delete json.forwards;
             return null;
         }
-        json.forwards = body.forwards;
+        json.forwards = forwards;
         return null;
     });
+}
+
+// The config's forwards with a token's own put in the place of the ones of its machines: where
+// the first of them was, or at the end when it had none
+function forwards_of_token(before, own, token)
+{
+    const kept = [];
+    let at = null;
+    for (const item of (Array.isArray(before) ? before : [])) {
+        if (forward_token_refusal(item, token) !== null) {
+            kept.push(item);
+        }
+        else if (at === null) {
+            at = kept.length;
+        }
+    }
+    if (at === null) {
+        at = kept.length;
+    }
+    return kept.slice(0, at).concat(own, kept.slice(at));
 }
 
 // The one shape the form sends: {service: {...}} with a plain object inside

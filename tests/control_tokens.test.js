@@ -116,7 +116,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
 
     // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'processes', 'disks', 'packages', 'containers', 'files', 'terminals']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'forwards', 'processes', 'disks', 'packages', 'containers', 'files', 'terminals']);
     assert.deepStrictEqual(listed.services, [], 'no app folder in this config');
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);

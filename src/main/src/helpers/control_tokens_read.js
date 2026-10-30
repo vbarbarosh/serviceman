@@ -6,8 +6,8 @@ const fs = require('fs');
 //     {id, label, sha256, remotes, rights, folders, services, made_at}
 //
 // remotes   the machines it sees, by name; ['*'] for every machine, those added later too
-// rights    what it may do with them: the reads, status and metrics among them, terminals and
-//           versions (control_route_right)
+// rights    what it may do with them: the reads, status and metrics among them, terminals,
+//           versions and forwards (control_route_right)
 // folders   the folders its files right is kept within, the first its start; none without it
 // services  the app folders its versions right is kept to, by name; none for every app folder
 //           on its machines

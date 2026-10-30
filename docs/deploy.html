@@ -939,9 +939,13 @@ to them. <code>versions</code> sends a new version of an app folder on its machi
 <a href="config.html#a-new-version-of-an-app-folder">A new version of an app folder</a>): what it sends
 runs there as the app, so it is a key to those apps; <strong>Apps</strong> keeps it to the app folders
 ticked, and a service&#39;s page makes one for that service alone, <strong>Make a token for …</strong>, with
-the curl line beside it. It is shown once, and only its hash is kept, in
-<code>data/control_tokens.json</code>. It never touches the config, a secret, another
-machine, or a service but the one it sends a new version to, and opens no other shell. <strong>Edit…</strong> changes its label, machines (<strong>every
+the curl line beside it. <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
+between its machines, both ends on them (<code>GET</code> and <code>PUT /api/v1/forwards</code>), and leaves every
+other forward as it was: a way to whatever listens on their loopback and in their sockets, as
+<code>ssh -L</code> is, so it is a key to those. It is shown once, and only its hash is kept, in
+<code>data/control_tokens.json</code>. It never touches a secret, another machine, the config but the
+forwards between its machines, or a service but the one it sends a new version to, and opens
+no other shell. <strong>Edit…</strong> changes its label, machines (<strong>every
 machine</strong>, those added later too, is one tick), rights, folders and apps in place, the token
 staying the same; <strong>Rotate…</strong> gives it a new value, shown once, the old one refused at once;
 <strong>Revoke…</strong> ends it.</li>
@@ -997,6 +1001,14 @@ the control hostname over the service port.</p>
 <td>Write it, and apply it to the running services.</td>
 </tr>
 <tr>
+<td><code>GET /api/v1/forwards</code></td>
+<td>The forwards, as the config file writes them; a token&#39;s, those between its machines.</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/forwards</code></td>
+<td>Write them back whole, and tell the machines.</td>
+</tr>
+<tr>
 <td><code>POST /api/v1/services</code></td>
 <td>Add a service.</td>
 </tr>
@@ -1028,13 +1040,28 @@ the control hostname over the service port.</p>
 <td><code>POST /api/v1/services/&lt;name&gt;/pull</code></td>
 <td>Fetch the image again; remake what runs on it.</td>
 </tr>
+<tr>
+<td><code>GET /api/v1/image-ports?image=&amp;remote=</code></td>
+<td>What ports an image says it exposes, asked of that machine&#39;s docker.</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/remotes</code></td>
+<td>Add a remote.</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/remotes/&lt;name&gt;</code></td>
+<td>Reshape one.</td>
+</tr>
+<tr>
+<td><code>DELETE /api/v1/remotes/&lt;name&gt;</code></td>
+<td>Take one away, unless a service names it.</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/shell?service=&amp;slot=</code></td>
+<td>A websocket into a container.</td>
+</tr>
 </tbody></table>
 </div>
-<p>| <code>GET /api/v1/image-ports?image=&amp;remote=</code> | What ports an image says it exposes, asked of that machine&#39;s docker. |
-| <code>POST /api/v1/remotes</code>                   | Add a remote.                                   |
-| <code>PUT /api/v1/remotes/&lt;name&gt;</code>             | Reshape one.                                    |
-| <code>DELETE /api/v1/remotes/&lt;name&gt;</code>          | Take one away, unless a service names it.       |
-| <code>GET /api/v1/shell?service=&amp;slot=</code>       | A websocket into a container.                   |</p>
 <p>Two doors under the same prefix are not part of it: <code>GET /api/v1/agent.js</code> hands the agent to
 anyone who asks, and <code>GET /api/v1/remote</code> is where an agent dials in with its token.</p>
 <h2 id="what-a-visitor-learns"><a class="anchor" href="#what-a-visitor-learns" aria-hidden="true" tabindex="-1">#</a>What a visitor learns</h2>
