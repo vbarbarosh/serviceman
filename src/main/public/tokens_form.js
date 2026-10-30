@@ -16,6 +16,16 @@ const RIGHTS_SAID = {
     forwards: 'read and write the forwards between its machines: a way to what listens there, as ssh -L',
 };
 
+// The forwards a revoke or a change set aside, said after what was done, or nothing
+function aside_text(loaded)
+{
+    const aside = Array.isArray(loaded.forwards_set_aside) ? loaded.forwards_set_aside : [];
+    if (aside.length === 0) {
+        return '';
+    }
+    return `; set aside, as it may no longer hold ${(aside.length === 1) ? 'it' : 'them'}: ${aside.join(', ')}`;
+}
+
 // The tokens of the control door: each one for an agent or a program, with the machines it
 // sees and what it may do with them. A token is shown once, when it is made or given a new
 // value by a rotation; only its hash is kept. What it may do is edited in place, the token
@@ -46,7 +56,7 @@ const tokens_form = {
                     <button type="button" @click="asking = {id: '', what: ''}">Keep it</button>
                 </template>
                 <template v-else>
-                    <span>Revoke {{ item.label }}? It stops working at once, and whoever uses it is refused.</span>
+                    <span>Revoke {{ item.label }}? It stops working at once: whoever uses it is refused, what it holds open is cut, and the forwards it asked for are set aside.</span>
                     <button type="button" class="danger" :disabled="busy" @click="revoke(item)">Revoke</button>
                     <button type="button" @click="asking = {id: '', what: ''}">Keep it</button>
                 </template>
@@ -216,7 +226,7 @@ const tokens_form = {
             }
             this.made = (editing === null) ? {label: loaded.item.label, token: loaded.token} : null;
             this.copied = '';
-            this.note = (editing === null) ? '' : `${loaded.item.label} is saved`;
+            this.note = (editing === null) ? '' : `${loaded.item.label} is saved${aside_text(loaded)}`;
             this.form_reset();
             await this.load();
         },
@@ -238,7 +248,7 @@ const tokens_form = {
                 return;
             }
             this.asking = {id: '', what: ''};
-            this.note = `${item.label} is revoked`;
+            this.note = `${item.label} is revoked${aside_text(loaded)}`;
             if ((this.editing !== null) && (this.editing.id === item.id)) {
                 this.form_reset();
             }

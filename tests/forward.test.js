@@ -288,6 +288,7 @@ test('a token with the forwards right reads and writes the forwards between its 
         const made = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'visual-agency', remotes: ['vps1', 'laptop'], rights: ['forwards']})});
         assert.strictEqual(made.status, 200, made.body);
         const token = JSON.parse(made.body).token;
+        const by = {token: JSON.parse(made.body).item.id, label: 'visual-agency'};
 
         // The owner's sees them all; the token those between its machines, as the file writes them
         assert.deepStrictEqual(JSON.parse((await call('GET')).body).forwards, before);
@@ -295,13 +296,26 @@ test('a token with the forwards right reads and writes the forwards between its 
         const config_read = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/config', token});
         assert.deepStrictEqual([config_read.status, JSON.parse(config_read.body).error], [403, 'the token "visual-agency" has no right to this'], 'the rest of the config is the owner\'s');
 
-        // Its list takes the place of its forwards; the others stay, where they were
+        // Its list takes the place of its forwards; the others stay, where they were. What it
+        // added says it asked for it; the owner's it sent back as it was stays the owner's
         const own = {label: 'Visual Agency: notes/loki.sock on vps1', from: {remote: 'laptop', socket: '~/repos/loki.sock'}, to: {remote: 'vps1', socket: '~/visual-agency/notes/loki.sock'}};
+        const own_by = Object.assign({}, own, {by});
         const written = await call('PUT', [before[4], own], token);
         assert.strictEqual(written.status, 200, written.body);
-        assert.deepStrictEqual(file_forwards(), [before[4], own, before[1], before[2], before[3]]);
+        assert.deepStrictEqual(file_forwards(), [before[4], own_by, before[1], before[2], before[3]]);
         assert.deepStrictEqual(app.config.forwards.map(v => v.label), ['grafana', 'Visual Agency: notes/loki.sock on vps1', 'db on vps2', 'logline here', 'a lan box']);
-        assert.deepStrictEqual(JSON.parse((await call('GET', undefined, token)).body).forwards, [before[4], own]);
+        assert.deepStrictEqual(JSON.parse((await call('GET', undefined, token)).body).forwards, [before[4], own_by]);
+        assert.deepStrictEqual(app.config.forwards[1].by, by);
+
+        // A `by` it sends is never taken: sent back as they were, both stay whose they were
+        const forged = {token: 'ffffffffffffffff', label: 'the owner'};
+        assert.strictEqual((await call('PUT', [Object.assign({}, before[4], {by: forged}), Object.assign({}, own_by, {by: forged})], token)).status, 200);
+        assert.deepStrictEqual(file_forwards(), [before[4], own_by, before[1], before[2], before[3]]);
+        // A forward of the owner's it changes is one it asked for from then on
+        const turned = Object.assign({}, before[4], {off: false});
+        assert.strictEqual((await call('PUT', [turned, own_by], token)).status, 200);
+        assert.deepStrictEqual(file_forwards()[0], Object.assign({}, turned, {by}));
+        assert.strictEqual((await call('PUT', [before[4], own_by], token)).status, 200);
 
         // A forward past its machines is refused, said with the forward that named it, and the
         // file stays as it was
@@ -318,7 +332,7 @@ test('a token with the forwards right reads and writes the forwards between its 
         const twice = await call('PUT', [{label: 'db on vps2', from: {remote: 'vps1', port: 1}, to: {remote: 'laptop', port: 2}}], token);
         assert.strictEqual(twice.status, 400);
         assert.match(JSON.parse(twice.body).error, /"db on vps2" is used twice$/);
-        assert.deepStrictEqual(file_forwards(), [before[4], own, before[1], before[2], before[3]]);
+        assert.deepStrictEqual(file_forwards(), [Object.assign({}, before[4], {by}), own_by, before[1], before[2], before[3]]);
         assert.strictEqual(app.log_lines.some(v => /\[control_token_refused\] .*token=visual-agency method=PUT path=\/api\/v1\/forwards reason="may not see vps2"/.test(v)), true);
 
         // An empty list takes its forwards away, and only them
@@ -336,6 +350,77 @@ test('a token with the forwards right reads and writes the forwards between its 
         const write = await call('PUT', [], reader);
         assert.deepStrictEqual([write.status, JSON.parse(write.body).error], [403, 'the token "a reader" may not write the forwards']);
         assert.deepStrictEqual(file_forwards(), [before[1], before[2], before[3]]);
+    }
+    finally {
+        servers.control.close();
+        servers.server.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// The author's rule: a forward says which token asked for it, and when that token goes, or may
+// no longer hold it, the forward is set aside at once, still saying whose it was
+test('a token\'s forwards are set aside when it is revoked or may no longer hold them, and say whose they were', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-revoke-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    const owners = {label: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', socket: '~/repos/loki.sock'}};
+    fs.writeFileSync(config_path, JSON.stringify({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: remotes_json().concat([{name: 'vps2', token: TOKEN_VPS2}]), forwards: [owners], services: []}));
+    const config = config_from_json(JSON.parse(fs.readFileSync(config_path, 'utf8')), dir);
+    config.path = config_path;
+    const app = app_from_config(config);
+    app.state_dir = dir;
+    const servers = await server_start(app);
+    const port = servers.control.address().port;
+    function call(method, asked, body, token) {
+        return fetch_host({port, host: '127.0.0.1', path: asked, method, token, body: (body === undefined) ? undefined : JSON.stringify(body)});
+    }
+    async function token_make(label, remotes, rights) {
+        const made = await call('POST', '/api/v1/tokens', {label, remotes, rights});
+        assert.strictEqual(made.status, 200, made.body);
+        return JSON.parse(made.body);
+    }
+    function file_forwards() {
+        return JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards;
+    }
+    try {
+        const va = await token_make('visual-agency', ['vps1', 'vps2', 'laptop'], ['forwards']);
+        const va_by = {token: va.item.id, label: 'visual-agency'};
+        const near = {label: 'Visual Agency: notes/a.sock on vps1', from: {remote: 'laptop', socket: '~/a.sock'}, to: {remote: 'vps1', socket: '~/va/a.sock'}};
+        const far = {label: 'Visual Agency: notes/b.sock on laptop', from: {remote: 'vps2', port: 9000}, to: {remote: 'laptop', socket: '~/va/b.sock'}};
+        const resting = {label: 'Visual Agency: notes/c.sock on laptop', from: {remote: 'vps2', port: 9001}, to: {remote: 'laptop', socket: '~/va/c.sock'}, off: true};
+        assert.strictEqual((await call('PUT', '/api/v1/forwards', {forwards: [owners, near, far, resting]}, va.token)).status, 200);
+        assert.deepStrictEqual(file_forwards(), [owners, Object.assign({}, near, {by: va_by}), Object.assign({}, far, {by: va_by}), Object.assign({}, resting, {by: va_by})]);
+
+        // The page says who asked
+        const shown = JSON.parse((await call('GET', '/api/v1/status')).body).forwards;
+        assert.deepStrictEqual(shown.map(v => v.by), [null, {label: 'visual-agency', revoked: false}, {label: 'visual-agency', revoked: false}, {label: 'visual-agency', revoked: false}]);
+
+        // A machine taken from it sets aside what it asked for there, and nothing else; one set
+        // aside already is left as it is
+        const narrowed = await call('PUT', `/api/v1/tokens/${va.item.id}`, {label: 'visual-agency', remotes: ['vps1', 'laptop'], rights: ['forwards']});
+        assert.deepStrictEqual(JSON.parse(narrowed.body).forwards_set_aside, ['Visual Agency: notes/b.sock on laptop']);
+        assert.deepStrictEqual(file_forwards().map(v => v.off === true), [false, false, true, true]);
+        assert.strictEqual(app.config.forwards[2].off, true, 'and the machines are told');
+        assert.strictEqual(app.log_lines.some(v => /\[forward_set_aside\] forward="Visual Agency: notes\/b.sock on laptop" token=visual-agency reason="its token may not see vps2"/.test(v)), true);
+
+        // A new value is the same token: nothing is set aside
+        assert.deepStrictEqual(JSON.parse((await call('POST', `/api/v1/tokens/${va.item.id}/rotate`)).body).forwards_set_aside, []);
+
+        // Revoked, the rest goes aside, and still says whose it was
+        assert.deepStrictEqual(JSON.parse((await call('DELETE', `/api/v1/tokens/${va.item.id}`)).body).forwards_set_aside, ['Visual Agency: notes/a.sock on vps1']);
+        assert.deepStrictEqual(file_forwards(), [owners, Object.assign({}, near, {by: va_by, off: true}), Object.assign({}, far, {by: va_by, off: true}), Object.assign({}, resting, {by: va_by})]);
+        assert.strictEqual(app.log_lines.some(v => /\[forward_set_aside\] forward="Visual Agency: notes\/a.sock on vps1" token=visual-agency reason="its token was revoked"/.test(v)), true);
+        const after = JSON.parse((await call('GET', '/api/v1/status')).body).forwards;
+        assert.deepStrictEqual(after.map(v => [v.by, v.state]), [[null, after[0].state], [{label: 'visual-agency', revoked: true}, 'aside'], [{label: 'visual-agency', revoked: true}, 'aside'], [{label: 'visual-agency', revoked: true}, 'aside']]);
+
+        // The right taken away sets aside all it asked for
+        const other = await token_make('another app', ['vps1', 'laptop'], ['forwards']);
+        const its = {label: 'another app: d.sock', from: {remote: 'vps1', port: 3200}, to: {remote: 'laptop', socket: '~/d.sock'}};
+        assert.strictEqual((await call('PUT', '/api/v1/forwards', {forwards: [owners, its]}, other.token)).status, 200);
+        const reader = await call('PUT', `/api/v1/tokens/${other.item.id}`, {label: 'another app', remotes: ['vps1', 'laptop'], rights: ['status']});
+        assert.deepStrictEqual(JSON.parse(reader.body).forwards_set_aside, ['another app: d.sock']);
+        assert.strictEqual(app.log_lines.some(v => /\[forward_set_aside\] forward="another app: d.sock" token="another app" reason="its token may no longer write the forwards"/.test(v)), true);
+        assert.deepStrictEqual(file_forwards()[0], owners, 'the owner\'s is never touched');
     }
     finally {
         servers.control.close();
@@ -367,7 +452,7 @@ test('a token reads the sources of serviceman\'s own sockets on its machines, an
     async function token_make(remotes) {
         const made = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'visual-agency', remotes, rights: ['forwards']})});
         assert.strictEqual(made.status, 200, made.body);
-        return JSON.parse(made.body).token;
+        return JSON.parse(made.body);
     }
     async function read(token) {
         const answer = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', token});
@@ -378,7 +463,8 @@ test('a token reads the sources of serviceman\'s own sockets on its machines, an
         return fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', token, body: JSON.stringify(body)});
     }
     try {
-        const token = await token_make(['vps1', 'laptop']);
+        const made = await token_make(['vps1', 'laptop']);
+        const token = made.token;
         const loki = {socket: 'sockets/loki.sock', from: before[0].from};
         const lan = {socket: 'sockets/lan.sock', from: before[2].from};
         const docker = {port: before[4].to.port, from: before[4].from};
@@ -386,19 +472,20 @@ test('a token reads the sources of serviceman\'s own sockets on its machines, an
         // A source counts when its `from` is on a machine the token sees; one set aside does not
         assert.deepStrictEqual(await read(token), {forwards: [], sources: [loki, lan, docker]});
         assert.deepStrictEqual((await read()).sources, [loki, {socket: 'sockets/metrics.sock', from: before[1].from}, lan, docker], 'the owner\'s sees every one');
-        assert.deepStrictEqual((await read(await token_make(['laptop']))).sources, [], 'without vps1 its sources are not seen');
+        assert.deepStrictEqual((await read((await token_make(['laptop'])).token)).sources, [], 'without vps1 its sources are not seen');
 
         // Its own forward copies a `from`; the sources stay as they were, whatever it sends of them
         const own = {label: 'Visual Agency: notes/loki.sock on laptop', from: loki.from, to: {remote: 'laptop', socket: '~/visual-agency/environments/notes/sockets/loki.sock'}};
+        const own_by = Object.assign({}, own, {by: {token: made.item.id, label: 'visual-agency'}});
         const written = await write({forwards: [own], sources: []}, token);
         assert.strictEqual(written.status, 200, written.body);
-        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own]));
-        assert.deepStrictEqual(await read(token), {forwards: [own], sources: [loki, lan, docker]});
+        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own_by]));
+        assert.deepStrictEqual(await read(token), {forwards: [own_by], sources: [loki, lan, docker]});
 
         // An address beyond the machine is listed, and a token may not carry it
-        const beyond = await write({forwards: [own, {label: 'Visual Agency: notes/lan.sock on laptop', from: lan.from, to: {remote: 'laptop', socket: '~/lan.sock'}}]}, token);
+        const beyond = await write({forwards: [own_by, {label: 'Visual Agency: notes/lan.sock on laptop', from: lan.from, to: {remote: 'laptop', socket: '~/lan.sock'}}]}, token);
         assert.deepStrictEqual([beyond.status, JSON.parse(beyond.body).error], [403, 'forwards[1]: the token "visual-agency" may not reach an address beyond its machines']);
-        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own]));
+        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own_by]));
     }
     finally {
         app.config.forwards = [];
@@ -446,8 +533,14 @@ test('the config says what is wrong with a forward, in its own words', function 
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
-        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false},
+        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null},
     ]);
+    // The token that asked for it is serviceman's to write, and read back as it was
+    const by = {token: '4c6b2ea73dc33d08', label: 'visual-agency'};
+    assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}, by}]).forwards[0].by, by);
+    for (const wrong of [null, 'visual-agency', {token: 'not hex', label: 'x'}, {token: 'abc'}, {token: 'abc', label: 'two\nlines'}]) {
+        assert.throws(() => config_of([{label: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}, by: wrong}]), {message: `forwards[0].by: {"token": "<a token's id>", "label": "<its label>"}, written by serviceman for a forward a token asked for (got ${JSON.stringify(wrong)})`});
+    }
 });
 
 // serviceman itself is the machine it shows up on: no agent there, a socket file inside its

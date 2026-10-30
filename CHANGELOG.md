@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.12 — 2026-10-30
+
+- A forward a token adds or changes says which token asked for it (`by`), shown on the page. A
+  revoked token's forwards, or those it may no longer hold, are set aside at once, and what it
+  holds open (a shell, a watch, an upload) is cut.
+
 ## 1.0.11 — 2026-10-30
 
 - `GET /api/v1/forwards` also says where serviceman's own sockets come from (`sources`), a

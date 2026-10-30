@@ -60,7 +60,7 @@ const forwards_section = {
     </div>
     <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
-            <template v-if="(column.key === 'label')">{{ row.label }}</template>
+            <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span></template>
             <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
             <template v-else-if="(column.key === 'to')"><span class="muted">{{ place_of(row.to) }} · </span><code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
             <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}</span>
@@ -238,6 +238,10 @@ const forwards_section = {
         title_of: function (name) {
             const found = this.machines.find(v => v.name === name);
             return (found === undefined) ? name : (found.title || found.name);
+        },
+        // Who asked for a forward, said in full where the line has room for a word
+        by_title: function (by) {
+            return by.revoked ? `Asked for by the token ${by.label}, since revoked` : `Asked for by the token ${by.label}, through the control door`;
         },
         // The machine one end is on, serviceman itself included, as a picker's value names it
         place_title: function (value) {

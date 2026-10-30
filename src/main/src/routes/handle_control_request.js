@@ -20,6 +20,7 @@ const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
 const control_route_right = require('../helpers/control_route_right');
 const control_same_origin = require('../control_same_origin');
+const control_token_live = require('../helpers/control_token_live');
 const control_token_refusal = require('../helpers/control_token_refusal');
 const control_token_status = require('../helpers/control_token_status');
 const crypto = require('crypto');
@@ -2286,7 +2287,8 @@ function forward_sources(forwards, token)
 // PUT /api/v1/forwards {"forwards": [...]}
 // The whole list, as the page edits it: written to the config, and the machines told. An
 // agent's token writes the list GET gave it: its forwards take the place of the ones of its
-// machines, and every other forward stays as it was, where it was.
+// machines, and every other forward stays as it was, where it was. What the token adds or
+// changes says it asked for it (forwards_asked_by).
 async function forwards_put(app, req, res)
 {
     const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
@@ -2306,13 +2308,46 @@ async function forwards_put(app, req, res)
         }
     }
     await config_file_mutate(app, res, function (json) {
-        const forwards = (token === undefined) ? body.forwards : forwards_of_token(json.forwards, body.forwards, token);
+        const forwards = (token === undefined) ? body.forwards : forwards_of_token(json.forwards, forwards_asked_by(json.forwards, body.forwards, token), token);
         if (forwards.length === 0) {
             delete json.forwards;
             return null;
         }
         json.forwards = forwards;
         return null;
+    });
+}
+
+// A token's list with `by` written by serviceman, never taken from the token: a forward it sends
+// back as it was keeps the `by` it had, the owner's none; one it adds or changes is the token's
+function forwards_asked_by(before, own, token)
+{
+    const had = (Array.isArray(before) ? before : []).filter(v => (forward_token_refusal(v, token) === null));
+    return own.map(function (item) {
+        if ((item === null) || (typeof item !== 'object') || Array.isArray(item)) {
+            return item;
+        }
+        const out = Object.assign({}, item);
+        delete out.by;
+        const same = had.find(v => (json_sorted(Object.assign({}, v, {by: undefined})) === json_sorted(out)));
+        if (same === undefined) {
+            out.by = {token: token.id, label: token.label};
+        }
+        else if (same.by !== undefined) {
+            out.by = same.by;
+        }
+        return out;
+    });
+}
+
+// JSON with every object's keys in order, so two forwards written in another order compare the same
+function json_sorted(value)
+{
+    return JSON.stringify(value, function (key, v) {
+        if ((v === null) || (typeof v !== 'object') || Array.isArray(v)) {
+            return v;
+        }
+        return Object.fromEntries(Object.keys(v).sort().map(vv => [vv, v[vv]]));
     });
 }
 
@@ -2430,6 +2465,8 @@ function token_allowed(app, req, res, url, token)
     token.used_at = new Date().toISOString();
     // The routes it goes on to keep it within what it may: the file manager within its folder
     req.control_token = token;
+    // Revoked or changed while this is open, it is cut (control_token_sweep)
+    control_token_live(app, token, right, req.socket, res);
     // A token let in asks serviceman's own API, whose query is a folder or a machine, never a
     // secret: the line keeps it, since what was read is what the line is for
     log_event(app, 'control_token_used', {token: token.label, method: req.method, path: req.url});

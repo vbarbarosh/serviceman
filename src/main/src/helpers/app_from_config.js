@@ -31,6 +31,8 @@ function app_from_config(config)
         servers: null,
         // One change to the config file at a time, whoever is writing it
         config_lock: Promise.resolve(),
+        // The connections agents' tokens hold open now (control_token_live)
+        control_token_live: new Set(),
         // Machines taken out of the config while they were away. A laptop that was asleep when
         // it was removed dials in with a token nothing holds any more, and it is owed the
         // reason: it was taken away, so it can stop and take itself off that machine.

@@ -1014,6 +1014,10 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <td><code>off</code></td>
 <td><code>true</code> sets it aside: written down, and not listened for.</td>
 </tr>
+<tr>
+<td><code>by</code></td>
+<td>Written by serviceman, never by hand: <code>{&quot;token&quot;: &quot;&lt;id&gt;&quot;, &quot;label&quot;: &quot;visual-agency&quot;}</code>, the token that asked for it, on a forward a token&#39;s <code>PUT</code> added or changed. The page shows it beside the label.</td>
+</tr>
 </tbody></table>
 </div>
 <p>Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
@@ -1027,6 +1031,11 @@ forwards between its machines alone, both ends on them, and the list it writes t
 place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
 its machines: one onto serviceman itself (<code>to.here</code>) or to an address beyond the machine
 (<code>from.host</code>) is the owner&#39;s, and a <code>403</code> says which forward named it.</p>
+<p>What a token&#39;s list adds or changes says that token asked for it, in <code>by</code>; what it sends back
+as it was keeps the <code>by</code> it had, and a <code>by</code> the token sends is never taken. When the token is
+revoked, or changed so it no longer sees a machine of the forward or no longer has the right,
+its forwards are set aside (<code>off</code>) at once, <code>by</code> kept, and the page says the token is revoked.
+Turning one on again, on the page, keeps its <code>by</code>; changing it there makes it the owner&#39;s.</p>
 <p>Beside them the answer says where each socket and port of serviceman&#39;s own comes from, for a
 program that carries the same on to a machine: <code>&quot;sources&quot;: [{&quot;socket&quot;: &quot;sockets/loki.sock&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}}]</code>, one for every forward onto serviceman itself that
 is not set aside, <code>{&quot;port&quot;: …}</code> for one on its loopback, <code>from</code> as this file writes it. A token

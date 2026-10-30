@@ -1559,6 +1559,14 @@ keeps its own copy, so a machine with no link still writes its log.</p>
 <td><code>forward_here_apply_error</code></td>
 <td>Following the config for those forwards failed, and why; the next change is still applied.</td>
 </tr>
+<tr>
+<td><code>forward_set_aside</code></td>
+<td>A forward a token asked for was set aside, as the token was revoked or may no longer hold it: the forward, the token&#39;s label and why.</td>
+</tr>
+<tr>
+<td><code>forward_set_aside_error</code></td>
+<td>Setting them aside failed, and why; the token is revoked or changed all the same.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="shared-folders"><a class="anchor" href="#shared-folders" aria-hidden="true" tabindex="-1">#</a>Shared folders</h3>
@@ -1784,6 +1792,10 @@ list, in a bar under its header and first on its Health page.</p>
 <tr>
 <td><code>control_token_revoked</code></td>
 <td>One was revoked.</td>
+</tr>
+<tr>
+<td><code>control_token_cut</code></td>
+<td>A connection a token held open was cut, as it was revoked, rotated or changed: the right it was let in with, the machine, and why.</td>
 </tr>
 <tr>
 <td><code>control_signed_in</code></td>

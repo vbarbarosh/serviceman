@@ -209,7 +209,10 @@ Even on this machine, and through the control socket, nothing gets in without a 
   no other shell. **Edit…** changes its label, machines (**every
   machine**, those added later too, is one tick), rights, folders and apps in place, the token
   staying the same; **Rotate…** gives it a new value, shown once, the old one refused at once;
-  **Revoke…** ends it.
+  **Revoke…** ends it. What a revoked or rotated token holds open is cut at once (an open shell, a
+  folder watch, an upload half sent), and so is what an edit takes from it; the forwards it asked
+  for are set aside when it is revoked or may no longer hold them, saying whose they were. Its kept
+  terminals go on running on their machines, out of its reach.
 
 A caller sends its token with every request:
 

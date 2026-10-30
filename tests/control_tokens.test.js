@@ -176,6 +176,34 @@ test('a token is edited in place and goes on working; rotated, the old value is 
     assert.deepStrictEqual([listed.socket, listed.port], [null, running.port]);
 });
 
+// A token revoked or rotated while a request of its is open loses it at once: an upload half
+// sent, a folder watch, a shell are cut, not left to run out; a change that leaves it the right
+// lets it finish
+test('what a token holds open is cut the moment it is revoked or rotated, and kept through a change that leaves it the right', async function (t) {
+    const running = await serviceman_start(t);
+    const made = await token_make(running, {label: 'visual-agency', remotes: ['vps1'], rights: ['forwards']});
+    const revoked = held_open(running, made.token);
+    await revoked.let_in;
+    assert.strictEqual((await call(running, 'DELETE', `/api/v1/tokens/${made.item.id}`, null, running.owner)).status, 200);
+    assert.strictEqual(await revoked.ended, 'cut');
+    assert.strictEqual(running.app.log_lines.some(v => /\[control_token_cut\] token=visual-agency right=forwards reason=revoked/.test(v)), true);
+
+    const other = await token_make(running, {label: 'visual-agency', remotes: ['vps1'], rights: ['forwards']});
+    const rotated = held_open(running, other.token);
+    await rotated.let_in;
+    assert.strictEqual((await call(running, 'POST', `/api/v1/tokens/${other.item.id}/rotate`, null, running.owner)).status, 200);
+    assert.strictEqual(await rotated.ended, 'cut');
+
+    const kept = await token_make(running, {label: 'visual-agency', remotes: ['vps1'], rights: ['forwards']});
+    const changed = held_open(running, kept.token);
+    await changed.let_in;
+    const edit = await call(running, 'PUT', `/api/v1/tokens/${kept.item.id}`, {label: 'visual agency', remotes: ['vps1', 'vps2'], rights: ['forwards', 'status']}, running.owner);
+    assert.deepStrictEqual(JSON.parse(edit.body).forwards_set_aside, []);
+    changed.finish();
+    assert.strictEqual(await changed.ended, 'answered 400', 'this serviceman has no config file, and says so');
+    assert.strictEqual(running.app.control_token_live.size, 0, 'nothing is kept once it is over');
+});
+
 test('a token with terminals uses the kept terminals of its machines and opens no other shell; the owner\'s opens any', async function (t) {
     const running = await serviceman_start(t);
     const reader = await token_make(running, {label: 'an agent', remotes: ['vps1'], rights: ['status']});
@@ -325,6 +353,38 @@ function call(running, method, asked, body, token, headers)
     const host = (extra.host === undefined) ? '127.0.0.1' : extra.host;
     delete extra.host;
     return fetch_host({port: running.port, host, method, path: asked, token, headers: extra, body: (body === null) ? undefined : JSON.stringify(body)});
+}
+
+// A PUT of the forwards with its body half sent, held open: let_in once serviceman has taken it
+// in, ended 'cut' when serviceman hangs up first, or 'answered <status>' once finish() sends the rest
+function held_open(running, token)
+{
+    const body = JSON.stringify({forwards: []});
+    const socket = net.connect(running.port, '127.0.0.1');
+    let said = '';
+    socket.write(`PUT /api/v1/forwards HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer ${token}\r\nContent-Length: ${body.length}\r\n\r\n${body.slice(0, 5)}`);
+    socket.on('data', function (chunk) {
+        said += chunk.toString('utf8');
+    });
+    const ended = new Promise(function (resolve) {
+        socket.on('error', function () {
+            resolve('cut');
+        });
+        socket.on('close', function () {
+            resolve((said === '') ? 'cut' : `answered ${said.split(' ')[1]}`);
+        });
+    });
+    socket.on('data', function () {
+        if (said.includes('\r\n\r\n') && (said.includes('"error"') || said.includes('}'))) {
+            socket.end();
+        }
+    });
+    const let_in = (async function () {
+        for (let i = 0; (i < 100) && (Array.from(running.app.control_token_live).some(v => (v.label === 'visual-agency') || (v.label === 'visual agency')) === false); i++) {
+            await new Promise(v => setTimeout(v, 10));
+        }
+    })();
+    return {let_in, ended, finish: () => socket.write(body.slice(5))};
 }
 
 // The first line the shell door answers, or closed when it hangs up without a word

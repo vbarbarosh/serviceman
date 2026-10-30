@@ -199,6 +199,7 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 | `to.socket`   | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. On serviceman itself, a path inside its state dir, written from it: `sockets/loki.sock`. |
 | `to.port`     | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
+| `by`          | Written by serviceman, never by hand: `{"token": "<id>", "label": "visual-agency"}`, the token that asked for it, on a forward a token's `PUT` added or changed. The page shows it beside the label. |
 
 Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
@@ -212,6 +213,12 @@ forwards between its machines alone, both ends on them, and the list it writes t
 place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
 its machines: one onto serviceman itself (`to.here`) or to an address beyond the machine
 (`from.host`) is the owner's, and a `403` says which forward named it.
+
+What a token's list adds or changes says that token asked for it, in `by`; what it sends back
+as it was keeps the `by` it had, and a `by` the token sends is never taken. When the token is
+revoked, or changed so it no longer sees a machine of the forward or no longer has the right,
+its forwards are set aside (`off`) at once, `by` kept, and the page says the token is revoked.
+Turning one on again, on the page, keeps its `by`; changing it there makes it the owner's.
 
 Beside them the answer says where each socket and port of serviceman's own comes from, for a
 program that carries the same on to a machine: `"sources": [{"socket": "sockets/loki.sock",

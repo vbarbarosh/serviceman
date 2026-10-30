@@ -1,3 +1,4 @@
+const control_tokens_read = require('./control_tokens_read');
 const forward_join = require('./forward_join');
 
 // One forward as the page shows it: the two ends, whether the near one listens and where, what
@@ -12,6 +13,9 @@ function view_from_forward(app, forward)
     const counts = forward_join.counts(app, forward.label);
     const now = now_of(forward, from, to, said);
     return Object.assign({}, forward, {
+        // The token that asked for it, by its label now, or the one it had when it was revoked;
+        // null for one the owner wrote
+        by: by_of(app, forward),
         // Where the agent listens, its ~ written out, or where serviceman does, inside its
         // state dir; null while it does not
         at: ((said === undefined) || (said.error !== null)) ? null : said.at,
@@ -31,6 +35,15 @@ function view_from_forward(app, forward)
         error: counts.error,
         error_at: counts.error_at,
     });
+}
+
+function by_of(app, forward)
+{
+    if (forward.by === null) {
+        return null;
+    }
+    const token = control_tokens_read(app).find(v => (v.id === forward.by.token));
+    return (token === undefined) ? {label: forward.by.label, revoked: true} : {label: token.label, revoked: false};
 }
 
 // The one thing that keeps a connection from going through right now, in full, or null for

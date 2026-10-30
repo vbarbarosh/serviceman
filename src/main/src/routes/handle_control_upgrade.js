@@ -2,6 +2,7 @@ const control_allowed = require('../control_allowed');
 const control_caller = require('../helpers/control_caller');
 const control_host_allowed = require('../control_host_allowed');
 const control_same_origin = require('../control_same_origin');
+const control_token_live = require('../helpers/control_token_live');
 const control_token_refusal = require('../helpers/control_token_refusal');
 const docker_container_name = require('../helpers/docker_container_name');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
@@ -70,6 +71,8 @@ function handle_control_upgrade(app, req, socket, head)
     }
     if (caller.owner === false) {
         caller.token.used_at = new Date().toISOString();
+        // Revoked or changed while it is open, the shell is cut (control_token_sweep)
+        control_token_live(app, caller.token, {right: 'terminals', said: 'use the terminals', remote: (joined === null) ? url.searchParams.get('remote') : joined.join.remote}, socket, socket);
         log_group_from(socket.log_group, function () {
             log_event(app, 'control_token_used', {token: caller.token.label, method: 'GET', path: (joined === null) ? `/api/v1/shell?remote=${url.searchParams.get('remote')}&term=${url.searchParams.get('term')}` : url.pathname});
         });

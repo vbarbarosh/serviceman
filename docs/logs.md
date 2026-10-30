@@ -425,6 +425,8 @@ keeps its own copy, so a machine with no link still writes its log.
 | `forward_here_listen_error` | It could not, and why; tried again every minute, said once per reason. |
 | `forward_here_close`  | A forward set aside, changed or taken out of the config stopped listening here; its socket file is gone. |
 | `forward_here_apply_error` | Following the config for those forwards failed, and why; the next change is still applied. |
+| `forward_set_aside`   | A forward a token asked for was set aside, as the token was revoked or may no longer hold it: the forward, the token's label and why. |
+| `forward_set_aside_error` | Setting them aside failed, and why; the token is revoked or changed all the same. |
 
 ### Shared folders
 
@@ -494,6 +496,7 @@ list, in a bar under its header and first on its Health page.
 | `control_token_changed`      | Its label, machines, rights, folders or apps were changed; the token stayed. |
 | `control_token_rotated`      | It was given a new value; the old one is refused from then on.            |
 | `control_token_revoked`      | One was revoked.                                                          |
+| `control_token_cut`          | A connection a token held open was cut, as it was revoked, rotated or changed: the right it was let in with, the machine, and why. |
 | `control_signed_in`          | The page was signed in with the owner's token.                            |
 | `control_sign_in_refused`    | A token that is not the owner's was tried at the sign-in.                 |
 | `config_saved`               | The config was written, with the hash of what went in.                    |

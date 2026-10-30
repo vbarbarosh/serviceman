@@ -3,6 +3,7 @@ const control_caller = require('../helpers/control_caller');
 const control_route_right = require('../helpers/control_route_right');
 const control_token_hash = require('../helpers/control_token_hash');
 const control_token_new = require('../helpers/control_token_new');
+const control_token_sweep = require('../helpers/control_token_sweep');
 const control_tokens_read = require('../helpers/control_tokens_read');
 const control_tokens_write = require('../helpers/control_tokens_write');
 const crypto = require('crypto');
@@ -28,6 +29,10 @@ const RE_TOKEN_ROTATE = /^\/api\/v1\/tokens\/([0-9a-f]+)\/rotate$/;
 // PUT /api/v1/tokens/<id> (body)     the same fields, changed; the token itself stays
 // POST /api/v1/tokens/<id>/rotate    a new value, said once; the old one is refused at once
 // DELETE /api/v1/tokens/<id>         revoked, at once
+//
+// The last three cut what the token may no longer do at once, its open connections and the
+// forwards it asked for, and answer forwards_set_aside: the labels of those set aside
+// (control_token_sweep).
 //
 // True when the request was one of these. Signing in is open to any caller of the control
 // door, since it is how a token is brought; the rest is the owner's, checked before this.
@@ -59,7 +64,7 @@ async function handle_control_tokens(app, req, res, url)
     }
     const rotate = RE_TOKEN_ROTATE.exec(url.pathname);
     if ((rotate !== null) && (req.method === 'POST')) {
-        token_rotate(app, res, rotate[1]);
+        await token_rotate(app, res, rotate[1]);
         return true;
     }
     if ((one !== null) && (req.method === 'DELETE')) {
@@ -71,7 +76,7 @@ async function handle_control_tokens(app, req, res, url)
         }
         control_tokens_write(app, tokens.filter(v => v !== found));
         log_event(app, 'control_token_revoked', {id: found.id, label: found.label});
-        send_json(res, 200, {});
+        send_json(res, 200, {forwards_set_aside: await control_token_sweep(app, found.id)});
         return true;
     }
     return false;
@@ -127,12 +132,12 @@ async function token_change(app, req, res, id)
     const item = Object.assign({}, found, fields);
     control_tokens_write(app, control_tokens_read(app).map(v => (v.id === id) ? item : v));
     log_event(app, 'control_token_changed', fields_logged(item));
-    send_json(res, 200, {item: token_view(item)});
+    send_json(res, 200, {item: token_view(item), forwards_set_aside: await control_token_sweep(app, id)});
 }
 
 // A token rotated, for one that was lost or seen: a new value with the same rights, said once,
-// the old one refused from now on
-function token_rotate(app, res, id)
+// the old one refused from now on, what it holds open cut
+async function token_rotate(app, res, id)
 {
     const found = control_tokens_read(app).find(v => v.id === id);
     if (found === undefined) {
@@ -144,7 +149,7 @@ function token_rotate(app, res, id)
     delete item.used_at;
     control_tokens_write(app, control_tokens_read(app).map(v => (v.id === id) ? item : v));
     log_event(app, 'control_token_rotated', {id: item.id, label: item.label});
-    send_json(res, 200, {token, item: token_view(item)});
+    send_json(res, 200, {token, item: token_view(item), forwards_set_aside: await control_token_sweep(app, id)});
 }
 
 // The label, machines, rights, folders and apps a request asks a token to have, checked, or
