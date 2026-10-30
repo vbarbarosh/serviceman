@@ -213,6 +213,15 @@ place: every other forward stays as it was, where it was. Its forwards carry por
 its machines: one onto serviceman itself (`to.here`) or to an address beyond the machine
 (`from.host`) is the owner's, and a `403` says which forward named it.
 
+Beside them the answer says where each socket and port of serviceman's own comes from, for a
+program that carries the same on to a machine: `"sources": [{"socket": "sockets/loki.sock",
+"from": {"remote": "vps1", "port": 3100}}]`, one for every forward onto serviceman itself that
+is not set aside, `{"port": …}` for one on its loopback, `from` as this file writes it. A token
+gets those whose `from.remote` is a machine it sees: a token that carries `loki.sock` sees
+`vps1` and the machine it carries it to. The sources are read and never written: `PUT` keeps
+them as they are, whatever it is sent. One whose `from` has a `host` is listed too, and a token
+may not carry it: its forward would reach an address beyond the machine, and is the owner's.
+
 ### Logline
 
 [Logline](../logline/) is where the remotes' logs go: one endpoint, and ClickHouse behind it.

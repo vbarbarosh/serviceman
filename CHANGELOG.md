@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.11 — 2026-10-30
+
+- `GET /api/v1/forwards` also says where serviceman's own sockets come from (`sources`), a
+  token's those from its machines, read only.
+
 ## 1.0.10 — 2026-10-30
 
 - A token's `forwards` right: `GET /api/v1/forwards` and `PUT /api/v1/forwards` see and write

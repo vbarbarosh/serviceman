@@ -344,6 +344,71 @@ test('a token with the forwards right reads and writes the forwards between its 
     }
 });
 
+// Visual Agency carries a socket of serviceman's own on to a machine: it reads where the socket
+// comes from, and copies that `from` into a forward of its own; the sources are read, never
+// written
+test('a token reads the sources of serviceman\'s own sockets on its machines, and writes none of them', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-sources-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    const before = [
+        {label: 'loki', from: {remote: 'vps1', port: 3100}, to: {here: true, socket: 'sockets/loki.sock'}},
+        {label: 'metrics on vps2', from: {remote: 'vps2', port: 9000}, to: {here: true, socket: 'sockets/metrics.sock'}},
+        {label: 'a lan box', from: {remote: 'vps1', host: '10.0.0.5', port: 80}, to: {here: true, socket: 'sockets/lan.sock'}},
+        {label: 'set aside', from: {remote: 'vps1', port: 8123}, to: {here: true, socket: 'sockets/aside.sock'}, off: true},
+        {label: 'docker', from: {remote: 'vps1', socket: '/run/docker.sock'}, to: {here: true, port: await port_free_found()}},
+    ];
+    fs.writeFileSync(config_path, JSON.stringify({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: remotes_json().concat([{name: 'vps2', token: TOKEN_VPS2}]), forwards: before, services: []}));
+    const config = config_from_json(JSON.parse(fs.readFileSync(config_path, 'utf8')), dir);
+    config.path = config_path;
+    const app = app_from_config(config);
+    app.state_dir = dir;
+    const servers = await server_start(app);
+    const port = servers.control.address().port;
+    async function token_make(remotes) {
+        const made = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/tokens', method: 'POST', body: JSON.stringify({label: 'visual-agency', remotes, rights: ['forwards']})});
+        assert.strictEqual(made.status, 200, made.body);
+        return JSON.parse(made.body).token;
+    }
+    async function read(token) {
+        const answer = await fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', token});
+        assert.strictEqual(answer.status, 200, answer.body);
+        return JSON.parse(answer.body);
+    }
+    function write(body, token) {
+        return fetch_host({port, host: '127.0.0.1', path: '/api/v1/forwards', method: 'PUT', token, body: JSON.stringify(body)});
+    }
+    try {
+        const token = await token_make(['vps1', 'laptop']);
+        const loki = {socket: 'sockets/loki.sock', from: before[0].from};
+        const lan = {socket: 'sockets/lan.sock', from: before[2].from};
+        const docker = {port: before[4].to.port, from: before[4].from};
+
+        // A source counts when its `from` is on a machine the token sees; one set aside does not
+        assert.deepStrictEqual(await read(token), {forwards: [], sources: [loki, lan, docker]});
+        assert.deepStrictEqual((await read()).sources, [loki, {socket: 'sockets/metrics.sock', from: before[1].from}, lan, docker], 'the owner\'s sees every one');
+        assert.deepStrictEqual((await read(await token_make(['laptop']))).sources, [], 'without vps1 its sources are not seen');
+
+        // Its own forward copies a `from`; the sources stay as they were, whatever it sends of them
+        const own = {label: 'Visual Agency: notes/loki.sock on laptop', from: loki.from, to: {remote: 'laptop', socket: '~/visual-agency/environments/notes/sockets/loki.sock'}};
+        const written = await write({forwards: [own], sources: []}, token);
+        assert.strictEqual(written.status, 200, written.body);
+        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own]));
+        assert.deepStrictEqual(await read(token), {forwards: [own], sources: [loki, lan, docker]});
+
+        // An address beyond the machine is listed, and a token may not carry it
+        const beyond = await write({forwards: [own, {label: 'Visual Agency: notes/lan.sock on laptop', from: lan.from, to: {remote: 'laptop', socket: '~/lan.sock'}}]}, token);
+        assert.deepStrictEqual([beyond.status, JSON.parse(beyond.body).error], [403, 'forwards[1]: the token "visual-agency" may not reach an address beyond its machines']);
+        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, before.concat([own]));
+    }
+    finally {
+        app.config.forwards = [];
+        await forwards_here(app);
+        servers.control.close();
+        servers.server.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('the config says what is wrong with a forward, in its own words', function () {
     const cases = [
         [{from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}, 'forwards[0].label: any text of one line, at most 100 characters, with no spaces around it (got undefined)'],
@@ -652,6 +717,20 @@ function say_through(where, text)
         });
         socket.on('close', function () {
             resolve(Buffer.concat(chunks).toString('utf8'));
+        });
+    });
+}
+
+// A port of the loopback nobody listens on now
+function port_free_found()
+{
+    return new Promise(function (resolve) {
+        const server = net.createServer();
+        server.listen(0, '127.0.0.1', function () {
+            const found = server.address().port;
+            server.close(function () {
+                resolve(found);
+            });
         });
     });
 }

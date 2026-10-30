@@ -1027,6 +1027,13 @@ forwards between its machines alone, both ends on them, and the list it writes t
 place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
 its machines: one onto serviceman itself (<code>to.here</code>) or to an address beyond the machine
 (<code>from.host</code>) is the owner&#39;s, and a <code>403</code> says which forward named it.</p>
+<p>Beside them the answer says where each socket and port of serviceman&#39;s own comes from, for a
+program that carries the same on to a machine: <code>&quot;sources&quot;: [{&quot;socket&quot;: &quot;sockets/loki.sock&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}}]</code>, one for every forward onto serviceman itself that
+is not set aside, <code>{&quot;port&quot;: …}</code> for one on its loopback, <code>from</code> as this file writes it. A token
+gets those whose <code>from.remote</code> is a machine it sees: a token that carries <code>loki.sock</code> sees
+<code>vps1</code> and the machine it carries it to. The sources are read and never written: <code>PUT</code> keeps
+them as they are, whatever it is sent. One whose <code>from</code> has a <code>host</code> is listed too, and a token
+may not carry it: its forward would reach an address beyond the machine, and is the owner&#39;s.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>

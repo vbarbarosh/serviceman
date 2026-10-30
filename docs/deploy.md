@@ -251,7 +251,7 @@ the control hostname over the service port.
 | `GET /api/v1/config`                     | The config file as text, with its hash.         |
 | `POST /api/v1/config/check`              | Read a config and say what is wrong with it.    |
 | `POST /api/v1/config`                    | Write it, and apply it to the running services. |
-| `GET /api/v1/forwards`                   | The forwards, as the config file writes them; a token's, those between its machines. |
+| `GET /api/v1/forwards`                   | The forwards, as the config file writes them, and where serviceman's own sockets come from; a token's, those of its machines. |
 | `PUT /api/v1/forwards`                   | Write them back whole, and tell the machines.   |
 | `POST /api/v1/services`                  | Add a service.                                  |
 | `PUT /api/v1/services/<name>`            | Reshape one.                                    |

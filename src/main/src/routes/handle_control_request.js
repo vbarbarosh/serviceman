@@ -2247,7 +2247,8 @@ function service_names_remote(service, name)
 
 // GET /api/v1/forwards
 // The forwards as the config file writes them, for a list to be changed and written back whole.
-// An agent's token gets the ones of its machines alone (forward_token_refusal).
+// An agent's token gets the ones of its machines alone (forward_token_refusal). Beside them, the
+// sources of what shows up on serviceman itself (forward_sources), to be read and not written.
 async function forwards_send(app, req, res)
 {
     if (app.config.path === undefined) {
@@ -2257,7 +2258,29 @@ async function forwards_send(app, req, res)
     const json = JSON.parse(await fs.promises.readFile(app.config.path, 'utf8'));
     const forwards = Array.isArray(json.forwards) ? json.forwards : [];
     const token = req.control_token;
-    send_json(res, 200, {forwards: (token === undefined) ? forwards : forwards.filter(v => (forward_token_refusal(v, token) === null))});
+    send_json(res, 200, {
+        forwards: (token === undefined) ? forwards : forwards.filter(v => (forward_token_refusal(v, token) === null)),
+        sources: forward_sources(forwards, token),
+    });
+}
+
+// Where each socket or port of serviceman's own comes from, for a program that carries the same
+// on to a machine: {socket or port, from} of every forward on that shows up here, `from` as the
+// config writes it; a token's, those whose `from` is on a machine it sees. One with `from.host`
+// is listed as it is, though a token may not carry it (forward_token_refusal).
+function forward_sources(forwards, token)
+{
+    const out = [];
+    for (const item of forwards) {
+        if ((item === null) || (typeof item !== 'object') || (item.off === true) || (item.to === null) || (typeof item.to !== 'object') || (item.to.here !== true) || (item.from === null) || (typeof item.from !== 'object')) {
+            continue;
+        }
+        if ((token !== undefined) && (token.remotes.includes('*') === false) && (token.remotes.includes(item.from.remote) === false)) {
+            continue;
+        }
+        out.push(Object.assign((item.to.socket === undefined) ? {port: item.to.port} : {socket: item.to.socket}, {from: item.from}));
+    }
+    return out;
 }
 
 // PUT /api/v1/forwards {"forwards": [...]}
