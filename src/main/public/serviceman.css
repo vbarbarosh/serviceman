@@ -2169,6 +2169,45 @@ button.tag:hover {
     color: var(--busy-text);
 }
 
+/* A machine's numbers beside its name in the rail, a small bar each, filled from its foot:
+   CPU, memory and disk, as its Overview's tiles tick them. Faint while it does not answer,
+   for they are what it said last. */
+.rail-gauges {
+    flex: none;
+    display: flex;
+    gap: 3px;
+}
+
+.rail-gauges.stale {
+    opacity: .45;
+}
+
+.rail-gauge {
+    position: relative;
+    width: 6px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+}
+
+.rail-gauge i {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: var(--accent);
+    transition: height .3s ease;
+}
+
+.rail-gauge.filling i {
+    background: var(--busy);
+}
+
+.rail-gauge.full i {
+    background: var(--bad);
+}
+
 .bars {
     display: grid;
     grid-template-columns: 4.5rem 1fr 11rem;
@@ -2601,6 +2640,12 @@ article.ov-pane {
     align-items: center;
     color: var(--muted);
     font-size: .85rem;
+}
+
+/* The tick in a tile's corner: its number beside every machine in the rail */
+.ov-label .ov-rail {
+    margin: 0 0 0 auto;
+    cursor: pointer;
 }
 
 .ov-tile b {

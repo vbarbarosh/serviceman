@@ -290,6 +290,12 @@ machine, its agent, its services, its updates and its logs, each with a link to 
 does more with it, and its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
+The CPU, Memory and Disk tiles each have a tick in their corner: a number ticked shows beside
+every machine in the rail, as a small bar filled from its foot, in the tiles' colours, the
+numbers in words when pointed at. CPU and memory are ticked until you choose; the choice is
+this browser's. A machine that is away shows none, one that does not answer shows them faint,
+as what it said last, and a number it does not say is an empty bar.
+
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
 connections and ping, over the last hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every

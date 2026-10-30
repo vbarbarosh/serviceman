@@ -6,6 +6,7 @@ import format_ms from './format_ms.js';
 import format_ms_ago from './format_ms_ago.js';
 import link_test_panel from './link_test_panel.js';
 import logline_link from './logline_link.js';
+import machine_shares from './machine_shares.js';
 import overview_card from './overview_card.js';
 import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
@@ -43,7 +44,7 @@ const remote_overview = {
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-tiles">
-            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="tile_go">{{ tile.text }}</overview-tile>
+            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" :rail="((tile.rail === undefined) ? null : rail.includes(tile.rail))" @tab="tile_go" @rail="$emit('rail', {key: tile.rail, on: $event})">{{ tile.text }}</overview-tile>
         </div>
         <link-test-panel v-if="((view.machine !== null) && link_test_open)" :view="view" @close="link_test_open = false"/>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
@@ -155,8 +156,9 @@ const remote_overview = {
 </article>
 `,
     components: {'agent-pill-short': agent_pill_short, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
-    props: ['view', 'services', 'served', 'logline'],
-    emits: ['select', 'tab'],
+    // rail: the numbers ticked to show beside every machine in the rail, as rail_gauges reads them
+    props: ['view', 'services', 'served', 'logline', 'rail'],
+    emits: ['rail', 'select', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine
         return {raw_open: false, copied: false, copied_timer: null, link_test_open: false};
@@ -210,14 +212,15 @@ const remote_overview = {
             const view = this.view;
             const machine = view.machine;
             const out = [];
-            const cpu = machine.cpu_busy;
-            out.push({icon: 'cpu', label: 'CPU', text: (cpu === null) ? '—' : `${Math.round(cpu*100)}%`, value: (cpu === null) ? 0 : cpu, note: `${(machine.load === null) ? '' : `load ${machine.load.toFixed(2)} · `}${machine.cpu.count} × ${machine.cpu.model}`});
+            const shares = machine_shares(machine);
+            const cpu = shares.cpu;
+            out.push({icon: 'cpu', label: 'CPU', text: (cpu === null) ? '—' : `${Math.round(cpu*100)}%`, value: (cpu === null) ? 0 : cpu, note: `${(machine.load === null) ? '' : `load ${machine.load.toFixed(2)} · `}${machine.cpu.count} × ${machine.cpu.model}`, rail: 'cpu'});
             const mem = machine.mem;
-            const mem_used = (mem.free === null) ? null : 1 - mem.free/mem.total;
-            out.push({icon: 'memory', label: 'Memory', text: (mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`, value: (mem_used === null) ? 0 : mem_used, note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
+            const mem_used = shares.memory;
+            out.push({icon: 'memory', label: 'Memory', text: (mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`, value: (mem_used === null) ? 0 : mem_used, note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`, rail: 'memory'});
             const disk = machine.disk;
-            const disk_used = (disk.free === null) ? null : 1 - disk.free/disk.total;
-            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`, go: 'What takes it', tab: 'disks'});
+            const disk_used = shares.disk;
+            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`, go: 'What takes it', tab: 'disks', rail: 'disk'});
             if (machine.temperature !== null) {
                 out.push({icon: 'thermometer', label: 'Temperature', text: `${machine.temperature.c}°C`, value: machine.temperature.c/100, note: machine.temperature.of});
             }

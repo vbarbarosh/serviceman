@@ -30,6 +30,7 @@ import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
 import program_place from './program_place.js';
 import program_shell from './program_shell.js';
+import rail_gauges from './rail_gauges.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
 import remote_dot from './remote_dot.js';
@@ -1336,7 +1337,7 @@ const remote_page = {
          a form half filled, a shell mid-session. Another machine is another page, so its
          panes start fresh. -->
     <keep-alive :max="10">
-    <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
+    <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" :rail="rail" @rail="$emit('rail', $event)" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served"/>
     <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
     <article v-else-if="(tab_now === 'settings')" id="detail"><p class="muted">reading the config…</p></article>
@@ -1358,8 +1359,8 @@ const remote_page = {
 </div>
 `,
     components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell},
-    props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path'],
-    emits: ['create', 'files_path', 'list', 'logline', 'saved', 'select', 'service', 'tab'],
+    props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
+    emits: ['create', 'files_path', 'list', 'logline', 'rail', 'saved', 'select', 'service', 'tab'],
     data: function () {
         return {original: null, edit_key: 0};
     },
@@ -1877,6 +1878,9 @@ const app = {
                 <dot :phase="remote_dot(item)" :title="remote_unanswered_said(item)"/>
                 <span class="name">{{ item.title || item.name }}</span>
                 <svg v-if="(agent_current(item, state.agent_built) === false)" class="agent-behind" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" aria-label="runs an older agent"><title>Runs an older agent than this host serves</title><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                <span v-if="(rail_gauges_of[item.name] !== null)" class="rail-gauges" :class="{stale: rail_gauges_of[item.name].stale}" :title="rail_gauges_of[item.name].title" role="img" :aria-label="rail_gauges_of[item.name].title">
+                    <span v-for="gauge of rail_gauges_of[item.name].gauges" :key="gauge.key" class="rail-gauge" :class="gauge.level"><i :style="{height: gauge.height}"></i></span>
+                </span>
             </button>
         </div>
         <button type="button" class="row kind" :class="{on: (kind_now === 'addresses'), open: (kind_now === 'addresses')}" @click="addresses_show">
@@ -1977,7 +1981,7 @@ const app = {
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" @close="form_open = false" @saved="form_saved"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
@@ -1993,6 +1997,8 @@ const app = {
             busy: {},
             theme: document.documentElement.dataset.theme,
             skin: storage_get('serviceman.skin') || '',
+            // The numbers beside each machine in the rail, as its Overview's tiles tick them
+            rail_numbers: rail_numbers_read(),
             skins: [],
             skin_menu: false,
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
@@ -2277,6 +2283,14 @@ const app = {
         },
         rail_remotes: function () {
             return this.state.remotes.slice().sort((a, b) => rail_compare(a.title || a.name, b.title || b.name));
+        },
+        // Each machine's bars in the rail by its name, null for one that shows none
+        rail_gauges_of: function () {
+            const out = {};
+            for (const item of this.state.remotes) {
+                out[item.name] = rail_gauges(item, this.rail_numbers);
+            }
+            return out;
         },
         rail_secrets: function () {
             return this.secret_names.slice().sort(rail_compare);
@@ -2920,6 +2934,12 @@ const app = {
             this.selected_name = name;
             this.remote_name = null;
         },
+        // A tick on a machine's Overview tile shows that number beside every machine in the rail
+        rail_number_pick: function (pick) {
+            const others = this.rail_numbers.filter(v => (v !== pick.key));
+            this.rail_numbers = pick.on ? [...others, pick.key] : others;
+            storage_set('serviceman.rail_numbers', JSON.stringify(this.rail_numbers));
+        },
         theme_toggle: function () {
             this.theme = (this.theme === 'dark') ? 'light' : 'dark';
             document.documentElement.dataset.theme = this.theme;
@@ -3096,6 +3116,19 @@ function icon_html(name)
 function problem_seen_key(problem)
 {
     return `${problem.key} ${problem.since}`;
+}
+
+// The numbers ticked for the rail in this browser: CPU and memory until one is ticked or
+// unticked, and the same for anything unreadable
+function rail_numbers_read()
+{
+    try {
+        const kept = JSON.parse(storage_get('serviceman.rail_numbers'));
+        return Array.isArray(kept) ? kept.filter(v => ['cpu', 'memory', 'disk'].includes(v)) : ['cpu', 'memory'];
+    }
+    catch {
+        return ['cpu', 'memory'];
+    }
 }
 
 // The problems the bar was closed on, kept in this browser; anything unreadable is none

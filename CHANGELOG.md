@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.13 — 2026-10-30
+
+- Each machine in the rail shows its CPU and memory as two small bars; a tick on the CPU, Memory
+  and Disk tiles of its Overview chooses which, kept in this browser.
+
 ## 1.0.12 — 2026-10-30
 
 - A forward a token adds or changes says which token asked for it (`by`), shown on the page. A
