@@ -58,15 +58,24 @@
     --accent-press: #0e86c2;
     --code: #18171b;
     --run-soft: #1e3318;
+    --run-edge: #2f6b22;
     --busy-soft: #3a2810;
+    --busy-edge: #7a4300;
     --busy-text: #ffa21e;
     --bad-soft: #3b1f22;
     --bad-edge: #6b2e33;
+    --accent-edge: #1d5b80;
     --overlay: rgba(0, 0, 0, .6);
     --shadow-pop: 0 4px 16px rgba(0, 0, 0, .4);
     --shadow-up: 0 -4px 16px rgba(0, 0, 0, .4);
     --shadow-dialog: 0 8px 32px rgba(0, 0, 0, .5);
     --focus-ring: 0 0 0 2px #3a392e, 0 0 0 4px #1299da;
+    /* What the browser draws itself, scrollbars, checkboxes and the list a select opens, dark
+       too, where it drew them white: the scrollbars a thumb of the buttons' border colour on
+       nothing, the boxes ticked in the accent */
+    color-scheme: dark;
+    scrollbar-color: var(--line-strong) transparent;
+    accent-color: var(--accent);
 }
 
 * {
@@ -312,7 +321,7 @@ button:disabled:hover {
 
 .skin-card.on {
     border-color: var(--accent);
-    background: var(--hover);
+    background: var(--sel);
 }
 
 .skin-card img {
@@ -1415,7 +1424,7 @@ pre {
 
 .form .kind.on {
     border-color: var(--accent);
-    background: var(--hover);
+    background: var(--sel);
 }
 
 .form .kind .muted {
@@ -1891,7 +1900,7 @@ button.chip {
 
 button.chip.on {
     border-color: var(--accent);
-    background: var(--hover);
+    background: var(--sel);
     color: var(--link);
 }
 
@@ -1920,7 +1929,7 @@ button.chip.on {
 }
 
 .seg button.on {
-    background: var(--hover);
+    background: var(--sel);
     color: var(--link);
     font-weight: 600;
 }
@@ -4067,7 +4076,7 @@ article.rf .actions {
 .rf-kind.on {
     border-color: var(--accent);
     box-shadow: inset 0 0 0 1px var(--accent);
-    background: var(--hover);
+    background: var(--sel);
 }
 
 /* Olive 3 has no white: the line of trouble is its danger tag across the page, and the ring of
@@ -4086,6 +4095,103 @@ article.rf .actions {
 :root[data-theme="dark"] .alert {
     border-color: var(--bad-edge);
     background: var(--bad-soft);
+}
+
+/* So is the bar of problems across the top */
+:root[data-theme="dark"] #problems-bar {
+    border-bottom-color: var(--bad-edge);
+    background: var(--bad-soft);
+}
+
+/* Olive 3's tags have an edge of their own colour; drawn inside, so a tag is no bigger than
+   in the light theme */
+:root[data-theme="dark"] .pill.running {
+    box-shadow: inset 0 0 0 1px var(--run-edge);
+}
+
+:root[data-theme="dark"] .pill.failed {
+    box-shadow: inset 0 0 0 1px var(--bad-edge);
+}
+
+:root[data-theme="dark"] :is(.pill.waiting, .pill.starting) {
+    box-shadow: inset 0 0 0 1px var(--busy-edge);
+}
+
+/* A count that opens its list is the accent's tag */
+:root[data-theme="dark"] button.tag {
+    background: var(--sel);
+    box-shadow: inset 0 0 0 1px var(--accent-edge);
+}
+
+/* The search in the header is a field, as every field is */
+:root[data-theme="dark"] #find {
+    background: var(--panel);
+}
+
+/* The Config editor in the dark theme (its Ace theme serviceman_dark names this class and
+   nothing else): code's background, the page's text and Olive 3's colours for what a word is,
+   as the file editor has them */
+.ace-serviceman-dark {
+    background: var(--code);
+    color: var(--fg);
+}
+
+.ace-serviceman-dark .ace_gutter {
+    background: var(--panel);
+    color: var(--muted);
+}
+
+.ace-serviceman-dark .ace_gutter-active-line,
+.ace-serviceman-dark .ace_marker-layer .ace_active-line {
+    background: var(--hover);
+}
+
+.ace-serviceman-dark .ace_marker-layer .ace_selection {
+    background: var(--sel);
+}
+
+.ace-serviceman-dark .ace_marker-layer .ace_selected-word,
+.ace-serviceman-dark .ace_marker-layer .ace_bracket {
+    border: 1px solid var(--line-strong);
+}
+
+.ace-serviceman-dark .ace_marker-layer .ace_bracket {
+    margin: -1px 0 0 -1px;
+}
+
+.ace-serviceman-dark .ace_cursor {
+    color: var(--fg);
+}
+
+.ace-serviceman-dark .ace_print-margin {
+    width: 1px;
+    background: var(--line);
+}
+
+.ace-serviceman-dark .ace_fold {
+    border-color: var(--fg);
+    background-color: var(--accent);
+}
+
+.ace-serviceman-dark :is(.ace_variable, .ace_keyword, .ace_storage) {
+    color: var(--link);
+}
+
+.ace-serviceman-dark :is(.ace_string, .ace_regexp) {
+    color: var(--run);
+}
+
+.ace-serviceman-dark .ace_constant {
+    color: var(--busy-text);
+}
+
+.ace-serviceman-dark :is(.ace_paren, .ace_punctuation, .ace_comment) {
+    color: var(--muted);
+}
+
+.ace-serviceman-dark .ace_invalid {
+    background: var(--bad-soft);
+    color: var(--bad);
 }
 
 /* Olive 3's red keeps to a card or its tag: straight on the olive page it reads at 4.2:1. A

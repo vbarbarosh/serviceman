@@ -233,6 +233,12 @@ p.fm-foot {
     font-weight: 600;
 }
 
+/* Olive 3's waiting tag, its edge drawn inside */
+:root[data-theme="dark"] .fm-paused {
+    background: var(--busy-soft);
+    box-shadow: inset 0 0 0 1px var(--busy-edge);
+}
+
 /* The speed across the copy: grid lines, the part done shaded, the speed drawn over it */
 .fm-graph {
     position: relative;
@@ -523,7 +529,7 @@ p.fm-foot {
 }
 
 .pill.starting {
-    background: color-mix(in srgb, var(--busy, #d38b12) 16%, transparent);
+    background: var(--busy-soft, color-mix(in srgb, var(--busy, #d38b12) 16%, transparent));
     color: var(--busy-text, var(--busy, #d38b12));
 }
 

@@ -1116,7 +1116,7 @@ const file_manager = {
             const dark = (this.theme === 'dark');
             return [
                 cm.EditorView.theme({
-                    '&': {height: '100%', backgroundColor: 'var(--panel)', color: 'var(--fg)'},
+                    '&': {height: '100%', backgroundColor: 'var(--code)', color: 'var(--fg)'},
                     '&.cm-focused': {outline: 'none'},
                     '.cm-scroller': {fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '13px'},
                     '.cm-gutters': {backgroundColor: 'var(--panel)', color: 'var(--muted)', borderRight: '1px solid var(--line)'},
@@ -1125,7 +1125,7 @@ const file_manager = {
                     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {backgroundColor: 'color-mix(in srgb, var(--accent) 28%, transparent)'},
                     '.cm-panels': {backgroundColor: 'var(--bg)', color: 'var(--fg)'},
                 }, {dark}),
-                cm.syntaxHighlighting(dark ? cm.oneDarkHighlightStyle : cm.defaultHighlightStyle),
+                cm.syntaxHighlighting(dark ? olive_highlight(cm) : cm.defaultHighlightStyle),
             ];
         },
         language_of: function (cm) {
@@ -1634,6 +1634,31 @@ function language_of(name)
     }
     const extension = lower.includes('.') ? lower.slice(lower.lastIndexOf('.') + 1) : '';
     return (LANGUAGE_BY_EXTENSION[extension] === undefined) ? 'text' : LANGUAGE_BY_EXTENSION[extension];
+}
+
+// What a word is, in Olive 3's colours for the dark theme, as the Config editor has them: words
+// of the language the accent's text, strings green, numbers and constants orange, comments and
+// punctuation the quiet text, what is wrong or taken out red; made once, as CodeMirror makes a
+// class for each
+let olive_highlight_made = null;
+function olive_highlight(cm)
+{
+    if (olive_highlight_made === null) {
+        const t = cm.tags;
+        olive_highlight_made = cm.HighlightStyle.define([
+            {tag: [t.keyword, t.operatorKeyword, t.modifier, t.propertyName, t.attributeName, t.tagName], color: 'var(--link)'},
+            {tag: [t.string, t.special(t.string), t.regexp, t.inserted], color: 'var(--run)'},
+            {tag: [t.number, t.bool, t.null, t.atom, t.constant(t.name), t.standard(t.name), t.typeName, t.className, t.changed], color: 'var(--busy-text)'},
+            {tag: [t.comment, t.meta, t.punctuation, t.processingInstruction], color: 'var(--muted)'},
+            {tag: [t.invalid, t.deleted], color: 'var(--bad)'},
+            {tag: t.heading, color: 'var(--fg)', fontWeight: 'bold'},
+            {tag: t.strong, fontWeight: 'bold'},
+            {tag: t.emphasis, fontStyle: 'italic'},
+            {tag: t.strikethrough, textDecoration: 'line-through'},
+            {tag: [t.link, t.url], color: 'var(--link)', textDecoration: 'underline'},
+        ]);
+    }
+    return olive_highlight_made;
 }
 
 // Whether the text differs from what was read; the length first, so a keystroke in a big file

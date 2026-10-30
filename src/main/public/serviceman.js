@@ -3069,9 +3069,19 @@ function plural(count, one, many)
     return (count === 1) ? one : many;
 }
 
+// The dark theme is the page's own: it names a class, and serviceman.css draws that class from
+// the page's tokens, so the editor wears Olive 3 as the file editor does
 function ace_theme(theme)
 {
-    return (theme === 'dark') ? 'ace/theme/github_dark' : 'ace/theme/github_light_default';
+    if (theme !== 'dark') {
+        return 'ace/theme/github_light_default';
+    }
+    ace.define('ace/theme/serviceman_dark', ['require', 'exports'], function (require, exports) {
+        exports.isDark = true;
+        exports.cssClass = 'ace-serviceman-dark';
+        exports.cssText = '';
+    });
+    return 'ace/theme/serviceman_dark';
 }
 
 function icon_html(name)

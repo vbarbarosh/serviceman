@@ -2,7 +2,7 @@
 // one file it maps as `codemirror`, and the page loads it the first time a file is opened
 import {Compartment, EditorState} from '@codemirror/state';
 import {EditorView, keymap} from '@codemirror/view';
-import {StreamLanguage, defaultHighlightStyle, syntaxHighlighting} from '@codemirror/language';
+import {HighlightStyle, StreamLanguage, defaultHighlightStyle, syntaxHighlighting} from '@codemirror/language';
 import {basicSetup} from 'codemirror';
 import {css} from '@codemirror/lang-css';
 import {diff} from '@codemirror/legacy-modes/mode/diff';
@@ -15,7 +15,6 @@ import {json} from '@codemirror/lang-json';
 import {lua} from '@codemirror/legacy-modes/mode/lua';
 import {markdown} from '@codemirror/lang-markdown';
 import {nginx} from '@codemirror/legacy-modes/mode/nginx';
-import {oneDarkHighlightStyle} from '@codemirror/theme-one-dark';
 import {perl} from '@codemirror/legacy-modes/mode/perl';
 import {php} from '@codemirror/lang-php';
 import {properties} from '@codemirror/legacy-modes/mode/properties';
@@ -24,6 +23,7 @@ import {ruby} from '@codemirror/legacy-modes/mode/ruby';
 import {rust} from '@codemirror/legacy-modes/mode/rust';
 import {shell} from '@codemirror/legacy-modes/mode/shell';
 import {sql} from '@codemirror/lang-sql';
+import {tags} from '@lezer/highlight';
 import {toml} from '@codemirror/legacy-modes/mode/toml';
 import {xml} from '@codemirror/lang-xml';
 import {yaml} from '@codemirror/lang-yaml';
@@ -61,13 +61,14 @@ const codemirror = {
     Compartment,
     EditorState,
     EditorView,
+    HighlightStyle,
     basicSetup,
     defaultHighlightStyle,
     indentWithTab,
     keymap,
     languages,
-    oneDarkHighlightStyle,
     syntaxHighlighting,
+    tags,
 };
 
 export default codemirror;

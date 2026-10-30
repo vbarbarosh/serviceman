@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.9 — 2026-10-30
+
+- The dark theme's loose ends: scrollbars, checkboxes and select lists dark (they were white),
+  both editors in Olive 3's code colours, tags with their edges, selected buttons in the
+  selected colour, the header's search a field. The light theme is unchanged.
+
 ## 1.0.8 — 2026-10-29
 
 - Takes out two files of a terminal a local test opened (src/agent/terminals/), which 1.0.7
