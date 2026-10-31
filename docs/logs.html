@@ -1186,7 +1186,7 @@ config is shortened, because the real one was a scratch folder.</p>
 reach the host — so one dial-in reads as one story on both ends. <code>SERVICEMAN_LOG_DIR</code> gives it
 daily files of its own — <code>logs/agent/20260823.txt</code> beside the agent, because a machine kept up
 by systemd has nobody watching its stdout; an agent before 1.20 wrote <code>logs/20260823.log</code>, and
-moves those days in there when it starts. Its <code>status</code> file says what it is doing right now.</p>
+moves those days in there when it starts. <code>bin/status</code> beside it asks it what it is doing right now.</p>
 <pre><code>[2026-08-23T00:05:29.424Z][ce0b2bi6rr4b][agent_begin] agent=1.0.0 built=2026-08-22T23:04:46.633Z node=v24.14.1 machine=laptop url=http://serviceman:3001
 [2026-08-23T00:05:29.426Z][cqylf7b4xvwt][agent_connect_begin] url=http://serviceman:3001
 [2026-08-23T00:05:29.431Z][cqylf7b4xvwt][agent_connect_end_ok] remote=laptop

@@ -95,11 +95,12 @@ root, `~/serviceman-agent` otherwise:
     agent.js.sig   the host's signature of it
     servermon.js   the machine's load every second, written and kept running by the agent
     env            where the host is, the token, and the host's public key. Mode 600.
-    status         what the agent is doing right now, rewritten every few seconds
+    status.sock    where the agent answers bin/status; nothing is kept on disk to go stale
     logs/agent/    the agent's log, one file a day: logs/agent/20260823.txt
     logs/servermon/  servermon's, a JSON line a second, one file a day: logs/servermon/20260823.jsonl
     services/      everything the host asked this machine to install, a folder each
     bin/install    puts it under systemd, or says how to run it. Safe to run again.
+    bin/status     asks the agent what it is doing now: its link, its programs, its last error
     bin/restart    starts it again — what a line added to env needs to take
     bin/uninstall  stops it and takes it out of systemd
     README.md      the same, on the machine, for whoever finds it there

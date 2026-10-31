@@ -285,7 +285,7 @@ The agent on a remote machine writes the same shape of line, with a group for ev
 reach the host — so one dial-in reads as one story on both ends. `SERVICEMAN_LOG_DIR` gives it
 daily files of its own — `logs/agent/20260823.txt` beside the agent, because a machine kept up
 by systemd has nobody watching its stdout; an agent before 1.20 wrote `logs/20260823.log`, and
-moves those days in there when it starts. Its `status` file says what it is doing right now.
+moves those days in there when it starts. `bin/status` beside it asks it what it is doing right now.
 
     [2026-08-23T00:05:29.424Z][ce0b2bi6rr4b][agent_begin] agent=1.0.0 built=2026-08-22T23:04:46.633Z node=v24.14.1 machine=laptop url=http://serviceman:3001
     [2026-08-23T00:05:29.426Z][cqylf7b4xvwt][agent_connect_begin] url=http://serviceman:3001

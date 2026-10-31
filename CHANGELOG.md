@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.15 — 2026-10-31
+
+- docs/remotes.md and logs.md named a `status` file beside the agent; it is `bin/status`, which
+  asks the running agent over its socket.
+
 ## 1.0.14 — 2026-10-31
 
 - The Health check asks a machine once a link, not every minute, about a mounted file its agent
