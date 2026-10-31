@@ -1,4 +1,5 @@
 const agent_metrics_average = require('../src/agent/src/agent_metrics_average');
+const agent_metrics_ping = require('../src/agent/src/agent_metrics_ping');
 const agent_metrics_read = require('../src/agent/src/agent_metrics_read');
 const assert = require('assert');
 const fs = require('fs');
@@ -10,6 +11,9 @@ const test = require('node:test');
 // agent asks for its folder when it reads, so setting it here is in time
 process.env.SERVICEMAN_AGENT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-metrics-'));
 const DIR = path.join(process.env.SERVICEMAN_AGENT_DIR, 'metrics');
+// servermon's day files, which the ten minutes are read from
+process.env.SERVICEMAN_LOG_DIR = path.join(process.env.SERVICEMAN_AGENT_DIR, 'logs');
+const SERVERMON_DIR = path.join(process.env.SERVICEMAN_LOG_DIR, 'servermon');
 
 const MINUTE_MS = 60*1000;
 
@@ -76,11 +80,92 @@ test('a machine that never wrote anything has an empty history, not an error', f
     assert.deepStrictEqual(agent_metrics_read({range: '30d'}).points, []);
 });
 
+test('ten minutes are the lines of servermon, a point a second, and the minutes before are left out', function () {
+    servermon_clear();
+    const now = Math.floor(Date.now()/1000)*1000;
+    const lines = [];
+    for (let at = now - 12*MINUTE_MS; at <= now - 1000; at += 1000) {
+        lines.push(servermon_line(at, 50));
+    }
+    servermon_write('20261031', lines);
+    const answer = agent_metrics_read({range: '10m'});
+    assert.strictEqual(answer.step_ms, 1000);
+    assert.ok((answer.points.length >= 598) && (answer.points.length <= 600), `${answer.points.length} points`);
+    assert.ok(answer.points.every(v => v.at > answer.from), 'nothing older than ten minutes');
+    const point = answer.points[answer.points.length - 1];
+    assert.strictEqual(point.at, now - 1000);
+    assert.strictEqual(point.cpu, 0.5);
+    assert.strictEqual(point.mem, 300);
+    assert.strictEqual(point.disk, 70);
+    assert.strictEqual(point.net_in, 5000);
+    assert.strictEqual(point.tcp, 7);
+});
+
+test('ten minutes since a point are the seconds after it, and reach into the day before at midnight', function () {
+    servermon_clear();
+    const now = Math.floor(Date.now()/1000)*1000;
+    // The day turned two minutes ago: the eight minutes before are in yesterday's file
+    servermon_write('20261030', range_lines(now - 11*MINUTE_MS, now - 2*MINUTE_MS));
+    servermon_write('20261031', range_lines(now - 2*MINUTE_MS, now));
+    const whole = agent_metrics_read({range: '10m'});
+    assert.ok(whole.points.length >= 598, `${whole.points.length} points across the two files`);
+    assert.strictEqual(whole.since, null);
+    const since = now - 5000;
+    const part = agent_metrics_read({range: '10m', since});
+    assert.deepStrictEqual(part.points.map(v => v.at), [now - 4000, now - 3000, now - 2000, now - 1000]);
+    assert.strictEqual(part.since, since);
+});
+
+test('each second says the last beat\'s ping before it, and none once two beats are missed', function () {
+    servermon_clear();
+    const now = Math.floor(Date.now()/1000)*1000;
+    servermon_write('20261031', range_lines(now - 60000, now));
+    agent_metrics_ping(40, now - 50500);
+    agent_metrics_ping(60, now - 40500);
+    const points = agent_metrics_read({range: '10m'}).points;
+    assert.strictEqual(ping_at(points, now - 55000), null, 'before the first beat');
+    assert.strictEqual(ping_at(points, now - 45000), 40);
+    assert.strictEqual(ping_at(points, now - 35000), 60);
+    assert.strictEqual(ping_at(points, now - 5000), null, 'thirty seconds with no beat');
+});
+
 test('a mean counts only the samples that had the number', function () {
     const mean = agent_metrics_average([{at: 1, cpu: 0.2, ping: null}, {at: 2, cpu: 0.4, ping: 30}, {at: 3, cpu: 0.6}], 0);
     assert.deepStrictEqual(mean, {at: 0, cpu: 0.4, ping: 30});
     assert.deepStrictEqual(agent_metrics_average([{at: 1, ping: null}], 0), {at: 0, ping: null});
 });
+
+// The ping said at a second of the ten minutes
+function ping_at(points, at)
+{
+    return points.find(v => v.at === at).ping;
+}
+
+function servermon_clear()
+{
+    fs.rmSync(SERVERMON_DIR, {recursive: true, force: true});
+}
+
+// A line as servermon writes it: the cpu in percent, the rest in bytes and counts
+function servermon_line(at, cpu)
+{
+    return {time: new Date(at).toISOString(), cpu, load: 1, mem_used: 300, mem_total: 1000, mounts: [{used: 40, size: 100}, {used: 30, size: 100}], disks: [{read: 10, write: 20}], nets: [{in: 5000, out: 600}], tcp: {open: 7}};
+}
+
+function range_lines(from, to)
+{
+    const out = [];
+    for (let at = from; at < to; at += 1000) {
+        out.push(servermon_line(at, 50));
+    }
+    return out;
+}
+
+function servermon_write(name, lines)
+{
+    fs.mkdirSync(SERVERMON_DIR, {recursive: true});
+    fs.writeFileSync(path.join(SERVERMON_DIR, `${name}.jsonl`), lines.map(v => `${JSON.stringify(v)}\n`).join(''));
+}
 
 function files_clear()
 {

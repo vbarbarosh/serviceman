@@ -2117,8 +2117,10 @@ async function machine_read(running, name, what)
 
 test('a machine keeps its own numbers, the page reads them, and sees the last of them while it is away', async function () {
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
-    // A sample every 300ms and a beat every 100ms: a test cannot wait half a minute
-    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_METRICS_MS: '300', SERVICEMAN_BEAT_MS: '100'}, LOGS_ENV));
+    // A sample every 1.5s and a beat every 100ms: a test cannot wait half a minute. Not faster:
+    // a sample looks back as far as the last one, and servermon dates its lines to the second,
+    // so a sample every 300ms found none of them
+    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_METRICS_MS: '1500', SERVICEMAN_BEAT_MS: '100'}, LOGS_ENV));
     try {
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
@@ -2145,6 +2147,26 @@ test('a machine keeps its own numbers, the page reads them, and sees the last of
         assert.strictEqual(wrong.status, 400);
         const nowhere = await machine_read(running, 'nowhere', 'metrics?range=1h');
         assert.strictEqual(nowhere.status, 404);
+
+        // The ten minutes, a point a second from servermon's lines; read again, the points kept
+        // stay as they were and the new seconds come after them, none twice
+        const live = await machine_read(running, 'ui1', 'metrics?range=10m');
+        assert.strictEqual(live.status, 200);
+        assert.strictEqual(live.body.step_ms, 1000);
+        assert.ok(live.body.points.length > 0, 'servermon has written a line');
+        await timers.setTimeout(2500);
+        const later = await machine_read(running, 'ui1', 'metrics?range=10m');
+        assert.ok(later.body.points.length > live.body.points.length, `${live.body.points.length} then ${later.body.points.length} points`);
+        assert.deepStrictEqual(later.body.points.slice(0, live.body.points.length), live.body.points);
+        const ats = later.body.points.map(v => v.at);
+        assert.deepStrictEqual(ats, [...new Set(ats)].sort((a, b) => a - b), 'each second once, in order');
+        assert.ok(later.body.points.some(v => v.ping !== null), 'the beats\' pings are said in the seconds after them');
+
+        // An agent from before the ten minutes is told so; the other ranges still work
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'metrics_live');
+        const no_live = await machine_read(running, 'ui1', 'metrics?range=10m');
+        assert.strictEqual(no_live.status, 400);
+        assert.match(no_live.body.error, /before the ten-minute chart/);
 
         // An agent from before charts is told so, not asked
         remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'metrics');

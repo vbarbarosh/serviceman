@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.16 — 2026-10-31
+
+- History has a **10m** range: servermon's lines, a point a second, read every second (only the
+  new seconds cross the link); a refresh no longer dims the charts. Agent 1.32.0.
+
 ## 1.0.15 — 2026-10-31
 
 - docs/remotes.md and logs.md named a `status` file beside the agent; it is `bin/status`, which

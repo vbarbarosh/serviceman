@@ -298,15 +298,21 @@ this browser's. A machine that is away shows none, one that does not answer show
 as what it said last, and a number it does not say is an empty bar.
 
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
-connections and ping, over the last hour, day, week or month. The agent keeps the numbers on
+connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
 30 seconds made from servermon's lines of that half minute, for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
-the time from each of its beats to serviceman's answer. The page reads a range when it opens
-and every half minute after, from `GET /api/v1/remotes/<name>/metrics?range=1h|24h|7d|30d`,
-which asks the agent and keeps nothing but the last answer for each range: that answer is shown
-while the machine is offline, marked with the time it was read. The minutes a machine was off
+the time from each of its beats to serviceman's answer. **10m** is servermon's own lines, a
+point a second, nothing averaged, with the last beat's ping held for each second until the next
+(none once 30 seconds pass with no beat); the page reads it every second, and serviceman asks the
+agent only for the seconds after the last point it keeps, so a second's read carries a second's
+lines. The other ranges are read when the pane opens and every half minute after, from
+`GET /api/v1/remotes/<name>/metrics?range=10m|1h|24h|7d|30d`, which asks the agent and keeps
+nothing but the last answer for each range: that answer is shown while the machine is offline,
+marked with the time it was read. A refresh does not dim the charts; another range picked does,
+until it comes. The minutes a machine was off
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
-against the others. An agent before 1.9 has no charts, and the pane says how to update it.
+against the others. An agent before 1.9 has no charts, and the pane says how to update it; one
+before 1.32 has no 10m, and the pane says so when it is picked.
 
 **Uptime** is a bar a day for the last 30, in one row under the machine's name, its share of
 those days at the end of it: green when servermon wrote a line every second of it, orange from

@@ -1,12 +1,14 @@
 import format_bps from './format_bps.js';
 import overview_icons from './overview_icons.js';
 
-// How often an open chart is read again: the machine writes a line every half minute
+// How often an open chart is read again: the machine writes a line every half minute, and
+// servermon, which the ten minutes are read from, a line every second
 const CHARTS_EVERY_MS = 30000;
+const CHARTS_LIVE_EVERY_MS = 1000;
 const CHARTS_RANGE_KEY = 'serviceman.charts_range';
 
 // The ranges a chart covers, as the machine's agent names them
-const CHART_RANGES = ['1h', '24h', '7d', '30d'];
+const CHART_RANGES = ['10m', '1h', '24h', '7d', '30d'];
 const CHART_W = 1000;
 const CHART_H = 100;
 
@@ -25,7 +27,8 @@ const OVERVIEW_CHARTS = [
 
 // The machine's history, one chart per OVERVIEW_CHARTS entry, with the range to pick. The
 // numbers are read from the machine, which keeps them: when the pane opens, every half minute
-// after, and when another range is picked; what was read stays on screen while the next is read.
+// after (every second for the ten minutes), and when another range is picked; what was read
+// stays on screen while the next is read, dimmed only while another range is on its way.
 // The cursor follows the mouse over any chart, and every chart shows its value at that moment:
 // the spike in one is read against the others.
 const remote_charts = {
@@ -95,6 +98,9 @@ const remote_charts = {
             if (this.data.away) {
                 return `as the machine said it at ${chart_time(this.data.to, '1h')} — it is offline now`;
             }
+            if ((this.data.points.length === 0) && (this.data.range === '10m')) {
+                return 'nothing from servermon in the last ten minutes';
+            }
             if (this.data.points.length === 0) {
                 return 'nothing written yet: the first numbers come half a minute after its agent starts';
             }
@@ -136,7 +142,13 @@ const remote_charts = {
             return (this.point === null) ? null : `${chart_x(this.point.at + this.data.step_ms/2, this.data)/CHART_W*100}%`;
         },
         at: function () {
-            return (this.point === null) ? '' : new Date(this.point.at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+            if (this.point === null) {
+                return '';
+            }
+            if (this.data.range === '10m') {
+                return new Date(this.point.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'});
+            }
+            return new Date(this.point.at).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
         },
         from: function () {
             return (this.data === null) ? '' : chart_time(this.data.from, this.data.range);
@@ -158,7 +170,8 @@ const remote_charts = {
         load: async function () {
             clearTimeout(this.timer);
             const asked = ++this.asked;
-            this.loading = true;
+            // A refresh of what is shown is not dimmed: the ten minutes come every second
+            this.loading = ((this.data === null) || (this.data.range !== this.range));
             let data = null;
             let reason = null;
             let old = false;
@@ -183,7 +196,7 @@ const remote_charts = {
             this.error = reason;
             this.old = old;
             this.loading = false;
-            this.timer = setTimeout(() => this.load(), CHARTS_EVERY_MS);
+            this.timer = setTimeout(() => this.load(), (this.range === '10m') ? CHARTS_LIVE_EVERY_MS : CHARTS_EVERY_MS);
         },
         hover: function (event) {
             if (this.data === null) {
@@ -298,7 +311,7 @@ function chart_x(at, data)
 function chart_time(at, range)
 {
     const date = new Date(at);
-    if ((range === '1h') || (range === '24h')) {
+    if ((range === '10m') || (range === '1h') || (range === '24h')) {
         return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
     }
     return date.toLocaleDateString([], {month: 'short', day: 'numeric'});

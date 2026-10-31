@@ -1,6 +1,6 @@
 const agent_metrics_average = require('./agent_metrics_average');
 const agent_metrics_dir = require('./agent_metrics_dir');
-const agent_metrics_rounded = require('./agent_metrics_rounded');
+const agent_metrics_sample = require('./agent_metrics_sample');
 const agent_metrics_state = require('./agent_metrics_state');
 const agent_say = require('./agent_say');
 const agent_servermon_lines = require('./agent_servermon_lines');
@@ -76,8 +76,7 @@ async function sample_write(group)
     }
 }
 
-// One line: servermon's lines since the last one, the rates and the cpu as their mean, the
-// rest as the last of them says; null when there are none
+// One line: servermon's lines since the last one (agent_metrics_sample); null when there are none
 function sample_take()
 {
     const since = (state.taken_at === null) ? (Date.now() - SAMPLE_EVERY_MS) : state.taken_at;
@@ -87,36 +86,8 @@ function sample_take()
     }
     // Taken only with a line to go in: the beats' pings wait for the next one
     const pings = agent_metrics_state.pings.splice(0);
-    const last = rows[rows.length - 1];
-    state.taken_at = last.at;
-    return agent_metrics_rounded({
-        at: Date.now(),
-        cpu: mean(rows.map(v => (v.cpu === null) ? null : v.cpu/100)),
-        load: last.load,
-        mem: last.mem_used,
-        mem_total: last.mem_total,
-        disk: sum_of(last.mounts, 'used'),
-        disk_total: sum_of(last.mounts, 'size'),
-        disk_read: mean(rows.map(v => sum_of(v.disks, 'read'))),
-        disk_write: mean(rows.map(v => sum_of(v.disks, 'write'))),
-        net_in: mean(rows.map(v => sum_of(v.nets, 'in'))),
-        net_out: mean(rows.map(v => sum_of(v.nets, 'out'))),
-        tcp: last.tcp.open,
-        ping: mean(pings),
-    });
-}
-
-// The items' values added up; null when none of them has one
-function sum_of(items, key)
-{
-    const values = items.map(v => v[key]).filter(v => (typeof v === 'number'));
-    return (values.length === 0) ? null : values.reduce((a, b) => a + b, 0);
-}
-
-function mean(values)
-{
-    const found = values.filter(v => (typeof v === 'number'));
-    return (found.length === 0) ? null : found.reduce((a, b) => a + b, 0)/found.length;
+    state.taken_at = rows[rows.length - 1].at;
+    return agent_metrics_sample(rows, pings, Date.now());
 }
 
 function files_prune(dir, now)

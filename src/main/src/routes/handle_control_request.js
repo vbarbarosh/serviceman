@@ -144,7 +144,7 @@ const SECURITY_MENDS = ['ssh_passwords_off', 'ssh_passwords_on', 'auto_updates_o
 const SECURITY_MEND_TIMEOUT_MS = 6*60*1000;
 // A count of a whole disk reads every folder on it; the agent gives up a little before this
 const DISK_USAGE_TIMEOUT_MS = 300000;
-const METRICS_RANGES = ['1h', '24h', '7d', '30d'];
+const METRICS_RANGES = ['10m', '1h', '24h', '7d', '30d'];
 const RE_REMOTE_AGENT = /^\/api\/v1\/remotes\/([^/]+)\/agent-update$/;
 const RE_REMOTE_LINK_TEST = /^\/api\/v1\/remotes\/([^/]+)\/link-test$/;
 // A screen is a few megabytes over a link, and a machine that will not take the picture says
@@ -1342,7 +1342,7 @@ async function apt_cancel(app, remote)
     return remote_call(app, remote, 'apt_cancel', {});
 }
 
-// GET /api/v1/remotes/<name>/metrics?range=1h|24h|7d|30d
+// GET /api/v1/remotes/<name>/metrics?range=10m|1h|24h|7d|30d
 // The machine's charts: its numbers over the range, as its agent keeps them on its own disk.
 // The last answer for each range is kept here too, and shown while the machine is away, with
 // `away: true`: the minutes before it went are what the reader came for.
@@ -1370,8 +1370,19 @@ async function handle_remote_metrics(app, res, name, range)
         send_json(res, 400, {error: `the agent on ${name} is from before charts: an update to 1.9 or newer brings them`, old_agent: true});
         return;
     }
+    if ((range === '10m') && (remote_can(remote, 'metrics_live') === false)) {
+        send_json(res, 400, {error: `the agent on ${name} is from before the ten-minute chart: an update to 1.32 or newer brings it`});
+        return;
+    }
     try {
-        const answer = await remote_call(app, remote, 'metrics', {range}, MACHINE_READ_TIMEOUT_MS);
+        // The ten minutes are read every second: the machine is asked only for the seconds after
+        // the last point kept, and the answer is the kept points with those added
+        const since = ((range === '10m') && (kept !== undefined) && (kept.points.length > 0)) ? kept.points[kept.points.length - 1].at : null;
+        let answer = await remote_call(app, remote, 'metrics', (since === null) ? {range} : {range, since}, MACHINE_READ_TIMEOUT_MS);
+        if (since !== null) {
+            const added = answer.points.filter(v => v.at > since);
+            answer = Object.assign({}, answer, {since: null, points: kept.points.filter(v => v.at > answer.from).concat(added)});
+        }
         remote.state.metrics[range] = answer;
         send_json(res, 200, Object.assign({}, answer, {away: false}));
     }

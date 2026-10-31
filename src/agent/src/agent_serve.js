@@ -18,6 +18,7 @@ const agent_link = require('./agent_link');
 const agent_link_create = require('./agent_link_create');
 const agent_logline = require('./agent_logline');
 const agent_logline_set = require('./agent_logline_set');
+const agent_metrics_ping = require('./agent_metrics_ping');
 const agent_metrics_read = require('./agent_metrics_read');
 const agent_metrics_state = require('./agent_metrics_state');
 const agent_package_list = require('./agent_package_list');
@@ -219,7 +220,7 @@ function frame_read(options, state, kind, body, group)
         // The host's answer to a beat: it is there, and the time it said so is written above.
         // The way there and back is the machine's ping, kept for its charts.
         if (agent_metrics_state.beat_sent_at !== null) {
-            agent_metrics_state.pings.push(state.heard_at - agent_metrics_state.beat_sent_at);
+            agent_metrics_ping(state.heard_at - agent_metrics_state.beat_sent_at, state.heard_at);
             agent_metrics_state.beat_sent_at = null;
         }
         return;
