@@ -74,6 +74,9 @@ function remote_state()
         next_call_id: 0,
         streams: {},
         next_stream_id: 0,
+        // The files its containers mount that its agent may not open, asked once a link
+        // (problems_of_remote): {path: true}
+        stat_refused: {},
         last_error: null,
     };
 }

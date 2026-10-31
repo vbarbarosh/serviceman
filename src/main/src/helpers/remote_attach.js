@@ -350,6 +350,7 @@ function link_gone(app, remote, socket)
         stream_gone(state.streams[id], remote.name);
     }
     state.streams = {};
+    state.stat_refused = {};
     log_event(app, 'remote_offline', {remote: remote.name, held, reason: ((reason === null) || (reason === undefined)) ? undefined : reason});
     remote_services_lost(app, remote);
 }

@@ -43,14 +43,23 @@ async function problems_of_remote(app, remote)
     return {problems: problems_from_containers(remote.name, list, inspect, gone), seen: [[`docker:${remote.name}`, {state: 'ok', text, detail: 'Every container Docker is meant to keep running runs, and the files they mount are there.'}]]};
 }
 
-// Only a name that is not there counts: one the agent may not open is somebody else's
+// Only a name that is not there counts: one the agent may not open is somebody else's. It stays
+// somebody else's while the link holds, so it is asked once a link and not every minute: the
+// shared folders' home, root's alone, wrote four refusals a minute into both logs.
 async function missing(app, remote, path)
 {
+    const refused = remote.state.stat_refused;
+    if (refused[path] === true) {
+        return false;
+    }
     try {
         await remote_call(app, remote, 'fs_stat', {path});
         return false;
     }
     catch (error) {
+        if (/EACCES|EPERM/.test(error.message)) {
+            refused[path] = true;
+        }
         return /ENOENT/.test(error.message);
     }
 }

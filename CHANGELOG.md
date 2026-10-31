@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.14 — 2026-10-31
+
+- The Health check asks a machine once a link, not every minute, about a mounted file its agent
+  may not open: the shared folders' home wrote four EACCES lines a minute into both logs.
+
 ## 1.0.13 — 2026-10-30
 
 - Each machine in the rail shows its CPU and memory as two small bars; a tick on the CPU, Memory
