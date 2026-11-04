@@ -204,7 +204,7 @@ config is shortened, because the real one was a scratch folder.
 | `serviceman_begin`       | The config it read, and how much is in it.                    |
 | `serviceman_listen`      | The address the services are served on.                       |
 | `serviceman_control`     | The hostname and the port of the control page.                |
-| `remote_dropped`         | A link the host let go on purpose — a changed or removed machine — after telling the agent; or reset at once because the way to the machine stood (`reason="the way to it stood"`): a quick call `waited=` 30 s or more, its `file=` `sent=` bytes it `taken=` only part of, `still=` that long, the machine still heard. |
+| `remote_dropped`         | A link the host let go on purpose — a changed or removed machine — after telling the agent; or reset at once because the way to the machine stood (`reason="the way to it stood"`) or fell behind (`reason="the way to it fell behind"`): a quick call `waited=` 30 s or more, the machine still heard, its `file=` `sent=` bytes it `taken=` only part of, `late=` of them sent 30 s ago and not taken yet, its bytes `still=` that long, 30 s or more when they stood. |
 | `serviceman_route`       | One service: its address, its kind, its policy.               |
 | `serviceman_remote`      | One remote, and the door its agent dials.                     |
 | `serviceman_log`         | Where these lines are written.                                |

@@ -45,7 +45,7 @@ test('a link test says how long the way to the machine stood', async function (t
     const link = running.links[running.links.length - 1];
     link.stand();
     await timers.setTimeout(1500);
-    link.stood = false;
+    link.creep(1024*1024);
     const summary = link_test.summary(await testing);
     assert.ok(summary.down_stood_ms >= 1250, `stood ${summary.down_stood_ms}`);
 });

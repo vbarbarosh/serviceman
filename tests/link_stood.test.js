@@ -21,15 +21,16 @@ process.env.SERVICEMAN_STOOD_MS = '1500';
 test('the way to a machine stands when a call waits and a file to it stood, the machine still heard', function () {
     const now = Date.now();
     const STOOD = link_stood.stood_ms();
+    // What it had sent by then: all of it, long ago, unless the test says otherwise
     function file(fields) {
-        return Object.assign({carries: {way: 'to', name: 'big.tar'}, opened_at: now - STOOD - 9000, sent: 10*1048576, taken: 6*1048576, taken_at: now - STOOD - 100, got: 0, got_at: null}, fields);
+        return Object.assign({carries: {way: 'to', name: 'big.tar'}, opened_at: now - STOOD - 9000, sent: 10*1048576, taken: 6*1048576, taken_at: now - STOOD - 100, got: 0, got_at: null, sent_by: () => 0}, fields);
     }
     // A quick call waiting, the machine heard 2 s ago, and the streams given
     function state(streams, fields) {
         return Object.assign({heard_at: now - 2000, unanswered_since: null, calls: {1: {method: 'term_list', at: now - STOOD - 500}}, streams}, fields);
     }
     const shell = {carries: null, opened_at: now - 60000, sent: 5, taken: 5, taken_at: now - 100, got: 9, got_at: now - 100};
-    assert.deepStrictEqual(link_stood(state({2: file({}), 4: shell}), now), {waited_ms: STOOD + 500, file: {name: 'big.tar', sent: 10*1048576, taken: 6*1048576, still_ms: STOOD + 100}});
+    assert.deepStrictEqual(link_stood(state({2: file({}), 4: shell}), now), {waited_ms: STOOD + 500, file: {name: 'big.tar', sent: 10*1048576, taken: 6*1048576, late: 0, still_ms: STOOD + 100}, behind: false});
     assert.strictEqual(link_stood(state({2: file({})}, {calls: {}}), now), null, 'every call answered');
     assert.strictEqual(link_stood(state({2: file({})}, {calls: {1: {method: 'apt_upgrade', at: now - 600000}}}), now), null, 'only an upgrade waits, and it takes its time');
     assert.strictEqual(link_stood(state({2: file({})}, {calls: {1: {method: 'term_list', at: now - STOOD + 100}}}), now), null, 'a call that waited less');
@@ -42,12 +43,86 @@ test('the way to a machine stands when a call waits and a file to it stood, the 
     assert.strictEqual(link_stood(state({2: file({taken: 0, taken_at: null, opened_at: now - STOOD - 900})}), now).file.still_ms, STOOD + 900, 'a file none of which was ever taken has stood since it opened');
 });
 
-// The link is reset and the agent dials in again; calls answer on the new link
+// The same server, 2026-11-04: its calls waited 2 minutes and more behind a screen recording
+// whose bytes still moved now and then, never still for half a minute. Bytes sent to it half a
+// minute ago and not taken yet are a way that does not carry, however they creep; bytes that
+// all got there within the half minute are a link that moves, however full.
+test('the way to a machine creeps when what was sent to it half a minute ago is not taken yet', function () {
+    const now = Date.now();
+    const STOOD = link_stood.stood_ms();
+    // Its bytes taken a moment ago; 7 MB of it sent by STOOD ago, 6 MB taken
+    function file(fields) {
+        return Object.assign({carries: {way: 'to', name: 'screen.webm'}, opened_at: now - STOOD - 9000, sent: 10*1048576, taken: 6*1048576, taken_at: now - 400, got: 0, got_at: null, sent_by: v => ((v <= now - STOOD) ? 7*1048576 : 10*1048576)}, fields);
+    }
+    function state(streams, fields) {
+        return Object.assign({heard_at: now - 2000, unanswered_since: now - STOOD - 500, calls: {}, streams}, fields);
+    }
+    assert.deepStrictEqual(link_stood(state({2: file({})}), now), {waited_ms: STOOD + 500, file: {name: 'screen.webm', sent: 10*1048576, taken: 6*1048576, late: 1048576, still_ms: 400}, behind: true});
+    assert.strictEqual(link_stood(state({2: file({taken: 7*1048576})}), now), null, 'what was sent half a minute ago is all there: a link that is full');
+    assert.strictEqual(link_stood(state({2: file({})}, {unanswered_since: now - STOOD + 100}), now), null, 'no call waited half a minute');
+    assert.strictEqual(link_stood(state({2: file({})}, {heard_at: now - 20000}), now), null, 'a machine not heard');
+    assert.strictEqual(link_stood(state({2: file({carries: {way: 'from', name: 'screen.webm'}})}), now), null, 'a file coming from it');
+    assert.strictEqual(link_stood(state({2: file({sent_by: undefined})}), now), null, 'a stream that keeps no notes is judged by its stand alone');
+});
+
+// The link is reset and the agent dials in again; calls answer on the new link. A way that
+// stopped also has bytes that fell behind, and that may be said first, before they stood long.
 test('a link whose way to the machine stood is reset, and the agent dials a fresh one', async function (t) {
     // The agent's own rule kept out of the way, so serviceman's is what acts
     const running = await link_proxy_rig(t, {pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
     await stand_and_recover(running);
-    assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it stood" waited=\S+ file=big\.tar sent=\d+ taken=\d+ still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
+    assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it (stood|fell behind)" waited=\S+ file=big\.tar sent=\d+ taken=\d+ late=\d+ still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
+});
+
+// The way creeps: a trickle toward the machine, 48 KB/s, its bytes taken every second or so,
+// never still for the 3 s that stand for half a minute here, while the 256 KB on their way take
+// 5 s and what was sent 3 s ago is not there yet; the link is reset all the same, and says the
+// way fell behind
+test('a link whose way to the machine crept is reset, and the agent dials a fresh one', async function (t) {
+    const stood_ms = process.env.SERVICEMAN_STOOD_MS;
+    process.env.SERVICEMAN_STOOD_MS = '3000';
+    t.after(function () {
+        process.env.SERVICEMAN_STOOD_MS = stood_ms;
+    });
+    const running = await link_proxy_rig(t, {pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
+    await stand_and_recover(running, v => v.creep(48*1024));
+    assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it fell behind" waited=\S+ file=big\.tar sent=\d+ taken=\d+ late=[1-9]\d* still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
+});
+
+// A link that is slow and steady is no way that creeps: a file to the machine keeps about a
+// second of its pace ahead of a call, not 4 MB, so a call waits seconds behind it, where it
+// waited half a minute at 128 KB/s, and the link is not reset under it
+test('a call waits seconds behind a file on a slow link, and the link is kept', async function (t) {
+    // 256 KB at 128 KB/s is 2 s, more than the 1.5 s the other tests stand for half a minute
+    const stood_ms = process.env.SERVICEMAN_STOOD_MS;
+    process.env.SERVICEMAN_STOOD_MS = '8000';
+    t.after(function () {
+        process.env.SERVICEMAN_STOOD_MS = stood_ms;
+    });
+    const running = await link_proxy_rig(t, {down: 128*1024, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
+    const remote = running.app.remote_by_name.vps1;
+    const first = remote.state.socket;
+    // A new link carries serviceman's own agent, offered, and a megabyte to time the link: at
+    // this speed they take the way for 13 s, and the call is timed once they are through
+    await wait_until(() => running.app.log_lines.some(v => v.includes('[remote_update_refused]')), 20000);
+    await wait_until(() => remote.state.throughput_bps !== null, 20000);
+    const upload = upload_start(running, 20*1024*1024);
+    const clock = setInterval(function () {
+        remotes_measure(running.app);
+    }, 250);
+    try {
+        await wait_until(() => link_of(running).carried > 2*1024*1024, 30000);
+        const time0 = Date.now();
+        const answer = await remote_call(running.app, remote, 'fs_stat', {path: os.tmpdir()}, 20000);
+        const waited_ms = Date.now() - time0;
+        assert.strictEqual(answer.kind, 'dir');
+        assert.ok(waited_ms < 6000, `a call behind a file on a link of 128 KB/s waited ${waited_ms} ms`);
+        assert.strictEqual(remote.state.socket, first, 'the link was kept');
+    }
+    finally {
+        clearInterval(clock);
+        upload.destroy();
+    }
 });
 
 // What stands between the two may let the reset through no better than the bytes: the agent,
@@ -58,26 +133,39 @@ test('an agent that hears nothing while a file comes in dials fresh, the reset n
     await wait_until(() => running.agent_said.includes('[agent_host_stood]'), 10000);
 });
 
-// A file to the machine, its way standing once it is under way; then a quick call, which waits.
-// Measured as serviceman's clock does it, every 250 ms here, and the link must come back by itself.
-async function stand_and_recover(running)
+// A file to the machine, its way standing once it is under way (or as `slow` makes it); then a
+// quick call, which waits. Measured as serviceman's clock does it, every 250 ms here, and the
+// link must come back by itself.
+async function stand_and_recover(running, slow)
 {
     const remote = running.app.remote_by_name.vps1;
     const upload = upload_start(running, 20*1024*1024);
     await wait_until(() => link_of(running).carried > 2*1024*1024, 10000);
-    link_of(running).stand();
+    if (slow === undefined) {
+        link_of(running).stand();
+    }
+    else {
+        slow(link_of(running));
+    }
     const call = remote_call(running.app, remote, 'fs_stat', {path: os.tmpdir()}, 60000).catch(e => e);
     const first = remote.state.socket;
+    // Asked again and again, the way a page asks a machine's numbers every second
+    const asking = setInterval(function () {
+        remote_call(running.app, remote, 'fs_stat', {path: os.tmpdir()}, 60000).catch(function () {});
+    }, 250);
     const clock = setInterval(function () {
         remotes_measure(running.app);
     }, 250);
     try {
         await wait_until(() => (remote.state.phase === 'online') && (remote.state.socket !== first), 20000);
-        assert.ok(await call instanceof Error, 'the call that waited on the stuck link fails with it');
+        if (slow === undefined) {
+            assert.ok(await call instanceof Error, 'the call that waited on the stuck link fails with it');
+        }
         const answer = await remote_call(running.app, remote, 'fs_stat', {path: os.tmpdir()}, 5000);
         assert.strictEqual(answer.kind, 'dir');
     }
     finally {
+        clearInterval(asking);
         clearInterval(clock);
         upload.destroy();
     }

@@ -40,16 +40,18 @@ async function look_at(app, remote)
         }
         return;
     }
-    // Heard, and still its calls wait behind a file whose bytes stand: the way to it is stuck,
-    // and a fresh link is what moves again
+    // Heard, and still its calls wait behind a file whose bytes stand, or move so slowly that
+    // what was sent half a minute ago is not there yet: the way to it is stuck, and a fresh link
+    // is what moves again
     const now = Date.now();
     const stood = link_stood(state, now);
     if (stood !== null) {
-        link_reset(app, remote, 'the way to it stood', {
+        link_reset(app, remote, stood.behind ? 'the way to it fell behind' : 'the way to it stood', {
             waited: format_duration_ms(stood.waited_ms),
             file: stood.file.name,
             sent: stood.file.sent,
             taken: stood.file.taken,
+            late: stood.file.late,
             still: format_duration_ms(stood.file.still_ms),
         });
         return;

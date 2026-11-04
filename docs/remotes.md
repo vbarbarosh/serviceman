@@ -588,14 +588,18 @@ not be able to look it up.
 A machine **not answering** is one whose calls wait while its link stays up. Every call, every
 file and every keystroke rides that one link in turn, so a big file on its way waits ahead of
 whatever is asked after it: its page names the file, how much of it was sent and written there,
-and when its bytes last moved. Bytes that still move are a link that is full; bytes that stand
-are a link that carries nothing at all.
+and when its bytes last moved. A file keeps about a second of the pace the machine takes it at
+on its way, 256 KB to 4 MB, so behind a file on a link that moves a call waits about a second,
+a few seconds on a link under 256 KB/s, where a full 4 MB held one 40 s on a link of 100 KB/s.
+A call that waits longer is a link that slowed all at once, or one that carries nothing at all.
 
-A link that carries nothing to the machine is not waited out. When a call has waited 30 s, a
-file's bytes to the machine have stood 30 s and the machine is still heard, serviceman resets
-the link (`remote_dropped reason="the way to it stood"`) and the agent dials a fresh one. The
-agent does the same by itself when it has heard nothing at all for 30 s while a file comes in
-(`agent_host_stood`), in case the reset is stuck too. The file in flight is cut: an upload in
+A link that carries nothing to the machine, or barely anything, is not waited out. When a call
+has waited 30 s, the machine is still heard, and a file to the machine has bytes it has not
+written, still for 30 s or sent to it 30 s ago and still not there, serviceman resets the link
+(`remote_dropped reason="the way to it stood"`, or `"the way to it fell behind"` when its bytes
+still moved within the 30 s) and the agent dials a fresh one. The agent does the same by itself when it
+has heard nothing at all for 30 s while a file comes in (`agent_host_stood`), in case the reset
+is stuck too. The file in flight is cut: an upload in
 parts goes on from its last part, and a copy between machines from where the disk says it
 stands.
 
@@ -621,8 +625,8 @@ link idle, the UDP datagrams each end's buffers dropped (`RcvbufErrors`, `Sndbuf
 the TCP segments each sent again (`RetransSegs`), here and on the machine. A machine that is
 not Linux says no counters, shown as `—`.
 
-A call waits behind the 4 MB of a file already on their way, so a full link shows calls of a
-second or more and no red. Red, with calls waiting as long, is the way standing. The link is
+A call waits behind about a second of the bytes on their way, so a full link shows calls of a
+second or so and no red. Red, with calls waiting as long, is the way standing. The link is
 busy while it runs, and one test at a time runs for a machine. It needs agent 1.31 or newer;
 an older one is told so. The log says `link_test_begin`, then `link_test_end_ok` with the
 numbers, or `link_test_end_error` and why.

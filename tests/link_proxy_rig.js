@@ -13,7 +13,8 @@ const HELD_PIECES = 16;
 
 // serviceman with one machine, vps1, whose agent dials it through a proxy: a link of `down`
 // bytes a second toward the agent and `up` back (1 MB/s each by default), that `stand()` makes
-// carry nothing toward the agent, its way back working, the way a link stood on 2026-10-29.
+// carry nothing toward the agent, its way back working, the way a link stood on 2026-10-29, and
+// `creep(rate)` makes carry `rate` bytes a second toward it, the way one crept on 2026-11-04.
 // `pass_reset` decides whether a link serviceman resets is reset at the agent's end too, or left
 // hanging there; `agent_env` is what the agent is started with besides.
 // {app, control_port, links, agent_said}: each link the agent dialled, the last one now, as
@@ -29,14 +30,16 @@ async function link_proxy_rig(t, options)
     const links = [];
     const proxy = net.createServer(function (agent) {
         const host = net.connect(control_port, '127.0.0.1');
-        const link = {carried: 0, stood: false, stand: function () {
-            link.stood = true;
+        const link = {carried: 0, rate: down, stand: function () {
+            link.rate = 0;
+        }, creep: function (rate) {
+            link.rate = rate;
         }};
         links.push(link);
-        const toward_agent = carry(host, agent, down, () => link.stood, function (n) {
+        const toward_agent = carry(host, agent, () => link.rate, function (n) {
             link.carried += n;
         });
-        const toward_host = carry(agent, host, up, () => false, function () {});
+        const toward_host = carry(agent, host, () => up, function () {});
         function end() {
             clearInterval(toward_agent);
             clearInterval(toward_host);
@@ -89,9 +92,9 @@ async function link_proxy_rig(t, options)
     return out;
 }
 
-// One way of the proxy: what `from` says goes to `to` at `rate` bytes a second, nothing while
-// `stood()`; the clock that does it, for the caller to stop
-function carry(from, to, rate, stood, carried)
+// One way of the proxy: what `from` says goes to `to` at `rate()` bytes a second; the clock that
+// does it, for the caller to stop
+function carry(from, to, rate, carried)
 {
     const queue = [];
     from.on('data', function (chunk) {
@@ -101,7 +104,7 @@ function carry(from, to, rate, stood, carried)
         }
     });
     return setInterval(function () {
-        let budget = stood() ? 0 : rate/100;
+        let budget = rate()/100;
         while ((budget > 0) && (queue.length > 0)) {
             const chunk = queue[0];
             const n = Math.min(chunk.length, budget);

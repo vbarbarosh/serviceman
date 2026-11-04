@@ -15,7 +15,7 @@ function tunnel_open(remote, target)
     }
     const socket = state.socket;
     const id = free_id(state);
-    const out = tunnel_stream(socket, id, false, tunnel_window(target));
+    const out = tunnel_stream(socket, id, false, tunnel_window(target), state.throughput_bps);
     state.streams[id] = out;
     // The far end knows the stream by this number — a resize call has to name it
     out.id = id;

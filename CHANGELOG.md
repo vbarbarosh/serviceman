@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.17 — 2026-11-04
+
+- A file to a machine keeps about a second of its pace on its way, not 4 MB, so a call waits
+  seconds behind it (33 s at 128 KB/s before); a link whose bytes still creep is reset at 30 s,
+  as one whose bytes stand (`the way to it fell behind`).
+
 ## 1.0.16 — 2026-10-31
 
 - History has a **10m** range: servermon's lines, a point a second, read every second (only the
