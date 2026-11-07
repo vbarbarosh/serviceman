@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.18 — 2026-11-07
+
+- Vulnerabilities: Ubuntu's critical CVEs on each machine, read from Ubuntu's own list every
+  hour; a Security column, a machine tab, and a red bar when one is new or its fix is out.
+
 ## 1.0.17 — 2026-11-04
 
 - A file to a machine keeps about a second of its pace on its way, not 4 MB, so a call waits

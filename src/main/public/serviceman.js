@@ -41,6 +41,7 @@ import remote_packages from './remote_packages.js';
 import remote_processes from './remote_processes.js';
 import remote_shell from './remote_shell.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
+import remote_vulnerabilities from './remote_vulnerabilities.js';
 import remotes_pane from './remotes_pane.js';
 import secrets_form from './secrets_form.js';
 import security_pane from './security_pane.js';
@@ -1250,7 +1251,7 @@ const tabink = {
 // machine needs no install command
 function remote_tab_allowed(view, tab)
 {
-    if ((tab === 'shell') || (tab === 'files') || (tab === 'docker') || (tab === 'firewall') || (tab === 'processes') || (tab === 'disks') || (tab === 'packages')) {
+    if ((tab === 'shell') || (tab === 'files') || (tab === 'docker') || (tab === 'firewall') || (tab === 'processes') || (tab === 'disks') || (tab === 'packages') || (tab === 'vulnerabilities')) {
         return view.phase === 'online';
     }
     if (tab === 'install') {
@@ -1322,6 +1323,10 @@ const remote_page = {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>
                 Packages
             </button>
+            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'vulnerabilities')}" @click="$emit('tab', 'vulnerabilities')">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.5-3.4 7.7-8 9-4.6-1.3-8-4.5-8-9V6z"/><path d="M12 8v5M12 16v.5"/></svg>
+                Vulnerabilities
+            </button>
             <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'shell')}" @click="$emit('tab', 'shell')">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg>
                 Shell
@@ -1348,6 +1353,7 @@ const remote_page = {
     <remote-processes v-else-if="(tab_now === 'processes')" :key="('processes-' + view.name)" :view="view"/>
     <remote-disks v-else-if="(tab_now === 'disks')" :key="('disks-' + view.name)" :view="view"/>
     <remote-packages v-else-if="(tab_now === 'packages')" :key="('packages-' + view.name)" :view="view"/>
+    <remote-vulnerabilities v-else-if="(tab_now === 'vulnerabilities')" :key="('vulnerabilities-' + view.name)" :view="view"/>
     <remote-shell v-else-if="(tab_now === 'shell' && shell_able)" :key="('shell-' + view.name)" :view="view" :theme="theme" :terminal="terminal" :prefer="prefer" @terminal="$emit('terminal', $event)"/>
     <article v-else-if="(tab_now === 'shell')" id="detail">
         <h1>Shell</h1>
@@ -1358,7 +1364,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell},
+    components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
     props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
     emits: ['create', 'files_path', 'list', 'logline', 'rail', 'saved', 'select', 'service', 'tab'],
     data: function () {
@@ -2484,7 +2490,7 @@ const app = {
                 this.remote_key++;
                 // The Ports tab is part of Firewall now; an address from before still opens it
                 const tab = (route.tab === 'ports') ? 'firewall' : route.tab;
-                this.remote_tab = ['configure', 'files', 'docker', 'firewall', 'logs', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'].includes(tab) ? tab : 'overview';
+                this.remote_tab = ['configure', 'files', 'docker', 'firewall', 'logs', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'].includes(tab) ? tab : 'overview';
                 if ((route.tab === 'shell') && (route.item !== '')) {
                     this.remote_terminals = Object.assign({}, this.remote_terminals, {[route.name]: route.item});
                     this.terminal_last = route.item;
@@ -2663,10 +2669,16 @@ const app = {
             this.panes_close();
             this.security_open = true;
         },
-        // Closing the bar keeps only what is wrong now: one that is mended and comes back is new
+        // Closing the bar keeps only what is wrong now: one that is mended and comes back is new.
+        // New CVEs are news, not a fault: closing the bar on them marks them seen for every page,
+        // and their problem goes; a later one brings the bar back.
         problems_close: function () {
             this.problems_seen = this.problems.map(problem_seen_key);
             storage_set('serviceman.problems_seen', JSON.stringify(this.problems_seen));
+            const remotes = this.problems.filter(v => v.key.startsWith('vulnerability_new:')).map(v => v.remote);
+            if (remotes.length > 0) {
+                fetch('/api/v1/vulnerabilities/seen', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({remotes})}).catch(() => {});
+            }
         },
         authwall_show: function () {
             this.panes_close();

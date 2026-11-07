@@ -11,21 +11,24 @@ const RISKY = {
 // Ports a server is open on by design: the web, and the tunnels and VPNs machines reach each
 // other by. ssh is the SSH check's to judge.
 const MEANT = ['tcp/80', 'tcp/443', 'udp/443', 'udp/41641', 'udp/51820', 'udp/3478'];
+// How many of a machine's CVEs its check names; the tab has the rest
+const LINES_SHOWN = 6;
 // How long before its end a release is said to be ending
 const ENDING_MS = 183*24*3600*1000;
 // What turning passwords off is, whoever does it
 const NO_PASSWORDS_HOW = 'PasswordAuthentication no and KbdInteractiveAuthentication no in /etc/ssh/sshd_config.d/00-no-passwords.conf, read before the other files, checked with sshd -t, then ssh reloaded';
 
 // What the Security page says of one machine, a check a column: what is open to the internet,
-// the firewall, ssh, updates, automatic updates and the release. Each is ok, warn (look at it),
+// the firewall, ssh, updates, automatic updates, the release and the critical CVEs that hit it. Each is ok, warn (look at it),
 // bad (mend it) or none (nothing to say, and why), with a line of detail and the tab of the
 // machine's page that mends it.
 //
 //     seen      security_of_remote's answer
 //     updates   the machine's updates, as its agent counts them, or null
 //     now       ms, for the release's end
+//     cves      its critical CVEs as the pages show them (vulnerabilities_view), or undefined
 //     out       [{key, label, state, text, detail, tab}]
-function security_checks(seen, updates, now)
+function security_checks(seen, updates, now, cves)
 {
     return [
         open_check(seen),
@@ -34,6 +37,7 @@ function security_checks(seen, updates, now)
         updates_of(updates, now),
         auto_check(seen),
         system_check(seen, now),
+        vulnerabilities_check(cves),
     ];
 }
 
@@ -288,6 +292,48 @@ function system_check(seen, now)
         return check('system', 'System', 'warn', `${version} · ends ${month}`, `${os.name}: standard support ends ${os.eol}.${extended}`, null);
     }
     return check('system', 'System', 'ok', version, `${os.name}: supported until ${os.eol}.`, null);
+}
+
+// The critical CVEs that hit it, as Ubuntu's list says them: red where a fix is out and not in
+// use yet (install the updates, or restart into the fixed kernel), orange where Ubuntu has no
+// fix out yet, or only Ubuntu Pro has one; how many are new, found since the problems bar was
+// last closed on this machine. The tab lists them all.
+function vulnerabilities_check(cves)
+{
+    if ((cves === undefined) || (cves.items === null)) {
+        const reason = (cves === undefined) ? 'not looked at yet' : cves.reason;
+        return check('vulnerabilities', 'Vulnerabilities', 'none', /^only Ubuntu/.test(reason || '') ? 'Ubuntu only' : 'not read', `Its CVEs could not be judged: ${reason}`, null);
+    }
+    const counts = cves.counts;
+    const items = cves.items;
+    const lines = items.slice(0, LINES_SHOWN).map(v => `${v.id}${(v.score === null) ? '' : ` · ${v.score}`} · ${v.what} · ${v.fix}${v.new ? ' · new' : ''}`);
+    if (items.length > LINES_SHOWN) {
+        lines.push(`and ${items.length - LINES_SHOWN} more; the Vulnerabilities tab lists them all`);
+    }
+    lines.push(list_line(cves));
+    const added = (counts.new > 0) ? ` · ${counts.new} new` : '';
+    const detail = lines.join('\n');
+    if (counts.fix_out > 0) {
+        // Fixes in one place are named by it: two CVEs of php8.3 are one upgrade
+        const whats = Array.from(new Set(items.filter(v => v.state === 'fix_out').map(v => v.what)));
+        return check('vulnerabilities', 'Vulnerabilities', 'bad', `${(whats.length === 1) ? `fix out · ${whats[0]}` : `${counts.fix_out} fixes out`}${added}`, detail, 'vulnerabilities');
+    }
+    if (counts.restart > 0) {
+        return check('vulnerabilities', 'Vulnerabilities', 'bad', `restart · kernel${added}`, detail, 'vulnerabilities');
+    }
+    if (items.length > 0) {
+        return check('vulnerabilities', 'Vulnerabilities', 'warn', `${items.length} · no fix yet${added}`, detail, 'vulnerabilities');
+    }
+    return check('vulnerabilities', 'Vulnerabilities', 'ok', 'none', list_line(cves), null);
+}
+
+// Which of Ubuntu's lists it was held against, and how old that list is
+function list_line(cves)
+{
+    const list = cves.list;
+    const written = ((list === null) || (list.generated === null)) ? '' : `, written ${list.generated.replace('T', ' ').slice(0, 16)} UTC`;
+    const failed = ((list !== null) && (list.error !== null)) ? ` The last read failed: ${list.error}.` : '';
+    return `Held against Ubuntu's list of critical CVEs for ${cves.codename}${written}, running kernel ${cves.kernel}.${failed}`;
 }
 
 // mend: what a click mends here, {key, label, doing, confirm}, or null; tab: the tab of the

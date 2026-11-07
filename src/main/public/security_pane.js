@@ -4,17 +4,18 @@ import format_ms from './format_ms.js';
 // The dot of each state, as Health draws a check
 const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
 // The tab of a machine's page that mends a check, by the name its button shows
-const TAB_NAMES = {firewall: 'Firewall', docker: 'Docker', shell: 'Shell', configure: 'Configure'};
+const TAB_NAMES = {firewall: 'Firewall', docker: 'Docker', shell: 'Shell', configure: 'Configure', vulnerabilities: 'Vulnerabilities'};
 // A check a column, the last folding first on a narrow screen; a machine with nothing to show
 // says why across them
 const COLUMNS = [
     {key: 'name', label: 'Machine', wraps: true},
-    {key: 'open', label: 'Open to the internet', fold: 6, spread: v => (v.checks.length === 0) ? ['firewall', 'ssh', 'updates', 'auto', 'system'] : []},
+    {key: 'open', label: 'Open to the internet', fold: 7, spread: v => (v.checks.length === 0) ? ['firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'] : []},
     {key: 'firewall', label: 'Firewall', fold: 4},
     {key: 'ssh', label: 'SSH', fold: 5},
     {key: 'updates', label: 'Updates', fold: 3},
     {key: 'auto', label: 'Auto updates', fold: 2},
     {key: 'system', label: 'System', fold: 1},
+    {key: 'vulnerabilities', label: 'Vulnerabilities', fold: 6},
 ];
 
 // What each machine leaves open to harm, worst first: a row per machine, a column per check,
@@ -31,7 +32,7 @@ const security_pane = {
         <span class="muted security-checked" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
         <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
     </div>
-    <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
+    <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported; the critical CVEs that hit it, as Ubuntu's own list says them. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
     <data-table :columns="COLUMNS" :rows="rows" row_key="remote" :row_class="row_class" :more="more" empty="No machines yet: a machine is looked at once its agent dials in.">
         <template #cell="{row, column, more}">

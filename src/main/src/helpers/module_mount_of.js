@@ -7,6 +7,7 @@ const packages_manifest = require('../../../../modules/packages/server/packages_
 const processes_manifest = require('../../../../modules/processes/server/processes_manifest');
 const terminal_manifest = require('../../../../modules/terminal/server/terminal_manifest');
 const volumes_manifest = require('../../../../modules/volumes/server/volumes_manifest');
+const vulnerabilities_manifest = require('../../../../modules/vulnerabilities/server/vulnerabilities_manifest');
 
 // Where serviceman mounts each module's API: a machine's at /api/v1/remotes/<name>/<mount>,
 // the copies between machines once, at /api/v1/transfers. What each one holds and does is its
@@ -19,6 +20,7 @@ const MODULE_MOUNTS = mounts_with_re([
     {base: '/api/v1/remotes/<name>/docker', manifest: docker_manifest},
     {base: '/api/v1/remotes/<name>/firewall', manifest: firewall_manifest},
     {base: '/api/v1/remotes/<name>/volumes', manifest: volumes_manifest},
+    {base: '/api/v1/remotes/<name>/vulnerabilities', manifest: vulnerabilities_manifest},
     {base: '/api/v1/remotes/<name>/fs', manifest: file_manager_manifest},
     {base: '/api/v1/remotes/<name>/terminals', manifest: terminal_manifest},
     {base: '/api/v1/transfers', manifest: file_manager_transfers_manifest},

@@ -483,6 +483,7 @@ Health has a Security column that leads there; nothing here counts as a problem.
 | Updates              | Security updates wait, or the machine wants a restart after an upgrade.                                     |
 | Auto updates         | unattended-upgrades is not installed, or apt is not told to run it.                                         |
 | System               | Red: the release's standard support has ended; orange: it ends within half a year.                          |
+| Vulnerabilities      | Red: a critical CVE hits it and its fix is out (install the updates, or restart into the fixed kernel); orange: one hits it with no fix out yet. [Below](#its-vulnerabilities). |
 
 **What the internet gets to** is knocked, not guessed: serviceman connects to every tcp port the
 machine listens on, at its public address, and drops the connection at once, sending nothing. A
@@ -522,6 +523,56 @@ answers the machines being looked at; `POST /api/v1/security/mend` `{"remote", "
 (`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`) is a click, one at a time a
 machine, and answers once the machine has been looked at again.
 
+## Its vulnerabilities
+
+The **Vulnerabilities** column of the Security page, and the **Vulnerabilities** tab of a
+machine, say which of Ubuntu's critical CVEs hit it, as Ubuntu's own list says them: what each
+hits (the kernel, or a package), its score, what mends it, and which are new. A machine that is
+not Ubuntu is grey, **Ubuntu only**.
+
+Every hour, with the rest of the Security look, the machine's agent says its release, the kernel
+it runs and the version of each package dpkg has installed (dpkg's status file read, no program
+run), and serviceman holds them against Canonical's CVE file of that release, the one OpenSCAP
+reads (`security-metadata.canonical.com/oval/com.ubuntu.<codename>.cve.oval.xml.bz2`). The file
+is asked for whole, so nothing about the machines leaves serviceman; asked again an hour later,
+and taken only when Canonical changed it; unpacked by bunzip2 a line at a time, and its critical
+CVEs kept in the state folder, `vulnerabilities/<codename>.json`. A list that could not be read
+is kept as it was, and asked again ten minutes on.
+
+| It says       | When                                                                                                 |
+|---------------|------------------------------------------------------------------------------------------------------|
+| fix out       | A fixed version is out and not installed: **Install updates**, and for a kernel, a restart after.     |
+| restart       | The fixed kernel is installed, and an older one still runs: restart the machine.                     |
+| Ubuntu Pro    | The only fix is in Ubuntu Pro's archive (a version with `+esm`), which apt here may not see.         |
+| no fix yet    | Ubuntu has no fix out; where Ubuntu's page of it names the version the fix waits in, it says so.     |
+
+For a CVE with no fix that hits a machine, serviceman reads Ubuntu's page of it
+(`ubuntu.com/security/cves/<id>.json`) once a day, two at a time: a click on its row in the tab
+shows the stopgap Ubuntu gives until the fix, where it gives one, and its name opens the page.
+
+**You are told twice.** A critical CVE found on a machine that was not there before is a problem
+on Health, the red bar on every page with it: **New critical vulnerability on vps1:
+CVE-2026-98432 in kernel**. Closing the bar marks the new ones of each machine in it seen, for
+every page, and that problem goes; a CVE found later brings it back. A CVE whose fix is out is a
+problem of its own until a look finds it mended: **A fix is out for … on vps1**, or, for a kernel
+installed and not running yet, **vps1 runs a kernel with a critical vulnerability: the fixed one
+waits for a restart**; a new one whose fix is out already is said once, as the fix. A CVE with no fix, once seen, is no problem: the Security page keeps it,
+orange. The first look at a machine finds every CVE that hits it new, and says them as one
+problem. When each CVE was first found, and since when its fix is out, are kept in the state
+folder's `vulnerabilities.json`, so a restart of serviceman calls nothing new.
+
+Only Ubuntu's critical CVEs count: a 24.04 machine on kernel 6.8.0-147 was hit by 72 of them on
+2026-11-07, every one in the kernel with no fix out yet, and by 1,651 high ones, nearly all the
+same kind; a high one's fix, once out, counts among the security updates of the Updates check.
+Not looked at: the packages inside containers' images, and any system but Ubuntu. Nothing
+reaches you outside serviceman's page.
+
+An agent from before 1.33.0 does not say what it runs; its column says so until it updates.
+serviceman needs bunzip2 (the image has busybox's); without one the list is not read, and the
+column says why. `GET /api/v1/remotes/<name>/vulnerabilities` is the tab as JSON, the
+[Vulnerabilities module](../modules/vulnerabilities/README.md)'s API; `POST
+/api/v1/vulnerabilities/seen` `{"remotes": ["vps1"]}` marks a machine's new CVEs seen.
+
 ## Its encrypted volumes
 
 An encrypted volume is one file on one machine's disk, LUKS with ext4 inside, opened at a folder
@@ -558,6 +609,7 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart. One the agent may not open (the shared folders' home, root's alone) is not gone, and is asked once a link, not every minute. |
 | Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
 | Logline's viewer not answering                     | A request to it, the way Open Logline goes.                                                                          |
+| A critical CVE, new or with a fix out              | The machine's last Security look against Ubuntu's list: a new one until the bar is closed on it, a fix out until it is in use. [Its vulnerabilities](#its-vulnerabilities). |
 
 Health shows the rest beside them, said but not counted as problems, one table per part with a
 column per check; a click on a row shows every check's detail in a bar at the foot of the view. Logline's store counts as

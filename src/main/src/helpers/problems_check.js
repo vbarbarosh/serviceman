@@ -5,6 +5,7 @@ const problems_apply = require('./problems_apply');
 const problems_from_logline = require('./problems_from_logline');
 const problems_of_remote = require('./problems_of_remote');
 const problems_of_services = require('./problems_of_services');
+const problems_of_vulnerabilities = require('./problems_of_vulnerabilities');
 
 // A firewall is asked less often than the rest: two ufw runs as root, for a state that changes
 // by hand
@@ -12,7 +13,7 @@ const FIREWALL_EVERY_MS = 5*60*1000;
 
 // Everything serviceman can tell is wrong, looked at once: machines that dropped off, lines
 // Logline does not get, containers that are down or will not come back, copies that do not
-// answer. Run on a clock and after an upgrade; what it finds is what the page shows. One
+// answer, critical CVEs that are new or have a fix out (as the last Security look found them). Run on a clock and after an upgrade; what it finds is what the page shows. One
 // check at a time: asked while one runs, the answer is that one. What it asked and heard, the
 // good with the bad, is kept for the Health page (app.health_seen).
 function problems_check(app)
@@ -51,6 +52,7 @@ async function check(app)
         }
         const stats = state.stats;
         found.push(...problems_from_logline(remote.name, ((stats === null) || (stats === undefined)) ? null : stats.logline, now));
+        found.push(...problems_of_vulnerabilities(app, remote));
         asked.push(problems_of_remote(app, remote).then(function (answer) {
             found.push(...answer.problems);
             seen.push(...answer.seen);

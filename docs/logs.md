@@ -477,6 +477,7 @@ list, in a bar under its header and first on its Health page.
 | `security_check_error`   | The look at a machine broke, and why; its row says the same.            |
 | `security_mended`        | A click on the Security page mended a machine: `mend=` what (`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`). |
 | `security_mend_error`    | That mend failed, and why (sshd refused the file, no root half…); its check says the same. |
+| `vulnerabilities_seen`   | The problems bar was closed on new critical CVEs: `remotes=` whose are seen now, for every page. |
 | `apt_containers_ok`      | After an upgrade, everything that ran before runs again; `started=` names the ones serviceman started. |
 | `apt_containers_down`    | After an upgrade, `down=` names what ran before and cannot start now; the upgrade's own lines say why. |
 | `apt_containers_unknown` | What ran before the upgrade could not be read, so nothing is brought back after it. |

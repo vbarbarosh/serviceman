@@ -8,6 +8,7 @@ const MODULE_PROPS = {
     processes: v => ({base: '/api/processes', cores: v.machine.cores}),
     disks: () => ({base: '/api/disks'}),
     packages: () => ({base: '/api/packages'}),
+    vulnerabilities: () => ({base: '/api/vulnerabilities'}),
     docker: function (v) {
         return {
             base: '/api/docker',

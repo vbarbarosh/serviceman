@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#testing-its-link">Testing its link</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-vulnerabilities">Its vulnerabilities</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#testing-its-link">Testing its link</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -711,6 +711,7 @@ img {
 <li><a href="modules/processes.html">Processes</a></li>
 <li><a href="modules/terminal.html">Terminal</a></li>
 <li><a href="modules/volumes.html">Volumes</a></li>
+<li><a href="modules/vulnerabilities.html">Vulnerabilities</a></li>
 </ul>
 </nav>
 <main class="main">
@@ -1148,6 +1149,10 @@ Health has a Security column that leads there; nothing here counts as a problem.
 <td>System</td>
 <td>Red: the release&#39;s standard support has ended; orange: it ends within half a year.</td>
 </tr>
+<tr>
+<td>Vulnerabilities</td>
+<td>Red: a critical CVE hits it and its fix is out (install the updates, or restart into the fixed kernel); orange: one hits it with no fix out yet. <a href="#its-vulnerabilities">Below</a>.</td>
+</tr>
 </tbody></table>
 </div>
 <p><strong>What the internet gets to</strong> is knocked, not guessed: serviceman connects to every tcp port the
@@ -1198,6 +1203,66 @@ to do it by hand and opens the tab that does.</p>
 answers the machines being looked at; <code>POST /api/v1/security/mend</code> <code>{&quot;remote&quot;, &quot;mend&quot;}</code>
 (<code>ssh_passwords_off</code>, <code>ssh_passwords_on</code>, <code>auto_updates_on</code>) is a click, one at a time a
 machine, and answers once the machine has been looked at again.</p>
+<h2 id="its-vulnerabilities"><a class="anchor" href="#its-vulnerabilities" aria-hidden="true" tabindex="-1">#</a>Its vulnerabilities</h2>
+<p>The <strong>Vulnerabilities</strong> column of the Security page, and the <strong>Vulnerabilities</strong> tab of a
+machine, say which of Ubuntu&#39;s critical CVEs hit it, as Ubuntu&#39;s own list says them: what each
+hits (the kernel, or a package), its score, what mends it, and which are new. A machine that is
+not Ubuntu is grey, <strong>Ubuntu only</strong>.</p>
+<p>Every hour, with the rest of the Security look, the machine&#39;s agent says its release, the kernel
+it runs and the version of each package dpkg has installed (dpkg&#39;s status file read, no program
+run), and serviceman holds them against Canonical&#39;s CVE file of that release, the one OpenSCAP
+reads (<code>security-metadata.canonical.com/oval/com.ubuntu.&lt;codename&gt;.cve.oval.xml.bz2</code>). The file
+is asked for whole, so nothing about the machines leaves serviceman; asked again an hour later,
+and taken only when Canonical changed it; unpacked by bunzip2 a line at a time, and its critical
+CVEs kept in the state folder, <code>vulnerabilities/&lt;codename&gt;.json</code>. A list that could not be read
+is kept as it was, and asked again ten minutes on.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>It says</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>fix out</td>
+<td>A fixed version is out and not installed: <strong>Install updates</strong>, and for a kernel, a restart after.</td>
+</tr>
+<tr>
+<td>restart</td>
+<td>The fixed kernel is installed, and an older one still runs: restart the machine.</td>
+</tr>
+<tr>
+<td>Ubuntu Pro</td>
+<td>The only fix is in Ubuntu Pro&#39;s archive (a version with <code>+esm</code>), which apt here may not see.</td>
+</tr>
+<tr>
+<td>no fix yet</td>
+<td>Ubuntu has no fix out; where Ubuntu&#39;s page of it names the version the fix waits in, it says so.</td>
+</tr>
+</tbody></table>
+</div>
+<p>For a CVE with no fix that hits a machine, serviceman reads Ubuntu&#39;s page of it
+(<code>ubuntu.com/security/cves/&lt;id&gt;.json</code>) once a day, two at a time: a click on its row in the tab
+shows the stopgap Ubuntu gives until the fix, where it gives one, and its name opens the page.</p>
+<p><strong>You are told twice.</strong> A critical CVE found on a machine that was not there before is a problem
+on Health, the red bar on every page with it: <strong>New critical vulnerability on vps1:
+CVE-2026-98432 in kernel</strong>. Closing the bar marks the new ones of each machine in it seen, for
+every page, and that problem goes; a CVE found later brings it back. A CVE whose fix is out is a
+problem of its own until a look finds it mended: <strong>A fix is out for … on vps1</strong>, or, for a kernel
+installed and not running yet, <strong>vps1 runs a kernel with a critical vulnerability: the fixed one
+waits for a restart</strong>; a new one whose fix is out already is said once, as the fix. A CVE with no fix, once seen, is no problem: the Security page keeps it,
+orange. The first look at a machine finds every CVE that hits it new, and says them as one
+problem. When each CVE was first found, and since when its fix is out, are kept in the state
+folder&#39;s <code>vulnerabilities.json</code>, so a restart of serviceman calls nothing new.</p>
+<p>Only Ubuntu&#39;s critical CVEs count: a 24.04 machine on kernel 6.8.0-147 was hit by 72 of them on
+2026-11-07, every one in the kernel with no fix out yet, and by 1,651 high ones, nearly all the
+same kind; a high one&#39;s fix, once out, counts among the security updates of the Updates check.
+Not looked at: the packages inside containers&#39; images, and any system but Ubuntu. Nothing
+reaches you outside serviceman&#39;s page.</p>
+<p>An agent from before 1.33.0 does not say what it runs; its column says so until it updates.
+serviceman needs bunzip2 (the image has busybox&#39;s); without one the list is not read, and the
+column says why. <code>GET /api/v1/remotes/&lt;name&gt;/vulnerabilities</code> is the tab as JSON, the
+<a href="modules/vulnerabilities.html">Vulnerabilities module</a>&#39;s API; <code>POST /api/v1/vulnerabilities/seen</code> <code>{&quot;remotes&quot;: [&quot;vps1&quot;]}</code> marks a machine&#39;s new CVEs seen.</p>
 <h2 id="its-encrypted-volumes"><a class="anchor" href="#its-encrypted-volumes" aria-hidden="true" tabindex="-1">#</a>Its encrypted volumes</h2>
 <p>An encrypted volume is one file on one machine&#39;s disk, LUKS with ext4 inside, opened at a folder
 of that machine: a stolen disk or snapshot shows random bytes and a size. The <strong>Storage</strong> page
@@ -1252,6 +1317,10 @@ is written to the log too, <code>problem_begin</code> and <code>problem_end</cod
 <tr>
 <td>Logline&#39;s viewer not answering</td>
 <td>A request to it, the way Open Logline goes.</td>
+</tr>
+<tr>
+<td>A critical CVE, new or with a fix out</td>
+<td>The machine&#39;s last Security look against Ubuntu&#39;s list: a new one until the bar is closed on it, a fix out until it is in use. <a href="#its-vulnerabilities">Its vulnerabilities</a>.</td>
 </tr>
 </tbody></table>
 </div>

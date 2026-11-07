@@ -1,4 +1,5 @@
 const security_checks = require('./security_checks');
+const vulnerabilities_view = require('./vulnerabilities_view');
 
 // Worst first: what to mend, what to look at, what is fine, what has nothing to say
 const RANK = {bad: 0, warn: 1, ok: 2, none: 3};
@@ -27,7 +28,7 @@ function security_view(app, remotes, now)
             return out;
         }
         // A machine away keeps its last look, said as old: nothing of it can be asked now
-        out.checks = security_checks(seen, (view.machine === null) ? null : view.machine.updates, now);
+        out.checks = security_checks(seen, (view.machine === null) ? null : view.machine.updates, now, vulnerabilities_view(app, view.name, seen.vulnerabilities));
         const states = out.checks.map(v => v.state);
         out.state = ['bad', 'warn', 'ok'].find(v => states.includes(v)) || 'none';
         return out;

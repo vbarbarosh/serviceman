@@ -12,6 +12,7 @@ const SERVES = {
     '/api/v1/remotes/<name>/processes': ['modules/processes/server/processes_serve.js'],
     '/api/v1/remotes/<name>/disks': ['modules/disks/server/disks_serve.js'],
     '/api/v1/remotes/<name>/packages': ['modules/packages/server/packages_serve.js'],
+    '/api/v1/remotes/<name>/vulnerabilities': ['modules/vulnerabilities/server/vulnerabilities_serve.js'],
     '/api/v1/remotes/<name>/docker': ['modules/docker/server/docker_serve.js'],
     '/api/v1/remotes/<name>/firewall': ['modules/firewall/server/firewall_serve.js'],
     '/api/v1/remotes/<name>/volumes': ['modules/volumes/server/volumes_serve.js'],

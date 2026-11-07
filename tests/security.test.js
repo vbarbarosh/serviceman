@@ -16,7 +16,7 @@ const timers = require('timers/promises');
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = '0123456789abcdef0123456789abcdef';
 const NOW = Date.parse('2026-10-27T18:00:00Z');
-const KEYS = ['open', 'firewall', 'ssh', 'updates', 'auto', 'system'];
+const KEYS = ['open', 'firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'];
 
 // The worst a VPS can be: a database Docker publishes past ufw, answering the knock from
 // outside; passwords over ssh, knocked on thousands of times a day; security updates waiting;
@@ -47,6 +47,7 @@ test('a machine open to harm is red where to mend it, orange where to look, and 
         updates: ['warn', '3 security', 'configure'],
         auto: ['warn', 'off', 'shell'],
         system: ['bad', '20.04 · ended', null],
+        vulnerabilities: ['none', 'not read', null],
     });
     const open = checks[0].detail;
     assert.match(open, /5432\/tcp \(PostgreSQL's port\) published by Docker for db \(postgres:16\): answered from outside/);
@@ -65,7 +66,7 @@ test('a machine kept well is green, and a port meant to be open is no harm', fun
         facts: facts({}),
     });
     const checks = security_checks(seen, {pending: 0, security: 0, reboot: false}, NOW);
-    assert.deepStrictEqual(checks.map(v => [v.state, v.text]), [['ok', '22 · 443 · 80'], ['ok', 'on'], ['ok', 'keys only'], ['ok', 'up to date'], ['ok', 'on'], ['ok', '24.04']]);
+    assert.deepStrictEqual(checks.map(v => [v.state, v.text]), [['ok', '22 · 443 · 80'], ['ok', 'on'], ['ok', 'keys only'], ['ok', 'up to date'], ['ok', 'on'], ['ok', '24.04'], ['none', 'not read']]);
     assert.match(checks[2].detail, /No failed sign-in try in the last 24 hours/);
 });
 
@@ -90,7 +91,7 @@ test('unknocked, a port is open when nothing inside keeps it out now', function 
 // ports and firewall that did not answer, sshd's files root's alone, a release with no end said
 test('what cannot be read is grey, and says why', function () {
     const older = security_checks(seen_of({facts: null, errors: {facts: 'its agent is from before the security check', ports: 'its agent is from before the port list', firewall: 'ufw needs root, and sudo on that machine asked for a password: give it a root agent'}, rows: [], firewall: null}), null, NOW);
-    assert.deepStrictEqual(older.map(v => [v.state, v.text]), [['none', 'not read'], ['none', 'cannot ask'], ['none', 'not read'], ['none', 'not counted'], ['none', 'not read'], ['none', 'not read']]);
+    assert.deepStrictEqual(older.map(v => [v.state, v.text]), [['none', 'not read'], ['none', 'cannot ask'], ['none', 'not read'], ['none', 'not counted'], ['none', 'not read'], ['none', 'not read'], ['none', 'not read']]);
     assert.match(older[1].detail, /sudo on that machine asked for a password/);
     const unread = ssh({read: null, error: '/etc/ssh/sshd_config.d/50-cloud-init.conf: permission denied; the root half reads it', password: null, kbd_interactive: null, use_pam: null, root_login: null});
     const session = security_checks(seen_of({facts: facts({root: false, ssh: unread, failures: {error: 'needs the root half: the journal shows this user only its own lines'}, auto_updates: null, os: {id: 'debian', version: null, name: 'Debian GNU/Linux trixie/sid', codename: 'trixie', eol: null, eol_extended: null}})}), null, NOW);
@@ -136,6 +137,10 @@ test('Check again looks at every machine, and the status carries what it found',
     const root = child_process.spawn(process.execPath, [AGENT, '--role', 'root', '--root-socket', socket, '--ufw', ufw], {stdio: ['ignore', 'ignore', 'ignore'], env: Object.assign({}, process.env, {FAKE_UFW_STATE: path.join(dir, 'ufw.json')})});
     const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'ui1', token: TOKEN}], services: []}, __dirname);
     const app = app_from_config(config);
+    // Ubuntu's CVE list is not asked from a test: tests/vulnerabilities.test.js gives it one
+    app.vulnerabilities_fetch = async function () {
+        return new Response('', {status: 404});
+    };
     const servers = await server_start(app);
     const control_port = servers.control.address().port;
     const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', socket, '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore']});
@@ -177,6 +182,8 @@ test('Check again looks at every machine, and the status carries what it found',
             }
         }
         fs.rmSync(dir, {recursive: true, force: true});
+        fs.rmSync(path.join(app.state_dir, 'vulnerabilities'), {recursive: true, force: true});
+        fs.rmSync(path.join(app.state_dir, 'vulnerabilities.json'), {force: true});
     }
 });
 

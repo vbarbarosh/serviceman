@@ -3,6 +3,7 @@ const path = require('path');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
 const security_knock = require('./security_knock');
+const vulnerabilities_of_remote = require('./vulnerabilities_of_remote');
 
 const FACTS_TIMEOUT_MS = 60000;
 const PORTS_TIMEOUT_MS = 30000;
@@ -17,17 +18,20 @@ const WILDCARDS = ['*', '0.0.0.0', '::'];
 
 // What the Security page knows of one machine, asked of it now: what its agent reads (ssh, the
 // journal, the release, automatic updates, Docker's published ports), the ports it listens on
-// with what its firewall does to each, and which of them answer from outside, knocked from here
-// at its public addresses. A part that cannot be asked says why, and the rest goes on.
+// with what its firewall does to each, which of them answer from outside, knocked from here
+// at its public addresses, and the critical CVEs that hit it. A part that cannot be asked says
+// why, and the rest goes on.
 //
-//     out   {at, facts, rows, firewall, knocked, can_mend, errors: {facts, ports, firewall}}
+//     out   {at, facts, rows, firewall, knocked, can_mend, vulnerabilities,
+//            errors: {facts, ports, firewall}}
+//           vulnerabilities: vulnerabilities_of_remote's, its reason the error where it failed
 //           rows: the Firewall tab's rows (firewall_ports), each with knock: its answer or null
 //           knocked: {addresses, nat, skipped}: where it knocked, or why it did not
 //           can_mend: whether its agent mends with a click (security_mend)
 async function security_of_remote(app, remote)
 {
     const errors = {facts: null, ports: null, firewall: null};
-    const [facts, ports, firewall] = await Promise.all([
+    const [facts, ports, firewall, vulnerabilities] = await Promise.all([
         facts_read(app, remote).catch(function (error) {
             errors.facts = error.message;
             return null;
@@ -39,6 +43,9 @@ async function security_of_remote(app, remote)
         firewall_read(app, remote).catch(function (error) {
             errors.firewall = error.message;
             return null;
+        }),
+        vulnerabilities_of_remote(app, remote).catch(function (error) {
+            return {at: Date.now(), codename: null, kernel: null, list: null, reason: `its packages could not be read: ${error.message}`, items: null};
         }),
     ]);
     const firewall_ports = (await import(FIREWALL_PORTS)).default;
@@ -52,7 +59,7 @@ async function security_of_remote(app, remote)
     if (knocked.skipped === null) {
         await knock_all(rows.filter(v => knock_wanted(v, knocked)).slice(0, KNOCKS_MAX), knocked);
     }
-    return {at: Date.now(), facts, rows, firewall, knocked, can_mend: remote_can(remote, 'security_mend'), errors};
+    return {at: Date.now(), facts, rows, firewall, knocked, can_mend: remote_can(remote, 'security_mend'), vulnerabilities, errors};
 }
 
 async function facts_read(app, remote)

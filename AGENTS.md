@@ -14,7 +14,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
   `src/main/public` and `modules/*/ui`, with no build step; `bin/vendor` copies the libraries
   into `src/main/public/vendor`.
 - **Modules:** `modules/disks`, `docker`, `file_manager`, `firewall`, `packages`, `processes`,
-  `terminal`, `volumes`, each with `server/`, `ui/` and `tests/`.
+  `terminal`, `volumes`, `vulnerabilities`, each with `server/`, `ui/` and `tests/`.
 - **Logline:** `logline/` (its server in `logline/lines`, its page in `logline/log-ui`) is
   self-contained and is moving to a repository of its own; keep it free of serviceman's code.
 - **web-terminal:** a page and a server of its own, in `src/web-terminal/`.

@@ -101,6 +101,9 @@ const view_from_remote = require('../helpers/view_from_remote');
 const view_from_service = require('../helpers/view_from_service');
 const volumes_of_app = require('../helpers/volumes_of_app');
 const volumes_serve = require('../../../../modules/volumes/server/volumes_serve');
+const vulnerabilities_kept = require('../helpers/vulnerabilities_kept');
+const vulnerabilities_serve = require('../../../../modules/vulnerabilities/server/vulnerabilities_serve');
+const vulnerabilities_view = require('../helpers/vulnerabilities_view');
 const wants_html = require('../wants_html');
 
 // How far from the middle of the Canvas a machine may be put
@@ -135,6 +138,7 @@ const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
 const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
 const RE_REMOTE_PORTS = /^\/api\/v1\/remotes\/([^/]+)\/ports$/;
 const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
+const RE_REMOTE_VULNERABILITIES = /^\/api\/v1\/remotes\/([^/]+)\/vulnerabilities(\/.*)?$/;
 const RE_REMOTE_PACKAGES = /^\/api\/v1\/remotes\/([^/]+)\/packages(\/.*)?$/;
 // ps and ss answer at once; the wait is for a machine thinking about it
 const MACHINE_READ_TIMEOUT_MS = 15000;
@@ -170,7 +174,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
 const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'join', 'map', 'logline', 'authwall', 'load-tests'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
-const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'settings', 'shell', 'install'];
+const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
 const SKINS_SITE = {name: 'serviceman-skins', type: 'static', root: SKINS_ROOT, fresh: true};
 // The page halves of the modules, each served from the ui folder of its own module
@@ -184,6 +188,7 @@ const MODULE_SITES = {
     processes: {name: 'processes', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'processes', 'ui'), fresh: true},
     disks: {name: 'disks', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'disks', 'ui'), fresh: true},
     packages: {name: 'packages', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'packages', 'ui'), fresh: true},
+    vulnerabilities: {name: 'vulnerabilities', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'vulnerabilities', 'ui'), fresh: true},
 };
 
 // The control page and the calls behind it
@@ -362,6 +367,10 @@ async function control_answer(app, req, res)
         await handle_security_mend(app, req, res);
         return;
     }
+    if ((url.pathname === '/api/v1/vulnerabilities/seen') && (req.method === 'POST')) {
+        await handle_vulnerabilities_seen(app, req, res);
+        return;
+    }
     if ((url.pathname === '/api/v1/apt-upgrade') && (req.method === 'GET')) {
         handle_apt_all_read(app, res);
         return;
@@ -491,6 +500,18 @@ async function control_answer(app, req, res)
     const remote_ports = RE_REMOTE_PORTS.exec(url.pathname);
     if ((remote_ports !== null) && (req.method === 'GET')) {
         await handle_machine_read(app, res, route_param(remote_ports[1]), 'port_list', 'the port list');
+        return;
+    }
+    const remote_vulnerabilities = RE_REMOTE_VULNERABILITIES.exec(url.pathname);
+    if (remote_vulnerabilities !== null) {
+        // The machine is not asked here: its CVEs are what its last Security look found
+        await handle_machine_module(app, req, res, route_param(remote_vulnerabilities[1]), ((remote_vulnerabilities[2] === undefined) ? '' : remote_vulnerabilities[2]), vulnerabilities_serve, 'package_versions', 'the CVE check', function (remote) {
+            return {read: async function () {
+                const look = app.security.seen.get(remote.name);
+                const view = vulnerabilities_view(app, remote.name, (look === undefined) ? undefined : look.vulnerabilities);
+                return Object.assign({}, view, {items: (view.items === null) ? [] : view.items, commands: []});
+            }};
+        });
         return;
     }
     const remote_disks = RE_REMOTE_DISKS.exec(url.pathname);
@@ -811,6 +832,7 @@ async function handle_machine_read(app, res, name, method, what)
 }
 
 // GET /api/v1/remotes/<name>/processes
+// GET /api/v1/remotes/<name>/vulnerabilities
 // GET /api/v1/remotes/<name>/disks
 // GET /api/v1/remotes/<name>/disks/usage (query)
 // GET /api/v1/remotes/<name>/disks/usage/progress (query)
@@ -1151,6 +1173,23 @@ function handle_apt_all_read(app, res)
         });
     }
     send_json(res, 200, {batch: {started_at: batch.started_at, ended_at: batch.ended_at, held: batch.held, remotes: rows}});
+}
+
+// POST /api/v1/vulnerabilities/seen {"remotes": ["vps1", "vps2"]}
+//
+// The problems bar closed on the new CVEs of these machines: they are not new from now on, for
+// every page, and their problem goes at the next minute's check. Answers the machines marked.
+async function handle_vulnerabilities_seen(app, req, res)
+{
+    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    if ((Array.isArray(body.remotes) === false) || body.remotes.some(v => typeof v !== 'string')) {
+        send_json(res, 400, {error: 'remotes: the names of the machines whose new CVEs were seen'});
+        return;
+    }
+    const remotes = body.remotes.filter(v => app.remote_by_name[v] !== undefined);
+    vulnerabilities_kept.seen(app, remotes, Date.now());
+    log_event(app, 'vulnerabilities_seen', {remotes: remotes.join(',')});
+    send_json(res, 200, {seen: remotes});
 }
 
 // POST /api/v1/security/mend {"remote": "vps1", "mend": "ssh_passwords_off"}

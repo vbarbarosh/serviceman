@@ -12,6 +12,7 @@ const firewall_manifest = require('../../../modules/firewall/server/firewall_man
 const firewall_serve = require('../../../modules/firewall/server/firewall_serve');
 const log_event = require('../../main/src/helpers/log_event');
 const machine_host = require('./machine_host');
+const os = require('os');
 const packages_manifest = require('../../../modules/packages/server/packages_manifest');
 const packages_serve = require('../../../modules/packages/server/packages_serve');
 const path = require('path');
@@ -26,6 +27,11 @@ const terminal_manifest = require('../../../modules/terminal/server/terminal_man
 const terminal_serve = require('../../../modules/terminal/server/terminal_serve');
 const volumes_manifest = require('../../../modules/volumes/server/volumes_manifest');
 const volumes_serve = require('../../../modules/volumes/server/volumes_serve');
+const vulnerabilities_feed = require('../../../modules/vulnerabilities/server/vulnerabilities_feed');
+const vulnerabilities_items = require('../../../modules/vulnerabilities/server/vulnerabilities_items');
+const vulnerabilities_manifest = require('../../../modules/vulnerabilities/server/vulnerabilities_manifest');
+const vulnerabilities_match = require('../../../modules/vulnerabilities/server/vulnerabilities_match');
+const vulnerabilities_serve = require('../../../modules/vulnerabilities/server/vulnerabilities_serve');
 
 // How long a read of this computer may take, a firewall command and a volume's work: as
 // serviceman waits for a machine
@@ -107,6 +113,15 @@ const modules_served = [
                 },
                 tail,
             });
+        },
+    },
+    {
+        key: 'vulnerabilities',
+        title: 'Vulnerabilities',
+        ui: path.join(MODULES, 'vulnerabilities/ui'),
+        manifest: vulnerabilities_manifest,
+        serve: function (req, res, tail) {
+            return vulnerabilities_serve(req, res, {read: vulnerabilities_read, tail});
         },
     },
     {
@@ -218,6 +233,29 @@ async function machine_read(method)
 {
     const {app, remote} = machine_host();
     return remote_call(app, await online(remote), method, {}, READ_TIMEOUT_MS);
+}
+
+// The critical CVEs that hit this computer: what it runs, as its agent reads it, against
+// Ubuntu's list of its release, kept beside the agent's own state. Nothing here is ever new:
+// module-host has no problems bar to close on them.
+async function vulnerabilities_read()
+{
+    const facts = await machine_read('package_versions');
+    const system = facts.os;
+    const out = {at: Date.now(), reason: null, codename: null, kernel: facts.kernel, list: null, items: [], commands: []};
+    if ((system === null) || (system.id !== 'ubuntu') || (system.codename === null) || (facts.packages === null)) {
+        out.reason = (facts.packages === null) ? 'dpkg\'s status file is not there, so what is installed is not known' : `only Ubuntu is checked, as Ubuntu's own list says it; this is ${(system === null) ? 'a system with no /etc/os-release' : (system.name || system.id)}`;
+        return out;
+    }
+    out.codename = system.codename;
+    const list = await vulnerabilities_feed({dir: path.join(process.env.SERVICEMAN_AGENT_DIR || os.tmpdir(), 'vulnerabilities'), codename: system.codename});
+    out.list = {generated: list.generated, checked_at: list.checked_at, error: list.error};
+    if (list.cves === null) {
+        out.reason = list.error;
+        return out;
+    }
+    out.items = vulnerabilities_items(vulnerabilities_match(list.cves, {kernel: facts.kernel, packages: facts.packages}), {codename: system.codename, found: {}, seen_at: null, notes: () => null});
+    return out;
 }
 
 // A volume's work, done by the agent's root half: the agent's refusal where there is none

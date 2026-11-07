@@ -116,7 +116,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
 
     // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'forwards', 'processes', 'disks', 'packages', 'containers', 'files', 'terminals']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'forwards', 'processes', 'disks', 'packages', 'containers', 'vulnerabilities', 'files', 'terminals']);
     assert.deepStrictEqual(listed.services, [], 'no app folder in this config');
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);
@@ -268,7 +268,7 @@ test('the modules say what they hold and do; a door none names is a 404, and a r
     const listed = await call(running, 'GET', '/api/v1/modules', null, running.owner);
     assert.strictEqual(listed.status, 200);
     const modules = JSON.parse(listed.body).modules;
-    assert.deepStrictEqual(modules.map(v => v.module), ['processes', 'disks', 'packages', 'docker', 'firewall', 'volumes', 'file_manager', 'terminal', 'file_manager']);
+    assert.deepStrictEqual(modules.map(v => v.module), ['processes', 'disks', 'packages', 'docker', 'firewall', 'volumes', 'vulnerabilities', 'file_manager', 'terminal', 'file_manager']);
     const docker = modules.find(v => v.module === 'docker');
     assert.strictEqual(docker.base, '/api/v1/remotes/<name>/docker');
     assert.deepStrictEqual(docker.kinds.find(v => v.kind === 'containers').commands.map(v => v.command), ['start', 'stop', 'restart', 'remove']);

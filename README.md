@@ -114,6 +114,8 @@ manifest names, door by door; and answers every manifest, with where it is mount
   in a container or a pty on a machine
 - [Volumes](modules/volumes/README.md) — encrypted volumes of a machine: LUKS in a file, opened
   at a folder, the key never kept on the machine
+- [Vulnerabilities](modules/vulnerabilities/README.md) — the critical CVEs that hit an Ubuntu
+  machine, as Ubuntu's own list says them: what each hits, whether a fix is out, what is new
 
 ## Code
 

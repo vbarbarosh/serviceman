@@ -22,6 +22,7 @@ const agent_metrics_ping = require('./agent_metrics_ping');
 const agent_metrics_read = require('./agent_metrics_read');
 const agent_metrics_state = require('./agent_metrics_state');
 const agent_package_list = require('./agent_package_list');
+const agent_package_versions = require('./agent_package_versions');
 const agent_port_list = require('./agent_port_list');
 const agent_proc_list = require('./agent_proc_list');
 const agent_program_docker_start = require('./agent_program_docker_start');
@@ -515,6 +516,10 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'term_signal') {
         return await agent_term_signal(params);
+    }
+    if (method === 'package_versions') {
+        // What the machine runs, for the CVEs that hit it: dpkg's file and the kernel running
+        return agent_package_versions(options);
     }
     if (method === 'security') {
         // What the Security page shows of this machine: sshd's files and journal read by the
