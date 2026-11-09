@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.19 — 2026-11-09
+
+- A full audit of the project, `notes/audit-2026-11-09.md`: 182 findings, SM-168 to SM-349,
+  each with the line it names and how it was found. Nothing is mended in this version.
+
 ## 1.0.18 — 2026-11-07
 
 - Vulnerabilities: Ubuntu's critical CVEs on each machine, read from Ubuntu's own list every
