@@ -7,7 +7,7 @@ const path = require('path');
 // when they changed; a forward taken out of the config leaves the file at the next write
 function forward_totals_write(app)
 {
-    const forwards = {};
+    const forwards = Object.create(null);
     for (const forward of app.config.forwards) {
         const counts = forward_join.counts(app, forward.label);
         forwards[forward.label] = {total: counts.total, bytes_sent: counts.bytes_sent, bytes_back: counts.bytes_back};

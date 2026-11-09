@@ -31,14 +31,14 @@ function forwards_here(app)
 
 async function forwards_apply(app)
 {
-    const wanted = {};
+    const wanted = Object.create(null);
     for (const item of app.config.forwards) {
         if ((item.off === false) && item.to.here) {
             wanted[item.label] = item;
         }
     }
     // What a forward that is tried again failed with last time, so the log says a reason once
-    const before = {};
+    const before = Object.create(null);
     for (const label of Object.keys(app.forwards_here)) {
         const found = app.forwards_here[label];
         if ((wanted[label] !== undefined) && (key_of(app, wanted[label]) === found.key) && (found.error === null)) {

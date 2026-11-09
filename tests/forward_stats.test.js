@@ -86,6 +86,32 @@ test('a forward with no look yet has no speed and an empty history', function ()
     assert.deepStrictEqual([view.speed_sent, view.speed_back, view.history_sent, view.history_back], [0, 0, [], []]);
 });
 
+// A label is any line of text. The tables by label are looked into with it, and a table with
+// a prototype answers `constructor` with a function: sampled a second later, that stopped
+// serviceman, and the config kept the label for the next start
+test('a forward labelled like something every object has is a forward like any other', function () {
+    const labels = ['constructor', 'toString', '__proto__', 'hasOwnProperty'];
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-stats-'));
+    const forwards = labels.map((v, i) => ({label: v, from: LOKI.from, to: {remote: 'laptop', port: 9900 + i}}));
+    const app = app_new(forwards, dir);
+    for (let i = 0; i < 3; i++) {
+        forwards_sample(app, TIME0 + i*1000);
+    }
+    for (const forward of app.config.forwards) {
+        const view = view_from_forward(app, forward);
+        assert.deepStrictEqual([view.label, view.total, view.speed_sent, view.history_sent], [forward.label, 0, 0, []]);
+    }
+    forward_join.counts(app, 'constructor').total = 3;
+    assert.strictEqual(forward_totals_write(app), true);
+    const next = app_new(forwards, dir);
+    forward_totals_apply(next, forward_totals_read(next));
+    assert.deepStrictEqual(labels.map(v => forward_join.counts(next, v).total), [3, 0, 0, 0]);
+
+    // And what a machine said of its forwards is read for the labels it named, no others
+    next.remote_by_name.laptop.state.forwards_said = {};
+    assert.strictEqual(view_from_forward(next, next.config.forwards[0]).error, null);
+});
+
 test('what a forward carried is on disk, and the next serviceman goes on from it', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-stats-'));
     const first = app_new([LOKI, IDLE], dir);

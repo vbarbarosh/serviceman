@@ -100,7 +100,8 @@ function said_of(app, forward, to)
     if ((to === undefined) || (to.state.forwards_said === null)) {
         return undefined;
     }
-    return to.state.forwards_said[forward.label];
+    // What a machine said is a plain object: only a word of its own about this label counts
+    return Object.hasOwn(to.state.forwards_said, forward.label) ? to.state.forwards_said[forward.label] : undefined;
 }
 
 module.exports = view_from_forward;

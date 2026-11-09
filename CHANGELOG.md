@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.23 — 2026-11-09
+
+- A forward may be labelled `constructor`, `toString` or `__proto__`: the tables kept by a
+  forward's label have no prototype. Such a label, saved by a token with the forwards right
+  alone, stopped serviceman a second later and again at every start. (SM-200)
+
 ## 1.0.22 — 2026-11-09
 
 - What a machine says of itself no longer stops serviceman: a hello whose `can` is no list, or
