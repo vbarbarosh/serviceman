@@ -2,6 +2,11 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.24 — 2026-11-09
+
+- A test of the forwards compared the table of serviceman's own forwards with `{}`; the table
+  has no prototype since 1.0.23, and the test, which failed in that version, reads its keys.
+
 ## 1.0.23 — 2026-11-09
 
 - A forward may be labelled `constructor`, `toString` or `__proto__`: the tables kept by a

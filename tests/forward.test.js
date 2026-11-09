@@ -628,7 +628,7 @@ test('a forward on serviceman itself follows the config, its socket file with it
 
         await app_apply_config(running.app, config_of([]));
         await wait_until(() => fs.existsSync(moved) === false);
-        assert.deepStrictEqual(running.app.forwards_here, {});
+        assert.deepStrictEqual(Object.keys(running.app.forwards_here), []);
     }
     finally {
         agents_stop(agents);
