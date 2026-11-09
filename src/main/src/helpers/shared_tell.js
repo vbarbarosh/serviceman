@@ -11,7 +11,20 @@ const APPLY_TIMEOUT_MS = 600000;
 // Each connected machine that has shared folders mounted, or had, is told its table when it
 // differs from the last one it took: at its hello and after every change. What it answers is
 // kept for the page. What goes wrong is said once per reason, not per try.
+//
+// It is called and left to itself, so nothing may come out of it: thrown from here, a kept
+// table that does not read, or an answer of another shape, would end the process.
 async function shared_tell(app)
+{
+    try {
+        await tell(app);
+    }
+    catch (error) {
+        log_event(app, 'shared_tell_error', {reason: error.message});
+    }
+}
+
+async function tell(app)
 {
     const shared = shared_read(app);
     const names = new Set(shared.mounts.map(v => v.remote).concat(shared.told));

@@ -5,7 +5,20 @@ const remote_call = require('./remote_call');
 // Each connected machine is sent its door table when it differs from the one it said it
 // serves: at its hello, after the config changes, and on the minute — a machine that comes
 // online changes its peers' tables too. What goes wrong is said once per reason, not per try.
+//
+// It is called and left to itself, so nothing may come out of it: thrown from here, what a
+// machine said that cannot be read would end the process.
 async function doors_tell(app)
+{
+    try {
+        await tell(app);
+    }
+    catch (error) {
+        log_event(app, 'doors_tell_error', {reason: error.message});
+    }
+}
+
+async function tell(app)
 {
     for (const remote of app.remotes) {
         if ((remote.state.phase !== 'online') || (remote.state.resources === null) || (remote.state.resources.doors === undefined)) {

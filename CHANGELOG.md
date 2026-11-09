@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.22 — 2026-11-09
+
+- What a machine says of itself no longer stops serviceman: a hello whose `can` is no list, or
+  an answer to `forwards_set` of another shape, is a line in the log. The three tellings a hello
+  sets off (forwards, doors, shared folders) let nothing out. (SM-199)
+
 ## 1.0.21 — 2026-11-09
 
 - A pane whose far end sends a frame the websocket's rules forbid is cut alone, at serviceman's
