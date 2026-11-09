@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.20 — 2026-11-09
+
+- A handshake whose address is no address (`GET //`) is dropped, at the control port and under
+  the control name on the service port: it stopped serviceman, with no token. What a handshake's
+  handler throws now costs that socket, not the process. (SM-168)
+
 ## 1.0.19 — 2026-11-09
 
 - A full audit of the project, `notes/audit-2026-11-09.md`: 182 findings, SM-168 to SM-349,

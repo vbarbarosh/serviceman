@@ -7,6 +7,7 @@ const control_same_origin = require('../src/main/src/control_same_origin');
 const fetch_host = require('./fetch_host');
 const file_log_from_env = require('../src/main/src/helpers/file_log_from_env');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
@@ -123,6 +124,21 @@ test('a page on another site cannot open a shell through the operator\'s browser
     }
 });
 
+test('a handshake whose address is no address is dropped, and serviceman goes on answering', async function () {
+    const running = await serviceman_start();
+    try {
+        // `//` is a host with no name: no address at all, sent by nobody who means well
+        assert.strictEqual(await handshake_said(running.control_port, '127.0.0.1', '//'), 'closed');
+        assert.strictEqual(await handshake_said(running.port, 'serviceman.localhost', '//'), 'closed');
+        assert.strictEqual(await handshake_said(running.port, 'serviceman.localhost', '//['), 'closed');
+        const after = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/status'});
+        assert.strictEqual(after.status, 200);
+    }
+    finally {
+        await running.close();
+    }
+});
+
 test('a visitor is told that it did not work, and the machine itself is told why', function () {
     const error_detail = require('../src/main/src/error_detail');
     const said = 'connect ECONNREFUSED 127.0.0.1:32783';
@@ -171,6 +187,33 @@ test('the log says what happened without keeping what was said', async function 
         await running.close();
     }
 });
+
+// What a raw handshake with this request target is answered: its status line, or `closed`
+// when the door hangs up without a word
+function handshake_said(port, host, target)
+{
+    return new Promise(function (resolve) {
+        const socket = net.connect(port, '127.0.0.1', function () {
+            socket.write(`GET ${target} HTTP/1.1\r\nHost: ${host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`);
+        });
+        let said = 'closed';
+        // A door that neither answers nor hangs up is a handler that broke on the way
+        const timer = setTimeout(function () {
+            said = 'left open';
+            socket.destroy();
+        }, 2000);
+        socket.on('data', function (chunk) {
+            said = String(chunk).split('\r\n')[0];
+        });
+        socket.on('error', function () {
+            socket.destroy();
+        });
+        socket.on('close', function () {
+            clearTimeout(timer);
+            resolve(said);
+        });
+    });
+}
 
 function shell_open(url, headers)
 {

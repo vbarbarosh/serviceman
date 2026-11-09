@@ -33,7 +33,12 @@ const sockets = new ws.WebSocketServer({noServer: true});
 // its command answered; and the link an agent on another machine dials in on
 function handle_control_upgrade(app, req, socket, head)
 {
-    const url = new URL(req.url, 'http://serviceman.invalid');
+    const url = url_asked(req);
+    // An address that is none (`//` reads as a host with no name) is nobody's door
+    if (url === null) {
+        socket.destroy();
+        return;
+    }
     if (url.pathname === REMOTE_PATH) {
         handle_remote_upgrade(app, req, socket, head);
         return;
@@ -103,6 +108,17 @@ function handle_control_upgrade(app, req, socket, head)
             });
         });
     });
+}
+
+// The address a handshake asks for, or null when what it sent is no address
+function url_asked(req)
+{
+    try {
+        return new URL(req.url, 'http://serviceman.invalid');
+    }
+    catch {
+        return null;
+    }
 }
 
 // Why this caller may not open this shell, or null when it may: no token, or one of an agent

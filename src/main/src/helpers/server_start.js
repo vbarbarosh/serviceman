@@ -62,7 +62,7 @@ function service_server(app)
         // A handshake that came in through a machine's door is a service's or nobody's: the
         // control page is never reached that way, as handle_request says of a request
         if ((socket.tunnel_from === undefined) && (app.config.control.host !== null) && (host === app.config.control.host)) {
-            handle_control_upgrade(app, req, socket, head);
+            greet(app, req, socket, head);
             return;
         }
         const promise = handle_upgrade(app, req, socket, head);
@@ -107,9 +107,23 @@ function control_server(app)
         socket.on('error', function () {
             socket.destroy();
         });
-        handle_control_upgrade(app, req, socket, head);
+        greet(app, req, socket, head);
     });
     return out;
+}
+
+// A handshake at the control page's doors. What its handler throws costs that socket and a
+// line in the log, as a request's does (answer): thrown out of here it would end the process,
+// and with it every service and every machine's link.
+function greet(app, req, socket, head)
+{
+    try {
+        handle_control_upgrade(app, req, socket, head);
+    }
+    catch (error) {
+        log_event(app, 'serviceman_error', {host: req.headers.host, path: url_logged(req.url), error: error.message});
+        socket.destroy();
+    }
 }
 
 function socket_free(path)
