@@ -1,8 +1,21 @@
 const EventEmitter = require('events');
 const assert = require('assert');
 const terminal_attach = require('../server/terminal_attach');
+const terminal_guard = require('../server/terminal_guard');
 const terminal_refuse = require('../server/terminal_refuse');
 const test = require('node:test');
+
+test('a pane\'s own error is heard and costs that pane alone', function () {
+    const client = new EventEmitter();
+    let cut = 0;
+    client.terminate = function () {
+        cut++;
+    };
+    terminal_guard(client);
+    // An EventEmitter with nobody listening throws its error: here that would end the host
+    assert.doesNotThrow(() => client.emit('error', new RangeError('Invalid WebSocket frame: RSV2 and RSV3 must be clear')));
+    assert.strictEqual(cut, 1);
+});
 
 test('the pane and the far end are joined both ways, and either end going away ends the other', function () {
     const client = client_fake();

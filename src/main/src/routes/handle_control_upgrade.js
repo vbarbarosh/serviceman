@@ -18,6 +18,7 @@ const remote_from_instance = require('../helpers/remote_from_instance');
 const streams_of = require('../helpers/streams_of');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const terminal_attach = require('../../../../modules/terminal/server/terminal_attach');
+const terminal_guard = require('../../../../modules/terminal/server/terminal_guard');
 const terminal_refuse = require('../../../../modules/terminal/server/terminal_refuse');
 const tunnel_open = require('../helpers/tunnel_open');
 const ws = require('ws');
@@ -87,6 +88,7 @@ function handle_control_upgrade(app, req, socket, head)
         return;
     }
     sockets.handleUpgrade(req, socket, head, function (client) {
+        terminal_guard(client);
         log_group_from(socket.log_group, function () {
             const machine = url.searchParams.get('remote');
             const container = url.searchParams.get('container');

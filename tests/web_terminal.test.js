@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fetch_host = require('./fetch_host');
+const handshake_raw = require('./handshake_raw');
 const server_make = require('../src/web-terminal/src/server_make');
 const test = require('node:test');
 const token_from_env = require('../src/web-terminal/src/token_from_env');
@@ -52,6 +53,25 @@ test('the web terminal asks for its token: on the page as a cookie, from a progr
     assert.strictEqual(sessions.status, 200);
     assert.ok(Array.isArray(JSON.parse(sessions.body).sessions));
     assert.strictEqual(await shell_answer(port, {cookie: pair}), 'HTTP/1.1 101 Switching Protocols');
+});
+
+// With the token, at a name no session can have: the door opens, says so and closes, and no
+// shell is started for the test
+test('a pane that breaks the websocket\'s rules is cut alone, and the web terminal goes on', async function (t) {
+    const server = server_make(TOKEN);
+    await new Promise(function (resolve) {
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    t.after(function () {
+        server.close();
+        server.closeAllConnections();
+    });
+    const port = server.address().port;
+    const frame = Buffer.from([0xf1, 0x80, 0x01, 0x02, 0x03, 0x04]);
+    const said = await handshake_raw({port, host: '127.0.0.1', target: '/NO-SUCH-NAME', headers: {Authorization: `Bearer ${TOKEN}`}, frame});
+    assert.match(said, / 101 /);
+    const after = await fetch_host({port, host: '127.0.0.1', path: '/_/sessions', token: TOKEN});
+    assert.strictEqual(after.status, 200);
 });
 
 test('the token comes from the environment, or is made and said once', function () {

@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.21 — 2026-11-09
+
+- A pane whose far end sends a frame the websocket's rules forbid is cut alone, at serviceman's
+  shell doors, in module-host and in web-terminal: six bytes from a token holder stopped the
+  whole process. (SM-170)
+
 ## 1.0.20 — 2026-11-09
 
 - A handshake whose address is no address (`GET //`) is dropped, at the control port and under

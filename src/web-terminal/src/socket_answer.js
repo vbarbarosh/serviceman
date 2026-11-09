@@ -2,6 +2,7 @@ const caller_allowed = require('./caller_allowed');
 const pty_spawn = require('./pty_spawn');
 const session_name_from_path = require('./session_name_from_path');
 const terminal_attach = require('../../../modules/terminal/server/terminal_attach');
+const terminal_guard = require('../../../modules/terminal/server/terminal_guard');
 const terminal_refuse = require('../../../modules/terminal/server/terminal_refuse');
 const tmux_argv = require('./tmux_argv');
 const ws = require('ws');
@@ -20,6 +21,7 @@ function socket_answer(req, socket, head, token)
     const pathname = new URL(req.url, 'http://web-terminal.invalid').pathname;
     const name = session_name_from_path(pathname);
     sockets.handleUpgrade(req, socket, head, function (client) {
+        terminal_guard(client);
         if (name === null) {
             terminal_refuse(client, 'no session has that name: lowercase letters, digits, - and _, one word after /');
             return;

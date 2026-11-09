@@ -6,6 +6,7 @@ const remote_call = require('../../main/src/helpers/remote_call');
 const request_allowed = require('./request_allowed');
 const streams_of = require('../../main/src/helpers/streams_of');
 const terminal_attach = require('../../../modules/terminal/server/terminal_attach');
+const terminal_guard = require('../../../modules/terminal/server/terminal_guard');
 const tunnel_open = require('../../main/src/helpers/tunnel_open');
 const ws = require('ws');
 
@@ -32,6 +33,7 @@ function upgrade_answer(req, socket, head)
         return;
     }
     sockets.handleUpgrade(req, socket, head, function (client) {
+        terminal_guard(client);
         const promise = (stream_asked === null) ? container_join(client, container) : term_join(client, stream_asked[1]);
         promise.catch(function (error) {
             client.send(JSON.stringify({type: 'note', text: error.message, ok: false}));
