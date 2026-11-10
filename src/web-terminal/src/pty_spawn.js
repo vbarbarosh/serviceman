@@ -82,6 +82,17 @@ function pty_spawn(argv)
     out.write = function (chunk) {
         child.stdin.write(chunk);
     };
+    // A page that reads slower than the program prints holds it back (terminal_attach): what
+    // was printed stays in the pipe, the loop above waits to write there, and the program
+    // waits to print
+    out.pause = function () {
+        child.stdout.pause();
+        child.stderr.pause();
+    };
+    out.resume = function () {
+        child.stdout.resume();
+        child.stderr.resume();
+    };
     out.destroy = function () {
         child.kill('SIGKILL');
     };

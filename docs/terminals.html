@@ -771,6 +771,10 @@ stays.</p>
 <li>Every message after it is binary: the terminal&#39;s bytes, escapes and all, for xterm.js or a
 real tty to draw. The first of them is the history, so a terminal joined again shows what
 it printed before, and scrolls back through it.</li>
+<li>Read what comes. A terminal that prints faster than its reader reads is held back, as one
+on a slow line is: its program waits to print, and nothing is dropped. A reader that takes
+nothing at all holds the terminal meanwhile, for everyone joined to it: after 20 seconds of
+that its socket is cut, the terminal goes on, and joining again shows the history.</li>
 <li>Send text messages, json: <code>{&quot;type&quot;: &quot;input&quot;, &quot;data&quot;: &quot;ls\r&quot;}</code> types (Enter is <code>\r</code>), and
 <code>{&quot;type&quot;: &quot;resize&quot;, &quot;cols&quot;: 120, &quot;rows&quot;: 40}</code> sets the size. Send a resize first: a new
 terminal starts at 80×24. A message that is not one of these, input that is not text, or a

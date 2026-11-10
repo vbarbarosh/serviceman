@@ -75,6 +75,42 @@ test('a machine shell and a web terminal close with their shell, though a job it
     }
 });
 
+// A pane that reads slower than the program prints holds the terminal back (terminal_attach).
+// Held, it hands over no more and its program waits to print; let go, it goes on where it
+// stopped. A web terminal had no way to be held: the first pane that fell behind ended it.
+test('a machine shell and a web terminal held back print no more, their program waits, and they go on in order', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'held-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const shells = {
+        machine: agent_machine_shell({cols: 80, rows: 24}),
+        web: pty_spawn(['bash', '--norc', '--noprofile', '-i']),
+    };
+    for (const [name, shell] of Object.entries(shells)) {
+        t.after(() => shell.destroy());
+        const done = path.join(dir, name);
+        let heard = '';
+        let held = null;
+        shell.on('data', function (chunk) {
+            heard += chunk.toString('latin1');
+            if ((held === null) && heard.includes('begin-42\r\n')) {
+                shell.pause();
+                held = heard.length;
+            }
+        });
+        // 2 MB of lines, which a pty passes on in a moment when nobody holds it
+        shell.write(`stty -echo; echo begin-$((40+2)); seq 1 300000; touch ${done}; echo end-$((40+2))\n`);
+        await until(() => (held !== null), 10000, `the first lines of the ${name} shell`);
+        await new Promise(v => setTimeout(v, 500));
+        assert.strictEqual(heard.length, held, `the ${name} shell hands over no more while it is held`);
+        assert.strictEqual(fs.existsSync(done), false, `the program of the ${name} shell waits to print`);
+        shell.resume();
+        await until(() => heard.includes('end-42\r\n'), 10000, `the rest of the ${name} shell`);
+        const lines = heard.slice(heard.indexOf('begin-42\r\n') + 10, heard.indexOf('end-42\r\n')).split('\r\n');
+        assert.strictEqual(lines.length, 300001, `every line of the ${name} shell`);
+        assert.strictEqual(lines.findIndex((v, i) => (i < 300000) && (v !== String(i + 1))), -1, `the lines of the ${name} shell in order`);
+    }
+});
+
 test('a signal to the session reaches the jobs the shell left in the background', async function (t) {
     const dir = agent_dir(t);
     await agent_term_start('work', 80, 24, {}, dir);

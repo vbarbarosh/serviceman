@@ -77,6 +77,15 @@ The server half, once the host has a websocket and has opened the far end:
 
     terminal_refuse(client, 'box is not connected');
 
+The stream is a socket, or answers as one: it emits `data`, `close` and `error`, and takes
+`write(text)`, `destroy()`, `pause()` and `resume()`. A far end that prints faster than its pane
+reads is held back: with more than 256 KB waiting for the pane the stream is paused, and it
+goes on once the pane has taken them. So a paused stream has to stop its far end, the way a
+socket does: what is printed waits there, with the program that prints it, and never in the
+host. Nothing is dropped, and what the pane types is never held. A held pane that takes nothing
+at all for 20 seconds, a laptop asleep with its tab open, is let go: its socket is cut and the
+stream closed, as for any pane that went away, so the program does not wait for it for good.
+
 The kept terminals' API, for a host that keeps them:
 
     const terminal_serve = require('../modules/terminal/server/terminal_serve');

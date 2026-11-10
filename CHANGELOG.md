@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.68 — 2026-11-10
+
+- A terminal's output was sent on to its pane whatever the pane had taken: `yes` on a machine,
+  watched over a slow line, grew serviceman by the difference (93 MB to 354 MB in 8 s), Ctrl-C
+  was followed by 47 s of old output, and a shell that printed 50 MB and exited lost its last
+  lines. With more than 256 KB waiting for a pane its stream is paused now, so the program
+  waits to print, on a machine, in a container and in the web terminal; nothing is dropped. A
+  held pane that takes nothing at all for 20 seconds, a laptop asleep, is let go, so it does
+  not hold a kept terminal for the others joined to it. (SM-242)
+
 ## 1.0.67 — 2026-11-10
 
 - A machine taken out of the config was told "removed", and its agent then deleted its whole

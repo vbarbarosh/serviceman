@@ -1392,6 +1392,61 @@ test('a machine shell runs as the agent user, in a real pty', async function () 
     }
 });
 
+// `yes` in a shell, watched by a pane that stops reading: every byte it printed waited in
+// serviceman, tens of megabytes a second, until serviceman was killed. The far end is held back
+// instead: the link's stream is given no more room, the agent stops reading its pty, and the
+// program waits to print. What is typed goes the other way: Ctrl-C stops it.
+test('a machine shell that prints faster than its pane reads is held back on the machine, and Ctrl-C stops it', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const ws = require('ws');
+    let client = null;
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+
+        client = new ws.WebSocket(`ws://127.0.0.1:${running.control_port}/api/v1/shell?remote=ui1`, {headers: {authorization: `Bearer ${fetch_host.OWNER_TOKEN}`}});
+        let text = '';
+        client.on('message', function (data) {
+            text = (text + data.toString('latin1')).slice(-2000);
+        });
+        await new Promise(v => client.on('open', v));
+        client.send(JSON.stringify({type: 'input', data: 'yes\r'}));
+        await wait_until(() => text.includes('y\r\ny\r\n'), 8000);
+
+        // The pane reads no more: soon the machine sends no more either, for half a second
+        // here, though yes prints for ever
+        client.pause();
+        let got = -1;
+        let still_since = Date.now();
+        await wait_until(function () {
+            const now = Object.values(remote.state.streams).reduce((sum, v) => sum + v.got, 0);
+            if (now !== got) {
+                got = now;
+                still_since = Date.now();
+            }
+            return (Date.now() - still_since >= 500);
+        }, 8000);
+        // What waits in serviceman's end of the stream is a window of the link, the piece
+        // that crossed it and what a stream keeps ready, no more
+        const waiting = Object.values(remote.state.streams).reduce((sum, v) => sum + v.readableLength, 0);
+        assert.ok(waiting <= (256 + 64 + 64)*1024, `${waiting} bytes wait in the stream`);
+
+        // Ctrl-C while it is held, then the pane reads again: the prompt is back
+        client.send(JSON.stringify({type: 'input', data: '\x03'}));
+        client.send(JSON.stringify({type: 'input', data: 'echo back-$((40+2))\r'}));
+        client.resume();
+        await wait_until(() => text.includes('back-42'), 8000);
+    }
+    finally {
+        if (client !== null) {
+            client.terminate();
+        }
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 // The client a program like Visual Notes copies from demos/terminal-client: the same
 // terminals as the Shell tab, joined from outside the page. No tmux: a holder process the agent
 // leaves on the machine keeps the shell and what it printed, through a restart of the agent.
