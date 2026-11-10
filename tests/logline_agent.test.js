@@ -240,6 +240,84 @@ test('whatever order appends, syncs, batches, acks and restarts come in, every s
     }
 });
 
+test('a spool that cannot be written stops nothing: it says so once, keeps the lines, and writes each once when it can again', async function () {
+    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'spool-')), 'spool');
+    const said = [];
+    const options = {cap_bytes: 1e9, segment_bytes: 400, sync_ms: 20, say: (sender, words) => said.push([sender, words.dropped])};
+    let spool = logline_spool(dir, options);
+    // Three lines fill a segment, so the next one needs a new file
+    for (const line of ['one', 'two', 'three']) {
+        spool.append(record('a', '2026-09-25T18:00:01.000000000Z', line));
+    }
+    spool.flush();
+    // The folder is a file now: nothing can be made in it, by root either
+    fs.renameSync(dir, `${dir}.away`);
+    fs.writeFileSync(dir, '');
+    spool.append(record('a', '2026-09-25T18:00:02.000000000Z', 'four'));
+    // The timer syncs every 20ms: several times while nothing can be written
+    await timers.setTimeout(150);
+    spool.append(record('a', '2026-09-25T18:00:03.000000000Z', 'five'));
+    spool.flush();
+    assert.deepStrictEqual(said, [['logline_spool_error', undefined]], 'said once, not at every sync');
+    assert.strictEqual(spool.full(), true, 'and nothing more is read while it cannot be kept');
+    fs.rmSync(dir);
+    fs.renameSync(`${dir}.away`, dir);
+    await timers.setTimeout(150);
+    assert.deepStrictEqual(said, [['logline_spool_error', undefined], ['logline_spool_ok', 0]]);
+    assert.strictEqual(spool.full(), false);
+    spool.close();
+    // What was written before is as it was, and what waited is there once
+    spool = logline_spool(dir, options);
+    assert.deepStrictEqual(JSON.parse(spool.batch(10, 1e6).body).map(v => v.line), ['one', 'two', 'three', 'four', 'five']);
+    spool.close();
+});
+
+test('a spool that cannot be written for long keeps a segment of lines in memory and no more: the oldest go, and it says how many', function () {
+    const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'spool-')), 'spool');
+    const said = [];
+    const spool = logline_spool(dir, {cap_bytes: 1e9, segment_bytes: 1000, sync_ms: 60000, say: (sender, words) => said.push([sender, words.dropped])});
+    fs.rmdirSync(dir);
+    fs.writeFileSync(dir, '');
+    for (let i = 0; i < 50; i++) {
+        spool.append(record('a', `2026-09-25T18:00:${String(i).padStart(2, '0')}.000000000Z`, `line ${i}`));
+        spool.flush();
+    }
+    assert.strictEqual(spool.stats().disk_bytes <= 1000, true, `${spool.stats().disk_bytes} bytes wait in memory`);
+    fs.rmSync(dir);
+    fs.mkdirSync(dir);
+    spool.flush();
+    const lines = JSON.parse(spool.batch(100, 1e6).body).map(v => v.line);
+    assert.strictEqual((lines.length > 1) && (lines.length < 50), true, `${lines.length} lines were kept`);
+    assert.deepStrictEqual(lines, Array.from({length: lines.length}, (v, index) => `line ${index + 50 - lines.length}`), 'the newest, in order');
+    assert.deepStrictEqual(said, [['logline_spool_error', undefined], ['logline_spool_ok', 50 - lines.length]]);
+    assert.strictEqual(spool.stats().waiting_bytes, spool.stats().disk_bytes, 'what waits is what is in the spool, without the lines that went');
+    spool.close();
+});
+
+test('a write a full disk took a part of is cut off before the next one: no line is in the spool twice or in half', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-'));
+    const spool = logline_spool(dir, {cap_bytes: 1e9, segment_bytes: 1e6, sync_ms: 60000});
+    spool.append(record('a', '2026-09-25T18:00:01.000000000Z', 'one'));
+    spool.flush();
+    const write = fs.writeSync;
+    // A disk that fills up: it takes all but the end of what it is given, and then nothing
+    const disk = t.mock.method(fs, 'writeSync', function (fd, bytes, offset) {
+        if (offset > 0) {
+            throw Object.assign(new Error('ENOSPC: no space left on device, write'), {code: 'ENOSPC'});
+        }
+        return write(fd, bytes, 0, bytes.length - 10);
+    });
+    spool.append(record('a', '2026-09-25T18:00:02.000000000Z', 'two'));
+    spool.append(record('a', '2026-09-25T18:00:03.000000000Z', 'three'));
+    spool.flush();
+    disk.mock.restore();
+    spool.append(record('a', '2026-09-25T18:00:04.000000000Z', 'four'));
+    spool.flush();
+    const segment = fs.readdirSync(dir).find(v => v.endsWith('.jsonl'));
+    assert.deepStrictEqual(fs.readFileSync(path.join(dir, segment), 'utf8').trimEnd().split('\n').map(v => JSON.parse(v).line), ['one', 'two', 'three', 'four']);
+    spool.close();
+});
+
 // Everything the spool holds, sent: each line as "file: line"
 // An app's data/logs is made by the app when it first writes a log: missing until then, and
 // no error; once made, every file in it is new and read from its start, under the app's name

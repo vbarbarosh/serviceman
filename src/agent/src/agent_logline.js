@@ -77,6 +77,7 @@ async function apply(options)
                     state.ship.wake();
                 }
             },
+            say,
         });
         state.stats = stats_read(dir);
     }

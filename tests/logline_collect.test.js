@@ -121,6 +121,25 @@ test('at its cap the spool stops reading, and every line still arrives once Logl
     assert.deepStrictEqual(world.rows().map(v => v.Body).sort(), written.slice().sort());
 });
 
+test('an agent whose spool folder cannot be written goes on, says so once, and its lines arrive once it can be', {skip: (process.getuid() === 0) ? 'root writes into every folder' : false}, async function (t) {
+    const world = await world_make(t);
+    const spool = path.join(world.agent_dir, 'logline', 'spool');
+    fs.mkdirSync(spool, {recursive: true});
+    fs.chmodSync(spool, 0o500);
+    t.after(() => fs.chmodSync(spool, 0o700));
+    const web = world.docker.add('web');
+    const floor = world.docker.now();
+    world.docker.log(web, 'written while the folder was read-only');
+    world.agent_start(floor);
+    // Five syncs' time: an agent the first of them stopped is gone by now
+    await timers.setTimeout(1000);
+    assert.strictEqual(world.agent_alive(), true, 'the agent is still there');
+    fs.chmodSync(spool, 0o700);
+    await world.until(() => (world.rows().length === 1) && world.own().some(v => v.LogAttributes.sender === 'logline_spool_ok'));
+    assert.deepStrictEqual(world.rows().map(v => v.Body), ['written while the folder was read-only']);
+    assert.deepStrictEqual(world.own().map(v => v.LogAttributes.sender).filter(v => v.startsWith('logline_spool_')), ['logline_spool_error', 'logline_spool_ok'], 'said once when it began, and once when it was over');
+});
+
 // A docker engine, Logline's endpoint in front of a ClickHouse that keeps one copy of a batch
 // sent twice, and an agent told to send there
 async function world_make(t, env)
@@ -175,6 +194,7 @@ async function world_make(t, env)
             agent.kill('SIGKILL');
             agent = null;
         },
+        agent_alive: () => (agent !== null) && (agent.exitCode === null) && (agent.signalCode === null),
         lines_down: function () {
             lines.closeAllConnections();
             lines.close();

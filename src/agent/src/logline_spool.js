@@ -22,7 +22,7 @@ const RE_SEGMENT = /^(\d{16})\.jsonl$/;
 // themselves, so there is no second file to fall out of step with them. What a deleted segment
 // knew is kept in cursors.json, with the last seq it covers, so nothing is counted twice.
 //
-// options: {cap_bytes, segment_bytes, sync_ms, on_data}
+// options: {cap_bytes, segment_bytes, sync_ms, on_data, say}
 function logline_spool(dir, options)
 {
     fs.mkdirSync(dir, {recursive: true, mode: 0o700});
@@ -32,6 +32,7 @@ function logline_spool(dir, options)
         // A segment goes only when all of it is acked, so a small cap gets small segments
         segment_bytes: (options.segment_bytes === undefined) ? Math.max(4096, Math.min(SEGMENT_BYTES, Math.floor(options.cap_bytes/8))) : options.segment_bytes,
         on_data: options.on_data || nothing,
+        say: options.say || nothing,
         segments: [],
         buffer: [],
         fd: null,
@@ -43,6 +44,8 @@ function logline_spool(dir, options)
         reader: null,
         waiting_bytes: 0,
         room_waiters: [],
+        // While the disk refuses the lines: {reason, dropped}
+        failing: null,
         timer: null,
     };
     recover(spool);
@@ -76,25 +79,65 @@ function append(spool, record)
     return item.seq;
 }
 
-// Everything in memory, onto the disk and synced
+// Everything in memory, onto the disk and synced. A disk that refuses the lines, read-only or
+// full, stops the spool and never the agent: they wait in memory, and every sync tries again.
 function flush(spool)
 {
     if (spool.buffer.length === 0) {
         return;
     }
+    try {
+        buffer_write(spool);
+    }
+    catch (error) {
+        buffer_keep(spool, error);
+        return;
+    }
+    if (spool.failing !== null) {
+        const was = spool.failing;
+        spool.failing = null;
+        // Whoever stopped reading until the lines could be kept reads on
+        if (full(spool) === false) {
+            for (const resolve of spool.room_waiters.splice(0)) {
+                resolve();
+            }
+        }
+        spool.say('logline_spool_ok', {after: was.reason, dropped: was.dropped});
+    }
+    spool.on_data();
+}
+
+// Throws when the disk refuses, and the buffer is then as it was: it is emptied only once its
+// lines are synced
+function buffer_write(spool)
+{
     const text = spool.buffer.join('');
     const first_seq = spool.next_seq - spool.buffer.length;
-    spool.buffer = [];
     let segment = spool.segments[spool.segments.length - 1];
     if ((segment === undefined) || segment.closed) {
-        segment = {name: `${String(first_seq).padStart(16, '0')}.jsonl`, first: first_seq, last: first_seq - 1, size: 0, closed: false, cursors_at_end: null};
-        spool.segments.push(segment);
+        // Named for the first seq it could hold, the lines dropped meanwhile counted in: a restart
+        // gives their seqs out again, and a file named past them would sort after its successor
+        const first = first_seq - ((spool.failing === null) ? 0 : spool.failing.dropped);
+        segment = {name: `${String(first).padStart(16, '0')}.jsonl`, first, last: first - 1, size: 0, closed: false, cursors_at_end: null};
         spool.fd = fs.openSync(path.join(spool.dir, segment.name), 'a', 0o600);
+        // Among the segments only once its file is there: a batch reads every one of them
+        spool.segments.push(segment);
+        dir_sync(spool.dir);
+    }
+    else if (spool.failing !== null) {
+        // What a write that failed left of itself is cut off, so no line is in the segment
+        // twice or in half; and the folder is synced again, in case that was what failed
+        fs.ftruncateSync(spool.fd, segment.size);
         dir_sync(spool.dir);
     }
     const bytes = Buffer.from(text);
-    fs.writeSync(spool.fd, bytes);
+    // A disk that fills up takes a part of a write and says how much: the rest follows, or throws
+    let done = 0;
+    while (done < bytes.length) {
+        done += fs.writeSync(spool.fd, bytes, done);
+    }
     fs.fdatasyncSync(spool.fd);
+    spool.buffer = [];
     segment.size += bytes.length;
     segment.last = spool.next_seq - 1;
     if (spool.reader === null) {
@@ -103,12 +146,40 @@ function flush(spool)
     if (segment.size >= spool.segment_bytes) {
         segment_close(spool, segment);
     }
-    spool.on_data();
+}
+
+// The disk refused the lines. Said once, not at every sync: a full disk would fill the log as
+// well, and the line itself waits here with the rest. No more waits in memory than a segment
+// holds: past that the oldest lines go, counted, and the newest stays whatever its size.
+function buffer_keep(spool, error)
+{
+    if (spool.failing === null) {
+        spool.failing = {reason: error.message, dropped: 0};
+        spool.say('logline_spool_error', {reason: error.message, then: 'the lines wait in memory, written when it can be; no more are read until then'});
+    }
+    let bytes = 0;
+    for (const text of spool.buffer) {
+        bytes += Buffer.byteLength(text);
+    }
+    let dropped = 0;
+    while ((bytes > spool.segment_bytes) && (dropped < spool.buffer.length - 1)) {
+        const gone = Buffer.byteLength(spool.buffer[dropped]);
+        bytes -= gone;
+        spool.waiting_bytes = Math.max(0, spool.waiting_bytes - gone);
+        dropped += 1;
+    }
+    spool.buffer.splice(0, dropped);
+    spool.failing.dropped += dropped;
 }
 
 function segment_close(spool, segment)
 {
-    fs.closeSync(spool.fd);
+    try {
+        fs.closeSync(spool.fd);
+    }
+    catch {
+        // Its lines are synced: a close that fails takes none of them, and is no failed write
+    }
     spool.fd = null;
     segment.closed = true;
     segment.cursors_at_end = JSON.parse(JSON.stringify(spool.cursors));
@@ -202,10 +273,11 @@ function ack(spool, cut)
 }
 
 // Full is what waits to be sent, not what is on the disk: acked lines leave with their segment,
-// and a spool that counted them would wait for itself
+// and a spool that counted them would wait for itself. A spool its disk refuses takes no more
+// either: docker and the files hold their lines until it is written again
 function full(spool)
 {
-    return spool.waiting_bytes >= spool.cap_bytes;
+    return (spool.waiting_bytes >= spool.cap_bytes) || (spool.failing !== null);
 }
 
 // Resolves when there is room again

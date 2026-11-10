@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.36 — 2026-11-10
+
+- The agent no longer stops, at every start, when its Logline spool cannot be written (a
+  read-only folder, a full disk): the lines wait in memory, a segment of them at most, the
+  agent says `logline_spool_error` once and `logline_spool_ok` when the disk takes them again,
+  each line written once. Until then it reads no more from docker or the files, which keep
+  their lines. Agent 1.33.3. (SM-284)
+
 ## 1.0.35 — 2026-11-10
 
 - web-terminal's websocket asks which page opens it: a handshake whose `Origin` is not the

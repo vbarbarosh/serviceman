@@ -361,6 +361,8 @@ What an agent says about sending its machine's lines to Logline:
 | `logline_docker_error`   | Docker could not be asked; asked again.                             |
 | `logline_follow_error`   | Following one container broke; it is followed again.                |
 | `logline_collect_error`  | Collection could not start, and why.                                |
+| `logline_spool_error`    | The spool could not be written, and why; said once, tried again.    |
+| `logline_spool_ok`       | It is written again after the error above; `dropped=` lines lost.   |
 
 What an agent says about keeping its machine's numbers for the charts:
 
