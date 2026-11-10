@@ -194,7 +194,7 @@ A machine carries tags — what it *is*, written by whoever runs serviceman:
 and a service asks for a kind of machine instead of a name:
 
 ```json
-{"name": "grafana", "type": "docker", "remotes": ["#gpu"], "image": "grafana/grafana:latest"}
+{"name": "grafana", "type": "docker", "remotes": ["#gpu"], "publish": {"host": "grafana.example.com", "port": 3000}, "image": "grafana/grafana:latest"}
 ```
 
 `remotes` is still a list in the order it prefers, so `["vps1", "#eu"]` means *that machine if

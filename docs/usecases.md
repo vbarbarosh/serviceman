@@ -95,6 +95,7 @@ For that, put `watchdog` from `@vbarbarosh/node-helpers` between serviceman and 
 {
     "name": "app-watch",
     "type": "shell",
+    "remote": "laptop",
     "publish": {"host": "app.localhost", "port": 8080},
     "command": "npx watchdog npm run watch",
     "cwd": "/home/user/app",

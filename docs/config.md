@@ -340,8 +340,8 @@ A service names the machines it may run on, best first — and a `#tag` stands f
 carrying it:
 
 ```json
-{"name": "grafana", "type": "docker", "remotes": ["#gpu"], "image": "grafana/grafana:latest"}
-{"name": "api", "type": "docker", "remotes": ["vps1", "#eu"], "image": "demo/api"}
+{"name": "grafana", "type": "docker", "remotes": ["#gpu"], "publish": {"host": "grafana.example.com", "port": 3000}, "image": "grafana/grafana:latest"}
+{"name": "api", "type": "docker", "remotes": ["vps1", "#eu"], "publish": {"host": "api.example.com", "port": 8080}, "image": "demo/api"}
 ```
 
 The second one prefers `vps1` and falls back to anything tagged `eu`.
@@ -386,7 +386,9 @@ which is the default.
     "name": "grafana",
     "title": "Grafana",
     "type": "docker",
+    "remotes": ["vps1"],
     "publish": {"host": "grafana.example.com", "port": 3000},
+    "image": "grafana/grafana:latest",
     "policy": {"start": "on_demand", "stop_after_idle": "30m", "start_timeout": "90s"}
 }
 ```
@@ -420,8 +422,8 @@ answers nowhere has no `publish` at all.
 An address is a hostname with an optional path prefix:
 
 ```json
-{"name": "pdf", "type": "docker", "publish": {"host": "tools.example.com/pdf", "port": 3000}, ...}
-{"name": "img", "type": "docker", "publish": {"host": "tools.example.com/img", "port": 3000}, ...}
+{"name": "pdf", "type": "docker", "remotes": ["vps1"], "publish": {"host": "tools.example.com/pdf", "port": 3000}, "image": "demo/pdf"}
+{"name": "img", "type": "docker", "remotes": ["vps1"], "publish": {"host": "tools.example.com/img", "port": 3000}, "image": "demo/img"}
 {"name": "www", "type": "external", "publish": {"host": "tools.example.com"}, "upstream": "127.0.0.1:7000"}
 ```
 
@@ -460,6 +462,7 @@ The uid follows the service's name and does not change.
 {
     "name": "google-docs-writer",
     "type": "shell",
+    "remotes": ["laptop"],
     "publish": {"host": "google-docs-writer.localhost", "port": 8090},
     "cwd": "/home/user/google-docs-writer",
     "argv": ["node", "src/http.js"],
@@ -495,6 +498,7 @@ The agent runs the command on its machine and keeps it alive:
 {
     "name": "clickhouse-socket",
     "type": "shell",
+    "remotes": ["server"],
     "command": "socat UNIX-LISTEN:/srv/clickhouse.sock,fork,unlink-early,mode=666 TCP:127.0.0.1:8081",
     "policy": {"start": "always", "restart": "always"}
 }
@@ -912,6 +916,7 @@ instance of a docker service shares the same volumes — the service must be rea
 {
     "name": "grafana",
     "type": "docker",
+    "remotes": ["vps1"],
     "publish": {"host": "grafana.example.com", "port": 3000},
     "image": "grafana/grafana:latest",
     "env": {"GF_SERVER_ROOT_URL": "https://grafana.example.com"},

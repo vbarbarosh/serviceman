@@ -884,7 +884,7 @@ and running it again is how you pick up an edited <code>env</code> or a replaced
 ]
 </code></pre>
 <p>and a service asks for a kind of machine instead of a name:</p>
-<pre><code class="language-json">{&quot;name&quot;: &quot;grafana&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;#gpu&quot;], &quot;image&quot;: &quot;grafana/grafana:latest&quot;}
+<pre><code class="language-json">{&quot;name&quot;: &quot;grafana&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;#gpu&quot;], &quot;publish&quot;: {&quot;host&quot;: &quot;grafana.example.com&quot;, &quot;port&quot;: 3000}, &quot;image&quot;: &quot;grafana/grafana:latest&quot;}
 </code></pre>
 <p><code>remotes</code> is still a list in the order it prefers, so <code>[&quot;vps1&quot;, &quot;#eu&quot;]</code> means <em>that machine if
 it is up, otherwise anything in Europe</em>.</p>

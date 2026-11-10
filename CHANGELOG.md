@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.43 — 2026-11-10
+
+- Seven config examples of the docs that the validator refused name their machine, their
+  address and their image now (`docs/config.md`, `docs/remotes.md`, `docs/usecases.md`), two
+  shortened lines are written whole, and `tests/docs_examples.test.js` runs every `json` block
+  of the docs through the validator the real file goes through. (SM-307)
+
 ## 1.0.42 — 2026-11-10
 
 - `"socket": null` for `listen` or `control` means no socket file, as leaving the key out

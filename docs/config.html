@@ -1148,8 +1148,8 @@ this host, which means nothing over there.</p>
 <h3 id="a-kind-of-machine-instead-of-one-machine"><a class="anchor" href="#a-kind-of-machine-instead-of-one-machine" aria-hidden="true" tabindex="-1">#</a>A kind of machine instead of one machine</h3>
 <p>A service names the machines it may run on, best first — and a <code>#tag</code> stands for every machine
 carrying it:</p>
-<pre><code class="language-json">{&quot;name&quot;: &quot;grafana&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;#gpu&quot;], &quot;image&quot;: &quot;grafana/grafana:latest&quot;}
-{&quot;name&quot;: &quot;api&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;vps1&quot;, &quot;#eu&quot;], &quot;image&quot;: &quot;demo/api&quot;}
+<pre><code class="language-json">{&quot;name&quot;: &quot;grafana&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;#gpu&quot;], &quot;publish&quot;: {&quot;host&quot;: &quot;grafana.example.com&quot;, &quot;port&quot;: 3000}, &quot;image&quot;: &quot;grafana/grafana:latest&quot;}
+{&quot;name&quot;: &quot;api&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;vps1&quot;, &quot;#eu&quot;], &quot;publish&quot;: {&quot;host&quot;: &quot;api.example.com&quot;, &quot;port&quot;: 8080}, &quot;image&quot;: &quot;demo/api&quot;}
 </code></pre>
 <p>The second one prefers <code>vps1</code> and falls back to anything tagged <code>eu</code>.</p>
 <p>Tags come from two places: this file, and the machine itself — <code>serviceman-agent --tag gpu</code>,
@@ -1181,7 +1181,9 @@ which is the default.</p>
     &quot;name&quot;: &quot;grafana&quot;,
     &quot;title&quot;: &quot;Grafana&quot;,
     &quot;type&quot;: &quot;docker&quot;,
+    &quot;remotes&quot;: [&quot;vps1&quot;],
     &quot;publish&quot;: {&quot;host&quot;: &quot;grafana.example.com&quot;, &quot;port&quot;: 3000},
+    &quot;image&quot;: &quot;grafana/grafana:latest&quot;,
     &quot;policy&quot;: {&quot;start&quot;: &quot;on_demand&quot;, &quot;stop_after_idle&quot;: &quot;30m&quot;, &quot;start_timeout&quot;: &quot;90s&quot;}
 }
 </code></pre>
@@ -1250,8 +1252,8 @@ already answers on.</p>
 answers nowhere has no <code>publish</code> at all.</p>
 <h2 id="addresses-with-a-path"><a class="anchor" href="#addresses-with-a-path" aria-hidden="true" tabindex="-1">#</a>Addresses with a path</h2>
 <p>An address is a hostname with an optional path prefix:</p>
-<pre><code class="language-json">{&quot;name&quot;: &quot;pdf&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;tools.example.com/pdf&quot;, &quot;port&quot;: 3000}, ...}
-{&quot;name&quot;: &quot;img&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;tools.example.com/img&quot;, &quot;port&quot;: 3000}, ...}
+<pre><code class="language-json">{&quot;name&quot;: &quot;pdf&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;vps1&quot;], &quot;publish&quot;: {&quot;host&quot;: &quot;tools.example.com/pdf&quot;, &quot;port&quot;: 3000}, &quot;image&quot;: &quot;demo/pdf&quot;}
+{&quot;name&quot;: &quot;img&quot;, &quot;type&quot;: &quot;docker&quot;, &quot;remotes&quot;: [&quot;vps1&quot;], &quot;publish&quot;: {&quot;host&quot;: &quot;tools.example.com/img&quot;, &quot;port&quot;: 3000}, &quot;image&quot;: &quot;demo/img&quot;}
 {&quot;name&quot;: &quot;www&quot;, &quot;type&quot;: &quot;external&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;tools.example.com&quot;}, &quot;upstream&quot;: &quot;127.0.0.1:7000&quot;}
 </code></pre>
 <p>One hostname is shared by many services this way. The longest matching prefix wins:
@@ -1280,6 +1282,7 @@ would have lost.</p>
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;google-docs-writer&quot;,
     &quot;type&quot;: &quot;shell&quot;,
+    &quot;remotes&quot;: [&quot;laptop&quot;],
     &quot;publish&quot;: {&quot;host&quot;: &quot;google-docs-writer.localhost&quot;, &quot;port&quot;: 8090},
     &quot;cwd&quot;: &quot;/home/user/google-docs-writer&quot;,
     &quot;argv&quot;: [&quot;node&quot;, &quot;src/http.js&quot;],
@@ -1306,6 +1309,7 @@ the next visitor through the door starts it again.</p>
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;clickhouse-socket&quot;,
     &quot;type&quot;: &quot;shell&quot;,
+    &quot;remotes&quot;: [&quot;server&quot;],
     &quot;command&quot;: &quot;socat UNIX-LISTEN:/srv/clickhouse.sock,fork,unlink-early,mode=666 TCP:127.0.0.1:8081&quot;,
     &quot;policy&quot;: {&quot;start&quot;: &quot;always&quot;, &quot;restart&quot;: &quot;always&quot;}
 }
@@ -1741,6 +1745,7 @@ instance of a docker service shares the same volumes — the service must be rea
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;grafana&quot;,
     &quot;type&quot;: &quot;docker&quot;,
+    &quot;remotes&quot;: [&quot;vps1&quot;],
     &quot;publish&quot;: {&quot;host&quot;: &quot;grafana.example.com&quot;, &quot;port&quot;: 3000},
     &quot;image&quot;: &quot;grafana/grafana:latest&quot;,
     &quot;env&quot;: {&quot;GF_SERVER_ROOT_URL&quot;: &quot;https://grafana.example.com&quot;},
