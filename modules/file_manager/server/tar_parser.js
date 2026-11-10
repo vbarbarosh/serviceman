@@ -1,6 +1,9 @@
 // A long name or a pax header is held whole in memory; past this it is no name but a flood
 const META_MAX_BYTES = 1024*1024;
 const BLOCK = 512;
+// How much of a name a refusal says: a long name is up to META_MAX_BYTES of anything, and the
+// refusal is one line on a page
+const NAME_SAID_CHARS = 200;
 
 // A tar read as its bytes come, in chunks cut anywhere: a header may end in the next chunk, and
 // a file's bytes run across as many as they like. push(chunk) answers what the chunk finished:
@@ -8,7 +11,8 @@ const BLOCK = 512;
 //     {type: 'dir', name}                  a folder
 //     {type: 'file', name, size, mtime_s, mode}
 //                                          a file begins, its time in seconds and its mode as
-//                                          the header says; its bytes follow as data, then file_end
+//                                          the header says, each 0 when it says none; its bytes
+//                                          follow as data, then file_end
 //     {type: 'data', bytes}                some bytes of the file, a slice of the chunk
 //     {type: 'file_end'}
 //     {type: 'other', name}                a link, a device, anything else, its data read past;
@@ -19,8 +23,10 @@ const BLOCK = 512;
 // absolute or walks out with `..` is refused, as is a header whose checksum does not add up:
 // push throws, with error.code ETARNAME or ETARHEADER, error.entries the entries read before
 // and error.at where in the chunk the header began (0 when it began in one before), and the tar
-// is read no further. end() says whether the tar ended where it should, after its end block:
-// null, or an error ETARCUT.
+// is read no further. So is a size that is not a whole number of 0 or more, in a header or in a
+// pax record (ETARHEADER, naming the entry): every count of the bytes to come is made from it,
+// and one made from letters or from a number below zero never ends. end() says whether the tar
+// ended where it should, after its end block: null, or an error ETARCUT.
 function tar_parser()
 {
     const state = {mode: 'header', held: [], held_bytes: 0, header_at: 0, left: 0, skip: 0, meta: null, long_name: null, pax: null, meta_bytes: 0, entries: 0};
@@ -119,7 +125,7 @@ function header_read(state, block, pieces)
     const pax = (state.pax === null) ? {} : state.pax;
     const own_size = number_read(block, 124, 12);
     if ((type === 'L') || (type === 'x')) {
-        state.size = own_size;
+        state.size = size_checked(own_size, (type === 'L') ? 'a long name' : 'a pax header');
         state.meta_bytes += own_size;
         if (state.meta_bytes > META_MAX_BYTES) {
             throw tar_error('ETARHEADER', `the tar names one entry with more than ${META_MAX_BYTES} bytes of headers`);
@@ -136,14 +142,15 @@ function header_read(state, block, pieces)
     }
     if (type === 'g') {
         // Settings for the whole tar, none of which a file here takes
+        size_checked(own_size, 'the pax header of the whole tar');
         pieces.push({type: 'other', name: null});
         skip_data(state, own_size);
         return;
     }
     const size = (pax.size === undefined) ? own_size : pax.size;
-    const mtime_s = (pax.mtime === undefined) ? number_read(block, 136, 12) : pax.mtime;
-    state.size = size;
+    const mtime_s = (pax.mtime === undefined) ? time_of(number_read(block, 136, 12)) : pax.mtime;
     const name = name_checked(name_of(state, block, pax));
+    state.size = size_checked(size, name_said(name));
     state.long_name = null;
     state.pax = null;
     state.meta_bytes = 0;
@@ -197,21 +204,28 @@ function meta_read(state)
     while (at < bytes.length) {
         const space = bytes.indexOf(0x20, at);
         const length = parseInt(bytes.subarray(at, space).toString('latin1'), 10);
-        if ((space === -1) || (Number.isInteger(length) === false) || (length <= 0)) {
+        // A record is longer than the digits that say how long it is. One that is not was read
+        // again from its own middle: a megabyte of zeros and a 2, as much as a pax header may
+        // be, said a record of two bytes, and the zeros were read again two bytes on, and
+        // again, for five minutes.
+        if ((space === -1) || (Number.isInteger(length) === false) || (length <= space - at)) {
             break;
         }
         const record = bytes.subarray(space + 1, at + length - 1).toString('utf8');
         const equals = record.indexOf('=');
         const key = record.slice(0, equals);
+        const value = record.slice(equals + 1);
         if (key === 'path') {
-            pax.path = record.slice(equals + 1);
+            pax.path = value;
         }
         if (key === 'size') {
-            pax.size = Number(record.slice(equals + 1));
+            // Decimal digits, or no size (size_checked, at the entry it is for): Number alone
+            // reads `0x10`, `1e3`, `-512` and nothing at all as numbers too
+            pax.size = /^[0-9]+$/.test(value) ? Number(value) : NaN;
         }
         if (key === 'mtime') {
             // Seconds, with a fraction when the writer kept one
-            pax.mtime = Number(record.slice(equals + 1));
+            pax.mtime = time_of(/^[0-9]+(\.[0-9]+)?$/.test(value) ? Number(value) : NaN);
         }
         at += length;
     }
@@ -252,7 +266,11 @@ function text_read(block, start, length)
     return field.subarray(0, (nul_at === -1) ? field.length : nul_at).toString('utf8');
 }
 
-// A number field: octal digits, or GNU's base-256 for a size past 8 GB (its first bit set)
+// A number field: octal digits, or GNU's base-256 for a size past 8 GB (its first bit set).
+// An empty field is 0. One that holds anything else is NaN, never a guess: parseInt alone reads
+// `12z` as 10 and `-1000` as a number below zero. A base-256 number below zero, GNU's time
+// before 1970, comes out past every whole number that can be counted, which is as good as NaN
+// to whoever reads it (size_checked, time_of; a mode's `&` makes 0 of both).
 function number_read(block, start, length)
 {
     if ((block[start] & 0x80) !== 0) {
@@ -263,7 +281,37 @@ function number_read(block, start, length)
         return number;
     }
     const text = block.subarray(start, start + length).toString('latin1').replace(/[\0 ]/g, '');
+    if (/^[0-7]*$/.test(text) === false) {
+        return NaN;
+    }
     return (text === '') ? 0 : parseInt(text, 8);
+}
+
+// A size as the tar says it, or the refusal: a whole number of bytes, 0 or more. `what` is the
+// entry it is the size of, as the refusal names it.
+function size_checked(size, what)
+{
+    if ((Number.isSafeInteger(size) === false) || (size < 0)) {
+        throw tar_error('ETARHEADER', `the tar is broken: the size of ${what} is not a whole number of bytes`);
+    }
+    return size;
+}
+
+// A time as the tar says it, in seconds since 1970, or 0 when it says none: letters, or a time
+// before 1970, which a header has no digits for (GNU writes it in base-256, pax with a minus).
+// 0 is what this project's own tars write for such a file (tar_stream), and no file is refused
+// for its date.
+function time_of(number)
+{
+    return ((number >= 0) && (number <= Number.MAX_SAFE_INTEGER)) ? number : 0;
+}
+
+// An entry as a refusal names it: its name as JSON, so a line break in it stays in the line,
+// cut when it is longer than a refusal should be; the folder the tar is sent to as `.`
+function name_said(name)
+{
+    const text = JSON.stringify((name === '') ? '.' : name);
+    return (text.length > NAME_SAID_CHARS) ? `${text.slice(0, NAME_SAID_CHARS)}…` : text;
 }
 
 // The sum of a header's bytes, its checksum field counted as spaces

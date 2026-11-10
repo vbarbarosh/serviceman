@@ -94,11 +94,15 @@ whole; a file cut halfway is not there at all. A container's disk is docker's ow
 which keeps the times too but writes a file under its name as it comes.
 
 Every name is read by the server on the way through. A name that is absolute or walks out with
-`..`, a body that is not a tar, or one that ends before the tar does, is a 400: before the disk
-is asked when it is the first entry, otherwise after the entries before it are written. The
-answer, when the body is over, is `{files, bytes}`: the files written and their bytes. A disk
-that takes no tar (an agent from before 1.14.0) answers 501, and the page sends the files one
-by one.
+`..`, a size that is not a whole number of bytes (`the tar is broken: the size of "a/b.txt" is
+not a whole number of bytes`), a body that is not a tar, or one that ends before the tar does,
+is a 400: before the disk is asked when it is the first entry, otherwise after the entries
+before it are written. A time the tar does not say, or one before 1970, is the start of 1970,
+and a mode it does not say gives no run bits: no file is refused for either. A body that
+names nothing in its first two megabytes is not kept by the server either: the disk is asked,
+and takes the body as it comes. The answer, when the body is over, is `{files, bytes}`: the
+files written and their bytes. A disk that takes no tar (an agent from before 1.14.0) answers
+501, and the page sends the files one by one.
 
 ### A file in parts
 

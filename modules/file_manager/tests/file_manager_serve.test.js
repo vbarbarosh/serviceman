@@ -1240,6 +1240,163 @@ test('many files as one tar: written as they come, with their times; a bad name 
     assert.deepStrictEqual([unknown.status, JSON.parse(unknown.body)], [501, {error: 'this disk cannot take a tar'}]);
 });
 
+test('a size in a tar that is no whole number of 0 or more refuses the tar at that header and names the entry; a time or a mode that is none is 0', function () {
+    // What a header's size field may not hold, and parseInt reads as a number or as NaN, which
+    // is over no limit and equal to no zero: the bytes that followed were counted against it
+    const not_sizes = {
+        'letters': 'zzzzzzzzzzz\0',
+        'a letter after digits': '0000000012z\0',
+        'a minus': '-0000001000\0',
+        'a plus': '+0000001000\0',
+        '0x': '0x000000010\0',
+        'a fraction': '0000001.500\0',
+        'an 8 and a 9': '00000000089\0',
+        'base-256 below zero': Buffer.from('fffffffffffffffffffffe00', 'hex'),
+        'base-256 past what a number counts whole': Buffer.from('800000400000000000000000', 'hex'),
+    };
+    const whats = {'0': '"photos/a.jpg"', '5': '"photos/a.jpg"', '2': '"photos/a.jpg"', 'x': 'a pax header', 'L': 'a long name', 'g': 'the pax header of the whole tar'};
+    for (const said of Object.keys(not_sizes)) {
+        for (const type of Object.keys(whats)) {
+            // The header alone: the reader refuses it before a byte after it is read
+            const header = tar_of([{name: './photos/a.jpg', type, size: not_sizes[said]}]).subarray(0, 512);
+            assert.throws(() => tar_parser().push(header), v => (v.code === 'ETARHEADER') && (v.message === `the tar is broken: the size of ${whats[type]} is not a whole number of bytes`) && (v.at === 0), `${said}, in a header of type ${type}`);
+        }
+    }
+    // The same in a pax record, which Number reads its own way: refused at the entry the size
+    // is for, by that entry's name
+    for (const size of ['zzz', '-512', '0x10', '1e3', '5.5', ' 5', '', '99999999999999999999']) {
+        const tarred = tar_of([{name: 'PaxHeaders/a.jpg', type: 'x', text: pax_of({size})}, {name: 'photos/a.jpg', text: 'hello'}]);
+        const parser = tar_parser();
+        assert.deepStrictEqual(parser.push(tarred.subarray(0, 1024)), []);
+        assert.throws(() => parser.push(tarred.subarray(1024, 1536)), v => (v.code === 'ETARHEADER') && (v.message === 'the tar is broken: the size of "photos/a.jpg" is not a whole number of bytes'), `a pax size of ${JSON.stringify(size)}`);
+    }
+    // The folder the tar is sent to is named as `.`, and a name of any length as its start
+    assert.throws(() => tar_parser().push(tar_of([{name: './', type: '5', size: 'zzzzzzzzzzz\0'}]).subarray(0, 512)), /^Error: the tar is broken: the size of "\." is not a whole number of bytes$/);
+    const long = tar_of([{name: '././@LongLink', type: 'L', text: `${'n'.repeat(5000)}\0`}, {name: 'n', size: 'zzzzzzzzzzz\0'}]);
+    assert.throws(() => tar_parser().push(long), v => (v.message === `the tar is broken: the size of "${'n'.repeat(199)}… is not a whole number of bytes`));
+
+    // What honest tars write is read as it was: GNU's digits and a NUL, bsdtar's digits and a
+    // space, an old tar's spaces before the digits, an empty field as 0, GNU's base-256 for a
+    // file past 8 GB, pax's digits
+    function first_of(entry) {
+        return tar_parser().push(tar_of([entry]))[0];
+    }
+    assert.deepStrictEqual(first_of({name: 'a', text: 'hello', mode: '000755 \0', size: '00000000005 ', mtime: '13727410000 '}), {type: 'file', name: 'a', size: 5, mtime_s: 1600000000, mode: 0o755});
+    assert.deepStrictEqual(first_of({name: 'a', text: 'hello', mode: '    755\0', size: '          5 ', mtime: ' 13727410000'}), {type: 'file', name: 'a', size: 5, mtime_s: 1600000000, mode: 0o755});
+    assert.deepStrictEqual(first_of({name: 'a', mode: Buffer.alloc(8), size: Buffer.alloc(12), mtime: '            '}), {type: 'file', name: 'a', size: 0, mtime_s: 0, mode: 0});
+    const big = tar_parser();
+    assert.deepStrictEqual(big.push(tar_of([{name: 'big.bin', size: Buffer.from('800000000000000240000000', 'hex')}]).subarray(0, 512)), [{type: 'file', name: 'big.bin', size: 9*1024*1024*1024, mtime_s: 0, mode: 0o644}]);
+    assert.deepStrictEqual(big.push(Buffer.alloc(1024*1024, 'b')).map(v => [v.type, v.bytes.length]), [['data', 1024*1024]]);
+    const by_pax = tar_parser().push(tar_of([{name: 'PaxHeaders/a', type: 'x', text: pax_of({size: '5', mtime: '1600000000.123456789'})}, {name: 'a', text: 'hello', size: 0}]));
+    assert.deepStrictEqual(by_pax.slice(0, 2), [{type: 'file', name: 'a', size: 5, mtime_s: 1600000000.123456789, mode: 0o644}, {type: 'data', bytes: Buffer.from('hello')}]);
+
+    // A time counts nothing and refuses nothing. One that is none is 0, the start of 1970, and
+    // so is one before 1970, which GNU writes in base-256, pax with a minus, and the page's own
+    // tar (tar_blob) as octal digits after a minus; one past 2242, in GNU's base-256, is kept
+    for (const mtime of ['zzzzzzzzzzz\0', '-2263773600\0', '0000-250600\0', '0000001.500\0', Buffer.from('ffffffffffffffffed300800', 'hex')]) {
+        assert.strictEqual(first_of({name: 'a', text: 'hello', mtime}).mtime_s, 0, JSON.stringify(mtime));
+    }
+    assert.strictEqual(first_of({name: 'a', text: 'hello', mtime: Buffer.from('80000000000000026cb5db00', 'hex')}).mtime_s, 10413792000);
+    for (const mtime of ['-315619200', 'soon', '0x10', '1e3', '', '9'.repeat(400)]) {
+        const read = tar_parser().push(tar_of([{name: 'PaxHeaders/a', type: 'x', text: pax_of({mtime})}, {name: 'a', text: 'hello', mtime: 1600000000}]));
+        assert.strictEqual(read[0].mtime_s, 0, `a pax mtime of ${JSON.stringify(mtime.slice(0, 20))}`);
+    }
+    // A mode gives a new file its run bits and nothing else: one that is none gives none
+    for (const mode of ['zzzzzzz\0', '-000755\0', '000755z\0', Buffer.from('ffffffffffffffff', 'hex')]) {
+        assert.strictEqual(first_of({name: 'a', text: 'hello', mode}).mode, 0, JSON.stringify(mode));
+    }
+});
+
+// Each is asked of a reader in a process of its own, with all the tar in one chunk as a link
+// brings it: a reader that does not come back fails the test there, and does not hold it
+test('a size below zero does not send the reader round the same header for ever, and a pax record\'s length made of zeros does not hold it', function () {
+    const asked = `
+        const tar_parser = require(${JSON.stringify(require.resolve('../server/tar_parser'))});
+        const time0 = Date.now();
+        let said = 'read';
+        try {
+            tar_parser().push(require('fs').readFileSync(0));
+        }
+        catch (error) {
+            said = error.message;
+        }
+        console.log(JSON.stringify({said, ms: Date.now() - time0}));
+    `;
+    function said_of(tarred) {
+        const ran = child_process.spawnSync(process.execPath, ['-e', asked], {input: tarred, timeout: 5000, encoding: 'utf8'});
+        return (ran.signal === null) ? JSON.parse(ran.stdout) : {said: `stopped with ${ran.signal} after 5 s, still reading`, ms: 5000};
+    }
+    for (const type of ['0', '5', 'x']) {
+        const below = said_of(tar_of([{name: 'a.txt', type, text: 'x'.repeat(512), size: '-0000001000\0'}]));
+        assert.strictEqual(below.said, `the tar is broken: the size of ${(type === 'x') ? 'a pax header' : '"a.txt"'} is not a whole number of bytes`, `type ${type}`);
+    }
+    // 128 KiB of zeros and a `2 `: a record that says it is two bytes long. The reader read the
+    // zeros again from two bytes on, and again: 2.6 s for this many, five minutes for a megabyte
+    const zeros = said_of(tar_of([{name: 'PaxHeaders/a', type: 'x', text: `${'0'.repeat(128*1024 - 2)}2 `}, {name: 'a.txt', text: 'hello'}]));
+    assert.strictEqual(zeros.said, 'read');
+    assert.ok(zeros.ms < 1000, `the pax header was read in ${zeros.ms} ms`);
+});
+
+test('a tar whose first header says a size that is no number is refused at that header: the megabytes after it are not kept, the disk is not asked, and the next tar goes in', async function (t) {
+    const disk = disk_in_memory({});
+    const running = await serve(t, {disk});
+    // The header, then megabyte after megabyte until the server answers
+    const megabyte = Buffer.alloc(1024*1024, 'z');
+    let sent = 0;
+    let answered = false;
+    const refused = await new Promise(function (resolve, reject) {
+        const request = http.request({host: '127.0.0.1', port: running.port, method: 'POST', path: '/fs/upload/tar?dir=/home/user/in'}, function (answer) {
+            const chunks = [];
+            answered = true;
+            answer.on('data', v => chunks.push(v));
+            answer.on('end', () => resolve({status: answer.statusCode, body: Buffer.concat(chunks).toString('utf8'), sent}));
+        });
+        request.on('error', reject);
+        request.write(tar_of([{name: 'PaxHeaders/a.txt', type: 'x', size: 'zzzzzzzzzzz\0'}]).subarray(0, 512));
+        function more() {
+            if ((sent === 32) || answered) {
+                request.end();
+                return;
+            }
+            sent++;
+            request.write(megabyte, () => setImmediate(more));
+        }
+        more();
+    });
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [400, {error: 'the tar is broken: the size of a pax header is not a whole number of bytes'}]);
+    assert.ok(refused.sent < 32, `the refusal came after ${refused.sent} of 32 megabytes, not after the last`);
+    assert.deepStrictEqual(disk.tars, [], 'the disk was not asked');
+
+    const landed = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/in', tar_of([{name: 'a.txt', text: 'hello'}]));
+    assert.deepStrictEqual([landed.status, JSON.parse(landed.body), disk.files['/home/user/in/a.txt']], [200, {files: 1, bytes: 5}, 'hello']);
+});
+
+test('a tar that names nothing is not kept here whole: past two megabytes of it the disk is asked, and holds the rest back', async function (t) {
+    const nothings = {
+        'empty pax headers, one after another': Buffer.concat(new Array(32768).fill(tar_of([{name: 'PaxHeaders/a', type: 'x'}]).subarray(0, 512))),
+        'the folder itself, again and again': Buffer.concat(new Array(32768).fill(tar_of([{name: './', type: '5'}]).subarray(0, 512))),
+        'the end of the tar, and megabytes after it': Buffer.concat([Buffer.alloc(1024), Buffer.alloc(16*1024*1024 - 1024, 'z')]),
+    };
+    for (const said of Object.keys(nothings)) {
+        const disk = disk_in_memory({});
+        // How much of the body waited here when the disk was asked, and again a moment later
+        // with the disk taking none of it
+        const held = [];
+        disk.write_tar = async function (dir, source) {
+            held.push(source.writableLength);
+            await timers.setTimeout(100);
+            held.push(source.writableLength);
+            await bytes_of(source);
+            return {files: 0, bytes: 0};
+        };
+        const running = await serve(t, {disk});
+        const answer = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/in', nothings[said]);
+        assert.ok([200, 400].includes(answer.status), `${said}: ${answer.status} ${answer.body}`);
+        assert.strictEqual(held.length, 2, `${said}: the disk was asked`);
+        assert.ok(Math.max(...held) < 3*1024*1024, `${said}: ${held.join(' and ')} bytes of ${nothings[said].length} were held here`);
+    }
+});
+
 // A disk held in an object: path -> text, a folder as a path that ends in a slash or as the
 // folder of a file. Enough of a disk to answer every call the way a real one does.
 function disk_in_memory(files)
@@ -1565,7 +1722,9 @@ function disk_within(disk, within)
     };
 }
 
-// A tar written by hand, entry by entry: {name, prefix, type, text, mtime, mode}, then its end
+// A tar written by hand, entry by entry: {name, prefix, type, text, mtime, mode, size}, then
+// its end. A mode, a time or a size that is a number is written as a tar writes it, a size left
+// out is that of the text; a string or a Buffer goes into the field as it is.
 function tar_of(entries)
 {
     const blocks = [];
@@ -1573,11 +1732,11 @@ function tar_of(entries)
         const data = Buffer.from((entry.text === undefined) ? '' : entry.text);
         const header = Buffer.alloc(512);
         header.write(entry.name, 0, 100, 'utf8');
-        header.write(`${((entry.mode === undefined) ? 0o644 : entry.mode).toString(8).padStart(7, '0')}\0`, 100, 'latin1');
+        field_put(header, 100, 8, (entry.mode === undefined) ? 0o644 : entry.mode);
         header.write('0000000\0', 108, 'latin1');
         header.write('0000000\0', 116, 'latin1');
-        header.write(`${data.length.toString(8).padStart(11, '0')}\0`, 124, 'latin1');
-        header.write(`${((entry.mtime === undefined) ? 0 : entry.mtime).toString(8).padStart(11, '0')}\0`, 136, 'latin1');
+        field_put(header, 124, 12, (entry.size === undefined) ? data.length : entry.size);
+        field_put(header, 136, 12, (entry.mtime === undefined) ? 0 : entry.mtime);
         header.write('        ', 148, 'latin1');
         header.write((entry.type === undefined) ? '0' : entry.type, 156, 'latin1');
         header.write('ustar\0', 257, 'latin1');
@@ -1594,6 +1753,26 @@ function tar_of(entries)
     }
     blocks.push(Buffer.alloc(1024));
     return Buffer.concat(blocks);
+}
+
+// A number field of a header: a number as its octal digits and a NUL, anything else as given
+function field_put(header, at, length, value)
+{
+    if (typeof value === 'number') {
+        header.write(`${value.toString(8).padStart(length - 1, '0')}\0`, at, 'latin1');
+        return;
+    }
+    Buffer.from(value, 'latin1').copy(header, at, 0, length);
+}
+
+// The records of a pax header, `<length> <key>=<value>\n` each, the length counting itself
+function pax_of(values)
+{
+    return Object.keys(values).map(function (key) {
+        const rest = ` ${key}=${values[key]}\n`;
+        const digits = String(rest.length + String(rest.length).length).length;
+        return `${rest.length + digits}${rest}`;
+    }).join('');
 }
 
 // The module mounted at /fs on a server of its own, the way a host mounts it

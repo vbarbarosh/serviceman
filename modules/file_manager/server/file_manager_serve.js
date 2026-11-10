@@ -4,6 +4,10 @@ const stream = require('stream');
 const tar_parser = require('./tar_parser');
 
 const BODY_LIMIT_BYTES = 1024*1024;
+// How much of a tar is held here before the disk is asked for it. A long name and a pax header,
+// what a tar says before its first name, are half of this at most (tar_parser): only a body
+// that goes on and names nothing gets this far.
+const TAR_UNASKED_MAX_BYTES = 2*1024*1024;
 // A whole tree as one JSON stops after this many names and ends with an error saying so; as
 // events it has no limit, since each one is sent as it comes
 const TREE_JSON_MAX_ITEMS = 50000;
@@ -664,7 +668,8 @@ async function upload_serve(ctx, req, res, url)
 // written: {files, bytes}. Every name is read here on the way through. A name that is absolute
 // or walks out with `..` refuses the tar with a 400: before the disk is asked when it is the
 // first, and when it comes later, after the disk has the entries before it and the tar ends
-// there. So does a body that is no tar, or one that stops before the tar does.
+// there. So does a body that is no tar, a size in it that is no number, or a body that stops
+// before the tar does.
 async function tar_upload_serve(ctx, req, res, url)
 {
     if (ctx.disk.write_tar === undefined) {
@@ -707,8 +712,13 @@ async function tar_upload_serve(ctx, req, res, url)
             return;
         }
         // Until the first name is read the disk is not asked, so nothing holds the body back:
-        // what is kept meanwhile is a header or a long name, which the parser keeps small
-        if ((body.write(chunk) === false) && seen) {
+        // what is kept meanwhile is a header or a long name, which the parser keeps small. A
+        // body that goes on past that and names nothing (empty headers one after another, `.`
+        // folders, whatever follows the tar's end) is the disk's from there on, to take and to
+        // hold back as it does any other: it is not kept here whole.
+        const full = (body.write(chunk) === false);
+        seen = seen || (body.writableLength > TAR_UNASKED_MAX_BYTES);
+        if (full && seen) {
             req.pause();
             body.once('drain', function () {
                 req.resume();

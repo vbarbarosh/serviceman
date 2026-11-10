@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.72 — 2026-11-10
+
+- A tar whose header says a size that is no whole number (letters, a minus) is refused at that header, by the entry's name: it was held whole in memory, and a minus size never answered again. A body that names nothing is the disk's after 2 MiB. Agent 1.33.14 (SM-241; SM-362 registered).
+
 ## 1.0.71 — 2026-11-10
 
 - A test of 1.0.66 made no token (its body was sent as quoted text) and asked as the owner: it now makes one and asks `/remotes/%zz/ports` with it. No code changed.

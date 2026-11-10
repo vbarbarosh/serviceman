@@ -86,6 +86,52 @@ test('a name that walks out of the folder, or is absolute, is refused and nothin
     assert.deepStrictEqual(names_under(to), ['in']);
 });
 
+// The host sends the tar, and in a folder's copy it is what another machine sent the host. A
+// size of letters was counted against for as long as bytes came, and each of them was kept; one
+// below zero, with its header and the block after it in one chunk, was a write that never came
+// back.
+test('a size that is no whole number of 0 or more ends the tar at its header, and nothing of the entry is written', async function (t) {
+    const to = dir_make(t);
+    for (const size of ['zzzzzzzzzzz\0', '-0000001000\0']) {
+        for (const type of ['0', 'x']) {
+            // A block at a time, the header alone first: the refusal is of the header itself
+            const tarred = Buffer.concat([header_of('a.txt', size, type), Buffer.alloc(512, 'x'), Buffer.alloc(1024)]);
+            const put = agent_tar_put({dir: path.join(to, 'in')});
+            const what = (type === 'x') ? 'a pax header' : '"a.txt"';
+            await assert.rejects(tar_send(put, tarred, 512), v => (v.code === 'ETARHEADER') && (v.message === `the tar is broken: the size of ${what} is not a whole number of bytes`), `${JSON.stringify(size)} in a header of type ${type}`);
+            put.destroy();
+        }
+    }
+    await new Promise(v => setTimeout(v, 20));
+    assert.deepStrictEqual(names_under(to), ['in']);
+});
+
+// What GNU tar writes when asked for pax, and of a file dated before 1970, a time no header
+// has digits for: base-256 below zero in its own format, a minus in pax
+test('a tar in pax format unpacks as GNU\'s own does, and a file dated before 1970 lands whole, at the start of 1970', async function (t) {
+    const from = dir_make(t);
+    const long = `${'d'.repeat(120)}/${'f'.repeat(130)}.txt`;
+    fs.mkdirSync(path.join(from, path.dirname(long)));
+    fs.writeFileSync(path.join(from, long), 'long');
+    fs.writeFileSync(path.join(from, 'имя файла.txt'), 'not in ascii');
+    fs.writeFileSync(path.join(from, 'big.bin'), Buffer.alloc(300000, 7));
+    fs.writeFileSync(path.join(from, 'run.sh'), 'run', {mode: 0o755});
+    fs.writeFileSync(path.join(from, 'old.txt'), 'old');
+    fs.writeFileSync(path.join(from, 'now.txt'), 'now');
+    fs.utimesSync(path.join(from, 'old.txt'), new Date(-315619200000), new Date(-315619200000));
+    fs.utimesSync(path.join(from, 'now.txt'), 1600000000.5, 1600000000.5);
+    for (const format of ['gnu', 'pax']) {
+        const to = path.join(dir_make(t), 'in');
+        const tarred = child_process.execFileSync('tar', [`--format=${format}`, '-C', from, '-cf', '-', '.'], {maxBuffer: 16*1024*1024});
+        assert.deepStrictEqual(await tar_send(agent_tar_put({dir: to}), tarred, 1 + Math.floor(Math.random()*700)), {path: to, files: 6, bytes: 300025}, format);
+        for (const name of [long, 'имя файла.txt', 'big.bin', 'run.sh', 'old.txt', 'now.txt']) {
+            assert.ok(fs.readFileSync(path.join(to, name)).equals(fs.readFileSync(path.join(from, name))), `${format}: ${name}`);
+        }
+        assert.strictEqual(fs.statSync(path.join(to, 'run.sh')).mode & 0o111, 0o111, format);
+        assert.deepStrictEqual(['old.txt', 'now.txt'].map(v => Math.floor(fs.statSync(path.join(to, v)).mtimeMs/1000)), [0, 1600000000], format);
+    }
+});
+
 // A file of a tar goes to a part this agent makes. A link somebody planted under that name
 // would carry the bytes to wherever it points, so what waits there is cleared and the part is
 // made new: for a token kept within the folder and for the owner alike
@@ -228,14 +274,15 @@ test('a name that is a link, or passes through one, is refused out of a token\'s
     assert.deepStrictEqual(names_under(away), ['kept', 'victim.txt']);
 });
 
-// One ustar header of a file, by hand: GNU tar will not write a name like these
-function header_of(name, size)
+// One ustar header, of a file unless `type` says another, by hand: GNU tar will not write a
+// name like these, nor a size that is text, which goes into its field as it is
+function header_of(name, size, type)
 {
     const out = Buffer.alloc(512);
     out.write(name, 0);
     out.write('0000644\0', 100);
-    out.write(`${size.toString(8).padStart(11, '0')}\0`, 124);
-    out.write('0', 156);
+    out.write((typeof size === 'number') ? `${size.toString(8).padStart(11, '0')}\0` : size, 124);
+    out.write((type === undefined) ? '0' : type, 156);
     out.write('        ', 148);
     let sum = 0;
     for (const byte of out) {
