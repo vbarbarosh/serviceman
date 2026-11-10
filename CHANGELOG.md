@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.47 — 2026-11-10
+
+- `docs/config.md` and `docs/usecases.md` said a program does not outlive a restart of the
+  agent; it does, and the next agent takes it back. They say so now, and that a program is
+  stopped by stopping its service. (SM-314)
+
 ## 1.0.46 — 2026-11-10
 
 - The sign-in wall is told the visitor's address the front vouches for: the last of

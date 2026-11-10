@@ -1577,9 +1577,11 @@ with serviceman (<code>&quot;start&quot;: &quot;always&quot;</code>).</p>
 <p>A program runs as one copy. The agent keeps the last of what it prints, and the waiting page
 reads it while the program comes up. The agent stops the whole process group, so a shell line
 takes its children with it.</p>
-<p>serviceman stops the programs it started when it stops itself, through the agent. The agent
-holds the child, so a program outlives neither: an agent that is restarted answers that nothing
-of its runs, and the program is started again at the next request.</p>
+<p>serviceman stops the programs it started when it stops itself, through the agent; one that
+outlives it all the same (a kill, a crash) is taken back at its next start. A restart of the
+agent touches none of them: a program goes on running, and the agent that starts next takes it
+back by the note the one before it left, with the last of what it printed. So a program is
+stopped by stopping its service; restarting its agent does not stop it.</p>
 <h2 id="policy"><a class="anchor" href="#policy" aria-hidden="true" tabindex="-1">#</a>Policy</h2>
 <div class="table-wrap"><table>
 <thead>

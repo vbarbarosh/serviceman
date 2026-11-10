@@ -844,9 +844,9 @@ on a clock, is not built yet.</p>
 <ul>
 <li><code>command</code> runs through <code>/bin/sh -c</code>, so pipes, <code>&amp;&amp;</code> and environment expansion work. Use
 <code>argv</code> instead when you want no shell.</li>
-<li>serviceman stops the programs it started when it stops itself, through the agent. Containers
-outlive it and are adopted again; a program cannot be, so it is stopped rather than left
-orphaned.</li>
+<li>serviceman stops the programs it started when it stops itself, through the agent; containers
+outlive it and are adopted again. A restart of the agent stops neither: a program goes on
+running, and the next agent takes it back.</li>
 </ul>
 
 <footer class="foot">This page is built from <a href="https://github.com/vbarbarosh/serviceman/blob/main/docs/usecases.md">its source on GitHub</a>. serviceman is MIT licensed.</footer>

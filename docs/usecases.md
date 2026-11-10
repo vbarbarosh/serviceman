@@ -127,6 +127,6 @@ on a clock, is not built yet.
 
 - `command` runs through `/bin/sh -c`, so pipes, `&&` and environment expansion work. Use
   `argv` instead when you want no shell.
-- serviceman stops the programs it started when it stops itself, through the agent. Containers
-  outlive it and are adopted again; a program cannot be, so it is stopped rather than left
-  orphaned.
+- serviceman stops the programs it started when it stops itself, through the agent; containers
+  outlive it and are adopted again. A restart of the agent stops neither: a program goes on
+  running, and the next agent takes it back.
