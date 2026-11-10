@@ -36,7 +36,14 @@ function api_json(connect, method, path, value)
                     reject(new Error(message_from_answer(text, answer.statusCode)));
                     return;
                 }
-                resolve((text === '') ? {} : JSON.parse(text));
+                // What answers on the socket may be no docker at all, and a throw in this
+                // listener is held by nobody: an answer that is no JSON is told to whoever asked
+                try {
+                    resolve((text === '') ? {} : JSON.parse(text));
+                }
+                catch {
+                    reject(new Error(`docker answered ${answer.statusCode} with what is no JSON`));
+                }
             });
         });
         request.on('error', reject);

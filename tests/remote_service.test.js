@@ -194,6 +194,33 @@ test('a shell opens in a container on a remote, through the link its agent diall
     }
 });
 
+// The socket is whatever the machine's agent reaches, and what answers there may be no docker
+// at all. Its page was read as the exec's JSON in a listener nobody holds, and the throw ended
+// the process. Here it would end this test where it stands, past any `finally`: what the test
+// started is ended by `after`.
+test('a docker socket that answers 200 with no JSON is told to the pane that asked for a shell, and serviceman goes on', async function (t) {
+    const socket_path = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-api-')), 'docker.sock');
+    const api = await docker_api_start(socket_path);
+    const running = await serviceman_start([
+        {name: 'far', type: 'docker', remote: 'vps1', publish: {host: 'far.test', port: 8080}, image: 'demo/far'},
+    ]);
+    t.after(async function () {
+        api.close();
+        await running.close();
+    });
+    await running.agent_start({DOCKER_HOST: `unix://${socket_path}`});
+    await fetch_host({port: running.port, host: 'far.test', path: '/'});
+
+    api.state.exec_page = '<html>not docker</html>';
+    const refused = await shell_talk(running.control_port, 'far');
+    assert.deepStrictEqual([refused.notes, refused.text], [['docker answered 200 with what is no JSON'], '']);
+
+    // Asked again once docker answers there, the same door opens the shell
+    api.state.exec_page = null;
+    const shell = await shell_talk(running.control_port, 'far');
+    assert.deepStrictEqual(shell.notes, ['a shell in serviceman-far on remote vps1']);
+});
+
 test('a container found running by a new serviceman is as old as the last one wrote down', async function () {
     const running = await serviceman_start([
         {name: 'kept', type: 'docker', remote: 'vps1', publish: {host: 'kept.test', port: 8080}, image: 'demo/kept', policy: {start: 'always'}},

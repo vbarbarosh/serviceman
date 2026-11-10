@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.29 — 2026-11-10
+
+- A Docker socket that answers 200 with what is no JSON, when a container's shell is opened,
+  is told to the pane that asked ("docker answered 200 with what is no JSON"): read inside a
+  listener nobody holds, it stopped serviceman. (SM-176)
+
 ## 1.0.28 — 2026-11-10
 
 - The end of a load test no longer stops serviceman when its state folder cannot be written:

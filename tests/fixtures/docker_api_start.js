@@ -5,7 +5,7 @@ const http = require('http');
 // of containers, and starting, stopping and restarting one, for the Docker tab
 function docker_api_start(socket_path)
 {
-    const state = {execs: {}, resizes: [], containers: [], asked: []};
+    const state = {execs: {}, resizes: [], containers: [], asked: [], exec_page: null};
     const server = http.createServer(function (req, res) {
         if ((req.method === 'GET') && (req.url === '/containers/json?all=1')) {
             send_json(res, 200, state.containers);
@@ -19,6 +19,12 @@ function docker_api_start(socket_path)
             return;
         }
         const match = /^\/containers\/([^/]+)\/exec$/.exec(req.url);
+        // What is no docker answers on a socket too: 200 and a page, when a test gives it one
+        if ((match !== null) && (state.exec_page !== null)) {
+            res.writeHead(200, {'content-type': 'text/html'});
+            res.end(state.exec_page);
+            return;
+        }
         if (match !== null) {
             read_body(req, function (body) {
                 const id = `exec${Object.keys(state.execs).length + 1}`;
