@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.37 — 2026-11-10
+
+- A folder's copy between machines takes from the source's walk only paths under the folder:
+  one from the root, or with a `..`, a `.` or an empty part, fails the copy at once and for
+  good, before anything is written, naming the machine and the path. A machine whose agent
+  lied wrote files, folders and links anywhere its neighbour's agent could. The rule is the
+  tar's own (`tar_parser`), which the agent bundles: agent 1.33.4. (SM-239)
+
 ## 1.0.36 — 2026-11-10
 
 - The agent no longer stops, at every start, when its Logline spool cannot be written (a

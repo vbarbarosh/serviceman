@@ -11,8 +11,9 @@ const PART_BYTES = 32*1024*1024;
 // The longest pause between two tries, in seconds; the first is one, then two, four…
 const RETRY_MAX_S = 30;
 
-// Errors that trying again will not change: a file that is not there, or may not be read
-const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already/;
+// Errors that trying again will not change: a file that is not there, or may not be read, a
+// walk that names a path outside its folder
+const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already|no path under it/;
 
 // A file of a folder up to this size goes with others in one tar; a bigger one goes alone, in
 // parts, so a link that drops costs a part of it and not the whole. A file no bigger than a part
@@ -24,6 +25,9 @@ const BATCH_BYTES = 64*1024*1024;
 const BATCH_NAMES = 1000;
 // The names left out of a folder's copy that are kept by name; past these, only counted
 const LEFT_KEPT = 20;
+// How much of a path a walk's refusal says: the reason is kept with the copy, logged, and sent
+// to every page that lists the copies, and a walk may name a path of any length
+const PATH_SAID_CHARS = 200;
 
 // How much older than its finish a file may look and still be the one that finish made
 const FINISH_SLACK_MS = 10*60*1000;
@@ -589,7 +593,8 @@ function tar_now(item, parser, chunk)
 }
 
 // Every name under a folder, as the disk it is on walks it: {files, dirs, links, others,
-// unread}, each path relative to the folder. A walk that stands still is cut as a copy is.
+// unread}, each path relative to the folder. A walk that stands still is cut as a copy is; one
+// that names a path that is not under the folder fails whole (line_refusal).
 function walk_read(item, disk, dir, ctx)
 {
     if (disk.tree === undefined) {
@@ -615,6 +620,11 @@ function walk_read(item, disk, dir, ctx)
                 const line = object_from_line(text);
                 if (line === null) {
                     stream.destroy(new Error('the disk said a line that is no JSON object'));
+                    return;
+                }
+                const refusal = line_refusal(item, line);
+                if (refusal !== null) {
+                    stream.destroy(new Error(refusal));
                     return;
                 }
                 if (line.type === 'file') {
@@ -650,6 +660,41 @@ function walk_read(item, disk, dir, ctx)
             resolve(walk);
         });
     });
+}
+
+// Why a line of the walk is not taken, or null when it is. The walk is the word of the disk the
+// folder is on, and the copy makes, writes and links under every path of it on the other disk:
+// so a path is one under the folder, written the one way a walk writes it. That is the rule a
+// tar's names are held to (tar_parser), with nothing for the rule to tidy: no root, no `..`,
+// no `.` and no empty part. The folder itself, the empty path, is what an error alone names: a
+// folder that could not be read. One refusal fails the walk and the copy for good, before
+// anything is written: a disk that named one such path is not trusted with the rest.
+//
+// A link's target is not checked: it is not a path of the copy but the link's own text, kept as
+// it was, and a link may point anywhere (`../lib`, `/etc/hosts`). No file of this copy is
+// written through it, the links being made last (steps_of).
+function line_refusal(item, line)
+{
+    if (['file', 'dir', 'link', 'other', 'error'].includes(line.type) === false) {
+        return null;
+    }
+    try {
+        if ((typeof line.path === 'string') && ((line.path !== '') || (line.type === 'error')) && (tar_parser.name_checked(line.path) === line.path)) {
+            return null;
+        }
+    }
+    catch {
+        // The rule's own refusal, an absolute path or one with `..`: said below, as a walk's
+    }
+    return `${item.from.disk} walked the folder and named ${path_said(line.path)}, which is no path under it: nothing was copied`;
+}
+
+// A path as a refusal says it: as JSON, so one with a line break stays one line, and cut when
+// it is longer than a refusal should be
+function path_said(value)
+{
+    const text = String(JSON.stringify(value));
+    return (text.length > PATH_SAID_CHARS) ? `${text.slice(0, PATH_SAID_CHARS)}…` : text;
 }
 
 // What a folder's copy does, in order. Small files go in tars when both agents can, with the

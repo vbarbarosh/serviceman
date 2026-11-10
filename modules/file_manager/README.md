@@ -237,6 +237,12 @@ says how many and which. A disk without `can('folder_copy')` (an older agent) ge
 in parts and the empty folders made one by one; when it is the one copied to, the links are
 left out and said. A folder is never copied into itself.
 
+A walk is its disk's own word, and the copy makes, writes and links under every path of it on
+the other disk. A walk that names a path that is not under the folder (one from the root, or
+with a `..`, a `.` or an empty part) fails the copy at once and for good, before anything is
+written, and the copy says which disk and which path. A link's target is no such path: it is
+kept as it was.
+
     const queue = transfer_queue({
         disk_of: function (name) {
             // the disk of that name, or null while it cannot be reached

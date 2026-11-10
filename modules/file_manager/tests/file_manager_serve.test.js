@@ -748,6 +748,110 @@ test('a line of the disk that is no JSON object fails the tree, the watch and th
     }
 });
 
+// A walk is the word of the disk a folder is copied from, and that disk may be a machine whose
+// agent lies. The copy makes, writes and links under every path of the walk on the other disk:
+// taken as it came, a file named ../../.ssh/authorized_keys landed outside the folder the copy
+// went into, on a machine that had said nothing.
+test('a walk that names a path outside its folder fails the copy for good, before anything is written; a name that only looks like one still copies', async function () {
+    const key = 'a key of the attacker\n';
+    function refusal_of(named) {
+        return `laptop walked the folder and named ${named}, which is no path under it: nothing was copied`;
+    }
+    // One copy of laptop's /srv/photos into desktop's /home/user/incoming, until it stops
+    async function copy_run(from, to, logged) {
+        const queue = transfer_queue({disk_of: v => ({laptop: from, desktop: to}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
+        const item = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+        await until(() => item.phase !== 'copying');
+        return item;
+    }
+
+    // A file, a folder and a link, each two folders above the one walked: none is made, the
+    // copy is an error that names the machine and the path, and it is not tried again
+    const lying = disk_that_walks([
+        {type: 'file', path: '../../.ssh/authorized_keys', size: key.length, mtime_ms: 0, mode: 0o600},
+        {type: 'dir', path: '../../cron.d', size: null, mtime_ms: 0},
+        {type: 'link', path: '../../.bashrc', size: null, mtime_ms: 0, target: '/tmp/evil'},
+    ]);
+    lying.files['/.ssh/authorized_keys'] = key;
+    const desktop = disk_that_copies_folders({'/home/user/incoming/keep.txt': 'kept'});
+    const logged = [];
+    const refused = await copy_run(lying, desktop, logged);
+    assert.deepStrictEqual({phase: refused.phase, said: refused.said, files: desktop.files, links: desktop.links, parts: desktop.parts}, {
+        phase: 'error',
+        said: refusal_of('"../../.ssh/authorized_keys"'),
+        files: {'/home/user/incoming/keep.txt': 'kept'},
+        links: {},
+        parts: {},
+    });
+    assert.deepStrictEqual(logged.map(v => v[0]), ['transfer_begin', 'transfer_end_error']);
+    assert.deepStrictEqual(logged[1][1], {id: refused.id, reason: refused.said});
+    assert.deepStrictEqual([refused.size, refused.files, refused.wait_s], [null, null, 0], 'not weighed, and not waiting to try again');
+
+    // Every kind of line the walk takes, and every way a path is no path under the folder: a
+    // root, `..` anywhere, a `.` or an empty part, no text at all. A path too long to say is cut.
+    const long = `../${'a'.repeat(5000)}`;
+    const wrong = [
+        [{type: 'file', path: '/etc/passwd', size: 1, mode: 0o644}, '"/etc/passwd"'],
+        [{type: 'file', path: 'a/../../b', size: 1, mode: 0o644}, '"a/../../b"'],
+        [{type: 'file', path: 'a/..', size: 1, mode: 0o644}, '"a/.."'],
+        [{type: 'file', path: './a', size: 1, mode: 0o644}, '"./a"'],
+        [{type: 'file', path: 'a//b', size: 1, mode: 0o644}, '"a//b"'],
+        [{type: 'file', path: 'a/', size: 1, mode: 0o644}, '"a/"'],
+        [{type: 'file', path: '', size: 1, mode: 0o644}, '""'],
+        [{type: 'file', size: 1, mode: 0o644}, 'undefined'],
+        [{type: 'file', path: null, size: 1, mode: 0o644}, 'null'],
+        [{type: 'file', path: 7, size: 1, mode: 0o644}, '7'],
+        [{type: 'file', path: ['..', 'b'], size: 1, mode: 0o644}, '["..","b"]'],
+        [{type: 'file', path: long, size: 1, mode: 0o644}, `${JSON.stringify(long).slice(0, 200)}…`],
+        [{type: 'dir', path: '..'}, '".."'],
+        [{type: 'link', path: '../lib', target: 'src'}, '"../lib"'],
+        [{type: 'other', path: '../sock'}, '"../sock"'],
+        [{type: 'error', path: '../x', error: 'EACCES: permission denied'}, '"../x"'],
+        [{type: 'error', error: 'EACCES: permission denied'}, 'undefined'],
+    ];
+    for (const [line, named] of wrong) {
+        const to = disk_that_copies_folders({});
+        const item = await copy_run(disk_that_walks([{type: 'file', path: 'a.jpg', size: 1, mode: 0o644}, line]), to, []);
+        assert.deepStrictEqual([item.phase, item.said, to.files, to.links, to.parts], ['error', refusal_of(named), {}, {}, {}], JSON.stringify(line).slice(0, 80));
+    }
+
+    // Names that only look like it are names, in tars of many and each alone: dots, dashes,
+    // spaces, any letters, any depth. A link is made with the text it had, wherever it points.
+    const names = {
+        '/srv/photos/.env': 'A=1',
+        '/srv/photos/-rf': 'a name like an option',
+        '/srv/photos/..hidden': 'two dots first',
+        '/srv/photos/a..b': 'two dots inside',
+        '/srv/photos/...': 'three dots',
+        '/srv/photos/.. ': 'two dots and a space',
+        '/srv/photos/with space.txt': 'a space',
+        '/srv/photos/ünï/日本.txt': 'any letters',
+        '/srv/photos/deep/a/b/c/d/e.txt': 'deep',
+        '/srv/photos/empty dir/': '',
+    };
+    const landed = Object.fromEntries(Object.entries(names).map(v => [v[0].replace('/srv/', '/home/user/incoming/'), v[1]]));
+    landed['/home/user/incoming/photos/'] = '';
+    for (const tars of [true, false]) {
+        const from = disk_that_copies_folders(names);
+        from.links['/srv/photos/up'] = '../shared';
+        from.links['/srv/photos/abs'] = '/etc/hosts';
+        from.can = function () {
+            return tars;
+        };
+        const to = disk_that_copies_folders({});
+        const item = await copy_run(from, to, []);
+        assert.deepStrictEqual([item.phase, item.said, item.files_done], ['ok', '', 9], `tars: ${tars}`);
+        assert.deepStrictEqual(to.files, landed, `tars: ${tars}`);
+        assert.deepStrictEqual(to.links, {'/home/user/incoming/photos/up': '../shared', '/home/user/incoming/photos/abs': '/etc/hosts'}, `tars: ${tars}`);
+        assert.strictEqual(to.tars.length > 0, tars);
+    }
+
+    // The folder itself, the empty path, is what an error names when the folder cannot be read:
+    // said as before, with the copy. A line of a kind the walk does not take names nothing.
+    const closed = await copy_run(disk_that_walks([{type: 'error', path: '', error: 'EACCES: permission denied'}, {type: 'note', path: '../x'}]), disk_that_copies_folders({}), []);
+    assert.deepStrictEqual([closed.phase, closed.said, closed.left.names], ['ok', '1 name could not be copied', [{path: '', said: 'EACCES: permission denied'}]]);
+});
+
 test('the room left on a folder\'s disk, for an upload to check it fits; a disk that cannot say answers 501, a refusal 502', async function (t) {
     const disk = disk_in_memory({'/home/me/a.txt': 'a'});
     const running = await serve(t, {disk});
@@ -1058,6 +1162,22 @@ function disk_that_copies_folders(files)
     out.link_create = async function (asked, target) {
         links[asked] = target;
         return {created: true};
+    };
+    return out;
+}
+
+// A disk whose walk of /srv/photos says these lines and no others, between its start and its
+// end, and that has no folder_copy, so each file of it goes alone: a machine that says of its
+// files what it likes
+function disk_that_walks(lines)
+{
+    const out = disk_that_copies_folders({'/srv/photos/a.jpg': 'a'});
+    out.can = function () {
+        return false;
+    };
+    out.tree = function (dir) {
+        const said = [{type: 'start', path: dir}].concat(lines, [{type: 'end', hashed: 0, ms: 0}]);
+        return stream.Readable.from([Buffer.from(said.map(v => `${JSON.stringify(v)}\n`).join(''))]);
     };
     return out;
 }

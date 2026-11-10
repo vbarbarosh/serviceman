@@ -231,7 +231,8 @@ function name_of(state, block, pax)
     return (prefix === '') ? name : `${prefix}/${name}`;
 }
 
-// A name under the folder the tar is sent to, or the refusal
+// A name under the folder the tar is sent to, or the refusal. A folder's copy asks it of the
+// names a walk says, which come in no tar (tar_parser.name_checked): one rule for both.
 function name_checked(text)
 {
     if (text.startsWith('/')) {
@@ -281,5 +282,7 @@ function tar_error(code, message)
     out.code = code;
     return out;
 }
+
+tar_parser.name_checked = name_checked;
 
 module.exports = tar_parser;
