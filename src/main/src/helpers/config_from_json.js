@@ -56,14 +56,14 @@ function config_from_json(json, base_dir)
             host: listen.host || DEFAULT_LISTEN_HOST,
             // Zero is a port: it means whichever one is free, and it must survive the default
             port: (listen.port === undefined) ? DEFAULT_LISTEN_PORT : listen.port,
-            socket: (listen.socket === undefined) ? null : path.resolve(base_dir, listen.socket),
+            socket: socket_from_json(listen.socket, 'listen.socket', base_dir),
             socket_mode: mode_from_json(listen.socket_mode, 'listen.socket_mode'),
         },
         control: {
             host: (control.host === undefined) ? DEFAULT_CONTROL_HOST : control.host,
             port: (control.port === undefined) ? DEFAULT_CONTROL_PORT : control.port,
             bind: control.bind || DEFAULT_CONTROL_BIND,
-            socket: (control.socket === undefined) ? null : path.resolve(base_dir, control.socket),
+            socket: socket_from_json(control.socket, 'control.socket', base_dir),
             socket_mode: mode_from_json(control.socket_mode, 'control.socket_mode'),
             exposed: control.exposed === true,
             names: names_from_json(control.names, 'control.names'),
@@ -199,6 +199,19 @@ function remotes_from_service(json, label)
         throw new Error(`${label}.remotes: the same remote is named twice`);
     }
     return out;
+}
+
+// A door's socket file, its path read from the config's own folder. No socket is said by
+// leaving the key out, or by null, as the docs' whole file says it.
+function socket_from_json(json, label, base_dir)
+{
+    if ((json === undefined) || (json === null)) {
+        return null;
+    }
+    if ((typeof json !== 'string') || (json === '')) {
+        throw new Error(`${label}: a path to a socket file is required, or null for none (got ${JSON.stringify(json)})`);
+    }
+    return path.resolve(base_dir, json);
 }
 
 // Who may open the socket file is who may reach the control page through it, so the mode is

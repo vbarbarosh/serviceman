@@ -123,6 +123,22 @@ test('a config that would only fail at the first request is refused', function (
     assert.throws(bad({services: [{name: 'a', type: 'external', publish: {host: 'serviceman.localhost'}, upstream: '127.0.0.1:7000'}]}), /the control page hostname/);
 });
 
+// The docs' whole file says `"socket": null` for a door with no socket file, and that file is
+// the first a reader copies: null read as a path stopped serviceman at its start, with an
+// error that named no field
+test('null is no socket, as leaving it out is; a socket that is no path is refused by its name', function () {
+    const none = config_from_json({listen: {socket: null}, control: {socket: null}, services: []}, '/srv/serviceman');
+    assert.deepStrictEqual([none.listen.socket, none.control.socket], [null, null]);
+    const left_out = config_from_json({services: []}, '/srv/serviceman');
+    assert.deepStrictEqual([left_out.listen.socket, left_out.control.socket], [null, null]);
+    const given = config_from_json({listen: {socket: 'run/serviceman.sock'}, control: {socket: '/run/control.sock'}, services: []}, '/srv/serviceman');
+    assert.deepStrictEqual([given.listen.socket, given.control.socket], ['/srv/serviceman/run/serviceman.sock', '/run/control.sock']);
+    for (const bad of [5, '', true, [], {}]) {
+        assert.throws(() => config_from_json({listen: {socket: bad}, services: []}, '/srv/serviceman'), /^Error: listen\.socket: a path to a socket file is required, or null for none/, JSON.stringify(bad));
+        assert.throws(() => config_from_json({control: {socket: bad}, services: []}, '/srv/serviceman'), /^Error: control\.socket: a path to a socket file is required, or null for none/, JSON.stringify(bad));
+    }
+});
+
 test('a hostname finds its service, wildcards after the exact names', function () {
     const config = config_from_json({remotes: REMOTES, services: [
         {name: 'one', type: 'external', publish: {host: 'one.test'}, upstream: '127.0.0.1:7000'},

@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.42 — 2026-11-10
+
+- `"socket": null` for `listen` or `control` means no socket file, as leaving the key out
+  does: the whole file of `docs/config.md`, the first a reader copies, stopped serviceman at
+  its start with an error that named no field. A socket that is no path is refused by its
+  name. (SM-306)
+
 ## 1.0.41 — 2026-11-10
 
 - Tracked files hold the rule's placeholders where they held private things: a person's name
