@@ -74,6 +74,44 @@ test('a pane that breaks the websocket\'s rules is cut alone, and the web termin
     assert.strictEqual(after.status, 200);
 });
 
+// `//` reads as a host with no name: no address at all. The page's door reads the address
+// before it looks at the token, the websocket's door after: so the first takes no token
+test('an address that is no address is refused at both doors, and the web terminal goes on', async function (t) {
+    const server = server_make(TOKEN);
+    await new Promise(function (resolve) {
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    t.after(function () {
+        server.close();
+        server.closeAllConnections();
+    });
+    const port = server.address().port;
+    const asked = await fetch_host({port, host: '127.0.0.1', path: '//', token: null});
+    assert.deepStrictEqual([asked.status, asked.body], [400, 'bad request\n']);
+    assert.strictEqual(await handshake_raw({port, host: '127.0.0.1', target: '//', headers: {Authorization: `Bearer ${TOKEN}`}}), 'closed');
+    const after = await fetch_host({port, host: '127.0.0.1', path: '/', token: null});
+    assert.strictEqual(after.status, 401);
+});
+
+// The 401 is written to whoever sent the handshake, and that one may be gone already: a reset
+// right behind the handshake makes the write an error on a socket of the door's own
+test('a handshake with no token that is reset before its answer costs its socket alone, and the web terminal goes on', async function (t) {
+    const server = server_make(TOKEN);
+    await new Promise(function (resolve) {
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    t.after(function () {
+        server.close();
+        server.closeAllConnections();
+    });
+    const port = server.address().port;
+    for (let i = 0; i < 8; i++) {
+        assert.strictEqual(await handshake_raw({port, host: '127.0.0.1', target: '/', reset: true}), 'closed');
+    }
+    const after = await fetch_host({port, host: '127.0.0.1', path: '/', token: null});
+    assert.strictEqual(after.status, 401);
+});
+
 test('the token comes from the environment, or is made and said once', function () {
     const said = [];
     assert.strictEqual(token_from_env({WEB_TERMINAL_TOKEN: ' wt_given '}, v => said.push(v)), 'wt_given');

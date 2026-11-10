@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.27 — 2026-11-10
+
+- web-terminal no longer stops at one request from whoever reaches its port: an address that
+  is no address (`GET //`) answers 400 at the page's door and closes the socket at the
+  websocket's, and a handshake with no token that is reset before its 401 costs its socket
+  alone. Each ended the process, and every open terminal with it. (SM-282)
+
 ## 1.0.26 — 2026-11-10
 
 - A line from a machine that is no JSON object fails what was reading it and nothing else: a

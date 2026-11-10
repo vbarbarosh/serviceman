@@ -14,6 +14,12 @@ const sockets = new ws.WebSocketServer({noServer: true});
 // token there is no handshake at all: a terminal is a shell for whoever reaches it.
 function socket_answer(req, socket, head, token)
 {
+    // The socket's own error is heard before anything is written to it. A caller that resets
+    // before its 401 arrives makes that write an error: heard, it costs that socket; unheard,
+    // it ends the process, and every open terminal with it.
+    socket.on('error', function () {
+        socket.destroy();
+    });
     if (caller_allowed(req, token) === false) {
         socket.end('HTTP/1.1 401 Unauthorized\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;
