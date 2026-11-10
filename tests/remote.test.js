@@ -921,6 +921,31 @@ test('the ports of a machine are read by its root half, so what holds each one i
     }
 });
 
+// The root half finds id, getent, cryptsetup, mount and docker by name: a program put first on
+// the PATH it was started with must not be the one root runs
+test('the root half runs the system\'s own id, not one put first on the PATH it was started with', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-root-path-'));
+    const planted = path.join(dir, 'planted-id-ran');
+    fs.mkdirSync(path.join(dir, 'bin'));
+    fs.writeFileSync(path.join(dir, 'bin', 'id'), `#!/bin/sh\necho ran > ${planted}\nexit 1\n`, {mode: 0o755});
+    const user = os.userInfo().username;
+    const env = Object.assign({}, process.env, {PATH: `${path.join(dir, 'bin')}${path.delimiter}${process.env.PATH}`});
+    // --for: the socket is given to that person, and id is asked for their numbers
+    const root = child_process.spawn(process.execPath, [AGENT, '--role', 'root', '--root-socket', path.join(dir, 'root.sock'), '--for', user], {stdio: ['ignore', 'pipe', 'pipe'], env});
+    const said = [];
+    root.stdout.on('data', v => said.push(v.toString('utf8')));
+    root.stderr.resume();
+    try {
+        await wait_until(() => said.join('').includes('[root_begin]'), 10000);
+        assert.strictEqual(fs.existsSync(planted), false, 'the planted id was not run');
+        assert.strictEqual(said.join('').includes(`[root_begin] socket=${path.join(dir, 'root.sock')} user=${user} `), true, 'the system\'s id answered');
+    }
+    finally {
+        root.kill('SIGKILL');
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // The minute after an update: the session agent is new, its root half not yet. Asking sudo
 // then would answer "give it a root agent" on a machine that has one.
 test('a root half from before the firewall says it is updating, not that the machine has none', async function () {

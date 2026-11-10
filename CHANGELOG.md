@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.77 — 2026-11-10
+
+- The agent's root half refuses a volume target or a shared folder's path with a link in it (409, naming the link), does its folder work and its mount on the folder it looked at, held open, and puts the system's folders first on its PATH (SM-214; agent 1.33.16). Registered SM-367 (a shared folder's path swapped mid-way still races its mount) and SM-368 (a volume under a home behind a link reads Closed).
+
 ## 1.0.76 — 2026-11-10
 
 - A machine has at most 1024 streams of its own open towards serviceman, and none before its hello: one more is refused (`ETOOMANY`, `ENOHELLO`, said once a link), a visitor at its door gets 502, and the link carries on (SM-203). Registered SM-366: the refusals themselves still wait unbounded in the link's queue.

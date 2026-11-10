@@ -172,6 +172,11 @@ async function mount_make(ctx, kept, item)
         return refused;
     }
     const binary = await juicefs_ensure(ctx);
+    // Looked at again at the moment it is made and mounted on: fetching juicefs takes a while
+    const linked = await link_refused(ctx, item);
+    if (linked !== null) {
+        return linked;
+    }
     await ctx.system.folder_make(item.path);
     ctx.say('stdout', `mounting ${item.folder} at ${item.path}, ${(item.mode === 'ro') ? 'read-only' : 'read-write'}`);
     const argv = [binary, 'mount', '-d', '--no-usage-report', '--subdir', `/${item.folder}`, '--cache-dir', ctx.files.cache, '--cache-size', String(CACHE_MIB), '--log', ctx.files.log];
@@ -189,10 +194,15 @@ async function mount_make(ctx, kept, item)
     return await mount_state(ctx, kept, item);
 }
 
-// Why a path that is not mounted cannot be: another file system on it, or files of its own.
-// Asked again each time, so a path emptied since is mounted at the next try.
+// Why a path that is not mounted cannot be: a link on the way to it, another file system on
+// it, or files of its own. Asked again each time, so a path emptied since is mounted at the
+// next try.
 async function path_refused(ctx, item)
 {
+    const linked = await link_refused(ctx, item);
+    if (linked !== null) {
+        return linked;
+    }
     const found = (await ctx.system.mounts()).find(v => v.point === item.path);
     if ((found !== undefined) && (found.type !== FUSE_TYPE)) {
         return Object.assign(item_words(item), {state: 'taken', error: `${item.path} has another file system on it (${found.type})`});
@@ -202,6 +212,18 @@ async function path_refused(ctx, item)
         return Object.assign(item_words(item), {state: 'not_empty', error: `${item.path} has files of its own (${inside.slice(0, 3).join(', ')}); the folder mounted over them would hide them`});
     }
     return null;
+}
+
+// A path with a link in any part of it leads where the table did not say, to a folder under
+// /usr or /etc as well, which its own words (path_checked) would have refused: it is not
+// mounted on, and its row names the link
+async function link_refused(ctx, item)
+{
+    const found = await ctx.system.path_real(item.path, '/');
+    if (found.link === null) {
+        return null;
+    }
+    return Object.assign(item_words(item), {state: 'error', error: `${found.link} is a link to ${found.to}; a shared folder is mounted only at a path with no link in it`});
 }
 
 // A mount the table no longer has: unmounted, unless something holds it, and then kept as

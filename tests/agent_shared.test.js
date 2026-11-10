@@ -33,6 +33,21 @@ function argv_secrets(machine)
     return machine.ran.filter(v => secrets.some(vv => v.argv.join(' ').includes(vv))).map(v => v.line);
 }
 
+// A machine whose mount paths are real folders, in a temp folder: where a path leads, what is
+// in it and the making of it are agent_shared_system's own, the rest is the fake machine's.
+// `home/l` is a link to `outside`, a folder that stands in for one of the system's own.
+function linked_world(t)
+{
+    const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'agent-shared-link-'));
+    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+    const out = {home: path.join(root, 'home'), outside: path.join(root, 'etc-systemd'), machine: fake_shared_machine()};
+    fs.mkdirSync(out.home);
+    fs.mkdirSync(out.outside);
+    fs.symlinkSync(out.outside, path.join(out.home, 'l'));
+    Object.assign(out.machine.system, {path_real: agent_shared_system.path_real, folder_names: agent_shared_system.folder_names, folder_make: agent_shared_system.folder_make});
+    return out;
+}
+
 test('a table is mounted as it says: each folder at its path, read-only where it says so, the secrets in the environment only', async function () {
     const machine = fake_shared_machine();
     const answer = await agent_shared(OPTIONS, {action: 'apply', table: table_of([{folder: 'media', path: '/srv/media', mode: 'rw'}, {folder: 'docs', path: '/srv/docs', mode: 'ro'}])}, null, machine.system);
@@ -86,6 +101,39 @@ test('a path of the system\'s own, the disk\'s root or a path that is not one is
     const twice = await agent_shared(OPTIONS, {action: 'apply', table: table_of([{folder: 'media', path: '/srv/media', mode: 'rw'}, {folder: 'docs', path: '/srv/media', mode: 'ro'}])}, null, machine.system);
     assert.match(twice.error, /share a path/);
     assert.deepStrictEqual(machine.ran, []);
+});
+
+test('a path with a link in it is refused in its row, by the link: nothing is made or mounted where it leads', async function (t) {
+    const world = linked_world(t);
+    const linked = path.join(world.home, 'l', 'systemd-dropin');
+    const plain = path.join(world.home, 'media');
+    // What the link leads to is refused when written out; the link took it there all the same
+    const written = await agent_shared(OPTIONS, {action: 'apply', table: table_of([{folder: 'media', path: '/usr/local/sbin', mode: 'rw'}])}, null, world.machine.system);
+    assert.deepStrictEqual([written.status, written.error], [400, '/usr/local/sbin is under /usr, the system\'s own']);
+    const answer = await agent_shared(OPTIONS, {action: 'apply', table: table_of([{folder: 'media', path: linked, mode: 'rw'}, {folder: 'docs', path: plain, mode: 'rw'}])}, null, world.machine.system);
+    assert.deepStrictEqual(answer.items.map(v => v.state), ['error', 'mounted']);
+    assert.strictEqual(answer.items[0].error, `${path.join(world.home, 'l')} is a link to ${world.outside}; a shared folder is mounted only at a path with no link in it`);
+    assert.deepStrictEqual(fs.readdirSync(world.outside), [], 'no folder was made where the link leads');
+    assert.deepStrictEqual(world.machine.ran.filter(v => v.argv[1] === 'mount').map(v => v.argv[v.argv.length - 1]), [plain]);
+    // The row says why whenever it is asked, and the minute's own look mounts nothing there either
+    const status = await agent_shared(OPTIONS, {action: 'status'}, null, world.machine.system);
+    assert.deepStrictEqual(status.items.map(v => [v.state, v.error]), [['error', answer.items[0].error], ['mounted', undefined]]);
+    const kept = await agent_shared(OPTIONS, {action: 'keep'}, null, world.machine.system);
+    assert.deepStrictEqual(kept.items.map(v => v.state), ['error', 'mounted']);
+    assert.deepStrictEqual(fs.readdirSync(world.outside), []);
+});
+
+test('a link put on the path while juicefs is fetched is seen before anything is made or mounted', async function (t) {
+    const world = linked_world(t);
+    const point = path.join(world.home, 'late', 'media');
+    world.machine.system.download = async function (url, file) {
+        fs.symlinkSync(world.outside, path.join(world.home, 'late'));
+        world.machine.files[file] = 'the archive';
+    };
+    const answer = await agent_shared(OPTIONS, {action: 'apply', table: table_of([{folder: 'media', path: point, mode: 'rw'}])}, null, world.machine.system);
+    assert.deepStrictEqual(answer.items.map(v => [v.state, v.error]), [['error', `${path.join(world.home, 'late')} is a link to ${world.outside}; a shared folder is mounted only at a path with no link in it`]]);
+    assert.deepStrictEqual(fs.readdirSync(world.outside), []);
+    assert.deepStrictEqual(world.machine.ran.filter(v => v.argv[1] === 'mount'), []);
 });
 
 test('a mode changed while the folder is in use waits, and changes once nothing holds it', async function () {
@@ -227,6 +275,18 @@ test('a folder is made in the whole volume, given to the agent\'s person, and de
     assert.deepStrictEqual(gone, {ok: true, name: 'media', already: false});
     assert.ok(machine.ran.some(v => v.line === `juicefs-1.4.2 rmr ${DIR}/all/media`));
     assert.deepStrictEqual(machine.folders[`${DIR}/all`], []);
+});
+
+test('a new folder is given to its person as itself: a link under its name is not followed', async function (t) {
+    const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'agent-shared-give-'));
+    t.after(() => fs.rmSync(root, {recursive: true, force: true}));
+    fs.mkdirSync(path.join(root, 'outside'), {mode: 0o700});
+    fs.symlinkSync(path.join(root, 'outside'), path.join(root, 'media'));
+    await assert.rejects(agent_shared_system.folder_give(path.join(root, 'media'), process.getuid(), process.getgid()), {code: 'ENOTDIR'});
+    assert.strictEqual(fs.statSync(path.join(root, 'outside')).mode & 0o777, 0o700, 'what the link leads to is as it was');
+    fs.mkdirSync(path.join(root, 'docs'), {mode: 0o700});
+    await agent_shared_system.folder_give(path.join(root, 'docs'), process.getuid(), process.getgid());
+    assert.strictEqual(fs.statSync(path.join(root, 'docs')).mode & 0o777, 0o775);
 });
 
 test('an action it does not know is refused by name', async function () {

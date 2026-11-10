@@ -1,3 +1,4 @@
+const agent_path_real = require('./agent_path_real');
 const child_process = require('child_process');
 const fs = require('fs');
 const mounts_read = require('./mounts_read');
@@ -5,12 +6,34 @@ const path = require('path');
 
 const RUN_TIMEOUT_MS = 600000;
 const SECTOR_BYTES = 512;
+// A folder held open is named by its number: the kernel goes from there to the folder itself,
+// and reads no path again. A command's own first held folder is its number 3.
+const HELD_DIR = '/proc/self/fd';
+const HELD_FIRST = 3;
+const HELD_FLAGS = fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW;
 
-// What agent_volume asks of the machine, in one place, so its tests can give another
-async function run(argv, input)
+// What agent_volume asks of the machine, in one place, so its tests can give another. The
+// folders in `held` are opened first, each as itself (folder_open), and the command gets them
+// open, in place of their paths in its argv: what it mounts on or copies into is the folder
+// that was looked at, whatever its path names by then.
+async function run(argv, input, held)
 {
+    const folders = (held === undefined) ? [] : held;
+    const fds = [];
+    try {
+        for (const dir of folders) {
+            fds.push(folder_open(dir));
+        }
+    }
+    catch (error) {
+        fds_close(fds);
+        throw error;
+    }
+    const words = argv.map(v => held_word(v, folders));
     return await new Promise(function (resolve) {
-        const child = child_process.spawn(argv[0], argv.slice(1), {env: Object.assign({}, process.env, {LC_ALL: 'C'}), timeout: RUN_TIMEOUT_MS});
+        const child = child_process.spawn(words[0], words.slice(1), {env: Object.assign({}, process.env, {LC_ALL: 'C'}), timeout: RUN_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'].concat(fds)});
+        // The command has them now, as its own
+        fds_close(fds);
         const stdout = [];
         const stderr = [];
         child.stdout.on('data', v => stdout.push(v));
@@ -107,11 +130,18 @@ async function exists(file)
     return fs.existsSync(file);
 }
 
+// Where a path leads, with no link followed below `base`: agent_path_real says it
+async function path_real(given, base)
+{
+    return agent_path_real(given, base);
+}
+
 // What a folder holds, or null when there is no such folder
 async function folder_names(dir)
 {
+    let fd;
     try {
-        return fs.readdirSync(dir);
+        fd = folder_open(dir);
     }
     catch (error) {
         if (error.code === 'ENOENT') {
@@ -119,24 +149,93 @@ async function folder_names(dir)
         }
         throw error;
     }
+    try {
+        return fs.readdirSync(`${HELD_DIR}/${fd}`);
+    }
+    finally {
+        fs.closeSync(fd);
+    }
 }
 
+// The folder made where there is none, and given to its owner: the folder itself, never what
+// a link under its name leads to
 async function folder_make(dir, uid, gid)
 {
-    if (fs.existsSync(dir) === false) {
-        fs.mkdirSync(dir, {mode: 0o700});
-    }
-    fs.chownSync(dir, uid, gid);
+    name_held(dir, function (at) {
+        try {
+            fs.mkdirSync(at, {mode: 0o700});
+        }
+        catch (error) {
+            if (error.code !== 'EEXIST') {
+                throw error;
+            }
+        }
+        const fd = fs.openSync(at, HELD_FLAGS);
+        try {
+            fs.fchownSync(fd, uid, gid);
+        }
+        finally {
+            fs.closeSync(fd);
+        }
+    });
 }
 
+// A folder given another name beside its own
 async function folder_rename(from, to)
 {
-    fs.renameSync(from, to);
+    name_held(from, v => fs.renameSync(v, path.join(path.dirname(v), path.basename(to))));
 }
 
 async function folder_remove(dir)
 {
-    fs.rmdirSync(dir);
+    name_held(dir, v => fs.rmdirSync(v));
+}
+
+// A folder opened as itself, and held: what is done to it next is done to this folder. A link
+// under its last name is not followed, and one anywhere else on the way shows in the kernel's
+// own name for what was opened, which is then not the path. Its path is the real one
+// (path_real), so a link is one put there after it was looked at.
+function folder_open(dir)
+{
+    const fd = fs.openSync(dir, HELD_FLAGS);
+    const real = fs.readlinkSync(`${HELD_DIR}/${fd}`);
+    if (real !== dir) {
+        fs.closeSync(fd);
+        throw new Error(`${dir} opens as ${real}, not as itself: nothing is done to it`);
+    }
+    return fd;
+}
+
+// What is done to a name in a folder, with that folder held open: the name is looked up in the
+// folder itself, and mkdir, rename and rmdir follow no link under the name
+function name_held(dir, fn)
+{
+    const fd = folder_open(path.dirname(dir));
+    try {
+        return fn(`${HELD_DIR}/${fd}/${path.basename(dir)}`);
+    }
+    finally {
+        fs.closeSync(fd);
+    }
+}
+
+function fds_close(fds)
+{
+    for (const fd of fds) {
+        fs.closeSync(fd);
+    }
+}
+
+// A word of a command with a held folder's path in it, said by that folder's number. The
+// folder itself is its own `.`: the number alone is a link by its kind, and the newer mount
+// calls follow no link under a path's last name.
+function held_word(word, held)
+{
+    const at = held.findIndex(v => (word === v) || word.startsWith(`${v}/`));
+    if (at === -1) {
+        return word;
+    }
+    return `${HELD_DIR}/${HELD_FIRST + at}${(word === held[at]) ? '/.' : word.slice(held[at].length)}`;
 }
 
 // Its owner may list the volume files through the link in the agent's folder: names and sizes
@@ -287,6 +386,7 @@ module.exports = {
     meta_read,
     meta_write,
     mounted,
+    path_real,
     room_of,
     run,
     user_of,

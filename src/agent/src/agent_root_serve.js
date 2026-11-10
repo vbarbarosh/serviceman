@@ -29,6 +29,11 @@ const LISTS_RETRY_MS = 3600*1000;
 const LISTS_EVERY_MS = 10*60*1000;
 const LISTS_FIRST_MS = 3*60*1000;
 const APT_GET = ['/usr/bin/apt-get', '/bin/apt-get'];
+// The system's own folders, looked in first for every command this half runs by name (id,
+// getent, cryptsetup, mount, docker): a program anywhere else on the PATH it was started with,
+// /usr/local/sbin first of all, never stands in for one the system has. That PATH stays, after
+// these, for a docker that is installed elsewhere.
+const PATH_SYSTEM = '/usr/sbin:/usr/bin:/sbin:/bin';
 
 // The root half of one machine. It dials nowhere and listens on nothing but a file: no port,
 // no link, no way in from another machine at all. What may reach it is whatever may open that
@@ -37,6 +42,7 @@ const APT_GET = ['/usr/bin/apt-get', '/bin/apt-get'];
 // says which commands are allowed, because the answer is "the ones written below".
 function agent_root_serve(options)
 {
+    process.env.PATH = [PATH_SYSTEM].concat((process.env.PATH === undefined) ? [] : [process.env.PATH]).join(':');
     const path = agent_root_socket(options);
     const boot = log_uid();
     const state = {};

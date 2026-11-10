@@ -33,6 +33,12 @@ root half: tests in `tests/agent_volume.test.js`.
   typed it. The keyring is left out, so Grow needs no key.
 - A target is a folder in the owner's home. Plain files already there are copied in; the plain
   folder is kept beside it as `<target>.plain-<time>` for its owner to delete.
+- No link may be on the way to the target below the home: a create, an open or a delete that
+  finds one is refused by its name (`/home/user/l is a link to /usr/local; …`), since the root
+  half would mount on, hand over and move aside whatever folder the link leads to. A home that
+  is itself behind a link of the system's (`/home -> /data/home`) is its real folder. The
+  folder is then held open for each thing done to it, mount and the copy of the plain files
+  too, so a link put there a moment later is not followed either.
 
 ## The API
 

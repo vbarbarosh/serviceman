@@ -64,12 +64,14 @@ A machine that is away keeps its row and is mounted the moment its agent dials i
 | not empty       | The path holds files of its own: the folder mounted there would hide them. Nothing is moved; empty it, or pick another path |
 | path taken      | Another file system is mounted at the path                                    |
 | cannot mount    | The machine has no root half, or an agent from before shared folders          |
-| failed          | juicefs said why, under the row; the machine tries again every minute         |
+| failed          | juicefs said why, or a part of the path is a link, under the row; the machine tries again every minute |
 
 A path is refused when it is not a full path, is `/` or a folder at the top (`/srv`), or is
 under the system's own folders: `/bin`, `/boot`, `/dev`, `/etc`, `/lib`, `/proc`, `/run`,
 `/sbin`, `/sys`, `/usr`, `/var/lib/serviceman`. Two folders on one machine never share a path,
-nor sit one inside the other.
+nor sit one inside the other. A path with a link in any part of it is not mounted on, since it
+leads where its words do not say, under `/usr` or `/etc` as well: its row names the link and
+where it leads (`/srv is a link to /data/srv; …`), and the path is written without it.
 
 **Unmount** takes the folder off. One that something holds stays until it is free.
 **Delete…** asks for the folder's name typed again, and only once no machine mounts it. juicefs

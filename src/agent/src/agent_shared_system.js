@@ -1,3 +1,4 @@
+const agent_path_real = require('./agent_path_real');
 const agent_volume_system = require('./agent_volume_system');
 const child_process = require('child_process');
 const crypto = require('crypto');
@@ -81,17 +82,31 @@ async function folder_names(dir)
     }
 }
 
+// Where a path leads, with no link followed below `base`: agent_path_real says it
+async function path_real(given, base)
+{
+    return agent_path_real(given, base);
+}
+
 // The folder and the ones above it; a new one is root's, 0700 below the shared folder's own
 async function folder_make(dir, mode)
 {
     fs.mkdirSync(dir, {recursive: true, mode: (mode === undefined) ? 0o755 : mode});
 }
 
-// A folder handed to the person the root half serves, so their programs may write in it
+// A folder handed to the person the root half serves, so their programs may write in it: the
+// folder itself, opened with no link followed under its name, since whoever writes in the
+// volume may put one there
 async function folder_give(dir, uid, gid)
 {
-    fs.chownSync(dir, uid, gid);
-    fs.chmodSync(dir, 0o775);
+    const fd = fs.openSync(dir, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
+    try {
+        fs.fchownSync(fd, uid, gid);
+        fs.fchmodSync(fd, 0o775);
+    }
+    finally {
+        fs.closeSync(fd);
+    }
 }
 
 async function mounts()
@@ -241,6 +256,7 @@ module.exports = {
     json_read,
     key_make,
     mounts,
+    path_real,
     port_open,
     room_of,
     run,

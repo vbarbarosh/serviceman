@@ -124,7 +124,8 @@ async function volume_create(ctx, params)
     if (size > disk_free) {
         throw refusal(409, `${size_text(size)} is more than the ${size_text(disk_free)} free on this machine's disk`);
     }
-    const plain = await plain_move(ctx, target, owner);
+    const real = await target_real(ctx, target, owner);
+    const plain = await plain_move(ctx, real, owner);
     let made = false;
     try {
         ctx.say('stdout', `making ${files.image}, ${size_text(size)}`);
@@ -136,7 +137,7 @@ async function volume_create(ctx, params)
         await mapper_open(ctx, files, key);
         ctx.say('stdout', 'making an ext4 file system inside');
         await run_checked(ctx, ['mkfs.ext4', '-q', '-m', '0', '-E', `root_owner=${owner.uid}:${owner.gid}`, files.device]);
-        await folder_mount(ctx, target, owner, files);
+        await folder_mount(ctx, real, owner, files);
         const meta = {name, owner: owner.name, target, created: new Date().toISOString()};
         // A volume a person opens with what they typed, and not with a client's key
         if (params.passphrase === true) {
@@ -145,17 +146,17 @@ async function volume_create(ctx, params)
         await ctx.system.meta_write(files.meta, meta);
     }
     catch (error) {
-        await undo_create(ctx, target, files, made, plain);
+        await undo_create(ctx, real, files, made, plain);
         throw error;
     }
     let plain_left = plain;
     if (plain !== null) {
         ctx.say('stdout', `copying the plain files in from ${plain}`);
-        await run_checked(ctx, ['cp', '-a', `${plain}/.`, `${target}/`]);
+        await run_checked(ctx, ['cp', '-a', `${plain}/.`, `${real}/`], undefined, [plain, real]);
         // Asked for by a client that moves them in once: the plain copy goes after a whole copy
         if (params.plain_remove === true) {
             ctx.say('stdout', `removing the plain copy ${plain}`);
-            await run_checked(ctx, ['rm', '-rf', '--one-file-system', plain]);
+            await run_checked(ctx, ['rm', '-rf', '--one-file-system', plain], undefined, [path.dirname(plain)]);
             plain_left = null;
         }
     }
@@ -174,7 +175,8 @@ async function volume_open(ctx, meta, key)
         return Object.assign({ok: true, already: true}, await volume_state(ctx, meta));
     }
     const owner = await owner_checked(ctx, meta.owner);
-    const inside = await ctx.system.folder_names(meta.target);
+    const real = await target_real(ctx, meta.target, owner);
+    const inside = await ctx.system.folder_names(real);
     if ((inside !== null) && (inside.length > 0)) {
         throw refusal(409, `${meta.target} has files of its own (${inside.slice(0, 3).join(', ')}); the volume opened over them would hide them`);
     }
@@ -184,7 +186,7 @@ async function volume_open(ctx, meta, key)
     else {
         await mapper_open(ctx, files, key);
     }
-    await folder_mount(ctx, meta.target, owner, files);
+    await folder_mount(ctx, real, owner, files);
     return Object.assign({ok: true, already: false}, await volume_state(ctx, meta));
 }
 
@@ -211,7 +213,8 @@ async function volume_close(ctx, meta)
 
 // POST volumes/<name>/delete
 // Only a closed one: its file and what it knows of it go, for good. Its folder goes only when
-// empty; files written into it while it was closed are its owner's
+// empty; files written into it while it was closed are its owner's, and a folder that is no
+// longer the plain one in its owner's home (target_real) is not touched
 async function volume_delete(ctx, meta)
 {
     const files = paths_of(ctx, meta.name);
@@ -221,9 +224,10 @@ async function volume_delete(ctx, meta)
     ctx.say('stdout', `deleting ${files.image}`);
     await ctx.system.file_remove(files.image);
     await ctx.system.file_remove(files.meta);
-    const inside = await ctx.system.folder_names(meta.target);
+    const real = await target_kept(ctx, meta);
+    const inside = (real === null) ? null : await ctx.system.folder_names(real);
     if ((inside !== null) && (inside.length === 0)) {
-        await ctx.system.folder_remove(meta.target);
+        await ctx.system.folder_remove(real);
     }
     const target_left = ((inside === null) || (inside.length === 0)) ? null : meta.target;
     return {ok: true, name: meta.name, owner: meta.owner, target: meta.target, target_left};
@@ -279,11 +283,12 @@ async function key_test(ctx, files, key)
     command_throw(['cryptsetup', 'open', '--test-passphrase'], answer);
 }
 
+// On the folder held open (run): --no-canonicalize keeps mount from turning it back into a path
 async function folder_mount(ctx, target, owner, files)
 {
     await ctx.system.folder_make(target, owner.uid, owner.gid);
     ctx.say('stdout', `mounting it at ${target}`);
-    await run_checked(ctx, ['mount', '-o', MOUNT_OPTIONS, files.device, target]);
+    await run_checked(ctx, ['mount', '-o', MOUNT_OPTIONS, '--no-canonicalize', files.device, target], undefined, [target]);
 }
 
 // A target that holds files is renamed aside, so the volume can open over an empty folder
@@ -372,6 +377,37 @@ function target_checked(value, owner)
     return out;
 }
 
+// The target as the machine has it now, for everything done to it as root: its real folder,
+// with no link on the way to it below its owner's home. A link there is the owner's to make,
+// and names any folder of the machine: it is refused, by name. Asked at each create, open and
+// delete, since a folder becomes a link at any time.
+async function target_real(ctx, value, owner)
+{
+    const target = target_checked(value, owner);
+    const found = await ctx.system.path_real(target, owner.home);
+    if (found.link !== null) {
+        throw refusal(409, `${found.link} is a link to ${found.to}; a volume opens only at a folder with no link on the way to it`);
+    }
+    if (found.path === null) {
+        throw refusal(409, `${owner.home}, the home of ${owner.name}, is not there`);
+    }
+    return found.path;
+}
+
+// The same for a volume that is going: null where its folder is refused, or its owner is gone
+async function target_kept(ctx, meta)
+{
+    try {
+        return await target_real(ctx, meta.target, await owner_checked(ctx, meta.owner));
+    }
+    catch (error) {
+        if (error.status === undefined) {
+            throw error;
+        }
+        return null;
+    }
+}
+
 // Bytes, or a number with K, M, G or T
 function size_checked(value)
 {
@@ -391,9 +427,9 @@ function key_checked(value)
     return value;
 }
 
-async function run_checked(ctx, argv, input)
+async function run_checked(ctx, argv, input, held)
 {
-    const out = await ctx.system.run(argv, input);
+    const out = await ctx.system.run(argv, input, held);
     command_throw(argv, out);
     return out;
 }

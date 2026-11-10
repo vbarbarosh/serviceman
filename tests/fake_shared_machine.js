@@ -134,6 +134,7 @@ function fake_shared_machine(over)
             delete machine.files[file];
         },
         file_exists: async v => (machine.files[v] !== undefined),
+        path_real: async v => ({path: v, link: null, to: null}),
         folder_names: async v => (machine.folders[v] === undefined) ? null : machine.folders[v].slice(),
         folder_make: async function (dir) {
             folder_add(dir);

@@ -745,6 +745,12 @@ fewest rounds when the key is random, argon2id at cryptsetup&#39;s measured cost
 typed it. The keyring is left out, so Grow needs no key.</li>
 <li>A target is a folder in the owner&#39;s home. Plain files already there are copied in; the plain
 folder is kept beside it as <code>&lt;target&gt;.plain-&lt;time&gt;</code> for its owner to delete.</li>
+<li>No link may be on the way to the target below the home: a create, an open or a delete that
+finds one is refused by its name (<code>/home/user/l is a link to /usr/local; …</code>), since the root
+half would mount on, hand over and move aside whatever folder the link leads to. A home that
+is itself behind a link of the system&#39;s (<code>/home -&gt; /data/home</code>) is its real folder. The
+folder is then held open for each thing done to it, mount and the copy of the plain files
+too, so a link put there a moment later is not followed either.</li>
 </ul>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
 <p>What it holds and does is written down in <code>server/volumes_manifest.js</code>, for a host to route,
