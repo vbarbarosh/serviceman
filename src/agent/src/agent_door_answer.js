@@ -78,6 +78,8 @@ agent_door_answer.upgrade = async function (options, relay, req, socket, head) {
 // {answer} for one this door gives itself
 async function route(options, req, host, group)
 {
+    // Whatever a visitor claims to be is not taken from them: only the wall says who they are
+    claim_drop(req);
     const table = agent_doors_state.table;
     const rule = agent_door_rule(table, host);
     if (rule === null) {
@@ -86,8 +88,6 @@ async function route(options, req, host, group)
     if (rule.off) {
         return {answer: {status: 404, why: `${host} is switched off`}};
     }
-    // Whatever a visitor claims to be is not taken from them: only the wall says who they are
-    delete req.headers['x-auth-user'];
     const own = (rule.wall !== null) && agent_wall_ask.own(req.url);
     const name = own ? rule.wall : rule.service;
     if ((rule.wall !== null) && (own === false)) {
@@ -113,10 +113,29 @@ async function route(options, req, host, group)
     return {target, extra: peer_headers(target), service: name};
 }
 
+// The visitor's own word on who they are, taken out before the request is routed, the wall is
+// asked or a header is copied to a service. A stack behind may read `_` and `-` as one (CGI,
+// WSGI and PHP do), so x_auth_user goes as x-auth-user does; sent twice or as a list, it is
+// one name here and goes whole.
+function claim_drop(req)
+{
+    for (const name of Object.keys(req.headers)) {
+        if (name.replace(/_/g, '-') === 'x-auth-user') {
+            delete req.headers[name];
+        }
+    }
+}
+
 // Everything a door carries came from outside: a service that lets more in at home (a pairing,
-// a first sign-in) reads it here. Set over whatever the visitor sent, so nobody takes it off.
+// a first sign-in) reads it here. Set over whatever the visitor sent, x_serviceman_relay as
+// x-serviceman-relay for the stacks that read them as one, so nobody takes it off.
 function mark(req)
 {
+    for (const name of Object.keys(req.headers)) {
+        if (name.replace(/_/g, '-') === 'x-serviceman-relay') {
+            delete req.headers[name];
+        }
+    }
     req.headers['x-serviceman-relay'] = '1';
 }
 

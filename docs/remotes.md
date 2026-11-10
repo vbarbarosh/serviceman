@@ -832,6 +832,13 @@ was asked for, the whole address, the visitor's cookie and their address, and re
 `/auth/…` on a walled name is the wall's own: its sign-in page, its callbacks. That is what
 lets the sign-in happen on the visitor's own address rather than somewhere else.
 
+**Their address is the one the front saw.** The wall is told the last address in
+`X-Forwarded-For`: a front adds the address it saw to the end of whatever the visitor sent, as
+`$proxy_add_x_forwarded_for` does above, so the ones before the last are the visitor's to write
+and are never told. With no address there it is `X-Real-IP`, and with none there either the wall
+is told none. A front that sets neither header vouches for nothing, and then both are the
+visitor's: keep those two lines of the block.
+
 **One wall stands in front of as many names as point at it.** It never learns where any of them
 lead, so nothing about it changes when a rule does. The wall may run on any machine: the door
 reaches it the way it reaches any service. serviceman writes nothing into its environment: the wall's own name (`AUTHWALL_PUBLIC_URL`), the cookie domain shared by the names
@@ -867,8 +874,8 @@ quiet for 100 seconds). Both are in the config, so they outlive a restart of eit
 
 **What a door carries is marked.** Every request it carries gets `X-Serviceman-Relay: 1`, set
 over whatever the visitor sent, so a service that lets more in at home (a pairing, a first
-sign-in) can refuse it to whoever came through a door. Who they are is in `X-Forwarded-For`, as
-the front wrote it.
+sign-in) can refuse it to whoever came through a door. Who they are is the last address in
+`X-Forwarded-For`, the one the front added: the ones before it are whatever the visitor sent.
 
 **When the laptop is away** (asleep, off, off the tailnet), the door waits 10 seconds for a
 connection and answers `502`. A front or a CDN may answer for it with a 5xx of its own, so a

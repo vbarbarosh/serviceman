@@ -1,17 +1,23 @@
+const net = require('net');
+
 // Who asked, as an address. A connection that came in through a machine's link has none of its
 // own: whatever stands in front of that machine is the only thing that saw the visitor, and
-// what it wrote down is the whole of what there is. Nothing else can have written it — that
-// door is a file, and its mode says who may open it.
+// what it vouches for is the whole of what there is. A front adds the address it saw to the end
+// of x-forwarded-for, after whatever the visitor wrote there: the last one is the front's word,
+// and the ones before it are the visitor's to write. A front that writes x-real-ip alone says
+// it there. What is not an address is no answer at all. At this host's own door the socket
+// says it, and no header is read.
 function client_address(req)
 {
     if (req.socket.tunnel_from === undefined) {
         return (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress;
     }
-    const real = req.headers['x-real-ip'];
-    if (real !== undefined) {
-        return String(real).trim();
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+    if (net.isIP(forwarded) !== 0) {
+        return forwarded;
     }
-    return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    const real = String(req.headers['x-real-ip'] || '').trim();
+    return (net.isIP(real) === 0) ? '' : real;
 }
 
 module.exports = client_address;

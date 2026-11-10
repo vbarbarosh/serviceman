@@ -1,3 +1,4 @@
+const client_address = require('../client_address');
 const http = require('http');
 const pool_acquire = require('./pool_acquire');
 const pool_release = require('./pool_release');
@@ -64,7 +65,9 @@ function ask_now(instance, req, host, resolve)
         headers: {
             host,
             cookie: (req.headers.cookie === undefined) ? '' : req.headers.cookie,
-            'x-real-ip': (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress,
+            // A request through a machine's link has no address of its own: the wall is told
+            // the one that machine's front vouches for, as the machine's own door tells it
+            'x-real-ip': client_address(req),
             'x-original-uri': `${scheme_of(req)}://${host}${req.url}`,
             'x-original-method': req.method,
             'content-length': '0',

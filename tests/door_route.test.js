@@ -295,6 +295,135 @@ test('a service whose address cannot be asked is a 500 at the peer port and at t
     }
 });
 
+// The door is a file, so who the visitor is comes from the front alone, and the front writes it
+// after whatever the visitor wrote: the docs' nginx block sends `X-Real-IP $remote_addr` and
+// `X-Forwarded-For $proxy_add_x_forwarded_for`, the visitor's own list with the address the
+// front saw at its end. The requests here are what the door receives from a front that saw the
+// visitor at 203.0.113.9 (2001:db8::9), for a visitor who wrote 198.51.100.77 everywhere.
+test('a door tells the wall the address its front wrote, and never one the visitor wrote', async function () {
+    const alone = await door_alone();
+    const asks = [
+        // The docs' front, and a visitor who sent both headers
+        [{'x-real-ip': '203.0.113.9', 'x-forwarded-for': '198.51.100.77, 203.0.113.9'}, '203.0.113.9'],
+        // A visitor who sent a list, in two lines, and a front that adds a line of its own
+        [{'x-forwarded-for': ['198.51.100.77, 198.51.100.78', '198.51.100.79', '203.0.113.9']}, '203.0.113.9'],
+        [{'x-real-ip': '2001:db8::9', 'x-forwarded-for': '198.51.100.77, 2001:db8::9'}, '2001:db8::9'],
+        // A front that writes x-forwarded-for over the visitor's and leaves their x-real-ip
+        [{'x-real-ip': '198.51.100.77', 'x-forwarded-for': '203.0.113.9'}, '203.0.113.9'],
+        // A front that writes x-real-ip alone
+        [{'x-real-ip': '203.0.113.9'}, '203.0.113.9'],
+        // No front wrote either of these: what is not an address is not told as one
+        [{'x-real-ip': ['198.51.100.77', '198.51.100.78'], 'x-forwarded-for': '198.51.100.77, <script>'}, ''],
+        [{'x-real-ip': 'localhost', 'x-forwarded-for': '198.51.100.77,'}, ''],
+        // Nobody in front, and nothing written
+        [{}, ''],
+    ];
+    try {
+        for (const [headers, address] of asks) {
+            const answer = await fetch_socket(alone.door, 'walled.example.com', '/page', Object.assign({cookie: 'session=good'}, headers));
+            assert.strictEqual(answer.status, 200);
+            assert.strictEqual(alone.told[alone.told.length - 1], address, JSON.stringify(headers));
+        }
+        // A websocket's handshake is asked about the same way
+        assert.strictEqual(await shake_socket(alone.door, 'walled.example.com', {cookie: 'session=good', 'x-real-ip': '203.0.113.9', 'x-forwarded-for': '198.51.100.77, 203.0.113.9'}), 101);
+        assert.strictEqual(alone.told[asks.length], '203.0.113.9');
+        assert.strictEqual(alone.told.length, asks.length + 1);
+    }
+    finally {
+        alone.close();
+    }
+});
+
+// What a visitor writes into x-auth-user is dropped under either spelling a stack behind may
+// read as that name (CGI, WSGI and PHP hand a program `_` and `-` as one), sent once, twice or
+// as a list: behind a wall the service reads the wall's word and nothing beside it, with no
+// wall it is told nothing. The door's own mark is kept the same way.
+test('a visitor\'s x-auth-user reaches no service through a door, under either spelling, and the door\'s mark is the only one', async function () {
+    const alone = await door_alone();
+    const claim = {'x-auth-user': ['owner@example.com', 'root@example.com'], 'X_Auth_User': 'owner@example.com, root@example.com', 'x_serviceman_relay': '0', 'X-Serviceman_Relay': '0'};
+    try {
+        // Behind the wall: a request, then a handshake
+        const walled = await fetch_socket(alone.door, 'walled.example.com', '/page', Object.assign({cookie: 'session=good'}, claim));
+        assert.strictEqual(walled.status, 200);
+        assert.strictEqual(await shake_socket(alone.door, 'walled.example.com', Object.assign({cookie: 'session=good'}, claim)), 101);
+        // A name with no wall: nobody said who the visitor is
+        const open = await fetch_socket(alone.door, 'open.example.com', '/page', claim);
+        assert.strictEqual(open.status, 200);
+        assert.strictEqual(await shake_socket(alone.door, 'open.example.com', claim), 101);
+        const word = {'x-auth-user': 'user@example.com', 'x-serviceman-relay': '1'};
+        assert.deepStrictEqual(alone.said, [word, word, {'x-serviceman-relay': '1'}, {'x-serviceman-relay': '1'}]);
+    }
+    finally {
+        alone.close();
+    }
+});
+
+// What the door cannot route it hands to serviceman over the link, and serviceman asks the wall:
+// here the wall and the service run with serviceman, on no machine. A stream of a link has no
+// address of its own, and the wall is not told nothing for that: it is told what the front of
+// that machine wrote, by the same rule as the machine's own door, and the log says the same.
+test('serviceman tells the wall the address a machine\'s front wrote, for what the door hands it over the link', async function () {
+    const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-doors-state-'));
+    process.env.SERVICEMAN_STATE_DIR = state_dir;
+    const told = [];
+    const wall = await server_of(function (req, res) {
+        told.push(req.headers['x-real-ip']);
+        res.writeHead((req.headers.cookie === 'session=good') ? 200 : 401, {'x-auth-user': 'user@example.com'});
+        res.end();
+    });
+    const echo = await server_of(function (req, res) {
+        res.end('the page');
+    });
+    echo.on('upgrade', function (req, socket) {
+        socket.end('HTTP/1.1 101 Switching Protocols\r\nconnection: upgrade\r\nupgrade: websocket\r\n\r\n');
+    });
+    const running = await serviceman_start({
+        remotes: [{name: 'laptop', token: TOKEN_LAPTOP, inbound: {'walled.example.com': {service: 'echo', auth: 'authwall'}}}],
+        services: [
+            {name: 'authwall', type: 'external', publish: {host: 'authwall.internal'}, upstream: `127.0.0.1:${wall.address().port}`},
+            {name: 'echo', type: 'external', publish: {host: 'echo.internal'}, upstream: `127.0.0.1:${echo.address().port}`},
+        ],
+    });
+    const dir_laptop = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-laptop-'));
+    const agent = agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_AGENT_DIR: dir_laptop, SERVICEMAN_HTTP_SOCKET_MODE: '0600', SERVICEMAN_PEER_PORT: '0'});
+    const door = path.join(dir_laptop, 'http.sock');
+    const asks = [
+        [{'x-real-ip': '203.0.113.9', 'x-forwarded-for': '198.51.100.77, 203.0.113.9'}, '203.0.113.9'],
+        [{'x-forwarded-for': ['198.51.100.77, 198.51.100.78', '2001:db8::9']}, '2001:db8::9'],
+        [{'x-real-ip': '203.0.113.9'}, '203.0.113.9'],
+        [{'x-real-ip': ['198.51.100.77', '198.51.100.78'], 'x-forwarded-for': '198.51.100.77, <script>'}, ''],
+        [{}, ''],
+    ];
+    try {
+        const laptop = running.app.remote_by_name.laptop;
+        await wait_until(() => (laptop.state.phase === 'online') && (laptop.state.doors_told !== null) && (laptop.state.doors_told === doors_table(running.app, laptop).version), 15000);
+        for (const [headers, address] of asks) {
+            const answer = await fetch_socket(door, 'walled.example.com', '/page', Object.assign({cookie: 'session=good'}, headers));
+            assert.strictEqual(answer.status, 200);
+            assert.strictEqual(told[told.length - 1], address, JSON.stringify(headers));
+            assert.ok(running.app.log_lines.findLast(v => v.includes('[request_begin]')).includes(`"ip":"${address}"`), JSON.stringify(headers));
+        }
+        // A websocket's handshake is asked about the same way
+        assert.strictEqual(await shake_socket(door, 'walled.example.com', {cookie: 'session=good', 'x-real-ip': '203.0.113.9', 'x-forwarded-for': '198.51.100.77, 203.0.113.9'}), 101);
+        assert.strictEqual(told[asks.length], '203.0.113.9');
+        // At serviceman's own door the socket says who asked, whatever the visitor wrote
+        const own = await fetch_port(running.app.servers.server.address().port, {host: 'echo.internal', 'x-real-ip': '198.51.100.77', 'x-forwarded-for': '198.51.100.77'});
+        assert.strictEqual(own.status, 200);
+        assert.match(running.app.log_lines.findLast(v => v.includes('[request_begin]')), /"ip":"(::ffff:)?127\.0\.0\.1"/);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        echo.close();
+        echo.closeAllConnections();
+        wall.close();
+        wall.closeAllConnections();
+        fs.rmSync(dir_laptop, {recursive: true, force: true});
+        fs.rmSync(state_dir, {recursive: true, force: true});
+        delete process.env.SERVICEMAN_STATE_DIR;
+    }
+});
+
 // The error a door answers with is a whole answer: one already begun cannot become another
 test('an error for an answer already begun cuts it where it is', async function () {
     const thrown = [];
@@ -357,6 +486,72 @@ async function serviceman_start(json)
     };
 }
 
+// A machine's door with serviceman away: an agent that serves by the table it kept, a wall that
+// knows one cookie and a service, both on that machine. `told` has the x-real-ip the wall was
+// asked with, per ask; `said` has, per request and per handshake the service got, every header
+// a stack may read as x-auth-user or as the door's mark.
+async function door_alone()
+{
+    const out = {door: '', told: [], said: []};
+    const wall = await server_of(function (req, res) {
+        out.told.push(req.headers['x-real-ip']);
+        res.writeHead((req.headers.cookie === 'session=good') ? 200 : 401, {'x-auth-user': 'user@example.com'});
+        res.end();
+    });
+    const echo = await server_of(function (req, res) {
+        out.said.push(words_of(req));
+        res.end('the page');
+    });
+    echo.on('upgrade', function (req, socket) {
+        out.said.push(words_of(req));
+        socket.end('HTTP/1.1 101 Switching Protocols\r\nconnection: upgrade\r\nupgrade: websocket\r\n\r\n');
+    });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-alone-'));
+    fs.mkdirSync(path.join(dir, 'doors'));
+    fs.writeFileSync(path.join(dir, 'doors', 'table.json'), JSON.stringify({
+        version: 'test',
+        self: 'server',
+        token: TOKEN_SERVER,
+        names: {'walled.example.com': {service: 'echo', wall: 'authwall', off: false}, 'open.example.com': {service: 'echo', wall: null, off: false}},
+        services: {
+            authwall: {service: 'authwall', machine: 'server', kind: 'external', upstream: `127.0.0.1:${wall.address().port}`},
+            echo: {service: 'echo', machine: 'server', kind: 'external', upstream: `127.0.0.1:${echo.address().port}`},
+        },
+        peers: {},
+    }));
+    const agent = agent_start(NOBODY_PORT, TOKEN_SERVER, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_HTTP_SOCKET_MODE: '0600', SERVICEMAN_PEER_PORT: '0'});
+    const lines = lines_of(agent);
+    out.door = path.join(dir, 'http.sock');
+    out.close = function () {
+        agent.kill('SIGKILL');
+        for (const server of [wall, echo]) {
+            server.close();
+            server.closeAllConnections();
+        }
+        fs.rmSync(dir, {recursive: true, force: true});
+    };
+    try {
+        await wait_until(() => lines.join('').includes('[http_socket_begin]'), 5000);
+    }
+    catch (error) {
+        out.close();
+        throw error;
+    }
+    return out;
+}
+
+// Every header of a request that a stack may read as x-auth-user or as x-serviceman-relay
+function words_of(req)
+{
+    const out = {};
+    for (const name of Object.keys(req.headers)) {
+        if (/^x[-_](auth[-_]user|serviceman[-_]relay)$/.test(name)) {
+            out[name] = req.headers[name];
+        }
+    }
+    return out;
+}
+
 function agent_start(control_port, token, env, extra)
 {
     const argv = [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', token].concat((extra === undefined) ? [] : extra);
@@ -412,6 +607,23 @@ function fetch_socket(file, host, path_asked, headers)
             const body = [];
             answer.on('data', v => body.push(v));
             answer.on('end', () => resolve({status: answer.statusCode, headers: answer.headers, body: Buffer.concat(body).toString('utf8')}));
+        });
+        request.on('error', reject);
+        request.end();
+    });
+}
+
+// A websocket's handshake through a door: the status it was answered with
+function shake_socket(file, host, headers)
+{
+    return new Promise(function (resolve, reject) {
+        const request = http.request({socketPath: file, path: '/ws', headers: Object.assign({host, connection: 'upgrade', upgrade: 'websocket'}, headers)}, function (answer) {
+            answer.resume();
+            resolve(answer.statusCode);
+        });
+        request.on('upgrade', function (answer, socket) {
+            socket.destroy();
+            resolve(answer.statusCode);
         });
         request.on('error', reject);
         request.end();

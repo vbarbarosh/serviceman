@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.46 — 2026-11-10
+
+- The sign-in wall is told the visitor's address the front vouches for: the last of
+  `X-Forwarded-For`, else `X-Real-IP`, and nothing that is no address. A machine's door told
+  it the first of the list, which the visitor writes, and serviceman told it nothing for what
+  came through a link. At a door, `X_Auth_User` and `X_Serviceman_Relay` are dropped as their
+  `-` spellings are. Agent 1.33.7. (SM-228)
+
 ## 1.0.45 — 2026-11-10
 
 - The agent's program follower no longer ends the agent when a file a program prints into

@@ -1564,6 +1564,12 @@ was asked for, the whole address, the visitor&#39;s cookie and their address, an
 </div>
 <p><code>/auth/…</code> on a walled name is the wall&#39;s own: its sign-in page, its callbacks. That is what
 lets the sign-in happen on the visitor&#39;s own address rather than somewhere else.</p>
+<p><strong>Their address is the one the front saw.</strong> The wall is told the last address in
+<code>X-Forwarded-For</code>: a front adds the address it saw to the end of whatever the visitor sent, as
+<code>$proxy_add_x_forwarded_for</code> does above, so the ones before the last are the visitor&#39;s to write
+and are never told. With no address there it is <code>X-Real-IP</code>, and with none there either the wall
+is told none. A front that sets neither header vouches for nothing, and then both are the
+visitor&#39;s: keep those two lines of the block.</p>
 <p><strong>One wall stands in front of as many names as point at it.</strong> It never learns where any of them
 lead, so nothing about it changes when a rule does. The wall may run on any machine: the door
 reaches it the way it reaches any service. serviceman writes nothing into its environment: the wall&#39;s own name (<code>AUTHWALL_PUBLIC_URL</code>), the cookie domain shared by the names
@@ -1592,8 +1598,8 @@ limit, a read timeout, buffering) still holds, and so does a CDN&#39;s (Cloudfla
 quiet for 100 seconds). Both are in the config, so they outlive a restart of either side.</p>
 <p><strong>What a door carries is marked.</strong> Every request it carries gets <code>X-Serviceman-Relay: 1</code>, set
 over whatever the visitor sent, so a service that lets more in at home (a pairing, a first
-sign-in) can refuse it to whoever came through a door. Who they are is in <code>X-Forwarded-For</code>, as
-the front wrote it.</p>
+sign-in) can refuse it to whoever came through a door. Who they are is the last address in
+<code>X-Forwarded-For</code>, the one the front added: the ones before it are whatever the visitor sent.</p>
 <p><strong>When the laptop is away</strong> (asleep, off, off the tailnet), the door waits 10 seconds for a
 connection and answers <code>502</code>. A front or a CDN may answer for it with a 5xx of its own, so a
 client reads any 502, 503, 504 or 52x as &quot;not reachable now&quot;.</p>

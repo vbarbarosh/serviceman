@@ -1,4 +1,5 @@
 const http = require('http');
+const net = require('net');
 
 // authwall's own door for this: the door asks, the wall answers, and nothing is carried
 // through it at all
@@ -51,15 +52,19 @@ agent_wall_ask.own = function (url) {
     return (pathname === '/auth') || pathname.startsWith('/auth/');
 };
 
-// Who is asking, as the server in front wrote it down: this door is a file, so the socket
-// itself says nothing about the visitor
+// Who is asking, as the server in front vouches for it: this door is a file, so the socket
+// itself says nothing about the visitor. A front adds the address it saw to the end of
+// x-forwarded-for, after whatever the visitor wrote there: the last one is the front's word,
+// and the ones before it are the visitor's to write. A front that writes x-real-ip alone says
+// it there. What is not an address is not told at all.
 function client_of(req)
 {
-    const forwarded = req.headers['x-forwarded-for'];
-    if ((typeof forwarded === 'string') && (forwarded !== '')) {
-        return forwarded.split(',')[0].trim();
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+    if (net.isIP(forwarded) !== 0) {
+        return forwarded;
     }
-    return String(req.headers['x-real-ip'] || '');
+    const real = String(req.headers['x-real-ip'] || '').trim();
+    return (net.isIP(real) === 0) ? '' : real;
 }
 
 function scheme_of(req)
