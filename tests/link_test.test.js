@@ -36,7 +36,9 @@ test('a link test measures each way, and the calls while it is full', async func
     assert.ok(result.down.samples.length > 8, 'its bytes counted every 250 ms');
 });
 
-// The way to the machine stands 1.5 s mid-test: the test says so
+// The way to the machine stands 1.5 s mid-test: the test says so. Its bytes are counted every
+// 250 ms, so a stand of 1.5 s reads as 1250 or 1500, give or take a timer's few ms either way:
+// the bound sits between two counts, where 1250 itself was missed by 1249 now and then
 test('a link test says how long the way to the machine stood', async function (t) {
     const running = await link_proxy_rig(t, {down: 1024*1024, up: 4*1024*1024});
     const remote = running.app.remote_by_name.vps1;
@@ -47,7 +49,7 @@ test('a link test says how long the way to the machine stood', async function (t
     await timers.setTimeout(1500);
     link.creep(1024*1024);
     const summary = link_test.summary(await testing);
-    assert.ok(summary.down_stood_ms >= 1250, `stood ${summary.down_stood_ms}`);
+    assert.ok(summary.down_stood_ms > 1125, `stood ${summary.down_stood_ms}`);
 });
 
 // The test is run when a link is in doubt, which is when it drops: its dropping mid-test is an
