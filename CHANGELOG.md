@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.55 — 2026-11-10
+
+- The test "a machine may not open a stream this host would be using" wrote its frames on the
+  host's own end of the link, so they went to the agent and the guard never ran: it passed with
+  the guard taken out. A machine played by hand sends them now, and the test reads the three
+  refusals (`EBADSTREAM` twice, `EBADTARGET`); it fails with any of the checks out. (SM-331)
+
 ## 1.0.54 — 2026-11-10
 
 - The tutorial "A coding agent on a machine" said the Shell ends when its tab closes, and put

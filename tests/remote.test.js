@@ -9,6 +9,8 @@ const fake_docker_engine = require('./fake_docker_engine');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const http = require('http');
+const link_read = require('../src/helpers/link_read');
+const link_send_message = require('../src/helpers/link_send_message');
 const link_send_stream = require('../src/helpers/link_send_stream');
 const net = require('net');
 const os = require('os');
@@ -2673,25 +2675,55 @@ test('a wall a rule names has to be a service, and not the one it is standing in
     bad({'sam.test': {service: 'notes', auth: 'wall'}, 'other.test': {service: 'notes', auth: 'wall'}})();
 });
 
+// The machine is played by hand, since no agent opens a stream on the host's numbers: the frames
+// come in on the link from the machine's end, and what the host says back is read there
 test('a machine may not open a stream this host would be using, and the link lives on', async function () {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-inbound-odd-'));
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
-    const agent = agent_start(running.control_port, TOKEN, [], {SERVICEMAN_AGENT_DIR: dir});
+    const refused = [];
+    const socket = await new Promise(function (resolve, reject) {
+        const request = http.request({host: '127.0.0.1', port: running.control_port, path: '/api/v1/remote', headers: {connection: 'Upgrade', upgrade: 'serviceman', authorization: `Bearer ${TOKEN}`}});
+        request.on('upgrade', (answer, upgraded) => resolve(upgraded));
+        request.on('error', reject);
+        request.end();
+    });
     try {
         const remote = running.app.remote_by_name.ui1;
+        socket.on('error', function () {});
+        link_read(socket, function (kind, body) {
+            if (kind === 'x') {
+                refused.push([body.readUInt32BE(0), JSON.parse(body.subarray(4).toString('utf8')).code]);
+            }
+        });
+        link_send_message(socket, {
+            type: 'hello',
+            agent: '1.33.1',
+            resources: {hostname: 'ui1', platform: 'linux', arch: 'x64', node: process.version, docker: null, can: [], addresses: [], cpu: {count: 1}, mem: {total: 1024*1024*1024}, disk: {path: '/', total: 1024*1024*1024, free: 1024*1024}},
+            stats: {mem_free: 1024*1024, disk_free: 1024*1024, uptime_ms: 1000, load: [0, 0, 0]},
+        });
         await wait_until(() => remote.state.phase === 'online');
 
         // An even number is this host's to hand out, and a target this host does not serve is
         // no stream either. Both are refused as one dead stream, never a dead link.
-        link_send_stream(remote.state.socket, 'o', 4, Buffer.from(JSON.stringify({http: {}})));
-        link_send_stream(remote.state.socket, 'o', 7, Buffer.from(JSON.stringify({shell: {}})));
-        await timers.setTimeout(200);
-        assert.strictEqual(remote.state.phase, 'online');
+        link_send_stream(socket, 'o', 4, Buffer.from(JSON.stringify({http: {}})));
+        link_send_stream(socket, 'o', 7, Buffer.from(JSON.stringify({shell: {}})));
+        await wait_until(() => refused.length === 2);
+        assert.deepStrictEqual(refused, [[4, 'EBADSTREAM'], [7, 'EBADTARGET']]);
         assert.strictEqual(remote.state.streams[4], undefined);
         assert.strictEqual(remote.state.streams[7], undefined);
+
+        // An odd number is the machine's, once: opened again while it is open, it would write
+        // over the stream that is there
+        link_send_stream(socket, 'o', 9, Buffer.from(JSON.stringify({http: {}})));
+        await wait_until(() => remote.state.streams[9] !== undefined);
+        const first = remote.state.streams[9];
+        link_send_stream(socket, 'o', 9, Buffer.from(JSON.stringify({http: {}})));
+        await wait_until(() => refused.length === 3);
+        assert.deepStrictEqual(refused[2], [9, 'EBADSTREAM']);
+        assert.strictEqual(remote.state.streams[9], first);
+        assert.strictEqual(remote.state.phase, 'online');
     }
     finally {
-        agent.kill('SIGKILL');
+        socket.destroy();
         await running.close();
     }
 });
