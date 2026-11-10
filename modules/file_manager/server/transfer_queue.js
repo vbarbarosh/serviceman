@@ -12,8 +12,13 @@ const PART_BYTES = 32*1024*1024;
 const RETRY_MAX_S = 30;
 
 // Errors that trying again will not change: a file that is not there, or may not be read, a
-// walk that names a path outside its folder
+// walk that names a path outside its folder. An error that says so itself, error.lasting, is
+// one too: a host that cannot keep a disk within a folder, a path that leads out of the folder.
 const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already|no path under it/;
+
+// What a disk kept within a folder says of a path that is not inside it (disk_kept): EACCES,
+// the path as JSON, `is outside`. A file that may not be written says EACCES in other words.
+const RE_OUTSIDE = /EACCES: ("(?:[^"\\]|\\.)*") is outside\b/;
 
 // A file of a folder up to this size goes with others in one tar; a bigger one goes alone, in
 // parts, so a link that drops costs a part of it and not the whole. A file no bigger than a part
@@ -56,7 +61,9 @@ const SAMPLES_MAX = 400;
 // Resume carries it on from where the disk says it stands.
 //
 //     options = {disk_of, log, part_bytes}
-//     disk_of(name)        the disk of that name, or null while it cannot be reached
+//     disk_of(name, within)   the disk of that name, or null while it cannot be reached. With
+//                          `within`, a folder, the same disk kept within it, for a folder's
+//                          copy (disk_kept); a host that cannot keep it so throws, saying why
 //     log(event, fields)   what was done, for the host's own log
 //     part_bytes           how big a part is; 32 MB by default
 //     small_bytes          how big a file of a folder may be and still go in a tar; 32 MB
@@ -185,7 +192,8 @@ function item_make(from, to)
         wait_s: 0,
         path: null,
         cancelled: false,
-        // The file on its way: {from_path, dir, name, id, size, mode, received, finish_sent_at}
+        // The file on its way: {from_path, dir, name, path, id, size, mode, received,
+        // finish_sent_at}; dir and path as the disk it is written through is told them
         piece: null,
         // A folder's walk, and the step it has reached: {steps, at, bytes_done}
         walk: null,
@@ -245,7 +253,7 @@ async function transfer_run(item, ctx)
             const from = disk_or_throw(disk_of, item.from.disk);
             const to = disk_or_throw(disk_of, item.to.disk);
             if (item.kind === 'dir') {
-                await folder_copy(item, from, to, ctx, progressed);
+                await folder_copy(item, from, to, disk_kept(disk_of, item, folder_of(item)), ctx, progressed);
             }
             else {
                 const landed = await piece_copy(item, item.piece, from, to, ctx, function () {
@@ -274,7 +282,7 @@ async function transfer_run(item, ctx)
             if (ctx.queue.paused) {
                 continue;
             }
-            if (RE_LASTING.test(error.message)) {
+            if ((error.lasting === true) || RE_LASTING.test(error.message)) {
                 item.phase = 'error';
                 item.said = error.message;
                 log('transfer_end_error', {id: item.id, reason: error.message});
@@ -301,11 +309,19 @@ async function transfer_run(item, ctx)
         item.said = `${item.files_done} of ${item.files} ${plural(item.files, 'file', 'files')} landed`;
     }
     log('transfer_cancelled', {id: item.id});
-    // What came of the file on its way goes: a part of a file is nobody's file
-    const to = disk_of(item.to.disk);
-    if ((to !== null) && (item.piece !== null)) {
-        to.part_remove(item.piece.dir, item.piece.name, item.piece.id).catch(function () {});
+    // What came of the file on its way goes: a part of a file is nobody's file. It is asked of
+    // the disk the part was written through, and stays when that disk is away.
+    if (item.piece === null) {
+        return;
     }
+    let to;
+    try {
+        to = (item.kind === 'dir') ? disk_kept(disk_of, item, folder_of(item)) : disk_or_throw(disk_of, item.to.disk);
+    }
+    catch {
+        return;
+    }
+    to.part_remove(item.piece.dir, item.piece.name, item.piece.id).catch(function () {});
 }
 
 // A folder copied into itself would never end, and / has no name to land under
@@ -328,7 +344,7 @@ async function piece_copy(item, piece, from, to, ctx, moved)
     moved();
     if (await finished_already(piece, to)) {
         moved();
-        return {path: path.posix.join(piece.dir, piece.name)};
+        return {path: piece.path};
     }
     while ((piece.received < piece.size) && (item.cancelled === false)) {
         paused_throw(ctx.queue);
@@ -399,12 +415,14 @@ async function weigh_run(item, ctx)
     const to = disk_or_throw(ctx.disk_of, item.to.disk);
     const stat = await from.stat(item.from.path);
     if (stat.kind !== 'dir') {
-        item.piece = {from_path: item.from.path, dir: item.to.dir, name: item.name, id: item.id, size: stat.size, mode: stat.mode, received: 0, finish_sent_at: null};
+        item.piece = {from_path: item.from.path, dir: item.to.dir, name: item.name, path: path.posix.join(item.to.dir, item.name), id: item.id, size: stat.size, mode: stat.mode, received: 0, finish_sent_at: null};
         item.kind = stat.kind;
         item.size = stat.size;
         return;
     }
     folder_check(item);
+    // A disk that cannot be kept within the folder says so before the folder is walked
+    disk_kept(ctx.disk_of, item, folder_of(item));
     item.kind = 'dir';
     const walk = await walk_read(item, from, item.from.path, ctx);
     item.walk = {steps: steps_of(item, walk, from, to, ctx), at: 0, bytes_done: 0};
@@ -420,25 +438,39 @@ async function weigh_run(item, ctx)
 }
 
 // A folder, step after step, from the step it reached: the folder itself, the tars of small
-// files, the big files one by one, and the links
-async function folder_copy(item, from, to, ctx, progressed)
+// files, the big files one by one, and the links. Its folders and files are written through
+// `kept`, the disk kept within the folder the copy makes, each path told from that folder
+// (kept_path): a name that leads out of it ends the copy (outside_error). The folder itself is
+// made through the disk kept within the folder copied into, so a link under the folder's own
+// name, one a copy before may have made, is not followed out of there either.
+async function folder_copy(item, from, to, kept, ctx, progressed)
 {
-    const root = path.posix.join(item.to.dir, item.name);
+    const root = folder_of(item);
     const walk = item.walk;
     while ((walk.at < walk.steps.length) && (item.cancelled === false)) {
         paused_throw(ctx.queue);
         const step = walk.steps[walk.at];
         if (step.kind === 'root') {
-            await to.mkdir(root);
+            try {
+                await disk_kept(ctx.disk_of, item, (item.to.dir === '') ? '.' : item.to.dir).mkdir(kept_path(item.name));
+            }
+            catch (error) {
+                throw outside_error(item, '', error);
+            }
         }
         else if (step.kind === 'dirs') {
             for (; step.done < step.names.length; step.done++) {
-                await to.mkdir(path.posix.join(root, step.names[step.done]));
+                try {
+                    await kept.mkdir(kept_path(step.names[step.done]));
+                }
+                catch (error) {
+                    throw outside_error(item, step.names[step.done], error);
+                }
             }
         }
         else if (step.kind === 'tar') {
             try {
-                await tar_copy(item, step, from, to, ctx, progressed);
+                await tar_copy(item, step, from, kept, ctx, progressed);
             }
             catch (error) {
                 // A tar cut by Pause goes again whole: the files it had landed are written over.
@@ -456,23 +488,36 @@ async function folder_copy(item, from, to, ctx, progressed)
                 }
                 walk.steps.splice(walk.at, 1, ...alone);
                 item.received = walk.bytes_done;
-                throw error;
+                // A name of the tar that leads out of the folder ends the copy, as a file's does
+                throw outside_error(item, null, error);
             }
         }
         else if (step.kind === 'file') {
-            if (await file_step(item, step, from, to, ctx, progressed) === false) {
+            if (await file_step(item, step, from, kept, ctx, progressed) === false) {
                 break;
             }
         }
         else if (step.kind === 'links') {
+            // A link is made as itself and never followed, so what is held to the folder is
+            // where it stands: its own folder, made through the kept disk first, once for the
+            // links that stand side by side. The link is then asked of the disk itself: kept
+            // within the folder, it would refuse a link that is there already and points out
+            // of it, as a link may.
+            let held = null;
             for (; step.done < step.links.length; step.done++) {
                 const link = step.links[step.done];
+                const dir = path.posix.dirname(link.path);
                 try {
-                    await to.link_create(path.posix.join(root, link.path), link.target);
+                    if (dir !== held) {
+                        await kept.mkdir(kept_path(dir));
+                        held = dir;
+                    }
+                    await to.link_create(`${root}/${link.path}`, link.target);
                 }
                 catch (error) {
-                    if (RE_LASTING.test(error.message) === false) {
-                        throw error;
+                    const refusal = outside_error(item, link.path, error);
+                    if ((refusal.lasting === true) || (RE_LASTING.test(error.message) === false)) {
+                        throw refusal;
                     }
                     left_add(item, link.path, error.message);
                 }
@@ -487,18 +532,19 @@ async function folder_copy(item, from, to, ctx, progressed)
     item.path = root;
 }
 
-// One big file of a folder, in parts. One that cannot be read is left out, and the folder
-// goes on; false when the copy was given up on the way.
-async function file_step(item, step, from, to, ctx, progressed)
+// One big file of a folder, in parts, through the disk kept within the folder. One that cannot
+// be read is left out, and the folder goes on; one that leads out of the folder ends the copy;
+// false when the copy was given up on the way.
+async function file_step(item, step, from, kept, ctx, progressed)
 {
     const walk = item.walk;
     const file = step.file;
-    const rel_dir = path.posix.dirname(file.path);
     if ((item.piece === null) || (item.piece.from_path !== path.posix.join(item.from.path, file.path))) {
         item.piece = {
             from_path: path.posix.join(item.from.path, file.path),
-            dir: path.posix.join(item.to.dir, item.name, (rel_dir === '.') ? '' : rel_dir),
+            dir: kept_path(path.posix.dirname(file.path)),
             name: path.posix.basename(file.path),
+            path: kept_path(file.path),
             id: `${item.id}f${walk.at}`,
             size: file.size,
             mode: file.mode,
@@ -507,7 +553,7 @@ async function file_step(item, step, from, to, ctx, progressed)
         };
     }
     try {
-        const landed = await piece_copy(item, item.piece, from, to, ctx, function () {
+        const landed = await piece_copy(item, item.piece, from, kept, ctx, function () {
             const done = Math.min(item.piece.size, item.piece.received + piece_flowing(item.piece));
             item.received = walk.bytes_done + done;
             item.now = {label: `${item.name}/${file.path}`, size: item.piece.size, done};
@@ -518,8 +564,9 @@ async function file_step(item, step, from, to, ctx, progressed)
         }
     }
     catch (error) {
-        if (RE_LASTING.test(error.message) === false) {
-            throw error;
+        const refusal = outside_error(item, file.path, error);
+        if ((refusal.lasting === true) || (RE_LASTING.test(error.message) === false)) {
+            throw refusal;
         }
         left_add(item, file.path, error.message);
         step.left = true;
@@ -529,15 +576,17 @@ async function file_step(item, step, from, to, ctx, progressed)
 }
 
 // Small files of a folder as one tar, read on one disk and written on the other as it comes;
-// what it has carried so far counts toward the copy, its headers aside. The line under the copy
-// names the file on its way and how far that file is, read from the tar's own headers as they
-// pass: a tar is files one after another, and the one going is the one to show.
-async function tar_copy(item, step, from, to, ctx, progressed)
+// what it has carried so far counts toward the copy, its headers aside. The tar is of the
+// folder itself and is written into the folder the copy makes, through the disk kept within
+// it: whatever names the tar carries, they are held under that folder, and none lands beside
+// it. The line under the copy names the file on its way and how far that file is, read from the
+// tar's own headers as they pass: a tar is files one after another, and the one going is the
+// one to show.
+async function tar_copy(item, step, from, kept, ctx, progressed)
 {
     const walk = item.walk;
-    const parent = path.posix.dirname(item.from.path);
-    const names = step.files.map(v => `${item.name}/${v.path}`).concat(step.dirs.map(v => `${item.name}/${v}`));
-    const source = from.tar(parent, names, {paths: true});
+    const names = step.files.map(v => v.path).concat(step.dirs);
+    const source = from.tar(item.from.path, names, {paths: true});
     const parser = tar_parser();
     let following = true;
     let carried = 0;
@@ -557,7 +606,7 @@ async function tar_copy(item, step, from, to, ctx, progressed)
         source.destroy(new Error('the copy was stopped'));
     };
     try {
-        await to.write_tar(item.to.dir, source, watch.taken);
+        await kept.write_tar(kept_path(''), source, watch.taken);
     }
     finally {
         watch.stop();
@@ -567,8 +616,9 @@ async function tar_copy(item, step, from, to, ctx, progressed)
 }
 
 // The file a tar carries now, by its own header, as the copy's line: {label, size, done}, a
-// folder named as itself. False once the bytes are no tar it can follow; the line then keeps
-// the last name it had, and the far end says what is wrong with them.
+// folder named as itself, each under the folder's name as a file alone is. False once the bytes
+// are no tar it can follow; the line then keeps the last name it had, and the far end says what
+// is wrong with them.
 function tar_now(item, parser, chunk)
 {
     let pieces;
@@ -580,13 +630,13 @@ function tar_now(item, parser, chunk)
     }
     for (const piece of pieces) {
         if (piece.type === 'file') {
-            item.now = {label: piece.name, size: piece.size, done: 0};
+            item.now = {label: `${item.name}/${piece.name}`, size: piece.size, done: 0};
         }
         else if ((piece.type === 'data') && (item.now !== null)) {
             item.now.done += piece.bytes.length;
         }
         else if (piece.type === 'dir') {
-            item.now = {label: `${piece.name}/`, size: null, done: 0};
+            item.now = {label: `${item.name}/${piece.name}/`, size: null, done: 0};
         }
     }
     return true;
@@ -672,7 +722,8 @@ function walk_read(item, disk, dir, ctx)
 //
 // A link's target is not checked: it is not a path of the copy but the link's own text, kept as
 // it was, and a link may point anywhere (`../lib`, `/etc/hosts`). No file of this copy is
-// written through it, the links being made last (steps_of).
+// written through it, the links being made last (steps_of), and none of a later copy, the disk
+// copied to being kept within the folder (disk_kept).
 function line_refusal(item, line)
 {
     if (['file', 'dir', 'link', 'other', 'error'].includes(line.type) === false) {
@@ -813,6 +864,82 @@ function disk_or_throw(disk_of, name)
     return out;
 }
 
+// The folder a folder's copy makes, `<dir>/<name>`, as the disk it is on is told it. A folder
+// called `~` copied into a folder written without a root is a name there, and nobody's home.
+function folder_of(item)
+{
+    const joined = path.posix.join(item.to.dir, item.name);
+    return (joined.startsWith('~') && (item.to.dir.startsWith('~') === false)) ? `./${joined}` : joined;
+}
+
+// The disk a folder's copy is written through: the one of that name the host keeps within a
+// folder, the one the copy makes (folder_of), or the one copied into for the folder itself.
+// That folder is where the kept disk starts, a path is told to it from there (kept_path), and
+// it refuses, with EACCES, the path and the words `is outside`, whatever a path names, through
+// links too, that is not inside the folder. So nothing the disk copied from says, a walk's path
+// or a tar's name, and no link already there, takes a write of the copy out of its folder. A
+// host that cannot keep the disk so throws and says why, and the copy ends with its words:
+// waiting changes nothing there.
+function disk_kept(disk_of, item, within)
+{
+    let out;
+    try {
+        out = disk_of(item.to.disk, within);
+    }
+    catch (error) {
+        error.lasting = true;
+        throw error;
+    }
+    if (out === null) {
+        throw new Error(`${item.to.disk} cannot be reached`);
+    }
+    return out;
+}
+
+// A path of a folder's copy as the disk kept within the folder is told it: from the folder,
+// `.` being the folder itself. Written so, a name is a name whatever it looks like: a folder
+// called `~` is not the home, as `./-x` is no option to tar.
+function kept_path(rel)
+{
+    return ((rel === '') || (rel === '.')) ? '.' : `./${rel}`;
+}
+
+// What a failed write of a folder's copy ends with. When the kept disk refused the path as one
+// outside the folder, it is the copy's own words, for good: the name is under the folder, so
+// it is a link there that leads out, one a copy before may have made, or the owner. The copy
+// stops rather than leaving the name out: the disk copied from named what the other would
+// not write. `rel` is the path under the folder, said in full, under the folder copied into;
+// null for a name of a tar, which only the disk has read: the path is then the one its refusal
+// names; and '' for the folder itself, whose name leads out of the folder copied into. Any
+// other error is passed on as it came. The words that say what happened come first, the path
+// after them: a page shows the start of a long line.
+function outside_error(item, rel, error)
+{
+    const found = RE_OUTSIDE.exec(error.message);
+    if (found === null) {
+        return error;
+    }
+    let said = `on ${item.to.disk} the name ${item.name} leads out of the folder copied into, ${path_said(item.to.dir)}: nothing was copied`;
+    if (rel !== '') {
+        said = `a link on ${item.to.disk} leads out of ${item.name}, the folder being copied: ${path_said((rel === null) ? path_named(found[1]) : `${folder_of(item)}/${rel}`)} lies outside it, and the copy stopped`;
+    }
+    const out = new Error(said);
+    out.lasting = true;
+    return out;
+}
+
+// The path a kept disk's refusal names: written there as JSON, and said as it is written when
+// it is none
+function path_named(text)
+{
+    try {
+        return JSON.parse(text);
+    }
+    catch {
+        return text;
+    }
+}
+
 // A finish whose answer was lost leaves no part behind and the file in place: nothing is in,
 // yet the file is there, as big as it should be, and no older than the finish
 async function finished_already(piece, to)
@@ -822,7 +949,7 @@ async function finished_already(piece, to)
     }
     let stat;
     try {
-        stat = await to.stat(path.posix.join(piece.dir, piece.name));
+        stat = await to.stat(piece.path);
     }
     catch {
         return false;

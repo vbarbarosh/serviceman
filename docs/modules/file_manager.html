@@ -961,7 +961,9 @@ one away; a folder or a link is renamed after the look. A name that leads to the
 renamed, another spelling of it on a disk that folds letters, is renamed.</p>
 <p>A disk made for a token of the control door keeps every call within the token&#39;s folders: the
 machine&#39;s agent resolves each path, links included, and refuses with EACCES whatever lies
-outside them. A folder of the token not there yet lists empty; the first write makes it.</p>
+outside them. A folder of the token not there yet lists empty; the first write makes it. A
+folder&#39;s copy is written through a disk kept the same way, within the folder the copy makes
+(Copies between disks).</p>
 <p>The calls that answer with an object may return a promise. <code>read</code> and <code>tar</code> return the stream
 itself and may throw at once.</p>
 <h2 id="copies-between-disks"><a class="anchor" href="#copies-between-disks" aria-hidden="true" tabindex="-1">#</a>Copies between disks</h2>
@@ -988,7 +990,8 @@ headers as its bytes pass, so a folder of thousands of photos shows each photo g
 after a drop:</p>
 <ul>
 <li>its files up to 32 MB (a part) in tars of up to 64 MB or 1000 names, with the folders that
-are empty; a tar that fails goes file by file the next time;</li>
+are empty; a tar is of the folder itself and is written into the folder the copy makes; a
+tar that fails goes file by file the next time;</li>
 <li>each bigger file in parts, as a file alone;</li>
 <li>its links last, made as they were (<code>link_create</code>), so no file of the copy is written through
 one of them.</li>
@@ -1004,9 +1007,29 @@ the other disk. A walk that names a path that is not under the folder (one from 
 with a <code>..</code>, a <code>.</code> or an empty part) fails the copy at once and for good, before anything is
 written, and the copy says which disk and which path. A link&#39;s target is no such path: it is
 kept as it was.</p>
+<p>The disk copied to keeps a folder&#39;s copy within the folder the copy makes, <code>&lt;dir&gt;/&lt;its name&gt;</code>.
+The queue asks its host for that disk kept within that folder, <code>disk_of(name, within)</code>, and
+writes every folder, file and tar of the copy through it, each path told from the folder (<code>.</code>,
+<code>./a/b</code>). Kept so, the disk resolves each path, links included, and refuses whatever lies
+outside the folder with <code>EACCES: &quot;&lt;the path&gt;&quot; is outside …</code>. So a name a tar carries lands
+inside the folder or not at all, never beside it, and a link in the folder that leads out of it
+is not written through, whoever made it: a copy before, or the owner on purpose (a
+<code>node_modules</code> linked to a cache elsewhere). The copy then ends for good and says so once: <code>a link on desktop leads out of photos, the folder being copied: &quot;/home/user/incoming/photos/lib/a.txt&quot; lies outside it, and the copy stopped</code>. What landed
+before it stays. To have the folder copied, its owner removes the link, or copies the folder
+into another place. A link that stays inside the folder is written through as before. The
+folder itself is made the same way, through the disk kept within the folder copied into,
+<code>&lt;dir&gt;</code>: a link there under the folder&#39;s own name that leads out of <code>&lt;dir&gt;</code> is not followed,
+and the copy ends with <code>on desktop the name photos leads out of the folder copied into, &quot;/home/user/incoming&quot;: nothing was copied</code>; one that stays inside <code>&lt;dir&gt;</code> is followed as
+before. Links are made as before, with the target they had: a link already there with that
+target is made already, wherever it points. A file copied alone is written as before, through a
+link of its name too. A host that cannot keep a disk within a folder throws from <code>disk_of</code>,
+and the copy ends with its words.</p>
 <pre><code>const queue = transfer_queue({
-    disk_of: function (name) {
-        // the disk of that name, or null while it cannot be reached
+    disk_of: function (name, within) {
+        // the disk of that name, or null while it cannot be reached; with `within`, a
+        // folder, the same disk kept within it, for a folder&#39;s copy: it starts there,
+        // and refuses with `EACCES: &quot;&lt;the path&gt;&quot; is outside …` whatever a path names,
+        // through links too, that is not inside; throw when it cannot be kept so
     },
     log: function (event, fields) {
     },
@@ -1196,7 +1219,9 @@ an agent keeps the parts of a file with <code>agent_file_part_put</code> and its
 <code>agent_fs_room</code> (statfs), and says so as <code>fs_room</code>; it writes a tar with <code>agent_tar_put</code>,
 which reads it with this module&#39;s <code>tar_parser</code>, and says so as <code>tar_put</code></li>
 <li><code>/api/v1/transfers</code> is the copies between machines; a machine is a disk while it is
-connected with an agent that keeps parts</li>
+connected with an agent that keeps parts. A folder&#39;s copy is written through <code>remote_disk</code>
+with <code>root</code>, the folder the copy makes, which the machine&#39;s agent keeps (<code>fs_root</code>); to an
+agent from before it no folder is copied, and the copy says how the agent updates</li>
 <li><code>src/main/public/serviceman.js</code> has <code>remote_files</code>, the Remote tab, which wraps the component</li>
 <li><code>src/main/public/index.html</code> loads the css and maps <code>file_manager/</code>; the control server
 serves <code>ui/</code> at <code>/modules/file_manager/</code></li>

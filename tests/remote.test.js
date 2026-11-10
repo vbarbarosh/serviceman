@@ -1759,6 +1759,157 @@ test('a folder is copied from one machine to another whole: files at any depth, 
     }
 });
 
+// The machine a folder is copied from says every name of the copy, and its folder may change
+// between two copies: a link the first copy made was written through by the second, out of the
+// folder copied into, and a tar that carried a name of its own landed it beside the folder.
+// Every write of a folder's copy goes through the disk of the machine copied to, kept within
+// the folder the copy makes by that machine's own agent.
+test('a folder\'s copy is kept within the folder it makes by the machine copied to: a link one copy made is not written through by the next, in a tar or file by file, and a tar\'s own names land inside it', async function () {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-kept-')));
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-home-')));
+    // The tar of the machine copied from: while lie/ is there, whatever it is asked for, it
+    // answers with the tar of that folder
+    const tar = child_process.execFileSync('sh', ['-c', 'command -v tar']).toString('utf8').trim();
+    fs.mkdirSync(path.join(dir, 'bin'));
+    fs.writeFileSync(path.join(dir, 'bin', 'tar'), `#!/bin/sh\nif [ -d "${dir}/lie" ]; then exec "${tar}" -cf - -C "${dir}/lie" ./sibling.txt ./.ssh; fi\nexec "${tar}" "$@"\n`, {mode: 0o755});
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
+    // Neither agent says what it can do a second time: what the test takes from that list stays taken
+    const first = agent_start(running.control_port, TOKEN, [], {SERVICEMAN_STATS_MS: '600000', PATH: `${path.join(dir, 'bin')}${path.delimiter}${process.env.PATH}`});
+    const second = agent_start(running.control_port, TOKEN2, [], {SERVICEMAN_STATS_MS: '600000', SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), HOME: home});
+    // One copy from vps1 into a folder of vps2, until it is over
+    async function copied(from, into) {
+        const started = await control(running, 'POST', '/api/v1/transfers', {from: {disk: 'vps1', path: from}, to: {disk: 'vps2', dir: into}});
+        assert.strictEqual(started.status, 200);
+        await wait_until(() => ['ok', 'error'].includes(item_of(running, started.body.id).phase), 20000);
+        return item_of(running, started.body.id);
+    }
+    function refusal_of(full, folder) {
+        return `a link on vps2 leads out of ${folder}, the folder being copied: ${JSON.stringify(full)} lies outside it, and the copy stopped`;
+    }
+    try {
+        const vps1 = running.app.remote_by_name.vps1;
+        const vps2 = running.app.remote_by_name.vps2;
+        await wait_until(() => (vps1.state.phase === 'online') && (vps2.state.phase === 'online'));
+        await wait_until(() => vps1.state.resources.can.includes('folder_copy') && vps2.state.resources.can.includes('fs_root'));
+        const outside = path.join(dir, 'outside');
+        fs.mkdirSync(outside);
+        fs.writeFileSync(path.join(outside, 'target.txt'), 'the owner\'s');
+        // The small files of a folder in one tar, then each file alone, as from an agent from
+        // before folders went in tars
+        for (const tars of [true, false]) {
+            if (tars === false) {
+                vps1.state.resources.can = vps1.state.resources.can.filter(v => v !== 'folder_copy');
+            }
+            const from = path.join(dir, `a-${tars}`, 'proj');
+            const into = path.join(dir, `b-${tars}`);
+            const said = `tars: ${tars}`;
+
+            // The first copy: a file, a link to a folder outside and a link to a file outside.
+            // The links are made as they were: a link may point anywhere.
+            fs.mkdirSync(from, {recursive: true});
+            fs.writeFileSync(path.join(from, 'a.txt'), 'a');
+            fs.symlinkSync(outside, path.join(from, 'lib'));
+            fs.symlinkSync(path.join(outside, 'target.txt'), path.join(from, 'notes.txt'));
+            const planted = await copied(from, into);
+            assert.deepStrictEqual([planted.phase, planted.said, fs.readlinkSync(path.join(into, 'proj', 'lib'))], ['ok', '', outside], said);
+
+            // The same folder, changed where it is: a folder where the link was, a file in it.
+            // The file is not written, and the copy is an error that names it, said once.
+            fs.rmSync(path.join(from, 'lib'));
+            fs.mkdirSync(path.join(from, 'lib'));
+            fs.writeFileSync(path.join(from, 'lib', 'evil.txt'), 'evil');
+            const through = await copied(from, into);
+            assert.deepStrictEqual([through.phase, through.said, through.wait_s, fs.readdirSync(outside)], ['error', refusal_of(path.join(into, 'proj', 'lib', 'evil.txt'), 'proj'), 0, ['target.txt']], said);
+            assert.strictEqual(running.app.log_lines.filter(v => v.includes('[transfer_end_error]') && v.includes(through.id)).length, 1, said);
+
+            // And a file where the other link was: the file the link points at is left as it is
+            fs.rmSync(path.join(from, 'lib'), {recursive: true});
+            fs.rmSync(path.join(from, 'notes.txt'));
+            fs.writeFileSync(path.join(from, 'notes.txt'), 'evil');
+            const over = await copied(from, into);
+            assert.deepStrictEqual([over.phase, over.said, fs.readFileSync(path.join(outside, 'target.txt'), 'utf8')], ['error', refusal_of(path.join(into, 'proj', 'notes.txt'), 'proj'), 'the owner\'s'], said);
+            assert.deepStrictEqual(fs.readdirSync(path.join(into, 'proj')).sort(), ['a.txt', 'lib', 'notes.txt'], said);
+
+            // A folder under the name of the first link, copied into the folder the first copy
+            // made: the link is not followed as the folder, and nothing lands outside
+            fs.rmSync(path.join(from, 'notes.txt'));
+            fs.symlinkSync(outside, path.join(from, 'lib'));
+            const again = await copied(from, into);
+            assert.deepStrictEqual([again.phase, again.said], ['ok', ''], said);
+            fs.mkdirSync(path.join(dir, `a-${tars}`, 'lib'));
+            fs.writeFileSync(path.join(dir, `a-${tars}`, 'lib', 'evil.txt'), 'evil');
+            const named_so = await copied(path.join(dir, `a-${tars}`, 'lib'), path.join(into, 'proj'));
+            assert.deepStrictEqual([named_so.phase, named_so.said, fs.readdirSync(outside)], ['error', `on vps2 the name lib leads out of the folder copied into, ${JSON.stringify(path.join(into, 'proj'))}: nothing was copied`, ['target.txt']], said);
+
+            // The owner's own link inside the folder, to a folder inside it, is written through
+            // as before; a link that points out is made as it was, the second time too
+            const own = path.join(dir, `a-${tars}`, 'own');
+            fs.mkdirSync(path.join(own, 'current'), {recursive: true});
+            fs.writeFileSync(path.join(own, 'current', 'app.js'), 'new');
+            fs.symlinkSync('/etc/hosts', path.join(own, 'hosts'));
+            fs.mkdirSync(path.join(into, 'own', 'v1'), {recursive: true});
+            fs.symlinkSync('v1', path.join(into, 'own', 'current'));
+            for (const turn of ['first', 'second']) {
+                const kept = await copied(own, into);
+                assert.deepStrictEqual([kept.phase, kept.said, fs.readFileSync(path.join(into, 'own', 'v1', 'app.js'), 'utf8')], ['ok', '', 'new'], `${said}, the ${turn} copy`);
+                assert.deepStrictEqual([fs.readlinkSync(path.join(into, 'own', 'current')), fs.readlinkSync(path.join(into, 'own', 'hosts'))], ['v1', '/etc/hosts'], `${said}, the ${turn} copy`);
+            }
+
+            // A folder under a name of spaces, a dash, a dot and other letters, with a folder
+            // and a file called `~` in it, into the home of that machine; and a folder called
+            // `~` into a folder written without a root: `~` is the home only where the owner
+            // wrote it
+            const named = path.join(dir, `a-${tars}`, `-rf ünï .d ${tars}`);
+            fs.mkdirSync(path.join(named, '~', 'deep'), {recursive: true});
+            fs.mkdirSync(path.join(named, 'sub', 'empty'), {recursive: true});
+            fs.writeFileSync(path.join(named, '~', 'deep', 'x.txt'), 'x');
+            fs.writeFileSync(path.join(named, 'sub', '~'), 'a file');
+            fs.symlinkSync('deep', path.join(named, '~', 'l'));
+            const landed = await copied(named, '~');
+            assert.deepStrictEqual([landed.phase, landed.said, landed.files_done], ['ok', '', 2], said);
+            const there = path.join(home, `-rf ünï .d ${tars}`);
+            assert.deepStrictEqual([fs.readFileSync(path.join(there, '~', 'deep', 'x.txt'), 'utf8'), fs.readFileSync(path.join(there, 'sub', '~'), 'utf8'), fs.readlinkSync(path.join(there, '~', 'l')), fs.readdirSync(path.join(there, 'sub', 'empty'))], ['x', 'a file', 'deep', []], said);
+            const tilde = path.join(dir, `a-${tars}`, '~');
+            fs.mkdirSync(tilde);
+            fs.writeFileSync(path.join(tilde, `${tars}.txt`), 't');
+            fs.symlinkSync(`${tars}.txt`, path.join(tilde, `l-${tars}`));
+            const homed = await copied(tilde, '.');
+            assert.deepStrictEqual([homed.phase, homed.said, fs.readFileSync(path.join(home, '~', `${tars}.txt`), 'utf8'), fs.readlinkSync(path.join(home, '~', `l-${tars}`))], ['ok', '', 't', `${tars}.txt`], said);
+            assert.deepStrictEqual(fs.readdirSync(home).filter(v => (v.startsWith('-rf ünï .d ') === false) && (v.startsWith('.') === false)), ['~'], 'nothing in the home beside the folders copied');
+        }
+
+        // A machine whose tar says what it likes: asked for a folder's one file, it carries a
+        // sibling.txt and a key. They land in the folder the copy makes, and nothing beside it.
+        vps1.state.resources.can.push('folder_copy');
+        fs.mkdirSync(path.join(dir, 'a-true', 'in'));
+        fs.writeFileSync(path.join(dir, 'a-true', 'in', 'a.txt'), 'a');
+        fs.mkdirSync(path.join(dir, 'lie', '.ssh'), {recursive: true});
+        fs.writeFileSync(path.join(dir, 'lie', 'sibling.txt'), 'beside');
+        fs.writeFileSync(path.join(dir, 'lie', '.ssh', 'authorized_keys'), 'a key of the attacker\n');
+        const lied = await copied(path.join(dir, 'a-true', 'in'), path.join(dir, 'd'));
+        assert.deepStrictEqual([lied.phase, lied.said, fs.readdirSync(path.join(dir, 'd')), fs.readdirSync(path.join(dir, 'd', 'in')).sort()], ['ok', '', ['in'], ['.ssh', 'sibling.txt']]);
+        // The same tar where a link stands under one of its names: the copy ends naming it
+        fs.mkdirSync(path.join(dir, 'e', 'in'), {recursive: true});
+        fs.symlinkSync(path.join(outside, 'target.txt'), path.join(dir, 'e', 'in', 'sibling.txt'));
+        const under = await copied(path.join(dir, 'a-true', 'in'), path.join(dir, 'e'));
+        assert.deepStrictEqual([under.phase, under.said, fs.readFileSync(path.join(outside, 'target.txt'), 'utf8')], ['error', refusal_of(path.join(dir, 'e', 'in', 'sibling.txt'), 'in'), 'the owner\'s']);
+        fs.rmSync(path.join(dir, 'lie'), {recursive: true});
+
+        // An agent from before a disk is kept within a folder takes no folder, and the copy
+        // says how that changes, once; a file alone goes to it as before
+        vps2.state.resources.can = vps2.state.resources.can.filter(v => v !== 'fs_root');
+        const old = await copied(path.join(dir, 'a-true', 'own'), path.join(dir, 'c'));
+        assert.deepStrictEqual([old.phase, old.said, old.wait_s, fs.existsSync(path.join(dir, 'c'))], ['error', 'the agent on vps2 is from before a folder\'s copy is kept within its folder — its page says how it updates', 0, false]);
+        const file = await copied(path.join(dir, 'a-true', 'proj', 'a.txt'), path.join(dir, 'c'));
+        assert.deepStrictEqual([file.phase, fs.readFileSync(path.join(dir, 'c', 'a.txt'), 'utf8')], ['ok', 'a']);
+    }
+    finally {
+        first.kill('SIGKILL');
+        second.kill('SIGKILL');
+        await running.close();
+    }
+});
+
 test('an agent\'s token with the files right is kept within its folder by the machine\'s agent itself, links included', async function () {
     const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-token-home-')));
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);

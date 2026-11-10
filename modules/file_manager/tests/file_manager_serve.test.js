@@ -207,7 +207,7 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
     a.links['/a/proj/lib'] = 'src';
     const b = disk_that_copies_folders({'/b/proj/keep.txt': 'kept', '/b/proj/src/y.js': 'old'});
     const logged = [];
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
 
     // The big file's second part fails as a dropped link, and the copy carries on from there
     const write = b.part_write;
@@ -231,7 +231,7 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
     assert.strictEqual(b.files['/b/proj/empty/'], '');
     assert.strictEqual(b.modes['/b/proj/run.sh'], 0o755);
     assert.deepStrictEqual(b.links, {'/b/proj/lib': 'src'});
-    assert.deepStrictEqual(b.tars, ['/b', '/b']);
+    assert.deepStrictEqual(b.tars, ['/b/proj', '/b/proj'], 'each tar is written into the folder the copy makes');
     assert.ok(parts > 5, 'every part of the big file, the failed one sent again');
     assert.deepStrictEqual(b.parts, {});
     assert.deepStrictEqual(logged.map(v => v[0]), ['transfer_begin', 'transfer_end_ok']);
@@ -255,7 +255,7 @@ test('a folder goes whole: small files in a tar, a big one in parts across a dro
         return read(asked, range);
     };
     const old = queue.add({disk: 'a', path: '/a/proj'}, {disk: 'c', dir: '/c'});
-    const queue_old = transfer_queue({disk_of: v => ({a, c}[v]), part_bytes: 10});
+    const queue_old = transfer_queue({disk_of: disks_of({a, c}), part_bytes: 10});
     queue.cancel(old.id);
     const plain = queue_old.add({disk: 'a', path: '/a/proj'}, {disk: 'c', dir: '/c'});
     await until(() => (plain.phase === 'ok') || (plain.phase === 'error'), 10000);
@@ -294,7 +294,7 @@ test('a copy keeps the speed across it and what is on its way, a big file counte
     const film = 'f'.repeat(60);
     const a = disk_that_copies_folders({'/a/film.bin': film, '/a/set/one.txt': 'one', '/a/set/two.bin': 't'.repeat(30)});
     const b = disk_that_copies_folders({});
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), part_bytes: 10, small_bytes: 20});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), part_bytes: 10, small_bytes: 20});
     // A slow link: each part takes a while to land, its bytes read as they go
     const write = b.part_write;
     b.part_write = async function (dir, name, id, offset, source) {
@@ -349,7 +349,7 @@ test('a tar of small files names each file as it goes, from its own headers', as
             }
         })());
     };
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), small_bytes: 20});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), small_bytes: 20});
     const folder = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/b'});
     const seen = [];
     await until(function () {
@@ -371,7 +371,7 @@ test('a copy whose bytes stand still is cut and goes on by itself; one still bei
     const a = disk_that_copies_folders({'/a/set/one.txt': 'one', '/a/set/two.txt': 'two', '/a/film.bin': 'f'.repeat(50)});
     const b = disk_that_copies_folders({});
     const logged = [];
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 20, small_bytes: 10, stall_ms: 300});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 20, small_bytes: 10, stall_ms: 300});
     // The first tar sends its first block and then nothing, as the link did
     const tar = a.tar;
     let tars = 0;
@@ -394,7 +394,7 @@ test('a copy whose bytes stand still is cut and goes on by itself; one still bei
         return folder.phase === 'ok';
     }, 10000);
     assert.match(said[0], /^nothing moved for \d+s$/);
-    assert.deepStrictEqual([tars, b.tars], [2, ['/b', '/b']], 'the tar went again whole, not file by file');
+    assert.deepStrictEqual([tars, b.tars], [2, ['/b/set', '/b/set']], 'the tar went again whole, not file by file');
     assert.strictEqual(b.files['/b/set/two.txt'], 'two');
     const stalled = logged.filter(v => v[0] === 'transfer_stalled');
     assert.deepStrictEqual(stalled.map(v => [v[1].step, v[1].read, v[1].taken]), [['tar', 512, 0]]);
@@ -435,7 +435,7 @@ test('a copy is weighed as soon as it is asked for; Pause stops the one under wa
     const a = disk_that_copies_folders({'/a/film.bin': film, '/a/set/one.txt': 'one', '/a/set/two.bin': 't'.repeat(30)});
     const b = disk_that_copies_folders({});
     const logged = [];
-    const queue = transfer_queue({disk_of: v => ({a, b}[v]), log: v => logged.push(v), part_bytes: 10, small_bytes: 20});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), log: v => logged.push(v), part_bytes: 10, small_bytes: 20});
     // A slow link, and a part that waits on it until it lands or is cut
     const write = b.part_write;
     let parts = 0;
@@ -743,7 +743,7 @@ test('a line of the disk that is no JSON object fails the tree, the watch and th
         // A folder's copy: its walk fails as a link that dropped does, the copy says why and
         // waits to try again
         const to = disk_that_copies_folders({});
-        const queue = transfer_queue({disk_of: v => ({a: disk, b: to}[v])});
+        const queue = transfer_queue({disk_of: disks_of({a: disk, b: to})});
         const item = queue.add({disk: 'a', path: '/a/proj/'}, {disk: 'b', dir: '/b'});
         await until(() => item.phase !== 'copying');
         assert.deepStrictEqual([item.phase, item.said], ['retrying', refusal], line);
@@ -766,7 +766,7 @@ test('a walk that names a path outside its folder fails the copy for good, befor
     }
     // One copy of laptop's /srv/photos into desktop's /home/user/incoming, until it stops
     async function copy_run(from, to, logged) {
-        const queue = transfer_queue({disk_of: v => ({laptop: from, desktop: to}[v]), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
+        const queue = transfer_queue({disk_of: disks_of({laptop: from, desktop: to}), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
         const item = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
         await until(() => item.phase !== 'copying');
         return item;
@@ -857,6 +857,282 @@ test('a walk that names a path outside its folder fails the copy for good, befor
     // said as before, with the copy. A line of a kind the walk does not take names nothing.
     const closed = await copy_run(disk_that_walks([{type: 'error', path: '', error: 'EACCES: permission denied'}, {type: 'note', path: '../x'}]), disk_that_copies_folders({}), []);
     assert.deepStrictEqual([closed.phase, closed.said, closed.left.names], ['ok', '1 name could not be copied', [{path: '', said: 'EACCES: permission denied'}]]);
+});
+
+// A folder's copy makes one folder, <dir>/<its name>, and the disk it comes from says every
+// name that goes into it, the names inside its tars among them. A tar was written into <dir>,
+// so a sibling.txt in it landed beside the folder: copied into a home, a key under .ssh.
+test('a tar of a folder\'s copy is of the folder itself and is written into the folder the copy makes: a name the tar carries lands inside it, never beside it', async function () {
+    const key = 'a key of the attacker\n';
+    // A tar with a file for beside the folder and a key for the home, from a disk whose walk
+    // said a.jpg alone: both land inside the folder
+    for (const dir of ['/home/user/incoming', '/home/user']) {
+        const tars_asked = [];
+        const home = disk_that_copies_folders({[`${dir}/keep.txt`]: 'kept'});
+        const queue = transfer_queue({disk_of: disks_of({laptop: disk_that_tars([{name: 'sibling.txt', text: 'beside'}, {name: '.ssh/authorized_keys', text: key}], tars_asked), desktop: home}), small_bytes: 20});
+        const beside = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir});
+        await until(() => beside.phase !== 'copying');
+        assert.deepStrictEqual([beside.phase, beside.said], ['ok', ''], dir);
+        assert.deepStrictEqual(home.files, {
+            [`${dir}/keep.txt`]: 'kept',
+            [`${dir}/photos/`]: '',
+            [`${dir}/photos/sibling.txt`]: 'beside',
+            [`${dir}/photos/.ssh/authorized_keys`]: key,
+        }, dir);
+        assert.deepStrictEqual([tars_asked, home.tars], [[['/srv/photos', ['a.jpg']]], [`${dir}/photos`]], dir);
+    }
+});
+
+// The disk a folder comes from says every name of its copy, and its folder may change between
+// two copies. A link one copy made was written through by the next: lib/evil.txt is a path
+// under the folder, as far as its name goes, and lib led out of it.
+test('a folder\'s copy is written through a disk kept within the folder it makes: a name that leads out of it through a link there, one a copy before made or the owner, ends the copy', async function () {
+    const key = 'a key of the attacker\n';
+    const outside = '/home/user/outside';
+    function refusal_of(rel) {
+        return `a link on desktop leads out of photos, the folder being copied: ${JSON.stringify(`/home/user/incoming/photos/${rel}`)} lies outside it, and the copy stopped`;
+    }
+    // One copy of laptop's /srv/photos into desktop's /home/user/incoming, until it stops
+    async function copy_run(from, to, logged) {
+        const queue = transfer_queue({disk_of: disks_of({laptop: from, desktop: to}), log: (event_name, fields) => logged.push([event_name, fields]), part_bytes: 10, small_bytes: 20});
+        const item = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+        await until(() => item.phase !== 'copying');
+        return item;
+    }
+
+    // Two copies of the same folder into the same place. The first walk names a link that
+    // points out of the folder, as a link may, and it is made. The second names a file under
+    // that link's name: it is not written, there or anywhere, and the copy is an error that
+    // names it, once.
+    const desktop = disk_that_copies_folders({'/home/user/incoming/keep.txt': 'kept'});
+    const first = await copy_run(disk_that_walks([{type: 'link', path: 'lib', size: null, mtime_ms: 0, target: outside}]), desktop, []);
+    assert.deepStrictEqual([first.phase, first.said, desktop.links], ['ok', '', {'/home/user/incoming/photos/lib': outside}]);
+    const second_from = disk_that_walks([{type: 'file', path: 'lib/evil.txt', size: 4, mtime_ms: 0, mode: 0o644}]);
+    second_from.files['/srv/photos/lib/evil.txt'] = 'evil';
+    const logged = [];
+    const second = await copy_run(second_from, desktop, logged);
+    assert.deepStrictEqual({phase: second.phase, said: second.said, files: desktop.files, parts: desktop.parts}, {
+        phase: 'error',
+        said: refusal_of('lib/evil.txt'),
+        files: {'/home/user/incoming/keep.txt': 'kept', '/home/user/incoming/photos/': ''},
+        parts: {},
+    });
+    assert.deepStrictEqual(logged.map(v => v[0]), ['transfer_begin', 'transfer_end_error']);
+    assert.deepStrictEqual([logged[1][1], second.wait_s], [{id: second.id, reason: second.said}, 0], 'said once, and not waiting to try again');
+
+    // The same file in a tar of many, from a disk that does not lie at all: the tar is refused
+    // at that name, and the copy ends at once with the path as the disk named it. What came
+    // before it in the tar stays.
+    const honest = disk_that_copies_folders({'/srv/photos/a.jpg': 'a', '/srv/photos/lib/evil.txt': 'evil'});
+    const tarred_logged = [];
+    const tarred = await copy_run(honest, desktop, tarred_logged);
+    assert.deepStrictEqual([tarred.phase, tarred.said, tarred.wait_s, desktop.tars], ['error', refusal_of('lib/evil.txt'), 0, ['/home/user/incoming/photos']]);
+    assert.deepStrictEqual(tarred_logged.map(v => v[0]), ['transfer_begin', 'transfer_end_error']);
+    assert.deepStrictEqual([desktop.files, desktop.parts], [{'/home/user/incoming/keep.txt': 'kept', '/home/user/incoming/photos/': '', '/home/user/incoming/photos/a.jpg': 'a'}, {}]);
+
+    // A tar that lies, and a link planted under one of its names: the walk said a.jpg alone,
+    // the tar carries a file under the link, and the copy ends naming what the tar named
+    const lied = await copy_run(disk_that_tars([{name: 'a.jpg', text: 'a'}, {name: 'lib/key.txt', text: key}], []), desktop, []);
+    assert.deepStrictEqual([lied.phase, lied.said], ['error', refusal_of('lib/key.txt')]);
+    assert.deepStrictEqual(Object.keys(desktop.files).filter(v => v.startsWith('/home/user/incoming/') === false), [], 'nothing outside the folder copied into');
+
+    // A link under a file's own name, to a file outside, and a link the owner made on purpose,
+    // node_modules to a cache outside the folder: neither is written through, in a tar or
+    // file by file, and the copy says which path it stopped at
+    for (const [link, target, file] of [['notes.txt', '/home/user/.bashrc', 'notes.txt'], ['node_modules', '/opt/cache', 'node_modules/m.js']]) {
+        for (const tars of [true, false]) {
+            const profile = disk_that_copies_folders({'/home/user/.bashrc': 'the owner\'s', '/opt/cache/kept.js': 'kept'});
+            profile.links[`/home/user/incoming/photos/${link}`] = target;
+            const from = disk_that_copies_folders({[`/srv/photos/${file}`]: 'evil'});
+            from.can = function () {
+                return tars;
+            };
+            const item = await copy_run(from, profile, []);
+            assert.deepStrictEqual([item.phase, item.said], ['error', refusal_of(file)], `${file}, tars: ${tars}`);
+            assert.deepStrictEqual(profile.files, {'/home/user/.bashrc': 'the owner\'s', '/opt/cache/kept.js': 'kept', '/home/user/incoming/photos/': ''}, `${file}, tars: ${tars}`);
+        }
+    }
+
+    // One walk, one copy: a link that points out is there, and the walk names a link or an
+    // empty folder under its name. Neither is made, and the copy stops at it. So does a walk
+    // that names both links itself: the first is made, as a link may be, the second is not.
+    for (const [line, rel] of [
+        [{type: 'link', path: 'lib/key', size: null, mtime_ms: 0, target: '/tmp/evil'}, 'lib/key'],
+        [{type: 'dir', path: 'lib/made', size: null, mtime_ms: 0}, 'lib/made'],
+    ]) {
+        const to = disk_that_copies_folders({});
+        to.links['/home/user/incoming/photos/lib'] = outside;
+        const item = await copy_run(disk_that_walks([line]), to, []);
+        assert.deepStrictEqual([item.phase, item.said, to.files, to.links], ['error', refusal_of(rel), {'/home/user/incoming/photos/': ''}, {'/home/user/incoming/photos/lib': outside}], rel);
+    }
+    const alone = disk_that_copies_folders({});
+    const both = await copy_run(disk_that_walks([{type: 'link', path: 'lib', size: null, mtime_ms: 0, target: outside}, {type: 'link', path: 'lib/key', size: null, mtime_ms: 0, target: '/tmp/evil'}]), alone, []);
+    assert.deepStrictEqual([both.phase, both.said, alone.links], ['error', refusal_of('lib/key'), {'/home/user/incoming/photos/lib': outside}]);
+
+    // The folder's own name is a link in the folder copied into, one a copy before made there
+    // or the owner, and leads out of it: the folder is not made through it, in a tar or file by
+    // file, and the copy says so
+    for (const tars of [true, false]) {
+        const to = disk_that_copies_folders({'/home/user/outside/kept.txt': 'kept'});
+        to.links['/home/user/incoming/photos'] = outside;
+        const from = disk_that_copies_folders({'/srv/photos/keys.txt': key});
+        from.can = function () {
+            return tars;
+        };
+        const item = await copy_run(from, to, []);
+        assert.deepStrictEqual([item.phase, item.said, item.wait_s], ['error', 'on desktop the name photos leads out of the folder copied into, "/home/user/incoming": nothing was copied', 0], `tars: ${tars}`);
+        assert.deepStrictEqual([to.files, to.tars, to.parts], [{'/home/user/outside/kept.txt': 'kept'}, [], {}], `tars: ${tars}`);
+    }
+
+    // A file that may not be written says EACCES too, in the disk's other words: it is left
+    // out alone as before, whatever its name says, and the folder goes on
+    const closed = disk_that_copies_folders({});
+    const finish = closed.part_finish;
+    closed.part_finish = async function (dir, name, id, size, mode) {
+        if (name === 'what is outside.txt') {
+            throw new Error(`EACCES: permission denied, open '${dir}/${name}'`);
+        }
+        return await finish(dir, name, id, size, mode);
+    };
+    const named = disk_that_walks([{type: 'file', path: 'a.jpg', size: 1, mtime_ms: 0, mode: 0o644}, {type: 'file', path: 'what is outside.txt', size: 1, mtime_ms: 0, mode: 0o644}]);
+    named.files['/srv/photos/what is outside.txt'] = 'x';
+    const left = await copy_run(named, closed, []);
+    assert.deepStrictEqual([left.phase, left.said, left.left.names.map(v => v.path), closed.files['/home/user/incoming/photos/a.jpg']], ['ok', '1 name could not be copied', ['what is outside.txt'], 'a']);
+});
+
+// What a folder's copy did before it was kept within its folder, it still does: the owner's
+// own links inside the folder, a link that points out of it copied again, a folder under any
+// name, into any folder. And a host that cannot keep the disk within a folder says why once.
+test('a folder kept within itself still copies through a link that stays inside, over a link copied before, under any name; a host that cannot keep it so ends the copy with its words', async function () {
+    // The owner's own link inside the folder, to a folder inside it: written through as before.
+    // A link that points out of the folder is made as it was, and is no refusal the second time.
+    const from = disk_that_copies_folders({'/srv/photos/current/app.js': 'new', '/srv/photos/a.jpg': 'a'});
+    from.links['/srv/photos/up'] = '../shared';
+    from.links['/srv/photos/sub/abs'] = '/etc/hosts';
+    const to = disk_that_copies_folders({'/home/user/incoming/photos/v1/app.js': 'old'});
+    to.links['/home/user/incoming/photos/current'] = 'v1';
+    const asked = [];
+    function disk_of(name, within) {
+        asked.push([name, within]);
+        return disks_of({laptop: from, desktop: to})(name, within);
+    }
+    for (const turn of ['first', 'second']) {
+        const queue = transfer_queue({disk_of, small_bytes: 20});
+        const item = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+        await until(() => item.phase !== 'copying');
+        assert.deepStrictEqual([item.phase, item.said, item.files_done, item.path], ['ok', '', 2, '/home/user/incoming/photos'], turn);
+        assert.deepStrictEqual([to.files['/home/user/incoming/photos/current/app.js'], to.files['/home/user/incoming/photos/a.jpg']], ['new', 'a'], turn);
+        assert.deepStrictEqual(to.links, {'/home/user/incoming/photos/current': 'v1', '/home/user/incoming/photos/up': '../shared', '/home/user/incoming/photos/sub/abs': '/etc/hosts'}, turn);
+    }
+    assert.deepStrictEqual(Array.from(new Set(asked.filter(v => (v[0] === 'desktop') && (v[1] !== undefined)).map(v => v[1]))).sort(), ['/home/user/incoming', '/home/user/incoming/photos'], 'the disk copied to is asked for within the folder copied into, for the folder itself, and within the folder the copy makes');
+    assert.strictEqual(asked.every(v => (v[0] !== 'laptop') || (v[1] === undefined)), true, 'the disk copied from is asked for as itself');
+
+    // The folder's own name is the owner's link to a folder beside it, inside the folder copied
+    // into: the copy goes where it leads, as before
+    const linked = disk_that_copies_folders({'/home/user/incoming/2023/old.jpg': 'old'});
+    linked.links['/home/user/incoming/photos'] = '2023';
+    const through = transfer_queue({disk_of: disks_of({laptop: from, desktop: linked}), small_bytes: 20}).add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+    await until(() => through.phase !== 'copying');
+    assert.deepStrictEqual([through.phase, through.said, through.files_done, linked.files['/home/user/incoming/photos/a.jpg']], ['ok', '', 2, 'a']);
+
+    // A folder under any name, into the disk's top and into a folder not there yet; in it a
+    // folder and a file called `~`, which is a name there and nobody's home. In tars and alone.
+    for (const name of ['-rf', '.config', 'with space', 'ünï 日本', '~', '..hidden']) {
+        for (const dir of ['/', '/not/there/yet']) {
+            for (const tars of [true, false]) {
+                const source = disk_that_copies_folders({[`/srv/${name}/~/x/big.bin`]: 'b'.repeat(30), [`/srv/${name}/~/-y`]: 'y', [`/srv/${name}/~/empty/`]: '', [`/srv/${name}/sub/~`]: 'a file'});
+                source.links[`/srv/${name}/~/l`] = '~';
+                source.can = function () {
+                    return tars;
+                };
+                const target = disk_that_copies_folders({});
+                const queue = transfer_queue({disk_of: disks_of({laptop: source, desktop: target}), part_bytes: 10, small_bytes: 20});
+                const item = queue.add({disk: 'laptop', path: `/srv/${name}`}, {disk: 'desktop', dir});
+                await until(() => item.phase !== 'copying');
+                const top = path.posix.join(dir, name);
+                const said = `${name} into ${dir}, tars: ${tars}`;
+                assert.deepStrictEqual([item.phase, item.said, item.files_done, item.path], ['ok', '', 3, top], said);
+                // The folder of the link is one the copy made on the way to it
+                assert.deepStrictEqual(target.files, {[`${top}/`]: '', [`${top}/~/`]: '', [`${top}/~/x/big.bin`]: 'b'.repeat(30), [`${top}/~/-y`]: 'y', [`${top}/~/empty/`]: '', [`${top}/sub/~`]: 'a file'}, said);
+                assert.deepStrictEqual(target.links, {[`${top}/~/l`]: '~'}, said);
+            }
+        }
+    }
+
+    // A folder called `~` into a folder written without a root, which a disk reads under its
+    // home: the folder it makes is asked for as ./~, a name there, and never as the home
+    for (const tars of [true, false]) {
+        const source = disk_that_copies_folders({'/srv/~/x/big.bin': 'b'.repeat(30), '/srv/~/a.txt': 'a'});
+        source.links['/srv/~/l'] = 'a.txt';
+        source.can = function () {
+            return tars;
+        };
+        const target = disk_that_copies_folders({});
+        const withins = [];
+        const queue = transfer_queue({
+            disk_of: function (name, within) {
+                withins.push(within);
+                return disks_of({laptop: source, desktop: target})(name, within);
+            },
+            part_bytes: 10,
+            small_bytes: 20,
+        });
+        const item = queue.add({disk: 'laptop', path: '/srv/~'}, {disk: 'desktop', dir: '.'});
+        await until(() => item.phase !== 'copying');
+        assert.deepStrictEqual([item.phase, item.said, item.files_done, item.path, Array.from(new Set(withins.filter(v => v !== undefined))).sort()], ['ok', '', 2, './~', ['.', './~']], `tars: ${tars}`);
+        assert.deepStrictEqual([target.files, target.links], [{'/home/user/~/': '', '/home/user/~/x/big.bin': 'b'.repeat(30), '/home/user/~/a.txt': 'a'}, {'./~/l': 'a.txt'}], `tars: ${tars}`);
+    }
+
+    // A folder's copy given up while a file of it is on its way: the part is taken away through
+    // the kept disk, from the folder it was being written in
+    const slow = disk_that_copies_folders({});
+    const removed = [];
+    let hanging = false;
+    slow.part_write = function (dir, name, id, offset, source) {
+        hanging = true;
+        return new Promise((resolve, reject) => source.on('error', reject));
+    };
+    const remove = slow.part_remove;
+    slow.part_remove = async function (dir, name, id) {
+        removed.push([dir, name]);
+        return await remove(dir, name, id);
+    };
+    const given_queue = transfer_queue({disk_of: disks_of({laptop: disk_that_copies_folders({'/srv/photos/sub/big.bin': 'b'.repeat(30)}), desktop: slow}), part_bytes: 10, small_bytes: 20});
+    const given = given_queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+    await until(() => hanging);
+    given_queue.cancel(given.id);
+    await until(() => given.phase === 'cancelled');
+    await until(() => removed.length > 0);
+    assert.deepStrictEqual(removed, [['/home/user/incoming/photos/sub', 'big.bin']]);
+
+    // A host that cannot keep the disk within a folder (an agent from before it) throws, and
+    // the folder's copy ends with its words, before the folder is walked and with nothing
+    // written; a file alone goes to the same disk as before.
+    const words = 'the agent on desktop is from before a folder\'s copy is kept within its folder';
+    const old = disk_that_copies_folders({});
+    let walks = 0;
+    const tree = from.tree;
+    from.tree = function (dir) {
+        walks++;
+        return tree(dir);
+    };
+    const logged = [];
+    const queue = transfer_queue({
+        disk_of: function (name, within) {
+            if (within !== undefined) {
+                throw new Error(words);
+            }
+            return {laptop: from, desktop: old}[name];
+        },
+        log: (event_name, fields) => logged.push([event_name, fields]),
+    });
+    const refused = queue.add({disk: 'laptop', path: '/srv/photos'}, {disk: 'desktop', dir: '/home/user/incoming'});
+    await until(() => refused.phase !== 'copying');
+    assert.deepStrictEqual([refused.phase, refused.said, refused.wait_s, walks, old.files, old.links], ['error', words, 0, 0, {}, {}]);
+    assert.deepStrictEqual(logged.map(v => v[0]).concat([logged[1][1]]), ['transfer_begin', 'transfer_end_error', {id: refused.id, reason: words}]);
+    const file = queue.add({disk: 'laptop', path: '/srv/photos/a.jpg'}, {disk: 'desktop', dir: '/home/user/incoming'});
+    await until(() => file.phase !== 'copying');
+    assert.deepStrictEqual([file.phase, file.path, old.files], ['ok', '/home/user/incoming/a.jpg', {'/home/user/incoming/a.jpg': 'a'}]);
 });
 
 test('the room left on a folder\'s disk, for an upload to check it fits; a disk that cannot say answers 501, a refusal 502', async function (t) {
@@ -1048,14 +1324,18 @@ function disk_in_memory(files)
         held[`${asked}/`] = '';
         return {created: true};
     };
-    // A file is held once its last byte is in, with the time the tar gives it
-    out.write_tar = async function (dir, source) {
+    // A file is held once its last byte is in, with the time the tar gives it. named(name),
+    // when given, hears each name before it is written, and may refuse it (disk_within).
+    out.write_tar = async function (dir, source, taken, named) {
         tars.push(dir);
         const parser = tar_parser();
         const out = {files: 0, bytes: 0};
         let file = null;
         for await (const chunk of source) {
             for (const piece of parser.push(chunk)) {
+                if ((named !== undefined) && ((piece.type === 'dir') || (piece.type === 'file'))) {
+                    named(piece.name);
+                }
                 if (piece.type === 'dir') {
                     held[`${dir}/${piece.name}/`] = '';
                 }
@@ -1191,6 +1471,98 @@ function disk_that_walks(lines)
         return stream.Readable.from([Buffer.from(said.map(v => `${JSON.stringify(v)}\n`).join(''))]);
     };
     return out;
+}
+
+// A disk whose walk of /srv/photos is honest, a.jpg alone, and whose tar is not: whatever names
+// it is asked for, the tar carries these entries. What it was asked goes into `asked`.
+function disk_that_tars(entries, asked)
+{
+    const out = disk_that_copies_folders({'/srv/photos/a.jpg': 'a'});
+    out.tar = function (dir, names) {
+        asked.push([dir, names]);
+        return stream.Readable.from([tar_of(entries)]);
+    };
+    return out;
+}
+
+// What a host gives a queue as disk_of: the disk of a name, and, asked with a folder, that
+// disk kept within it, the one a folder's copy is written through
+function disks_of(disks)
+{
+    return function (name, within) {
+        return (within === undefined) ? disks[name] : disk_within(disks[name], within);
+    };
+}
+
+// A disk in memory kept within one folder, as a machine's agent keeps one: the folder is where
+// it starts, a path is told from there (`.`, `./a/b`), and one that is not inside the folder,
+// once the links on its way are followed, is refused, named as it was asked. A path that starts
+// with a root is read from the root, one that starts with `~/` from the home, /home/user, and
+// the folder itself, when it has no root, under the home, as an agent reads them. It answers
+// what a folder's copy asks, each call passed on to the disk under the full path. A name of a
+// tar is asked by its full path, as the agent that reads the tar asks it.
+function disk_within(disk, within)
+{
+    // Where a path really is: each link on its way followed, to where its target says
+    function real_of(asked) {
+        let out = '';
+        for (const part of asked.split('/').filter(v => v !== '')) {
+            out = `${out}/${part}`;
+            if (disk.links[out] !== undefined) {
+                out = path.posix.resolve(path.posix.dirname(out), disk.links[out]);
+            }
+        }
+        return out;
+    }
+    function plain(asked) {
+        const home = (asked === '~') || asked.startsWith('~/');
+        return home ? path.posix.join('/home/user', asked.slice(1)) : path.posix.resolve('/home/user', asked);
+    }
+    function full(asked) {
+        let out = path.posix.resolve(plain(within), asked);
+        if ((asked === '') || (asked === '~')) {
+            out = plain(within);
+        }
+        else if (path.posix.isAbsolute(asked) || asked.startsWith('~/')) {
+            out = plain(asked);
+        }
+        const top = real_of(plain(within));
+        const real = real_of(out);
+        if ((real !== top) && (real.startsWith(`${top}/`) === false)) {
+            throw new Error(`EACCES: ${JSON.stringify(asked)} is outside the folder this disk is kept within`);
+        }
+        return out;
+    }
+    return {
+        can: function (feature) {
+            return (disk.can === undefined) ? false : disk.can(feature);
+        },
+        stat: async function (asked) {
+            return await disk.stat(full(asked));
+        },
+        mkdir: async function (asked) {
+            return await disk.mkdir(full(asked));
+        },
+        write_tar: async function (dir, source, taken) {
+            return await disk.write_tar(full(dir), source, taken, v => full(path.posix.join(full(dir), v)));
+        },
+        part_stat: async function (dir, name, id) {
+            full(`${dir}/${name}`);
+            return await disk.part_stat(full(dir), name, id);
+        },
+        part_write: async function (dir, name, id, offset, source, taken) {
+            full(`${dir}/${name}`);
+            return await disk.part_write(full(dir), name, id, offset, source, taken);
+        },
+        part_finish: async function (dir, name, id, size, mode) {
+            full(`${dir}/${name}`);
+            return await disk.part_finish(full(dir), name, id, size, mode);
+        },
+        part_remove: async function (dir, name, id) {
+            full(`${dir}/${name}`);
+            return await disk.part_remove(full(dir), name, id);
+        },
+    };
 }
 
 // A tar written by hand, entry by entry: {name, prefix, type, text, mtime, mode}, then its end

@@ -2,6 +2,17 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.64 — 2026-11-10
+
+- A folder copied between machines could write outside the folder it makes, two ways: a link
+  one copy planted (`lib -> outside`) was written through by the next (`lib/evil.txt`), and a
+  tar's own names landed beside the folder (`sibling.txt`, `.ssh/authorized_keys` into a home).
+  Every write of a folder's copy now goes through a disk kept within `<folder copied
+  into>/<name>`, and the tar is of the folder itself: a name that leads out, through a link
+  too, ends the copy once, with why. A link of the owner's own that leads out of the copied
+  folder is refused as well, where it was followed. An agent that cannot keep a root is not
+  sent a folder. (SM-351, SM-352)
+
 ## 1.0.63 — 2026-11-10
 
 - On the Secrets page a refused secret (a name with a space) emptied both boxes, and the typed

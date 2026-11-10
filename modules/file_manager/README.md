@@ -218,7 +218,9 @@ renamed, another spelling of it on a disk that folds letters, is renamed.
 
 A disk made for a token of the control door keeps every call within the token's folders: the
 machine's agent resolves each path, links included, and refuses with EACCES whatever lies
-outside them. A folder of the token not there yet lists empty; the first write makes it.
+outside them. A folder of the token not there yet lists empty; the first write makes it. A
+folder's copy is written through a disk kept the same way, within the folder the copy makes
+(Copies between disks).
 
 The calls that answer with an object may return a promise. `read` and `tar` return the stream
 itself and may throw at once.
@@ -251,7 +253,8 @@ A folder is walked on its disk first (`tree`), then copied in steps, each carrie
 after a drop:
 
 - its files up to 32 MB (a part) in tars of up to 64 MB or 1000 names, with the folders that
-  are empty; a tar that fails goes file by file the next time;
+  are empty; a tar is of the folder itself and is written into the folder the copy makes; a
+  tar that fails goes file by file the next time;
 - each bigger file in parts, as a file alone;
 - its links last, made as they were (`link_create`), so no file of the copy is written through
   one of them.
@@ -269,9 +272,33 @@ with a `..`, a `.` or an empty part) fails the copy at once and for good, before
 written, and the copy says which disk and which path. A link's target is no such path: it is
 kept as it was.
 
+The disk copied to keeps a folder's copy within the folder the copy makes, `<dir>/<its name>`.
+The queue asks its host for that disk kept within that folder, `disk_of(name, within)`, and
+writes every folder, file and tar of the copy through it, each path told from the folder (`.`,
+`./a/b`). Kept so, the disk resolves each path, links included, and refuses whatever lies
+outside the folder with `EACCES: "<the path>" is outside …`. So a name a tar carries lands
+inside the folder or not at all, never beside it, and a link in the folder that leads out of it
+is not written through, whoever made it: a copy before, or the owner on purpose (a
+`node_modules` linked to a cache elsewhere). The copy then ends for good and says so once: `a
+link on desktop leads out of photos, the folder being copied:
+"/home/user/incoming/photos/lib/a.txt" lies outside it, and the copy stopped`. What landed
+before it stays. To have the folder copied, its owner removes the link, or copies the folder
+into another place. A link that stays inside the folder is written through as before. The
+folder itself is made the same way, through the disk kept within the folder copied into,
+`<dir>`: a link there under the folder's own name that leads out of `<dir>` is not followed,
+and the copy ends with `on desktop the name photos leads out of the folder copied into,
+"/home/user/incoming": nothing was copied`; one that stays inside `<dir>` is followed as
+before. Links are made as before, with the target they had: a link already there with that
+target is made already, wherever it points. A file copied alone is written as before, through a
+link of its name too. A host that cannot keep a disk within a folder throws from `disk_of`,
+and the copy ends with its words.
+
     const queue = transfer_queue({
-        disk_of: function (name) {
-            // the disk of that name, or null while it cannot be reached
+        disk_of: function (name, within) {
+            // the disk of that name, or null while it cannot be reached; with `within`, a
+            // folder, the same disk kept within it, for a folder's copy: it starts there,
+            // and refuses with `EACCES: "<the path>" is outside …` whatever a path names,
+            // through links too, that is not inside; throw when it cannot be kept so
         },
         log: function (event, fields) {
         },
@@ -407,7 +434,9 @@ and `--accent`, and the classes the component shares with the rest of the page: 
   `agent_fs_room` (statfs), and says so as `fs_room`; it writes a tar with `agent_tar_put`,
   which reads it with this module's `tar_parser`, and says so as `tar_put`
 - `/api/v1/transfers` is the copies between machines; a machine is a disk while it is
-  connected with an agent that keeps parts
+  connected with an agent that keeps parts. A folder's copy is written through `remote_disk`
+  with `root`, the folder the copy makes, which the machine's agent keeps (`fs_root`); to an
+  agent from before it no folder is copied, and the copy says how the agent updates
 - `src/main/public/serviceman.js` has `remote_files`, the Remote tab, which wraps the component
 - `src/main/public/index.html` loads the css and maps `file_manager/`; the control server
   serves `ui/` at `/modules/file_manager/`

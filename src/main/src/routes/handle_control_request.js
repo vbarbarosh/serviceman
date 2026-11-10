@@ -1216,16 +1216,27 @@ async function handle_volumes(app, req, res, name, tail)
 
 // The copies between machines, made the first time they are asked about. A machine is a disk
 // while it is connected with an agent that keeps parts; until then a copy to or from it waits.
+// A folder's copy is written through that disk kept within a folder (`within`: the folder the
+// copy makes, and the one copied into for the folder itself), by the machine's own agent, as a
+// token is kept within its folders: the machine copied from says every name of the copy, and
+// none of them, nor a link already there, may take a write out of that folder. An agent from
+// before it takes no folder, and the copy says so.
 function transfers_of(app)
 {
     if (app.transfers === undefined) {
         app.transfers = transfer_queue({
-            disk_of: function (name) {
+            disk_of: function (name, within) {
                 const remote = app.remote_by_name[name];
                 if ((remote === undefined) || (remote.state.phase !== 'online') || (remote_can(remote, 'file_parts') === false)) {
                     return null;
                 }
-                return remote_disk(app, remote);
+                if (within === undefined) {
+                    return remote_disk(app, remote);
+                }
+                if (remote_can(remote, 'fs_root') === false) {
+                    throw new Error(`the agent on ${name} is from before a folder's copy is kept within its folder — its page says how it updates`);
+                }
+                return remote_disk(app, remote, {root: [within]});
             },
             log: function (event, fields) {
                 log_event(app, event, fields);
