@@ -748,8 +748,12 @@ name. <strong>All settings…</strong> opens every card, with what the short for
 another shape or something already running; an address with a path strips its prefix. A service&#39;s own
 page is the same cards, each with <strong>Edit</strong> — addresses, image, storage, environment, the
 whole policy. A card&#39;s <strong>Save</strong> writes the config file and applies it at once; only the
-fields you fill land in the file. <strong>Remove…</strong>, the last card, takes a service out of the
-config — anything running keeps running.</p>
+fields you fill land in the file. What no card shows (<code>run_args</code>, <code>args</code>, <code>argv</code>, a key
+written by hand) stays in the file as it was; <strong>Show what Save writes to serviceman.json</strong>,
+under the cards, shows the whole entry before you save. A service made another kind loses
+what the kind it was alone reads (<code>run_args</code> and <code>args</code>, or <code>argv</code>), and a line typed into a
+program&#39;s <strong>Command</strong> takes the place of its <code>argv</code>. <strong>Remove…</strong>, the last card, takes a
+service out of the config — anything running keeps running.</p>
 <p>Everything in this file has a place on that page: <strong>Runs on</strong> is a list of machines and
 <code>#tags</code> in the order they are tried, <strong>Follow the load</strong> turns the autoscaler on under
 <strong>Copies</strong>, the checkbox beside the image fetches it before the first visit, a remote&#39;s <strong>Tags</strong>

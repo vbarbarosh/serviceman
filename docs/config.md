@@ -35,8 +35,12 @@ name. **All settings…** opens every card, with what the short form filled in, 
 another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
 whole policy. A card's **Save** writes the config file and applies it at once; only the
-fields you fill land in the file. **Remove…**, the last card, takes a service out of the
-config — anything running keeps running.
+fields you fill land in the file. What no card shows (`run_args`, `args`, `argv`, a key
+written by hand) stays in the file as it was; **Show what Save writes to serviceman.json**,
+under the cards, shows the whole entry before you save. A service made another kind loses
+what the kind it was alone reads (`run_args` and `args`, or `argv`), and a line typed into a
+program's **Command** takes the place of its `argv`. **Remove…**, the last card, takes a
+service out of the config — anything running keeps running.
 
 Everything in this file has a place on that page: **Runs on** is a list of machines and
 `#tags` in the order they are tried, **Follow the load** turns the autoscaler on under

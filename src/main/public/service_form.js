@@ -7,6 +7,7 @@ import app_zip_read from './app_zip_read.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
+import service_from_form from './service_from_form.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
@@ -750,7 +751,7 @@ const service_form = {
             return out;
         },
         config_text: function () {
-            return JSON.stringify(json_from_service(this.model_now()), null, 4);
+            return JSON.stringify(this.entry_of(this.model_now()), null, 4);
         },
         prefix_on: function () {
             return this.m.hosts.some(v => v.text.includes('/'));
@@ -906,6 +907,15 @@ const service_form = {
                 out.hosts = [{key: 'easy', text: this.host_from_name(name)}];
             }
             return out;
+        },
+        // What Save writes for a model, and what the page shows it will: the entry the config
+        // file has, changed where the cards changed it (service_from_form), so what no card
+        // shows stays in the file. A clone starts from the entry it copies; a new service is
+        // its fields alone.
+        entry_of: function (model) {
+            const written = json_from_service(model);
+            const entry = (this.original !== null) ? this.original : ((this.source === undefined) ? null : this.source);
+            return (entry === null) ? written : service_from_form(entry, json_from_service(form_from_service(entry)), written);
         },
         // The line a closed card shows: what is there, and what is worth a look
         summary_of: function (id, model) {
@@ -1332,7 +1342,7 @@ const service_form = {
             this.busy = true;
             this.report('', false);
             try {
-                const answer = await fetch(url, {method, body: JSON.stringify({service: json_from_service(model)})});
+                const answer = await fetch(url, {method, body: JSON.stringify({service: this.entry_of(model)})});
                 const outcome = await answer.json();
                 if (answer.ok === false) {
                     this.report(outcome.error, true);

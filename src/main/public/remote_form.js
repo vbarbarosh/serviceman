@@ -1,3 +1,4 @@
+import entry_from_form from './entry_from_form.js';
 import machine_drawing from './machine_drawing.js';
 import settled from './settled.js';
 import state_read from './state_read.js';
@@ -123,6 +124,9 @@ const remote_form = {
                 // does not quietly take a machine's door away.
                 inbound: (this.original === null) ? {} : this.original.inbound || {},
             },
+            // What this form writes for the machine untouched, kept before a field is changed
+            // (created); null for a new one
+            seen: null,
             note: '',
             bad: false,
             busy: false,
@@ -191,7 +195,11 @@ const remote_form = {
             try {
                 const url = (this.original === null) ? '/api/v1/remotes' : `/api/v1/remotes/${encodeURIComponent(this.original.name)}`;
                 const method = (this.original === null) ? 'POST' : 'PUT';
-                const answer = await fetch(url, {method, body: JSON.stringify({remote: json_from_remote(this.model)})});
+                // The entry the config file has, changed where this form changed it: its log
+                // folders, and whatever else this form does not show, stay as they were
+                const written = json_from_remote(this.model);
+                const remote = (this.original === null) ? written : entry_from_form(this.original, this.seen, written, {});
+                const answer = await fetch(url, {method, body: JSON.stringify({remote})});
                 const outcome = await answer.json();
                 if (answer.ok === false) {
                     this.report(outcome.error, true);
@@ -250,6 +258,11 @@ const remote_form = {
             this.note = note;
             this.bad = bad;
         },
+    },
+    created: function () {
+        if (this.original !== null) {
+            this.seen = json_from_remote(this.model);
+        }
     },
     mounted: function () {
         if (this.original !== null) {

@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.62 — 2026-11-10
+
+- A card of a service built the entry it saved from its own fields, and the whole entry was
+  replaced by it: any Save took `run_args`, `args`, a storage line's `create` and every key
+  written by hand out of the file, a program that runs `argv` could not be saved at all, and a
+  machine's Settings took its `log_dirs`. A form now saves the file's own entry, changed only
+  where the form was changed (`entry_from_form.js`); what was emptied in a card still goes, and
+  the preview shows what is sent. A whole entry sent to the API is written as sent, as before.
+  (SM-261, SM-262)
+
 ## 1.0.61 — 2026-11-10
 
 - `node src/agent/index.js` with no `SERVICEMAN_AGENT_DIR` took `src/agent/` for its folder, and
