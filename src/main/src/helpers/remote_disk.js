@@ -1,3 +1,4 @@
+const object_from_line = require('../../../helpers/object_from_line');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
 const tunnel_open = require('./tunnel_open');
@@ -108,7 +109,12 @@ function file_send(remote, target, source, taken)
                 reject(new Error('the machine said nothing about the file'));
                 return;
             }
-            resolve(JSON.parse(text));
+            const answer = object_from_line(text);
+            if (answer === null) {
+                reject(new Error('the machine said of the file what is no JSON object'));
+                return;
+            }
+            resolve(answer);
         });
         // Whoever was sending it hung up: the machine is left with nothing rather than the
         // half of a file that arrived — and a part with as much as was written, which the next

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const object_from_line = require('../../../src/helpers/object_from_line');
 const path = require('path');
 const stream = require('stream');
 const tar_parser = require('./tar_parser');
@@ -611,7 +612,11 @@ function walk_read(item, disk, dir, ctx)
                 if (text.trim() === '') {
                     continue;
                 }
-                const line = JSON.parse(text);
+                const line = object_from_line(text);
+                if (line === null) {
+                    stream.destroy(new Error('the disk said a line that is no JSON object'));
+                    return;
+                }
                 if (line.type === 'file') {
                     walk.files.push({path: line.path, size: line.size, mode: line.mode});
                 }

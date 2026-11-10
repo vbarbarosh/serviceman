@@ -680,6 +680,57 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     assert.strictEqual((await call(plain, 'GET', '/fs/watch?path=/')).status, 501);
 });
 
+// A disk is a machine's agent as often as not, and a line it says is its own word: one that is
+// no JSON object ends the tree, the watch or the copy with that reason. Read with a bare
+// JSON.parse inside the stream's listener, where nothing catches, it ended the process.
+test('a line of the disk that is no JSON object fails the tree, the watch and the copy, and nothing else', async function (t) {
+    const refusal = 'the disk said a line that is no JSON object';
+    // A request left with no answer would hold its server open, and this file with it
+    t.after(() => http.globalAgent.destroy());
+    for (const line of ['this is not json', 'null', '7']) {
+        const opened = [];
+        const disk = disk_that_copies_folders({'/a/proj/x.txt': 'x'});
+        disk.tree = function () {
+            return said_in_turns(['{"type":"start","path":"/home/me"}\n', `${line}\n`]);
+        };
+        disk.watch = function () {
+            const out = new stream.PassThrough();
+            opened.push(out);
+            return out;
+        };
+        const running = await serve(t, {disk});
+
+        // A tree: a 502 as one JSON; as events, already under way, an error event and the end
+        const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1');
+        assert.deepStrictEqual([listed.status, JSON.parse(listed.body)], [502, {error: refusal}], line);
+        const events = await call(running, 'GET', '/fs?path=/home/me&tree=1', null, {accept: 'text/event-stream'});
+        assert.deepStrictEqual([events.status, events.body], [200, `data: {"type":"error","error":"${refusal}"}\n\n`], line);
+
+        // A watch: a 502 before it held, an error event once it did
+        const refused = call(running, 'GET', '/fs/watch?path=/home/me');
+        await until(() => opened.length === 1);
+        opened[0].write(`${line}\n`);
+        assert.deepStrictEqual([(await refused).status, JSON.parse((await refused).body)], [502, {error: refusal}], line);
+        const failed = call(running, 'GET', '/fs/watch?path=/home/me');
+        await until(() => opened.length === 2);
+        opened[1].write(`{"type":"ready","path":"/home/me"}\n${line}\n`);
+        assert.strictEqual((await failed).body, `event: ready\ndata: {"type":"ready","path":"/home/me"}\n\nevent: error\ndata: {"error":"${refusal}"}\n\n`, line);
+
+        // A folder's copy: its walk fails as a link that dropped does, the copy says why and
+        // waits to try again
+        const to = disk_that_copies_folders({});
+        const queue = transfer_queue({disk_of: v => ({a: disk, b: to}[v])});
+        const item = queue.add({disk: 'a', path: '/a/proj/'}, {disk: 'b', dir: '/b'});
+        await until(() => item.phase !== 'copying');
+        assert.deepStrictEqual([item.phase, item.said], ['retrying', refusal], line);
+        queue.cancel(item.id);
+        await until(() => item.phase === 'cancelled');
+
+        // And the door goes on answering
+        assert.strictEqual((await call(running, 'GET', '/fs?path=/a/proj')).status, 200, line);
+    }
+});
+
 test('the room left on a folder\'s disk, for an upload to check it fits; a disk that cannot say answers 501, a refusal 502', async function (t) {
     const disk = disk_in_memory({'/home/me/a.txt': 'a'});
     const running = await serve(t, {disk});
@@ -1053,6 +1104,26 @@ function call(running, method, path, body, headers)
         request.on('error', reject);
         request.end(((body === undefined) || (body === null)) ? undefined : body);
     });
+}
+
+// A stream that says each piece on a turn of its own and then ends, as a link does: what a
+// listener throws there, nobody catches
+function said_in_turns(pieces)
+{
+    const out = new stream.PassThrough();
+    const left = pieces.slice();
+    setImmediate(function turn() {
+        if (out.destroyed) {
+            return;
+        }
+        if (left.length === 0) {
+            out.end();
+            return;
+        }
+        out.write(left.shift());
+        setImmediate(turn);
+    });
+    return out;
 }
 
 // Every byte a stream gives, as one Buffer

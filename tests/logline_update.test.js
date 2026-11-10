@@ -12,6 +12,7 @@ const logline_update = require('../src/main/src/helpers/logline_update');
 const os = require('os');
 const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
+const stream = require('stream');
 const test = require('node:test');
 const timers = require('timers/promises');
 
@@ -32,6 +33,29 @@ test('Logline\'s files are its compose file, config, viewer and lines server, no
     assert.ok(paths.includes('lines/src/lines_serve.js'));
     assert.ok(paths.includes('log-ui/app.js'));
     assert.ok(paths.every(v => (v.startsWith('lines/tests/') === false) && (v.endsWith('.test.js') === false) && (v.includes('node_modules') === false)), paths.join(' '));
+});
+
+// The machine hashes Logline's folder and says a line for each file. A line that is no JSON
+// object fails the comparison; read with a bare JSON.parse inside the stream's listener, where
+// nothing catches, it ended serviceman.
+test('a machine\'s line about Logline\'s folder that is no JSON object fails the comparison', async function (t) {
+    const tunnel_open_path = require.resolve('../src/main/src/helpers/tunnel_open');
+    const compare_path = require.resolve('../src/main/src/helpers/logline_compare');
+    const kept = [require.cache[tunnel_open_path], require.cache[compare_path]];
+    t.after(function () {
+        require.cache[tunnel_open_path] = kept[0];
+        require.cache[compare_path] = kept[1];
+    });
+    for (const line of ['this is not json', 'null']) {
+        require.cache[tunnel_open_path] = {id: tunnel_open_path, filename: tunnel_open_path, loaded: true, exports: function () {
+            const out = new stream.PassThrough();
+            setImmediate(() => out.end(`{"type":"file","path":"docker-compose.yml","sha256":"aa"}\n${line}\n{"type":"end"}\n`));
+            return out;
+        }};
+        delete require.cache[compare_path];
+        const compare = require('../src/main/src/helpers/logline_compare');
+        await assert.rejects(compare({}, {remote: {name: 'vps1'}, dir: '/home/user/logline'}), {message: 'vps1 said a line of /home/user/logline that is no JSON object'}, line);
+    }
 });
 
 test('Update Logline puts what differs on its machine, builds, and starts again what mounts a changed file', async function (t) {

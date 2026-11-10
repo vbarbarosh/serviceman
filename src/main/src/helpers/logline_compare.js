@@ -1,4 +1,5 @@
 const logline_files = require('./logline_files');
+const object_from_line = require('../../../helpers/object_from_line');
 const tunnel_open = require('./tunnel_open');
 
 // Logline's files here against the same files in its folder on its machine, by sha256: same,
@@ -33,7 +34,11 @@ function tree_hashes(remote, dir)
                 if (line === '') {
                     continue;
                 }
-                const item = JSON.parse(line);
+                const item = object_from_line(line);
+                if (item === null) {
+                    stream.destroy(new Error(`${remote.name} said a line of ${dir} that is no JSON object`));
+                    return;
+                }
                 if ((item.type === 'file') && (typeof item.sha256 === 'string')) {
                     hashes.set(item.path, item.sha256);
                 }

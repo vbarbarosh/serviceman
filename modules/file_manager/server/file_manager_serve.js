@@ -1,3 +1,4 @@
+const object_from_line = require('../../../src/helpers/object_from_line');
 const path = require('path');
 const stream = require('stream');
 const tar_parser = require('./tar_parser');
@@ -11,6 +12,8 @@ const TREE_JSON_MAX_ITEMS = 50000;
 const TREE_DELAY_MAX_MS = 1000;
 // A comment line down a watch or a tree this often, which is what keeps a proxy from closing it as idle
 const WATCH_KEEP_MS = 15000;
+// What a tree or a watch ends with when its disk says a line that does not read
+const LINE_REFUSAL = 'the disk said a line that is no JSON object';
 
 // What a file may land under: a name of its own, and nothing that walks out of the folder it
 // was sent to
@@ -196,7 +199,13 @@ function tree_serve(ctx, req, res, url)
     stream.on('data', function (chunk) {
         const lines = (rest + chunk.toString('utf8')).split('\n');
         rest = lines.pop();
-        queue.push(...lines.filter(v => (v.trim() !== '')).map(v => JSON.parse(v)));
+        const said = lines.filter(v => (v.trim() !== '')).map(v => object_from_line(v));
+        if (said.includes(null)) {
+            // The disk's own failure, answered as one: the walk ends with the reason
+            stream.destroy(new Error(LINE_REFUSAL));
+            return;
+        }
+        queue.push(...said);
         pump();
     });
     stream.on('end', function () {
@@ -525,7 +534,11 @@ function watch_serve(ctx, req, res, url)
             if (line.trim() === '') {
                 continue;
             }
-            const change = JSON.parse(line);
+            const change = object_from_line(line);
+            if (change === null) {
+                stream.destroy(new Error(LINE_REFUSAL));
+                return;
+            }
             if (started === false) {
                 started = true;
                 res.writeHead(200, {'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no'});

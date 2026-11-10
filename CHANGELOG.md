@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.26 — 2026-11-10
+
+- A line from a machine that is no JSON object fails what was reading it and nothing else: a
+  folder's tree, a watch, a folder copy's walk, the answer to a file sent, and Logline's files
+  compared with the machine's. Each read it with a bare `JSON.parse` inside a stream's
+  listener, and one such line stopped serviceman. (SM-240)
+
 ## 1.0.25 — 2026-11-10
 
 - A link that drops while a link test sends its bytes fails that test and nothing else: the
