@@ -80,6 +80,8 @@ function remote_state()
         calls: {},
         next_call_id: 0,
         streams: {},
+        // How many of them the machine opened: no more than tunnel_inbound takes at once
+        streams_in: 0,
         next_stream_id: 0,
         // The files its containers mount that its agent may not open, asked once a link
         // (problems_of_remote): {path: true}

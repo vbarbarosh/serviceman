@@ -103,7 +103,7 @@ function frame_read(app, remote, kind, body)
     remote.state.quiet_said = false;
     if (kind === 'o') {
         // The one frame a machine opens a stream with: something knocked at its http socket
-        tunnel_inbound(app, remote, body);
+        stream_refused(app, remote, tunnel_inbound(app, remote, body));
         return;
     }
     if (TUNNEL_KINDS.includes(kind)) {
@@ -388,7 +388,8 @@ function link_error_once(app, remote, words)
     link_error(app, remote, words);
 }
 
-// A stream dropped for what the machine did: one sent past its window or given room for bytes it
+// A stream refused or dropped for what the machine did: one opened before its hello or past the
+// most it may have open (tunnel_inbound), one sent past its window or given room for bytes it
 // was never sent (tunnel_stream). The stream alone is over, however often the machine does it:
 // what one costs this host is bounded, and a link dropped for it is dialled again a second
 // later, at the cost of every other stream and call on it. Said once a link for each reason.
@@ -452,6 +453,7 @@ function link_gone(app, remote, socket)
         stream_gone(state.streams[id], remote.name);
     }
     state.streams = {};
+    state.streams_in = 0;
     state.stat_refused = {};
     log_event(app, 'remote_offline', {remote: remote.name, held, reason: ((reason === null) || (reason === undefined)) ? undefined : reason});
     remote_services_lost(app, remote);

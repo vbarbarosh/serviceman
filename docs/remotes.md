@@ -999,8 +999,11 @@ What the token does not buy is this host's memory. Every stream on the link has 
 KB, or 4 MB for a file's bytes, and this host counts it for itself: a stream that is sent more
 than its window and one piece unread, or is given room for bytes it was never sent, is dropped
 with `EWINDOW` at both ends, and room made for bytes still in this host's own queue counts once
-the link has taken them. The link carries on, and the log says it once a link
-(`remote_link_error`).
+the link has taken them. A machine has at most 1024 streams of its own open towards this host,
+one for each request its door hands on and one for each connection to a forward: the next one
+is refused (`ETOOMANY`), which a visitor at that door meets as `502 Bad Gateway` and a
+connection to a forward as a close, and none is taken before the machine's hello (`ENOHELLO`).
+The link carries on in each case, and the log says each once a link (`remote_link_error`).
 
 The other direction is wide. The agent does what this host asks, and this host asks for a great
 deal: it runs containers and any command line (a `shell` service), opens shells on the machine

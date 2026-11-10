@@ -1441,9 +1441,10 @@ than 64 letters, or whose group is one this end made (the group its link hangs u
 group above it, up to the process) is not written. Each of these is said as <code>remote_link_error</code>,
 once a link for each reason (<code>log_line_remote</code>, <code>log_line_key</code>, <code>log_line_shape</code>,
 <code>log_line_group</code>), so a machine cannot fill the file with them either. So is a stream this
-host dropped for what the machine did with it: <code>stream_past_window</code> (<code>unread=</code> the bytes sent
-and not read here, <code>window=</code> the room it had) and <code>stream_room_unsent</code> (<code>room=</code> what it made
-room for, <code>on_its_way=</code> what it had been sent), each with <code>stream=</code> its number and
+host dropped or refused for what the machine did with it: <code>stream_past_window</code> (<code>unread=</code> the
+bytes sent and not read here, <code>window=</code> the room it had), <code>stream_room_unsent</code> (<code>room=</code> what it
+made room for, <code>on_its_way=</code> what it had been sent), <code>streams_most</code> (<code>open=</code> and <code>most=</code>, 1024)
+and <code>stream_before_hello</code>, each with <code>stream=</code> its number and
 <code>then=&quot;that stream alone is over, and said once for this link&quot;</code>. A line that is free
 text (a line of output, the end of slow work) stays free text with no <code>remote=</code> in it: its
 group says whose it is, and that group&#39;s <code>group_spawn</code> here names the link it came in on.</p>

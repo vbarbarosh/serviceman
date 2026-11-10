@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.76 — 2026-11-10
+
+- A machine has at most 1024 streams of its own open towards serviceman, and none before its hello: one more is refused (`ETOOMANY`, `ENOHELLO`, said once a link), a visitor at its door gets 502, and the link carries on (SM-203). Registered SM-366: the refusals themselves still wait unbounded in the link's queue.
+
 ## 1.0.75 — 2026-11-10
 
 - serviceman counts each stream's window itself: a machine that sends past it and a piece, or makes room for bytes it was never sent, loses that stream (`EWINDOW`, said once a link) and the link carries on; room for bytes still in serviceman's queue counts once the link took them (SM-202).

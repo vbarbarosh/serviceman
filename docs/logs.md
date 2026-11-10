@@ -396,9 +396,10 @@ than 64 letters, or whose group is one this end made (the group its link hangs u
 group above it, up to the process) is not written. Each of these is said as `remote_link_error`,
 once a link for each reason (`log_line_remote`, `log_line_key`, `log_line_shape`,
 `log_line_group`), so a machine cannot fill the file with them either. So is a stream this
-host dropped for what the machine did with it: `stream_past_window` (`unread=` the bytes sent
-and not read here, `window=` the room it had) and `stream_room_unsent` (`room=` what it made
-room for, `on_its_way=` what it had been sent), each with `stream=` its number and
+host dropped or refused for what the machine did with it: `stream_past_window` (`unread=` the
+bytes sent and not read here, `window=` the room it had), `stream_room_unsent` (`room=` what it
+made room for, `on_its_way=` what it had been sent), `streams_most` (`open=` and `most=`, 1024)
+and `stream_before_hello`, each with `stream=` its number and
 `then="that stream alone is over, and said once for this link"`. A line that is free
 text (a line of output, the end of slow work) stays free text with no `remote=` in it: its
 group says whose it is, and that group's `group_spawn` here names the link it came in on.

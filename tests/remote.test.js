@@ -24,6 +24,7 @@ const terminal_connect = require('../demos/terminal-client/terminal_connect');
 const terminals_list = require('../demos/terminal-client/terminals_list');
 const test = require('node:test');
 const timers = require('timers/promises');
+const tunnel_inbound = require('../src/main/src/helpers/tunnel_inbound');
 const tunnel_open = require('../src/main/src/helpers/tunnel_open');
 const tunnel_window = require('../src/helpers/tunnel_window');
 
@@ -3257,6 +3258,121 @@ test('a machine that makes room for bytes it does not read holds a window of the
     }
     finally {
         machine.socket.destroy();
+        await running.close();
+    }
+});
+
+// 100 000 open frames, 1.9 MB of them, took 1.3 GB of a real serviceman and three seconds of its
+// next answer (2026-11-09), sent before the hello as well as after it
+test('a machine opens no stream before its hello and no more than the most at once: one more is refused, and the link lives on', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const most = tunnel_inbound.most;
+    const door = Buffer.from(JSON.stringify({http: {}}));
+    let machine = await machine_by_hand(running, false);
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        link_send_stream(machine.socket, 'o', 1, door);
+        await wait_until(() => machine.gone.length === 1);
+        assert.deepStrictEqual(machine.gone[0], [1, 'ENOHELLO', 'a machine says hello before it opens a stream']);
+        assert.deepStrictEqual(remote.state.streams, {});
+        assert.deepStrictEqual(link_errors(running), ['[remote_link_error] remote=ui1 reason=stream_before_hello stream=1 then="that stream alone is over, and said once for this link"']);
+
+        machine.hello();
+        await wait_until(() => remote.state.phase === 'online');
+        for (let i = 0; i < most; i++) {
+            link_send_stream(machine.socket, 'o', 2*i + 3, door);
+        }
+        await wait_until(() => Object.keys(remote.state.streams).length === most);
+        assert.strictEqual(machine.gone.length, 1, 'every one of them is taken');
+
+        // One more, and one after it
+        link_send_stream(machine.socket, 'o', 2*most + 3, door);
+        link_send_stream(machine.socket, 'o', 2*most + 5, door);
+        await wait_until(() => machine.gone.length === 3);
+        assert.deepStrictEqual(machine.gone.slice(1), [
+            [2*most + 3, 'ETOOMANY', `ui1 has ${most} streams open towards this host, and that is the most`],
+            [2*most + 5, 'ETOOMANY', `ui1 has ${most} streams open towards this host, and that is the most`],
+        ]);
+        assert.strictEqual(Object.keys(remote.state.streams).length, most);
+
+        // A stream this host opens to the machine is not one of them
+        const ours = tunnel_open(remote, {host: '127.0.0.1', port: 80});
+        await wait_until(() => machine.opened.includes(ours.id));
+        ours.destroy();
+
+        // One of the machine's closes, and there is room for one
+        link_send_stream(machine.socket, 'x', 3, Buffer.from('{}'));
+        await wait_until(() => remote.state.streams_in === most - 1);
+        link_send_stream(machine.socket, 'o', 2*most + 7, door);
+        await wait_until(() => remote.state.streams[2*most + 7] !== undefined);
+        assert.strictEqual(machine.gone.filter(v => v[1] === 'ETOOMANY').length, 2);
+        assert.strictEqual(remote.state.phase, 'online');
+
+        // Said once a link, however many were refused; the log kept here is the last lines only
+        assert.deepStrictEqual(link_errors(running), [`[remote_link_error] remote=ui1 reason=streams_most stream=${2*most + 3} open=${most} most=${most} then="that stream alone is over, and said once for this link"`]);
+
+        // A link that drops takes its count with it, and the next one starts from none
+        machine.socket.destroy();
+        await wait_until(() => remote.state.phase === 'offline');
+        machine = await machine_by_hand(running);
+        await wait_until(() => remote.state.phase === 'online');
+        link_send_stream(machine.socket, 'o', 1, door);
+        await wait_until(() => remote.state.streams[1] !== undefined);
+        assert.strictEqual(remote.state.streams_in, 1);
+        assert.strictEqual(machine.gone.length, 0);
+    }
+    finally {
+        machine.socket.destroy();
+        await running.close();
+    }
+});
+
+// What a visitor at that machine's door meets then: its agent hears the stream refused, and
+// answers as it does for any far end it could not reach
+test('a visitor at the door of a machine with its most streams open is answered 502, and the next one is answered once there is room', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-inbound-most-'));
+    // A service that answers when it is told to
+    const waiting = [];
+    const slow = http.createServer(function (req, res) {
+        waiting.push(res);
+    });
+    await new Promise(v => slow.listen(0, '127.0.0.1', v));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN, inbound: {'slow.test': 'slow'}}], {
+        services: [{name: 'slow', type: 'external', publish: {host: 'slow.test'}, upstream: `127.0.0.1:${slow.address().port}`}],
+    });
+    const agent = agent_start(running.control_port, TOKEN, [], {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_HTTP_SOCKET_MODE: '0600'});
+    const file = path.join(dir, 'http.sock');
+    const most = tunnel_inbound.most;
+    tunnel_inbound.most = 2;
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        await wait_until(() => fs.existsSync(file), 5000);
+        const first = fetch_socket(file, 'slow.test', '/');
+        const second = fetch_socket(file, 'slow.test', '/');
+        await wait_until(() => waiting.length === 2);
+
+        const third = await fetch_socket(file, 'slow.test', '/');
+        assert.deepStrictEqual([third.status, third.body], [502, '502 Bad Gateway\n']);
+        assert.strictEqual(waiting.length, 2, 'the service never heard of it');
+        assert.strictEqual(running.app.log_lines.filter(v => v.includes('reason=streams_most')).length, 1);
+
+        // The two before it are answered as they would have been, and then there is room
+        for (const res of waiting) {
+            res.end('at last');
+        }
+        assert.deepStrictEqual([(await first).body, (await second).body], ['at last', 'at last']);
+        await wait_until(() => remote.state.streams_in === 0);
+        const next = fetch_socket(file, 'slow.test', '/');
+        await wait_until(() => waiting.length === 3);
+        waiting[2].end('and again');
+        assert.deepStrictEqual([(await next).status, (await next).body], [200, 'and again']);
+    }
+    finally {
+        tunnel_inbound.most = most;
+        agent.kill('SIGKILL');
+        slow.close();
+        slow.closeAllConnections();
         await running.close();
     }
 });
