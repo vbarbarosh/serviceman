@@ -27,6 +27,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY modules/terminal/server ./modules/terminal/server
 COPY modules/terminal/ui ./modules/terminal/ui
 COPY src/main/public/vendor/vue.esm-browser.prod.js src/main/public/vendor/xterm.mjs src/main/public/vendor/addon-fit.mjs src/main/public/vendor/xterm.css ./src/main/public/vendor/
+# What the Terminal module requires from outside its own folder (tests/build_files.test.js
+# walks the program's requires and holds this list to them)
+COPY src/helpers/term_size_valid.js ./src/helpers/
 COPY src/web-terminal ./src/web-terminal
 ENV SHELL=/bin/bash
 # A shell whose page closed is reaped by tini, whether or not docker put its own init in front

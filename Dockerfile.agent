@@ -18,6 +18,9 @@ COPY package.json package-lock.json ./
 # The bundler needs the helpers it is written with; the agent it writes needs nothing
 RUN npm ci --omit=dev
 COPY src ./src
+# What the agent requires from outside src (tests/build_files.test.js walks its requires and
+# holds this list to them)
+COPY modules/file_manager/server/tar_parser.js ./modules/file_manager/server/
 RUN node src/agent/bin/build /serviceman-agent.js
 
 FROM node:24-alpine

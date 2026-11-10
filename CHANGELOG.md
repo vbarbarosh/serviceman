@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.44 — 2026-11-10
+
+- web-terminal's image copies `src/helpers/term_size_valid.js`, which the Terminal module
+  requires, and the agent's image `modules/file_manager/server/tar_parser.js`, which the agent
+  requires: by the files, the first ended at its first `require` and the second at its
+  bundler. A test walks each image's program and holds its `COPY` lines to it. (SM-354)
+
 ## 1.0.43 — 2026-11-10
 
 - Seven config examples of the docs that the validator refused name their machine, their
