@@ -16,6 +16,11 @@ const APT_TIMEOUT_MS = 3600000;
 // How a run that ended is said at the end of its stream
 const STREAM_ENDS = {ok: 'done', error: 'failed', cancelled: 'cancelled'};
 
+// The runs that have not asked their machine to install yet (its containers are asked first),
+// and those of them a Cancel came for meanwhile: such a run never asks
+const not_asked = new WeakSet();
+const cancelled_early = new WeakSet();
+
 // Installs what is waiting on one machine: what Install them on its page does, and what the
 // Remotes list does for each machine it was asked for. The answer is the end of the run, once
 // the containers that ran before it run again; the run itself is on the remote's state, for
@@ -24,7 +29,9 @@ async function apt_run(app, remote)
 {
     // Its lines are said in a stream as they come too, for the page to follow rather than ask
     const stream = stream_open(app, {title: 'Installing the updates', base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/packages`, command: 'upgrade'});
-    remote.state.apt = {phase: 'running', lines: [], started_at: Date.now(), ended_at: null, error: null, containers: null, stream: stream.id, url: stream.url};
+    const run = {phase: 'running', lines: [], started_at: Date.now(), ended_at: null, error: null, containers: null, stream: stream.id, url: stream.url};
+    remote.state.apt = run;
+    not_asked.add(run);
     log_event(app, 'apt_begin', {remote: remote.name});
     // What runs now has to run after: an upgrade of Docker restarts every container, and the
     // ones Docker does not bring back are started again once it is over
@@ -34,6 +41,13 @@ async function apt_run(app, remote)
     }
     catch (error) {
         log_event(app, 'apt_containers_unknown', {remote: remote.name, reason: error.message});
+    }
+    not_asked.delete(run);
+    if (cancelled_early.has(run)) {
+        // Cancel came while the machine's containers were asked: apt is never asked, and
+        // nothing stopped that would have to run again
+        await apt_ended(app, remote, null, 'cancelled', 'cancelled before it began');
+        return;
     }
     let phase = 'error';
     let reason = null;
@@ -51,6 +65,18 @@ async function apt_run(app, remote)
     catch (error) {
         log_event(app, 'apt_containers_error', {remote: remote.name, reason: error.message});
     }
+}
+
+// A Cancel for a run that has not asked its machine yet: it never will, and ends as cancelled
+// when the look at the containers is over. Answers whether this was such a run: for any other
+// the machine is the one to stop it.
+function apt_cancel_early(run)
+{
+    if (not_asked.has(run) === false) {
+        return false;
+    }
+    cancelled_early.add(run);
+    return true;
 }
 
 async function apt_ended(app, remote, before, phase, error)
@@ -99,5 +125,7 @@ function last_line_of(answer)
     const reason = reason_from_answer(answer);
     return (reason === null) ? `apt-get ended with ${answer.code}` : reason;
 }
+
+apt_run.cancel_early = apt_cancel_early;
 
 module.exports = apt_run;

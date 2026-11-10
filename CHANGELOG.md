@@ -2,6 +2,15 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.60 — 2026-11-10
+
+- Cancel pressed in the first moment of Install updates stopped nothing: serviceman had begun
+  the run and was still asking which containers run on the machine, so the machine was told to
+  cancel before it was told to install, answered "nothing is being installed", and the install
+  ran to its end. Such a run is stopped by serviceman itself now and never asks. On the
+  machine, a Cancel while an Install waits for a fetch of the lists stops that Install, where
+  it stopped the fetch and let the Install run. Agent 1.33.11. (SM-360)
+
 ## 1.0.59 — 2026-11-10
 
 - A visitor who gave up while a sleeping service was starting, or in the line behind

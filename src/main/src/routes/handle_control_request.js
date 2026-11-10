@@ -1511,7 +1511,8 @@ async function own_remote(app, remotes)
     return (index === -1) ? null : remotes[index];
 }
 
-// A run that goes is stopped on its machine; one that waits for its turn is not started
+// A run that goes is stopped on its machine; one that waits for its turn is not started, and
+// neither is one that has begun here and not yet asked its machine, which has nothing to stop
 async function apt_cancel(app, remote)
 {
     const run = remote.state.apt;
@@ -1521,6 +1522,9 @@ async function apt_cancel(app, remote)
     }
     if (run.phase !== 'running') {
         return {stopped: false, reason: 'nothing is being installed on this machine'};
+    }
+    if (apt_run.cancel_early(run)) {
+        return {stopped: true};
     }
     return remote_call(app, remote, 'apt_cancel', {});
 }

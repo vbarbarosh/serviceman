@@ -22,11 +22,18 @@ const REFRESH_MAX_MS = 10*60*1000;
 
 // Installs what is waiting, saying every line as apt prints it. One run at a time on a
 // machine: two apt-gets at once is a lock fight, not twice the work. A fetch of the lists
-// going on by itself (refresh) is waited for, since Install fetches them again anyway.
+// going on by itself (refresh) is waited for, since Install fetches them again anyway. A
+// Cancel that comes during that wait is meant for this Install, which then never starts.
 async function agent_apt_upgrade(state, options, say)
 {
     if ((state.apt_refresh !== undefined) && (state.apt_refresh !== null)) {
+        state.apt_waiting = true;
         await state.apt_refresh;
+        state.apt_waiting = false;
+        if (state.apt_waiting_cancelled === true) {
+            state.apt_waiting_cancelled = false;
+            return {ok: false, cancelled: true, code: null, stdout: '', stderr: 'cancelled before it began'};
+        }
     }
     if ((state.apt !== undefined) && (state.apt !== null)) {
         return {ok: false, stderr: 'apt is already running on this machine'};
@@ -162,9 +169,15 @@ function apt_command(options)
 // others. It is asked first the way ctrl-c asks, and made to stop if it will not.
 function agent_apt_cancel(state)
 {
+    // An Install that waits for a fetch of the lists has not begun, and is told not to. The
+    // fetch is stopped as any run is, below, so the Install's answer does not wait for it.
+    const waiting = (state.apt_waiting === true);
+    if (waiting) {
+        state.apt_waiting_cancelled = true;
+    }
     const child = state.apt;
     if ((child === undefined) || (child === null)) {
-        return {stopped: false, reason: 'nothing is being installed on this machine'};
+        return waiting ? {stopped: true} : {stopped: false, reason: 'nothing is being installed on this machine'};
     }
     state.apt_cancelled = true;
     kill(child.pid, 'SIGINT');

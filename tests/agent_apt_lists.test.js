@@ -74,3 +74,24 @@ test('a fetch waits for nobody and is waited for by Install', async function (t)
     assert.deepStrictEqual(fake.asked(), ['-q update', 'update', '-y -o'], 'Install started once the fetch had ended');
     assert.deepStrictEqual([state.apt, state.apt_refresh], [null, null]);
 });
+
+// Cancel pressed in the first moment of Install, while it still waits for a fetch of the lists,
+// is meant for that Install: the fetch it stops is not what was to be cancelled
+test('a Cancel that comes while Install waits for a fetch stops the Install before it begins', async function (t) {
+    const fake = apt_make(t, 0.3, false);
+    const options = {apt: fake.apt, apt_root_dir: fake.base};
+    const state = {};
+    const fetching = agent_apt.refresh(state, options);
+    const installing = agent_apt(state, options, null);
+    assert.deepStrictEqual(agent_apt.cancel(state), {stopped: true});
+    const installed = await installing;
+    assert.deepStrictEqual([installed.ok, installed.cancelled, installed.stderr], [false, true, 'cancelled before it began']);
+    await fetching;
+    // The fetch was stopped where it stood, before or after it noted its own start
+    assert.deepStrictEqual(fake.asked().filter(v => v !== '-q update'), [], 'no install was started');
+    assert.deepStrictEqual([state.apt, state.apt_refresh], [null, null]);
+    // The next Install is its own, and goes as ever
+    assert.strictEqual((await agent_apt(state, options, null)).ok, true);
+    assert.deepStrictEqual(fake.asked().slice(-2), ['update', '-y -o']);
+    assert.deepStrictEqual(agent_apt.cancel(state), {stopped: false, reason: 'nothing is being installed on this machine'});
+});

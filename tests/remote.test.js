@@ -770,6 +770,52 @@ test('a machine waiting its turn is not started once cancelled, and starts at on
     }
 });
 
+// Cancel pressed in the first moment of Install: serviceman has begun the run and is still
+// asking which containers run on the machine, so the machine has not been asked to install and
+// has nothing to stop. The run is stopped here, and the machine is never asked.
+test('a Cancel that comes before the machine was asked to install stops the run, and the machine is never asked', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-early-'));
+    const docker = await fake_docker_engine(path.join(dir, 'engine.sock'));
+    // A Docker that takes its time to say which containers run
+    const slow = http.createServer(function (req, res) {
+        setTimeout(function () {
+            const ask = http.request({socketPath: path.join(dir, 'engine.sock'), method: req.method, path: req.url, headers: req.headers}, function (answer) {
+                res.writeHead(answer.statusCode, answer.headers);
+                answer.pipe(res);
+            });
+            ask.on('error', () => res.destroy());
+            req.pipe(ask);
+        }, req.url.includes('/containers/json') ? 400 : 0);
+    });
+    await new Promise(v => slow.listen(path.join(dir, 'docker.sock'), v));
+    const running = await serviceman_start([{name: 'vps1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, ['--apt', path.join(__dirname, 'bin', 'apt-get')], {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
+    try {
+        const vps1 = running.app.remote_by_name.vps1;
+        await wait_until(() => vps1.state.phase === 'online');
+        assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps1/packages/upgrade', null)).status, 202);
+        assert.strictEqual(vps1.state.apt.phase, 'running');
+        assert.deepStrictEqual((await control(running, 'POST', '/api/v1/remotes/vps1/packages/cancel', null)).body, {stopped: true});
+        await wait_until(() => vps1.state.apt.phase !== 'running', 5000);
+        assert.deepStrictEqual([vps1.state.apt.phase, vps1.state.apt.error, vps1.state.apt.lines.length], ['cancelled', 'cancelled before it began', 0]);
+        assert.strictEqual(running.app.log_lines.some(v => v.includes('method=apt_upgrade')), false, 'the machine was never asked to install');
+
+        // The next Install is its own: it runs, and a Cancel stops it on the machine
+        assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps1/packages/upgrade', null)).status, 202);
+        await wait_until(() => vps1.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
+        assert.deepStrictEqual((await control(running, 'POST', '/api/v1/remotes/vps1/packages/cancel', null)).body, {stopped: true});
+        await wait_until(() => vps1.state.apt.phase === 'cancelled', 15000);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        slow.closeAllConnections();
+        slow.close();
+        await docker.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 test('a machine with a root half does its root work there, and says so', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-root-'));
     const socket = path.join(dir, 'root.sock');
