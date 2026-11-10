@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.66 — 2026-11-10
+
+- `GET /api/v1/remotes/%zz/fs` answered 500, "serviceman broke on this request", with `URI
+  malformed` in the log: the name was decoded bare where a module's door is found, where a
+  token's right is looked up, and in the three routes of the shared folders. All five decode
+  through `route_param` now, and such a word answers as a name that is not there. (SM-171)
+
 ## 1.0.65 — 2026-11-10
 
 - Every whole run of the suite left one process behind, the stand-in container a door's test

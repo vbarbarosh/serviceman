@@ -301,6 +301,27 @@ test('bad input gets its own status: a body that is not JSON, one too big, a wor
     assert.deepStrictEqual([big.status, JSON.parse(big.body).error], [413, 'the body is above 1048576 bytes']);
     const odd = await call(running, 'GET', '/api/v1/remotes/%zz/ports', null, running.owner);
     assert.strictEqual(odd.status, 404, odd.body.slice(0, 120));
+    // The same word wherever an address carries a name: a module's doors, for the owner and for
+    // a token, and the shared folders. It names nothing, and each answers as it does for a
+    // name that is not there
+    const made = JSON.parse((await call(running, 'POST', '/api/v1/tokens', JSON.stringify({label: 'the notes agent', remotes: ['vps1'], rights: ['files', 'ports']}), running.owner)).body);
+    const words = [
+        ['GET', '/api/v1/remotes/%zz/fs', running.owner],
+        ['GET', '/api/v1/remotes/%zz/terminals', running.owner],
+        ['GET', '/api/v1/remotes/%zz/fs', made.token],
+        ['GET', '/api/v1/remotes/%zz/ports', made.token],
+        ['DELETE', '/api/v1/shared-folders/folders/%zz', running.owner],
+        ['PUT', '/api/v1/shared-folders/folders/%zz/mounts/%zz', running.owner],
+        ['DELETE', '/api/v1/shared-folders/folders/%zz/mounts/%zz', running.owner],
+    ];
+    for (const [method, asked, token] of words) {
+        const body = (method === 'PUT') ? '{}' : null;
+        const answer = await call(running, method, asked, body, token);
+        const absent = await call(running, method, asked.replaceAll('%zz', 'nosuch'), body, token);
+        assert.strictEqual(answer.status, absent.status, `${method} ${asked}: ${answer.status} ${answer.body.slice(0, 120)}`);
+        assert.strictEqual([400, 403, 404].includes(answer.status), true, `${method} ${asked}: ${answer.status}`);
+    }
+    assert.deepStrictEqual(running.app.log_lines.filter(v => v.includes('[serviceman_error]')), []);
     const cookie = await call(running, 'GET', '/api/v1/status', null, null, {cookie: 'serviceman_token=%'});
     assert.strictEqual(cookie.status, 401);
     const host = await call(running, 'GET', '/api/v1/install.sh', null, null, {host: 'evil\'; echo pwned; \''});

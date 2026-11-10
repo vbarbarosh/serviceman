@@ -3,6 +3,7 @@ const log_event = require('../helpers/log_event');
 const path = require('path');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
+const route_param = require('../helpers/route_param');
 const send_json = require('../helpers/send_json');
 const shared_home_address = require('../helpers/shared_home_address');
 const shared_read = require('../helpers/shared_read');
@@ -49,16 +50,16 @@ async function handle_shared_folders(app, req, res, url)
     }
     const folder = RE_FOLDER.exec(url.pathname);
     if ((folder !== null) && (req.method === 'DELETE')) {
-        await folder_delete(app, req, res, decodeURIComponent(folder[1]));
+        await folder_delete(app, req, res, route_param(folder[1]));
         return true;
     }
     const mount = RE_MOUNT.exec(url.pathname);
     if ((mount !== null) && (req.method === 'PUT')) {
-        await mount_set(app, req, res, decodeURIComponent(mount[1]), decodeURIComponent(mount[2]));
+        await mount_set(app, req, res, route_param(mount[1]), route_param(mount[2]));
         return true;
     }
     if ((mount !== null) && (req.method === 'DELETE')) {
-        mount_remove(app, res, decodeURIComponent(mount[1]), decodeURIComponent(mount[2]));
+        mount_remove(app, res, route_param(mount[1]), route_param(mount[2]));
         return true;
     }
     return false;

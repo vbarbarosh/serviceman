@@ -5,6 +5,7 @@ const file_manager_transfers_manifest = require('../../../../modules/file_manage
 const firewall_manifest = require('../../../../modules/firewall/server/firewall_manifest');
 const packages_manifest = require('../../../../modules/packages/server/packages_manifest');
 const processes_manifest = require('../../../../modules/processes/server/processes_manifest');
+const route_param = require('./route_param');
 const terminal_manifest = require('../../../../modules/terminal/server/terminal_manifest');
 const volumes_manifest = require('../../../../modules/volumes/server/volumes_manifest');
 const vulnerabilities_manifest = require('../../../../modules/vulnerabilities/server/vulnerabilities_manifest');
@@ -34,7 +35,7 @@ function module_mount_of(pathname)
         const found = mount.re.exec(pathname);
         if (found !== null) {
             const machine = mount.base.includes('<name>');
-            return {mount, remote: machine ? decodeURIComponent(found[1]) : null, tail: (found[machine ? 2 : 1] === undefined) ? '' : found[machine ? 2 : 1]};
+            return {mount, remote: machine ? route_param(found[1]) : null, tail: (found[machine ? 2 : 1] === undefined) ? '' : found[machine ? 2 : 1]};
         }
     }
     return null;

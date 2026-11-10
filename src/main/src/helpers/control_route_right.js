@@ -1,5 +1,6 @@
 const module_mount_of = require('./module_mount_of');
 const module_route = require('./module_route');
+const route_param = require('./route_param');
 
 // What a token other than the owner's may ask of the control door: these rights and nothing
 // else, each of one machine but the status. Every other route is the owner's alone, a route
@@ -29,7 +30,7 @@ function control_route_right(method, pathname)
     for (const item of RIGHTS) {
         const found = item.re.exec(pathname);
         if ((found !== null) && item.methods.includes(method)) {
-            return {right: item.right, said: item.said, remote: (found[1] === undefined) ? null : decodeURIComponent(found[1])};
+            return {right: item.right, said: item.said, remote: (found[1] === undefined) ? null : route_param(found[1])};
         }
     }
     const mounted = module_mount_of(pathname);
