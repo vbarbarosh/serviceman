@@ -1,6 +1,7 @@
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const is_localhost_url = require('../src/main/src/helpers/is_localhost_url');
 const k6_script = require('../src/main/src/helpers/k6_script');
@@ -11,7 +12,9 @@ const load_test_said = require('../src/main/src/helpers/load_test_said');
 const load_test_url = require('../src/main/src/helpers/load_test_url');
 const os = require('os');
 const path = require('path');
+const server_start = require('../src/main/src/helpers/server_start');
 const test = require('node:test');
+const timers = require('timers/promises');
 
 const REMOTES = [{name: 'laptop', token: '0123456789abcdef0123456789abcdef'}];
 const SERVICES = [{name: 'hello', type: 'external', publish: {host: 'hello.localhost/app'}, upstream: '127.0.0.1:4799'}];
@@ -91,6 +94,65 @@ test('a run\'s log is kept while the run is, and goes with it', function () {
     assert.strictEqual(fs.readFileSync(load_test_log_path(app, 'r20'), 'utf8'), 'k6 said 20\n');
     const kept = JSON.parse(fs.readFileSync(path.join(app.state_dir, 'load_test_runs.json'), 'utf8'));
     assert.deepStrictEqual(kept.runs[0].lines, []);
+});
+
+// The end of a run writes its log and the file of runs, in a chain nobody waits for. A state
+// folder that takes neither, a full disk or a read-only one, costs the run its log and its
+// line in that file: thrown out of the chain, it ended serviceman and every service with it.
+test('a run that ends where nothing can be written says so in the log, and serviceman goes on', async function (t) {
+    const unheld = [];
+    process.on('unhandledRejection', heard);
+    t.after(() => process.off('unhandledRejection', heard));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'load-tests-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: REMOTES, services: SERVICES, load_tests: [{name: 'hello', service: 'hello', remote: 'laptop', url: 'https://hello.example.com/', vus: 1, duration: '1s'}]}, dir);
+    const app = app_from_config(config);
+    // A folder inside a file is written by nobody: root too, whom a read-only folder does not stop
+    fs.writeFileSync(path.join(dir, 'file'), '');
+    app.state_dir = path.join(dir, 'file', 'data');
+    const servers = await server_start(app);
+    const port = servers.control.address().port;
+    const log = console.log;
+    console.log = function () {};
+    t.after(function () {
+        console.log = log;
+        for (const door of [servers.server, servers.control]) {
+            door.close();
+            door.closeAllConnections();
+        }
+    });
+    // laptop never dialled in, so a run is over as soon as it is asked for
+    const first = await run_ended();
+    assert.deepStrictEqual([first.phase, first.error, first.ended_at === null, first.log_kept], ['error', 'remote laptop is offline — its agent is not dialled in', false, false]);
+    for (const subject of ['load_test_log_write_error', 'load_test_runs_write_error']) {
+        const lines = app.log_lines.filter(v => v.includes(`[${subject}] test=hello run=${first.id} reason="ENOTDIR: `));
+        assert.strictEqual(lines.length, 1, subject);
+    }
+
+    // Each of the two is written by itself: where only the logs' folder cannot be made, the run
+    // is in the file of runs, as one that has no log
+    app.state_dir = path.join(dir, 'data');
+    fs.mkdirSync(app.state_dir);
+    fs.writeFileSync(path.join(app.state_dir, 'load_test_logs'), '');
+    const second = await run_ended();
+    const kept = JSON.parse(fs.readFileSync(path.join(app.state_dir, 'load_test_runs.json'), 'utf8'));
+    assert.deepStrictEqual(kept.runs.map(v => [v.id, v.phase, v.log_kept]), [[first.id, 'error', false], [second.id, 'error', false]]);
+    assert.strictEqual(app.log_lines.filter(v => v.includes('[load_test_runs_write_error]')).length, 1, 'the second run was written down');
+
+    async function run_ended() {
+        const asked = await fetch_host({port, host: 'serviceman.localhost', path: '/api/v1/load-tests/hello/run', method: 'POST'});
+        assert.strictEqual(asked.status, 202);
+        // What is thrown with nobody holding it is heard a turn later
+        await timers.setTimeout(100);
+        assert.deepStrictEqual(unheld, []);
+        const status = await fetch_host({port, host: 'serviceman.localhost', path: '/api/v1/status'});
+        assert.strictEqual(status.status, 200);
+        return JSON.parse(status.body).load_test_runs.find(v => v.id === JSON.parse(asked.body).id);
+    }
+
+    function heard(reason) {
+        unheld.push(reason.message);
+    }
 });
 
 test('a .localhost address is serviceman\'s own name, and no other is', function () {

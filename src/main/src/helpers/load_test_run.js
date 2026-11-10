@@ -68,9 +68,22 @@ function load_test_run(app, test)
         out.ended_at = Date.now();
         out.live = null;
         log_event(app, 'load_test_end', {test: out.test, run: out.id, phase: out.phase, error: out.error});
-        load_test_log_write(app, out);
-        out.log_kept = true;
-        load_test_runs_write(app);
+        // Nobody waits for this chain, so what is thrown here ends the process. A disk that is
+        // full or read-only costs the run its log, or its place in the file, not the process:
+        // each of the two is written by itself, and the one that fails is said.
+        try {
+            load_test_log_write(app, out);
+            out.log_kept = true;
+        }
+        catch (error) {
+            log_event(app, 'load_test_log_write_error', {test: out.test, run: out.id, reason: error.message});
+        }
+        try {
+            load_test_runs_write(app);
+        }
+        catch (error) {
+            log_event(app, 'load_test_runs_write_error', {test: out.test, run: out.id, reason: error.message});
+        }
     });
     return out;
 }

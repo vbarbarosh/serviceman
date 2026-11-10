@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.28 — 2026-11-10
+
+- The end of a load test no longer stops serviceman when its state folder cannot be written:
+  the run's log and the file of runs are each written by itself, and the one that fails is a
+  line in the log (`load_test_log_write_error`, `load_test_runs_write_error`). (SM-177)
+
 ## 1.0.27 — 2026-11-10
 
 - web-terminal no longer stops at one request from whoever reaches its port: an address that
