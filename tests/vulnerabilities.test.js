@@ -79,7 +79,7 @@ test('a machine\'s CVEs are found by its look, shown in its column and tab, and 
     }));
     const servers = await server_start(app);
     const control_port = servers.control.address().port;
-    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore']});
+    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent')})});
     try {
         const remote = app.remote_by_name.vu1;
         await wait_until(() => (remote.state.phase === 'online') && (remote.state.resources !== null) && remote.state.resources.can.includes('package_versions'), 15000);

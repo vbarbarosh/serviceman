@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.61 — 2026-11-10
+
+- `node src/agent/index.js` with no `SERVICEMAN_AGENT_DIR` took `src/agent/` for its folder, and
+  three agents of the suite were started so: every whole run left `src/agent/doors/table.json`
+  and `status.sock` in the checkout, and the next `bin/test` failed its own check. The agent
+  named by its file is the repository too, and keeps its state under `data/agent`, as
+  `node src/agent` does; the three get a folder of their own. Agent 1.33.12. (SM-330)
+
 ## 1.0.60 — 2026-11-10
 
 - Cancel pressed in the first moment of Install updates stopped nothing: serviceman had begun

@@ -188,7 +188,7 @@ test('Check again looks at every machine, and the status carries what it found',
     };
     const servers = await server_start(app);
     const control_port = servers.control.address().port;
-    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', socket, '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore']});
+    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', socket, '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent')})});
     try {
         const remote = app.remote_by_name.ui1;
         await wait_until(() => (remote.state.phase === 'online') && (remote.state.resources !== null) && remote.state.resources.can.includes('security') && remote.state.resources.can.includes('root'), 15000);
@@ -341,7 +341,7 @@ test('a mend is refused for what it does not know, and a machine with no root ha
     const servers = await server_start(app);
     const control_port = servers.control.address().port;
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-security-'));
-    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', path.join(dir, 'no-root.sock'), '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore']});
+    const agent = child_process.spawn(process.execPath, [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', TOKEN, '--root-socket', path.join(dir, 'no-root.sock'), '--ufw', '/nowhere/ufw'], {stdio: ['ignore', 'ignore', 'ignore'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent')})});
     try {
         const remote = app.remote_by_name.ui1;
         await wait_until(() => (remote.state.phase === 'online') && (remote.state.resources !== null) && remote.state.resources.can.includes('security_mend'), 15000);
