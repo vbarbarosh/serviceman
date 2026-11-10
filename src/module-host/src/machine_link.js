@@ -6,6 +6,7 @@ const log_uid = require('../../helpers/log_uid');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const std_line = require('../../helpers/std_line');
 const tunnel_read = require('../../main/src/helpers/tunnel_read');
 
 const TUNNEL_KINDS = ['d', 'e', 'x', 'r'];
@@ -76,13 +77,13 @@ function agent_dial(file)
     const socket = net.connect(file);
     socket.once('connect', function () {
         agent_serve(options, socket, log_uid()).catch(function (error) {
-            console.error(`module-host: the agent's end of the link failed — ${error.message}`);
+            std_line('stderr', `module-host: the agent's end of the link failed — ${error.message}`);
         }).finally(function () {
             setTimeout(() => agent_dial(file), AGAIN_MS);
         });
     });
     socket.once('error', function (error) {
-        console.error(`module-host: the agent could not join — ${error.message}`);
+        std_line('stderr', `module-host: the agent could not join — ${error.message}`);
         setTimeout(() => agent_dial(file), AGAIN_MS);
     });
 }

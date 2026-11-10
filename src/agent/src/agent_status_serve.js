@@ -4,6 +4,7 @@ const agent_status = require('./agent_status');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
+const std_line = require('../../helpers/std_line');
 
 const SOCKET_MODE = 0o600;
 
@@ -26,7 +27,7 @@ function agent_status_serve(status, options)
         });
     });
     out.on('error', function (error) {
-        console.error(`serviceman-agent: the status socket cannot be opened — ${error.message}`);
+        std_line('stderr', `serviceman-agent: the status socket cannot be opened — ${error.message}`);
     });
     // A socket file outlives the process that made it; one nobody answers on is this one's to take
     try {

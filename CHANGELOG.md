@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.30 — 2026-11-10
+
+- serviceman, the agent and Logline's lines server go on when whoever read their stdout is
+  gone (a pipe to `tee`, a supervisor that restarts its reader): the error that comes back for
+  the next line is listened for, and no line is tried there again. Unheard, it ended the
+  process; stderr is kept the same way. Agent 1.33.1. (SM-294)
+
 ## 1.0.29 — 2026-11-10
 
 - A Docker socket that answers 200 with what is no JSON, when a container's shell is opened,

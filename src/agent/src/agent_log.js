@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const std_line = require('../../helpers/std_line');
 
 // The agent says everything on stdout, and writes it to a file as well when it is told where.
 // The installer says `SERVICEMAN_LOG_DIR=<prefix>/logs`, so a machine kept up by systemd keeps
@@ -47,12 +48,12 @@ function agent_log(line)
         }
         catch (error) {
             file_log.dead = true;
-            console.error(`serviceman-agent: the log folder cannot be used — ${error.message}`);
+            std_line('stderr', `serviceman-agent: the log folder cannot be used — ${error.message}`);
             return;
         }
         file_log.stream.on('error', function (error) {
             file_log.dead = true;
-            console.error(`serviceman-agent: the log file cannot be written — ${error.message}`);
+            std_line('stderr', `serviceman-agent: the log file cannot be written — ${error.message}`);
         });
         file_log.day = day;
     }

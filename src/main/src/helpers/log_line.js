@@ -2,6 +2,7 @@ const log_text = require('../../../helpers/log_text');
 const log_trim = require('./log_trim');
 const log_words = require('../../../helpers/log_words');
 const log_write = require('./log_write');
+const std_line = require('../../../helpers/std_line');
 
 const KEEP_LINES = 300;
 const LINE_BYTES = 2000;
@@ -34,7 +35,7 @@ function log_line(app, uid, subject, words)
     if (app.log_lines.length > KEEP_LINES) {
         app.log_lines.splice(0, app.log_lines.length - KEEP_LINES);
     }
-    console.log((app.log_stdout_time === false) ? tail : line);
+    std_line('stdout', (app.log_stdout_time === false) ? tail : line);
 }
 
 module.exports = log_line;

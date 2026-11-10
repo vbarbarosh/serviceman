@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const std_line = require('../../../helpers/std_line');
 
 // One line into the daily file; a day change opens the next file. A file that cannot be
 // written stops the file log, it never stops serviceman.
@@ -21,12 +22,12 @@ function log_write(app, line)
         }
         catch (error) {
             log.dead = true;
-            console.error(`serviceman: the log folder cannot be used — ${error.message}`);
+            std_line('stderr', `serviceman: the log folder cannot be used — ${error.message}`);
             return;
         }
         log.stream.on('error', function (error) {
             log.dead = true;
-            console.error(`serviceman: the log file cannot be written — ${error.message}`);
+            std_line('stderr', `serviceman: the log file cannot be written — ${error.message}`);
         });
         log.day = day;
     }

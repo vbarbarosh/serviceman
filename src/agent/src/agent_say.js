@@ -3,6 +3,7 @@ const agent_log = require('./agent_log');
 const link_send_message = require('../../helpers/link_send_message');
 const log_text = require('../../helpers/log_text');
 const log_words = require('../../helpers/log_words');
+const std_line = require('../../helpers/std_line');
 
 // One line, in the shape every serviceman line has: `[time][group][sender] details`. The group
 // is the attempt this line belongs to, so one dial-in reads as one story on both ends.
@@ -19,7 +20,7 @@ function agent_say(group, sender, details, service)
     const time = new Date().toISOString();
     const tail = `[${group}][${sender}]${(words === '') ? '' : ` ${words}`}`;
     const line = `[${time}]${tail}`;
-    console.log(line);
+    std_line('stdout', line);
     agent_log(line);
     told(group, sender, details, service);
     if (sink.fn !== null) {
