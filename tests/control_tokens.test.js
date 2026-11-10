@@ -345,7 +345,8 @@ test('bad input gets its own status: a body that is not JSON, one too big, a wor
     // The same word wherever an address carries a name: a module's doors, for the owner and for
     // a token, and the shared folders. It names nothing, and each answers as it does for a
     // name that is not there
-    const made = JSON.parse((await call(running, 'POST', '/api/v1/tokens', JSON.stringify({label: 'the notes agent', remotes: ['vps1'], rights: ['files', 'ports']}), running.owner)).body);
+    const made = await token_make(running, {label: 'the notes agent', remotes: ['vps1'], rights: ['files', 'ports'], folders: ['~/notes']});
+    assert.match(made.token, /^sm_[A-Za-z0-9_-]{43}$/, 'the rows below ask with a token of its own');
     const words = [
         ['GET', '/api/v1/remotes/%zz/fs', running.owner],
         ['GET', '/api/v1/remotes/%zz/terminals', running.owner],
@@ -356,7 +357,7 @@ test('bad input gets its own status: a body that is not JSON, one too big, a wor
         ['DELETE', '/api/v1/shared-folders/folders/%zz/mounts/%zz', running.owner],
     ];
     for (const [method, asked, token] of words) {
-        const body = (method === 'PUT') ? '{}' : null;
+        const body = (method === 'PUT') ? {} : null;
         const answer = await call(running, method, asked, body, token);
         const absent = await call(running, method, asked.replaceAll('%zz', 'nosuch'), body, token);
         assert.strictEqual(answer.status, absent.status, `${method} ${asked}: ${answer.status} ${answer.body.slice(0, 120)}`);
