@@ -67,7 +67,13 @@ async function facts_read(app, remote)
     if (remote_can(remote, 'security') === false) {
         throw new Error('its agent is from before the security check; it is asked to update, and is checked again once it has');
     }
-    return await remote_call(app, remote, 'security', {}, FACTS_TIMEOUT_MS);
+    const facts = await remote_call(app, remote, 'security', {}, FACTS_TIMEOUT_MS);
+    // An answer that is no set of facts (an agent of another version's shape, or one gone
+    // hostile) is a part that could not be asked: it says why, and the rest goes on
+    if ((typeof facts !== 'object') || (facts === null) || Array.isArray(facts)) {
+        throw new Error('its agent answered the security check with something that is not its facts');
+    }
+    return facts;
 }
 
 async function ports_read(app, remote)
@@ -75,7 +81,12 @@ async function ports_read(app, remote)
     if (remote_can(remote, 'port_list') === false) {
         throw new Error('its agent is from before the port list');
     }
-    return await remote_call(app, remote, 'port_list', {}, PORTS_TIMEOUT_MS);
+    const ports = await remote_call(app, remote, 'port_list', {}, PORTS_TIMEOUT_MS);
+    // As with the facts: no list of ports is ports that could not be read, never no port open
+    if ((typeof ports !== 'object') || (ports === null) || (Array.isArray(ports.items) === false)) {
+        throw new Error('its agent answered the port list with something that is not its ports');
+    }
+    return ports;
 }
 
 async function firewall_read(app, remote)

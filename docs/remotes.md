@@ -504,7 +504,8 @@ one; without one, the agent reads sshd's files where it may, and says which it m
 support, from `/etc/os-release` and the machine's own `distro-info` list; whether
 unattended-upgrades is installed and `APT::Periodic::Unattended-Upgrade` set; the containers
 Docker runs and the ports they publish. An agent from before 1.29.0 says none of it, and its
-row says so until it updates.
+row says so until it updates. A part an agent's answer lacks, or holds as something else than
+the check reads, is grey, **not read**, and says so; nothing is guessed from it.
 
 **What a click mends,** through the machine's root half, the button saying what it does while
 it does it, the check as the look after it finds it:

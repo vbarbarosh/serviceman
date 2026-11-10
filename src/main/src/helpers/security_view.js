@@ -1,3 +1,4 @@
+const log_event = require('./log_event');
 const security_checks = require('./security_checks');
 const vulnerabilities_view = require('./vulnerabilities_view');
 
@@ -28,7 +29,18 @@ function security_view(app, remotes, now)
             return out;
         }
         // A machine away keeps its last look, said as old: nothing of it can be asked now
-        out.checks = security_checks(seen, (view.machine === null) ? null : view.machine.updates, now, vulnerabilities_view(app, view.name, seen.vulnerabilities));
+        try {
+            out.checks = security_checks(seen, (view.machine === null) ? null : view.machine.updates, now, vulnerabilities_view(app, view.name, seen.vulnerabilities));
+        }
+        catch (error) {
+            // A look no checks can be made of costs this machine its row, never every machine
+            // its status. It is kept from here on as a look that broke: said once in the log,
+            // not again with every status asked, and gone with the next look, not with a restart.
+            out.error = `what it answered could not be read: ${error.message}`;
+            app.security.seen.set(view.name, {at: seen.at, error: out.error});
+            log_event(app, 'security_view_error', {remote: view.name, reason: error.message});
+            return out;
+        }
         const states = out.checks.map(v => v.state);
         out.state = ['bad', 'warn', 'ok'].find(v => states.includes(v)) || 'none';
         return out;

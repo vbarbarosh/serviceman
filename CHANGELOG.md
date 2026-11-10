@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.38 — 2026-11-10
+
+- A machine whose agent answers the security check with a part missing or of another shape is
+  shown with that check grey, "not read", and why; an answer that is no facts at all is a part
+  that could not be asked. One that still breaks a check costs that machine its row, said once
+  as `security_view_error`. Before, one such answer made every status answer a 500 until
+  serviceman restarted. (SM-178)
+
 ## 1.0.37 — 2026-11-10
 
 - A folder's copy between machines takes from the source's walk only paths under the folder:

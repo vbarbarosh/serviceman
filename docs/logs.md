@@ -477,6 +477,7 @@ list, in a bar under its header and first on its Health page.
 | `problems_check_error`   | A machine could not be looked at, and why; what was wrong there stays.  |
 | `security_checked`       | The Security page looked at a machine: `ports=` it listens on, `knocked=` from outside, `answered=`, or `not_knocked=` why not. |
 | `security_check_error`   | The look at a machine broke, and why; its row says the same.            |
+| `security_view_error`    | No checks could be made of what a machine's look found, and why: said once, its row says the same until the next look, and the other machines keep theirs. |
 | `security_mended`        | A click on the Security page mended a machine: `mend=` what (`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`). |
 | `security_mend_error`    | That mend failed, and why (sshd refused the file, no root half…); its check says the same. |
 | `vulnerabilities_seen`   | The problems bar was closed on new critical CVEs: `remotes=` whose are seen now, for every page. |

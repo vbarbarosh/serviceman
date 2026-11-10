@@ -153,6 +153,9 @@ function ssh_check(seen)
         return check('ssh', 'SSH', 'none', 'not read', seen.errors.facts, null);
     }
     const ssh = seen.facts.ssh;
+    if (is_part(ssh) === false) {
+        return check('ssh', 'SSH', 'none', 'not read', unread_line('ssh'), null);
+    }
     if (ssh.installed === false) {
         return check('ssh', 'SSH', 'ok', 'no sshd', 'No ssh server is installed: nobody signs in over ssh.', null);
     }
@@ -169,6 +172,10 @@ function ssh_check(seen)
         const lines = [`${setting} (${how}): anyone may try passwords.`, tried, sign_ins_line(seen.facts.sign_ins), fix];
         const mend = (able === null) ? {key: 'ssh_passwords_off', label: 'Turn passwords off', doing: 'Turning passwords off…', confirm: shut_out_said(seen.facts.sign_ins)} : null;
         return check('ssh', 'SSH', 'bad', 'passwords on', lines.filter(v => v !== null).join('\n'), (mend === null) ? 'shell' : null, mend);
+    }
+    // Keys only is the answer's word that passwords are off, never its silence
+    if (ssh.password !== false) {
+        return check('ssh', 'SSH', 'none', 'not read', unread_line('ssh'), null);
     }
     const root = (ssh.root_login === 'yes') ? ' Root may sign in, with a key.' : ((ssh.root_login === 'no') ? ' Root may not sign in.' : '');
     const own = (seen.facts.own_file === true) ? 'Passwords are off by /etc/ssh/sshd_config.d/00-no-passwords.conf, the file Turn passwords off writes.' : null;
@@ -197,6 +204,9 @@ function sign_ins_line(sign_ins)
     if (sign_ins.error !== undefined) {
         return `Sign-ins not counted: ${sign_ins.error}`;
     }
+    if (Array.isArray(sign_ins.users) === false) {
+        return `Sign-ins not counted: ${unread_line('sign_ins')}`;
+    }
     if (sign_ins.users.length === 0) {
         return `Nobody signed in over ssh in the last ${sign_ins.days} days.`;
     }
@@ -212,7 +222,7 @@ function sign_ins_line(sign_ins)
 // ssh shuts them out; the machine's Shell, over the agent's link, does not
 function shut_out_said(sign_ins)
 {
-    if ((sign_ins === null) || (sign_ins === undefined) || (sign_ins.users === undefined)) {
+    if ((sign_ins === null) || (sign_ins === undefined) || (Array.isArray(sign_ins.users) === false)) {
         return null;
     }
     const shut = sign_ins.users.filter(v => (v.password > 0) && (v.key === 0)).map(v => v.user);
@@ -229,6 +239,9 @@ function failures_line(failures)
     }
     if (failures.error !== undefined) {
         return `Failed sign-in tries not counted: ${failures.error}`;
+    }
+    if ((typeof failures.count !== 'number') || (typeof failures.addresses !== 'number') || (Array.isArray(failures.top) === false)) {
+        return `Failed sign-in tries not counted: ${unread_line('failures')}`;
     }
     if (failures.count === 0) {
         return `No failed sign-in try in the last ${failures.hours} hours.`;
@@ -253,8 +266,12 @@ function auto_check(seen)
         return check('auto', 'Auto updates', 'none', 'not read', seen.errors.facts, null);
     }
     const auto = seen.facts.auto_updates;
-    if ((auto === null) || (auto === undefined)) {
+    if (auto === null) {
         return check('auto', 'Auto updates', 'none', 'not apt', 'Not a machine apt updates: nothing here to read.', null);
+    }
+    // On is the answer's word, never its silence
+    if ((is_part(auto) === false) || (typeof auto.on !== 'boolean')) {
+        return check('auto', 'Auto updates', 'none', 'not read', unread_line('auto_updates'), null);
     }
     const able = mend_able(seen);
     const mend = (able === null) ? {key: 'auto_updates_on', label: 'Turn on', doing: 'Turning on…', confirm: null} : null;
@@ -275,14 +292,21 @@ function system_check(seen, now)
         return check('system', 'System', 'none', 'not read', seen.errors.facts, null);
     }
     const os = seen.facts.os;
-    if ((os === null) || (os === undefined)) {
+    if (os === null) {
         return check('system', 'System', 'none', 'not known', 'The machine has no /etc/os-release.', null);
+    }
+    if (is_part(os) === false) {
+        return check('system', 'System', 'none', 'not read', unread_line('os'), null);
     }
     const version = os.version || os.id || 'unknown';
     if (os.eol === null) {
         return check('system', 'System', 'none', version, `${os.name}: the machine does not say when its support ends.`, null);
     }
     const ends = Date.parse(`${os.eol}T00:00:00Z`);
+    // Supported is said up to a day the answer names, never where it names none
+    if (Number.isNaN(ends)) {
+        return check('system', 'System', 'none', 'not read', unread_line('os'), null);
+    }
     const extended = (os.eol_extended === null) ? '' : ` Extended security support (${(os.id === 'ubuntu') ? 'Ubuntu Pro' : 'LTS'}) runs to ${os.eol_extended}, where it is on.`;
     if (ends <= now) {
         return check('system', 'System', 'bad', `${version} · ended`, `${os.name}: standard support ended ${os.eol}.${extended} A newer release gets its updates again.`, null);
@@ -334,6 +358,20 @@ function list_line(cves)
     const written = ((list === null) || (list.generated === null)) ? '' : `, written ${list.generated.replace('T', ' ').slice(0, 16)} UTC`;
     const failed = ((list !== null) && (list.error !== null)) ? ` The last read failed: ${list.error}.` : '';
     return `Held against Ubuntu's list of critical CVEs for ${cves.codename}${written}, running kernel ${cves.kernel}.${failed}`;
+}
+
+// Whether a part of a machine's answer is an object to read. An agent of another version's
+// shape, or one gone hostile, may leave a part out, or put a number, a text or a list in its
+// place: such a part is not read, as one that could not be asked is not, and never thrown on.
+function is_part(value)
+{
+    return (typeof value === 'object') && (value !== null) && (Array.isArray(value) === false);
+}
+
+// Why a part like that is not read, as the detail of its check
+function unread_line(part)
+{
+    return `its agent's answer has no ${part} part this check can read`;
 }
 
 // mend: what a click mends here, {key, label, doing, confirm}, or null; tab: the tab of the

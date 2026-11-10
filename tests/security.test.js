@@ -4,6 +4,9 @@ const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
+const http = require('http');
+const link_read = require('../src/helpers/link_read');
+const link_send_message = require('../src/helpers/link_send_message');
 const net = require('net');
 const os = require('os');
 const path = require('path');
@@ -15,6 +18,7 @@ const timers = require('timers/promises');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = '0123456789abcdef0123456789abcdef';
+const TOKEN2 = 'fedcba9876543210fedcba9876543210';
 const NOW = Date.parse('2026-10-27T18:00:00Z');
 const KEYS = ['open', 'firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'];
 
@@ -104,6 +108,47 @@ test('what cannot be read is grey, and says why', function () {
     assert.deepStrictEqual([none[2].state, none[2].text], ['ok', 'no sshd']);
 });
 
+// A machine's answer is its agent's word, and an agent of another version's shape, or one gone
+// hostile, may leave a part out or put something else in its place. Such a part is grey as one
+// that could not be asked is, says so, and nothing is guessed from it: not keys only, not on,
+// not supported. What the agent means by null (no apt, no /etc/os-release) stays its own word.
+test('a part the answer lacks, or has as something else, is grey and says so, and no check is thrown', function () {
+    const whole = security_checks(seen_of({}), null, NOW).map(v => [v.state, v.text]);
+    for (const wrong of [undefined, 5, 'on', true, [], {}]) {
+        for (const part of ['ssh', 'auto_updates', 'os']) {
+            const checks = security_checks(seen_of({facts: facts({[part]: wrong})}), null, NOW);
+            const found = checks[{ssh: 2, auto_updates: 4, os: 5}[part]];
+            assert.deepStrictEqual([found.state, found.text, found.detail, found.tab, found.mend], ['none', 'not read', unread(part), null, null], `${part}: ${JSON.stringify(wrong)}`);
+            assert.strictEqual(checks.filter((v, i) => v.state !== whole[i][0]).length, 1, 'the other checks say what they said');
+        }
+        // What only adds a line to a check, or a button: the check stands, the line says why not
+        for (const part of ['root', 'failures', 'sign_ins', 'own_file', 'docker', 'firewall']) {
+            const checks = security_checks(seen_of({can_mend: true, rows: [row(22, 'tcp', {knock: 'answered'})], facts: facts({ssh: ssh({password: true}), [part]: wrong})}), null, NOW);
+            assert.deepStrictEqual(checks.map(v => v.state), ['ok', 'ok', 'bad', 'none', 'ok', 'ok', 'none'], `${part}: ${JSON.stringify(wrong)}`);
+        }
+    }
+    const empty = security_checks(seen_of({facts: {}}), null, NOW);
+    assert.deepStrictEqual(empty.map(v => [v.state, v.text]), [['ok', 'nothing'], ['ok', 'on'], ['none', 'not read'], ['none', 'not counted'], ['none', 'not read'], ['none', 'not read'], ['none', 'not read']]);
+    assert.deepStrictEqual(security_checks(seen_of({facts: facts({ssh: null})}), null, NOW)[2].detail, unread('ssh'));
+    const meant = security_checks(seen_of({facts: facts({auto_updates: null, os: null})}), null, NOW);
+    assert.deepStrictEqual([meant[4].text, meant[5].text], ['not apt', 'not known'], 'null is the agent\'s word for a machine with none');
+
+    // sshd read, yet no word on passwords; a release whose last day is no day
+    const silent = security_checks(seen_of({facts: facts({ssh: {installed: true, read: 'files'}, os: {id: 'ubuntu', version: '24.04', name: 'Ubuntu 24.04', eol: 'soon'}})}), null, NOW);
+    assert.deepStrictEqual([silent[2].state, silent[2].text, silent[5].state, silent[5].text], ['none', 'not read', 'none', 'not read']);
+
+    // Passwords on, and counts that are no counts: the check is red all the same, each count says why not
+    for (const wrong of [5, 'on', true, [], {}, {count: 3}, {users: 5}]) {
+        const found = security_checks(seen_of({can_mend: true, facts: facts({ssh: ssh({password: true}), failures: wrong, sign_ins: wrong})}), null, NOW)[2];
+        assert.deepStrictEqual([found.state, found.text, found.mend.confirm], ['bad', 'passwords on', null], JSON.stringify(wrong));
+        assert.ok(found.detail.includes(`\nFailed sign-in tries not counted: ${unread('failures')}\nSign-ins not counted: ${unread('sign_ins')}\n`), found.detail);
+    }
+
+    function unread(part) {
+        return `its agent's answer has no ${part} part this check can read`;
+    }
+});
+
 test('passwords by keyboard-interactive count as passwords; a release ending within half a year is orange', function () {
     const january = Date.parse('2027-01-04T09:00:00Z');
     const checks = security_checks(seen_of({facts: facts({ssh: ssh({password: false, kbd_interactive: true, use_pam: true, root_login: 'yes'}), os: {id: 'ubuntu', version: '22.04', name: 'Ubuntu 22.04.5 LTS', codename: 'jammy', eol: '2027-06-01', eol_extended: '2032-04-09'}})}), null, january);
@@ -187,6 +232,78 @@ test('Check again looks at every machine, and the status carries what it found',
     }
 });
 
+// A machine whose agent answers the security check with something else than its facts: an
+// agent of another version's shape, or one gone hostile. serviceman kept that answer and made
+// the page's checks of it with every status asked, so one such machine cost every machine its
+// status, and went on costing it after the machine had left, until serviceman was restarted.
+test('a machine that answers the security check with something else is not read, and the status goes on for every machine', async function (t) {
+    const running = await serviceman_start(t);
+    const not_facts = 'its agent answered the security check with something that is not its facts';
+    const no_part = 'its agent\'s answer has no ssh part this check can read';
+    const said = {methods: ['security'], value: {}};
+    const socket = await agent_fake(running.control_port, said);
+    t.after(() => socket.destroy());
+    const remote = running.app.remote_by_name.vps1;
+    await wait_until(() => remote.state.phase === 'online', 5000);
+    const shapes = [{value: {}, why: no_part}, {value: null, why: not_facts}, {value: 'on', why: not_facts}, {value: 5, why: not_facts}, {value: [], why: not_facts}, {value: undefined, why: not_facts}, {value: {ssh: 5}, why: no_part}, {value: {ssh: null, firewall: 'on'}, why: no_part}];
+    for (const shape of shapes) {
+        const checks = await checks_looked(shape.value);
+        assert.deepStrictEqual(checks.filter(v => ['ssh', 'auto', 'system'].includes(v.key)).map(v => [v.state, v.text]), [['none', 'not read'], ['none', 'not read'], ['none', 'not read']], JSON.stringify(shape.value));
+        assert.strictEqual(checks.find(v => v.key === 'ssh').detail, shape.why, JSON.stringify(shape.value));
+    }
+    // Its port list answered so too: no list of ports is ports not read, never no port open
+    said.methods.push('port_list');
+    for (const value of [{}, null, 'on', undefined]) {
+        const open = (await checks_looked(value)).find(v => v.key === 'open');
+        assert.deepStrictEqual([open.state, open.text, open.detail], ['none', 'not read', 'Its ports could not be read: its agent answered the port list with something that is not its ports'], JSON.stringify(value));
+    }
+    // The machine leaves: its last look stays, and so does everybody's status
+    socket.destroy();
+    await wait_until(() => remote.state.phase === 'offline', 5000);
+    const after = await answer_read(running, '/api/v1/status');
+    assert.deepStrictEqual(after.security.rows.map(v => [v.remote, v.phase, v.checks.length]), [['vps1', 'offline', 7], ['vps2', 'offline', 0]]);
+    assert.deepStrictEqual(running.app.log_lines.filter(v => /\[(serviceman_error|security_view_error|security_check_error)\]/.test(v)), []);
+
+    // vps1 looked at again while its agent answers with this, as the status then shows it
+    async function checks_looked(value) {
+        const before = running.app.security.seen.get('vps1');
+        said.value = value;
+        await control(running.control_port, 'POST', '/api/v1/security/check');
+        await wait_until(() => (running.app.security.seen.get('vps1') !== before) && (running.app.security.running.size === 0), 5000);
+        const rows = (await answer_read(running, '/api/v1/status')).security.rows;
+        assert.deepStrictEqual(rows.map(v => [v.remote, v.error, v.checks.length]), [['vps1', null, 7], ['vps2', null, 0]], JSON.stringify(value));
+        return rows[0].checks;
+    }
+});
+
+// A look the checks still cannot be made of, for a reason nobody foresaw, costs that machine its
+// row and nobody else anything. It is said once in the log, however often the status is asked,
+// and kept as a look that broke: the next look takes its place, not a restart.
+test('a look no checks can be made of costs that machine its row, and is said once in the log', async function (t) {
+    const running = await serviceman_start(t);
+    const app = running.app;
+    app.security.seen.set('vps1', seen_of({rows: null}));
+    app.security.seen.set('vps2', seen_of({}));
+    const why = 'what it answered could not be read: Cannot read properties of null (reading \'filter\')';
+    for (const pathname of ['/api/v1/status', '/api/v1/status', '/api/v1/security', '/api/v1/status']) {
+        const answer = await answer_read(running, pathname);
+        const rows = (pathname === '/api/v1/status') ? answer.security.rows : answer.rows;
+        assert.deepStrictEqual(rows.map(v => [v.remote, v.at, v.state, v.error, v.checks.length]), [['vps2', NOW, 'ok', null, 7], ['vps1', NOW, 'none', why, 0]]);
+    }
+    assert.deepStrictEqual(app.log_lines.filter(v => v.includes('[security_view_error]')).map(v => v.replace(/^.*\[security_view_error\] /, '')), ['remote=vps1 reason="Cannot read properties of null (reading \'filter\')"']);
+    assert.deepStrictEqual(app.security.seen.get('vps1'), {at: NOW, error: why}, 'kept as a look that broke');
+
+    // Parts whose insides are something else, down to what no check names: never the status
+    const inside = [null, 5, 'on', [null], {users: [null], top: [null], count: 1, addresses: 1}, {users: [5], top: [5], count: 1, addresses: 1, days: {}, hours: []}];
+    for (const wrong of inside) {
+        for (const part of ['root', 'os', 'ssh', 'failures', 'sign_ins', 'own_file', 'auto_updates', 'docker']) {
+            app.security.seen.set('vps1', seen_of({can_mend: true, facts: facts({ssh: ssh({password: true}), [part]: wrong})}));
+            const answer = await answer_read(running, '/api/v1/security');
+            assert.strictEqual(answer.rows.find(v => v.remote === 'vps2').checks.length, 7, `${part}: ${JSON.stringify(wrong)}`);
+        }
+    }
+});
+
 // A click mends what the machine's root half can: ssh's passwords off, asking first where
 // someone came in only by password; passwords on again where the page's own file turned them
 // off; automatic updates on. An agent from before, or no root half, opens the tab instead.
@@ -253,6 +370,67 @@ test('a mend is refused for what it does not know, and a machine with no root ha
         fs.rmSync(dir, {recursive: true, force: true});
     }
 });
+
+// A serviceman of two machines, vps1 and vps2, neither dialled in yet; closed with the test
+async function serviceman_start(t)
+{
+    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}], services: []}, __dirname);
+    const app = app_from_config(config);
+    const servers = await server_start(app);
+    t.after(function () {
+        for (const item of app.remotes) {
+            if (item.state.socket !== null) {
+                item.state.socket.destroy();
+            }
+        }
+        for (const door of [servers.server, servers.control, servers.socket]) {
+            if ((door !== null) && (door !== undefined)) {
+                door.close();
+                door.closeAllConnections();
+            }
+        }
+    });
+    return {app, control_port: servers.control.address().port};
+}
+
+// What a GET of the control page's answers with. Where serviceman broke on it, the test fails
+// on what serviceman's log says of it.
+async function answer_read(running, pathname)
+{
+    const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: pathname});
+    const broke = running.app.log_lines.filter(v => v.includes('[serviceman_error]')).map(v => v.replace(/^.*\[serviceman_error\] /, ''));
+    assert.strictEqual(answer.status, 200, `GET ${pathname}: ${broke[broke.length - 1]}`);
+    return JSON.parse(answer.body);
+}
+
+// vps1's agent played by hand: it dials in, says hello as an agent that can be asked `security`
+// and `port_list` and nothing else, and answers those of them `said.methods` names with what
+// `said.value` holds by then, whatever it is (undefined is an answer with no value at all), and
+// anything else with a refusal. Answers its end of the link.
+function agent_fake(port, said)
+{
+    return new Promise(function (resolve, reject) {
+        const request = http.request({host: '127.0.0.1', port, path: '/api/v1/remote', headers: {connection: 'Upgrade', upgrade: 'serviceman', authorization: `Bearer ${TOKEN}`}});
+        request.on('upgrade', function (answer, socket) {
+            link_read(socket, function (kind, body) {
+                const message = (kind === 'm') ? JSON.parse(body.toString('utf8')) : {};
+                if (message.type === 'call') {
+                    link_send_message(socket, said.methods.includes(message.method) ? {type: 'reply', id: message.id, ok: true, value: said.value} : {type: 'reply', id: message.id, ok: false, error: `no ${message.method} here`});
+                }
+            });
+            socket.on('error', function () {});
+            link_send_message(socket, {
+                type: 'hello',
+                agent: '1.33.1',
+                resources: {hostname: 'vps1', platform: 'linux', arch: 'x64', node: process.version, docker: null, can: ['security', 'port_list'], addresses: [], cpu: {count: 1}, mem: {total: 1024*1024*1024}, disk: {path: '/', total: 1024*1024*1024, free: 1024*1024}},
+                stats: {mem_free: 1024*1024, disk_free: 1024*1024, uptime_ms: 1000, load: [0, 0, 0]},
+            });
+            resolve(socket);
+        });
+        request.on('error', reject);
+        request.end();
+    });
+}
 
 // What security_of_remote answers of a machine, with the given parts in place of the defaults:
 // one Ubuntu 24.04 VPS at 203.0.113.7 with ufw on, keys only and nothing knocked yet
