@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.54 — 2026-11-10
+
+- The tutorial "A coding agent on a machine" said the Shell ends when its tab closes, and put
+  the build and the coding agent into tmux under a systemd scope. A terminal of the Shell tab
+  is kept by the machine: the tutorial opens one with **+** and runs both in it, and says what
+  outlives the page, the link and a restart of the agent. (SM-315)
+
 ## 1.0.53 — 2026-11-10
 
 - The agent read how much of an upload in parts is there with `stat`: through a link under the

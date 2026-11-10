@@ -10,7 +10,7 @@ What you have at the end:
 - ai-box set up and built on the machine
 - the project cloned there, with a key that may push to that repository and no other
 - a coding agent in it that goes on when the page is closed, the link drops or the ServiceMan
-  agent restarts, and that you attach to again from any browser
+  agent restarts, and that you join again from any browser
 
 ## Before you start
 
@@ -20,14 +20,16 @@ What you have at the end:
   as. ai-box runs as that user and needs no root after setup.
 - Write access to the repository on GitHub, to add a key to it.
 
-Open `vps1` on the control page, then its **Shell** tab. The Shell is a login shell in the
-agent user's home. It ends when the tab closes, so anything long (a build) goes into tmux, as
-in step 2.
+Open `vps1` on the control page, then its **Shell** tab, and press **+**: that opens a
+terminal, a login shell in the agent user's home. A terminal is kept running by the machine,
+not by the page: closing the tab or the browser leaves it as it is, and the Shell tab shows it
+again later, with what it printed meanwhile. It ends when its shell does (`exit`) or with the
+**×** on its tab. [Terminals from another program](../terminals.md) says how they are kept.
 
 ## 1. Set up ai-box
 
 ```
-sudo apt install -y git tmux
+sudo apt install -y git
 git clone https://github.com/vbarbarosh/ai-box ~/ai-box
 ~/ai-box/bin/configure
 ```
@@ -39,14 +41,15 @@ already there. `~/ai-box/bin/self-check` lists what is still missing without cha
 
 ## 2. Build the image
 
-The build takes a while, longer than a Shell tab is worth keeping open. Run it in tmux:
+The build takes a while:
 
 ```
-tmux new -s build '~/ai-box/bin/build; read -p "done, Enter to close"'
+~/ai-box/bin/build
 ```
 
-Close the tab if you like; open the Shell again later and `tmux attach -t build`. The image is
-called `ai-box`. Rebuild it often, since Claude and Codex change every few days:
+Close the page if you like: the terminal goes on, and the Shell tab shows it again later with
+what the build printed, the last megabyte of it. The image is called `ai-box`. Rebuild it
+often, since Claude and Codex change every few days:
 
 ```
 cd ~/ai-box && git pull && bin/build
@@ -148,48 +151,33 @@ Leave Claude with `/exit`: the box closes with it. A box opened with a bare `bin
 
 ## 6. Start the agent so it stays
 
-A coding agent in the Shell ends when the Shell does. Run it in tmux instead, and start tmux in
-a systemd scope of its own:
+The coding agent gets a terminal of its own: press **+** in the Shell tab, and in the terminal
+that opens:
 
 ```
-systemd-run --user --scope --unit=ai-space-worlds-game \
-    tmux -L space-worlds-game new -d -s main -c ~/work/space-worlds-game
-tmux -L space-worlds-game attach
-```
-
-and in the terminal that opens:
-
-```
+cd ~/work/space-worlds-game
 ~/ai-box/bin/run claude
 ```
 
-- **tmux** keeps the terminal when nobody is attached: the agent goes on working with the tab
-  closed, and an attach shows the whole screen as it is now, not the fragments of what was
-  printed meanwhile.
-- **The scope** takes tmux out of the ServiceMan agent's own unit. Without it, tmux started
-  from the Shell belongs to that unit, and stopping the unit would end the coding agent with it.
-- **`-L space-worlds-game`** gives the project a tmux server of its own, so it sits in its own
-  scope however many other tmux sessions the machine has.
+- **The machine keeps the terminal**, not the page: the agent goes on working with the tab
+  closed and the link down.
+- **A restart leaves it running**, of serviceman and of the ServiceMan agent alike: the
+  terminal belongs to a small process of its own, which neither of them takes along.
+- **Joining it again** shows what it printed meanwhile, the last megabyte of it, and the page
+  scrolls back through it.
 
-If `systemd-run` says `Failed to connect to bus`, the Shell has no `XDG_RUNTIME_DIR`:
-`export XDG_RUNTIME_DIR=/run/user/$(id -u)` and run it again.
+No tmux is needed for any of this.
 
-Leave it running: **Ctrl-b d** detaches, or just close the tab. Later, from any browser, the
-Shell tab again and:
+Leave it running: just close the tab. Later, from any browser, open `vps1` and its **Shell**
+tab again: every terminal of the machine has a tab there, whoever opened it.
 
-```
-tmux -L space-worlds-game attach
-```
-
-When Claude exits, the shell in the project folder is still there; `exit` there ends the
-session, the tmux server and the scope. `tmux -L space-worlds-game ls` says whether it is
-running, and `systemctl --user status ai-space-worlds-game.scope` shows it with everything
-it runs, the box and the containers inside it included.
+When Claude exits, the shell in the project folder is still there; `exit` there, or the **×**
+on the tab, ends the terminal.
 
 ## 7. Push
 
 ai-box opens `.git` read-only, so the agent changes files and you make the commits, in a second
-tmux window (**Ctrl-b c**, and **Ctrl-b n** to go back) or a second Shell tab:
+terminal (**+** in the Shell tab):
 
 ```
 cd ~/work/space-worlds-game

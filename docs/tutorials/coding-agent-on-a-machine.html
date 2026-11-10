@@ -725,7 +725,7 @@ your own in its place.</p>
 <li>ai-box set up and built on the machine</li>
 <li>the project cloned there, with a key that may push to that repository and no other</li>
 <li>a coding agent in it that goes on when the page is closed, the link drops or the ServiceMan
-agent restarts, and that you attach to again from any browser</li>
+agent restarts, and that you join again from any browser</li>
 </ul>
 <h2 id="before-you-start"><a class="anchor" href="#before-you-start" aria-hidden="true" tabindex="-1">#</a>Before you start</h2>
 <ul>
@@ -735,11 +735,13 @@ and the command from its <strong>Install</strong> tab. Here it is called <code>v
 as. ai-box runs as that user and needs no root after setup.</li>
 <li>Write access to the repository on GitHub, to add a key to it.</li>
 </ul>
-<p>Open <code>vps1</code> on the control page, then its <strong>Shell</strong> tab. The Shell is a login shell in the
-agent user&#39;s home. It ends when the tab closes, so anything long (a build) goes into tmux, as
-in step 2.</p>
+<p>Open <code>vps1</code> on the control page, then its <strong>Shell</strong> tab, and press <strong>+</strong>: that opens a
+terminal, a login shell in the agent user&#39;s home. A terminal is kept running by the machine,
+not by the page: closing the tab or the browser leaves it as it is, and the Shell tab shows it
+again later, with what it printed meanwhile. It ends when its shell does (<code>exit</code>) or with the
+<strong>×</strong> on its tab. <a href="../terminals.html">Terminals from another program</a> says how they are kept.</p>
 <h2 id="1-set-up-ai-box"><a class="anchor" href="#1-set-up-ai-box" aria-hidden="true" tabindex="-1">#</a>1. Set up ai-box</h2>
-<pre><code>sudo apt install -y git tmux
+<pre><code>sudo apt install -y git
 git clone https://github.com/vbarbarosh/ai-box ~/ai-box
 ~/ai-box/bin/configure
 </code></pre>
@@ -748,11 +750,12 @@ grants your user the subuids. Run it as yourself, not under <code>sudo</code>: i
 once, and only when something is missing. Running it again changes nothing and says what is
 already there. <code>~/ai-box/bin/self-check</code> lists what is still missing without changing anything.</p>
 <h2 id="2-build-the-image"><a class="anchor" href="#2-build-the-image" aria-hidden="true" tabindex="-1">#</a>2. Build the image</h2>
-<p>The build takes a while, longer than a Shell tab is worth keeping open. Run it in tmux:</p>
-<pre><code>tmux new -s build &#39;~/ai-box/bin/build; read -p &quot;done, Enter to close&quot;&#39;
+<p>The build takes a while:</p>
+<pre><code>~/ai-box/bin/build
 </code></pre>
-<p>Close the tab if you like; open the Shell again later and <code>tmux attach -t build</code>. The image is
-called <code>ai-box</code>. Rebuild it often, since Claude and Codex change every few days:</p>
+<p>Close the page if you like: the terminal goes on, and the Shell tab shows it again later with
+what the build printed, the last megabyte of it. The image is called <code>ai-box</code>. Rebuild it
+often, since Claude and Codex change every few days:</p>
 <pre><code>cd ~/ai-box &amp;&amp; git pull &amp;&amp; bin/build
 </code></pre>
 <p>Its logins, history and image store are in <code>~/ai-box/data/</code>, which a pull and a build leave
@@ -821,37 +824,27 @@ in from now on. Another machine logs in on its own; copying the files over is wh
 synced files are for, and they are not built yet (<a href="https://github.com/vbarbarosh/serviceman/blob/main/notes/terminal-services.md">terminal services</a>).</p>
 <p>Leave Claude with <code>/exit</code>: the box closes with it. A box opened with a bare <code>bin/run</code> closes with <code>exit</code>.</p>
 <h2 id="6-start-the-agent-so-it-stays"><a class="anchor" href="#6-start-the-agent-so-it-stays" aria-hidden="true" tabindex="-1">#</a>6. Start the agent so it stays</h2>
-<p>A coding agent in the Shell ends when the Shell does. Run it in tmux instead, and start tmux in
-a systemd scope of its own:</p>
-<pre><code>systemd-run --user --scope --unit=ai-space-worlds-game \
-    tmux -L space-worlds-game new -d -s main -c ~/work/space-worlds-game
-tmux -L space-worlds-game attach
-</code></pre>
-<p>and in the terminal that opens:</p>
-<pre><code>~/ai-box/bin/run claude
+<p>The coding agent gets a terminal of its own: press <strong>+</strong> in the Shell tab, and in the terminal
+that opens:</p>
+<pre><code>cd ~/work/space-worlds-game
+~/ai-box/bin/run claude
 </code></pre>
 <ul>
-<li><strong>tmux</strong> keeps the terminal when nobody is attached: the agent goes on working with the tab
-closed, and an attach shows the whole screen as it is now, not the fragments of what was
-printed meanwhile.</li>
-<li><strong>The scope</strong> takes tmux out of the ServiceMan agent&#39;s own unit. Without it, tmux started
-from the Shell belongs to that unit, and stopping the unit would end the coding agent with it.</li>
-<li><strong><code>-L space-worlds-game</code></strong> gives the project a tmux server of its own, so it sits in its own
-scope however many other tmux sessions the machine has.</li>
+<li><strong>The machine keeps the terminal</strong>, not the page: the agent goes on working with the tab
+closed and the link down.</li>
+<li><strong>A restart leaves it running</strong>, of serviceman and of the ServiceMan agent alike: the
+terminal belongs to a small process of its own, which neither of them takes along.</li>
+<li><strong>Joining it again</strong> shows what it printed meanwhile, the last megabyte of it, and the page
+scrolls back through it.</li>
 </ul>
-<p>If <code>systemd-run</code> says <code>Failed to connect to bus</code>, the Shell has no <code>XDG_RUNTIME_DIR</code>:
-<code>export XDG_RUNTIME_DIR=/run/user/$(id -u)</code> and run it again.</p>
-<p>Leave it running: <strong>Ctrl-b d</strong> detaches, or just close the tab. Later, from any browser, the
-Shell tab again and:</p>
-<pre><code>tmux -L space-worlds-game attach
-</code></pre>
-<p>When Claude exits, the shell in the project folder is still there; <code>exit</code> there ends the
-session, the tmux server and the scope. <code>tmux -L space-worlds-game ls</code> says whether it is
-running, and <code>systemctl --user status ai-space-worlds-game.scope</code> shows it with everything
-it runs, the box and the containers inside it included.</p>
+<p>No tmux is needed for any of this.</p>
+<p>Leave it running: just close the tab. Later, from any browser, open <code>vps1</code> and its <strong>Shell</strong>
+tab again: every terminal of the machine has a tab there, whoever opened it.</p>
+<p>When Claude exits, the shell in the project folder is still there; <code>exit</code> there, or the <strong>×</strong>
+on the tab, ends the terminal.</p>
 <h2 id="7-push"><a class="anchor" href="#7-push" aria-hidden="true" tabindex="-1">#</a>7. Push</h2>
 <p>ai-box opens <code>.git</code> read-only, so the agent changes files and you make the commits, in a second
-tmux window (<strong>Ctrl-b c</strong>, and <strong>Ctrl-b n</strong> to go back) or a second Shell tab:</p>
+terminal (<strong>+</strong> in the Shell tab):</p>
 <pre><code>cd ~/work/space-worlds-game
 git status
 git add -p
