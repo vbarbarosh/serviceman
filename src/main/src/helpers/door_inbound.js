@@ -8,8 +8,9 @@ const wall_ask = require('./wall_ask');
 // a websocket handshake alike. A request that came in at this host's own door gets null: it is
 // routed by the name it asks for.
 //
-// Whatever the visitor claimed in x-auth-user is dropped on the way in: that header is the
-// wall's word, or nobody's.
+// Whatever the visitor claimed in x-auth-user is dropped on the way in, at a machine's door and
+// at this host's own alike: that header is the wall's word, or nobody's. A service answers on
+// its own address too, and there nobody stands in front of it to say who the visitor is.
 //
 //     {service, wall, off}
 //     service  the service that answers, or null for a name the door was never given, or one
@@ -20,10 +21,10 @@ const wall_ask = require('./wall_ask');
 //     off      the name is there and set aside
 function door_inbound(app, req, host, pathname)
 {
+    claim_drop(req);
     if (req.socket.tunnel_from === undefined) {
         return null;
     }
-    delete req.headers['x-auth-user'];
     const from = app.remote_by_name[req.socket.tunnel_from];
     const rule = (from === undefined) ? null : inbound_rule(from, host);
     const walled = ((rule === null) || (rule.auth === null)) ? null : app.service_by_name[rule.auth] || null;
@@ -31,6 +32,19 @@ function door_inbound(app, req, host, pathname)
     const named = own ? rule.auth : ((rule === null) ? null : rule.service);
     const service = ((rule === null) || rule.off) ? null : app.service_by_name[named] || null;
     return {service, wall: own ? null : walled, off: (rule !== null) && rule.off};
+}
+
+// The visitor's own word on who they are, taken out before the request is routed, the wall is
+// asked or a header is copied to a service. A stack behind may read `_` and `-` as one (CGI,
+// WSGI and PHP do), so x_auth_user goes as x-auth-user does; sent twice or as a list, it is
+// one name here and goes whole.
+function claim_drop(req)
+{
+    for (const name of Object.keys(req.headers)) {
+        if (name.replace(/_/g, '-') === 'x-auth-user') {
+            delete req.headers[name];
+        }
+    }
 }
 
 module.exports = door_inbound;

@@ -480,6 +480,34 @@ test('a websocket reaches a program on a remote through the link, as a request d
     }
 });
 
+// The claim is taken out as the request comes in, before the service is woken: a request held
+// while a program starts on another machine goes down the link without it, as the next one does
+test('a visitor\'s x-auth-user is dropped from the request that wakes a program on a remote, and from the next', async function () {
+    const port = await free_port();
+    const program = `require('http').createServer(function (req, res) { res.end('for ' + (req.headers['x-auth-user'] || req.headers['x_auth_user'] || 'nobody')); }).listen(${port}, '127.0.0.1');`;
+    const running = await serviceman_start([
+        {name: 'notes', type: 'shell', remote: 'vps1', publish: {host: 'notes.test', port}, command: `${process.execPath} -e "${program}"`},
+    ]);
+    const service = running.app.service_by_name.notes;
+    try {
+        await running.agent_start();
+        assert.strictEqual(service_phase(service), 'stopped');
+        const first = await fetch_host({port: running.port, host: 'notes.test', token: null, headers: {'X-Auth-User': 'owner@example.com'}});
+        assert.strictEqual(first.status, 200);
+        assert.strictEqual(first.body, 'for nobody');
+        assert.strictEqual(service.state.instances[0].remote, 'vps1', 'it was started over there by this request');
+        const next = await fetch_host({port: running.port, host: 'notes.test', token: null, headers: {'X_Auth_User': 'owner@example.com'}});
+        assert.strictEqual(next.body, 'for nobody');
+    }
+    finally {
+        // A program outlives its agent; this one goes with the test
+        await service_stop(running.app, service, 'the test is over').catch(function () {
+            // A test that failed before the program started has nothing to stop
+        });
+        await running.close();
+    }
+});
+
 function fetch_direct(port)
 {
     return new Promise(function (resolve, reject) {

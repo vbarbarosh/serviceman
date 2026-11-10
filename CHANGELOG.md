@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.34 — 2026-11-10
+
+- What a visitor writes into `X-Auth-User` is dropped from every request and handshake at the
+  service port, not only from those that came through a machine's door: on a service's own
+  address anyone signed in as anyone. `X_Auth_User` goes too, for the stacks that read `_`
+  and `-` alike. The wall's own word is set after, as before. (SM-169)
+
 ## 1.0.33 — 2026-11-10
 
 - A file opened from the File Manager under its machine's own name (`<name>.fs.<control host>`)

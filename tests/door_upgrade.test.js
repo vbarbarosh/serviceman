@@ -74,6 +74,50 @@ test('a websocket through a machine\'s door reaches the service its rule names, 
     assert.ok(app.log_lines.some(v => /\[wall_refused\] wall=wall host=walled\.example\.com/.test(v)));
 });
 
+// A service answers on its own address too, and nobody stands in front of it there: whatever a
+// visitor writes into x-auth-user is dropped from a request and from a handshake alike, under
+// either spelling a stack behind may read as that name, sent once, twice or as a list. Behind a
+// wall the service reads the wall's word, and nothing of the visitor's beside it.
+test('a visitor\'s x-auth-user never reaches a service, on its own address or through a machine\'s door', async function (t) {
+    const echo = await echo_start();
+    const wall = await wall_start();
+    const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-claim-'));
+    const config = config_from_json({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        remotes: [{name: 'vps1', token: TOKEN, inbound: {'open.example.com': 'echo', 'walled.example.com': {service: 'echo', auth: 'wall'}}}],
+        services: [
+            {name: 'echo', type: 'external', publish: {host: 'echo.localhost'}, upstream: `127.0.0.1:${echo.port}`},
+            {name: 'wall', type: 'external', publish: {host: 'wall.localhost'}, upstream: `127.0.0.1:${wall.port}`},
+        ],
+    }, __dirname);
+    const app = app_from_config(config);
+    app.state_dir = state_dir;
+    const servers = await server_start(app);
+    t.after(function () {
+        for (const door of [servers.server, servers.control]) {
+            door.close();
+            door.closeAllConnections();
+        }
+        echo.close();
+        wall.close();
+        fs.rmSync(state_dir, {recursive: true, force: true});
+    });
+    const claim = 'X-Auth-User: owner@example.com\r\nx-auth-user: root@example.com\r\nX_Auth_User: owner@example.com, root@example.com\r\n';
+
+    // The service's own address, at this host's service port: a request, then a handshake
+    assert.match(await direct(servers.server, `GET /page HTTP/1.1\r\nHost: echo.localhost\r\nConnection: close\r\n${claim}\r\n`), /^HTTP\/1\.1 200/);
+    assert.match(await direct(servers.server, `GET /ws HTTP/1.1\r\nHost: echo.localhost\r\n${WS}${claim}\r\n`), /^HTTP\/1\.1 101/);
+    assert.deepStrictEqual(echo.claims, [{}, {}]);
+    // A door's name with no wall: nobody said who the visitor is, so the service is told nothing
+    assert.match(await through(app, `GET /page HTTP/1.1\r\nHost: open.example.com\r\nConnection: close\r\n${claim}\r\n`), /^HTTP\/1\.1 200/);
+    assert.deepStrictEqual(echo.claims.slice(2), [{}]);
+    // Behind the wall: its word alone, in a request and in a handshake
+    assert.match(await through(app, `GET /page HTTP/1.1\r\nHost: walled.example.com\r\nConnection: close\r\nCookie: session=good\r\n${claim}\r\n`), /^HTTP\/1\.1 200/);
+    assert.match(await through(app, `GET /ws HTTP/1.1\r\nHost: walled.example.com\r\n${WS}Cookie: session=good\r\n${claim}\r\n`), /^HTTP\/1\.1 101/);
+    assert.deepStrictEqual(echo.claims.slice(3), [{'x-auth-user': 'user@example.com'}, {'x-auth-user': 'user@example.com'}]);
+});
+
 // One request on a stream that came in through vps1's door: the first line of the answer, or
 // '' when the far end closed without one
 async function through(app, request)
@@ -128,16 +172,19 @@ function socket_pair()
 }
 
 // A service with a websocket, as a web terminal is: who it was told the visitor is, per
-// handshake, and a page for a plain request
+// handshake, and a page for a plain request; `claims` has, per request and per handshake, every
+// header it was sent that a stack may read as x-auth-user
 function echo_start()
 {
-    const echo = {port: 0, users: []};
+    const echo = {port: 0, users: [], claims: []};
     const server = http.createServer(function (req, res) {
+        echo.claims.push(claims_of(req));
         res.end('the page');
     });
     const sockets = new ws.WebSocketServer({server});
     sockets.on('connection', function (client, req) {
         echo.users.push((req.headers['x-auth-user'] === undefined) ? '' : String(req.headers['x-auth-user']));
+        echo.claims.push(claims_of(req));
         client.on('message', v => client.send(`echo ${v}`));
     });
     echo.close = function () {
@@ -151,6 +198,19 @@ function echo_start()
             resolve(echo);
         });
     });
+}
+
+// Every header of a request that a stack may read as x-auth-user: CGI, WSGI and PHP hand a
+// program `_` and `-` in a header's name as one
+function claims_of(req)
+{
+    const out = {};
+    for (const name of Object.keys(req.headers)) {
+        if (/^x[-_]auth[-_]user$/.test(name)) {
+            out[name] = req.headers[name];
+        }
+    }
+    return out;
 }
 
 // The wall: a cookie it knows is a yes, and says who; anything else is a no
