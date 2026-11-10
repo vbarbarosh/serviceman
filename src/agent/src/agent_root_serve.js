@@ -167,8 +167,8 @@ function reason_of(answer)
 }
 
 // What keeps this half up, taken away. Nothing else on the machine is touched: the unit is
-// this program's own, and the folder it runs from belongs to the session half, which removes
-// it after this one has gone.
+// this program's own, and the folder it runs from stays where it is, as the session half's
+// does.
 function unit_gone()
 {
     const unit = '/etc/systemd/system/serviceman-agent-root.service';

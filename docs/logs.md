@@ -331,6 +331,8 @@ minute, and they would bury the rest.
 | `agent_token_own`         | Joined, the host handed it a token of its own, kept beside the agent. |
 | `agent_token_unknown`     | The host does not know the kept token: the next dial is with the one the agent was started with. |
 | `agent_connect_end_error` | The host could not be reached, and why.                     |
+| `agent_uninstall_ok`      | The host said this machine was taken out of its config: the agent stops, and `bin/uninstall` takes it out of systemd. `dir=` is its folder, kept with everything in it; `token=` when the token it kept was set aside. |
+| `agent_uninstall_refused` | Told the same, an agent the installer did not put there only stops; `reason=` says which it is. |
 | `agent_connect_wait`      | How long before it tries again.                             |
 | `agent_link_end`          | The link closed, and how long it held.                      |
 | `agent_link_error`        | The link failed while it was up.                            |

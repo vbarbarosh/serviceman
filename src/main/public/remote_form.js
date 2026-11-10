@@ -80,7 +80,7 @@ const remote_form = {
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
             <b>Remove this remote</b>
         </div>
-        <p class="muted">This host forgets {{ original.name }}. Whatever runs on that machine keeps running, and its agent keeps dialling until you stop it there.</p>
+        <p class="muted">This host forgets {{ original.name }}. Whatever runs on that machine keeps running. Its agent is told, stops and takes itself out of systemd there; nothing on that machine is deleted.</p>
         <div class="rf-remove">
             <button v-if="(removing === false)" type="button" class="danger" @click="removing = true">Remove…</button>
             <template v-else>

@@ -1254,6 +1254,14 @@ minute, and they would bury the rest.</p>
 <td>The host could not be reached, and why.</td>
 </tr>
 <tr>
+<td><code>agent_uninstall_ok</code></td>
+<td>The host said this machine was taken out of its config: the agent stops, and <code>bin/uninstall</code> takes it out of systemd. <code>dir=</code> is its folder, kept with everything in it; <code>token=</code> when the token it kept was set aside.</td>
+</tr>
+<tr>
+<td><code>agent_uninstall_refused</code></td>
+<td>Told the same, an agent the installer did not put there only stops; <code>reason=</code> says which it is.</td>
+</tr>
+<tr>
 <td><code>agent_connect_wait</code></td>
 <td>How long before it tries again.</td>
 </tr>

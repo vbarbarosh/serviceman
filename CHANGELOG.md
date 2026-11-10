@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.67 — 2026-11-10
+
+- A machine taken out of the config was told "removed", and its agent then deleted its whole
+  folder: every app folder under `services/` with its `data/`, the logs, `env`; an agent
+  fetched as one file into a home folder took the home folder. Now it stops, leaves systemd
+  through the installer's own `bin/uninstall`, and deletes nothing; a token the machine kept is
+  set aside as `token.removed`, so a start by hand dials with the token it is given. An agent
+  that held a door or a program open no longer stays up after it. The page and the docs say
+  what happens. Agent 1.33.13. (SM-216)
+
 ## 1.0.66 — 2026-11-10
 
 - `GET /api/v1/remotes/%zz/fs` answered 500, "serviceman broke on this request", with `URI

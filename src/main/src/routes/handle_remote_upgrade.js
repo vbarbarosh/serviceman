@@ -68,7 +68,8 @@ async function remote_of(app, req, socket)
         return {remote: known, joined: false};
     }
     // A machine this host took away while it was not looking. It is told so, in a word it can
-    // act on: it stops dialling and takes itself off that machine.
+    // act on: its agent stops dialling and takes itself out of that machine's systemd, and
+    // deletes nothing there.
     const gone = remote_removed_of(app, req.headers.authorization);
     if (gone !== null) {
         refuse(app, socket, 410, 'Gone', `remote ${gone.name} was taken out of the config on this host — this machine is not part of it any more`, {remote: gone.name, from: socket.remoteAddress, reason: 'removed'}, 'removed');

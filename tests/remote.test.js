@@ -1068,6 +1068,132 @@ test('a machine taken out of the config is told so when it dials in, and stops d
     }
 });
 
+// Told the same, an agent the installer put in a folder of its own used to run bin/uninstall and
+// then `rm -rf` on that folder: every app folder under services/ went, with its data/
+test('an installed agent told its machine was taken out stops, leaves systemd to bin/uninstall and deletes nothing; written in again, it is back', async function () {
+    const running = await serviceman_start_file({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        remotes: [{name: 'ui1', token: TOKEN}],
+        services: [],
+    });
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-removed-'));
+    const dir = path.join(base, 'serviceman-agent');
+    const ran = path.join(base, 'uninstall-ran');
+    let agent = null;
+    try {
+        await agent_folder_make(running, dir, ran);
+        const gone = await control(running, 'DELETE', '/api/v1/remotes/ui1', null);
+        assert.strictEqual(gone.status, 200);
+
+        // Its door is open, as on a machine that takes the traffic: a process that only
+        // returned from its loop would stay up behind it
+        agent = agent_folder_start(running, dir, TOKEN, ['--http-socket-mode', '0600']);
+        const closed = new Promise(v => agent.on('close', v));
+        // bin/uninstall runs a second after the agent said so; the `rm -rf` that came after it
+        // is given its time too
+        await wait_until(() => fs.existsSync(ran));
+        await timers.setTimeout(500);
+        assert.strictEqual(fs.existsSync(dir), true, 'its folder is there');
+        assert.strictEqual(fs.readFileSync(path.join(dir, 'services', 'notes', 'data', 'notes.db'), 'utf8'), 'a year of notes\n', 'an app\'s data/ is as it was');
+        assert.strictEqual(fs.readFileSync(ran, 'utf8'), 'ran\n', 'bin/uninstall ran, once');
+
+        const code = await Promise.race([closed, new Promise(v => setTimeout(() => v('never'), 5000))]);
+        assert.strictEqual(code, 0, 'it stopped, its door open or not');
+        assert.strictEqual(running.app.log_lines.filter(v => /\[remote_refused\] remote=ui1 .*reason=removed/.test(v)).length, 1, 'it did not dial again');
+
+        // What the owner finds there: the agent's log, in the folder that stayed, says what was
+        // done, what was left and where
+        const logs = path.join(dir, 'logs', 'agent');
+        const said = fs.readFileSync(path.join(logs, fs.readdirSync(logs)[0]), 'utf8');
+        assert.ok(said.includes(`[agent_uninstall_ok] dir=${dir} root=false kept="the folder and everything in it: nothing is deleted" then="bin/uninstall stops the agent and takes it out of systemd"\n`), said);
+
+        // The machine comes back: written into the config again with the token it has, and
+        // its agent started as bin/install starts it
+        const back = await control(running, 'POST', '/api/v1/remotes', {remote: {name: 'ui1', token: TOKEN}});
+        assert.strictEqual(back.status, 200);
+        agent = agent_folder_start(running, dir, TOKEN, []);
+        await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online', 15000);
+        assert.strictEqual(fs.readFileSync(path.join(dir, 'services', 'notes', 'data', 'notes.db'), 'utf8'), 'a year of notes\n');
+    }
+    finally {
+        if (agent !== null) {
+            agent.kill('SIGKILL');
+        }
+        servermon_stop(path.join(dir, 'servermon.js'));
+        await running.close();
+        fs.rmSync(base, {recursive: true, force: true});
+    }
+});
+
+// The folder stayed, and the token the host handed the machine as it joined stayed in it: the
+// host no longer has a machine for that token, and says so for as long as it remembers
+test('a machine that added itself, was taken out and is started again joins again, its folder as it was', async function () {
+    const running = await serviceman_start_file({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        join: {token: JOIN_TOKEN, tags_allowed: ['gpu'], name_prefix: 'auto-'},
+        services: [],
+    });
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-return-'));
+    const dir = path.join(base, 'serviceman-agent');
+    const ran = path.join(base, 'uninstall-ran');
+    let agent = null;
+    let program = null;
+    try {
+        await agent_folder_make(running, dir, ran);
+        agent = agent_folder_start(running, dir, JOIN_TOKEN, ['--machine', 'box-21']);
+        await wait_until(() => (running.app.remote_by_name['auto-box-21'] !== undefined) && (running.app.remote_by_name['auto-box-21'].state.phase === 'online'), 15000);
+        const first = running.app.remote_by_name['auto-box-21'].token;
+        await wait_until(() => fs.existsSync(path.join(dir, 'token')));
+        // A program the host started there, in its app folder, as for a service
+        program = await remote_call(running.app, running.app.remote_by_name['auto-box-21'], 'program_start', {name: 'notes', slot: 1, cwd: 'notes', argv: ['sleep', '60'], env: {}});
+
+        // Taken out while it is online: the host hangs up, the agent dials with the token it
+        // kept, is told, and stops
+        const closed = new Promise(v => agent.on('close', v));
+        const gone = await control(running, 'DELETE', '/api/v1/remotes/auto-box-21', null);
+        assert.strictEqual(gone.status, 200);
+        assert.strictEqual(await Promise.race([closed, new Promise(v => setTimeout(() => v('never'), 10000))]), 0, 'it stopped, a program of its own running or not');
+        await wait_until(() => fs.existsSync(ran));
+        await timers.setTimeout(500);
+        assert.strictEqual(fs.existsSync(dir), true, 'its folder is there');
+        assert.doesNotThrow(() => process.kill(program.pid, 0), 'the program it started goes on running, as after any stop of the agent');
+
+        // Its owner starts it again as bin/install does, with the join token it was installed
+        // with: the host takes it as a machine that adds itself
+        agent = agent_folder_start(running, dir, JOIN_TOKEN, ['--machine', 'box-21']);
+        let ended = false;
+        agent.on('close', function () {
+            ended = true;
+        });
+        await wait_until(() => ended || ((running.app.remote_by_name['auto-box-21'] !== undefined) && (running.app.remote_by_name['auto-box-21'].state.phase === 'online')), 15000);
+        assert.strictEqual(ended, false, 'it is not told "removed" a second time');
+        const joined = running.app.remote_by_name['auto-box-21'];
+        assert.notStrictEqual(joined.token, first);
+        // The token the host took out was set aside, not deleted; the one handed now is kept
+        assert.strictEqual(fs.readFileSync(path.join(dir, 'token.removed'), 'utf8').trim(), first);
+        await wait_until(() => fs.existsSync(path.join(dir, 'token')) && (fs.readFileSync(path.join(dir, 'token'), 'utf8').trim() === joined.token));
+        assert.strictEqual(fs.readFileSync(path.join(dir, 'services', 'notes', 'data', 'notes.db'), 'utf8'), 'a year of notes\n', 'an app\'s data/ is as it was');
+    }
+    finally {
+        if (agent !== null) {
+            agent.kill('SIGKILL');
+        }
+        if (program !== null) {
+            try {
+                process.kill(program.pid, 'SIGKILL');
+            }
+            catch {
+                // gone already
+            }
+        }
+        servermon_stop(path.join(dir, 'servermon.js'));
+        await running.close();
+        fs.rmSync(base, {recursive: true, force: true});
+    }
+});
+
 test('the agent of a machine is fetched again on a press, and the file goes with the ask', async function () {
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
     const agent = agent_start(running.control_port, TOKEN);
@@ -3105,6 +3231,32 @@ function agent_start_at(url, token, extra, env)
 {
     const argv = [AGENT, '--url', url, '--token', token].concat((extra === undefined) ? [] : extra);
     const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, env)});
+    out.stdout.resume();
+    out.stderr.resume();
+    return out;
+}
+
+// The folder the installer leaves on a machine: the agent as the one file the host serves,
+// what the host installed there with its data/, and a bin/uninstall. This one stands in for
+// the installer's: it asks nothing of systemd, and notes in `ran` that it was run.
+async function agent_folder_make(running, dir, ran)
+{
+    const bundle = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/agent.js'});
+    fs.mkdirSync(path.join(dir, 'bin'), {recursive: true});
+    fs.mkdirSync(path.join(dir, 'services', 'notes', 'data'), {recursive: true});
+    fs.writeFileSync(path.join(dir, 'agent.js'), bundle.body);
+    fs.writeFileSync(path.join(dir, 'bin', 'uninstall'), `#!/bin/sh\necho ran >> "${ran}"\n`, {mode: 0o755});
+    fs.writeFileSync(path.join(dir, 'services', 'notes', 'data', 'notes.db'), 'a year of notes\n');
+}
+
+// The agent of that folder, started as its unit starts it: its state and its logs in the
+// folder. The root socket it is given is one nothing answers on, so no root half of the
+// machine the tests run on is ever asked to go.
+function agent_folder_start(running, dir, token, extra)
+{
+    const argv = [path.join(dir, 'agent.js'), '--url', `http://127.0.0.1:${running.control_port}`, '--token', token, '--root-socket', path.join(dir, 'no-root.sock'), '--peer-port', '0'].concat(extra);
+    const env = Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_LOG_DIR: path.join(dir, 'logs')});
+    const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env});
     out.stdout.resume();
     out.stderr.resume();
     return out;

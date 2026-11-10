@@ -131,6 +131,25 @@ is refused. So the machine
 is left as it was found: `bin/uninstall`, `rm -rf` the folder, and nothing of serviceman is
 anywhere else.
 
+**Taking a machine out of the config deletes nothing on it.** The host tells the machine's agent
+so, at once when it is online and at its next dial when it was away, and the agent does the
+first of those two steps itself and never the second. It asks the root half, where there is
+one, to take its unit away, stops, and runs `bin/uninstall`: the agent is out of systemd and
+servermon is stopped. The folder stays as it was, `services/` with every app folder and its
+`data/`, `logs/`, `env`. What the agent started goes on running, containers, programs and kept
+terminals, as after any stop of the agent; its doors and forwards close with it. The last line
+of its log says what was done and what was left:
+
+    [agent_uninstall_ok] dir=/home/user/serviceman-agent root=false kept="the folder and everything in it: nothing is deleted" then="bin/uninstall stops the agent and takes it out of systemd"
+
+What is left is yours to remove: stop what still runs there, then `rm -rf` the folder. To bring
+the machine back instead, add it to the config again and run `bin/install` there, or the install
+line with its new token: it dials in with its services' folders where they were. A machine
+that added itself kept the token the host handed it; the agent sets that file aside as
+`token.removed`, so the next start dials with the token it is started with, and the join token
+joins the machine again. An agent the installer did not put there, the one file run by hand or
+the image, only stops (`agent_uninstall_refused`), and what started it is left as it is.
+
 ## Newer agents find their way over
 
 The agent says which build it is when it dials in, and this host knows the build it serves. When

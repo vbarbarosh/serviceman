@@ -31,6 +31,7 @@ const timers = require('timers/promises');
 
 const AGENT_VERSION = agent_version.version;
 const FIRST_WAIT_MS = 1000;
+const LEAVE_MS = 150;
 const LONGEST_WAIT_MS = 5000;
 
 const USAGE = `serviceman-agent --url <serviceman> --token <secret>
@@ -237,12 +238,16 @@ async function main()
             status.phase = 'not connected';
             status.error = error.message;
             // The host says this machine is no longer part of it. Dialling again would be
-            // asking the same question forever, so this agent stops — and takes itself off
-            // the machine, which is what nobody being left to manage it means.
+            // asking the same question forever, so this agent stops, and takes itself out of
+            // the machine's systemd. Nothing on the machine is deleted (agent_uninstall).
             if (error.refused === 'removed') {
                 const uninstalled = await agent_uninstall(options);
-                agent_say(group, uninstalled.removed ? 'agent_uninstall_ok' : 'agent_uninstall_refused', uninstalled);
-                return;
+                agent_say(group, (uninstalled.reason === undefined) ? 'agent_uninstall_ok' : 'agent_uninstall_refused', uninstalled);
+                // A door, a forward or a program this agent started would hold the process up
+                // after this, answering with nobody behind it. It ends as a stop asked by a
+                // signal ends it, once the line above has had time to reach the log.
+                await timers.setTimeout(LEAVE_MS);
+                process.exit(0);
             }
             // The host does not know the token this machine kept: its data/ is gone, or this
             // is another host. The next dial is with the token the agent was started with, the

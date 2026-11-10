@@ -206,6 +206,10 @@ port is open here and no address is needed.
 To move this machine to another host, or to change its token, edit env and run bin/install
 again. To pick up a newer agent, run bin/update. To take everything away: bin/uninstall, then remove this folder.
 
+When the host takes this machine out of its config, the agent runs bin/uninstall itself and
+stops. Nothing in this folder is deleted: removing it is yours, and bin/install brings the
+agent back.
+
 ## What is in services/
 
 One folder per program the host installed here, made and removed by the agent as the config on
