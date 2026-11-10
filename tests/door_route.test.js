@@ -5,6 +5,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const containers_kill = require('./containers_kill');
 const doors_table = require('../src/main/src/helpers/doors_table');
 const fs = require('fs');
 const handshake_raw = require('./handshake_raw');
@@ -169,6 +170,13 @@ test('a door wakes a sleeping service, waits for it to answer, and serviceman se
     finally {
         agent.kill('SIGKILL');
         await running.close();
+        // The container the door woke is a process of the stand-in docker, and outlives the
+        // agent that started it, as a real one does: it is stopped with the test
+        containers_kill();
+        fs.rmSync(path.dirname(process.env.SERVICEMAN_TEST_STATE), {recursive: true, force: true});
+        fs.rmSync(dir_laptop, {recursive: true, force: true});
+        fs.rmSync(state_dir, {recursive: true, force: true});
+        delete process.env.SERVICEMAN_TEST_STATE;
         delete process.env.SERVICEMAN_STATE_DIR;
     }
 });

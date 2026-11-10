@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.65 — 2026-11-10
+
+- Every whole run of the suite left one process behind, the stand-in container a door's test
+  wakes (`upstream.js … serviceman-sleepy`), and some 380 temp folders, 220 MB, in `/tmp`.
+  That test stops its container and removes its folders now, and `bin/test` gives a run a temp
+  folder of its own, removed when the run ends. A test file run by hand still leaves the
+  folders its tests do not remove. (SM-337)
+
 ## 1.0.64 — 2026-11-10
 
 - A folder copied between machines could write outside the folder it makes, two ways: a link

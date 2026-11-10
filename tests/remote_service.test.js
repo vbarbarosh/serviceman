@@ -3,6 +3,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const containers_kill = require('./containers_kill');
 const docker_api_start = require('./fixtures/docker_api_start');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
@@ -583,30 +584,6 @@ async function serviceman_start(services, remotes)
         },
     };
     return out;
-}
-
-// The stand-in docker keeps its containers as real little servers; the test leaves none behind
-function containers_kill()
-{
-    let state;
-    try {
-        state = JSON.parse(fs.readFileSync(process.env.SERVICEMAN_TEST_STATE, 'utf8'));
-    }
-    catch {
-        return;
-    }
-    for (const name of Object.keys(state.containers)) {
-        const found = state.containers[name];
-        if (found.pid === null) {
-            continue;
-        }
-        try {
-            process.kill(found.pid, 'SIGKILL');
-        }
-        catch {
-            // already gone
-        }
-    }
 }
 
 // One visit to the shell door: what it said, what the container wrote back

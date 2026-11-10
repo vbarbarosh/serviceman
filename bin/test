@@ -10,4 +10,10 @@ scriptname=`basename $script`
 
 cd $scriptdir/..
 
-exec npm test -- "$@"
+# Every temp folder of the run is made under one of the run's own, which goes when the run
+# ends: the tests make hundreds, and not every one is taken away by the test that made it. Its
+# name is short, since a socket's path may not be long.
+run_tmp=`mktemp -d /tmp/sm-test.XXXXXX`
+trap 'rm -rf "$run_tmp"' EXIT
+
+TMPDIR=$run_tmp npm test -- "$@"
