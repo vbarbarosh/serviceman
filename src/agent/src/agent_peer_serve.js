@@ -34,11 +34,26 @@ function agent_peer_serve(options, group)
     }
     const listening = [];
     for (const host of hosts) {
+        // What answering one caller throws costs that caller alone, a 500 or a closed socket,
+        // and a line in the log: thrown out of here it would end the agent, and with it this
+        // machine's link and its door.
         const server = http.createServer(function (req, res) {
-            peer_answer(options, req, res);
+            peer_answer(options, req, res).catch(function (error) {
+                agent_say(group, 'peer_request_error', {path: req.url.split('?')[0], reason: error.message});
+                agent_http_error(res, 500);
+            });
         });
         server.on('upgrade', function (req, socket, head) {
-            peer_upgrade(options, req, socket, head);
+            // The socket's own error is heard before anything is asked or written. A caller
+            // that resets behind its handshake makes the answer a write error: heard, it costs
+            // that socket; unheard, it ends the agent, and no token is needed for it.
+            socket.on('error', function () {
+                socket.destroy();
+            });
+            peer_upgrade(options, req, socket, head).catch(function (error) {
+                agent_say(group, 'peer_upgrade_error', {path: req.url.split('?')[0], reason: error.message});
+                socket.destroy();
+            });
         });
         server.on('error', function (error) {
             agent_say(group, 'peer_serve_error', {host, port, reason: error.message});

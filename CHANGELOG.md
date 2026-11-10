@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.32 — 2026-11-10
+
+- The agent no longer stops at a handshake on its peer port that is reset before the answer,
+  which needed no token: the socket's error is listened for first. What answering a caller
+  throws, at the peer port and at the door, is a 500 or a closed socket and a line in the
+  agent's log (`peer_request_error`, `peer_upgrade_error`, `door_request_error`,
+  `door_upgrade_error`), where it ended the agent. Agent 1.33.2. (SM-215)
+
 ## 1.0.31 — 2026-11-10
 
 - module-host no longer stops at one request: a folder named `constructor` is a 404, an

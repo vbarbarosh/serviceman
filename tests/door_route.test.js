@@ -1,11 +1,13 @@
 const agent_door_proxy = require('../src/agent/src/agent_door_proxy');
 const agent_door_upgrade = require('../src/agent/src/agent_door_upgrade');
+const agent_http_error = require('../src/agent/src/agent_http_error');
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const doors_table = require('../src/main/src/helpers/doors_table');
 const fs = require('fs');
+const handshake_raw = require('./handshake_raw');
 const http = require('http');
 const net = require('net');
 const os = require('os');
@@ -19,6 +21,8 @@ const timers = require('timers/promises');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const DOCKER_BIN = path.join(__dirname, 'bin', 'docker');
+// A port nothing answers on: an agent that dials it stands by itself, as with serviceman away
+const NOBODY_PORT = 9;
 const TOKEN_LAPTOP = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const TOKEN_SERVER = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
@@ -199,6 +203,103 @@ test('a door answers 502 at once when the far end takes no connection', async fu
     }
 });
 
+// The peer port is reached by every device of the tailnet, and by anything on the machine, with
+// no token at all. The refusal is written to whoever sent the handshake, and that one may be
+// gone already: a reset right behind the handshake makes the write an error on a socket of the
+// agent's own.
+test('a handshake that is reset on the peer port costs its socket alone, and the agent goes on', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-server-'));
+    const peer_port = await port_free();
+    const agent = agent_start(NOBODY_PORT, TOKEN_SERVER, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_PEER_HOST: '127.0.0.1', SERVICEMAN_PEER_PORT: String(peer_port)});
+    const lines = lines_of(agent);
+    try {
+        await wait_until(() => lines.join('').includes('[peer_serve_begin]'), 5000);
+        for (let i = 0; i < 8; i++) {
+            assert.strictEqual(await handshake_raw({port: peer_port, host: '127.0.0.1', target: '/', reset: true}), 'closed');
+        }
+        const after = await fetch_port(peer_port, {});
+        assert.strictEqual(after.status, 403);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// What answering one caller throws is that caller's 500, or its socket closed, and a line in the
+// machine's log. Here it is a service written with a port past 65535, which the config takes:
+// node refuses to ask such an address at all, where an address nobody answers on is a 502.
+test('a service whose address cannot be asked is a 500 at the peer port and at the door, and the agent goes on', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-server-'));
+    const peer_port = await port_free();
+    // The table an agent kept is the one it serves by when it starts with serviceman away
+    fs.mkdirSync(path.join(dir, 'doors'));
+    fs.writeFileSync(path.join(dir, 'doors', 'table.json'), JSON.stringify({
+        version: 'test',
+        self: 'server',
+        token: TOKEN_SERVER,
+        names: {'echo.example.com': {service: 'echo', wall: null, off: false}},
+        services: {echo: {service: 'echo', machine: 'server', kind: 'external', upstream: '127.0.0.1:99999'}},
+        peers: {},
+    }));
+    const agent = agent_start(NOBODY_PORT, TOKEN_SERVER, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_HTTP_SOCKET_MODE: '0600', SERVICEMAN_PEER_HOST: '127.0.0.1', SERVICEMAN_PEER_PORT: String(peer_port)});
+    const lines = lines_of(agent);
+    const door = path.join(dir, 'http.sock');
+    const asking = {'x-serviceman-peer': TOKEN_SERVER, 'x-serviceman-service': 'echo'};
+    try {
+        await wait_until(() => lines.join('').includes('[peer_serve_begin]') && lines.join('').includes('[http_socket_begin]'), 5000);
+
+        // A peer that asks for it, and a peer's websocket
+        const peer = await fetch_port(peer_port, asking);
+        assert.deepStrictEqual([peer.status, peer.body], [500, '500 Internal Server Error\n']);
+        assert.strictEqual(await handshake_raw({port: peer_port, host: '127.0.0.1', target: '/', headers: asking}), 'closed');
+
+        // A visitor at this machine's own door, and a visitor's websocket
+        const visitor = await fetch_socket(door, 'echo.example.com', '/');
+        assert.deepStrictEqual([visitor.status, visitor.body], [500, '500 Internal Server Error\n']);
+        await assert.rejects(fetch_socket(door, 'echo.example.com', '/', {connection: 'upgrade', upgrade: 'websocket'}));
+
+        // Each is said in the machine's log, and the agent answers the next one
+        await wait_until(() => ['peer_request_error', 'peer_upgrade_error', 'door_request_error', 'door_upgrade_error'].every(v => lines.join('').includes(`[${v}] `)), 2000);
+        const after = await fetch_port(peer_port, {});
+        assert.strictEqual(after.status, 403);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// The error a door answers with is a whole answer: one already begun cannot become another
+test('an error for an answer already begun cuts it where it is', async function () {
+    const thrown = [];
+    const front = await server_of(function (req, res) {
+        res.writeHead(200, {'content-type': 'text/plain'});
+        res.write('begun', function () {
+            try {
+                agent_http_error(res, 500);
+            }
+            catch (error) {
+                thrown.push(error.code);
+                res.destroy();
+            }
+        });
+    });
+    try {
+        const cut = await new Promise(function (resolve) {
+            http.get({host: '127.0.0.1', port: front.address().port, agent: false}, function (answer) {
+                answer.resume();
+                answer.on('close', () => resolve({status: answer.statusCode, complete: answer.complete}));
+            });
+        });
+        assert.deepStrictEqual(cut, {status: 200, complete: false});
+        assert.deepStrictEqual(thrown, []);
+    }
+    finally {
+        await close_server(front);
+    }
+});
+
 async function serviceman_start(json)
 {
     const config = config_from_json(Object.assign({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}}, json), __dirname);
@@ -237,6 +338,14 @@ function agent_start(control_port, token, env, extra)
     const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, env)});
     out.stdout.resume();
     out.stderr.resume();
+    return out;
+}
+
+// What an agent says on its stdout, gathered as it comes
+function lines_of(agent)
+{
+    const out = [];
+    agent.stdout.on('data', v => out.push(String(v)));
     return out;
 }
 

@@ -1,6 +1,7 @@
 const agent_dir = require('./agent_dir');
 const agent_door_answer = require('./agent_door_answer');
 const agent_doors_state = require('./agent_doors_state');
+const agent_http_error = require('./agent_http_error');
 const agent_say = require('./agent_say');
 const agent_tunnel = require('./agent_tunnel');
 const fs = require('fs');
@@ -51,14 +52,23 @@ function agent_http_serve(options, group)
         agent_tunnel.open(agent_doors_state.link, socket, {http: {}});
     });
     listen_file(relaying, relay, 0o600, group, null);
+    // What answering one visitor throws costs that visitor alone, a 500 or a closed socket, and
+    // a line in the log: thrown out of here it would end the agent, and with it this machine's
+    // link and every other name at this door.
     const out = http.createServer(function (req, res) {
-        agent_door_answer(options, relay, req, res);
+        agent_door_answer(options, relay, req, res).catch(function (error) {
+            agent_say(group, 'door_request_error', {host: req.headers.host, path: req.url.split('?')[0], reason: error.message});
+            agent_http_error(res, 500);
+        });
     });
     out.on('upgrade', function (req, socket, head) {
         socket.on('error', function () {
             socket.destroy();
         });
-        agent_door_answer.upgrade(options, relay, req, socket, head);
+        agent_door_answer.upgrade(options, relay, req, socket, head).catch(function (error) {
+            agent_say(group, 'door_upgrade_error', {host: req.headers.host, path: req.url.split('?')[0], reason: error.message});
+            socket.destroy();
+        });
     });
     listen_file(out, file, mode, group, function () {
         agent_say(group, 'http_socket_begin', {socket: file, mode: mode.toString(8).padStart(4, '0')});
