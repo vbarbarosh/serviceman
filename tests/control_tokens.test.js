@@ -321,6 +321,13 @@ test('bad input gets its own status: a body that is not JSON, one too big, a wor
         assert.strictEqual(answer.status, absent.status, `${method} ${asked}: ${answer.status} ${answer.body.slice(0, 120)}`);
         assert.strictEqual([400, 403, 404].includes(answer.status), true, `${method} ${asked}: ${answer.status}`);
     }
+    // A module's name that every object has is no module: it answers as any name that is none
+    for (const name of ['__proto__', 'constructor', 'toString', 'nosuch']) {
+        for (const file of ['x', 'x.js']) {
+            const answer = await call(running, 'GET', `/modules/${name}/${file}`, null, running.owner);
+            assert.strictEqual(answer.status, 404, `/modules/${name}/${file}: ${answer.status} ${answer.body.slice(0, 120)}`);
+        }
+    }
     assert.deepStrictEqual(running.app.log_lines.filter(v => v.includes('[serviceman_error]')), []);
     const cookie = await call(running, 'GET', '/api/v1/status', null, null, {cookie: 'serviceman_token=%'});
     assert.strictEqual(cookie.status, 401);

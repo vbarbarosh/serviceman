@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.69 — 2026-11-10
+
+- `GET /modules/__proto__/x` answered 500: the table of the modules' folders was asked for a
+  name every object has. It is asked for its own names alone now (`Object.hasOwn`), and
+  `__proto__`, `constructor` and `toString` answer 404 as any name that is no module. (SM-172)
+
 ## 1.0.68 — 2026-11-10
 
 - A terminal's output was sent on to its pane whatever the pane had taken: `yes` on a machine,

@@ -621,7 +621,9 @@ async function control_answer(app, req, res)
     }
     // A module's component and styles: /modules/<name>/<file>, from that module's own folder
     const module_name = RE_MODULE.exec(url.pathname);
-    if ((module_name !== null) && (MODULE_SITES[module_name[1]] !== undefined)) {
+    // A name every object has (`__proto__`, `constructor`) is no module's: the table is asked
+    // for its own names alone
+    if ((module_name !== null) && Object.hasOwn(MODULE_SITES, module_name[1])) {
         const mount = `/modules/${module_name[1]}`;
         await serve_static_file(app, MODULE_SITES[module_name[1]], {url: req.url.slice(mount.length), method: req.method}, res, mount);
         return;
