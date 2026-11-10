@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.79 — 2026-11-10
+
+- A copy of a file that got shorter while it was copied ends at once, "the file got shorter while it was copied", its part left a part and nothing landed under its name; the copy behind it goes (SM-206). Registered SM-369 (a folder's tar pads a shrunk file with zeros) and SM-370 (a download ends short with no error).
+
 ## 1.0.78 — 2026-11-10
 
 - Logline's lines server answers 422 for what ClickHouse refuses about the lines themselves (too many days in one insert, a time past 2262), 502 for all else as before; the agent halves a refused batch down to the line refused, sets that line aside in a bounded refused/, and every other line goes in. Health says it as Logline refusing some lines, not as down (SM-287; agent 1.33.17).

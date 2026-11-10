@@ -193,6 +193,116 @@ test('a copy between two disks goes in parts, waits for a disk that is away, and
     assert.deepStrictEqual(queue.items, []);
 });
 
+// A log cut while it was copied: every part after the cut read nothing and was asked again at
+// once, for ever, three processes busy and every copy behind it waiting
+test('a file that got shorter while it was copied ends its copy at once and lands nothing under its name, and the copy behind it goes', async function (t) {
+    const film = 'f'.repeat(95);
+    const a = disk_that_changes({'/a/film.bin': film, '/a/next.txt': 'next', '/a/grow.log': 'g'.repeat(30), '/a/set/big.bin': 'b'.repeat(45), '/a/set/small.txt': 'small'});
+    const b = disk_that_copies_folders({});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), part_bytes: 10, small_bytes: 20});
+    // A copy still going when an assertion fails would ask on for ever under the tests after it
+    t.after(function () {
+        for (const item of queue.items) {
+            queue.cancel(item.id);
+        }
+    });
+    function cut(read, asked, range) {
+        a.files[asked] = a.files[asked].slice(0, 12);
+        return read(asked, range);
+    }
+
+    // Cut to 12 bytes after its first part, as the log was: the copy ends, says so, and its
+    // part stays a part, as a failed copy's does
+    a.happens['/a/film.bin'] = function (read, asked, range) {
+        a.happens[asked] = cut;
+        return read(asked, range);
+    };
+    const first = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/b'});
+    const next = queue.add({disk: 'a', path: '/a/next.txt'}, {disk: 'b', dir: '/b'});
+    await until(() => (first.phase !== 'copying') || (a.reads.length > 50));
+    assert.deepStrictEqual([first.phase, first.said, a.reads.filter(v => v === '/a/film.bin').length], ['error', 'the file got shorter while it was copied: it had 95 bytes when the copy began, and ended at 12', 2]);
+    assert.deepStrictEqual([b.files['/b/film.bin'], b.parts[first.id]], [undefined, 'f'.repeat(12)]);
+    await until(() => next.phase === 'ok');
+    assert.strictEqual(b.files['/b/next.txt'], 'next', 'the copy behind it goes');
+
+    // Cut and written again as long as it was before the next part is read: what is in came
+    // from the file as it was, and the copy ends all the same
+    a.files['/a/film.bin'] = film;
+    a.happens['/a/film.bin'] = function (read, asked, range) {
+        a.happens[asked] = function (again, part_path, part) {
+            const source = cut(again, part_path, part);
+            a.files[part_path] = 'x'.repeat(95);
+            return source;
+        };
+        return read(asked, range);
+    };
+    const again = queue.add({disk: 'a', path: '/a/film.bin'}, {disk: 'b', dir: '/c'});
+    await until(() => (again.phase === 'ok') || (again.phase === 'error'));
+    assert.deepStrictEqual([again.phase, again.said, b.files['/c/film.bin']], ['error', 'the file got shorter while it was copied: it had 95 bytes when the copy began, and ended at 12', undefined]);
+
+    // A file that grew lands as it was weighed, its first bytes whole
+    a.happens['/a/grow.log'] = function (read, asked, range) {
+        a.files[asked] += 'more';
+        return read(asked, range);
+    };
+    const grown = queue.add({disk: 'a', path: '/a/grow.log'}, {disk: 'b', dir: '/b'});
+    await until(() => (grown.phase === 'ok') || (grown.phase === 'error'));
+    assert.deepStrictEqual([grown.phase, b.files['/b/grow.log']], ['ok', 'g'.repeat(30)]);
+
+    // A big file of a folder that got shorter is left out and said, and the rest of it lands
+    a.happens['/a/set/big.bin'] = cut;
+    const folder = queue.add({disk: 'a', path: '/a/set'}, {disk: 'b', dir: '/d'});
+    await until(() => (folder.phase === 'ok') || (folder.phase === 'error'));
+    assert.deepStrictEqual([folder.phase, folder.said, folder.left.names], ['ok', '1 name could not be copied', [{path: 'big.bin', said: 'the file got shorter while it was copied: it had 45 bytes when the copy began, and ended at 12'}]]);
+    assert.deepStrictEqual([b.files['/d/set/small.txt'], b.files['/d/set/big.bin']], ['small', undefined]);
+});
+
+// A file that got shorter is told by its read ending before the part's last byte, with no
+// error: bytes that come late keep the read open, and a link that drops fails it
+test('a part whose bytes come late is waited for, and one whose link drops is tried again: neither is a file that got shorter', async function (t) {
+    const a = disk_that_changes({'/a/slow.bin': 's'.repeat(25), '/a/drop.bin': 'd'.repeat(25)});
+    const b = disk_that_copies_folders({});
+    const queue = transfer_queue({disk_of: disks_of({a, b}), part_bytes: 10});
+    t.after(function () {
+        for (const item of queue.items) {
+            queue.cancel(item.id);
+        }
+    });
+    // Every phase a copy went through but copying, a retry with its words
+    async function seen(item) {
+        const out = [];
+        await until(function () {
+            const now = (item.phase === 'retrying') ? `retrying: ${item.said}` : item.phase;
+            if ((now !== 'copying') && (out[out.length - 1] !== now)) {
+                out.push(now);
+            }
+            return (item.phase === 'ok') || (item.phase === 'error');
+        }, 5000);
+        return out;
+    }
+
+    // The first part's bytes come late, as from a machine that answers slowly
+    a.happens['/a/slow.bin'] = function (read, asked, range) {
+        const out = new stream.PassThrough();
+        setTimeout(() => read(asked, range).pipe(out), 300);
+        return out;
+    };
+    const slow = queue.add({disk: 'a', path: '/a/slow.bin'}, {disk: 'b', dir: '/b'});
+    assert.deepStrictEqual(await seen(slow), ['ok']);
+    assert.strictEqual(b.files['/b/slow.bin'], 's'.repeat(25));
+
+    // The first part's link drops after four bytes of it
+    a.happens['/a/drop.bin'] = function (read, asked, range) {
+        const out = new stream.PassThrough();
+        out.write(Buffer.from(a.files[asked]).subarray(range.start, range.start + 4));
+        setTimeout(() => out.destroy(Object.assign(new Error('the link to remote laptop dropped'), {code: 'ECONNRESET'})), 50);
+        return out;
+    };
+    const drop = queue.add({disk: 'a', path: '/a/drop.bin'}, {disk: 'b', dir: '/b'});
+    assert.deepStrictEqual(await seen(drop), ['retrying: the link to remote laptop dropped', 'ok']);
+    assert.strictEqual(b.files['/b/drop.bin'], 'd'.repeat(25));
+});
+
 test('a folder goes whole: small files in a tar, a big one in parts across a drop, empty folders, run bits and links', async function () {
     const big = 'b'.repeat(45);
     const a = disk_that_copies_folders({
@@ -1639,6 +1749,38 @@ function disk_that_tars(entries, asked)
         asked.push([dir, names]);
         return stream.Readable.from([tar_of(entries)]);
     };
+    return out;
+}
+
+// A disk in memory whose reads may be steered, as a file that changes while it is read: the
+// function in happens[path], when there is one, answers the next read of that path in its
+// stead, given the plain read, and is gone. Every read is kept in reads by its path, and its
+// bytes come on a later turn, as from a disk across a link: a copy that asked again at once,
+// for ever, would otherwise hold the loop, and every timer that would see it.
+function disk_that_changes(files)
+{
+    const out = disk_that_copies_folders(files);
+    const read = out.read;
+    out.reads = [];
+    out.happens = {};
+    out.read = function (asked, range) {
+        out.reads.push(asked);
+        const now = out.happens[asked];
+        delete out.happens[asked];
+        return stream_later(() => ((now === undefined) ? read(asked, range) : now(read, asked, range)));
+    };
+    return out;
+}
+
+// The bytes of the stream make() gives, from the next turn of the loop on
+function stream_later(make)
+{
+    const out = new stream.PassThrough();
+    setImmediate(function () {
+        const source = make();
+        source.on('error', e => out.destroy(e));
+        source.pipe(out);
+    });
     return out;
 }
 

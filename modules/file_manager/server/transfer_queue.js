@@ -11,10 +11,11 @@ const PART_BYTES = 32*1024*1024;
 // The longest pause between two tries, in seconds; the first is one, then two, four…
 const RETRY_MAX_S = 30;
 
-// Errors that trying again will not change: a file that is not there, or may not be read, a
-// walk that names a path outside its folder. An error that says so itself, error.lasting, is
-// one too: a host that cannot keep a disk within a folder, a path that leads out of the folder.
-const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already|no path under it/;
+// Errors that trying again will not change: a file that is not there, or may not be read, or
+// got shorter than it was weighed, a walk that names a path outside its folder. An error that
+// says so itself, error.lasting, is one too: a host that cannot keep a disk within a folder, a
+// path that leads out of the folder.
+const RE_LASTING = /ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|ENOSPC|a name of its own|not copied yet|into itself|cannot list a whole tree|is there already|no path under it|got shorter while it was copied/;
 
 // What a disk kept within a folder says of a path that is not inside it (disk_kept): EACCES,
 // the path as JSON, `is outside`. A file that may not be written says EACCES in other words.
@@ -348,8 +349,9 @@ async function piece_copy(item, piece, from, to, ctx, moved)
     }
     while ((piece.received < piece.size) && (item.cancelled === false)) {
         paused_throw(ctx.queue);
-        const last = Math.min(piece.size, piece.received + ctx.part_bytes) - 1;
-        const source = from.read(piece.from_path, {start: piece.received, end: last});
+        const start = piece.received;
+        const last = Math.min(piece.size, start + ctx.part_bytes) - 1;
+        const source = from.read(piece.from_path, {start, end: last});
         // What the part has carried so far counts as it goes, so a big file's copy moves
         // smoothly and not a part at a time; a part that fails is read again from the disk's
         // word. Counted on the way through, never by listening: a listener would set the bytes
@@ -376,8 +378,10 @@ async function piece_copy(item, piece, from, to, ctx, moved)
             source.destroy(new Error('the copy was stopped'));
             counted.destroy(new Error('the copy was stopped'));
         };
+        let carried = 0;
         try {
             piece.received = (await to.part_write(piece.dir, piece.name, piece.id, piece.received, counted, watch.taken)).received;
+            carried = piece.flowing;
         }
         finally {
             watch.stop();
@@ -385,6 +389,18 @@ async function piece_copy(item, piece, from, to, ctx, moved)
             delete item.abort;
         }
         moved();
+        // A part whose read ended with no error, short of its last byte, ended where the file
+        // ends: bytes that have not come yet keep a read open until the stall cuts it, and a
+        // link that drops fails it. Asked again, the next part would start where the file ends
+        // and bring nothing, at once and for ever: a log cut while it was copied kept three
+        // processes busy, and every copy behind it waiting. So the copy ends here, for good
+        // (RE_LASTING), whatever the file holds now: what is in came from the file as it was,
+        // and the rest would come from another, a file that looks whole and is not. Its part
+        // stays a part, as a failed copy's does, and nothing lands under its name; a folder
+        // leaves the file out and says so.
+        if (start + carried <= last) {
+            throw new Error(`the file got shorter while it was copied: it had ${piece.size} bytes when the copy began, and ended at ${start + carried}`);
+        }
     }
     if (item.cancelled) {
         return null;
