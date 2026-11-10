@@ -59,6 +59,99 @@ time.sleep(60)
     assert.deepStrictEqual(fs.readdirSync(path.dirname(base)), []);
 });
 
+// A page left open on a laptop asleep is joined and reads nothing. The holder waited to write
+// to it, and meanwhile passed nothing on, took nothing typed and answered no join: the build in
+// that terminal stood still. It waits for no reader: the dark one falls further behind than the
+// history and is let go, sent no more, and joined again is handed the history, as anyone who
+// joins.
+test('a kept terminal goes on while one joined to it reads nothing: the rest get every line, type and join', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('work', 80, 24, {}, dir);
+    const found = agent_term_read('work');
+    t.after(() => kill_quietly(found.shell_pid));
+    const dark = reader_join(t, found);
+    dark.socket.pause();
+    const healthy = reader_join(t, found);
+    await until(() => (agent_term_read('work').clients === 2), 5000, 'the two joins');
+    // 30 000 lines, 2 MB: more than a socket holds for its reader, and more than the history
+    healthy.socket.write('stty -echo; echo begin-$((40+2)); seq -f "line %.0f of the build, with some more of it to read: 0123456789" 1 30000; echo end-$((40+2))\n');
+    await until(() => healthy.heard.includes('end-42\r\n'), 4000, 'the end of the loop');
+    const lines = healthy.heard.slice(healthy.heard.indexOf('begin-42\r\n') + 10, healthy.heard.indexOf('end-42\r\n')).split('\r\n');
+    assert.strictEqual(lines.length, 30001, 'every line for the reader that reads');
+    assert.strictEqual(lines.findIndex((v, i) => (i < 30000) && (v.startsWith(`line ${i + 1} of the build`) === false)), -1, 'its lines in order');
+    await until(() => (agent_term_read('work').clients === 1), 5000, 'the dark reader let go');
+
+    // What the reader that reads types gets through, and a third join is answered
+    healthy.socket.write('echo typed-$((40+2))\n');
+    await until(() => healthy.heard.includes('typed-42\r\n'), 5000, 'the answer to what was typed');
+    const third = reader_join(t, found);
+    await until(() => third.heard.includes('typed-42\r\n'), 5000, 'the history for a third join');
+
+    // The dark one has not read that it was let go: a key it presses is not lost. Then it
+    // reads again, to the end of its socket. Joined again it has the last megabyte, from the
+    // start of a line to the last thing printed
+    dark.socket.write('echo late-$((40+2))\n');
+    await until(() => healthy.heard.includes('late-42\r\n'), 5000, 'what the reader let go typed');
+    dark.socket.resume();
+    await until(() => dark.closed, 5000, 'the end of the socket of the reader let go');
+    assert.strictEqual(dark.heard.includes('end-42\r\n'), false);
+    const again = reader_join(t, found);
+    await until(() => again.heard.includes('late-42\r\n'), 5000, 'the history for the reader let go');
+    const replayed = again.heard.slice(0, again.heard.indexOf('end-42\r\n')).split('\r\n');
+    const first = 30001 - (replayed.length - 1);
+    assert.ok((again.heard.length <= (1 << 20)) && (again.heard.length > (1 << 20) - 1024), `a megabyte of history: ${again.heard.length}`);
+    assert.strictEqual(replayed.findIndex((v, i) => (i < replayed.length - 1) && (v.startsWith(`line ${first + i} of the build`) === false)), -1, 'whole lines, in order');
+});
+
+// More typed than a pty takes, into a program that reads nothing: the holder waited to write
+// it, and nothing was passed on, so a program that went on printing stood still too. What the
+// pty has not taken waits, one read of it in the holder and the rest in the socket it was
+// typed into, the terminal goes on, and the program gets every byte of it when it reads.
+test('a kept terminal goes on while its program takes nothing of what is typed, and nothing typed is lost', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('work', 80, 24, {}, dir);
+    const found = agent_term_read('work');
+    t.after(() => kill_quietly(found.shell_pid));
+    const typing = reader_join(t, found);
+    const stop = path.join(dir, 'stop');
+    const saved = path.join(dir, 'saved.txt');
+    typing.socket.write(`stty -echo; while [ ! -e ${stop} ]; do echo tick-$((n+=1)); sleep 0.02; done; cat > ${saved}; echo saved-$((40+2))\n`);
+    await until(() => typing.heard.includes('tick-3\r\n'), 5000, 'the first ticks');
+    // 280 KB of lines: a pty holds a hundred of them
+    const typed = Array.from({length: 7000}, (v, i) => `typed line ${i + 1} and not read yet\n`).join('');
+    typing.socket.write(`${typed}\x04`);
+    const tick = parseInt(typing.heard.slice(typing.heard.lastIndexOf('tick-') + 5), 10);
+    await until(() => typing.heard.includes(`tick-${tick + 20}\r\n`), 4000, 'the ticks after what was typed');
+    const joined = reader_join(t, found);
+    await until(() => joined.heard.includes(`tick-${tick + 20}\r\n`), 5000, 'the history for one who joins meanwhile');
+    fs.writeFileSync(stop, '');
+    await until(() => typing.heard.includes('saved-42\r\n'), 5000, 'the program reading what was typed');
+    assert.strictEqual(fs.readFileSync(saved, 'utf8'), typed);
+});
+
+// A reader behind when the shell ends: the holder waited for it before it took its files away,
+// so a terminal whose shell was gone stayed in the list. It ends at once now, and the reader is
+// still given what it had not taken, the shell's last words too.
+test('a kept terminal ends with its shell while a reader is behind, and that reader still gets the rest', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('work', 80, 24, {}, dir);
+    const found = agent_term_read('work');
+    t.after(() => kill_quietly(found.shell_pid));
+    const behind = reader_join(t, found);
+    await until(() => (agent_term_read('work').clients === 1), 5000, 'the join');
+    behind.socket.pause();
+    // 0.7 MB: more than a socket holds for its reader, less than the history
+    behind.socket.write('stty -echo; echo begin-$((40+2)); seq 1 100000; echo end-$((40+2)); exit\n');
+    await until(() => (agent_term_read('work') === null), 5000, 'the end of the terminal');
+    assert.deepStrictEqual(fs.readdirSync(path.dirname(found.base)), []);
+    behind.socket.resume();
+    await until(() => behind.closed, 5000, 'the close for the reader');
+    const lines = behind.heard.slice(behind.heard.indexOf('begin-42\r\n') + 10, behind.heard.indexOf('end-42\r\n')).split('\r\n');
+    assert.strictEqual(lines.length, 100001, 'every line');
+    assert.strictEqual(lines.findIndex((v, i) => (i < 100000) && (v !== String(i + 1))), -1, 'the lines in order');
+    assert.match(behind.heard.slice(behind.heard.indexOf('end-42\r\n')), /logout|exit/, 'the shell\'s last words');
+});
+
 test('a machine shell and a web terminal close with their shell, though a job it left holds the pty on', async function (t) {
     const shells = {
         machine: agent_machine_shell({cols: 80, rows: 24}),
@@ -210,6 +303,18 @@ function agent_dir(t)
         fs.rmSync(dir, {recursive: true, force: true});
     });
     return dir;
+}
+
+// One joined to a kept terminal by its socket, left after the test: what it heard, and whether
+// its socket was closed
+function reader_join(t, found)
+{
+    const out = {socket: net.connect(`${found.base}.sock`), heard: '', closed: false};
+    t.after(() => out.socket.destroy());
+    out.socket.on('data', v => out.heard += v.toString('latin1'));
+    out.socket.on('close', () => out.closed = true);
+    out.socket.on('error', function () {});
+    return out;
 }
 
 // The job a shell said it left ("job <pid>") is running, and is stopped after the test

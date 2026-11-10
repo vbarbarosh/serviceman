@@ -85,6 +85,9 @@ socket does: what is printed waits there, with the program that prints it, and n
 host. Nothing is dropped, and what the pane types is never held. A held pane that takes nothing
 at all for 20 seconds, a laptop asleep with its tab open, is let go: its socket is cut and the
 stream closed, as for any pane that went away, so the program does not wait for it for good.
+A kept terminal is the one far end whose program does not wait: its holder keeps up to a
+megabyte for a pane that is behind and ends the stream of one further behind, and the Shell tab
+joins it again, at the history.
 
 The kept terminals' API, for a host that keeps them:
 

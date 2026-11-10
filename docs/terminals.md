@@ -64,10 +64,18 @@ stays.
 - Every message after it is binary: the terminal's bytes, escapes and all, for xterm.js or a
   real tty to draw. The first of them is the history, so a terminal joined again shows what
   it printed before, and scrolls back through it.
-- Read what comes. A terminal that prints faster than its reader reads is held back, as one
-  on a slow line is: its program waits to print, and nothing is dropped. A reader that takes
-  nothing at all holds the terminal meanwhile, for everyone joined to it: after 20 seconds of
-  that its socket is cut, the terminal goes on, and joining again shows the history.
+- Read what comes. The terminal waits for no reader: its program prints on and the others
+  joined to it read on, whatever one reader does. A reader that reads slower than the terminal
+  prints is kept up to a megabyte behind, with nothing dropped; one further behind is let go,
+  a page left open on a laptop asleep too: it is sent no more, and its socket closes once it
+  has read what was on the way. Join again and the first bytes are the history, the last
+  megabyte. The Shell tab does so by itself. What a reader types is taken until its socket
+  closes, so a Ctrl-C from one that is behind still stops the program.
+- A terminal keeps the holder it was started with until its shell ends, whatever its agent is
+  updated to meanwhile. In one started by an agent before 1.33.15 a reader that stops reading
+  and stays holds the terminal, for everyone joined to it, until it reads again or its socket
+  closes; serviceman cuts the socket of a reader that takes nothing at all for 20 seconds. To
+  be rid of that wait, end the terminal and open a new one.
 - Send text messages, json: `{"type": "input", "data": "ls\r"}` types (Enter is `\r`), and
   `{"type": "resize", "cols": 120, "rows": 40}` sets the size. Send a resize first: a new
   terminal starts at 80×24. A message that is not one of these, input that is not text, or a
@@ -173,7 +181,8 @@ what it printed; ended, it closes for whoever had it open and leaves the list.
 
 `tests/agent_term.test.js`: a kept terminal, a machine shell and a web terminal end with
 their shell, a job left in the background running on; a holder from before 1.27.3, its shell
-gone, is ended with its files.
+gone, is ended with its files; a kept terminal goes on while one joined to it reads nothing,
+and while its program takes nothing of what is typed.
 
 The same file as the first, "a terminal is made with the variables and the folder asked for": the shell has them, a terminal
 running already keeps its own, a bad name, a value that is not text and a missing folder are
