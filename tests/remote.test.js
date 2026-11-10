@@ -1875,6 +1875,55 @@ test('many files reach a machine as one tar through serviceman, with their times
     }
 });
 
+// What a tar meets under the part name of its file, on a machine asked with a token kept within
+// a folder: a link there would carry the bytes out of the folder, and a folder there once
+// stopped the agent
+test('a tar sent with a token writes through no link under a part name, and a folder under one costs the tar, not the agent', async function () {
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tar-plant-')));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, [], {HOME: home});
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => (remote.state.phase === 'online') && remote.state.resources.can.includes('fs_root'));
+        const notes = path.join(home, 'notes');
+        const keys = path.join(home, 'outside', 'authorized_keys');
+        fs.mkdirSync(notes);
+        fs.mkdirSync(path.dirname(keys));
+        fs.writeFileSync(keys, 'ssh-ed25519 AAAA owner\n');
+        fs.writeFileSync(path.join(home, 'x'), 'ssh-ed25519 AAAA attacker\n');
+        fs.writeFileSync(path.join(home, 'z'), 'zed\n');
+        const made = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files'], folders: ['~/notes']});
+        function as_token(method, asked, body) {
+            return fetch_host({port: running.control_port, host: '127.0.0.1', method, path: `/api/v1/remotes/ui1/fs${asked}`, token: made.body.token, body});
+        }
+        function tar_of(name) {
+            return child_process.execFileSync('tar', ['-C', home, '-cf', '-', name]);
+        }
+
+        // The link is made within the token's folder, the way a folder's copy makes one
+        assert.deepStrictEqual(await remote_call(running.app, remote, 'link_create', {path: '.x.part', target: keys, root: ['~/notes']}), {created: true});
+        const landed = await as_token('POST', `/upload/tar?dir=${encodeURIComponent(notes)}`, tar_of('x'));
+        assert.deepStrictEqual([landed.status, JSON.parse(landed.body)], [200, {files: 1, bytes: 26}]);
+        assert.strictEqual(fs.readFileSync(keys, 'utf8'), 'ssh-ed25519 AAAA owner\n');
+        assert.ok(fs.lstatSync(path.join(notes, 'x')).isFile());
+        assert.strictEqual(fs.readFileSync(path.join(notes, 'x'), 'utf8'), 'ssh-ed25519 AAAA attacker\n');
+
+        // A folder the token made under a part name refuses the tar by its name; the agent is
+        // there for the next ask
+        assert.strictEqual((await as_token('POST', '/mkdir', JSON.stringify({path: path.join(notes, '.z.part')}))).status, 200);
+        const refused = await as_token('POST', `/upload/tar?dir=${encodeURIComponent(notes)}`, tar_of('z'));
+        assert.deepStrictEqual([refused.status, /EISDIR.*\.z\.part/.test(refused.body)], [502, true], refused.body);
+        const after = await as_token('GET', `?path=${encodeURIComponent(notes)}`);
+        assert.deepStrictEqual([after.status, JSON.parse(after.body).items.map(v => v.name).sort()], [200, ['.z.part', 'x']], after.body);
+        assert.strictEqual(agent.exitCode, null);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(home, {recursive: true, force: true});
+    }
+});
+
 // What a page asks before an upload of thousands of files: whether they fit
 test('a machine says the room left on the disk of a folder, made or not yet; an agent from before says 501', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-room-'));

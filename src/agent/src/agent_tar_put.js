@@ -60,7 +60,9 @@ function agent_tar_put(target)
     out.resume = function () {};
     out.destroy = function () {
         out.destroyed = true;
-        chain = chain.then(part_drop);
+        // A part that cannot be dropped, a folder put under its name meanwhile, stays: nobody
+        // is left to hear of it, and a promise that fails in nobody's hands stops the agent
+        chain = chain.then(part_drop).catch(function () {});
     };
 
     function step(work) {
@@ -109,8 +111,15 @@ function agent_tar_put(target)
         // points at, and with the permissions it had
         const written = replaced ? fs.realpathSync(full) : full;
         const part = path.join(path.dirname(written), `.${path.basename(written)}.part`);
-        file = {written, part, mode: replaced ? fs.statSync(written).mode & 0o7777 : null, mode_there: event.mode, mtime_s: event.mtime_s, handle: null};
-        file.handle = await fs.promises.open(part, 'w');
+        const mode = replaced ? fs.statSync(written).mode & 0o7777 : null;
+        // The part is a file this agent makes, never one that was waiting there: a link planted
+        // under that name would carry the bytes to wherever it points. A part a cut-off tar left
+        // behind is cleared first, and the name is opened for a new file alone, following no
+        // link. Only a part that was opened is this tar's to drop: a folder under that name
+        // refuses the file and stays.
+        fs.rmSync(part, {force: true});
+        const handle = await fs.promises.open(part, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW);
+        file = {written, part, mode, mode_there: event.mode, mtime_s: event.mtime_s, handle};
     }
 
     async function bytes_write(chunk) {
@@ -130,6 +139,11 @@ function agent_tar_put(target)
         if (out.destroyed) {
             return;
         }
+        // Still the file this agent wrote, not something put in its place meanwhile: a link
+        // there would take the mode to the file it points at, and then the file's name
+        if (fs.lstatSync(file.part).isFile() === false) {
+            throw new Error(`${file.part} is not the file that was written`);
+        }
         if (file.mode !== null) {
             fs.chmodSync(file.part, file.mode);
         }
@@ -137,7 +151,8 @@ function agent_tar_put(target)
             agent_exec_bits(file.part, file.mode_there);
         }
         fs.renameSync(file.part, file.written);
-        fs.utimesSync(file.written, file.mtime_s, file.mtime_s);
+        // The time is given to the name itself, never through a link to the file it points at
+        fs.lutimesSync(file.written, file.mtime_s, file.mtime_s);
         files++;
         file = null;
     }

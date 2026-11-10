@@ -54,7 +54,14 @@ function agent_file_put(target)
     out.destroy = function () {
         out.destroyed = true;
         file.destroy();
-        fs.rmSync(part, {force: true});
+        // A part that cannot be dropped, a folder put under its name meanwhile, stays: it is
+        // not this agent's to remove, and the tunnel that drops a stream expects no throw
+        try {
+            fs.rmSync(part, {force: true});
+        }
+        catch {
+            // It stays where it is
+        }
     };
     file.on('error', function (error) {
         out.emit('error', error);

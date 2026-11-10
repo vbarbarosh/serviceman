@@ -2,6 +2,17 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.52 — 2026-11-10
+
+- The agent wrote each file of a tar to `.<name>.part` opened with plain `'w'`: a link planted
+  under that name carried the bytes to the file it points at, outside the folder. The part is
+  made new now, following no link, and is checked again before it takes the file's name, as a
+  single upload's is. (SM-217)
+- A folder under a part's name made the tar's drop throw in nobody's hands, and the agent's
+  process ended: two requests with a token for one folder. The drop is caught, in a single
+  upload too; the tar is refused by the folder's name and the agent goes on. Agent 1.33.8.
+  (SM-358)
+
 ## 1.0.51 — 2026-11-10
 
 - A machine's `log` message was written into serviceman's log as it came: with another

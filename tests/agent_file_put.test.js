@@ -46,6 +46,26 @@ test('an upload writes through no link planted at its part name: whole, and in p
     }
 });
 
+// What an upload drops is the part this agent made. A folder put under that name while the
+// file comes is not its to remove: it stays, and the drop throws nothing at the tunnel
+test('an upload dropped after a folder took its part\'s name throws nothing, and the folder stays', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-put-'));
+    try {
+        const put = agent_file_put({dir, name: 'notes.txt', root: dir});
+        put.on('error', function () {});
+        await new Promise(v => put.write(Buffer.from('half'), v));
+        fs.rmSync(path.join(dir, '.notes.txt.part'));
+        fs.mkdirSync(path.join(dir, '.notes.txt.part'));
+        fs.writeFileSync(path.join(dir, '.notes.txt.part', 'theirs.txt'), 'kept');
+        assert.doesNotThrow(() => put.destroy());
+        assert.strictEqual(fs.readFileSync(path.join(dir, '.notes.txt.part', 'theirs.txt'), 'utf8'), 'kept');
+        assert.strictEqual(fs.existsSync(path.join(dir, 'notes.txt')), false);
+    }
+    finally {
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // The far end of a tunnelled stream written to and ended: what it said back, or its error
 function written(stream, text)
 {

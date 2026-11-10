@@ -86,6 +86,148 @@ test('a name that walks out of the folder, or is absolute, is refused and nothin
     assert.deepStrictEqual(names_under(to), ['in']);
 });
 
+// A file of a tar goes to a part this agent makes. A link somebody planted under that name
+// would carry the bytes to wherever it points, so what waits there is cleared and the part is
+// made new: for a token kept within the folder and for the owner alike
+test('a tar writes through no link planted at a part name: to a file, to a folder, to nowhere', async function (t) {
+    const from = dir_make(t);
+    const names = ['file', 'folder', 'nowhere', 'sub/deep', 'stale'];
+    fs.mkdirSync(path.join(from, 'sub'));
+    for (const name of names) {
+        fs.writeFileSync(path.join(from, name), `the bytes of ${name}`);
+    }
+    for (const rooted of [true, false]) {
+        const to = dir_make(t);
+        const away = dir_make(t);
+        const victim = path.join(away, 'victim.txt');
+        fs.writeFileSync(victim, 'untouched');
+        fs.mkdirSync(path.join(away, 'kept'));
+        fs.mkdirSync(path.join(to, 'sub'));
+        fs.symlinkSync(victim, path.join(to, '.file.part'));
+        fs.symlinkSync(path.join(away, 'kept'), path.join(to, '.folder.part'));
+        fs.symlinkSync(path.join(away, 'made'), path.join(to, '.nowhere.part'));
+        fs.symlinkSync(victim, path.join(to, 'sub', '.deep.part'));
+        // No plant, only what a tar leaves when the agent is stopped in the middle of a file:
+        // the same file sent again is not held up by it
+        fs.writeFileSync(path.join(to, '.stale.part'), 'half of an older file, longer than the new one');
+        for (const name of names) {
+            const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', name]);
+            const said = await tar_send(agent_tar_put({dir: to, root: rooted ? to : undefined}), tarred, 4096);
+            assert.deepStrictEqual(said, {path: to, files: 1, bytes: `the bytes of ${name}`.length}, name);
+            assert.strictEqual(fs.readFileSync(victim, 'utf8'), 'untouched', `after ${name}, with a root: ${rooted}`);
+            assert.ok(fs.lstatSync(path.join(to, name)).isFile(), `${name} is a file of its own, not the link that was under its part name`);
+            assert.strictEqual(fs.readFileSync(path.join(to, name), 'utf8'), `the bytes of ${name}`);
+        }
+        assert.deepStrictEqual(names_under(to), ['file', 'folder', 'nowhere', 'stale', 'sub', 'sub/deep']);
+        assert.deepStrictEqual(names_under(away), ['kept', 'victim.txt']);
+    }
+});
+
+// A folder is not a part somebody left, and is not cleared: the tar ends at that file with the
+// folder's name, and the drop the tunnel does after an error has no part of this tar to remove
+test('a folder at a part name refuses the file by name, and the drop after it throws nothing', async function (t) {
+    const from = dir_make(t);
+    const to = dir_make(t);
+    fs.writeFileSync(path.join(from, 'a.txt'), 'first');
+    fs.writeFileSync(path.join(from, 'x'), 'never');
+    fs.mkdirSync(path.join(to, '.x.part'));
+    fs.writeFileSync(path.join(to, '.x.part', 'theirs.txt'), 'kept');
+    const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', 'a.txt', 'x']);
+    const unheld = unheld_watch(t);
+    const put = agent_tar_put({dir: to});
+    await assert.rejects(tar_send(put, tarred, 4096), /EISDIR.*\.x\.part/);
+    put.destroy();
+    await new Promise(v => setTimeout(v, 20));
+    assert.deepStrictEqual(unheld, []);
+    assert.deepStrictEqual(names_under(to), ['.x.part', '.x.part/theirs.txt', 'a.txt']);
+    assert.strictEqual(fs.readFileSync(path.join(to, 'a.txt'), 'utf8'), 'first');
+});
+
+// The last step too: what is put under the part name while the file comes is not what is given
+// the file's run bits, its name and its time. Through a link they would land on the file it
+// points at; a folder would take the file's name, and is not this tar's to remove.
+test('a link or a folder put at a part name while its file comes is not given the file\'s mode, name or time', async function (t) {
+    const from = dir_make(t);
+    const victim = path.join(dir_make(t), 'victim.txt');
+    fs.writeFileSync(victim, 'untouched', {mode: 0o600});
+    fs.utimesSync(victim, 1400000000, 1400000000);
+    fs.writeFileSync(path.join(from, 'run.sh'), Buffer.alloc(200000, 1), {mode: 0o755});
+    const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', 'run.sh']);
+    const unheld = unheld_watch(t);
+    for (const put_there of ['a link', 'a folder']) {
+        const to = dir_make(t);
+        const part = path.join(to, '.run.sh.part');
+        const put = agent_tar_put({dir: to});
+        for (let at = 0; at < 100000; at += 1000) {
+            await new Promise(v => put.write(tarred.subarray(at, at + 1000), v));
+        }
+        fs.rmSync(part);
+        if (put_there === 'a link') {
+            fs.symlinkSync(victim, part);
+        }
+        else {
+            fs.mkdirSync(part);
+        }
+        const failure = await new Promise(function (resolve) {
+            put.on('error', resolve);
+            put.write(tarred.subarray(100000), () => resolve(null));
+        });
+        assert.deepStrictEqual([fs.readFileSync(victim, 'utf8'), fs.statSync(victim).mode & 0o7777, fs.statSync(victim).mtimeMs], ['untouched', 0o600, 1400000000000]);
+        assert.match(String(failure), /\.run\.sh\.part is not the file that was written/, put_there);
+        put.destroy();
+        await new Promise(v => setTimeout(v, 20));
+        assert.deepStrictEqual(names_under(to), (put_there === 'a link') ? [] : ['.run.sh.part'], put_there);
+    }
+    assert.deepStrictEqual(unheld, []);
+});
+
+// A name of the tar that is a link, or passes through one, lands where a single upload of it
+// lands (agent_file_put). Out of a token's folders it is refused by name and the tar ends
+// there: the files before it are whole, the ones after it are not written.
+test('a name that is a link, or passes through one, is refused out of a token\'s folders and followed for the owner', async function (t) {
+    const from = dir_make(t);
+    const away = dir_make(t);
+    fs.mkdirSync(path.join(from, 'door'));
+    fs.mkdirSync(path.join(from, 'gone-dir'));
+    for (const name of ['a.txt', 'link.txt', 'to-dir', 'gone.txt', 'door/new.txt', 'gone-dir/new.txt', 'z.txt']) {
+        fs.writeFileSync(path.join(from, name), `the bytes of ${name}`);
+    }
+    fs.mkdirSync(path.join(away, 'kept'));
+    fs.writeFileSync(path.join(away, 'victim.txt'), 'untouched');
+    // A folder with a link under every name: to a file, to a folder and to nowhere, all outside
+    function planted() {
+        const to = dir_make(t);
+        fs.symlinkSync(path.join(away, 'victim.txt'), path.join(to, 'link.txt'));
+        fs.symlinkSync(path.join(away, 'kept'), path.join(to, 'to-dir'));
+        fs.symlinkSync(path.join(away, 'made.txt'), path.join(to, 'gone.txt'));
+        fs.symlinkSync(path.join(away, 'kept'), path.join(to, 'door'));
+        fs.symlinkSync(path.join(away, 'made'), path.join(to, 'gone-dir'));
+        return to;
+    }
+
+    for (const name of ['link.txt', 'to-dir', 'gone.txt', 'door/new.txt', 'gone-dir/new.txt']) {
+        const to = planted();
+        const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', 'a.txt', name, 'z.txt']);
+        const refused = JSON.stringify(path.join(to, name));
+        await assert.rejects(tar_send(agent_tar_put({dir: to, root: to}), tarred, 4096), v => (v.code === 'EACCES') && v.message.includes(refused), name);
+        assert.deepStrictEqual(names_under(to), ['a.txt', 'door', 'gone-dir', 'gone.txt', 'link.txt', 'to-dir'], name);
+        assert.strictEqual(fs.readFileSync(path.join(to, 'a.txt'), 'utf8'), 'the bytes of a.txt');
+        assert.deepStrictEqual(names_under(away), ['kept', 'victim.txt'], name);
+        assert.strictEqual(fs.readFileSync(path.join(away, 'victim.txt'), 'utf8'), 'untouched', name);
+    }
+
+    // The owner is kept within nothing, and the link is theirs: it stays a link and the bytes
+    // land in the file it points at, as an edit saved from the page does. A link to nowhere is
+    // no file to write over: the file takes its name, and nothing is made where it pointed.
+    const to = planted();
+    const tarred = child_process.execFileSync('tar', ['-C', from, '-cf', '-', 'link.txt', 'gone.txt']);
+    assert.deepStrictEqual(await tar_send(agent_tar_put({dir: to}), tarred, 4096), {path: to, files: 2, bytes: 42});
+    assert.ok(fs.lstatSync(path.join(to, 'link.txt')).isSymbolicLink());
+    assert.strictEqual(fs.readFileSync(path.join(away, 'victim.txt'), 'utf8'), 'the bytes of link.txt');
+    assert.ok(fs.lstatSync(path.join(to, 'gone.txt')).isFile());
+    assert.deepStrictEqual(names_under(away), ['kept', 'victim.txt']);
+});
+
 // One ustar header of a file, by hand: GNU tar will not write a name like these
 function header_of(name, size)
 {
@@ -117,6 +259,18 @@ function tar_send(socket, bytes, size)
         }
         socket.end();
     });
+}
+
+// What failed in nobody's hands while the test ran: a promise like that stops the agent
+function unheld_watch(t)
+{
+    const out = [];
+    function heard(error) {
+        out.push(error.message);
+    }
+    process.on('unhandledRejection', heard);
+    t.after(() => process.off('unhandledRejection', heard));
+    return out;
 }
 
 function names_under(dir)
