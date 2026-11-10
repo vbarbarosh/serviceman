@@ -1,4 +1,6 @@
 const file_write_synced = require('./file_write_synced');
+const fs = require('fs');
+const logline_aside = require('./logline_aside');
 const path = require('path');
 
 const BATCH_LINES = 1000;
@@ -16,7 +18,10 @@ const STEADY_MS = 30000;
 // The spool, to Logline, one batch at a time and in order. A batch leaves the spool only when
 // Logline answers 2xx; any other answer, or none, and the same batch goes again — the same
 // bytes, which Logline stores once however often they come. A batch Logline refuses outright —
-// a 4xx no retry can change — is put aside in refused/, said, and not deleted.
+// a 4xx no retry can change — is halved, and its half again, until a half is taken or only the
+// line Logline will not take is left: that line is put aside in refused/, said, and not
+// deleted, and every other line goes in. refused/ keeps no more than logline_aside says: past
+// that the line waits in the spool, as it does for a Logline that is away.
 //
 // New lines wake an idle loop, never the wait after a failure: the lines this loop says about
 // itself are new lines too, and waking on them sent the same refused batch ten times a second.
@@ -98,12 +103,21 @@ async function round(ctx, run, state)
         state.wait_ms = WAIT_FIRST_MS;
         return;
     }
-    if (answer.refused) {
-        // Nothing will make Logline take it: it is kept aside, whole, and the rest go on
-        file_write_synced(path.join(ctx.dir, 'refused', `${cut.first}-${cut.last}.json`), JSON.stringify({answer: answer.text, batch: JSON.parse(cut.body)}));
+    if (answer.refused && (cut.count > 1)) {
+        // The refusal may be about one line of it: its first half goes next, at once, and so on
+        // down to that line, so only what Logline will not take is put aside
+        ctx.spool.halve(cut);
+        return;
+    }
+    const kept = path.join(ctx.dir, 'refused', `${cut.first}-${cut.last}.json`);
+    // Its own file, there already, is no file more: a crash after it was written leaves it
+    if (answer.refused && (fs.existsSync(kept) || (logline_aside(ctx.dir).full === false))) {
+        // Nothing will make Logline take it: it is kept aside, and the rest go on. The file
+        // first, synced, and only then the spool moves on: a crash between the two sends the
+        // line again and writes the same file again, and no line behind it goes twice
+        file_write_synced(kept, JSON.stringify({answer: answer.text, batch: JSON.parse(cut.body)}));
         ctx.spool.ack(cut);
         state.gather_until = null;
-        stats_add(ctx, cut, answer.text);
         ctx.say('logline_batch_refused', {first: cut.first, last: cut.last, lines: cut.count, reason: answer.text, kept: `refused/${cut.first}-${cut.last}.json`});
         return;
     }
@@ -111,7 +125,7 @@ async function round(ctx, run, state)
     state.failed_at = Date.now();
     // Said once per reason: a Logline away for an hour is one line, not a line a minute
     if (ctx.stats.failing !== answer.text) {
-        ctx.say('logline_ship_error', {reason: answer.text, waiting: ctx.spool.stats().waiting_lines, then: 'the same batch again, until it is taken'});
+        ctx.say('logline_ship_error', {reason: answer.text, waiting: ctx.spool.stats().waiting_lines, then: answer.refused ? 'kept in the spool until refused/ has room: it is full' : 'the same batch again, until it is taken'});
         ctx.stats.failing = answer.text;
     }
     await sleep(run, state.wait_ms);

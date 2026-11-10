@@ -64,6 +64,41 @@ test('Logline refusing a machine is a problem, and the 401 of another address sa
     assert.strictEqual(found[0].since, Date.parse('2026-10-08T11:50:16Z'));
 });
 
+test('a refusal of the lines themselves is not called a Logline that is down; a Logline that is away or failing still is', function () {
+    const down = /Logline or the way to it is down/;
+    // What the agent of SM-287 puts aside, and what an agent from before it does as well
+    for (const answer of ['422 clickhouse 500: Code: 252. DB::Exception: Too many partitions for single INSERT block (more than 100).', '400 [3].time: expected an ISO time', '413 a batch is kept under 8388608 bytes', '413']) {
+        const found = problems_from_logline('vps1', logline(answer, null, 5, 1000), NOW);
+        assert.strictEqual(found[0].key, 'logline_refused:vps1');
+        assert.doesNotMatch(found[0].fix, down, answer);
+        assert.match(found[0].fix, /will never take these lines as they are.*refused\//, answer);
+    }
+    for (const answer of ['502 clickhouse 500: Code: 243. DB::Exception: Cannot reserve 1.00 MiB, not enough space.', '502 fetch failed', '500 Logline could not take that: its log says why', '404 Not Found', '429 Too Many Requests', 'connect ECONNREFUSED 100.64.0.20:3000', 'The operation was aborted due to timeout']) {
+        assert.match(problems_from_logline('vps1', logline(answer, null, 5, 1000), NOW)[0].fix, down, answer);
+    }
+});
+
+test('lines put aside on a machine are a problem of their own for as long as they are there, and say when no more fit', function () {
+    const some = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: {files: 3, bytes: 4096, full: false}}), NOW);
+    assert.deepStrictEqual(some.map(v => v.key), ['logline_aside:vps1'], 'while Logline takes every other line');
+    assert.strictEqual(some[0].subject, 'Logline will not take some of vps1\'s lines');
+    assert.match(some[0].cause, /^3 files of lines Logline refused are kept on the machine, in logline\/spool\/refused/);
+    assert.match(some[0].fix, /send them by hand once mended, or delete them/);
+    const one = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: {files: 1, bytes: 300, full: false}}), NOW);
+    assert.match(one[0].cause, /^1 file of lines Logline refused is kept/);
+    // Full: the refused line waits in the spool, and the agent says what Logline answered
+    const full = problems_from_logline('vps1', Object.assign(logline('422 clickhouse 500: Code: 407. DB::Exception: Decimal math overflow', null, 40, 9000), {aside: {files: 1000, bytes: 300000, full: true}}), NOW);
+    assert.deepStrictEqual(full.map(v => v.key), ['logline_refused:vps1', 'logline_aside:vps1']);
+    assert.strictEqual(full[1].subject, 'vps1 sends Logline nothing until its refused/ has room');
+    assert.match(full[1].cause, /^1,000 files /);
+    assert.match(full[1].fix, /move the files away or delete them/);
+    // Nothing aside, an agent from before SM-287 that says nothing of it, a machine that does not collect
+    assert.deepStrictEqual(problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: {files: 0, bytes: 0, full: false}}), NOW), []);
+    assert.deepStrictEqual(problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: null}), NOW), []);
+    assert.deepStrictEqual(problems_from_logline('vps1', logline('ok', null, 0, 0), NOW), []);
+    assert.deepStrictEqual(problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {collecting: false, aside: {files: 3, bytes: 4096, full: false}}), NOW), []);
+});
+
 test('lines that wait while nothing went for ten minutes are a problem; a machine that sends is not', function () {
     const silent = logline('ok', '2026-10-16T08:40:00Z', 10, 1000);
     silent.last_sent_at = '2026-10-16T08:45:00Z';

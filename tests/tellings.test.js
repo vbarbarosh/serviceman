@@ -118,6 +118,8 @@ const STATS_ODD = [
     ['logline', {collecting: true, containers: 1, dir_errors: {'/var/log/app': 13}, sent: {lines: 0, batches: 0, bytes: 0}}, 'logline.dir_errors.*'],
     ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: 5}}, 'logline.waiting.oldest'],
     ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: 404}, 'logline.last_answer'],
+    ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: '3', bytes: 0, full: false}}, 'logline.aside.files'],
+    ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: 3, bytes: 0}}, 'logline.aside.full'],
     ['doors_seen', 'site'],
     ['doors_seen', {site: 'now'}, 'doors_seen.*'],
 ];

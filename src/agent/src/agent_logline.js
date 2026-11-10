@@ -4,6 +4,7 @@ const agent_logline_read = require('./agent_logline_read');
 const agent_say = require('./agent_say');
 const fs = require('fs');
 const log_uid = require('../../helpers/log_uid');
+const logline_aside = require('./logline_aside');
 const logline_collect = require('./logline_collect');
 const logline_files = require('./logline_files');
 const logline_ship = require('./logline_ship');
@@ -159,6 +160,8 @@ agent_logline.status = function () {
         cap_bytes: (spool === null) ? null : spool.cap_bytes,
         last_sent_at: (stats === null) ? null : stats.last_sent_at,
         last_answer: (stats === null) ? null : stats.last_answer,
+        // What Logline will never take, kept on this machine in refused/, and whether no more fit
+        aside: (spool === null) ? null : logline_aside(agent_logline_path('spool')),
     };
 };
 

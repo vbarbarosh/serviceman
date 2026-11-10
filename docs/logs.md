@@ -359,7 +359,7 @@ What an agent says about sending its machine's lines to Logline:
 | `logline_collect_end`    | It stopped, and why — switched off, or on again from a new floor.   |
 | `logline_ship_error`     | A batch was not taken, and why; said once per reason, sent again.   |
 | `logline_ship_ok`        | Batches go again after the error above.                             |
-| `logline_batch_refused`  | Logline refused a batch outright; it is kept in `refused/`.         |
+| `logline_batch_refused`  | Logline will never take a line as it is: `reason=` is its answer, `kept=` the file in `refused/` the line is put aside in. |
 | `logline_lost`           | A container was removed before a line of it was read.               |
 | `logline_docker_error`   | Docker could not be asked; asked again.                             |
 | `logline_follow_error`   | Following one container broke; it is followed again.                |

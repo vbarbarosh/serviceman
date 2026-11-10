@@ -16,7 +16,9 @@ const RE_SEGMENT = /^(\d{16})\.jsonl$/;
 //     segments   0000000000000001.jsonl …   one record a line, append-only, 16M each
 //     acked.json                            the last seq Logline has
 //     inflight.json                         the batch being sent: sent again, the same, until acked
+//                                           or cut to its half
 //     cursors.json                          where each container was, at the end of what was deleted
+//     refused/                              what Logline will never take, put aside by logline_ship
 //
 // The spool is its own cursor: where a container's reading stood is read back from the records
 // themselves, so there is no second file to fall out of step with them. What a deleted segment
@@ -57,6 +59,7 @@ function logline_spool(dir, options)
         append: v => append(spool, v),
         flush: () => flush(spool),
         batch: (max_items, max_bytes) => batch(spool, max_items, max_bytes),
+        halve: v => halve(spool, v),
         ack: v => ack(spool, v),
         cursor: v => (spool.cursors[v] === undefined) ? null : spool.cursors[v],
         full: () => full(spool),
@@ -236,6 +239,16 @@ function batch(spool, max_items, max_bytes)
         file_write_synced(path.join(spool.dir, 'inflight.json'), JSON.stringify(spool.inflight));
     }
     return out;
+}
+
+// The batch being sent, cut to its first half: asked for again it is that half, after a
+// restart too, and the other half waits behind it with the rest. For a batch Logline will not
+// take as it is, when the refusal may be about one line of it.
+function halve(spool, cut)
+{
+    const half = {first: cut.first, last: cut.first + Math.floor((cut.last - cut.first)/2)};
+    file_write_synced(path.join(spool.dir, 'inflight.json'), JSON.stringify(half));
+    spool.inflight = half;
 }
 
 // Logline has the batch: the records in it leave, and so does every segment nothing waits in

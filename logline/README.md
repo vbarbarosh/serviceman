@@ -149,7 +149,7 @@ serviceman asks for the tokens and hands them to its machines; the design is in 
 
 | Route                  | Who asks       | What it does                                                        |
 |------------------------|----------------|---------------------------------------------------------------------|
-| `POST /lines`          | a machine      | Stores a batch whole, or answers why not. The same bytes sent twice are stored once. What breaks inside is said in Logline's own log, not to the machine. |
+| `POST /lines`          | a machine      | Stores a batch whole, or answers why not: 400, 413 and 422 (what ClickHouse refuses about the lines themselves) say these lines will never be taken as they are, anything else that the same bytes are to be sent again. The same bytes sent twice are stored once. What breaks inside is said in Logline's own log, not to the machine. |
 | `POST /tokens`         | serviceman     | `{name, ips}` → `{name, token}`: a token bound to those addresses.  |
 | `DELETE /tokens/<name>`| serviceman     | Takes a token back.                                                 |
 | `GET /days`            | serviceman     | Each day of lines: `{table, today, ttl, days: [{day, rows, bytes, raw}], undated}`, from the sizes of the table's parts. |

@@ -140,6 +140,38 @@ test('an agent whose spool folder cannot be written goes on, says so once, and i
     assert.deepStrictEqual(world.own().map(v => v.LogAttributes.sender).filter(v => v.startsWith('logline_spool_')), ['logline_spool_error', 'logline_spool_ok'], 'said once when it began, and once when it was over');
 });
 
+test('lines the store will never take hold nothing back: a batch of too many days goes in by halves, a time the store cannot hold is put aside, and every line behind arrives', async function (t) {
+    const world = await world_make(t);
+    const web = world.docker.add('web');
+    const floor = world.docker.now();
+    const written = [];
+    // A line a day for 150 days, each with its own time, as a file read from its start has them:
+    // more days than ClickHouse lets one insert span
+    for (let i = 0; i < 150; i++) {
+        world.docker.log(web, `${new Date(Date.UTC(2026, 0, 1 + i)).toISOString()} [c7t0xb1m][day_done] day ${i}`);
+        written.push(`[c7t0xb1m][day_done] day ${i}`);
+    }
+    world.agent_start(floor);
+    await world.until(() => world.rows().length >= written.length);
+    const refused = path.join(world.agent_dir, 'logline', 'spool', 'refused');
+    assert.strictEqual(fs.existsSync(refused), false, 'no line of the 150 days is put aside: halved, the batch is one the store takes');
+
+    world.docker.log(web, '9999-12-31T00:00:00.000Z [c7t0xb1m][far_off] a time the table cannot hold');
+    world.docker.log(web, 'the line behind them');
+    written.push('the line behind them');
+    await world.until(() => world.rows().length >= written.length);
+    assert.deepStrictEqual(world.rows().map(v => v.Body).sort(), written.slice().sort(), 'every line the store can take, once');
+    await world.until(() => world.own().some(v => v.LogAttributes.sender === 'logline_batch_refused'));
+    const names = fs.readdirSync(refused);
+    assert.strictEqual(names.length, 1, 'one line is put aside, and not the batch it came in');
+    const kept = JSON.parse(fs.readFileSync(path.join(refused, names[0]), 'utf8'));
+    assert.deepStrictEqual(kept.batch.map(v => [v.time, v.line]), [['9999-12-31T00:00:00.000000000Z', '[c7t0xb1m][far_off] a time the table cannot hold']]);
+    assert.match(kept.answer, /^422 clickhouse 500: Code: 407\. DB::Exception: Decimal math overflow/, 'with what the store said');
+    const said = world.own().filter(v => v.LogAttributes.sender.startsWith('logline_batch_') || v.LogAttributes.sender.startsWith('logline_ship_'));
+    assert.deepStrictEqual(said.map(v => v.LogAttributes.sender), ['logline_batch_refused'], 'said once, and Logline is never said to be away');
+    assert.match(said[0].Body, new RegExp(`lines=1 reason="422 clickhouse 500: Code: 407\\. DB::Exception: Decimal math overflow[^"]*" kept=refused/${names[0].replace('.', '\\.')}$`));
+});
+
 // A docker engine, Logline's endpoint in front of a ClickHouse that keeps one copy of a batch
 // sent twice, and an agent told to send there
 async function world_make(t, env)
@@ -214,7 +246,9 @@ async function world_make(t, env)
 }
 
 // ClickHouse as far as the endpoint uses it: an insert is stored, unless a batch with the same
-// dedup token already was
+// dedup token already was. One whose lines it will never take is refused whole, with the
+// number and the words ClickHouse's source has for it: a time past what DateTime64(9) holds, or
+// more than a hundred days in one insert.
 async function clickhouse_fake(t)
 {
     const out = {rows: [], tokens: new Set()};
@@ -226,11 +260,20 @@ async function clickhouse_fake(t)
         });
         req.on('end', function () {
             const token = url.searchParams.get('insert_deduplication_token');
-            if (url.searchParams.get('query').startsWith('INSERT') && (out.tokens.has(token) === false)) {
+            const rows = url.searchParams.get('query').startsWith('INSERT') ? body.split('\n').filter(v => v !== '').map(v => JSON.parse(v)) : [];
+            if (rows.some(v => v.Timestamp.slice(0, 10) > '2262-04-11')) {
+                res.writeHead(500, {'x-clickhouse-exception-code': '407'});
+                res.end('Code: 407. DB::Exception: Decimal math overflow: (while reading the value of key Timestamp): (at row 1)\n: While executing ParallelParsingBlockInputFormat. (DECIMAL_OVERFLOW)\n');
+                return;
+            }
+            if (new Set(rows.map(v => v.Timestamp.slice(0, 10))).size > 100) {
+                res.writeHead(500, {'x-clickhouse-exception-code': '252'});
+                res.end('Code: 252. DB::Exception: Too many partitions for single INSERT block (more than 100). The limit is controlled by \'max_partitions_per_insert_block\' setting. (TOO_MANY_PARTS)\n');
+                return;
+            }
+            if ((rows.length > 0) && (out.tokens.has(token) === false)) {
                 out.tokens.add(token);
-                for (const line of body.split('\n').filter(v => v !== '')) {
-                    out.rows.push(JSON.parse(line));
-                }
+                out.rows.push(...rows);
             }
             res.end('');
         });

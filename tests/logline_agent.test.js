@@ -193,7 +193,42 @@ test('a batch that ends exactly where its segment ends leaves the next one ready
     spool.close();
 });
 
-test('whatever order appends, syncs, batches, acks and restarts come in, every synced line is sent once, in order', function () {
+test('a batch cut to its half is that half again, after a restart too, and the other half waits behind it', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-'));
+    // Segments of a few lines each, so the batch and its halves end in the middle of one
+    let spool = logline_spool(dir, {cap_bytes: 1e9, segment_bytes: 300, sync_ms: 60000});
+    for (let i = 1; i <= 9; i++) {
+        spool.append(record('a', `2026-09-25T18:00:0${i}.000000000Z`, `line ${i}`));
+        spool.flush();
+    }
+    const whole = spool.batch(8, 1e6);
+    assert.deepStrictEqual([whole.first, whole.last, whole.count], [1, 8, 8]);
+    spool.halve(whole);
+    const half = spool.batch(8, 1e6);
+    assert.deepStrictEqual(JSON.parse(half.body).map(v => v.line), ['line 1', 'line 2', 'line 3', 'line 4']);
+    spool = logline_spool(dir, {cap_bytes: 1e9, segment_bytes: 300, sync_ms: 60000});
+    const again = spool.batch(8, 1e6);
+    assert.strictEqual(again.body, half.body, 'the same half, byte for byte, after a restart');
+    assert.strictEqual(spool.stats().waiting_lines, 9, 'nothing left the spool');
+    // Down to one line, which cannot be cut further
+    spool.halve(again);
+    spool.halve(spool.batch(8, 1e6));
+    const one = spool.batch(8, 1e6);
+    assert.deepStrictEqual(JSON.parse(one.body).map(v => v.line), ['line 1']);
+    spool.halve(one);
+    assert.strictEqual(spool.batch(8, 1e6).body, one.body);
+    spool.ack(one);
+    const rest = [];
+    for (let cut = spool.batch(3, 1e6); cut !== null; cut = spool.batch(3, 1e6)) {
+        rest.push(...JSON.parse(cut.body).map(v => v.line));
+        spool.ack(cut);
+    }
+    assert.deepStrictEqual(rest, ['line 2', 'line 3', 'line 4', 'line 5', 'line 6', 'line 7', 'line 8', 'line 9'], 'every line behind it once, in order');
+    assert.strictEqual(spool.stats().waiting_lines, 0);
+    spool.close();
+});
+
+test('whatever order appends, syncs, batches, halves, acks and restarts come in, every synced line is sent once, in order', function () {
     for (let seed = 1; seed <= 40; seed++) {
         const random = random_make(seed);
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spool-'));
@@ -218,9 +253,14 @@ test('whatever order appends, syncs, batches, acks and restarts come in, every s
             }
             else if (roll < 0.85) {
                 const cut = spool.batch(1 + Math.floor(random()*7), 1e6);
-                if ((cut !== null) && (random() < 0.8)) {
+                const answer = random();
+                if ((cut !== null) && (answer < 0.6)) {
                     spool.ack(cut);
                     sent.push(...JSON.parse(cut.body).map(v => v.line));
+                }
+                else if ((cut !== null) && (answer < 0.8)) {
+                    // Refused as it is: its first half goes next
+                    spool.halve(cut);
                 }
             }
             else if (roll < 0.95) {

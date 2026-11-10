@@ -67,9 +67,10 @@ async function request_handle(app, req, res)
 }
 
 // POST /lines (body, header:authorization)
-// A batch of lines, stored whole or not at all. 200 means they are in ClickHouse; anything
-// else means the sender keeps them and sends the same bytes again. The same bytes are stored
-// once however often they come.
+// A batch of lines, stored whole or not at all. 200 means they are in ClickHouse. 400, 413 and
+// 422 mean these lines, as they are, never will be: the sender keeps them aside and sends the
+// rest. Anything else means the sender keeps them and sends the same bytes again. The same
+// bytes are stored once however often they come.
 async function lines_post(app, req, res)
 {
     const from = req.socket.remoteAddress;
@@ -111,6 +112,13 @@ async function lines_post(app, req, res)
         });
     }
     catch (error) {
+        if (store_refuses_lines(error)) {
+            // The same lines get the same answer however often they come: the sender is told
+            // so, where a 502 had it send them again for ever with every line behind them
+            log_say(app.config.uid, 'lines_store_refused', {remote: item.name, count: items.length, reason: error.message});
+            send_json(res, 422, {error: error.message});
+            return;
+        }
         log_say(app.config.uid, 'lines_store_error', {remote: item.name, count: items.length, reason: error.message});
         send_json(res, 502, {error: error.message});
         return;
@@ -285,6 +293,27 @@ function send_json(res, status, value)
     const text = JSON.stringify(value);
     res.writeHead(status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(text)});
     res.end(text);
+}
+
+// Whether ClickHouse refused the lines for what they are, told by its own number for the
+// refusal (clickhouse_query's exception_code):
+//
+//     252   TOO_MANY_PARTS, when it says "Too many partitions for single INSERT block": the
+//           lines span more days than one insert may. The same number is its "Too many
+//           parts", a store behind on its merges, and that is waited for
+//     407   DECIMAL_OVERFLOW: a line's time is past what the table's DateTime64(9) holds,
+//           April 2262
+//
+// The status does not tell: ClickHouse answers 500 for both of these and for a full disk, and
+// 400 for a column that is not there. Every other refusal — no table, no room, no memory, a
+// row it cannot read — is taken for a store that is away or not right, which no line is put
+// aside for: when in doubt the sender waits.
+function store_refuses_lines(error)
+{
+    if (error.exception_code === 252) {
+        return /Too many partitions for single INSERT block/.test(error.message);
+    }
+    return error.exception_code === 407;
 }
 
 // A batch sent twice is stored once only when the table remembers the batches it was given.

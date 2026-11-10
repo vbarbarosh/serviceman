@@ -287,6 +287,22 @@ Logline in batches: what ten seconds gather, or a thousand lines, whichever come
 trickle is a batch every ten seconds and not an insert a line. A batch leaves the spool only
 when Logline has it; while Logline cannot be reached the spool grows, up to a gigabyte or a tenth
 of the disk, and then the machine stops reading and docker keeps the lines until there is room.
+A batch Logline answers it will never take as it is (a 400, a 413, or a 422 for what its store
+refuses about the lines themselves: a time the table cannot hold, more days than one insert
+may span) is halved, and its half again, until a half is taken: a batch of too many days goes
+in so, by halves, and what is left at the end is the one line Logline refuses. That line is put
+aside in `<agent folder>/logline/spool/refused/`, a file with Logline's `answer` and the line as
+`POST /lines` takes it, in `batch`, and every other line goes in. Nothing sends such a file
+again, and nothing deletes it; the problems bar names the machine for as long as one is there.
+The folder keeps a thousand files or 64 MB: past that the refused line waits in the spool with
+every line behind it, as for a Logline that is away, until there is room. Once what Logline
+refused is mended, a file goes by hand, from the machine, to where and with the token its agent
+was told in `logline/settings.json`:
+
+    cd <agent folder>/logline
+    jq -c .batch spool/refused/38-38.json | curl -sS --data-binary @- \
+        -H "authorization: Bearer $(jq -r .token settings.json)" "$(jq -r .endpoint settings.json)"
+
 A container labelled `logline=off` is left alone: Logline's own four carry it, so the machine
 Logline runs on does not send Logline its own lines back. The agent's own lines go too — what it
 connected to, what it was asked, what went

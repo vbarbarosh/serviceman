@@ -68,6 +68,33 @@ test('lines go in once however often they are sent, only with a token from its o
     assert.deepStrictEqual((await clickhouse_query(CLICKHOUSE, `SELECT count() FROM ${table}`)).trim(), '2');
 });
 
+// What ClickHouse refuses about the lines themselves is told by its own number for it, which
+// the stand-in in lines_serve.test.js copies from ClickHouse's source and only a real one gives
+test('a batch of more days than one insert may span is a 422, and goes in by halves; a time past what the table holds is never a 502', {skip: (CLICKHOUSE === undefined) ? 'CLICKHOUSE is not set' : false}, async function (t) {
+    const table = `default.lines_test_${crypto.randomBytes(4).toString('hex')}`;
+    const ddl = fs.readFileSync(path.join(__dirname, 'otel_logs.sql'), 'utf8').replace('{table}', table);
+    await clickhouse_query(CLICKHOUSE, ddl);
+    t.after(() => clickhouse_query(CLICKHOUSE, `DROP TABLE IF EXISTS ${table}`));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lines-'));
+    const running = await serve(t, {clickhouse: CLICKHOUSE, table, tokens_file: path.join(dir, 'tokens.json')});
+    const issued = await call(running, 'POST', '/tokens', ADMIN_TOKEN, {name: 'vps1', ips: ['127.0.0.1']});
+    // A line a day for 101 days: one more than max_partitions_per_insert_block lets in
+    const days = [];
+    for (let i = 0; i < 101; i++) {
+        days.push({time: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), labels: {}, line: `day ${i}`});
+    }
+    const whole = await call(running, 'POST', '/lines', issued.body.token, days);
+    assert.strictEqual(whole.status, 422, whole.body.error);
+    assert.match(whole.body.error, /^clickhouse 500: Code: 252\. DB::Exception: Too many partitions for single INSERT block/);
+    for (const half of [days.slice(0, 50), days.slice(50)]) {
+        assert.strictEqual((await call(running, 'POST', '/lines', issued.body.token, half)).status, 200);
+    }
+    assert.strictEqual((await clickhouse_query(CLICKHOUSE, `SELECT count() FROM ${table}`)).trim(), '101');
+    // Taken, or refused for good: a 502 would hold every line behind it
+    const far = await call(running, 'POST', '/lines', issued.body.token, [{time: '9999-12-31T00:00:00Z', labels: {}, line: 'far off'}]);
+    assert.notStrictEqual(far.status, 502, far.body.error);
+});
+
 // The days a table keeps, from ClickHouse's own parts, and the days before one dropped whole:
 // what partition ids look like, and that DROP PARTITION ID takes them, only a real one says
 test('the days of lines are told, and the days before one are dropped', {skip: (CLICKHOUSE === undefined) ? 'CLICKHOUSE is not set' : false}, async function (t) {

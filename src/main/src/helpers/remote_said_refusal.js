@@ -52,6 +52,7 @@ const SHAPES = {
             cap_bytes: maybe('number'),
             last_sent_at: 'text?',
             last_answer: 'text?',
+            aside: maybe({files: 'number', bytes: 'number', full: 'flag'}),
         }),
         doors_seen: maybe({'*': 'number'}),
     },

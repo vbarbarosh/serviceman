@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.78 — 2026-11-10
+
+- Logline's lines server answers 422 for what ClickHouse refuses about the lines themselves (too many days in one insert, a time past 2262), 502 for all else as before; the agent halves a refused batch down to the line refused, sets that line aside in a bounded refused/, and every other line goes in. Health says it as Logline refusing some lines, not as down (SM-287; agent 1.33.17).
+
 ## 1.0.77 — 2026-11-10
 
 - The agent's root half refuses a volume target or a shared folder's path with a link in it (409, naming the link), does its folder work and its mount on the folder it looked at, held open, and puts the system's folders first on its PATH (SM-214; agent 1.33.16). Registered SM-367 (a shared folder's path swapped mid-way still races its mount) and SM-368 (a volume under a home behind a link reads Closed).
