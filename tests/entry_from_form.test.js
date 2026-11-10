@@ -303,7 +303,7 @@ async function fetch_swap(sent, port, run)
 // `source` is the service a new one is a clone of.
 async function service_save(original, change, source, port)
 {
-    const form = await component_of('service_form.js', ['./service_from_form.js']);
+    const form = await component_of('service_form.js', ['./service_from_form.js', './secret_name_said.js', './secret_rows_write.js']);
     const props = {original: entry_freeze(original), source: (source === undefined) ? source : entry_freeze(source), names: []};
     // The fields as they stand, as on a service's own page: a new one's short form fills none in
     const self = Object.assign({}, form.methods, form.data.call(props), props, {model_now: () => self.model});

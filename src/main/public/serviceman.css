@@ -1541,6 +1541,26 @@ pre {
     background: var(--bg);
 }
 
+/* What a form says beside its buttons wraps inside the pane, whatever it holds: a name with no
+   space in it does not run out of the pane, and the buttons stay where they are */
+.form .actions > span,
+.svc-foot > span,
+.svc-create > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The Secrets page's lists: a name is as long as its owner made it and has no space in it, so
+   it breaks where it must and keeps to its own column */
+.secrets-kept {
+    grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+.secrets-kept > dt,
+.secrets-kept > dd {
+    overflow-wrap: anywhere;
+}
+
 button.primary {
     border-color: var(--accent);
     background: var(--accent);

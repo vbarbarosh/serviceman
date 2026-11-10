@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.63 — 2026-11-10
+
+- On the Secrets page a refused secret (a name with a space) emptied both boxes, and the typed
+  value was gone; in a service's card the refusal was never read: the card closed, nothing was
+  red, and the program started without its secret. A name the door would refuse is now red at
+  once with the rule under it and nothing is sent; a refusal that comes all the same is said
+  in the door's words, the boxes stay as typed and the card stays open. A secret taken away
+  and typed again in one card is kept, where it was written and then deleted. The form open on
+  a forward stays as typed when "forget it" is refused. (SM-266)
+
 ## 1.0.62 — 2026-11-10
 
 - A card of a service built the entry it saved from its own fields, and the whole entry was

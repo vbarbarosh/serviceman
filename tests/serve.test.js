@@ -12,6 +12,7 @@ const http = require('http');
 const image_prepull_start = require('../src/main/src/helpers/image_prepull_start');
 const net = require('net');
 const os = require('os');
+const page_fetch_begin = require('./page_fetch_begin');
 const path = require('path');
 const profile_from_db = require('../src/main/src/helpers/profile_from_db');
 const program_docker_argv = require('../src/helpers/program_docker_argv');
@@ -34,6 +35,7 @@ const zip_bytes = require('./fixtures/zip_bytes');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const DOCKER_BIN = path.join(__dirname, 'bin', 'docker');
+const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
 const TOKEN = '0123456789abcdef0123456789abcdef';
 
 test('a service that already runs is given an address, and nothing else is done to it', async function () {
@@ -1813,6 +1815,131 @@ test('a service, a machine, a host or a secret\'s owner named constructor is a n
     }
 });
 
+// A form says what is wrong with a secret's name before it asks, by a rule the page holds a
+// second time (secret_name_said.js). The door is the one that decides, so it is asked here
+// about every character a name may begin with and go on with: a rule changed on one side alone
+// fails this.
+test('the page calls a secret\'s name wrong exactly when the secrets door refuses it', async function () {
+    const secret_name_said = (await import(path.join(PUBLIC, 'secret_name_said.js'))).default;
+    const running = await serviceman_start([]);
+    // Secrets of its own: what is kept here is not what another test finds
+    running.app.state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-secrets-'));
+    try {
+        const names = ['credentials', 'google-oauth', 'Token_2.old', 'constructor', 'n'.repeat(200), 'db password', 'google oauth', '-dash', '.env', '_under', '__proto__', 'a/b', '../up', 'na\u00efve', 'tab\there', 'two\nlines'];
+        for (let code = 33; code < 127; code++) {
+            names.push(String.fromCharCode(code), `a${String.fromCharCode(code)}`);
+        }
+        for (const name of names) {
+            const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets', method: 'POST', body: JSON.stringify({name, value: 'x'})});
+            const said = (answer.status === 200) ? '' : JSON.parse(answer.body).error;
+            assert.strictEqual(said, (secret_name_said(name) === '') ? '' : 'a name of letters, digits, - . and _ is required', `${JSON.stringify(name)}: the door answers ${answer.status}, the page says ${JSON.stringify(secret_name_said(name))}`);
+        }
+        // What the door kept is what the page called right, each name once
+        const kept = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets'});
+        const right = names.filter(v => secret_name_said(v) === '');
+        assert.deepStrictEqual(JSON.parse(kept.body).global.map(v => v.name), [...new Set(right)].sort());
+        assert.strictEqual(right.length, 5 + 62 + 65, 'the five words, a letter or a digit alone, and one after a letter, - . and _ too');
+
+        // An empty name the door refuses too. A form never sends one, so the page says nothing
+        // of a box nobody has filled in; and a name is trimmed on both sides alike.
+        for (const name of ['', '   ']) {
+            const empty = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets', method: 'POST', body: JSON.stringify({name, value: 'x'})});
+            assert.strictEqual(empty.status, 400, JSON.stringify(name));
+            assert.strictEqual(secret_name_said(name), '');
+        }
+        assert.strictEqual(secret_name_said(' credentials '), '');
+        assert.strictEqual(secret_name_said('db password'), 'A secret\'s name is letters, digits, - . and _ only, starting with a letter or a digit.');
+    }
+    finally {
+        await running.close();
+        fs.rmSync(running.app.state_dir, {recursive: true, force: true});
+    }
+});
+
+// The Secrets page emptied both boxes after Keep it whatever the door answered: a name with a
+// space got a 400, and a long value typed by hand was gone (SM-266). The form is driven here as
+// vue drives it, its data and its methods on one object, against the door itself.
+test('a secret the door refuses stays in the library\'s boxes as it was typed, and the door\'s words are said', async function () {
+    const secrets_form = (await import(path.join(PUBLIC, 'secrets_form.js'))).default;
+    const running = await serviceman_start([]);
+    running.app.state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-secrets-'));
+    const page_fetch_end = page_fetch_begin(running.control_port);
+    try {
+        const form = Object.assign(secrets_form.data(), secrets_form.methods);
+        const value = 'typed by hand, a line at a time\n'.repeat(40);
+        Object.assign(form, {name: 'google oauth', value});
+        await form.save();
+        assert.deepStrictEqual({name: form.name, value: form.value, bad: form.bad, note: form.note, busy: form.busy}, {name: 'google oauth', value, bad: true, note: 'a name of letters, digits, - . and _ is required', busy: false});
+        assert.deepStrictEqual(form.global, [], 'and nothing is kept');
+
+        // Put right, it is kept, and only then are the boxes emptied for the next one
+        form.name = 'google-oauth';
+        await form.save();
+        assert.deepStrictEqual({name: form.name, value: form.value, bad: form.bad, note: form.note, busy: form.busy}, {name: '', value: '', bad: false, note: 'google-oauth is kept', busy: false});
+        assert.deepStrictEqual(form.global, [{name: 'google-oauth', length: value.length}]);
+
+        // serviceman away: that is said too, and nothing typed is lost
+        await running.close();
+        Object.assign(form, {name: 'later', value});
+        await form.save();
+        assert.deepStrictEqual({name: form.name, value: form.value, bad: form.bad, note: form.note, busy: form.busy}, {name: 'later', value, bad: true, note: 'the answer never came back', busy: false});
+    }
+    finally {
+        page_fetch_end();
+        await running.close();
+        fs.rmSync(running.app.state_dir, {recursive: true, force: true});
+    }
+});
+
+// A service's own secret was sent and its answer never read: `db password` got a 400, nothing
+// turned red, the card closed, and the program started without the secret its owner believed
+// was kept (SM-266). What the card's Save does with its rows of secrets (secret_rows_write.js)
+// is driven here against the door itself.
+test('a service\'s secret the door refuses is said in the door\'s words, and its row and the rows after it stay as typed', async function () {
+    const secret_rows_write = (await import(path.join(PUBLIC, 'secret_rows_write.js'))).default;
+    const running = await serviceman_start([]);
+    running.app.state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-secrets-'));
+    const page_fetch_end = page_fetch_begin(running.control_port);
+    try {
+        const value = 'a long value typed by hand '.repeat(20);
+        const rows = [secret_row('credentials', 'kept first', ''), secret_row('db password', value, ''), secret_row('later', 'not asked yet', '')];
+        assert.strictEqual(await secret_rows_write('ticker', rows, []), 'the secret db password: a name of letters, digits, - . and _ is required');
+        assert.deepStrictEqual(rows.map(v => [v.name, v.value, v.kept, v.length]), [['credentials', '', true, 10], ['db password', value, false, 0], ['later', 'not asked yet', false, 0]]);
+        assert.deepStrictEqual(await secrets_kept(running), ['ticker/credentials:10'], 'the one before it is kept, the refused one and the one after it are not');
+
+        // Put right, the rest goes: a value typed, and a copy asked for from the library; one
+        // that copies a name the library does not hold is refused in the door's words
+        await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets', method: 'POST', body: JSON.stringify({name: 'library-one', value: 'from the library'})});
+        rows[1].name = 'db-password';
+        rows.push(secret_row('copied', '', 'library-one'), secret_row('lost', '', 'library-two'));
+        assert.strictEqual(await secret_rows_write('ticker', rows, []), 'the secret lost: nothing is kept under library-two');
+        assert.deepStrictEqual(rows.map(v => [v.name, v.value, v.copy_from, v.kept, v.length]), [['credentials', '', '', true, 10], ['db-password', '', '', true, value.length], ['later', '', '', true, 13], ['copied', '', '', true, 16], ['lost', '', 'library-two', false, 0]]);
+        assert.deepStrictEqual(await secrets_kept(running), ['ticker/copied:16', 'ticker/credentials:10', 'ticker/db-password:540', 'ticker/later:13']);
+
+        // A kept one taken away and typed again under its name in the same card is the new one:
+        // written first and taken away after, it was gone
+        const gone = [{name: 'credentials'}, {name: 'later'}];
+        assert.strictEqual(await secret_rows_write('ticker', [secret_row('credentials', 'the new one', '')], gone), null);
+        assert.deepStrictEqual(gone, []);
+        assert.deepStrictEqual(await secrets_kept(running), ['ticker/copied:16', 'ticker/credentials:11', 'ticker/db-password:540']);
+
+        // serviceman away: that is said, nothing typed is lost, and what was to be taken away
+        // waits for the next Save
+        await running.close();
+        const late = [secret_row('late', value, '')];
+        assert.strictEqual(await secret_rows_write('ticker', late, []), 'the secret late: the answer never came back');
+        assert.deepStrictEqual([late[0].value, late[0].kept], [value, false]);
+        const still = [{name: 'copied'}];
+        assert.strictEqual(await secret_rows_write('ticker', late, still), 'taking the secret copied away: the answer never came back');
+        assert.deepStrictEqual(still, [{name: 'copied'}]);
+    }
+    finally {
+        page_fetch_end();
+        await running.close();
+        fs.rmSync(running.app.state_dir, {recursive: true, force: true});
+    }
+});
+
 // There is no way back once the folders are swapped: a new version whose bin/configure fails
 // is the app from then on, data/ in it, the old one gone, and the service says why; it is not
 // started, by a request either, until somebody asks
@@ -2740,6 +2867,19 @@ async function serviceman_close(running, kill)
             // already gone
         }
     }
+}
+
+// A row of a service's secrets as its card holds one
+function secret_row(name, value, copy_from)
+{
+    return {key: Math.random(), name, value, copy_from, kept: false, length: 0};
+}
+
+// What the door keeps for services, as service/name:length
+async function secrets_kept(running)
+{
+    const answer = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/secrets'});
+    return JSON.parse(answer.body).services.map(v => `${v.service}/${v.name}:${v.length}`);
 }
 
 // Waits for something the handlers do on their own clock, instead of guessing a sleep

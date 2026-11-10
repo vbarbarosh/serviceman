@@ -1,3 +1,6 @@
+import secret_name_said from './secret_name_said.js';
+import secret_write from './secret_write.js';
+
 // Everything kept on this host, in one table: the library, and what each service reads.
 //
 // A secret made on a service's page is that service's own — it cannot be read by anything else
@@ -12,7 +15,7 @@ const secrets_form = {
 
     <h2>The library</h2>
     <p class="muted">Written down once, to be copied into the services that need it. Nothing reads these directly.</p>
-    <dl v-if="(global.length > 0)">
+    <dl v-if="(global.length > 0)" class="secrets-kept">
         <template v-for="item of global" :key="item.name">
             <dt>{{ item.name }}</dt>
             <dd>
@@ -31,20 +34,23 @@ const secrets_form = {
     <p v-else class="muted">Nothing here yet.</p>
     <div class="grid">
         <label>Name</label>
-        <div><input v-model.trim="name" placeholder="google-oauth" spellcheck="false"></div>
+        <div>
+            <input v-model.trim="name" placeholder="google-oauth" :class="{wrong: (name_said !== '')}" spellcheck="false">
+            <p v-if="(name_said !== '')" class="bad">{{ name_said }}</p>
+        </div>
         <label>Value</label>
         <div>
             <textarea v-model="value" rows="3" placeholder='{"web": {"client_id": "…", "client_secret": "…"}}' spellcheck="false"></textarea>
         </div>
     </div>
     <div class="actions">
-        <button type="button" :disabled="(busy || name === '' || value === '')" @click="save">Keep it</button>
+        <button type="button" :disabled="(busy || name === '' || value === '' || name_said !== '')" @click="save"><span v-if="keeping" class="spin"/>{{ keeping ? 'keeping…' : 'Keep it' }}</button>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
 
     <h2>Held by services</h2>
     <p class="muted">Made on a service's own page, and private to it. Two services may both hold a <code>token</code>; they are not the same token.</p>
-    <dl v-if="(services.length > 0)">
+    <dl v-if="(services.length > 0)" class="secrets-kept">
         <template v-for="item of services" :key="(item.service + '.' + item.name)">
             <dt>{{ item.service }}</dt>
             <dd>
@@ -73,9 +79,17 @@ const secrets_form = {
             // The one whose "Take it away" has been pressed and not yet answered for
             going: '',
             busy: false,
+            // While Keep it is on its way to the door, which its button then says
+            keeping: false,
             bad: false,
             note: '',
         };
+    },
+    computed: {
+        // What the door would say to the name as it stands, said under its box before it is asked
+        name_said: function () {
+            return secret_name_said(this.name);
+        },
     },
     methods: {
         load: async function () {
@@ -95,38 +109,37 @@ const secrets_form = {
             }
             return `${users.join(', ')} ${(users.length === 1) ? 'holds' : 'hold'} one this long`;
         },
+        // The boxes are emptied for the next one only when the door has this one: what it did
+        // not take stays as it was typed, to be put right
         save: async function () {
-            await this.write({name: this.name, value: this.value}, `${this.name} is kept`);
-            this.name = '';
-            this.value = '';
+            this.keeping = true;
+            const kept = await this.write({name: this.name, value: this.value}, `${this.name} is kept`);
+            this.keeping = false;
+            if (kept) {
+                this.name = '';
+                this.value = '';
+            }
         },
         drop: async function (service, name) {
             await this.write({service, name, value: ''}, `${name} is gone`);
             this.going = '';
         },
+        // Answers with whether the door did it; what it said instead is the note
         write: async function (body, said) {
             this.busy = true;
             this.bad = false;
             this.note = '';
-            try {
-                const answer = await fetch('/api/v1/secrets', {method: 'POST', body: JSON.stringify(body)});
-                const loaded = await answer.json();
-                if (answer.ok === false) {
-                    this.bad = true;
-                    this.note = loaded.error;
-                    return;
-                }
-                this.global = loaded.global;
-                this.services = loaded.services;
-                this.note = said;
-            }
-            catch (error) {
+            const kept = await secret_write(body);
+            this.busy = false;
+            if (kept.error !== undefined) {
                 this.bad = true;
-                this.note = error.message;
+                this.note = kept.error;
+                return false;
             }
-            finally {
-                this.busy = false;
-            }
+            this.global = kept.global;
+            this.services = kept.services;
+            this.note = said;
+            return true;
         },
     },
     created: function () {

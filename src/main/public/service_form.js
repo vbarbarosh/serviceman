@@ -7,6 +7,8 @@ import app_zip_read from './app_zip_read.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
+import secret_name_said from './secret_name_said.js';
+import secret_rows_write from './secret_rows_write.js';
 import service_from_form from './service_from_form.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
@@ -66,6 +68,7 @@ const SECTION_PROBLEMS = {
     runs: ['port', 'command', 'upstream'],
     where: ['places'],
     address: ['hosts'],
+    keep: ['secrets'],
 };
 
 const RE_DURATION = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)?$/;
@@ -434,8 +437,8 @@ const service_form = {
                     <label>Secrets</label>
                     <div>
                         <div v-for="row of m.secrets" :key="row.key" class="line">
-                            <input v-model.trim="row.name" placeholder="credentials" class="short" spellcheck="false">
-                            <input v-model="row.value" :placeholder="(row.kept ? row.length + ' characters kept — type to replace' : 'the value the program reads')" spellcheck="false">
+                            <input v-model.trim="row.name" placeholder="credentials" class="short" :class="{wrong: (secret_said(row).name !== '')}" spellcheck="false">
+                            <input v-model="row.value" :placeholder="(row.kept ? row.length + ' characters kept — type to replace' : 'the value the program reads')" :class="{wrong: (secret_said(row).value !== '')}" spellcheck="false">
                             <select v-if="(library.length > 0)" v-model="row.copy_from">
                                 <option value="">or copy from…</option>
                                 <option v-for="item of library_options" :key="item.value" :value="item.value">{{ item.label }}</option>
@@ -443,7 +446,8 @@ const service_form = {
                             <button type="button" title="Take this secret away" aria-label="Take this secret away" @click="row_drop(m.secrets, row)">×</button>
                         </div>
                         <button type="button" @click="row_add(m.secrets, {name: '', value: '', copy_from: '', kept: false, length: 0})">+ secret</button>
-                        <p class="muted">The program reads one with <code>secrets &lt;name&gt;</code>. They are this service's own and never in the config.</p>
+                        <p v-if="problems.secrets" class="bad">{{ problems.secrets }}</p>
+                        <p v-else class="muted">The program reads one with <code>secrets &lt;name&gt;</code>. They are this service's own and never in the config.</p>
                     </div>
                 </template>
             </template>
@@ -604,6 +608,9 @@ const service_form = {
             library: [],
             // Rows taken away here are removed on the machine when the card is saved
             secrets_gone: [],
+            // A save that landed while a secret of it did not: the cards are then older than
+            // what serviceman has
+            half: false,
             detected_port: null,
             // The app, a folder or a zip of this computer, read here and sent to its machine
             // as its files on Create (app_entries_read), and the name it gives the app
@@ -847,6 +854,10 @@ const service_form = {
             else if ((model.name !== '') && (/^[a-z0-9][a-z0-9_-]*$/.test(model.name) === false)) {
                 out.name = 'Lowercase letters, digits, - and _ only, starting with a letter or a digit.';
             }
+            const secret = (model.type === 'shell') ? model.secrets.map(v => this.secret_said(v)).find(v => (v.name !== '') || (v.value !== '')) : undefined;
+            if (secret !== undefined) {
+                out.secrets = secret.name || secret.value;
+            }
             return out;
         },
         problem_count: function () {
@@ -1080,6 +1091,10 @@ const service_form = {
             this.tried = false;
             this.note = '';
             this.bad = false;
+            // What a save left half-way did change is read again, so the cards say what is so
+            if (this.half) {
+                this.$emit('saved', this.original.name);
+            }
         },
         // The one-press answer a card offers for what it warns about: its card opened with the
         // change made, for Save to confirm
@@ -1251,32 +1266,19 @@ const service_form = {
             }
             rows.splice(rows.indexOf(row), 1);
         },
-        // What the rows say, sent one by one: a value typed here, a copy asked for from the
-        // library, or nothing left in the row at all, which takes the secret away.
-        secrets_save: async function (service, model) {
-            for (const row of model.secrets) {
-                if (row.name === '') {
-                    continue;
-                }
-                if (row.copy_from !== '') {
-                    await this.secret_write({service, name: row.name, copy_from: row.copy_from});
-                    row.copy_from = '';
-                    row.kept = true;
-                    continue;
-                }
-                if (row.value !== '') {
-                    await this.secret_write({service, name: row.name, value: row.value});
-                    row.value = '';
-                    row.kept = true;
-                }
+        // What is wrong in one row of secrets, by the box it is wrong in. A name the door would
+        // refuse is said at once; a row half filled in waits for Save, which then sends nothing:
+        // a value with no name would be dropped unsaid, and a name with no value keeps nothing.
+        secret_said: function (row) {
+            const filled = (row.value !== '') || (row.copy_from !== '');
+            const out = {name: secret_name_said(row.name), value: ''};
+            if (this.tried && (row.name === '') && filled) {
+                out.name = 'A secret needs a name: one has a value and no name.';
             }
-            for (const row of this.secrets_gone) {
-                await this.secret_write({service, name: row.name, value: ''});
+            if (this.tried && (row.name !== '') && (filled === false) && (row.kept === false)) {
+                out.value = 'A new secret needs a value: type one, or take the row away.';
             }
-            this.secrets_gone = [];
-        },
-        secret_write: function (body) {
-            return fetch('/api/v1/secrets', {method: 'POST', body: JSON.stringify(body)});
+            return out;
         },
         // The problems in the open card, or in any card while making one
         problems_here: function () {
@@ -1349,8 +1351,15 @@ const service_form = {
                     return false;
                 }
                 // The secrets are not part of the config, so they are written after it — and
-                // under the name the service has now, which may be the name it just got
-                await this.secrets_save(model.name, model);
+                // under the name the service has now, which may be the name it just got. One the
+                // door does not take is said in the door's words and nothing closes: its row
+                // stays as it was typed, while the service itself is saved.
+                const refused = await secret_rows_write(model.name, model.secrets, this.secrets_gone);
+                if (refused !== null) {
+                    this.half = true;
+                    this.report(`${refused} — ${(method === 'POST') ? `${model.name} itself is made` : 'the rest is saved'}`, true);
+                    return false;
+                }
                 return true;
             }
             catch {

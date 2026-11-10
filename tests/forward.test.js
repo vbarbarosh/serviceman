@@ -9,6 +9,7 @@ const fs = require('fs');
 const link_read = require('../src/helpers/link_read');
 const net = require('net');
 const os = require('os');
+const page_fetch_begin = require('./page_fetch_begin');
 const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
 const stream = require('stream');
@@ -256,6 +257,46 @@ test('the page writes the forwards into the config file', async function () {
     finally {
         servers.control.close();
         servers.server.close();
+    }
+});
+
+// "forget it" on the forward whose form is open emptied the form before the door was asked: one
+// the door did not forget lost what was typed there, and what the door said had no form left to
+// be shown in. The section is driven here as vue drives it, its data and its methods on one object.
+test('the form open on a forward stays as it was typed when the door does not forget the forward', async function () {
+    const forwards_section = (await import(path.join(__dirname, '..', 'src', 'main', 'public', 'forwards_section.js'))).default;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-forget-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    const forwards = [{label: 'loki', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', socket: '~/repos/loki.sock'}}];
+    fs.writeFileSync(config_path, JSON.stringify({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: remotes_json(), forwards, services: []}));
+    const config = config_from_json(JSON.parse(fs.readFileSync(config_path, 'utf8')), dir);
+    config.path = config_path;
+    const servers = await server_start(app_from_config(config));
+    // A door that is away: the port of a server that has closed
+    const away = net.createServer().listen(0, '127.0.0.1');
+    await new Promise(v => away.once('listening', v));
+    const away_port = away.address().port;
+    await new Promise(v => away.close(v));
+    const typed = {label: 'loki, typed again', from_remote: 'vps1', from: '3999', to_remote: 'laptop', to: '~/repos/loki.sock'};
+    const form = Object.assign(forwards_section.data(), forwards_section.methods, {making: true, editing: forwards[0], fresh: typed});
+    let page_fetch_end = page_fetch_begin(away_port);
+    try {
+        await form.drop(forwards[0]);
+        assert.deepStrictEqual({making: form.making, editing: form.editing, fresh: form.fresh, note: form.note, bad: form.bad, busy: form.busy}, {making: true, editing: forwards[0], fresh: typed, note: 'the answer never came back', bad: true, busy: false});
+        assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, forwards, 'and the forward is still there');
+
+        // The door back, the forward is forgotten and its form goes with it
+        page_fetch_end();
+        page_fetch_end = page_fetch_begin(servers.control.address().port);
+        await form.drop(forwards[0]);
+        assert.deepStrictEqual({making: form.making, editing: form.editing, note: form.note, bad: form.bad, busy: form.busy}, {making: false, editing: null, note: '', bad: false, busy: false});
+        assert.strictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).forwards, undefined);
+    }
+    finally {
+        page_fetch_end();
+        servers.control.close();
+        servers.server.close();
+        fs.rmSync(dir, {recursive: true, force: true});
     }
 });
 

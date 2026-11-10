@@ -19,7 +19,7 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
   self-contained and is moving to a repository of its own; keep it free of serviceman's code.
 - **web-terminal:** a page and a server of its own, in `src/web-terminal/`.
 - **Notes and audits:** working notes in `notes/`; a full audit is `notes/audit-<date>.md`,
-  and its register is the issue list (the last id is SM-360).
+  and its register is the issue list (the last id is SM-361).
 
 ## Commands
 

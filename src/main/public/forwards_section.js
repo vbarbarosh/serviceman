@@ -347,16 +347,18 @@ const forwards_section = {
                 }
             });
         },
+        // The form open on the forward that is forgotten goes with it. One the door did not
+        // forget keeps its form: what was typed there stays, and what the door said is in it.
         drop: async function (item) {
-            if ((this.editing !== null) && (this.editing.label === item.label)) {
-                this.clear();
-            }
-            await this.forwards_write(function (forwards) {
+            const written = await this.forwards_write(function (forwards) {
                 const at = forwards.findIndex(v => label_of(v) === item.label);
                 if (at !== -1) {
                     forwards.splice(at, 1);
                 }
             });
+            if (written && (this.editing !== null) && (this.editing.label === item.label)) {
+                this.clear();
+            }
         },
         forwards_write: async function (change) {
             this.busy = true;
