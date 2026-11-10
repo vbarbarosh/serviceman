@@ -21,17 +21,26 @@ case "${1-}"  in
 major|minor|patch)
     ;;
 *)
-    echo usage: release 'major|minor|patch' 2>&1
+    echo usage: release 'major|minor|patch' >&2
     exit 1
     ;;
 esac
 
 if test -n "`git status -s`"; then
-    echo error: there is changes 2>&1
+    echo error: there are changes >&2
     exit 1
 fi
 
+# The branch the release is made on. It and the release's own tag are what is pushed, and
+# nothing else this machine holds: no other branch, no other tag
+branch=`git symbolic-ref --short HEAD`
+remote=`git config branch.$branch.remote || echo origin`
+
+# Everything the project checks itself with, before anything is written
+npm run lint
 bin/test
+node --test modules/*/tests/*.test.js
+(cd logline/lines && bin/test)
 
 # Increase a version without commiting it and making a tag
 npm version $1 --no-git-tag-version
@@ -52,12 +61,11 @@ if test -e package-lock.json; then
     git add package-lock.json
 fi
 
-git commit -m "release v$(node -e 'console.log(require("./package.json").version)')"
+git commit -m "release: v$version"
 
 # Create a tag
-git tag v$(node -e 'console.log(require("./package.json").version)')
+git tag v$version
 
-git push --all
-git push --tags
+git push $remote $branch v$version
 
 EXIT_MESSAGE="${GREEN}bin/release succeeded${RESET}"

@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.56 — 2026-11-10
+
+- `bin/release` ran `bin/test` alone, pushed every local branch and every tag (`git push --all`,
+  `--tags`), and said its usage and "there is changes" on stdout. It runs the linter, the
+  suite, the modules' tests and Logline's before anything is written, pushes the branch it is
+  made on and the release's own tag, and says a refusal on stderr; the commit is
+  `release: v1.2.3`. A test runs it in a scratch repository with an origin of its own. (SM-334)
+
 ## 1.0.55 — 2026-11-10
 
 - The test "a machine may not open a stream this host would be using" wrote its frames on the
