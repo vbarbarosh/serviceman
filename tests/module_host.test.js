@@ -1,6 +1,7 @@
 const assert = require('assert');
 const child_process = require('child_process');
 const fs = require('fs');
+const handshake_raw = require('./handshake_raw');
 const http = require('http');
 const modules_served = require('../src/module-host/src/modules_served');
 const os = require('os');
@@ -114,6 +115,44 @@ test('module-host reads this computer through the agent it runs', {timeout: 6000
         assert.deepStrictEqual(terminals.items, []);
         // The agent keeps what it keeps in its folder, and nothing in this checkout
         assert.deepStrictEqual(fs.readdirSync(dir).sort(), ['page.key']);
+    }
+    finally {
+        child.kill();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// Each of these was thrown where nothing caught it and ended the process, an upload under way
+// with it: a folder of the page's files that is a word every object answers to, an address
+// that is no address (`//[` reads as a host, and `[` is none) at the page's door and at the
+// websocket's, and a file's path whose percent signs spell no text. Only the last wants the
+// key: the others any page open in the same browser sends, with an <img>.
+test('module-host refuses a folder, an address and a path that are none, and goes on', {timeout: 60000}, async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'module-host-run-'));
+    const port = 40000 + Math.floor(Math.random()*10000);
+    const child = child_process.spawn(process.execPath, [path.join(__dirname, '../src/module-host/index.js')], {
+        env: Object.assign({}, process.env, {PORT: String(port), SERVICEMAN_AGENT_DIR: dir}),
+        stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    try {
+        await new Promise(function (resolve, reject) {
+            let said = '';
+            child.stdout.on('data', function (chunk) {
+                said += chunk;
+                if (said.includes('?key=')) {
+                    resolve();
+                }
+            });
+            child.once('exit', v => reject(new Error(`module-host ended: ${v}`)));
+        });
+        const cookie = `module_host_key=${fs.readFileSync(path.join(dir, 'page.key'), 'utf8').trim()}`;
+        const base = `http://localhost:${port}`;
+        assert.strictEqual((await http_status(base, '/_/constructor/x', {})).status, 404);
+        assert.strictEqual((await http_status(base, '/_/__proto__/x', {})).status, 404);
+        assert.strictEqual((await http_status(base, '//[', {})).status, 400);
+        assert.strictEqual(await handshake_raw({port, host: `localhost:${port}`, target: '//['}), 'closed');
+        assert.strictEqual((await http_status(base, '/api/file_manager/file/%E0%A4%A', {cookie})).status, 400);
+        assert.strictEqual((await http_status(base, '/', {})).status, 200);
     }
     finally {
         child.kill();

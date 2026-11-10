@@ -92,6 +92,23 @@ test('every door of the API answers from the disk it was given, under the base t
     assert.deepStrictEqual(logged[7][1], {path: '/home/me/new.txt', bytes: 8});
 });
 
+// A file's path is the address's own tail, percent-encoded, and percent signs that spell no
+// text are the asker's mistake: a 400 that says so. Thrown instead, it was the host's to catch:
+// a host that did not stopped, and one that did answered as if the fault were its own.
+test('a file\'s path whose percent signs spell no text is a 400 that says so, and the door goes on answering', async function (t) {
+    // A request left with no answer would hold its server open, and this file with it
+    t.after(() => http.globalAgent.destroy());
+    const running = await serve(t, {disk: disk_in_memory({'/home/me/hello.txt': 'hello world'})});
+    for (const tail of ['/home/me/%E0%A4%A', '/home/me/100%.txt', '/%zz']) {
+        const refused = await call(running, 'GET', `/fs/file${tail}`);
+        assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [400, {error: `a file's path is percent-encoded UTF-8, and ${JSON.stringify(tail)} is not that`}]);
+        assert.strictEqual((await call(running, 'HEAD', `/fs/file${tail}`)).status, 400, tail);
+    }
+
+    // And the door goes on answering
+    assert.strictEqual((await call(running, 'GET', '/fs/file/home/me/hello.txt')).body, 'hello world');
+});
+
 test('a file in parts: how much is in, a part sent again, a finish only when whole, a cancel', async function (t) {
     const disk = disk_in_memory({'/home/me/old.txt': 'x'});
     const running = await serve(t, {disk});

@@ -79,7 +79,12 @@ async function file_manager_serve(req, res, options)
     }
     const file = RE_FILE.exec(tail);
     if ((file !== null) && ((req.method === 'GET') || (req.method === 'HEAD'))) {
-        await file_serve(ctx, req, res, decodeURIComponent(file[1]));
+        const asked = path_decoded(file[1]);
+        if (asked === null) {
+            send_json(res, 400, {error: `a file's path is percent-encoded UTF-8, and ${JSON.stringify(file[1])} is not that`});
+            return;
+        }
+        await file_serve(ctx, req, res, asked);
         return;
     }
     if ((tail === '/tar') && ((req.method === 'GET') || (req.method === 'HEAD'))) {
@@ -856,6 +861,19 @@ function part_where(ctx, res, url)
         return null;
     }
     return {dir, name, id};
+}
+
+// The path an address's tail names, null when its percent signs spell no text (`%E0%A4%A` is
+// a letter cut short). Thrown instead, it is the host's to catch: a host that does not stops,
+// and one that does answers as if the fault were its own.
+function path_decoded(text)
+{
+    try {
+        return decodeURIComponent(text);
+    }
+    catch {
+        return null;
+    }
 }
 
 // The name a download is saved under. A header holds ascii and a name holds anything, so the

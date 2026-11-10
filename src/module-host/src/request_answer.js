@@ -127,7 +127,10 @@ async function request_answer(req, res)
     const file = /^\/_\/([a-z_]+)\/([a-z0-9_-][a-z0-9_.-]*)$/.exec(pathname);
     if (file !== null) {
         const module = modules_served.find(v => v.key === file[1]);
-        const dir = (module === undefined) ? DIRS[file[1]] : module.ui;
+        // DIRS is a plain object, and `constructor` is a word every object answers to, with a
+        // function: a folder of the page's files is one DIRS names itself
+        const named = Object.hasOwn(DIRS, file[1]) ? DIRS[file[1]] : undefined;
+        const dir = (module === undefined) ? named : module.ui;
         if ((dir !== undefined) && (file[1] !== 'main')) {
             file_send(res, path.join(dir, file[2]));
             return;

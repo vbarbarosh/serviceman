@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.31 — 2026-11-10
+
+- module-host no longer stops at one request: a folder named `constructor` is a 404, an
+  address that is no address (`GET //[`) a 400 at the page's door and a closed socket at the
+  websocket's, as in web-terminal. A file's path whose percent signs spell no text is the File
+  Manager's own 400 on every host, where serviceman's door answered its 500 page. (SM-243)
+
 ## 1.0.30 — 2026-11-10
 
 - serviceman, the agent and Logline's lines server go on when whoever read their stdout is

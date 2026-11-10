@@ -39,12 +39,37 @@ async function main()
         process.env.SERVICEMAN_AGENT_DIR = path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local/state'), 'module-host');
     }
     fs.mkdirSync(process.env.SERVICEMAN_AGENT_DIR, {recursive: true});
-    const server = http.createServer(request_answer);
-    server.on('upgrade', upgrade_answer);
+    // What answering one throws costs that caller alone, a 400 or a closed socket: thrown out
+    // of here it would end the process, and an upload under way with it. An address that is no
+    // address (`//[` reads as a host, and `[` is none) throws before the key is looked at.
+    const server = http.createServer(function (req, res) {
+        request_answer(req, res).catch(function () {
+            refuse(res);
+        });
+    });
+    server.on('upgrade', function (req, socket, head) {
+        try {
+            upgrade_answer(req, socket, head);
+        }
+        catch {
+            socket.destroy();
+        }
+    });
     await new Promise(function (resolve, reject) {
         server.once('error', reject);
         server.listen(port, '127.0.0.1', resolve);
     });
     // The key opens the page in this user's browser, and nobody else's (page_key)
     console.log(`module-host: http://localhost:${port}/?key=${page_key()}`);
+}
+
+// 400 for a request whose answer was not begun; one already on its way is cut where it is
+function refuse(res)
+{
+    if (res.headersSent) {
+        res.destroy();
+        return;
+    }
+    res.writeHead(400, {'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store'});
+    res.end('bad request\n');
 }

@@ -1989,6 +1989,10 @@ test('a folder of a machine is read from its page, and a folder that is not ther
         const empty = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/ui1/fs/file${url_path(path.join(dir, 'nothing.txt'))}`});
         assert.strictEqual(empty.status, 502);
 
+        // A path whose percent signs spell no text is the asker's mistake, not serviceman's own
+        const garbled = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/remotes/ui1/fs/file/%E0%A4%A'});
+        assert.strictEqual(garbled.status, 400);
+
         // Several names come as one tar, a folder among them whole
         fs.writeFileSync(path.join(dir, 'inner', 'deep.txt'), 'deep\n');
         const tar = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/ui1/fs/tar?dir=${encodeURIComponent(dir)}&names=inner&names=hello.txt`});
