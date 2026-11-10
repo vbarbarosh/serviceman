@@ -690,7 +690,7 @@ img {
 <li><a href="philosophy.html">Philosophy</a></li>
 <li><a href="usecases.html">Use cases</a></li>
 <li><a href="config.html">Config</a></li>
-<li class="current"><a href="how-it-works.html" aria-current="page">How it works</a><ul class="toc"><li><a href="#the-knock">The knock</a></li><li><a href="#the-pages-serviceman-serves-itself">The pages serviceman serves itself</a></li><li><a href="#the-waiting-page">The waiting page</a></li><li><a href="#the-log">The log</a></li><li><a href="#the-sleep">The sleep</a></li><li><a href="#restarts">Restarts</a></li><li><a href="#websockets">Websockets</a></li><li><a href="#what-serviceman-never-does">What serviceman never does</a></li><li><a href="#failures">Failures</a></li></ul></li>
+<li class="current"><a href="how-it-works.html" aria-current="page">How it works</a><ul class="toc"><li><a href="#the-knock">The knock</a></li><li><a href="#the-pages-serviceman-serves-itself">The pages serviceman serves itself</a></li><li><a href="#the-waiting-page">The waiting page</a></li><li><a href="#the-log">The log</a></li><li><a href="#the-sleep">The sleep</a></li><li><a href="#restarts">Restarts</a></li><li><a href="#websockets">Websockets</a></li><li><a href="#what-serviceman-does-not-do-by-itself">What serviceman does not do by itself</a></li><li><a href="#failures">Failures</a></li></ul></li>
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
@@ -788,15 +788,22 @@ by hand — and the programs are stopped, because a program nobody watches is an
 <p>A websocket handshake wakes a sleeping service in the same way, then serviceman glues the two
 sockets together. The connection counts as in-flight for the whole time it is open, so a
 service with an open socket is never called idle.</p>
-<h2 id="what-serviceman-never-does"><a class="anchor" href="#what-serviceman-never-does" aria-hidden="true" tabindex="-1">#</a>What serviceman never does</h2>
-<p>serviceman does not delete. It stops containers, it does not remove them, and it never
-touches volumes, networks or files. The one exception is written in the log: when the
-<code>image</code> of a docker service changes in the config, the old container is recreated from the
-new image.</p>
+<h2 id="what-serviceman-does-not-do-by-itself"><a class="anchor" href="#what-serviceman-does-not-do-by-itself" aria-hidden="true" tabindex="-1">#</a>What serviceman does not do by itself</h2>
+<p>serviceman removes little of its own accord. It stops containers and does not remove them, and
+by itself it touches no named volume, no network and no file of a machine. Two things it does
+remove, and both are written in the log: when the definition of a docker service changes, the
+old container is replaced at the next start by one made from the new definition; and when a
+program (a <code>shell</code> service) leaves the config, it is stopped, its <code>uninstall</code> line runs, and the
+folder serviceman made for it goes with it. <a href="https://github.com/vbarbarosh/serviceman/blob/main/docs/orphans.md">Orphans</a> says what is left behind.</p>
+<p>What you ask for on the control page is another matter: the Docker tab removes containers and
+prunes images, volumes and networks, and the File Manager deletes files and folders.</p>
 <h2 id="failures"><a class="anchor" href="#failures" aria-hidden="true" tabindex="-1">#</a>Failures</h2>
 <p>A failed start leaves the service in <code>failed</code> with the docker error kept. The next request
-tries again. If a running service stops answering, serviceman reports 502, forgets the address
-and starts the service again at the next request.</p>
+tries again, until <code>start_tries</code> starts have failed in a row (two by default): then serviceman
+gives up and answers every request from what it already knows, until you press Start, its
+machine comes back or its definition is edited (<a href="config.html#policy">Policy</a>). If a running
+service stops answering, serviceman reports 502, forgets the address and starts the service
+again at the next request.</p>
 
 <footer class="foot">This page is built from <a href="https://github.com/vbarbarosh/serviceman/blob/main/docs/how-it-works.md">its source on GitHub</a>. serviceman is MIT licensed.</footer>
 </main>

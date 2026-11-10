@@ -92,15 +92,23 @@ A websocket handshake wakes a sleeping service in the same way, then serviceman 
 sockets together. The connection counts as in-flight for the whole time it is open, so a
 service with an open socket is never called idle.
 
-## What serviceman never does
+## What serviceman does not do by itself
 
-serviceman does not delete. It stops containers, it does not remove them, and it never
-touches volumes, networks or files. The one exception is written in the log: when the
-`image` of a docker service changes in the config, the old container is recreated from the
-new image.
+serviceman removes little of its own accord. It stops containers and does not remove them, and
+by itself it touches no named volume, no network and no file of a machine. Two things it does
+remove, and both are written in the log: when the definition of a docker service changes, the
+old container is replaced at the next start by one made from the new definition; and when a
+program (a `shell` service) leaves the config, it is stopped, its `uninstall` line runs, and the
+folder serviceman made for it goes with it. [Orphans](orphans.md) says what is left behind.
+
+What you ask for on the control page is another matter: the Docker tab removes containers and
+prunes images, volumes and networks, and the File Manager deletes files and folders.
 
 ## Failures
 
 A failed start leaves the service in `failed` with the docker error kept. The next request
-tries again. If a running service stops answering, serviceman reports 502, forgets the address
-and starts the service again at the next request.
+tries again, until `start_tries` starts have failed in a row (two by default): then serviceman
+gives up and answers every request from what it already knows, until you press Start, its
+machine comes back or its definition is edited ([Policy](config.md#policy)). If a running
+service stops answering, serviceman reports 502, forgets the address and starts the service
+again at the next request.

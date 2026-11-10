@@ -27,8 +27,8 @@ and that machine runs the agent. See [Remotes](remotes.md).
 The control door also serves `/navplace`: every service that has an address, as a NavPlace
 collection, for the desktop app or a page of your own to draw.
 
-Containers are stopped, never removed. A definition that changes replaces its container at
-the next start. Containers that already run when serviceman boots are adopted, not started
+Containers are stopped, not removed, unless you remove one on the Docker tab. A definition
+that changes replaces its container at the next start. Containers that already run when serviceman boots are adopted, not started
 twice.
 
 ## What a request meets

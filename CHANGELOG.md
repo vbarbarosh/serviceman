@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.49 — 2026-11-10
+
+- `docs/how-it-works.md` said serviceman never deletes and that the next request always tries
+  a failed start again. It says what serviceman removes by itself (a replaced container, a
+  removed program's folder), what the Docker tab and the File Manager remove when asked, and
+  that after `start_tries` failures it gives up until something changes; `docs/overview.md`
+  follows. (SM-318)
+
 ## 1.0.48 — 2026-11-10
 
 - "What the token buys" in `docs/remotes.md` named docker commands, a folder and streams, and
