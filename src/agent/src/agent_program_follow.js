@@ -70,11 +70,30 @@ function agent_program_follow(programs, record, child, group)
 
 // What a file of a program says from here on, a line at a time. A file emptied because it grew
 // too big is read again from its start.
+//
+// A look that cannot read the file or empty it (a disk gone read-only, the file taken away
+// between two looks) is tried again at the next one. It is said once, not twice a second;
+// thrown from the timer, where nothing catches, it ended the agent, and the machine's link
+// with it.
 function reader(file, sender, group, record, output)
 {
     let offset = file_size(file);
     let rest = '';
+    let failed = false;
     return function () {
+        try {
+            look();
+            failed = false;
+        }
+        catch (error) {
+            if (failed === false) {
+                failed = true;
+                agent_say(group, 'program_follow_error', {service: record.name, slot: record.slot, file: path.basename(file), reason: error.message});
+            }
+        }
+    };
+
+    function look() {
         let size = file_size(file);
         if (size > FILE_MAX_BYTES) {
             fs.truncateSync(file, 0);
@@ -105,7 +124,7 @@ function reader(file, sender, group, record, output)
             }
         }
         output.splice(0, Math.max(0, output.length - KEEP_LINES));
-    };
+    }
 }
 
 // The last lines a program printed before this agent started watching it: an agent that was

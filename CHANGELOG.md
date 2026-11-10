@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.45 — 2026-11-10
+
+- The agent's program follower no longer ends the agent when a file a program prints into
+  cannot be read or emptied (a disk gone read-only, the file taken away between two looks):
+  it says `program_follow_error` once and tries again at its next look. Thrown from its
+  timer, it ended the agent. Agent 1.33.6. (SM-355)
+
 ## 1.0.44 — 2026-11-10
 
 - web-terminal's image copies `src/helpers/term_size_valid.js`, which the Terminal module

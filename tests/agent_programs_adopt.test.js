@@ -1,9 +1,13 @@
+const agent_program_follow = require('../src/agent/src/agent_program_follow');
 const agent_program_logs = require('../src/agent/src/agent_program_logs');
 const agent_program_probe = require('../src/agent/src/agent_program_probe');
 const agent_program_start = require('../src/agent/src/agent_program_start');
 const agent_program_stop = require('../src/agent/src/agent_program_stop');
 const agent_programs_adopt = require('../src/agent/src/agent_programs_adopt');
+const agent_programs_dir = require('../src/agent/src/agent_programs_dir');
+const agent_say = require('../src/agent/src/agent_say');
 const assert = require('assert');
+const events = require('events');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -61,6 +65,41 @@ test('a program that ends by itself takes its note with it', async function () {
         agent_program_start(state, params, 'c1');
         await until(() => agent_program_probe(state, params).running === false);
         assert.strictEqual(fs.existsSync(path.join(dir, 'programs', 'brief.1.json')), false);
+    });
+});
+
+// What a program prints is read from its files by a timer. A look that cannot read one, a disk
+// gone read-only or the file taken away between two looks, threw from that timer, where
+// nothing catches: the agent ended, and the machine's link with it.
+test('a file of a program that cannot be read is said once and tried again, and the agent goes on', async function () {
+    await within_agent_dir(async function () {
+        const said = [];
+        agent_say.sink_set((time, tail) => said.push(tail));
+        try {
+            const base = path.join(agent_programs_dir(), 'hello.1');
+            fs.mkdirSync(agent_programs_dir(), {recursive: true});
+            fs.writeFileSync(`${base}.out`, '');
+            const child = new events.EventEmitter();
+            agent_program_follow({}, {name: 'hello', slot: 1, pid: 1, started: 0, cwd: null, dir: null, argv: ['hello']}, child, 'c1');
+            fs.appendFileSync(`${base}.out`, 'first\n');
+            await until(() => said.includes('[c1][program_stdout] first'));
+
+            // A folder where the file was: it opens, and does not read
+            fs.rmSync(`${base}.out`);
+            fs.mkdirSync(`${base}.out`);
+            await timers.setTimeout(1700);
+            assert.deepStrictEqual(said.filter(v => v.includes('[program_follow_error]')), ['[c1][program_follow_error] service=hello slot=1 file=hello.1.out reason="EISDIR: illegal operation on a directory, read"']);
+
+            // The file back, shorter than it was: read from its start, as one emptied is
+            fs.rmdirSync(`${base}.out`);
+            fs.writeFileSync(`${base}.out`, 'ok\n');
+            await until(() => said.includes('[c1][program_stdout] ok'));
+            child.emit('exit', 0, null);
+            assert.ok(said.includes('[c1][program_end] service=hello slot=1 how="code 0"'));
+        }
+        finally {
+            agent_say.sink_set(null);
+        }
     });
 });
 
