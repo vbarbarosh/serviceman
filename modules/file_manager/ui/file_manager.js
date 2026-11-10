@@ -1,6 +1,7 @@
 import copy_progress from './copy_progress.js';
 import data_table from '../../data_table.js';
 import data_transfer_read from './data_transfer_read.js';
+import rename_said from './rename_said.js';
 import upload_queue from './upload_queue.js';
 
 // How often the copies between disks are asked about while one is under way
@@ -18,6 +19,9 @@ const COPY_FAILED_ROWS = 3;
 
 // A file larger than this is opened in a tab, not read into the page
 const EDIT_MAX_BYTES = 10*1024*1024;
+
+// What a disk says of a rename or a move onto a name that is taken, which it never replaces
+const RE_TAKEN = / is there already$/;
 
 // Names that are not text whatever their size: opened in a tab, never read into the editor
 const RE_NOT_TEXT = /\.(png|jpe?g|gif|webp|avif|ico|bmp|tiff?|pdf|zip|gz|tgz|bz2|xz|zst|7z|rar|tar|jar|war|deb|rpm|iso|img|dmg|exe|dll|so|o|a|class|pyc|wasm|mp3|mp4|m4a|webm|mkv|mov|avi|ogg|oga|flac|wav|woff2?|ttf|otf|eot|sqlite3?|db)$/i;
@@ -121,13 +125,13 @@ const file_manager = {
         <template v-else-if="(mode === 'rename')">
             <span>Rename <code>{{ chosen_names[0] }}</code> to</span>
             <input ref="ask" v-model.trim="new_name" spellcheck="false" @keyup.enter="rename" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || offline || new_name === '' || new_name === chosen_names[0])" @click="rename">Rename</button>
+            <button type="button" class="primary" :disabled="(acting || offline || new_name === '' || new_name === chosen_names[0] || ask_refusal !== '')" @click="rename">Rename</button>
             <button type="button" @click="mode = ''">Cancel</button>
         </template>
         <template v-else-if="(mode === 'move')">
             <span>Move {{ chosen_text }} to</span>
             <input ref="ask" v-model.trim="move_to" placeholder="the folder to move to" spellcheck="false" @keyup.enter="move" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || offline || move_to === '')" @click="move">Move</button>
+            <button type="button" class="primary" :disabled="(acting || offline || move_to === '' || move_to === path)" @click="move">Move</button>
             <button type="button" @click="mode = ''">Cancel</button>
         </template>
         <template v-else-if="(mode === 'copy')">
@@ -163,7 +167,9 @@ const file_manager = {
             </span>
         </template>
     </div>
-    <p v-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="note_busy" class="spin"/>{{ note_shown }}</p>
+    <!-- What the page knows the disk will refuse is said under the question, before it is asked -->
+    <p v-if="(ask_refusal !== '')" class="bad fm-note">{{ ask_refusal }}</p>
+    <p v-else-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="note_busy" class="spin"/>{{ note_shown }}</p>
     <input ref="picker" type="file" multiple hidden @change="picked">
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
@@ -607,6 +613,16 @@ const file_manager = {
             const count = this.chosen_names.length;
             return (count === 1) ? this.chosen_names[0] : `${count} items`;
         },
+        // Why the question the bar asks would be refused, as far as this page knows, in the
+        // disk's own words; '' when it knows no reason. A rename onto a name the folder shown
+        // holds: a disk never replaces one. The list may be old, and a move goes to a folder
+        // that is not shown, so the disk is asked all the same and has the last word.
+        ask_refusal: function () {
+            if ((this.mode === 'rename') && (this.new_name !== this.chosen_names[0]) && this.items.some(v => v.name === this.new_name)) {
+                return `${this.new_name} is there already. A rename replaces nothing: type another name, or delete that one first.`;
+            }
+            return '';
+        },
         empty_text: function () {
             if (this.items.length === 0) {
                 return 'An empty folder. Upload files or a folder here, drop them anywhere on this page, or paste them with Ctrl+V.';
@@ -806,9 +822,10 @@ const file_manager = {
                 this.reread_soon();
             }
         },
-        // One chosen name is the one a rename starts from; nothing chosen asks nothing about it
-        chosen_names: function (value) {
-            if (value.length === 1) {
+        // One chosen name is the one a rename starts from; nothing chosen asks nothing about it.
+        // A list read again says the same name anew, and what is typed over it stays.
+        chosen_names: function (value, old) {
+            if ((value.length === 1) && ((old.length !== 1) || (old[0] !== value[0]))) {
                 this.new_name = value[0];
             }
             if ((value.length === 0) && (this.mode !== 'folder')) {
@@ -1255,11 +1272,58 @@ const file_manager = {
         file_url: function (item) {
             return `${this.open_root}${url_path(`${this.path}/${item.name}`)}`;
         },
-        rename: function () {
-            return this.acts([['rename', {from: `${this.path}/${this.chosen_names[0]}`, to: `${this.path}/${this.new_name}`}]], 'renamed');
+        // Enter asks as the button does, so what turns the button off stops Enter too
+        rename: async function () {
+            if (this.acting || this.offline || (this.new_name === '') || (this.new_name === this.chosen_names[0]) || (this.ask_refusal !== '')) {
+                return;
+            }
+            await this.carry([[this.chosen_names[0], `${this.path}/${this.new_name}`]], 'renamed');
         },
-        move: function () {
-            return this.acts(this.chosen_names.map(v => ['rename', {from: `${this.path}/${v}`, to: `${this.move_to}/${v}`}]), 'moved');
+        move: async function () {
+            if (this.acting || this.offline || (this.move_to === '') || (this.move_to === this.path)) {
+                return;
+            }
+            await this.carry(this.chosen_names.map(v => [v, `${this.move_to}/${v}`]), 'moved');
+        },
+        // Names of the folder shown carried one after another, each to its new place. A disk
+        // replaces nothing: a name taken where it was to go stays here and the rest go on,
+        // each being its own; any other refusal stops the rest, which would meet it too. When
+        // some did not go, the question stays open with what was typed, the names that stay
+        // keep their ticks, and the note says how many went and why the others did not.
+        carry: async function (list, done_word) {
+            this.acting = true;
+            this.act_report('asking the disk…', false, true);
+            const taken = [];
+            let stopped = '';
+            let done = 0;
+            for (const [name, to] of list) {
+                try {
+                    await this.fs_call('rename', {from: `${this.path}/${name}`, to});
+                    done++;
+                }
+                catch (error) {
+                    if (RE_TAKEN.test(error.message) === false) {
+                        stopped = error.message;
+                        break;
+                    }
+                    taken.push(error.message);
+                }
+            }
+            this.acting = false;
+            if (done === list.length) {
+                this.mode = '';
+                await this.open(this.path);
+                this.act_report(done_word, false);
+                return;
+            }
+            await this.reread();
+            this.act_report(rename_said(done_word, list.length, done, taken, stopped), true);
+            const self = this;
+            this.$nextTick(function () {
+                if (self.$refs.ask) {
+                    self.$refs.ask.focus();
+                }
+            });
         },
         remove: function () {
             return this.acts(this.chosen_names.map(v => ['delete', {path: `${this.path}/${v}`}]), 'deleted');

@@ -739,6 +739,7 @@ ui/file_manager.js             the component
 ui/copy_progress.js            one copy as a panel: the graph, speed, time and files left
 ui/copy_sampler.js             the speed across a copy, sampled for that graph
 ui/upload_queue.js             the uploads, kept by the page so they outlive the component
+ui/rename_said.js              what the bar says of a rename or a move that did not all go
 ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
 ui/file_manager.css            the component&#39;s rules
 vendor_src/codemirror.js       what the editor takes from CodeMirror, for the host to bundle
@@ -774,7 +775,7 @@ give rights and show by: its kinds of items and the commands on them, in
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/rename</code> <code>{from, to}</code></td>
-<td>a name carried to another, another folder included</td>
+<td>a name carried to another, another folder included; a name that is there is never replaced (below)</td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/delete</code> <code>{path}</code></td>
@@ -821,6 +822,20 @@ give rights and show by: its kinds of items and the commands on them, in
 <p>A refusal of the disk is a 502 with <code>{error}</code>; a request the API cannot take is a 400; a disk
 that keeps no parts answers the part doors with 501, and one that cannot say its room (an agent
 from before 1.14.0) answers <code>room</code> with 501, so the page uploads without checking.</p>
+<h3 id="a-rename-replaces-nothing"><a class="anchor" href="#a-rename-replaces-nothing" aria-hidden="true" tabindex="-1">#</a>A rename replaces nothing</h3>
+<p><code>POST &lt;base&gt;/rename</code> onto a name that is there is refused by the disk, where the rename is
+made: a 502 with <code>{&quot;error&quot;: &quot;&lt;name&gt; is there already&quot;}</code> (a machine&#39;s disk says its name first,
+<code>remote laptop: report.txt is there already</code>), and both names stay as they were. Whatever is
+there counts: a file, a folder, full or empty, a link, leading somewhere or nowhere. Nothing is
+moved into a folder of that name either. A name carried onto itself is <code>{}</code>, with nothing done.</p>
+<p>The page says so before it asks when the folder it shows holds the name: Rename is off, with
+the reason under it. Its list may be old, and a move goes to a folder it does not show, so the
+disk has the last word: the question stays open with what was typed, and the note under it says
+the disk&#39;s words. Of several names moved, the ones taken there stay, ticked, and the rest go:
+<code>2 of 3 moved, 1 stays here — remote laptop: b.txt is there already</code>. To put one file in the
+place of another, delete that one first.</p>
+<p>An upload and a copy between disks are another matter: a file of the same name is written
+over, and the answer says <code>replaced: true</code>.</p>
 <h3 id="many-files-as-one-tar"><a class="anchor" href="#many-files-as-one-tar" aria-hidden="true" tabindex="-1">#</a>Many files as one tar</h3>
 <p><code>POST &lt;base&gt;/upload/tar?dir=&lt;dir&gt;</code> takes a whole drop as one stream, the way
 <code>tar | pv | socat</code> sends it: the page only watches the bytes go, and no file waits for the one
@@ -939,6 +954,11 @@ list; list again after <code>resync</code>, and after the stream ends and is ope
 </code></pre>
 <p>The four part calls are optional: without <code>part_write</code> the page sends every file in one piece.
 <code>watch</code> is optional too: without it the watch door answers 501.</p>
+<p><code>rename</code> never replaces: when <code>to</code> is there, whatever it is, it throws <code>&lt;name&gt; is there already</code>, the words a copy treats as lasting, and moves nothing into a folder. The look is
+taken by the disk, as near to the rename as it can be. A machine gives a file its new name as a
+second one first (<code>link</code>, which the disk refuses when the name is taken) and then takes the old
+one away; a folder or a link is renamed after the look. A name that leads to the very thing
+renamed, another spelling of it on a disk that folds letters, is renamed.</p>
 <p>A disk made for a token of the control door keeps every call within the token&#39;s folders: the
 machine&#39;s agent resolves each path, links included, and refuses with EACCES whatever lies
 outside them. A folder of the token not there yet lists empty; the first write makes it.</p>

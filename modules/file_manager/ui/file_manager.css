@@ -121,8 +121,18 @@ input.fm-typed {
     white-space: normal;
 }
 
+/* What the bar says first names a name: the one ticked, or the question about it. A name with
+   nowhere to break wraps inside the bar, and so does the note under it, which says the name
+   a rename or a move was refused for. */
+.fm-bar > span:first-child,
+.fm-bar > b:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 p.fm-note {
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .fm-table b {

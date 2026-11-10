@@ -13,6 +13,9 @@ const LINK_HOPS = 8;
 // busybox has both.
 const LIST_FORMAT = '%F/%s/%Y/%n';
 
+// What a mv says of a flag it does not have: "invalid option -- T", "unrecognized option: T"
+const RE_NO_SUCH_OPTION = /(invalid|unrecognized|unknown|illegal) option/i;
+
 // A File Manager disk inside one container, over the Engine API alone: nothing is installed
 // in the container and nothing is mounted. A folder is listed by find and stat run in it, a
 // file is read and written through its archive, a name is weighed by the archive's header,
@@ -58,7 +61,7 @@ function container_disk(connect, id)
             return tar_put(connect, id, rooted(dir), source);
         },
         rename: function (from, to) {
-            return exec_or_throw(connect, id, ['mv', '--', rooted(from), rooted(to)]);
+            return path_rename(connect, id, rooted(from), rooted(to));
         },
         remove: function (asked) {
             const full = rooted(asked);
@@ -125,6 +128,52 @@ async function path_stat(connect, id, full)
     const said = JSON.parse(Buffer.from(String(answer.headers['x-docker-container-path-stat']), 'base64').toString('utf8'));
     const dir = (said.isDir === true) || (Math.floor(said.mode/MODE_DIR) % 2 === 1);
     return {kind: dir ? 'dir' : 'file', size: said.size, mtime_ms: Date.parse(said.mtime), mode: said.mode % 4096, link: said.linkTarget ? said.linkTarget : null};
+}
+
+// One name carried to another. A name that is there is never replaced and never moved into:
+// the answer is `<name> is there already`, the words a machine's own disk has for it, and both
+// names stay as they were. The look is docker's, which sees a link as itself, leading
+// somewhere or nowhere. mv is told -n and -T for a name made since the look: it leaves a file
+// there alone and moves nothing into a folder there. Most mv say nothing of a name they left
+// alone and end with 0 (busybox, GNU but for 9.2 to 9.4, which says "not replacing"), so the
+// old name still being there is what tells. A busybox before 1.34 has no -T: it is asked
+// again without, and moves into a folder made since the look.
+async function path_rename(connect, id, from, to)
+{
+    if (from === to) {
+        // Onto itself: it is where it was asked to be
+        if (await path_there(connect, id, from) === false) {
+            throw new Error(`ENOENT: ${from} is not in the container`);
+        }
+        return {};
+    }
+    const taken = `${path.posix.basename(to) || to} is there already`;
+    if (await path_there(connect, id, to)) {
+        throw new Error(taken);
+    }
+    let answer = await exec_run(connect, id, ['mv', '-n', '-T', '--', from, to]);
+    if ((answer.code !== 0) && RE_NO_SUCH_OPTION.test(answer.stderr)) {
+        answer = await exec_run(connect, id, ['mv', '-n', '--', from, to]);
+    }
+    const left = (answer.code === 0) ? await path_there(connect, id, from) : answer.stderr.includes(': not replacing ');
+    if (left) {
+        throw new Error(taken);
+    }
+    if (answer.code !== 0) {
+        throw new Error(answer.stderr.trim() || `mv ended with ${answer.code} in the container`);
+    }
+    return {};
+}
+
+// Whether a name is there, a link that leads nowhere too: docker answers for that one as for
+// any name, podman with a 404 that still carries what the link is
+async function path_there(connect, id, full)
+{
+    const answer = await engine_call(connect, 'HEAD', `/containers/${id}/archive?path=${encodeURIComponent(full)}`);
+    if ((answer.status !== 200) && (answer.status !== 404)) {
+        throw new Error(engine_said(answer));
+    }
+    return (answer.status === 200) || (answer.headers['x-docker-container-path-stat'] !== undefined);
 }
 
 // The bytes of one file, out of the archive docker writes of it: past the headers (a long name

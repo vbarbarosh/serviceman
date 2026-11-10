@@ -27,6 +27,7 @@ reached over the link that machine's agent dialled.
     ui/copy_progress.js            one copy as a panel: the graph, speed, time and files left
     ui/copy_sampler.js             the speed across a copy, sampled for that graph
     ui/upload_queue.js             the uploads, kept by the page so they outlive the component
+    ui/rename_said.js              what the bar says of a rename or a move that did not all go
     ui/data_transfer_read.js       what a drop or a paste carries, a folder read file by file
     ui/file_manager.css            the component's rules
     vendor_src/codemirror.js       what the editor takes from CodeMirror, for the host to bundle
@@ -46,7 +47,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | `GET <base>?path=<dir>&tree=1&hash=sha256&skip=<names>` | every name under the folder, at any depth, in one answer or as events (below) |
 | `GET <base>/file/<path>` | the file, with its content type; `HEAD` for the size; one `bytes=` range as 206 |
 | `GET <base>/tar?dir=<dir>&names=<a>&names=<b>` | several names of one folder as one tar |
-| `POST <base>/rename` `{from, to}` | a name carried to another, another folder included |
+| `POST <base>/rename` `{from, to}` | a name carried to another, another folder included; a name that is there is never replaced (below) |
 | `POST <base>/delete` `{path}` | a file or a whole folder, gone |
 | `POST <base>/mkdir` `{path}` | the whole path made, as `mkdir -p` does |
 | `POST <base>/upload?dir=<dir>&name=<name>` | the body as a file: `{path, bytes, replaced}` |
@@ -61,6 +62,24 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 A refusal of the disk is a 502 with `{error}`; a request the API cannot take is a 400; a disk
 that keeps no parts answers the part doors with 501, and one that cannot say its room (an agent
 from before 1.14.0) answers `room` with 501, so the page uploads without checking.
+
+### A rename replaces nothing
+
+`POST <base>/rename` onto a name that is there is refused by the disk, where the rename is
+made: a 502 with `{"error": "<name> is there already"}` (a machine's disk says its name first,
+`remote laptop: report.txt is there already`), and both names stay as they were. Whatever is
+there counts: a file, a folder, full or empty, a link, leading somewhere or nowhere. Nothing is
+moved into a folder of that name either. A name carried onto itself is `{}`, with nothing done.
+
+The page says so before it asks when the folder it shows holds the name: Rename is off, with
+the reason under it. Its list may be old, and a move goes to a folder it does not show, so the
+disk has the last word: the question stays open with what was typed, and the note under it says
+the disk's words. Of several names moved, the ones taken there stay, ticked, and the rest go:
+`2 of 3 moved, 1 stays here — remote laptop: b.txt is there already`. To put one file in the
+place of another, delete that one first.
+
+An upload and a copy between disks are another matter: a file of the same name is written
+over, and the answer says `replaced: true`.
 
 ### Many files as one tar
 
@@ -189,6 +208,13 @@ counts, the list and each request.
 
 The four part calls are optional: without `part_write` the page sends every file in one piece.
 `watch` is optional too: without it the watch door answers 501.
+
+`rename` never replaces: when `to` is there, whatever it is, it throws `<name> is there
+already`, the words a copy treats as lasting, and moves nothing into a folder. The look is
+taken by the disk, as near to the rename as it can be. A machine gives a file its new name as a
+second one first (`link`, which the disk refuses when the name is taken) and then takes the old
+one away; a folder or a link is renamed after the look. A name that leads to the very thing
+renamed, another spelling of it on a disk that folds letters, is renamed.
 
 A disk made for a token of the control door keeps every call within the token's folders: the
 machine's agent resolves each path, links included, and refuses with EACCES whatever lies

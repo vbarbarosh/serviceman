@@ -154,8 +154,12 @@ of the Engine API alone: nothing is installed in the container and nothing is mo
 - a file is read out of its archive, a byte range sliced from it; a file is written as an
   archive of one entry docker unpacks (`PUT …/archive`), through a link, keeping the mode of the
   file it replaces; the length must be known first, as an upload's is
-- rename, delete, new folder and a tar of several names are `mv`, `rm -rf`, `mkdir -p` and
-  `tar -cf -` run in it, as the container's own user
+- delete, new folder and a tar of several names are `rm -rf`, `mkdir -p` and `tar -cf -` run
+  in it, as the container's own user
+- rename is `mv -n -T` run in it, after the name it goes to is looked for (the archive's
+  header again): a name that is there is refused as `<name> is there already`, never replaced
+  and never moved into. Most `mv` say nothing of a name they left alone, so the old name still
+  being there is what tells; a busybox before 1.34, which has no `-T`, is asked again without
 - many files as one tar go to docker's own unpack (`PUT …/archive`) as the body comes, with its
   length when the request said one, into the folder, made with `mkdir -p` first when it is not
   there; docker keeps the tar's times, and the counts in the answer are the File Manager's own

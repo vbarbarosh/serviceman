@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.58 — 2026-11-10
+
+- In the File Manager, Rename or Move onto a name that was there replaced it and said
+  "renamed"; in a container `mv` also moved into a folder of that name. Every disk refuses a
+  taken name now, in a copy's words (`<name> is there already`): the agent gives a file its new
+  name as a second one first, so the disk itself refuses; a container's disk looks, then runs
+  `mv -n -T`. The page says it before asking when its list holds the name, keeps the question
+  open with what was typed on a refusal, and a Move of several goes on past the taken ones and
+  says which stay. Agent 1.33.10. (SM-246)
+
 ## 1.0.57 — 2026-11-10
 
 - A machine's hello was kept as it came: one with `resources: {}`, or a `stats` message with no

@@ -48,7 +48,7 @@ test('a container as a File Manager disk: list, stat through a link, read a rang
     await disk.rename('/app/a.txt', '/app/conf/a.txt');
     await disk.mkdir('/app/new/deep');
     await disk.remove('/app/conf');
-    assert.deepStrictEqual(engine.cmds.slice(-3), [['mv', '--', '/app/a.txt', '/app/conf/a.txt'], ['mkdir', '-p', '--', '/app/new/deep'], ['rm', '-rf', '--', '/app/conf']]);
+    assert.deepStrictEqual(engine.cmds.slice(-3), [['mv', '-n', '-T', '--', '/app/a.txt', '/app/conf/a.txt'], ['mkdir', '-p', '--', '/app/new/deep'], ['rm', '-rf', '--', '/app/conf']]);
     assert.throws(() => disk.remove('/'), /not a thing the File Manager deletes/);
     await assert.rejects(disk.mkdir('/fail'), /mkdir: cannot create/);
     assert.strictEqual((await bytes(disk.tar('/app', ['conf', 'a.txt']))).toString(), 'TARBYTES');
@@ -59,10 +59,59 @@ test('a container as a File Manager disk: list, stat through a link, read a rang
     await disk.remove('-rf');
     await disk.rename('--help', 'x/../-v');
     await disk.mkdir('../-p');
-    assert.deepStrictEqual(engine.cmds.slice(-3), [['rm', '-rf', '--', '/-rf'], ['mv', '--', '/--help', '/-v'], ['mkdir', '-p', '--', '/-p']]);
+    assert.deepStrictEqual(engine.cmds.slice(-3), [['rm', '-rf', '--', '/-rf'], ['mv', '-n', '-T', '--', '/--help', '/-v'], ['mkdir', '-p', '--', '/-p']]);
     assert.throws(() => disk.remove('a/..'), /not a thing the File Manager deletes/);
     await disk.list('-delete');
     assert.deepStrictEqual(engine.cmds[engine.cmds.length - 1].slice(0, 2), ['find', '/-delete']);
+});
+
+// Rename and Move ran `mv -- from to`: a file that was there was replaced, and a name carried
+// onto a folder went into it. Now the name is looked for first, and mv is told to leave alone
+// whatever was made since.
+test('a name carried onto one that is taken in a container is refused in the words a machine has for it, and mv is not run', async function (t) {
+    const engine = await engine_start(t);
+    const disk = container_disk(() => net.connect(engine.socket), ID);
+    engine.files['/app/b.txt'] = {text: 'a week of work', mode: 0o644};
+    engine.files['/app/nowhere.txt'] = {link: '/app/gone', gone: true};
+    const before = JSON.stringify(engine.files);
+
+    // A file, a folder (nothing is moved into it), a link that leads somewhere, and one that
+    // leads nowhere, which podman answers with a 404 that still says what it is
+    for (const to of ['/app/b.txt', '/app/conf', '/app/link.txt', '/app/nowhere.txt']) {
+        await assert.rejects(disk.rename('/app/a.txt', to), new RegExp(`^Error: ${path.basename(to).replace('.', '\\.')} is there already$`), to);
+    }
+    await assert.rejects(disk.rename('/app/conf', '/app/b.txt'), /^Error: b\.txt is there already$/);
+    assert.deepStrictEqual([engine.cmds, JSON.stringify(engine.files)], [[], before]);
+
+    // Onto itself there is nothing to do; a free name is mv's, told to replace nothing and to
+    // move into nothing
+    assert.deepStrictEqual(await disk.rename('/app/a.txt', '/app/../app/a.txt'), {});
+    await assert.rejects(disk.rename('/app/none', '/app/none'), /^Error: ENOENT: \/app\/none is not in the container$/);
+    assert.deepStrictEqual(engine.cmds, []);
+    assert.deepStrictEqual(await disk.rename('/app/a.txt', '/app/c.txt'), {});
+    assert.deepStrictEqual([engine.cmds, engine.files['/app/c.txt'].text, engine.files['/app/a.txt']], [[['mv', '-n', '-T', '--', '/app/a.txt', '/app/c.txt']], 'hello', undefined]);
+    await assert.rejects(disk.rename('/app/none', '/app/d.txt'), /^Error: mv: cannot stat '\/app\/none'/);
+});
+
+test('a name made in a container since the look is left alone by mv, and that is said whether mv says it or not', async function (t) {
+    const engine = await engine_start(t);
+    const disk = container_disk(() => net.connect(engine.socket), ID);
+
+    // busybox, and GNU before 9.2 and since 9.5, leave it alone, say nothing and end with 0
+    engine.made = '/app/b.txt';
+    await assert.rejects(disk.rename('/app/a.txt', '/app/b.txt'), /^Error: b\.txt is there already$/);
+    assert.deepStrictEqual([engine.files['/app/a.txt'].text, engine.files['/app/b.txt'].text], ['hello', 'made since the look']);
+
+    // GNU 9.2 to 9.4 says "not replacing" and ends with 1
+    engine.made = '/app/c.txt';
+    engine.mv = 'says';
+    await assert.rejects(disk.rename('/app/a.txt', '/app/c.txt'), /^Error: c\.txt is there already$/);
+    assert.deepStrictEqual([engine.files['/app/a.txt'].text, engine.files['/app/c.txt'].text], ['hello', 'made since the look']);
+
+    // A busybox before 1.34 has no -T and refuses the flag itself: it is asked again without
+    engine.mv = 'no -T';
+    assert.deepStrictEqual(await disk.rename('/app/a.txt', '/app/d.txt'), {});
+    assert.deepStrictEqual([engine.cmds.slice(-2).map(v => v.join(' ')), engine.files['/app/d.txt'].text, engine.files['/app/a.txt']], [['mv -n -T -- /app/a.txt /app/d.txt', 'mv -n -- /app/a.txt /app/d.txt'], 'hello', undefined]);
 });
 
 test('a container says the room left on the disk of a folder, made or not yet, as its df does', async function (t) {
@@ -116,15 +165,19 @@ test('many files as one tar go to docker as they come, into a folder made first 
 async function engine_start(t)
 {
     const socket = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'docker-engine-')), 'docker.sock');
-    // df: whether the container has one; df_inodes: counted, none (btrfs) or unknown (no -i)
-    const out = {socket, cmds: [], puts: [], df: true, df_inodes: 'counted'};
-    const execs = {};
     const files = {
         '/app/a.txt': {text: 'hello', mode: 0o644},
         '/app/link.txt': {link: '/app/a.txt'},
         '/app': {dir: true},
         '/app/conf': {dir: true},
+        '/--help': {text: '', mode: 0o644},
     };
+    // df: whether the container has one; df_inodes: counted, none (btrfs) or unknown (no -i)
+    // mv: what its mv does with a name that is taken: 'silent' leaves it and ends with 0,
+    // 'says' ends with 1 (GNU 9.2 to 9.4), 'no -T' is a busybox that has no such flag
+    // made: a name another program makes between the look and the next mv
+    const out = {socket, cmds: [], puts: [], df: true, df_inodes: 'counted', files, mv: 'silent', made: null};
+    const execs = {};
     const server = http.createServer(function (req, res) {
         const url = new URL(req.url, 'http://docker');
         const chunks = [];
@@ -170,6 +223,13 @@ async function engine_start(t)
                     execs[start[1]].code = 1;
                     return res.end(frame(2, 'mkdir: cannot create directory /fail\n'));
                 }
+                if (cmd[0] === 'mv') {
+                    const said = mv_run(out, cmd);
+                    if (said !== '') {
+                        execs[start[1]].code = 1;
+                    }
+                    return res.end(frame(2, said));
+                }
                 return res.end();
             }
             const done = /^\/exec\/(e\d+)\/json$/.exec(url.pathname);
@@ -188,7 +248,8 @@ async function engine_start(t)
                     return json(res, 404, {message: 'no such file'});
                 }
                 const said = file.dir ? {name: 'conf', size: 4096, mode: 2147484141, mtime: '2025-10-02T10:00:00Z'} : {name: path.basename(asked), size: file.link ? 10 : file.text.length, mode: file.link ? 0o777 : file.mode, mtime: '2025-10-02T10:00:00Z', linkTarget: file.link ? file.link : asked};
-                res.writeHead(200, {'x-docker-container-path-stat': Buffer.from(JSON.stringify(said)).toString('base64')});
+                // A link that leads nowhere, as podman answers for it
+                res.writeHead(file.gone ? 404 : 200, {'x-docker-container-path-stat': Buffer.from(JSON.stringify(said)).toString('base64')});
                 if (req.method === 'HEAD') {
                     return res.end();
                 }
@@ -200,6 +261,29 @@ async function engine_start(t)
     await new Promise(v => server.listen(socket, v));
     t.after(() => new Promise(v => server.close(v)));
     return out;
+}
+
+// mv -n [-T] -- from to, as the container's mv does it: '' when it ends with 0, else what it says
+function mv_run(engine, cmd)
+{
+    const from = cmd[cmd.length - 2];
+    const to = cmd[cmd.length - 1];
+    if ((engine.mv === 'no -T') && cmd.includes('-T')) {
+        return 'mv: invalid option -- T\nBusyBox v1.31.1 (2020-06-02 02:36:36 UTC) multi-call binary.\n\nUsage: mv [-fin] SOURCE DEST\n';
+    }
+    if (engine.made !== null) {
+        engine.files[engine.made] = {text: 'made since the look', mode: 0o644};
+        engine.made = null;
+    }
+    if (engine.files[from] === undefined) {
+        return `mv: cannot stat '${from}': No such file or directory\n`;
+    }
+    if (engine.files[to] !== undefined) {
+        return (engine.mv === 'says') ? `mv: not replacing '${to}'\n` : '';
+    }
+    engine.files[to] = engine.files[from];
+    delete engine.files[from];
+    return '';
 }
 
 function frame(kind, text)

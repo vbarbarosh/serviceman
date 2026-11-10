@@ -78,6 +78,13 @@ test('every door of the API answers from the disk it was given, under the base t
     // A folder made, a name carried to another, a name taken away; a body that is not json
     assert.strictEqual((await call(running, 'POST', '/fs/mkdir', JSON.stringify({path: '/home/user/made/deep'}))).status, 200);
     assert.strictEqual((await call(running, 'POST', '/fs/rename', JSON.stringify({from: '/home/user/new.txt', to: '/home/user/made/new.txt'}))).status, 200);
+    // A name that is taken is the disk's refusal, in its words: a file is not replaced, and
+    // nothing is moved into a folder
+    for (const [to, name] of [['/home/user/page.html', 'page.html'], ['/home/user/inner', 'inner']]) {
+        const taken = await call(running, 'POST', '/fs/rename', JSON.stringify({from: '/home/user/empty.txt', to}));
+        assert.deepStrictEqual([taken.status, JSON.parse(taken.body)], [502, {error: `${name} is there already`}]);
+    }
+    assert.deepStrictEqual([disk.files['/home/user/empty.txt'], disk.files['/home/user/page.html'], disk.files['/home/user/inner/deep.txt']], ['', '<p>a page</p>', 'deep']);
     assert.strictEqual((await call(running, 'POST', '/fs/delete', JSON.stringify({path: '/home/user/hello.txt'}))).status, 200);
     assert.deepStrictEqual(Object.keys(disk.files).sort(), ['/home/user/empty.txt', '/home/user/inner/deep.txt', '/home/user/made/deep/', '/home/user/made/new.txt', '/home/user/page.html', '/home/user/привет.txt']);
     assert.strictEqual((await call(running, 'POST', '/fs/rename', 'not json')).status, 400);
@@ -1023,7 +1030,11 @@ function disk_in_memory(files)
         held[full] = Buffer.concat(chunks).toString('utf8');
         return {path: full, bytes: Buffer.byteLength(held[full]), replaced};
     };
+    // As a real disk: a name that is there is never replaced, and never moved into
     out.rename = async function (from, to) {
+        if ((from !== to) && ((held[to] !== undefined) || folder_has(to))) {
+            throw new Error(`${path.posix.basename(to)} is there already`);
+        }
         held[to] = held[from];
         delete held[from];
         return {};

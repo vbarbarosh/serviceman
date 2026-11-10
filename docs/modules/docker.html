@@ -948,8 +948,12 @@ and a link is followed to the file it names, for its size and for reading</li>
 <li>a file is read out of its archive, a byte range sliced from it; a file is written as an
 archive of one entry docker unpacks (<code>PUT …/archive</code>), through a link, keeping the mode of the
 file it replaces; the length must be known first, as an upload&#39;s is</li>
-<li>rename, delete, new folder and a tar of several names are <code>mv</code>, <code>rm -rf</code>, <code>mkdir -p</code> and
-<code>tar -cf -</code> run in it, as the container&#39;s own user</li>
+<li>delete, new folder and a tar of several names are <code>rm -rf</code>, <code>mkdir -p</code> and <code>tar -cf -</code> run
+in it, as the container&#39;s own user</li>
+<li>rename is <code>mv -n -T</code> run in it, after the name it goes to is looked for (the archive&#39;s
+header again): a name that is there is refused as <code>&lt;name&gt; is there already</code>, never replaced
+and never moved into. Most <code>mv</code> say nothing of a name they left alone, so the old name still
+being there is what tells; a busybox before 1.34, which has no <code>-T</code>, is asked again without</li>
 <li>many files as one tar go to docker&#39;s own unpack (<code>PUT …/archive</code>) as the body comes, with its
 length when the request said one, into the folder, made with <code>mkdir -p</code> first when it is not
 there; docker keeps the tar&#39;s times, and the counts in the answer are the File Manager&#39;s own</li>

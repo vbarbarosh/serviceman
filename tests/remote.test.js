@@ -1772,6 +1772,13 @@ test('an agent\'s token with the files right is kept within its folder by the ma
         assert.strictEqual(fs.readFileSync(path.join(home, 'secret.txt'), 'utf8'), 'not yours');
         assert.strictEqual(fs.existsSync(path.join(notes, 'a.txt')), true);
 
+        // Within its folder a name that is taken is refused as it is for the owner, and a
+        // free one is where the file goes
+        const taken = await as_token('POST', '/rename', JSON.stringify({from: 'a.txt', to: 'inner/new.txt'}));
+        assert.deepStrictEqual([taken.status, JSON.parse(taken.body)], [502, {error: 'remote ui1: new.txt is there already'}]);
+        assert.strictEqual((await as_token('POST', '/rename', JSON.stringify({from: 'a.txt', to: 'inner/a.txt'}))).status, 200);
+        assert.deepStrictEqual([fs.readFileSync(path.join(notes, 'inner', 'new.txt'), 'utf8'), fs.readFileSync(path.join(notes, 'inner', 'a.txt'), 'utf8')], ['new', 'mine']);
+
         // The owner's token goes anywhere, as before
         const owner = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/ui1/fs?path=${encodeURIComponent(home)}`});
         assert.strictEqual(owner.status, 200);
@@ -2083,6 +2090,16 @@ test('a folder of a machine is read from its page, and a folder that is not ther
         assert.strictEqual(moved.status, 200);
         assert.strictEqual(fs.readFileSync(path.join(dir, 'inner', 'hi.txt'), 'utf8'), 'hello\n');
         assert.strictEqual(fs.existsSync(path.join(dir, 'hello.txt')), false);
+
+        // Onto a name that is taken, the machine refuses in a copy's words: the answer was {},
+        // and the file there held the other's bytes. Nothing is moved into a folder either.
+        fs.writeFileSync(path.join(dir, 'draft.txt'), 'the draft\n');
+        const taken = await fs_do(running, 'ui1', 'rename', {from: path.join(dir, 'draft.txt'), to: path.join(dir, 'inner', 'hi.txt')});
+        assert.deepStrictEqual([taken.status, taken.body], [502, {error: 'remote ui1: hi.txt is there already'}]);
+        const into = await fs_do(running, 'ui1', 'rename', {from: path.join(dir, 'draft.txt'), to: path.join(dir, 'inner')});
+        assert.deepStrictEqual([into.status, into.body], [502, {error: 'remote ui1: inner is there already'}]);
+        assert.deepStrictEqual([fs.readFileSync(path.join(dir, 'inner', 'hi.txt'), 'utf8'), fs.readFileSync(path.join(dir, 'draft.txt'), 'utf8')], ['hello\n', 'the draft\n']);
+        fs.rmSync(path.join(dir, 'draft.txt'));
 
         // A folder is made the mkdir -p way: the whole path at once
         const made = await fs_do(running, 'ui1', 'mkdir', {path: path.join(dir, 'foo/bar/baz')});
