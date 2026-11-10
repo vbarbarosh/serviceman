@@ -50,6 +50,30 @@ test('a link test says how long the way to the machine stood', async function (t
     assert.ok(summary.down_stood_ms >= 1250, `stood ${summary.down_stood_ms}`);
 });
 
+// The test is run when a link is in doubt, which is when it drops: its dropping mid-test is an
+// answer for whoever asked, and nothing more. The refusal of the stream comes while its bytes
+// are still being written, before anyone waits for it: held by nobody, it ended the process.
+test('a link that drops while the test sends its bytes fails the test, and serviceman goes on', async function (t) {
+    const unheld = [];
+    process.on('unhandledRejection', heard);
+    t.after(() => process.off('unhandledRejection', heard));
+    const running = await link_proxy_rig(t, {down: 8*1024*1024, up: 8*1024*1024});
+    const remote = running.app.remote_by_name.vps1;
+    const result = link_test(running.app, remote, {spell_ms: 4000});
+    // Past the idle calls, into the spell that writes toward the machine
+    await timers.setTimeout(2500);
+    remote.state.socket.destroy();
+    await assert.rejects(result, /the link to remote vps1 dropped/);
+    await timers.setTimeout(300);
+    assert.deepStrictEqual(unheld, []);
+    const status = await fetch_host({port: running.control_port, host: 'serviceman.localhost', path: '/api/v1/status'});
+    assert.strictEqual(status.status, 200);
+
+    function heard(reason) {
+        unheld.push(reason.message);
+    }
+});
+
 // Through the control door: one at a time, and an agent that cannot is told so, not hung on
 test('the link test door refuses an old agent and a second test at once', async function (t) {
     const running = await link_proxy_rig(t, {down: 4*1024*1024, up: 4*1024*1024});

@@ -109,13 +109,18 @@ async function down_run(remote, spell_ms, counted)
             reject(new Error(`the link to ${remote.name} went during the test`));
         });
     });
+    // The link may go while the bytes are still being written, long before `ended` is waited
+    // for below. Its refusal is kept for that wait: with nobody holding it meanwhile, it ended
+    // the process. And a stream that is gone takes no more bytes: the spell stops there.
+    ended.catch(function () {});
+    const closed = new Promise(v => stream.once('close', v));
     stream.on('taken', function () {
         counted.bytes = stream.taken;
     });
     const until = Date.now() + spell_ms;
-    while (Date.now() < until) {
+    while ((Date.now() < until) && (stream.destroyed === false)) {
         if (stream.write(PIECE) === false) {
-            await Promise.race([new Promise(v => stream.once('drain', v)), timers.setTimeout(Math.max(0, until - Date.now()))]);
+            await Promise.race([new Promise(v => stream.once('drain', v)), closed, timers.setTimeout(Math.max(0, until - Date.now()))]);
         }
     }
     stream.end();

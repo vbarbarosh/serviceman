@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.25 — 2026-11-10
+
+- A link that drops while a link test sends its bytes fails that test and nothing else: the
+  refusal of its stream is held until the test waits for it, and the spell stops at a stream
+  that is gone. Held by nobody, it stopped serviceman. (SM-201)
+
 ## 1.0.24 — 2026-11-09
 
 - A test of the forwards compared the table of serviceman's own forwards with `{}`; the table
