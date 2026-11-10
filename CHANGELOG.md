@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.53 — 2026-11-10
+
+- The agent read how much of an upload in parts is there with `stat`: through a link under the
+  part's name it answered with the size of the file the link points at, and a token for one
+  folder learnt whether a file outside it is there, and how big. It asks the part itself now,
+  and a link or a folder under that name says 0. Agent 1.33.9. (SM-359)
+
 ## 1.0.52 — 2026-11-10
 
 - The agent wrote each file of a tar to `.<name>.part` opened with plain `'w'`: a link planted

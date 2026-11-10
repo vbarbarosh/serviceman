@@ -1924,6 +1924,32 @@ test('a tar sent with a token writes through no link under a part name, and a fo
     }
 });
 
+// The size of a part is asked of the part itself. Through a link under an upload's part name a
+// token for one folder learnt whether a file outside that folder is there, and how big
+test('a token that asks the size of an upload\'s part learns nothing of a file a link there points at', async function () {
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-part-size-')));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, [], {HOME: home});
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => (remote.state.phase === 'online') && remote.state.resources.can.includes('fs_root'));
+        const notes = path.join(home, 'notes');
+        const outside = path.join(home, 'outside.bin');
+        fs.mkdirSync(notes);
+        fs.writeFileSync(outside, Buffer.alloc(12345));
+        const made = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files'], folders: ['~/notes']});
+        assert.deepStrictEqual(await remote_call(running.app, remote, 'link_create', {path: '.big.bin.abcdefgh.part', target: outside, root: ['~/notes']}), {created: true});
+        assert.ok(fs.lstatSync(path.join(notes, '.big.bin.abcdefgh.part')).isSymbolicLink());
+        const size = await fetch_host({port: running.control_port, host: '127.0.0.1', method: 'GET', path: `/api/v1/remotes/ui1/fs/upload/part?dir=${encodeURIComponent(notes)}&name=big.bin&id=abcdefgh`, token: made.body.token});
+        assert.deepStrictEqual([size.status, JSON.parse(size.body)], [200, {received: 0}], size.body);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(home, {recursive: true, force: true});
+    }
+});
+
 // What a page asks before an upload of thousands of files: whether they fit
 test('a machine says the room left on the disk of a folder, made or not yet; an agent from before says 501', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-room-'));

@@ -1,5 +1,6 @@
 const agent_file_part_finish = require('../src/agent/src/agent_file_part_finish');
 const agent_file_part_put = require('../src/agent/src/agent_file_part_put');
+const agent_file_part_stat = require('../src/agent/src/agent_file_part_stat');
 const agent_file_put = require('../src/agent/src/agent_file_put');
 const assert = require('assert');
 const fs = require('fs');
@@ -63,6 +64,32 @@ test('an upload dropped after a folder took its part\'s name throws nothing, and
     }
     finally {
         fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+// How much of a part is here is asked of the part itself. Through a link under that name the
+// answer was the size of the file it points at: whether a file outside the caller's folders is
+// there, and how big
+test('the size of an upload\'s part is the part\'s own, never that of what a link under its name points at', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-put-'));
+    const away = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-away-'));
+    try {
+        const part = path.join(dir, '.big.bin.abcdefgh.part');
+        const asked = {dir, name: 'big.bin', id: 'abcdefgh', root: dir};
+        fs.writeFileSync(path.join(away, 'outside.bin'), Buffer.alloc(12345));
+        assert.deepStrictEqual(await agent_file_part_stat(asked), {received: 0});
+        fs.symlinkSync(path.join(away, 'outside.bin'), part);
+        assert.deepStrictEqual(await agent_file_part_stat(asked), {received: 0});
+        fs.unlinkSync(part);
+        fs.mkdirSync(part);
+        assert.deepStrictEqual(await agent_file_part_stat(asked), {received: 0});
+        fs.rmdirSync(part);
+        fs.writeFileSync(part, 'seven b');
+        assert.deepStrictEqual(await agent_file_part_stat(asked), {received: 7});
+    }
+    finally {
+        fs.rmSync(dir, {recursive: true, force: true});
+        fs.rmSync(away, {recursive: true, force: true});
     }
 });
 
