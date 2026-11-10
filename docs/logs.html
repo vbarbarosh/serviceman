@@ -794,7 +794,7 @@ grep service_start_end_error data/logs/*  # every time it ever happened
 </code></pre>
 <p>When two situations deserve two lines they get two senders — never one sender written twice.
 Where several causes truly share a line, they share one function too: <code>remote_link_error</code> has
-five reasons and one home.</p>
+many reasons and one home.</p>
 <p>Senders come in complements: <code>_begin</code> is answered by <code>_end_ok</code> or <code>_end_error</code>. A begin with no
 end means that work never finished, which is worth knowing on its own.</p>
 <h2 id="traces"><a class="anchor" href="#traces" aria-hidden="true" tabindex="-1">#</a>Traces</h2>
@@ -1426,6 +1426,15 @@ link and written again here — <strong>keeping its uid</strong>, because that i
 is one group, and one <code>grep</code> finds it in either file. On this end that group hangs under the
 link it came in on, and every line carries <code>remote=</code> to say whose words they are. The agent
 keeps its own copy, so a machine with no link still writes its log.</p>
+<p><strong>They are that machine&#39;s words, and written as no more than that.</strong> <code>remote=</code> is the machine
+the link belongs to, whatever a line says of itself. A key that is not a word is left out, and
+the line goes without it. A line whose group or sender has another shape, whose sender is longer
+than 64 letters, or whose group is one this end made (the group its link hangs under and every
+group above it, up to the process) is not written. Each of these is said as <code>remote_link_error</code>,
+once a link for each reason (<code>log_line_remote</code>, <code>log_line_key</code>, <code>log_line_shape</code>,
+<code>log_line_group</code>), so a machine cannot fill the file with them either. A line that is free
+text (a line of output, the end of slow work) stays free text with no <code>remote=</code> in it: its
+group says whose it is, and that group&#39;s <code>group_spawn</code> here names the link it came in on.</p>
 <h3 id="remotes"><a class="anchor" href="#remotes" aria-hidden="true" tabindex="-1">#</a>Remotes</h3>
 <div class="table-wrap"><table>
 <thead>

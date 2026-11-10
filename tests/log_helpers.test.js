@@ -12,6 +12,10 @@ test('a line\'s group is a uid and its sender a word, and a machine\'s line of a
     assert.strictEqual(log_ids_valid('', 'x'), false);
     assert.strictEqual(log_ids_valid('cabcdefghijk', 'Upper'), false);
     assert.strictEqual(log_ids_valid('cabcdefghijk', 'a b'), false);
+    // A sender has a length too: the details of a line are cut to keep it short, its sender is not
+    assert.strictEqual(log_ids_valid('cabcdefghijk', 'a'.repeat(64)), true);
+    assert.strictEqual(log_ids_valid('cabcdefghijk', 'a'.repeat(65)), false);
+    assert.strictEqual(log_ids_valid('cabcdefghijk', 'ok\n'), false);
 });
 
 test('a command line is logged with its environment values dropped, every way they are given', function () {

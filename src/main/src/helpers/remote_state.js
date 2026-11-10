@@ -17,6 +17,9 @@ function remote_state()
         update_not_taken: 0,
         // The groups this machine has already told us about, so each one is announced once
         groups: new Set(),
+        // Why a line it sent could not be kept as it came, each reason said once a link
+        // (remote_attach): {reason: true}
+        lines_refused: {},
         connected_at: null,
         left_at: null,
         // The last time anything at all came in on this link — a beat, an answer, a line of

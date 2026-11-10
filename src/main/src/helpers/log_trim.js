@@ -7,7 +7,8 @@ function log_trim(text, bytes)
     if (raw.length <= bytes) {
         return text;
     }
-    let cut_at = bytes;
+    // No room is no room: a count below zero would be taken from the far end of the text
+    let cut_at = Math.max(bytes, 0);
     while ((cut_at > 0) && ((raw[cut_at] & 0xc0) === 0x80)) {
         cut_at--;
     }

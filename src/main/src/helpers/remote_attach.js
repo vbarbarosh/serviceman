@@ -36,6 +36,9 @@ const tunnel_read = require('./tunnel_read');
 const HELLO_TIMEOUT_MS = 10000;
 const KEEPALIVE_MS = 30000;
 
+// A key of a line is a word, as its sender is
+const RE_KEY = /^[a-z_][a-z0-9_]*$/;
+
 const TUNNEL_KINDS = ['d', 'e', 'x', 'r'];
 
 // Joins a fresh link to its remote and reads what comes over it until it drops. The link says
@@ -56,8 +59,10 @@ function link_join(app, remote, socket, claimed)
     state.address = socket.remoteAddress;
     state.connected_at = Date.now();
     state.last_error = null;
-    // A new link is a new story: the groups this machine told us about belong to the old one
+    // A new link is a new story: the groups this machine told us about belong to the old one,
+    // and so does what was said of the lines it sent that could not be kept
     state.groups = new Set();
+    state.lines_refused = {};
     link_read(socket, log_bind(function (kind, body) {
         try {
             frame_read(app, remote, kind, body);
@@ -211,17 +216,27 @@ function message_read(app, remote, message)
 // What the machine said, written here as it was written there — keeping the uid it had, so a
 // group is one group on both ends and one grep finds it in either file. It hangs under the
 // link it came in on, said once, the first time that group has anything to say here.
+//
+// It is that machine's word, and written as no more than that: under no group this end made,
+// with no key that is not a word, and naming the remote its link belongs to, whatever the line
+// says of itself. What could not be kept as it came is said once a link (link_error_once).
 function remote_said(app, remote, message)
 {
     // A line's group and sender have a shape, and a machine's that do not are not written: a
     // sender with a bracket or a space in it would be a line of another shape in this file
-    if (log_ids_valid(String(message.group), String(message.sender)) === false) {
-        link_error(app, remote, {reason: 'log_line_shape', group: String(message.group).slice(0, 40), sender: String(message.sender).slice(0, 40)});
+    if ((typeof message.group !== 'string') || (typeof message.sender !== 'string') || (log_ids_valid(message.group, message.sender) === false)) {
+        link_error_once(app, remote, {reason: 'log_line_shape', group: String(message.group).slice(0, 40), sender: String(message.sender).slice(0, 40), then: 'not written, and said once for this link'});
         return;
     }
     const text = (typeof message.words === 'string') ? message.words : null;
     const words = ((message.words === null) || (typeof message.words !== 'object')) ? {} : message.words;
     const group = String(message.group);
+    // Nor is a line under a group this end made: the one this link hangs under and every group
+    // above it, the process's own among them, hold what serviceman did
+    if (is_group_ours(group)) {
+        link_error_once(app, remote, {reason: 'log_line_group', group, sender: message.sender, then: 'not written, and said once for this link'});
+        return;
+    }
     if (remote.state.groups.has(group) === false) {
         remote.state.groups.add(group);
         // Where that group hangs here: under the link it came in on. Over there it hangs under
@@ -233,7 +248,7 @@ function remote_said(app, remote, message)
         // Said once, above, with the parent this end knows about
         return;
     }
-    log_line(app, group, String(message.sender), (text === null) ? Object.assign({remote: remote.name}, words) : text);
+    log_line(app, group, String(message.sender), (text === null) ? words_from_said(app, remote, message.sender, words) : text);
     // Its page says why the update did not take the moment the machine knows
     if ((message.sender === 'agent_update_failed') && (typeof words.reason === 'string')) {
         remote.state.update_refused = words.reason;
@@ -251,6 +266,44 @@ function remote_said(app, remote, message)
         return;
     }
     service_said(app, (text === null) ? words : {service: message.service, text});
+}
+
+// Whether a uid is a group this end made for the link itself: the one it hangs under, or any
+// above that, up to the process. A machine's line there would read as serviceman's own, and the
+// line that says where its group hangs would name a group as its own parent.
+function is_group_ours(uid)
+{
+    let group = log_scope.getStore();
+    while ((group !== undefined) && (group !== null)) {
+        if (group.uid === uid) {
+            return true;
+        }
+        group = group.parent;
+    }
+    return false;
+}
+
+// The words of a machine's line, as this end writes them. `remote=` says whose words they are,
+// which is this end's to say: it stands first, where no cut reaches it, and what the machine
+// put under that key is not written. A key that is not a word is left out, and the line goes
+// without it: one with a line break in it would start a line of its own in this file.
+function words_from_said(app, remote, sender, said)
+{
+    const out = Object.assign(Object.create(null), {remote: remote.name});
+    for (const key of Object.keys(said)) {
+        if (RE_KEY.test(key) === false) {
+            link_error_once(app, remote, {reason: 'log_line_key', sender, key: key.slice(0, 40), then: 'written without it, and said once for this link'});
+            continue;
+        }
+        if (key !== 'remote') {
+            out[key] = said[key];
+            continue;
+        }
+        if ((said.remote !== null) && (said.remote !== remote.name)) {
+            link_error_once(app, remote, {reason: 'log_line_remote', sender, claimed: String(said.remote).slice(0, 40), then: 'written as its own, and said once for this link'});
+        }
+    }
+    return out;
 }
 
 // A request a door carried to a service is work that service did, though it never passed
@@ -295,6 +348,17 @@ function door_adopt(app, name)
 function link_error(app, remote, words)
 {
     log_event(app, 'remote_link_error', Object.assign({remote: remote.name}, words));
+}
+
+// The same, said once a link for each reason and not once a line: a machine that sends a
+// million lines that cannot be kept does not write a million lines here
+function link_error_once(app, remote, words)
+{
+    if (remote.state.lines_refused[words.reason] === true) {
+        return;
+    }
+    remote.state.lines_refused[words.reason] = true;
+    link_error(app, remote, words);
 }
 
 function call_answer(app, remote, id, ok, value)

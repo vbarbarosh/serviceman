@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.51 — 2026-11-10
+
+- A machine's `log` message was written into serviceman's log as it came: with another
+  machine's `remote=`, with a key that held a line break (a whole second line, any time, the
+  process's own group), with a sender of 100 000 letters. Now `remote=` is the machine the link
+  belongs to, a key that is not a word is left out, a sender has 64 letters at most, and no
+  machine writes under the groups its link hangs from; why a line was not kept is said once a
+  link, as `remote_link_error`. A line of free text is still written as sent (SM-357, open).
+  (SM-286)
+
 ## 1.0.50 — 2026-11-10
 
 - The test of a file's grant (1.0.33) changed the last letter of the grant's signature to prove

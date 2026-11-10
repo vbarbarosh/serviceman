@@ -90,7 +90,7 @@ point at each other:
 
 When two situations deserve two lines they get two senders — never one sender written twice.
 Where several causes truly share a line, they share one function too: `remote_link_error` has
-five reasons and one home.
+many reasons and one home.
 
 Senders come in complements: `_begin` is answered by `_end_ok` or `_end_error`. A begin with no
 end means that work never finished, which is worth knowing on its own.
@@ -386,6 +386,16 @@ link and written again here — **keeping its uid**, because that is what a uid 
 is one group, and one `grep` finds it in either file. On this end that group hangs under the
 link it came in on, and every line carries `remote=` to say whose words they are. The agent
 keeps its own copy, so a machine with no link still writes its log.
+
+**They are that machine's words, and written as no more than that.** `remote=` is the machine
+the link belongs to, whatever a line says of itself. A key that is not a word is left out, and
+the line goes without it. A line whose group or sender has another shape, whose sender is longer
+than 64 letters, or whose group is one this end made (the group its link hangs under and every
+group above it, up to the process) is not written. Each of these is said as `remote_link_error`,
+once a link for each reason (`log_line_remote`, `log_line_key`, `log_line_shape`,
+`log_line_group`), so a machine cannot fill the file with them either. A line that is free
+text (a line of output, the end of slow work) stays free text with no `remote=` in it: its
+group says whose it is, and that group's `group_spawn` here names the link it came in on.
 
 ### Remotes
 
