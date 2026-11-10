@@ -1,25 +1,25 @@
-// The frames of a tunnelled stream, on their way back from the remote
+// The frames of a tunnelled stream, on their way back from the remote. Answers what the log
+// says of a stream dropped for what the remote did with its window (tunnel_stream), or null.
 function tunnel_read(remote, kind, body)
 {
     const found = remote.state.streams[body.readUInt32BE(0)];
     if (found === undefined) {
         // A stream this end already closed; the frames still on the way mean nothing
-        return;
+        return null;
     }
     const rest = body.subarray(4);
     if (kind === 'd') {
-        found.tunnel_data(rest);
-        return;
+        return found.tunnel_data(rest);
     }
     if (kind === 'e') {
         found.tunnel_end();
-        return;
+        return null;
     }
     if (kind === 'r') {
-        found.tunnel_credit(rest.readUInt32BE(0));
-        return;
+        return found.tunnel_credit(rest.readUInt32BE(0));
     }
     found.tunnel_gone(error_from_body(rest));
+    return null;
 }
 
 function error_from_body(body)

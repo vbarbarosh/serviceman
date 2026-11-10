@@ -995,6 +995,13 @@ machine, read their logs, make folders for their volumes, and reach any port on 
 through the tunnel. Treat it like an ssh key: one token per machine, 32 random bytes, kept in
 a file only root can read.
 
+What the token does not buy is this host's memory. Every stream on the link has a window, 256
+KB, or 4 MB for a file's bytes, and this host counts it for itself: a stream that is sent more
+than its window and one piece unread, or is given room for bytes it was never sent, is dropped
+with `EWINDOW` at both ends, and room made for bytes still in this host's own queue counts once
+the link has taken them. The link carries on, and the log says it once a link
+(`remote_link_error`).
+
 The other direction is wide. The agent does what this host asks, and this host asks for a great
 deal: it runs containers and any command line (a `shell` service), opens shells on the machine
 and keeps them, reads, writes and deletes files as the user it runs as, lists that machine's

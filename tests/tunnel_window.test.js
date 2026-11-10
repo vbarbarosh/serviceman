@@ -1,5 +1,7 @@
 const EventEmitter = require('events');
 const assert = require('assert');
+const link_read = require('../src/helpers/link_read');
+const stream = require('stream');
 const test = require('node:test');
 const tunnel_stream = require('../src/main/src/helpers/tunnel_stream');
 const tunnel_window = require('../src/helpers/tunnel_window');
@@ -7,15 +9,29 @@ const tunnel_window = require('../src/helpers/tunnel_window');
 const KB = 1024;
 const MB = 1024*1024;
 
-// A link socket that takes what it is given and says whether it has room for more
+// A link socket that takes what it is given and says whether it has room for more. With
+// `taking` off, what it is given waits in its queue until take()
 function link_fake()
 {
     const out = new EventEmitter();
+    const queued = [];
     out.room = true;
+    out.taking = true;
     out.bytes = 0;
-    out.write = function (chunk) {
+    out.write = function (chunk, done) {
         this.bytes += chunk.length;
+        if (done !== undefined) {
+            queued.push(done);
+        }
+        if (this.taking) {
+            this.take();
+        }
         return this.room;
+    };
+    out.take = function () {
+        for (const done of queued.splice(0)) {
+            done(null);
+        }
     };
     return out;
 }
@@ -89,6 +105,108 @@ test('a stream sends its window unread and no more; a wide one also waits for th
     assert.strictEqual(await written_until_held(shell, 128*KB), 128*KB);
     shell.destroy();
 });
+
+// A machine sent 400 MB into the 4 MB of room a file's stream gave it, and made room for a
+// gigabyte of a visitor's bytes it never read (2026-11-09), and this host kept all of it: this
+// end counts what the far one sends and the room it makes, and takes its word for neither
+test('a stream sent more than its window and a piece unread is dropped, and so is one given room for bytes it was never sent', async function () {
+    // What the far end may send unread: its window, and less than a piece over, since it began
+    // its last piece with room. A piece is a frame, 1 MB; a walk's is a folder's names.
+    for (const [target, piece, window, over] of [[{port: 80}, undefined, 256*KB, MB], [{read: {}}, undefined, 4*MB, MB], [{tree: {}}, 16*MB, 256*KB, 16*MB]]) {
+        const link = link_kept();
+        const unread = tunnel_stream(link.socket, 2, false, tunnel_window(target), undefined, piece);
+        const errors = [];
+        unread.on('error', e => errors.push(e));
+        unread.tunnel_data(Buffer.alloc(window - 1));
+        for (let sent = 0; sent < over; sent += 64*KB) {
+            unread.tunnel_data(Buffer.alloc(64*KB));
+        }
+        assert.strictEqual(unread.destroyed, false, 'a window and all but a byte of a piece is what an honest end may have sent');
+        assert.deepStrictEqual(unread.tunnel_data(Buffer.alloc(1)), {reason: 'stream_past_window', stream: 2, unread: window + over, window}, JSON.stringify(target));
+        assert.strictEqual(unread.destroyed, true);
+        assert.strictEqual(unread.tunnel_data(Buffer.alloc(64*KB)), null, 'said once: what comes after means nothing');
+        await new Promise(v => setImmediate(v));
+        assert.deepStrictEqual(errors.map(v => v.code), ['EWINDOW']);
+        assert.deepStrictEqual(link.frames.map(v => [v.kind, v.id, v.said.code]), [['x', 2, 'EWINDOW']], 'the far end is told why');
+        assert.match(link.frames[0].said.message, new RegExp(`^stream 2: its far end sent ${window + over} bytes unread into a window of ${window}$`));
+    }
+
+    // A reader that reads makes room, and the far end may fill it again, for as long as it likes
+    const link = link_kept();
+    const read = tunnel_stream(link.socket, 4);
+    let got = 0;
+    read.on('data', function (chunk) {
+        got += chunk.length;
+    });
+    for (let i = 0; i < 64; i++) {
+        assert.strictEqual(read.tunnel_data(Buffer.alloc(200*KB)), null);
+        await new Promise(v => setImmediate(v));
+    }
+    assert.strictEqual(got, 64*200*KB);
+    assert.strictEqual(link.frames.filter(v => v.kind === 'r').reduce((sum, v) => sum + v.room, 0), 64*200*KB, 'room was made for every byte read');
+    read.destroy();
+
+    // Room is for bytes that were sent: all of them at most
+    const sending = link_kept();
+    const sent = tunnel_stream(sending.socket, 6);
+    const errors = [];
+    sent.on('error', e => errors.push(e));
+    sent.write(Buffer.alloc(64*KB));
+    assert.strictEqual(sent.tunnel_credit(60*KB), null);
+    assert.strictEqual(sent.tunnel_credit(4*KB), null);
+    await new Promise(v => setImmediate(v));
+    assert.strictEqual(sent.taken, 64*KB);
+    sent.write(Buffer.alloc(KB));
+    assert.deepStrictEqual(sent.tunnel_credit(KB + 1), {reason: 'stream_room_unsent', stream: 6, room: KB + 1, on_its_way: KB});
+    assert.strictEqual(sent.destroyed, true);
+    assert.strictEqual(sent.taken, 64*KB, 'room that was refused is not room');
+    await new Promise(v => setImmediate(v));
+    assert.deepStrictEqual(errors.map(v => [v.code, v.message]), [['EWINDOW', `stream 6: its far end made room for ${KB + 1} bytes, and ${KB} were on their way`]]);
+    assert.deepStrictEqual(sending.frames.filter(v => v.kind === 'x').map(v => [v.id, v.said.code]), [[6, 'EWINDOW']]);
+});
+
+// The same machine made room in steps, never for more than it had been sent, and read nothing:
+// the 300 MB stood in the queue of this host's own link all the same. Bytes the link has not
+// taken were read by nobody.
+test('room made for bytes still in this host\'s queue is room once the link has taken them', async function () {
+    const socket = link_fake();
+    const plain = tunnel_stream(socket, 2);
+    socket.taking = false;
+    await written_until_held(plain, MB);
+    assert.strictEqual(plain.sent, 256*KB);
+    // Room for all of it, as the far end says, and none of it has left this host
+    plain.tunnel_credit(256*KB);
+    assert.strictEqual(plain.taken, 0);
+    await written_until_held(plain, MB);
+    assert.strictEqual(plain.sent, 256*KB, 'nothing more is sent on its word');
+    // The link takes them: what was said of them counts now, and the stream goes on
+    const taken = [];
+    plain.on('taken', v => taken.push(v));
+    socket.take();
+    assert.deepStrictEqual([plain.taken, taken.reduce((sum, v) => sum + v, 0)], [256*KB, 256*KB]);
+    socket.taking = true;
+    await written_until_held(plain, MB);
+    assert.deepStrictEqual([plain.sent, plain.taken], [512*KB, 256*KB]);
+    plain.destroy();
+});
+
+// A link socket whose frames are kept as the far end would read them: {kind, id}, with `said`
+// for the end of a stream and `room` for room made
+function link_kept()
+{
+    const out = {socket: new stream.PassThrough(), frames: []};
+    link_read(out.socket, function (kind, body) {
+        const frame = {kind, id: body.readUInt32BE(0)};
+        if (kind === 'x') {
+            frame.said = JSON.parse(body.subarray(4).toString('utf8'));
+        }
+        if (kind === 'r') {
+            frame.room = body.readUInt32BE(4);
+        }
+        out.frames.push(frame);
+    });
+    return out;
+}
 
 // A file to a machine 2026-11-04: its 4 MB on their way held every call behind them for minutes
 // once the way to the machine slowed. Its window is about a second of the pace the far end takes

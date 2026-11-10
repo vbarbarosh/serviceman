@@ -24,6 +24,7 @@ const terminal_connect = require('../demos/terminal-client/terminal_connect');
 const terminals_list = require('../demos/terminal-client/terminals_list');
 const test = require('node:test');
 const timers = require('timers/promises');
+const tunnel_open = require('../src/main/src/helpers/tunnel_open');
 const tunnel_window = require('../src/helpers/tunnel_window');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
@@ -1741,6 +1742,47 @@ test('a whole tree of a machine comes in one request through serviceman, each ha
     }
 });
 
+// A walk hands over a folder's names as one piece, megabytes of them for a folder of thousands
+// and many times the window its stream has: all of it is an honest machine's, and its reader
+// here may be one that stands (tunnel_open)
+test('a folder of thousands of names is listed whole through a reader that makes its machine wait', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-tree-wide-'));
+    const name = 'n'.repeat(200);
+    for (let i = 0; i < 12000; i++) {
+        fs.writeFileSync(path.join(dir, `${name}${i}`), '');
+    }
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        const walk = tunnel_open(remote, {tree: {path: dir}});
+        const errors = [];
+        let text = '';
+        let stood = false;
+        walk.on('error', e => errors.push(e));
+        walk.on('data', function (chunk) {
+            text += chunk.toString('utf8');
+            // The folder's names are on their way by now, and nobody reads them for a while
+            if (stood === false) {
+                stood = true;
+                walk.pause();
+                setTimeout(() => walk.resume(), 400);
+            }
+        });
+        await new Promise(v => walk.on('close', v));
+        assert.deepStrictEqual(errors, []);
+        assert.ok(text.length > 3*1024*1024, `megabytes in one piece: ${text.length}`);
+        assert.strictEqual(text.split('\n').filter(v => v.startsWith('{"type":"file"')).length, 12000);
+        assert.strictEqual(running.app.log_lines.some(v => v.includes('[remote_link_error]')), false);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // htop and bash ask the terminal questions (its kind, its colours, its modes). Replayed on a
 // join, xterm would answer them again into the shell, where they show as typed text: the
 // history comes back without them, and with everything else
@@ -3122,6 +3164,152 @@ test('a machine may not open a stream this host would be using, and the link liv
         await running.close();
     }
 });
+
+// The machine is played by hand here too, since an agent keeps its window. One that sent past
+// the room a stream gave it, and one that made room for bytes it was never sent, each did so to
+// a real serviceman on 2026-11-09, which kept 400 MB of the one and 300 MB of the other
+test('a machine that keeps no window loses that stream alone, with the reason at both ends and once in the log, and the link lives on', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const machine = await machine_by_hand(running);
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        const errors = [];
+
+        // A file of the machine that nobody reads here: a window of 4 MB, and a piece over
+        const unread = tunnel_open(remote, {read: {path: '/big.bin'}});
+        unread.on('error', e => errors.push(e));
+        for (let i = 0; i < 96; i++) {
+            link_send_stream(machine.socket, 'd', unread.id, Buffer.alloc(64*1024));
+        }
+        await wait_until(() => machine.gone.length === 1);
+        assert.deepStrictEqual(machine.gone[0], [unread.id, 'EWINDOW', `stream ${unread.id}: its far end sent 5242880 bytes unread into a window of 4194304`]);
+        await wait_until(() => remote.state.streams[unread.id] === undefined);
+        assert.deepStrictEqual(errors.map(v => v.code), ['EWINDOW']);
+        assert.ok(unread.readableLength < 5*1024*1024, `what it kept of them: ${unread.readableLength}`);
+
+        // A visitor's bytes on their way to a service there, and room made for one more
+        const posted = tunnel_open(remote, {host: '127.0.0.1', port: 80});
+        posted.on('error', e => errors.push(e));
+        posted.write(Buffer.alloc(1000));
+        link_send_stream(machine.socket, 'r', posted.id, room_of(1001));
+        await wait_until(() => machine.gone.length === 2);
+        assert.deepStrictEqual(machine.gone[1], [posted.id, 'EWINDOW', `stream ${posted.id}: its far end made room for 1001 bytes, and 1000 were on their way`]);
+        assert.deepStrictEqual(errors.map(v => v.code), ['EWINDOW', 'EWINDOW']);
+
+        // Done again it is dropped again, and the log is not written to again
+        const again = tunnel_open(remote, {host: '127.0.0.1', port: 80});
+        again.on('error', e => errors.push(e));
+        link_send_stream(machine.socket, 'r', again.id, room_of(1));
+        await wait_until(() => machine.gone.length === 3);
+        assert.deepStrictEqual(link_errors(running), [
+            `[remote_link_error] remote=ui1 reason=stream_past_window stream=${unread.id} unread=5242880 window=4194304 then="that stream alone is over, and said once for this link"`,
+            `[remote_link_error] remote=ui1 reason=stream_room_unsent stream=${posted.id} room=1001 on_its_way=1000 then="that stream alone is over, and said once for this link"`,
+        ]);
+
+        // The link carries on, and so does a stream whose window is kept: its bytes both ways
+        assert.strictEqual(remote.state.phase, 'online');
+        const kept = tunnel_open(remote, {host: '127.0.0.1', port: 80});
+        const heard = [];
+        kept.on('data', v => heard.push(v));
+        kept.write('ping');
+        link_send_stream(machine.socket, 'r', kept.id, room_of(4));
+        link_send_stream(machine.socket, 'd', kept.id, Buffer.from('pong'));
+        await wait_until(() => Buffer.concat(heard).toString('utf8') === 'pong');
+        assert.strictEqual(kept.taken, 4);
+        assert.strictEqual(machine.gone.length, 3);
+        kept.destroy();
+    }
+    finally {
+        machine.socket.destroy();
+        await running.close();
+    }
+});
+
+// The same machine, more careful: it read nothing and made room in steps, never for more than
+// it had been sent, and the 300 MB a visitor posted stood in the queue of this host's own link.
+// Room counts once the link has taken the bytes it is for.
+test('a machine that makes room for bytes it does not read holds a window of them in this host\'s memory, not all it is sent', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const machine = await machine_by_hand(running);
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        // A visitor posts to a service there, as fast as the stream takes it
+        const posted = tunnel_open(remote, {host: '127.0.0.1', port: 80});
+        posted.on('error', function () {});
+        (function more() {
+            if (posted.destroyed === false) {
+                posted.write(Buffer.alloc(64*1024), more);
+            }
+        })();
+        await wait_until(() => posted.sent >= 256*1024);
+        // From here the machine reads nothing, and makes room for 64 MB, 64 KB at a time
+        machine.socket.pause();
+        let queued = 0;
+        for (let i = 0; (i < 1024) && (posted.destroyed === false); i++) {
+            link_send_stream(machine.socket, 'r', posted.id, room_of(64*1024));
+            await timers.setTimeout(1);
+            queued = Math.max(queued, remote.state.socket.writableLength);
+        }
+        assert.ok(queued < 1024*1024, `the most that waited in this host's queue: ${queued} bytes, of ${posted.sent} sent`);
+        assert.strictEqual(remote.state.phase, 'online');
+    }
+    finally {
+        machine.socket.destroy();
+        await running.close();
+    }
+});
+
+// A machine played by hand, dialled in as ui1: {socket, opened, gone, hello}. `opened` is the
+// streams this host opened to it, by number; `gone` each stream this host ended, as [number,
+// code, message]. It says hello at once unless told not to, and hello() says it then.
+async function machine_by_hand(running, greets)
+{
+    const socket = await new Promise(function (resolve, reject) {
+        const request = http.request({host: '127.0.0.1', port: running.control_port, path: '/api/v1/remote', headers: {connection: 'Upgrade', upgrade: 'serviceman', authorization: `Bearer ${TOKEN}`}});
+        request.on('upgrade', (answer, upgraded) => resolve(upgraded));
+        request.on('error', reject);
+        request.end();
+    });
+    const out = {socket, opened: [], gone: []};
+    socket.on('error', function () {});
+    link_read(socket, function (kind, body) {
+        if (kind === 'o') {
+            out.opened.push(body.readUInt32BE(0));
+        }
+        if (kind === 'x') {
+            const said = JSON.parse(body.subarray(4).toString('utf8'));
+            out.gone.push([body.readUInt32BE(0), said.code, said.message]);
+        }
+    });
+    out.hello = function () {
+        link_send_message(socket, {
+            type: 'hello',
+            agent: '1.33.12',
+            resources: {hostname: 'ui1', platform: 'linux', arch: 'x64', node: process.version, docker: null, can: [], addresses: [], cpu: {count: 1, model: 'cpu'}, mem: {total: 1024*1024*1024}, disk: {path: '/', total: 1024*1024*1024, free: 1024*1024}},
+            stats: {mem_free: 1024*1024, disk_free: 1024*1024, uptime_ms: 1000, load: 0},
+        });
+    };
+    if (greets !== false) {
+        out.hello();
+    }
+    return out;
+}
+
+// What the log says went wrong on a link, each line from its sender on
+function link_errors(running)
+{
+    return running.app.log_lines.filter(v => v.includes('[remote_link_error]')).map(v => v.slice(v.indexOf('[remote_link_error]')));
+}
+
+// The body of a frame that makes room for `bytes` more
+function room_of(bytes)
+{
+    const out = Buffer.alloc(4);
+    out.writeUInt32BE(bytes, 0);
+    return out;
+}
 
 // fetch, with the owner's token the signed-in page brings
 function control_fetch(url, init)

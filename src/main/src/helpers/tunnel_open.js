@@ -4,6 +4,9 @@ const tunnel_stream = require('./tunnel_stream');
 const tunnel_window = require('../../../helpers/tunnel_window');
 
 const LAST_ID = 0xffffffff;
+// A walk hands over a folder's names as one piece, however many they are (agent_fs_tree), about
+// 100 bytes a name: 130 000 names of one folder fit in this, the longest frame a link carries
+const TREE_PIECE_BYTES = 16*1024*1024;
 
 // Opens a stream to something on the remote's machine: a port on its loopback, or a socket
 // file on its disk. Nothing is opened on that machine — the link it dialled out carries this.
@@ -15,7 +18,7 @@ function tunnel_open(remote, target)
     }
     const socket = state.socket;
     const id = free_id(state);
-    const out = tunnel_stream(socket, id, false, tunnel_window(target), state.throughput_bps);
+    const out = tunnel_stream(socket, id, false, tunnel_window(target), state.throughput_bps, (target.tree === undefined) ? undefined : TREE_PIECE_BYTES);
     state.streams[id] = out;
     // The far end knows the stream by this number — a resize call has to name it
     out.id = id;

@@ -16,10 +16,20 @@ const PACE_NOTE_MS = 50;
 // (link_stood)
 const MARK_EVERY_MS = 250;
 const MARKS_KEPT_MS = 600000;
+// How far past its window the far end's last piece may reach. A sender begins a piece while it
+// has room and sends it whole (agent_tunnel), so it is over by less than one piece: what a
+// socket, a pipe or a file hands over at once, 64 KB, which goes as one frame. A frame's length
+// is taken; a piece longer than a frame is its opener's to say (tunnel_open).
+const PIECE_BYTES = link_send_stream.CHUNK_BYTES;
+const EMPTY = Buffer.alloc(0);
 
 // One stream inside a link. It looks like a socket to node's http, and its bytes ride in
 // frames beside the bytes of every other stream on the same link. Neither end sends more than
 // a window of unread bytes, so a slow reader on one side never fills the memory of the other.
+// This end holds the far one to it, whose word is not taken for it: a stream sent more than the
+// room it gave, a piece over at most (`piece_bytes`), or given room for bytes it never sent, is
+// dropped with EWINDOW (window_broken), and the link carries on. Room for bytes the link has
+// not taken yet is room once it has taken them (taken_count): they wait in this host's memory.
 //
 // The number is the stream's name on that link: every frame of it leads with the number, and
 // both ends know it by nothing else.
@@ -31,13 +41,23 @@ const MARKS_KEPT_MS = 600000;
 // keeps about a second of the pace its bytes are taken at, its own window at most: from the
 // start, a second of `pace_bps`, the speed the link was last measured at, or the default window
 // on a link never measured.
-function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
+function tunnel_stream(socket, id, half_open, window_bytes, pace_bps, piece_bytes)
 {
     const most = (window_bytes === undefined) ? tunnel_window.WINDOW_BYTES : window_bytes;
     const wide = (most > tunnel_window.WINDOW_BYTES);
+    const piece = (piece_bytes === undefined) ? PIECE_BYTES : piece_bytes;
     const link = {
         send_data: function (chunk) {
-            return link_send_stream(socket, 'd', id, chunk);
+            const room = link_send_stream(socket, 'd', id, chunk);
+            // An empty write behind the frame: the link calls back when it has taken all that
+            // was written before it, and the far end can have read these bytes no sooner
+            socket.write(EMPTY, function (error) {
+                if (((error === null) || (error === undefined)) && (out.destroyed === false)) {
+                    link_took += chunk.length;
+                    taken_count();
+                }
+            });
+            return room;
         },
         send_end: function () {
             link_send_stream(socket, 'e', id);
@@ -56,6 +76,9 @@ function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
     const paces = [];
     const marks = [];
     let unread = 0;
+    // What the far end says it read of what was sent, and what the link took of it, in all
+    let said_taken = 0;
+    let link_took = 0;
     let held = null;
     // A wide stream whose last bytes the link has not taken yet
     let backed_up = false;
@@ -118,13 +141,20 @@ function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
     out.got = 0;
     out.got_at = null;
 
-    // What the other end sends
+    // What the other end sends. `unread` is what came since room was last given: an end that
+    // keeps its window began its last piece with a byte of room at least, so a window and a
+    // piece unread is one byte more than it ever sends. Answers what the log says of a stream
+    // dropped for it (window_broken), as tunnel_credit does, or null.
     out.tunnel_data = function (chunk) {
         timer_arm();
         unread += chunk.length;
         out.got += chunk.length;
         out.got_at = Date.now();
+        if (unread >= most + piece) {
+            return window_broken(`its far end sent ${unread} bytes unread into a window of ${most}`, {reason: 'stream_past_window', stream: id, unread, window: most});
+        }
         out.push(chunk);
+        return null;
     };
     out.tunnel_end = function () {
         end_in();
@@ -138,8 +168,24 @@ function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
         out.destroy(error);
     };
     // The far end read these bytes: room for more, and word that they got there, for whoever
-    // watches a copy move ('taken')
+    // watches a copy move ('taken'). It reads only what it was sent: room for more than is on
+    // its way is room for bytes that would wait in this host's memory, not at the far end.
     out.tunnel_credit = function (bytes) {
+        const on_its_way = out.sent - said_taken;
+        if (bytes > on_its_way) {
+            return window_broken(`its far end made room for ${bytes} bytes, and ${on_its_way} were on their way`, {reason: 'stream_room_unsent', stream: id, room: bytes, on_its_way});
+        }
+        said_taken += bytes;
+        taken_count();
+        return null;
+    };
+    // What the far end read counts as far as the link has taken it: bytes still in this host's
+    // queue were read by nobody, whatever was said of them, and they are room once they went
+    function taken_count() {
+        const bytes = Math.min(said_taken, link_took) - out.taken;
+        if (bytes === 0) {
+            return;
+        }
         out.taken += bytes;
         out.taken_at = Date.now();
         if (wide) {
@@ -147,7 +193,7 @@ function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
         }
         out.emit('taken', bytes);
         release();
-    };
+    }
     // How much it had sent by `at`, as far as its notes say (never more than it had): what it
     // sent half a minute ago and is still not taken is what a call asked since waits behind
     out.sent_by = function (at) {
@@ -158,6 +204,17 @@ function tunnel_stream(socket, id, half_open, window_bytes, pace_bps)
         }
         return 0;
     };
+    // The far end kept no window: the stream is over at both ends with the reason (send_gone),
+    // once, and `words` are handed back for the log, which remote_attach says once a link
+    function window_broken(message, words) {
+        if (out.destroyed) {
+            return null;
+        }
+        const error = new Error(`stream ${id}: ${message}`);
+        error.code = 'EWINDOW';
+        out.destroy(error);
+        return words;
+    }
     // The write held back goes on once there is room at the far end, and in the link
     function release() {
         if ((held === null) || (room_left() <= 0) || backed_up) {

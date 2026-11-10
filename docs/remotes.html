@@ -1698,6 +1698,12 @@ link is quiet between requests.</p>
 machine, read their logs, make folders for their volumes, and reach any port on its loopback
 through the tunnel. Treat it like an ssh key: one token per machine, 32 random bytes, kept in
 a file only root can read.</p>
+<p>What the token does not buy is this host&#39;s memory. Every stream on the link has a window, 256
+KB, or 4 MB for a file&#39;s bytes, and this host counts it for itself: a stream that is sent more
+than its window and one piece unread, or is given room for bytes it was never sent, is dropped
+with <code>EWINDOW</code> at both ends, and room made for bytes still in this host&#39;s own queue counts once
+the link has taken them. The link carries on, and the log says it once a link
+(<code>remote_link_error</code>).</p>
 <p>The other direction is wide. The agent does what this host asks, and this host asks for a great
 deal: it runs containers and any command line (a <code>shell</code> service), opens shells on the machine
 and keeps them, reads, writes and deletes files as the user it runs as, lists that machine&#39;s

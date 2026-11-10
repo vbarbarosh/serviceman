@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.75 — 2026-11-10
+
+- serviceman counts each stream's window itself: a machine that sends past it and a piece, or makes room for bytes it was never sent, loses that stream (`EWINDOW`, said once a link) and the link carries on; room for bytes still in serviceman's queue counts once the link took them (SM-202).
+
 ## 1.0.74 — 2026-11-10
 
 - The link test's stand test asks for more than 1125 ms where it asked for 1250, one of its quarter-second counts itself: a right link read 1249 now and then and the suite failed (SM-365).

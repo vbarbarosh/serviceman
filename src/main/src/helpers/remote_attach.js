@@ -107,7 +107,7 @@ function frame_read(app, remote, kind, body)
         return;
     }
     if (TUNNEL_KINDS.includes(kind)) {
-        tunnel_read(remote, kind, body);
+        stream_refused(app, remote, tunnel_read(remote, kind, body));
         return;
     }
     if (kind === 'b') {
@@ -386,6 +386,17 @@ function link_error_once(app, remote, words)
     }
     remote.state.lines_refused[words.reason] = true;
     link_error(app, remote, words);
+}
+
+// A stream dropped for what the machine did: one sent past its window or given room for bytes it
+// was never sent (tunnel_stream). The stream alone is over, however often the machine does it:
+// what one costs this host is bounded, and a link dropped for it is dialled again a second
+// later, at the cost of every other stream and call on it. Said once a link for each reason.
+function stream_refused(app, remote, words)
+{
+    if (words !== null) {
+        link_error_once(app, remote, Object.assign(words, {then: 'that stream alone is over, and said once for this link'}));
+    }
 }
 
 function call_answer(app, remote, id, ok, value)
