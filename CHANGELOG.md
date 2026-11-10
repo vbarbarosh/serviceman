@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.39 — 2026-11-10
+
+- The audit's note gains what was met while mending, SM-350 to SM-356 (three high: a service's
+  status 099 stops serviceman and the agent; two ways a folder's copy still writes outside its
+  folder), and AGENTS.md names the last issue id as it is now. (SM-328)
+
 ## 1.0.38 — 2026-11-10
 
 - A machine whose agent answers the security check with a part missing or of another shape is
