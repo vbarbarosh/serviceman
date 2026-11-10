@@ -22,7 +22,21 @@ function agent_door_proxy(req, res, target, extra)
                     raw.push(answer.rawHeaders[i], answer.rawHeaders[i + 1]);
                 }
             }
-            res.writeHead(answer.statusCode, answer.statusMessage, raw);
+            // The answer goes back as it came, and one no HTTP has cannot: a status of 99, or
+            // status words with a control byte in them, node's client takes and node's server
+            // refuses to say. Thrown from this callback, where nothing catches, it ended the
+            // agent; it is a 502 for this visitor alone. The far end was reached all the same.
+            try {
+                res.writeHead(answer.statusCode, answer.statusMessage, raw);
+            }
+            catch {
+                request.destroy();
+                // The words it refused stay on the response otherwise, and refuse the 502 too
+                res.statusMessage = undefined;
+                agent_http_error(res, 502);
+                resolve(true);
+                return;
+            }
             answer.pipe(res);
             answer.on('end', function () {
                 resolve(true);

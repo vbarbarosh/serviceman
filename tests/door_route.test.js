@@ -203,6 +203,31 @@ test('a door answers 502 at once when the far end takes no connection', async fu
     }
 });
 
+// A service behind a door may answer what no HTTP has: a status of 99 or of 0, or status words
+// with a control byte in them. Node's client takes those and node's server refuses to say them:
+// thrown where the answer is passed on, in a callback nothing catches, it ended the agent.
+test('a door answers 502 for an answer no HTTP has, and carries the next one as ever', async function (t) {
+    const said = ['099 Odd', '000 Zero', '200 O\u0001K', '204 No Content'];
+    const service = net.createServer(function (socket) {
+        socket.once('data', function () {
+            socket.end(`HTTP/1.1 ${said.shift()}\r\ncontent-length: 0\r\n\r\n`);
+        });
+    });
+    await new Promise(function (resolve) {
+        service.listen(0, '127.0.0.1', resolve);
+    });
+    const front = await server_of(function (req, res) {
+        agent_door_proxy(req, res, {host: '127.0.0.1', port: service.address().port}, {});
+    });
+    t.after(async function () {
+        service.close();
+        await close_server(front);
+    });
+    for (const status of [502, 502, 502, 204]) {
+        assert.strictEqual((await fetch_port(front.address().port, {})).status, status);
+    }
+});
+
 // The peer port is reached by every device of the tailnet, and by anything on the machine, with
 // no token at all. The refusal is written to whoever sent the handshake, and that one may be
 // gone already: a reset right behind the handshake makes the write an error on a socket of the

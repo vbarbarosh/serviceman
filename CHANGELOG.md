@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.40 — 2026-11-10
+
+- A service that answers with a status no HTTP has (`HTTP/1.1 099`, `000`), or with status
+  words node refuses, is a 502 for that visitor: at serviceman's proxy, with an
+  `upstream_error` line, and at a machine's door. Passed on from a callback nothing catches,
+  one such answer stopped serviceman, or the agent. Agent 1.33.5. (SM-350)
+
 ## 1.0.39 — 2026-11-10
 
 - The audit's note gains what was met while mending, SM-350 to SM-356 (three high: a service's

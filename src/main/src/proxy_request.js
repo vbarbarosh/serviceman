@@ -32,7 +32,22 @@ function proxy_request(app, service, instance, req, res, deadline)
                 proxy_res.on('error', function () {
                     res.destroy();
                 });
-                res.writeHead(proxy_res.statusCode, headers_answered(proxy_res.headers));
+                // The answer goes to the visitor as it came, and one no HTTP has cannot: node's
+                // client takes `HTTP/1.1 099` from a service and node's server refuses to say
+                // it. Thrown from this callback, where nothing catches, it ended serviceman;
+                // it is a service that did not answer, for this visitor alone.
+                try {
+                    res.writeHead(proxy_res.statusCode, headers_answered(proxy_res.headers));
+                }
+                catch (error) {
+                    for (const name of res.getHeaderNames()) {
+                        res.removeHeader(name);
+                    }
+                    log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message});
+                    render_error_page(res, 502, 'The service did not answer', error_detail(app, req, where_said(instance, `it answered what is no HTTP answer: ${error.message}`)), {retry: wants_html(req)});
+                    proxy_req.destroy();
+                    return;
+                }
                 proxy_res.pipe(res);
             });
         }
