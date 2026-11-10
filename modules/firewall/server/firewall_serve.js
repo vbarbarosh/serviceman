@@ -382,7 +382,9 @@ function body_json(req)
         });
         req.on('end', function () {
             try {
-                resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
+                // A body that is JSON and no object holds no field: it reads as an empty one
+                const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                resolve(((parsed === null) || (typeof parsed !== 'object')) ? {} : parsed);
             }
             catch {
                 reject(status_error(400, 'the body is not JSON'));

@@ -2,6 +2,15 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.70 — 2026-11-10
+
+- Twelve write routes of the control door answered 500, "serviceman broke on this request", to
+  a body of `null`, and four of them to one that is no JSON at all; two took a list or a number
+  for an empty form and answered 200. Every route reads its body through `body_fields` now: an
+  empty body has no fields, and JSON that is no object is a 400. The firewall module's two
+  write routes answered 502 with the exception's text, and answer as for an empty form.
+  (SM-173)
+
 ## 1.0.69 — 2026-11-10
 
 - `GET /modules/__proto__/x` answered 500: the table of the modules' folders was asked for a

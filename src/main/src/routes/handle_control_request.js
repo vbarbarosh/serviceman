@@ -5,9 +5,8 @@ const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
+const body_fields = require('../body_fields');
 const body_file_write = require('../body_file_write');
-const body_json = require('../body_json');
-const body_read = require('../body_read');
 const canvas_of = require('../helpers/canvas_of');
 const canvas_view = require('../helpers/canvas_view');
 const canvas_write = require('../helpers/canvas_write');
@@ -1338,7 +1337,7 @@ function handle_apt_all_read(app, res)
 // every page, and their problem goes at the next minute's check. Answers the machines marked.
 async function handle_vulnerabilities_seen(app, req, res)
 {
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     if ((Array.isArray(body.remotes) === false) || body.remotes.some(v => typeof v !== 'string')) {
         send_json(res, 400, {error: 'remotes: the names of the machines whose new CVEs were seen'});
         return;
@@ -1362,14 +1361,7 @@ async function handle_canvas_machine(app, req, res, name)
         send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
         return;
     }
-    let body;
-    try {
-        body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
-    }
-    catch {
-        send_json(res, 400, {error: 'the body is not JSON'});
-        return;
-    }
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const place = Object.assign({}, canvas_of(app).machines[name]);
     if ((body.x !== undefined) || (body.y !== undefined)) {
         if (![body.x, body.y].every(v => Number.isFinite(v) && (Math.abs(v) <= CANVAS_REACH))) {
@@ -1393,7 +1385,7 @@ async function handle_canvas_machine(app, req, res, name)
 
 async function handle_security_mend(app, req, res)
 {
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     if (SECURITY_MENDS.includes(body.mend) === false) {
         send_json(res, 400, {error: `mend is one of ${SECURITY_MENDS.join(', ')}`});
         return;
@@ -1436,7 +1428,7 @@ async function handle_security_mend(app, req, res)
 // that cannot be upgraded now is left out and said why; the rest start.
 async function handle_apt_all(app, req, res)
 {
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     if ((Array.isArray(body.remotes) === false) || (body.remotes.length === 0) || body.remotes.some(v => typeof v !== 'string')) {
         send_json(res, 400, {error: 'remotes is a list of the machines to upgrade, by name'});
         return;
@@ -1888,7 +1880,7 @@ function secrets_list(app, res)
 // empty endpoint takes Logline out of the config, and no machine sends anything anywhere.
 async function logline_put(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const endpoint = String(((body.endpoint === undefined) || (body.endpoint === null)) ? '' : body.endpoint).trim();
     const ui = String(((body.ui === undefined) || (body.ui === null)) ? '' : body.ui).trim();
     const admin_token = String(((body.admin_token === undefined) || (body.admin_token === null)) ? '' : body.admin_token).trim();
@@ -1930,7 +1922,7 @@ async function logline_put(app, req, res)
 // ever going out to a page and back.
 async function secrets_save(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const service = String(((body.service === undefined) || (body.service === null)) ? '' : body.service).trim();
     const name = String((body.name === undefined) ? '' : body.name).trim();
     if ((RE_SECRET.test(name) === false) || ((service !== '') && (RE_SECRET.test(service) === false))) {
@@ -2119,7 +2111,7 @@ async function config_send(app, res)
 // POST /api/v1/config/check (body)
 async function config_check(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const refused = config_refused(String(body.text), app.config.base_dir);
     if (refused !== null) {
         send_json(res, 200, {ok: false, error: refused});
@@ -2140,7 +2132,7 @@ async function config_write(app, req, res)
         send_json(res, 400, {error: 'serviceman runs without a config file'});
         return;
     }
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const text = String(body.text);
     const on_disk = await fs.promises.readFile(app.config.path, 'utf8');
     if (text_hash(on_disk) !== body.hash) {
@@ -2162,7 +2154,7 @@ async function config_write(app, req, res)
 // POST /api/v1/services (body)
 async function service_create(app, req, res)
 {
-    const service = service_from_body(await body_json(req, BODY_LIMIT_BYTES));
+    const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
@@ -2179,7 +2171,7 @@ async function service_create(app, req, res)
 // PUT /api/v1/services/<name> (body)
 async function service_update(app, req, res, name)
 {
-    const service = service_from_body(await body_json(req, BODY_LIMIT_BYTES));
+    const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
@@ -2210,7 +2202,7 @@ async function service_delete(app, req, res, name)
 // POST /api/v1/load-tests (body)
 async function load_test_create(app, req, res)
 {
-    const test = load_test_from_body(await body_json(req, BODY_LIMIT_BYTES));
+    const test = load_test_from_body(await body_fields(req, BODY_LIMIT_BYTES));
     await config_file_mutate(app, res, function (json) {
         json.load_tests = json.load_tests || [];
         if (json.load_tests.some(v => v.name === test.name)) {
@@ -2224,7 +2216,7 @@ async function load_test_create(app, req, res)
 // PUT /api/v1/load-tests/<name> (body)
 async function load_test_update(app, req, res, name)
 {
-    const test = load_test_from_body(await body_json(req, BODY_LIMIT_BYTES));
+    const test = load_test_from_body(await body_fields(req, BODY_LIMIT_BYTES));
     await config_file_mutate(app, res, function (json) {
         const at = (json.load_tests || []).findIndex(v => v.name === name);
         if (at === -1) {
@@ -2326,7 +2318,7 @@ function load_test_from_body(body)
 // Who may add themselves: the whole `join` block at once, or null for nobody
 async function join_save(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const join = ((body.join === undefined) || (body.join === null)) ? null : object_from_body(body, 'join');
     await config_file_mutate(app, res, function (json) {
         if (join === null) {
@@ -2341,7 +2333,7 @@ async function join_save(app, req, res)
 // POST /api/v1/remotes (body)
 async function remote_create(app, req, res)
 {
-    const remote = object_from_body(await body_json(req, BODY_LIMIT_BYTES), 'remote');
+    const remote = object_from_body(await body_fields(req, BODY_LIMIT_BYTES), 'remote');
     if (remote === null) {
         send_json(res, 400, {error: 'the body carries no remote object'});
         return;
@@ -2365,7 +2357,7 @@ async function remote_create(app, req, res)
 // PUT /api/v1/remotes/<name> (body)
 async function remote_update(app, req, res, name)
 {
-    const remote = object_from_body(await body_json(req, BODY_LIMIT_BYTES), 'remote');
+    const remote = object_from_body(await body_fields(req, BODY_LIMIT_BYTES), 'remote');
     if (remote === null) {
         send_json(res, 400, {error: 'the body carries no remote object'});
         return;
@@ -2387,7 +2379,7 @@ async function remote_update(app, req, res, name)
 // them means.
 async function remote_logs_put(app, req, res, name)
 {
-    const json = await body_json(req, BODY_LIMIT_BYTES);
+    const json = await body_fields(req, BODY_LIMIT_BYTES);
     if ((json === null) || (typeof json !== 'object') || ((json.logs !== undefined) && (json.logs !== 'all') && (json.logs !== 'off')) || ((json.logs === undefined) && (json.dirs === undefined))) {
         send_json(res, 400, {error: '{"logs": "all"} or {"logs": "off"}, and "dirs": [{"path": …, "service": …}]'});
         return;
@@ -2502,7 +2494,7 @@ function forward_sources(forwards, token)
 // changes says it asked for it (forwards_asked_by).
 async function forwards_put(app, req, res)
 {
-    const body = JSON.parse((await body_read(req, BODY_LIMIT_BYTES)) || '{}');
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     if (Array.isArray(body.forwards) === false) {
         send_json(res, 400, {error: 'forwards: a list is required'});
         return;
@@ -2736,7 +2728,7 @@ async function logline_days_answer(app, res)
 //     {before, dropped: [{day, rows, bytes}], rows, bytes}
 async function logline_days_forget(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const before = String(((body === null) || (body.before === undefined) || (body.before === null)) ? '' : body.before);
     if (/^\d{4}-\d{2}-\d{2}$/.test(before) === false) {
         send_json(res, 400, {error: 'before: a day, 2026-10-17'});

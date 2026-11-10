@@ -291,6 +291,47 @@ test('the modules say what they hold and do; a door none names is a 404, and a r
     }
 });
 
+// A body is whatever its sender wrote: JSON that is no object, or no JSON at all, is the
+// caller's mistake at every route that reads one, and is answered so
+test('a body that is null, a list, a word, a number or not JSON is a 400 at every write route, never a 500', async function (t) {
+    const running = await serviceman_start(t);
+    const routes = [
+        ['POST', '/api/v1/config/check'],
+        ['POST', '/api/v1/config'],
+        ['POST', '/api/v1/services'],
+        ['PUT', '/api/v1/services/whoami'],
+        ['POST', '/api/v1/remotes'],
+        ['PUT', '/api/v1/remotes/vps1'],
+        ['PUT', '/api/v1/remotes/vps1/logs'],
+        ['PUT', '/api/v1/canvas/machines/vps1'],
+        ['POST', '/api/v1/security/mend'],
+        ['POST', '/api/v1/vulnerabilities/seen'],
+        ['POST', '/api/v1/apt-upgrade'],
+        ['PUT', '/api/v1/forwards'],
+        ['PUT', '/api/v1/logline'],
+        ['POST', '/api/v1/logline/days/forget'],
+        ['POST', '/api/v1/secrets'],
+        ['POST', '/api/v1/join'],
+        ['POST', '/api/v1/load-tests'],
+        ['PUT', '/api/v1/load-tests/nosuch'],
+        ['POST', '/api/v1/tokens'],
+        ['POST', '/api/v1/shared-folders/folders'],
+        ['PUT', '/api/v1/shared-folders/folders/nosuch/mounts/vps1'],
+    ];
+    const seen = [];
+    for (const [method, asked] of routes) {
+        for (const body of ['null', '[]', '"a word"', '7', 'not json']) {
+            // The body goes as it is written here, not as JSON of it
+            const answer = await fetch_host({port: running.port, host: '127.0.0.1', method, path: asked, token: running.owner, body});
+            if ((answer.status >= 500) || (answer.status < 400)) {
+                seen.push(`${method} ${asked} ${body}: ${answer.status} ${answer.body.replace(/\s+/g, ' ').slice(0, 90)}`);
+            }
+        }
+    }
+    assert.deepStrictEqual(seen, []);
+    assert.deepStrictEqual(running.app.log_lines.filter(v => v.includes('[serviceman_error]')), []);
+});
+
 // What is wrong with a request is answered with its status and nothing of serviceman's own:
 // never a 500 with the exception in it
 test('bad input gets its own status: a body that is not JSON, one too big, a word no address encodes, a cookie of %, a Host no name, an address of slashes', async function (t) {

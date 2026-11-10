@@ -16,6 +16,17 @@ test('rules are added from the form, listed as ufw keeps them, and refused when 
     const empty = await call(running, 'GET', '/firewall');
     assert.deepStrictEqual(Object.assign({}, empty.body, {logging: null}), {installed: true, active: false, defaults: null, logging: null, rules: [], ssh_open: false});
 
+    // A body that is JSON and no object holds no rule: it is answered as an empty form is
+    const none = await call(running, 'POST', '/firewall/rules', {});
+    const none_gone = await call(running, 'POST', '/firewall/rules/delete', {});
+    for (const odd of [null, [], 'a word', 7]) {
+        const refused = await call(running, 'POST', '/firewall/rules', odd);
+        assert.deepStrictEqual([refused.status, refused.body], [none.status, none.body], JSON.stringify(odd));
+        const gone = await call(running, 'POST', '/firewall/rules/delete', odd);
+        assert.deepStrictEqual([gone.status, gone.body], [none_gone.status, none_gone.body], JSON.stringify(odd));
+    }
+    assert.strictEqual(none.status >= 400 && none.status < 500, true, `an empty form: ${none.status}`);
+
     const ssh = await call(running, 'POST', '/firewall/rules', {action: 'allow', port: '22', proto: 'tcp'});
     assert.strictEqual(ssh.status, 200);
     assert.deepStrictEqual(ssh.body.rules.map(v => v.command), ['allow 22/tcp']);

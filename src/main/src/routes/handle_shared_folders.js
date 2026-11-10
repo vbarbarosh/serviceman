@@ -1,4 +1,4 @@
-const body_json = require('../body_json');
+const body_fields = require('../body_fields');
 const log_event = require('../helpers/log_event');
 const path = require('path');
 const remote_call = require('../helpers/remote_call');
@@ -69,7 +69,7 @@ async function handle_shared_folders(app, req, res, url)
 // that failed may be tried again, there or elsewhere; one that is ready stays where it is.
 async function home_set(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const shared = shared_read(app);
     if ((shared.home !== null) && (shared.home.phase === 'ready')) {
         send_json(res, 409, {error: `the home is on ${shared.home.remote} already`});
@@ -130,7 +130,7 @@ async function home_up(app, remote)
 
 async function folder_create(app, req, res)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const name = String((body.name === undefined) ? '' : body.name);
     if (RE_FOLDER_NAME.test(name) === false) {
         send_json(res, 400, {error: 'a shared folder\'s name is up to 40 small letters, digits and hyphens'});
@@ -156,7 +156,7 @@ async function folder_create(app, req, res)
 // For good, every file in it: asked with its name typed again, and only once no machine mounts it
 async function folder_delete(app, req, res, name)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const shared = shared_read(app);
     if (shared.folders.some(v => v.name === name) === false) {
         send_json(res, 404, {error: `there is no shared folder called "${name}"`});
@@ -186,7 +186,7 @@ async function folder_delete(app, req, res, name)
 // at its next hello when it is not
 async function mount_set(app, req, res, folder, name)
 {
-    const body = await body_json(req, BODY_LIMIT_BYTES);
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
     const shared = shared_read(app);
     if (shared.folders.some(v => v.name === folder) === false) {
         send_json(res, 404, {error: `there is no shared folder called "${folder}"`});
