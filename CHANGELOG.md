@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.35 — 2026-11-10
+
+- web-terminal's websocket asks which page opens it: a handshake whose `Origin` is not the
+  host and port it was sent to is answered 403, however its token came. The browser sent the
+  page's cookie from any page of the same site, so a page of a neighbouring service opened a
+  shell in the browser of whoever was signed in. A program names no `Origin` and is not asked.
+  (SM-283)
+
 ## 1.0.34 — 2026-11-10
 
 - What a visitor writes into `X-Auth-User` is dropped from every request and handshake at the

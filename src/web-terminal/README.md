@@ -19,9 +19,15 @@ server of the app's own (`tmux -L web-terminal`); the page lists them in its hea
 
 A terminal is a shell for whoever reaches it, so the page asks for a token first:
 `WEB_TERMINAL_TOKEN` where it runs, or, when that is not set, one it makes at start and prints
-once. Pasted on the page it becomes a cookie only this page's own requests carry (HttpOnly,
+once. Pasted on the page it becomes a cookie no other site's requests carry (HttpOnly,
 SameSite=Strict, Secure behind https); a program sends it as `Authorization: Bearer <token>`.
 The websocket and `GET /_/sessions` want it too; the page's own files under `/_/` do not.
+
+A browser sends that cookie from any page of the same site, a service on a neighbouring
+hostname or on another port, so the websocket also asks which page opens it: a handshake whose
+`Origin` is not the host and port it was sent to is answered 403, however its token came. A
+program names no `Origin` and is not asked. A proxy in front has to pass `Host` on as the
+browser sent it; serviceman and a machine's door do.
 
 The token is one word, and an address on the open internet is tried all day: publish the
 terminal behind a wall, a machine's door rule with `auth`, or on a tailnet, and keep the token

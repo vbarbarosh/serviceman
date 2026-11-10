@@ -1,4 +1,5 @@
 const caller_allowed = require('./caller_allowed');
+const is_same_origin = require('./is_same_origin');
 const pty_spawn = require('./pty_spawn');
 const session_name_from_path = require('./session_name_from_path');
 const terminal_attach = require('../../../modules/terminal/server/terminal_attach');
@@ -11,17 +12,25 @@ const sockets = new ws.WebSocketServer({noServer: true});
 
 // The page's websocket, on the page's own path. /<name> attaches to the kept session of that
 // name, starting it when there is none; / opens a shell that ends with the socket. Without the
-// token there is no handshake at all: a terminal is a shell for whoever reaches it.
+// token there is no handshake at all: a terminal is a shell for whoever reaches it. With it
+// there is none for a page of another origin: the cookie is the browser's, not the page's.
 function socket_answer(req, socket, head, token)
 {
     // The socket's own error is heard before anything is written to it. A caller that resets
-    // before its 401 arrives makes that write an error: heard, it costs that socket; unheard,
+    // before its refusal arrives makes that write an error: heard, it costs that socket; unheard,
     // it ends the process, and every open terminal with it.
     socket.on('error', function () {
         socket.destroy();
     });
     if (caller_allowed(req, token) === false) {
         socket.end('HTTP/1.1 401 Unauthorized\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
+        return;
+    }
+    // A browser sends the cookie with a handshake from any page of the same site: a service on
+    // a neighbouring name, another port of this host. SameSite=Strict stops other sites, not
+    // these, so the page is asked for by its origin, however the token came.
+    if (is_same_origin(req) === false) {
+        socket.end('HTTP/1.1 403 Forbidden\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;
     }
     const pathname = new URL(req.url, 'http://web-terminal.invalid').pathname;
