@@ -2,6 +2,15 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.33 — 2026-11-10
+
+- A file opened from the File Manager under its machine's own name (`<name>.fs.<control host>`)
+  is opened by a grant for its folder, kept as a cookie of that folder for an hour, and the
+  machine's agent keeps the reading inside it, links too; a file that is no page is granted
+  alone. The owner's cookie opens nothing there any more: with it, an `.html` left among a
+  machine's files read every file of that machine once the owner opened it. The page's links
+  go through `GET /api/v1/remotes/<name>/fs/open/<path>`. (SM-260)
+
 ## 1.0.32 — 2026-11-10
 
 - The agent no longer stops at a handshake on its peer port that is reset before the answer,

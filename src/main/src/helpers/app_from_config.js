@@ -1,4 +1,5 @@
 const app_routes_rebuild = require('./app_routes_rebuild');
+const crypto = require('crypto');
 const externals_attach = require('./externals_attach');
 const load_test_runs_read = require('./load_test_runs_read');
 const own_container_id = require('./own_container_id');
@@ -29,6 +30,9 @@ function app_from_config(config)
         // The doors this host answers on, once they are open. A request that comes in through
         // a machine's link is handed to the services one.
         servers: null,
+        // What signs a grant to open a machine's files under their own address (fs_grant_make):
+        // made here, kept nowhere, so a grant ends with the process that gave it
+        fs_grant_key: crypto.randomBytes(32),
         // One change to the config file at a time, whoever is writing it
         config_lock: Promise.resolve(),
         // The connections agents' tokens hold open now (control_token_live)

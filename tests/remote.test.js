@@ -2023,6 +2023,96 @@ test('a folder of a machine is read from its page, and a folder that is not ther
     }
 });
 
+// A page among a machine's files runs under the machine's own name, and whatever opens that
+// name it can ask for. The owner's cookie opened all of it: an .html left on a machine (an
+// upload, a mount, a checked-out repository) read every file its agent's user could, once the
+// owner opened it to look. Now the name is opened by a grant for the folder of the file that
+// was opened from the File Manager, and the machine itself keeps the reading in that folder.
+test('a file opened in a tab is granted its own folder under the machine\'s name, and the owner\'s cookie opens nothing there', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-fs-'));
+    fs.mkdirSync(path.join(dir, 'site', 'img'), {recursive: true});
+    fs.mkdirSync(path.join(dir, 'private'));
+    fs.writeFileSync(path.join(dir, 'site', 'index.html'), '<script src="app.js"></script>\n');
+    fs.writeFileSync(path.join(dir, 'site', 'img', 'a b.txt'), 'beside\n');
+    fs.writeFileSync(path.join(dir, 'private', 'key.txt'), 'secret\n');
+    fs.writeFileSync(path.join(dir, 'private', 'other.txt'), 'another secret\n');
+    fs.symlinkSync(path.join(dir, 'private'), path.join(dir, 'site', 'way-out'));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN);
+    const port = running.control_port;
+    // The names as a browser sends them: the port rides in the Host header
+    const control = `serviceman.localhost:${port}`;
+    const name = 'ui1.fs.serviceman.localhost';
+    const cookie = `serviceman_token=${fetch_host.OWNER_TOKEN}`;
+    const index = url_path(path.join(dir, 'site', 'index.html'));
+    const key = url_path(path.join(dir, 'private', 'key.txt'));
+    try {
+        await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
+
+        // The page's cookie rides to this name, and opens nothing there: alone, or beside a
+        // header that is no token
+        for (const headers of [{cookie}, {cookie, authorization: 'x'}, {}]) {
+            const refused = await fetch_host({port, host: name, path: key, token: null, headers});
+            assert.deepStrictEqual([refused.status, refused.body.includes('secret')], [403, false], JSON.stringify(headers));
+        }
+
+        // Opened from the control page: the way to the machine's name, with a grant in the
+        // address. A page on a sibling name may not ask for one, nor may a caller with no token.
+        const open = `/api/v1/remotes/ui1/fs/open${index}`;
+        const opened = await fetch_host({port, host: control, path: open, token: null, headers: {cookie, 'sec-fetch-site': 'same-origin'}});
+        assert.strictEqual(opened.status, 302);
+        const there = new URL(opened.headers.location);
+        assert.deepStrictEqual([there.origin, there.pathname, [...there.searchParams.keys()]], [`http://${name}:${port}`, index, ['grant']]);
+        assert.strictEqual((await fetch_host({port, host: control, path: open, token: null, headers: {cookie, 'sec-fetch-site': 'same-site'}})).status, 403);
+        assert.strictEqual((await fetch_host({port, host: control, path: open, token: null})).status, 401);
+        assert.strictEqual((await fetch_host({port, host: control, path: open, method: 'POST', token: null, headers: {cookie, 'sec-fetch-site': 'same-origin'}})).status, 405);
+
+        // The grant is taken once, and kept as a cookie of that folder: an hour, never read by
+        // a script, never sent by another site
+        const taken = await fetch_host({port, host: name, path: `${there.pathname}${there.search}`, token: null});
+        assert.deepStrictEqual([taken.status, taken.headers.location], [302, index]);
+        assert.match(taken.headers['set-cookie'][0], new RegExp(`^serviceman_fs=[A-Za-z0-9_.-]+; Path=${url_path(path.join(dir, 'site')).replace(/[.]/g, '[.]')}/; Max-Age=3600; HttpOnly; SameSite=Strict$`));
+        const kept = {cookie: `${cookie}; ${taken.headers['set-cookie'][0].split(';')[0]}`};
+
+        // With it the page is served as itself, and so is what stands beside it and below it
+        const page = await fetch_host({port, host: name, path: index, token: null, headers: kept});
+        assert.deepStrictEqual([page.status, page.body, page.headers['content-security-policy']], [200, '<script src="app.js"></script>\n', undefined]);
+        const beside = await fetch_host({port, host: name, path: url_path(path.join(dir, 'site', 'img', 'a b.txt')), token: null, headers: kept});
+        assert.deepStrictEqual([beside.status, beside.body], [200, 'beside\n']);
+
+        // And nothing beyond the folder: named plainly, through `..` written two ways, through
+        // a link that leads out (the machine's own refusal), on another machine's name, or
+        // with a grant somebody changed
+        const beyond = [key, `${url_path(path.join(dir, 'site'))}/../private/key.txt`, `${url_path(path.join(dir, 'site'))}/..%2Fprivate%2Fkey.txt`, `${url_path(path.join(dir, 'site', 'way-out'))}/key.txt`];
+        for (const asked of beyond) {
+            const refused = await fetch_host({port, host: name, path: asked, token: null, headers: kept});
+            assert.deepStrictEqual([refused.status === 200, refused.body.includes('secret')], [false, false], asked);
+        }
+        assert.strictEqual((await fetch_host({port, host: 'ui2.fs.serviceman.localhost', path: index, token: null, headers: kept})).status, 403);
+        const changed = `${there.pathname}?grant=${there.searchParams.get('grant').replace(/.$/, v => (v === 'A') ? 'B' : 'A')}`;
+        assert.strictEqual((await fetch_host({port, host: name, path: changed, token: null})).status, 403);
+        assert.strictEqual((await fetch_host({port, host: name, path: `${key}${there.search}`, token: null})).status, 403);
+
+        // A file that is no page is granted alone: not the file beside it
+        const lone = new URL((await fetch_host({port, host: control, path: `/api/v1/remotes/ui1/fs/open${key}`, token: null, headers: {cookie, 'sec-fetch-site': 'same-origin'}})).headers.location);
+        const lone_taken = await fetch_host({port, host: name, path: `${lone.pathname}${lone.search}`, token: null});
+        assert.match(lone_taken.headers['set-cookie'][0], new RegExp(`; Path=${key.replace(/[.]/g, '[.]')}; `));
+        const lone_kept = {cookie: lone_taken.headers['set-cookie'][0].split(';')[0]};
+        assert.strictEqual((await fetch_host({port, host: name, path: key, token: null, headers: lone_kept})).body, 'secret\n');
+        assert.strictEqual((await fetch_host({port, host: name, path: url_path(path.join(dir, 'private', 'other.txt')), token: null, headers: lone_kept})).status, 403);
+
+        // A refusal says where the file is opened from, and is in the log
+        const refused = await fetch_host({port, host: name, path: key, token: null, headers: {cookie}});
+        assert.match(refused.body, /Open it from the File Manager/);
+        assert.ok(running.app.log_lines.some(v => v.includes('[control_token_refused]') && v.includes('reason=no_grant')));
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // One folder of that machine, the way the page asks for it
 async function fs_list(running, name, dir)
 {

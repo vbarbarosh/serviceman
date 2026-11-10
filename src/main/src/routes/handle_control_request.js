@@ -38,6 +38,10 @@ const forward_token_refusal = require('../helpers/forward_token_refusal');
 const from_loopback_page = require('../helpers/from_loopback_page');
 const from_this_machine = require('../helpers/from_this_machine');
 const fs = require('fs');
+const fs_grant_covers = require('../helpers/fs_grant_covers');
+const fs_grant_make = require('../helpers/fs_grant_make');
+const fs_grant_of = require('../helpers/fs_grant_of');
+const fs_grant_read = require('../helpers/fs_grant_read');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
 const handle_shared_folders = require('./handle_shared_folders');
@@ -120,6 +124,12 @@ const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
 // The File Manager module's API, one machine's disk under each
 const RE_REMOTE_FS = /^\/api\/v1\/remotes\/([^/]+)\/fs(\/.*)?$/;
+const RE_REMOTE_FS_OPEN = /^\/api\/v1\/remotes\/([^/]+)\/fs\/open(\/.*)$/;
+// A page among a machine's files, which is granted its folder; any other file is granted alone
+const RE_PAGE_FILE = /\.(html?|xhtml|svg)$/i;
+// How long a grant in an address lasts, and the one kept as a cookie after it
+const FS_GRANT_OPEN_MS = 60000;
+const FS_GRANT_MS = 3600000;
 const RE_UPLOAD_PART = /^\/api\/v1\/remotes\/[^/]+\/fs\/upload\/part$/;
 // The Docker module's API, one machine's docker engine under each
 const RE_REMOTE_DOCKER = /^\/api\/v1\/remotes\/([^/]+)\/docker(\/.*)?$/;
@@ -233,14 +243,11 @@ async function control_answer(app, req, res)
             control_refuse(app, req, res);
             return;
         }
-        if (control_owner_or_refuse(app, req, res) === false) {
-            return;
-        }
         if ((req.method !== 'GET') && (req.method !== 'HEAD')) {
             render_error_page(res, 405, 'Only GET is served here', `${fs_host} is a machine's files`);
             return;
         }
-        await handle_fs(app, req, res, fs_host, `/file${url.pathname}`);
+        await fs_host_answer(app, req, res, url, fs_host);
         return;
     }
     // The agent is public code and holds no secret; a machine far away must be able to take it.
@@ -444,6 +451,12 @@ async function control_answer(app, req, res)
     const remote_logs = RE_REMOTE_LOGS.exec(url.pathname);
     if ((remote_logs !== null) && (req.method === 'PUT')) {
         await remote_logs_put(app, req, res, route_param(remote_logs[1]));
+        return;
+    }
+    // The host's own door among a machine's files, not the File Manager module's
+    const remote_fs_open = RE_REMOTE_FS_OPEN.exec(url.pathname);
+    if (remote_fs_open !== null) {
+        handle_fs_open(app, req, res, route_param(remote_fs_open[1]), remote_fs_open[2]);
         return;
     }
     // A module answers only what its manifest names; anything else is no door of it
@@ -861,6 +874,134 @@ async function handle_machine_module(app, req, res, name, tail, serve, method, w
     }, (more === undefined) ? {} : more(remote)));
 }
 
+// GET <name>.fs.<control host>/<path> (query, header:cookie)
+// A machine's files under their own name, one folder at a time. The owner's cookie opens
+// nothing here: a page among those files runs in this origin, and with the cookie it read
+// every file of its machine. What opens a path is a grant (fs_grant_make): given by the
+// control page for the file opened from the File Manager (handle_fs_open), brought here once
+// in the address, and kept as a cookie of that folder alone. The machine's agent keeps the
+// reading within the folder, links too. The owner's token in a header is no page's to send,
+// and reads the whole disk as before.
+async function fs_host_answer(app, req, res, url, name)
+{
+    const asked = path_decoded(url.pathname);
+    if (asked === null) {
+        render_error_page(res, 400, 'This address names no file', `${name}.fs${url.pathname}`);
+        return;
+    }
+    const given = url.searchParams.get('grant');
+    if (given !== null) {
+        const opened = fs_grant_read(app, given);
+        if ((opened === null) || (fs_grant_covers(opened, name, asked) === false)) {
+            fs_host_refuse(app, req, res, name);
+            return;
+        }
+        // The address's grant lasts a minute, long enough to get here; the cookie's an hour,
+        // for the folder alone, never read by a script and never sent by another site
+        const dir = path.posix.dirname(path.posix.normalize(asked));
+        const cookie_path = (opened.kind === 'file') ? path_encoded(path.posix.normalize(asked)) : `${path_encoded(dir)}/`;
+        const kept = fs_grant_make(app, {remote: opened.remote, path: opened.path, kind: opened.kind, until: Date.now() + FS_GRANT_MS});
+        res.writeHead(302, {
+            'location': url.pathname,
+            'set-cookie': `${fs_grant_of.COOKIE}=${kept}; Path=${cookie_path}; Max-Age=${FS_GRANT_MS/1000}; HttpOnly; SameSite=Strict${request_secure(req) ? '; Secure' : ''}`,
+            'cache-control': 'no-store',
+        });
+        res.end();
+        return;
+    }
+    if (owner_by_header(app, req)) {
+        await handle_fs(app, req, res, name, `/file${url.pathname}`);
+        return;
+    }
+    const grant = fs_grant_of(app, req, name, asked);
+    if (grant === null) {
+        fs_host_refuse(app, req, res, name);
+        return;
+    }
+    await handle_fs(app, req, res, name, `/file${url.pathname}`, [(grant.kind === 'folder') ? grant.path : path.posix.dirname(grant.path)]);
+}
+
+function fs_host_refuse(app, req, res, name)
+{
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, host: req.headers.host, path: url_logged(req.url), reason: 'no_grant'});
+    render_error_page(res, 403, 'Open it from the File Manager', `The files of ${name} open here one folder at a time, for an hour: open the file again from the machine's File Manager tab on the control page`);
+}
+
+// GET /api/v1/remotes/<name>/fs/open/<path>
+// A file of a machine opened in a tab as itself: the way to its address under the machine's
+// own name, with a grant for what it needs and no more. A page (.html, .svg) is granted its
+// folder, so it finds its style.css one name over; any other file, itself alone. The owner's
+// alone to ask, and from the control page itself: asked by a page on a sibling name, it would
+// hand that page a folder of its choosing.
+function handle_fs_open(app, req, res, name, tail)
+{
+    if ((req.method !== 'GET') && (req.method !== 'HEAD')) {
+        send_json(res, 405, {error: 'a file is opened with GET'});
+        return;
+    }
+    if (control_same_origin(req) === false) {
+        cross_site_refuse(app, req, res);
+        return;
+    }
+    if (req.control_token !== undefined) {
+        send_json(res, 403, {error: 'a file opens under its machine\'s own name for the owner alone: an agent\'s token reads it at fs/file'});
+        return;
+    }
+    if (app.remote_by_name[name] === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    const asked = path_decoded(tail);
+    if ((asked === null) || (app.config.control.host === null) || name.includes('.')) {
+        send_json(res, 400, {error: (asked === null) ? 'the path is percent-encoded UTF-8' : `the files of ${name} have no name of their own here: open the file at fs/file`});
+        return;
+    }
+    const full = path.posix.normalize(asked);
+    const dir = path.posix.dirname(full);
+    const grant = (RE_PAGE_FILE.test(full) && (dir !== '/')) ? {kind: 'folder', path: dir} : {kind: 'file', path: full};
+    const text = fs_grant_make(app, {remote: name, path: grant.path, kind: grant.kind, until: Date.now() + FS_GRANT_OPEN_MS});
+    const port = /:\d+$/.exec(String(req.headers.host || ''));
+    res.writeHead(302, {
+        'location': `${request_secure(req) ? 'https' : 'http'}://${name}.fs.${app.config.control.host}${(port === null) ? '' : port[0]}${path_encoded(full)}?grant=${text}`,
+        'cache-control': 'no-store',
+    });
+    res.end();
+}
+
+// The owner's token in a header, which no page sends by itself; the page's cookie is not asked
+function owner_by_header(app, req)
+{
+    const auth = req.headers.authorization;
+    if ((typeof auth !== 'string') || (/^Bearer\s+\S+$/i.test(auth) === false)) {
+        return false;
+    }
+    const caller = control_caller(app, req);
+    return (caller !== null) && caller.owner;
+}
+
+// Whether the browser came over https: this door's own, or a TLS front's in front of it
+function request_secure(req)
+{
+    return (req.socket.encrypted === true) || (String((req.headers['x-forwarded-proto'] === undefined) ? '' : req.headers['x-forwarded-proto']).split(',')[0].trim() === 'https');
+}
+
+// A disk path as an address's path, each name encoded and the slashes kept; and back, null
+// when its percent signs spell no text
+function path_encoded(text)
+{
+    return text.split('/').map(v => encodeURIComponent(v)).join('/');
+}
+
+function path_decoded(text)
+{
+    try {
+        return decodeURIComponent(text);
+    }
+    catch {
+        return null;
+    }
+}
+
 // GET /api/v1/remotes/<name>/fs (query)
 // GET /api/v1/remotes/<name>/fs/file/<path> (header:range)
 // GET /api/v1/remotes/<name>/fs/tar (query)
@@ -873,7 +1014,8 @@ async function handle_machine_module(app, req, res, name, tail, serve, method, w
 // POST /api/v1/remotes/<name>/fs/upload/tar (body, query)
 // One machine's files, through the File Manager module: the doors are the module's, the
 // machine is asked over the link its agent dialled. The refusals are this host's own.
-async function handle_fs(app, req, res, name, tail)
+// `granted`, when given, is the folders the asker is kept within (fs_host_answer).
+async function handle_fs(app, req, res, name, tail, granted)
 {
     const remote = app.remote_by_name[name];
     if (remote === undefined) {
@@ -924,12 +1066,14 @@ async function handle_fs(app, req, res, name, tail)
         send_json(res, 403, {error: `the token ${JSON.stringify(token.label)} names no folder for its files`});
         return;
     }
-    if ((token !== undefined) && (remote_can(remote, 'fs_root') === false)) {
+    // So is a page opened under the machine's own name, within the folder its grant names
+    const root = (granted !== undefined) ? granted : ((token === undefined) ? undefined : token.folders);
+    if ((root !== undefined) && (remote_can(remote, 'fs_root') === false)) {
         send_json(res, 409, {error: `the agent on ${name} is from before a token is kept within its folder — its page says how it updates`});
         return;
     }
     await file_manager_serve(req, res, {
-        disk: remote_disk(app, remote, (token === undefined) ? undefined : {root: token.folders}),
+        disk: remote_disk(app, remote, (root === undefined) ? undefined : {root}),
         tail,
         name: remote.name,
         // A file opened under the machine's own name has an origin of its own; one opened on
@@ -2525,18 +2669,6 @@ function token_allowed(app, req, res, url, token)
         return false;
     }
     return true;
-}
-
-// A machine's files under their own address are the owner's: the page's cookie is sent there
-function control_owner_or_refuse(app, req, res)
-{
-    const caller = control_caller(app, req);
-    if ((caller !== null) && caller.owner) {
-        return true;
-    }
-    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url), reason: (caller === null) ? 'no_token' : 'not_the_owner'});
-    render_error_page(res, (caller === null) ? 401 : 403, 'Sign in first', 'Open the control page and sign in with the owner\'s token');
-    return false;
 }
 
 // GET /api/v1/logline/place

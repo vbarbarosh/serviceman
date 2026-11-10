@@ -932,15 +932,17 @@ const remote_files = {
             const machine = this.view.machine;
             return ((machine === null) || !machine.user) ? 'the user its agent runs as' : machine.user;
         },
-        // A file opens under its machine's own name — phone.fs.<control host> — where the whole
-        // path is the address, so a page finds its style.css one name over. A machine whose
-        // name cannot be a label, or a control page with no name, opens through the API.
+        // A file opens in a tab at <base>/open/<path>, which sends the tab on to its machine's
+        // own name — phone.fs.<control host> — with a grant for that file's folder. There the
+        // whole path is the address, so a page finds its style.css one name over, and reads
+        // nothing beyond its folder. A machine whose name cannot be a label, or a control page
+        // with no name or opened by its address rather than its name (the grant's cookie is
+        // kept from a page of another site), opens through the API.
         open_base: function () {
-            if ((this.control === undefined) || (this.control === null) || (this.control.host === null) || this.view.name.includes('.')) {
+            if ((this.control === undefined) || (this.control === null) || (this.control.host === null) || this.view.name.includes('.') || (location.hostname !== this.control.host)) {
                 return null;
             }
-            const port = (location.port === '') ? '' : `:${location.port}`;
-            return `${location.protocol}//${this.view.name}.fs.${this.control.host}${port}`;
+            return `${this.base}/open`;
         },
     },
 };
