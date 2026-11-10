@@ -3,10 +3,19 @@ const pool_capacity = require('./pool_capacity');
 const pool_pump = require('./pool_pump');
 const pool_scale_up = require('./pool_scale_up');
 
-// One request asks for an instance: free capacity answers now, the rest wait in line
-function pool_acquire(app, service, deadline)
+// One request asks for an instance: free capacity answers now, the rest wait in line.
+//
+// `client` is whoever the instance is asked for: the response of a request, the socket of a
+// handshake; serviceman asking for itself gives none. A client that has left gets null, which
+// is no instance and no failure: one that left before it asked joins no line, and one that
+// leaves the line is out of it at once. A place given to it would be held for good, since the
+// caller gives a place back when its client closes, and this one has closed already.
+function pool_acquire(app, service, deadline, client)
 {
     const state = service.state;
+    if ((client !== undefined) && client.destroyed) {
+        return Promise.resolve(null);
+    }
     const instance = pool_capacity(service);
     if ((instance !== null) && (state.queue.length === 0)) {
         instance.inflight++;
@@ -17,6 +26,14 @@ function pool_acquire(app, service, deadline)
     return new Promise(function (resolve, reject) {
         const waiter = {resolve, reject, deadline_timer: null, warmup_timer: null};
         state.queue.push(waiter);
+        if (client !== undefined) {
+            client.once('close', function () {
+                // After its turn or its deadline this finds nothing left to do
+                clearTimeout(waiter.deadline_timer);
+                waiter_drop(state, waiter);
+                resolve(null);
+            });
+        }
         if (deadline !== null) {
             waiter.deadline_timer = setTimeout(function () {
                 waiter_drop(state, waiter);

@@ -181,10 +181,21 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
     const deadline = (service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms;
     let instance;
     try {
-        instance = await pool_acquire(app, service, deadline);
+        instance = await pool_acquire(app, service, deadline, res);
     }
     catch (error) {
         render_error_page(res, error.status || 502, 'The service did not answer in time', error_detail(app, req, error.message), {retry: wants_html(req)});
+        return;
+    }
+    if (instance === null) {
+        // The visitor left while the service was starting, or in the line: nothing is asked of
+        // the service for nobody, and `request_end` has said cut_off already
+        return;
+    }
+    if (res.destroyed) {
+        // They left as the place was given. The close below is what gives a place back, and a
+        // response that has closed does not close again: the place goes back here, or never.
+        pool_release(app, service, instance);
         return;
     }
     answered_by = `${service.name}#${instance.slot}`;

@@ -26,6 +26,14 @@ async function socket_answer(app, req, socket, head)
     const mark = req.url.indexOf('?');
     const pathname = (mark === -1) ? req.url : req.url.slice(0, mark);
     const query = (mark === -1) ? '' : req.url.slice(mark);
+    // Until it is joined to a copy a handshake has nothing more to say, so a client that ends
+    // its side has hung up. Node closes a request's socket for that and leaves a handshake's
+    // half open, with no close to hear: the client would keep its turn in the line and be
+    // joined to a copy as if it were still here.
+    function hung_up() {
+        socket.destroy();
+    }
+    socket.once('end', hung_up);
 
     const door = door_inbound(app, req, host, pathname);
     if ((door !== null) && (door.service === null)) {
@@ -61,13 +69,26 @@ async function socket_answer(app, req, socket, head)
             await service_ensure_running(app, service);
         }
         const deadline = (service.policy.request_timeout_ms === null) ? null : Date.now() + service.policy.request_timeout_ms;
-        instance = await pool_acquire(app, service, deadline);
+        instance = await pool_acquire(app, service, deadline, socket);
     }
     catch (error) {
         log_event(app, 'socket_end_error', {service: service.name, reason: error.message});
         socket.destroy();
         return;
     }
+    if (instance === null) {
+        // The client left while the service was starting, or in the line: nothing is opened to
+        // the service for nobody. A handshake says its first line when it is joined to a copy,
+        // so this one says none: `connection_end` is where its story ends.
+        return;
+    }
+    if (socket.destroyed) {
+        // It left as the place was given. The close below is what gives a place back, and a
+        // socket that has closed does not close again: the place goes back here, or never.
+        pool_release(app, service, instance);
+        return;
+    }
+    socket.removeListener('end', hung_up);
     const time0 = Date.now();
     const who = {host, ip: (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress};
     log_event(app, 'socket_begin', `${req.method} ${url_logged(req.url)} ${JSON.stringify(who)} ${service.name}#${instance.slot}`);

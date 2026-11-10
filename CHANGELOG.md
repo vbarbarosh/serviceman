@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.59 — 2026-11-10
+
+- A visitor who gave up while a sleeping service was starting, or in the line behind
+  `concurrency`, was still given a place when its turn came, and the place was never given
+  back: the service never slept again, or answered 504 to everyone, Restart included. A client
+  that has left gets no place now, is out of the line at once, and nothing is asked of the
+  service for nobody; a websocket handshake the same. (SM-175)
+
 ## 1.0.58 — 2026-11-10
 
 - In the File Manager, Rename or Move onto a name that was there replaced it and said

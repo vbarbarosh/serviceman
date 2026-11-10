@@ -24,6 +24,7 @@ const service_phase = require('../src/main/src/helpers/service_phase');
 const service_probe = require('../src/main/src/helpers/service_probe');
 const service_redir = require('../src/main/src/service_redir');
 const service_stop = require('../src/main/src/helpers/service_stop');
+const stream = require('stream');
 const test = require('node:test');
 const timers = require('timers/promises');
 const view_from_service = require('../src/main/src/helpers/view_from_service');
@@ -659,6 +660,209 @@ test('a request that waits longer than request_timeout is answered with 504', as
         ]);
         const codes = answers.map(v => v.status).sort();
         assert.deepStrictEqual(codes, [200, 504]);
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('a visitor who leaves while the service starts holds no place, and the service sleeps on time', async function () {
+    process.env.SERVICEMAN_TEST_BOOT_MS = '400';
+    const running = await serviceman_start([
+        {name: 'nap', type: 'docker', publish: {host: 'nap.test', port: 8080}, image: 'demo/nap', policy: {stop_after_idle: '1s'}},
+    ]);
+    const service = running.app.service_by_name.nap;
+    try {
+        // Gone before the start ends, as an uptime checker with a short timeout is
+        const checker = socket_open(running.port, 'GET / HTTP/1.1\r\nhost: nap.test\r\n\r\n');
+        await wait_until(() => service_phase(service) === 'starting');
+        checker.end();
+        await wait_until(() => service_phase(service) === 'running');
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0, 'nobody is connected, so no place is held');
+        assert.strictEqual(service.state.instances[0].requests, 0, 'and the copy has counted no request for nobody');
+        assert.strictEqual(running.app.log_lines.filter(v => /\[request_end\] cut_off \d+\.\d+s nap$/.test(v)).length, 1, 'its own end says it left, and names no copy');
+
+        const next = await fetch_host({port: running.port, host: 'nap.test', path: '/'});
+        assert.strictEqual(next.status, 200);
+
+        service.state.instances[0].last_activity_at = Date.now() - 5000;
+        reap_idle(running.app);
+        await service.state.stop_promise;
+        assert.strictEqual(service_phase(service), 'stopped', 'a place held by nobody would keep it awake for good');
+    }
+    finally {
+        delete process.env.SERVICEMAN_TEST_BOOT_MS;
+        await running.close();
+    }
+});
+
+test('a visitor who leaves the line gives up its turn, and the ones behind it are answered', async function () {
+    const running = await serviceman_start([
+        {name: 'line', type: 'docker', publish: {host: 'line.test', port: 8080}, image: 'demo/line', policy: {concurrency: 1, request_timeout: '3s', stop_after_idle: '1s', warmup: {queue: 9, wait: '10s'}}},
+    ]);
+    const service = running.app.service_by_name.line;
+    try {
+        const warm = await fetch_host({port: running.port, host: 'line.test', path: '/'});
+        assert.strictEqual(warm.status, 200);
+
+        // One visitor has the only place; a second joins the line and leaves; a third stays
+        const first = socket_open(running.port, 'GET /slow/3000 HTTP/1.1\r\nhost: line.test\r\n\r\n');
+        await wait_until(() => service_inflight(service) === 1);
+        const left = socket_open(running.port, 'GET /left HTTP/1.1\r\nhost: line.test\r\n\r\n');
+        await wait_until(() => service.state.queue.length === 1);
+        left.end();
+        await a_moment(() => service.state.queue.length === 0);
+        assert.strictEqual(service.state.queue.length, 0, 'the one who left is out of the line at once, not at its turn or its deadline');
+        const third = fetch_host({port: running.port, host: 'line.test', path: '/third'});
+        await wait_until(() => service.state.queue.length === 1);
+
+        // The first leaves mid-answer: its place is free before the service is done with it
+        first.end();
+        assert.strictEqual((await third).status, 200, 'the place went to the one who waits');
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0, 'and no place is left with either one that left');
+
+        const next = await fetch_host({port: running.port, host: 'line.test', path: '/'});
+        assert.strictEqual(next.status, 200);
+        assert.strictEqual(running.app.log_lines.filter(v => /\[request_end\] cut_off \d+\.\d+s line$/.test(v)).length, 1, 'who left the line is said by its own end, with no copy named');
+        assert.strictEqual(running.app.log_lines.filter(v => /\[request_end\] cut_off \d+\.\d+s line#1$/.test(v)).length, 1, 'and who left mid-answer by its own, with the copy');
+        assert.strictEqual(running.app.log_lines.some(v => /\[request_end\] 504 /.test(v)), false, 'neither is a request that ran out of time');
+
+        service.state.instances[0].last_activity_at = Date.now() - 5000;
+        reap_idle(running.app);
+        await service.state.stop_promise;
+        assert.strictEqual(service_phase(service), 'stopped');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('a place given in the very turn its visitor left is given back', async function () {
+    const running = await serviceman_start([
+        {name: 'link', type: 'docker', publish: {host: 'link.test', port: 8080}, image: 'demo/link', policy: {concurrency: 1, request_timeout: '3s', stop_after_idle: '1s', warmup: {queue: 9, wait: '10s'}}},
+    ]);
+    const service = running.app.service_by_name.link;
+    try {
+        const warm = await fetch_host({port: running.port, host: 'link.test', path: '/'});
+        assert.strictEqual(warm.status, 200);
+
+        // One has the only place, one waits in the line, and the link both came in on drops.
+        // Both close in one turn: the first frees the place, the line hands it to the second,
+        // and the second has closed before it can take it. A request, then a handshake.
+        const behind_texts = ['GET /behind HTTP/1.1\r\nhost: link.test\r\n\r\n', 'GET /echo HTTP/1.1\r\nhost: link.test\r\nconnection: Upgrade\r\nupgrade: echo\r\n\r\n'];
+        for (const behind_text of behind_texts) {
+            const inside = link_visit(running, 'GET /slow/2000 HTTP/1.1\r\nhost: link.test\r\n\r\n');
+            await wait_until(() => service_inflight(service) === 1);
+            const behind = link_visit(running, behind_text);
+            await wait_until(() => service.state.queue.length === 1);
+            inside.destroy();
+            behind.destroy();
+            await a_moment(() => service_inflight(service) === 0);
+            assert.strictEqual(service_inflight(service), 0, `the place handed to one that had closed came back: ${behind_text.split('\r\n')[0]}`);
+            assert.strictEqual(service.state.queue.length, 0);
+        }
+
+        const next = await fetch_host({port: running.port, host: 'link.test', path: '/'});
+        assert.strictEqual(next.status, 200);
+        assert.strictEqual(running.app.log_lines.some(v => v.includes('[socket_begin]')), false, 'and nothing was opened to the service for the handshake that left');
+
+        service.state.instances[0].last_activity_at = Date.now() - 5000;
+        reap_idle(running.app);
+        await service.state.stop_promise;
+        assert.strictEqual(service_phase(service), 'stopped');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('a websocket client that leaves while the service starts, or in the line, holds no place', async function () {
+    process.env.SERVICEMAN_TEST_BOOT_MS = '400';
+    const running = await serviceman_start([
+        {name: 'wire', type: 'docker', publish: {host: 'wire.test', port: 8080}, image: 'demo/wire', policy: {concurrency: 1, request_timeout: '3s', stop_after_idle: '1s', warmup: {queue: 9, wait: '10s'}}},
+    ]);
+    const service = running.app.service_by_name.wire;
+    const handshake = 'GET /echo HTTP/1.1\r\nhost: wire.test\r\nconnection: Upgrade\r\nupgrade: echo\r\n\r\n';
+    try {
+        // While it starts: one is cut off, one hangs up as a closed tab does
+        const cut_starting = socket_open(running.port, handshake);
+        const tab_starting = socket_open(running.port, handshake);
+        await wait_until(() => service_phase(service) === 'starting');
+        cut_starting.resetAndDestroy();
+        tab_starting.end();
+        await wait_until(() => service_phase(service) === 'running');
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0, 'the two that left during the start hold no place');
+        assert.strictEqual(service.state.queue.length, 0);
+
+        // In the line, behind a visitor that has the only place: the same two
+        const first = socket_open(running.port, 'GET /slow/3000 HTTP/1.1\r\nhost: wire.test\r\n\r\n');
+        await wait_until(() => service_inflight(service) === 1);
+        const cut_waiting = socket_open(running.port, handshake);
+        const tab_waiting = socket_open(running.port, handshake);
+        await wait_until(() => service.state.queue.length === 2);
+        cut_waiting.resetAndDestroy();
+        tab_waiting.end();
+        await a_moment(() => service.state.queue.length === 0);
+        assert.strictEqual(service.state.queue.length, 0, 'the two that left are out of the line at once');
+        first.end();
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0);
+
+        // One that stays is joined to the copy, and gives its place back when it closes
+        const answer = await upgrade_request(running.port, 'wire.test');
+        assert.strictEqual(answer.echo, 'ping');
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0);
+        assert.strictEqual(running.app.log_lines.filter(v => v.includes('[socket_begin]')).length, 1, 'only the one that stayed was joined to a copy');
+        assert.strictEqual(running.app.log_lines.some(v => v.includes('[socket_end_error]')), false, 'and one that left is not said as one that failed');
+
+        service.state.instances[0].last_activity_at = Date.now() - 5000;
+        reap_idle(running.app);
+        await service.state.stop_promise;
+        assert.strictEqual(service_phase(service), 'stopped');
+    }
+    finally {
+        delete process.env.SERVICEMAN_TEST_BOOT_MS;
+        await running.close();
+    }
+});
+
+test('a restart and a stop leave no place held, and the line is answered by the new copy', async function () {
+    const running = await serviceman_start([
+        {name: 'turn', type: 'docker', publish: {host: 'turn.test', port: 8080}, image: 'demo/turn', policy: {concurrency: 1, request_timeout: '5s', warmup: {queue: 9, wait: '10s'}}},
+    ]);
+    const service = running.app.service_by_name.turn;
+    try {
+        const warm = await fetch_host({port: running.port, host: 'turn.test', path: '/'});
+        assert.strictEqual(warm.status, 200);
+
+        // One request inside, one in the line, and Restart is pressed
+        const inside = fetch_host({port: running.port, host: 'turn.test', path: '/slow/3000'});
+        await wait_until(() => service_inflight(service) === 1);
+        const waiting = fetch_host({port: running.port, host: 'turn.test', path: '/waiting'});
+        await wait_until(() => service.state.queue.length === 1);
+        const restart = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/turn/restart', method: 'POST'});
+        assert.strictEqual(restart.status, 202);
+        assert.strictEqual((await inside).status, 502, 'the copy it was inside is gone');
+        assert.strictEqual((await waiting).status, 200, 'the one in the line is answered by the new copy');
+        await a_moment(() => service_inflight(service) === 0);
+        assert.strictEqual(service_inflight(service), 0);
+        assert.strictEqual(service.state.queue.length, 0);
+
+        // One request inside, and Stop is pressed
+        const again = fetch_host({port: running.port, host: 'turn.test', path: '/slow/3000'});
+        await wait_until(() => service_inflight(service) === 1);
+        const stop = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/turn/stop', method: 'POST'});
+        assert.strictEqual(stop.status, 202);
+        assert.strictEqual((await again).status, 502);
+        await wait_until(() => service_phase(service) === 'stopped');
+        assert.strictEqual(service_inflight(service), 0);
+
+        const back = await fetch_host({port: running.port, host: 'turn.test', path: '/'});
+        assert.strictEqual(back.status, 200);
     }
     finally {
         await running.close();
@@ -2553,6 +2757,13 @@ async function wait_until(ready, timeout_ms)
     }
 }
 
+// Gives what a closed connection leads to a moment to happen, and comes back either way: the
+// assertion after it says how it stands
+async function a_moment(ready)
+{
+    await wait_until(ready, 1000).catch(function () {});
+}
+
 function state_file_read(state_file)
 {
     try {
@@ -2633,6 +2844,30 @@ function socket_burn(port, request_text, reset_after_ms)
         socket.on('error', function () {});
         socket.on('close', resolve);
     });
+}
+
+// A raw client that sends one request and stays until the test ends it: end() hangs up, as a
+// closed tab or a curl out of time does, and resetAndDestroy() cuts it
+function socket_open(port, request_text)
+{
+    const socket = net.connect(port, '127.0.0.1');
+    socket.on('error', function () {});
+    socket.resume();
+    socket.write(request_text);
+    return socket;
+}
+
+// A visitor who came in on a machine's link: a stream handed to the services door the way the
+// link hands one (tunnel_inbound). What comes back is the end serviceman holds, and a link
+// that drops destroys every one of them in the same turn.
+function link_visit(running, request_text)
+{
+    const [near, far] = stream.duplexPair();
+    far.on('error', function () {});
+    far.resume();
+    running.servers.server.emit('connection', near);
+    far.write(request_text);
+    return near;
 }
 
 // One visit to the shell door: what it said, what the container wrote back. A query of its
