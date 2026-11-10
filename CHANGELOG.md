@@ -2,6 +2,12 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.41 — 2026-11-10
+
+- Tracked files hold the rule's placeholders where they held private things: a person's name
+  in a note, a link to a private artifact, machine names and initials in a comment, and
+  `/home/me` (the File Manager's tests and README), which is `/home/user` now. (SM-338)
+
 ## 1.0.40 — 2026-11-10
 
 - A service that answers with a status no HTTP has (`HTTP/1.1 099`, `000`), or with status

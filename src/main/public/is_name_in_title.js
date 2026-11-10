@@ -1,6 +1,6 @@
 // Whether a thing's name only repeats its title, so showing it beside the title says nothing:
-// every word of the name is a word of the title (navplace beside navplace.com, srv-prod-i53
-// beside srv.prod.i53); vb beside example.com says something and is shown. With no title the
+// every word of the name is a word of the title (example beside example.com, vps-eu-1 beside
+// vps.eu.1); laptop beside example.com says something and is shown. With no title the
 // name stands in its place, and is not said twice.
 function is_name_in_title(title, name)
 {

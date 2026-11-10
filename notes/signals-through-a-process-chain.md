@@ -72,7 +72,7 @@ Done 2026-08-23: both builders (`program_docker_argv.js`, `docker_argv_from_serv
 
 Done 2026-08-24: `docker_spec_hash` carries a **run-line version** (`LINE_VERSION`), bumped to 2
 for `--init`. Every container made before it is old at once and is replaced on its next start —
-nothing to delete by hand, which is the way Vladimir wants rollouts. The replacement is a
+nothing to delete by hand, which is the way the author wants rollouts. The replacement is a
 `docker rm` + `docker run`: storage survives it (kept folders and volumes live outside the
 container), anything written inside the container goes, which is the standing rule anyway.
 

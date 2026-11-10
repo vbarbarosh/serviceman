@@ -14,72 +14,72 @@ const transfer_queue = require('../server/transfer_queue');
 
 test('every door of the API answers from the disk it was given, under the base the host mounts it at', async function (t) {
     const disk = disk_in_memory({
-        '/home/me/hello.txt': 'hello world',
-        '/home/me/привет.txt': 'hi',
-        '/home/me/page.html': '<p>a page</p>',
-        '/home/me/empty.txt': '',
-        '/home/me/inner/deep.txt': 'deep',
+        '/home/user/hello.txt': 'hello world',
+        '/home/user/привет.txt': 'hi',
+        '/home/user/page.html': '<p>a page</p>',
+        '/home/user/empty.txt': '',
+        '/home/user/inner/deep.txt': 'deep',
     });
     const logged = [];
     const running = await serve(t, {disk, name: 'box', log: (event_name, fields) => logged.push([event_name, fields])});
 
     // A folder, and the disk's own starting folder when none is named
-    const listed = await call(running, 'GET', '/fs?path=/home/me');
+    const listed = await call(running, 'GET', '/fs?path=/home/user');
     assert.strictEqual(listed.status, 200);
     assert.deepStrictEqual(JSON.parse(listed.body).items.map(v => v.name), ['inner', 'empty.txt', 'hello.txt', 'page.html', 'привет.txt']);
-    assert.strictEqual(JSON.parse((await call(running, 'GET', '/fs')).body).path, '/home/me');
+    assert.strictEqual(JSON.parse((await call(running, 'GET', '/fs')).body).path, '/home/user');
 
     // A file as itself, a name that is not ascii, HEAD, and ranges
-    const whole = await call(running, 'GET', '/fs/file/home/me/hello.txt');
+    const whole = await call(running, 'GET', '/fs/file/home/user/hello.txt');
     assert.deepStrictEqual([whole.status, whole.body, whole.headers['content-type'], whole.headers['accept-ranges']], [200, 'hello world', 'text/plain; charset=utf-8', 'bytes']);
-    const page = await call(running, 'GET', '/fs/file/home/me/page.html');
+    const page = await call(running, 'GET', '/fs/file/home/user/page.html');
     assert.strictEqual(page.headers['content-type'], 'text/html; charset=utf-8', 'a page opens as a page');
     assert.strictEqual(page.headers['content-security-policy'], undefined, 'on an origin of its own, as itself');
     // On the host's own origin a page in a file would be the owner's page: it is sandboxed there
     const boxed = await serve(t, {disk, name: 'box', sandbox: true, log: () => {}});
-    const sandboxed = await call(boxed, 'GET', '/fs/file/home/me/page.html');
+    const sandboxed = await call(boxed, 'GET', '/fs/file/home/user/page.html');
     assert.deepStrictEqual([sandboxed.status, sandboxed.headers['content-security-policy'], sandboxed.body], [200, 'sandbox', '<p>a page</p>']);
-    const named = await call(running, 'GET', `/fs/file/home/me/${encodeURIComponent('привет.txt')}`);
+    const named = await call(running, 'GET', `/fs/file/home/user/${encodeURIComponent('привет.txt')}`);
     assert.strictEqual(named.body, 'hi');
     assert.match(named.headers['content-disposition'], /^inline; filename="_\.txt"; filename\*=UTF-8''%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82\.txt$/);
-    const weighed = await call(running, 'HEAD', '/fs/file/home/me/hello.txt');
+    const weighed = await call(running, 'HEAD', '/fs/file/home/user/hello.txt');
     assert.deepStrictEqual([weighed.status, weighed.headers['content-length'], weighed.body], [200, '11', '']);
-    const piece = await call(running, 'GET', '/fs/file/home/me/hello.txt', null, {range: 'bytes=1-3'});
+    const piece = await call(running, 'GET', '/fs/file/home/user/hello.txt', null, {range: 'bytes=1-3'});
     assert.deepStrictEqual([piece.status, piece.body, piece.headers['content-range']], [206, 'ell', 'bytes 1-3/11']);
-    const tail = await call(running, 'GET', '/fs/file/home/me/hello.txt', null, {range: 'bytes=-2'});
+    const tail = await call(running, 'GET', '/fs/file/home/user/hello.txt', null, {range: 'bytes=-2'});
     assert.deepStrictEqual([tail.status, tail.body], [206, 'ld']);
-    const past = await call(running, 'GET', '/fs/file/home/me/hello.txt', null, {range: 'bytes=99-'});
+    const past = await call(running, 'GET', '/fs/file/home/user/hello.txt', null, {range: 'bytes=99-'});
     assert.deepStrictEqual([past.status, past.headers['content-range']], [416, 'bytes */11']);
-    const empty = await call(running, 'GET', '/fs/file/home/me/empty.txt');
+    const empty = await call(running, 'GET', '/fs/file/home/user/empty.txt');
     assert.deepStrictEqual([empty.status, empty.body], [200, '']);
-    const folder = await call(running, 'GET', '/fs/file/home/me/inner');
+    const folder = await call(running, 'GET', '/fs/file/home/user/inner');
     assert.strictEqual(folder.status, 400, 'a folder comes as a tar');
-    const missing = await call(running, 'GET', '/fs/file/home/me/nothing.txt');
-    assert.deepStrictEqual([missing.status, JSON.parse(missing.body).error], [502, 'ENOENT: /home/me/nothing.txt']);
+    const missing = await call(running, 'GET', '/fs/file/home/user/nothing.txt');
+    assert.deepStrictEqual([missing.status, JSON.parse(missing.body).error], [502, 'ENOENT: /home/user/nothing.txt']);
 
     // Several names as one download, saved under the folder's name, or the host's for the root
-    const tar = await call(running, 'GET', '/fs/tar?dir=/home/me&names=inner&names=hello.txt');
-    assert.deepStrictEqual([tar.status, tar.body], [200, 'tar of /home/me: inner hello.txt']);
-    assert.match(tar.headers['content-disposition'], /^attachment; filename="me\.tar"/);
+    const tar = await call(running, 'GET', '/fs/tar?dir=/home/user&names=inner&names=hello.txt');
+    assert.deepStrictEqual([tar.status, tar.body], [200, 'tar of /home/user: inner hello.txt']);
+    assert.match(tar.headers['content-disposition'], /^attachment; filename="user\.tar"/);
     const root_tar = await call(running, 'HEAD', '/fs/tar?dir=/&names=home');
     assert.match(root_tar.headers['content-disposition'], /^attachment; filename="box\.tar"/);
-    const refused_tar = await call(running, 'GET', '/fs/tar?dir=/home/me');
+    const refused_tar = await call(running, 'GET', '/fs/tar?dir=/home/user');
     assert.deepStrictEqual([refused_tar.status, JSON.parse(refused_tar.body).error], [502, 'nothing is named to take']);
 
     // A file in, under a name of its own and nothing that walks out of its folder
-    const landed = await call(running, 'POST', '/fs/upload?dir=/home/me&name=new.txt', 'new text');
-    assert.deepStrictEqual([landed.status, JSON.parse(landed.body)], [200, {path: '/home/me/new.txt', bytes: 8, replaced: false}]);
-    assert.strictEqual((await call(running, 'GET', '/fs/file/home/me/new.txt')).body, 'new text');
-    const walked = await call(running, 'POST', `/fs/upload?dir=/home/me&name=${encodeURIComponent('../x')}`, 'x');
+    const landed = await call(running, 'POST', '/fs/upload?dir=/home/user&name=new.txt', 'new text');
+    assert.deepStrictEqual([landed.status, JSON.parse(landed.body)], [200, {path: '/home/user/new.txt', bytes: 8, replaced: false}]);
+    assert.strictEqual((await call(running, 'GET', '/fs/file/home/user/new.txt')).body, 'new text');
+    const walked = await call(running, 'POST', `/fs/upload?dir=/home/user&name=${encodeURIComponent('../x')}`, 'x');
     assert.strictEqual(walked.status, 400);
     const nowhere = await call(running, 'POST', '/fs/upload?name=x.txt', 'x');
     assert.deepStrictEqual([nowhere.status, JSON.parse(nowhere.body).error], [400, 'a folder is required']);
 
     // A folder made, a name carried to another, a name taken away; a body that is not json
-    assert.strictEqual((await call(running, 'POST', '/fs/mkdir', JSON.stringify({path: '/home/me/made/deep'}))).status, 200);
-    assert.strictEqual((await call(running, 'POST', '/fs/rename', JSON.stringify({from: '/home/me/new.txt', to: '/home/me/made/new.txt'}))).status, 200);
-    assert.strictEqual((await call(running, 'POST', '/fs/delete', JSON.stringify({path: '/home/me/hello.txt'}))).status, 200);
-    assert.deepStrictEqual(Object.keys(disk.files).sort(), ['/home/me/empty.txt', '/home/me/inner/deep.txt', '/home/me/made/deep/', '/home/me/made/new.txt', '/home/me/page.html', '/home/me/привет.txt']);
+    assert.strictEqual((await call(running, 'POST', '/fs/mkdir', JSON.stringify({path: '/home/user/made/deep'}))).status, 200);
+    assert.strictEqual((await call(running, 'POST', '/fs/rename', JSON.stringify({from: '/home/user/new.txt', to: '/home/user/made/new.txt'}))).status, 200);
+    assert.strictEqual((await call(running, 'POST', '/fs/delete', JSON.stringify({path: '/home/user/hello.txt'}))).status, 200);
+    assert.deepStrictEqual(Object.keys(disk.files).sort(), ['/home/user/empty.txt', '/home/user/inner/deep.txt', '/home/user/made/deep/', '/home/user/made/new.txt', '/home/user/page.html', '/home/user/привет.txt']);
     assert.strictEqual((await call(running, 'POST', '/fs/rename', 'not json')).status, 400);
 
     // An address under the base that is no door, or a door asked the wrong way
@@ -89,7 +89,7 @@ test('every door of the API answers from the disk it was given, under the base t
 
     // What was done, for the host's log
     assert.deepStrictEqual(logged.map(v => v[0]), ['file_read', 'file_read', 'file_read', 'file_read', 'file_read', 'file_read', 'file_read', 'file_copied', 'file_read', 'fs_folder_made', 'fs_renamed', 'fs_deleted']);
-    assert.deepStrictEqual(logged[7][1], {path: '/home/me/new.txt', bytes: 8});
+    assert.deepStrictEqual(logged[7][1], {path: '/home/user/new.txt', bytes: 8});
 });
 
 // A file's path is the address's own tail, percent-encoded, and percent signs that spell no
@@ -98,22 +98,22 @@ test('every door of the API answers from the disk it was given, under the base t
 test('a file\'s path whose percent signs spell no text is a 400 that says so, and the door goes on answering', async function (t) {
     // A request left with no answer would hold its server open, and this file with it
     t.after(() => http.globalAgent.destroy());
-    const running = await serve(t, {disk: disk_in_memory({'/home/me/hello.txt': 'hello world'})});
-    for (const tail of ['/home/me/%E0%A4%A', '/home/me/100%.txt', '/%zz']) {
+    const running = await serve(t, {disk: disk_in_memory({'/home/user/hello.txt': 'hello world'})});
+    for (const tail of ['/home/user/%E0%A4%A', '/home/user/100%.txt', '/%zz']) {
         const refused = await call(running, 'GET', `/fs/file${tail}`);
         assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [400, {error: `a file's path is percent-encoded UTF-8, and ${JSON.stringify(tail)} is not that`}]);
         assert.strictEqual((await call(running, 'HEAD', `/fs/file${tail}`)).status, 400, tail);
     }
 
     // And the door goes on answering
-    assert.strictEqual((await call(running, 'GET', '/fs/file/home/me/hello.txt')).body, 'hello world');
+    assert.strictEqual((await call(running, 'GET', '/fs/file/home/user/hello.txt')).body, 'hello world');
 });
 
 test('a file in parts: how much is in, a part sent again, a finish only when whole, a cancel', async function (t) {
-    const disk = disk_in_memory({'/home/me/old.txt': 'x'});
+    const disk = disk_in_memory({'/home/user/old.txt': 'x'});
     const running = await serve(t, {disk});
     function at(more) {
-        return `dir=/home/me&name=film.bin&id=u1abcdef9${more}`;
+        return `dir=/home/user&name=film.bin&id=u1abcdef9${more}`;
     }
 
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', `/fs/upload/part?${at('')}`)).body), {received: 0});
@@ -125,16 +125,16 @@ test('a file in parts: how much is in, a part sent again, a finish only when who
     assert.strictEqual((await call(running, 'POST', `/fs/upload/part?${at('&offset=-1')}`, 'z')).status, 400);
     assert.strictEqual((await call(running, 'POST', `/fs/upload/finish?${at('&size=5')}`)).status, 502);
     const done = await call(running, 'POST', `/fs/upload/finish?${at('&size=4')}`);
-    assert.deepStrictEqual(JSON.parse(done.body), {path: '/home/me/film.bin', bytes: 4, replaced: false});
-    assert.strictEqual(disk.files['/home/me/film.bin'], 'aBCD');
+    assert.deepStrictEqual(JSON.parse(done.body), {path: '/home/user/film.bin', bytes: 4, replaced: false});
+    assert.strictEqual(disk.files['/home/user/film.bin'], 'aBCD');
 
-    await call(running, 'POST', '/fs/upload/part?dir=/home/me&name=gone.bin&id=u2abcdef9&offset=0', 'xyz');
-    assert.strictEqual((await call(running, 'POST', '/fs/upload/cancel?dir=/home/me&name=gone.bin&id=u2abcdef9')).status, 200);
+    await call(running, 'POST', '/fs/upload/part?dir=/home/user&name=gone.bin&id=u2abcdef9&offset=0', 'xyz');
+    assert.strictEqual((await call(running, 'POST', '/fs/upload/cancel?dir=/home/user&name=gone.bin&id=u2abcdef9')).status, 200);
     assert.deepStrictEqual(disk.parts, {});
 
     // An id that is not letters and digits, a name that walks out, no folder
-    assert.strictEqual((await call(running, 'GET', '/fs/upload/part?dir=/home/me&name=x&id=../x')).status, 400);
-    assert.strictEqual((await call(running, 'GET', `/fs/upload/part?dir=/home/me&name=${encodeURIComponent('../x')}&id=u3abcdef9`)).status, 400);
+    assert.strictEqual((await call(running, 'GET', '/fs/upload/part?dir=/home/user&name=x&id=../x')).status, 400);
+    assert.strictEqual((await call(running, 'GET', `/fs/upload/part?dir=/home/user&name=${encodeURIComponent('../x')}&id=u3abcdef9`)).status, 400);
     assert.strictEqual((await call(running, 'GET', '/fs/upload/part?name=x&id=u3abcdef9')).status, 400);
 
     // A disk that keeps no parts says so, and the page sends the file in one piece
@@ -526,7 +526,7 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
                 })());
             }
             const lines = [
-                {type: 'start', path: '/home/me'},
+                {type: 'start', path: '/home/user'},
                 {type: 'dir', path: 'b', size: null, mtime_ms: 4},
                 {type: 'file', path: 'b/z.txt', size: 1, mtime_ms: 5, sha256: 'bb'},
                 {type: 'file', path: 'a.txt', size: 2, mtime_ms: 6, sha256: 'aa'},
@@ -546,7 +546,7 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
     const running = await serve(t, {disk, log: (event_name, fields) => logged.push([event_name, fields])});
 
     // One JSON: a bare array, sorted by path, compact, keys always in one order, end last
-    const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256&skip=.git,node_modules&skip=dist');
+    const listed = await call(running, 'GET', '/fs?path=/home/user&tree=1&hash=sha256&skip=.git,node_modules&skip=dist');
     assert.strictEqual(listed.status, 200);
     assert.strictEqual(listed.body.includes('\n'), false, 'a tree comes compact, with no indents');
     assert.deepStrictEqual(JSON.parse(listed.body).map(v => JSON.stringify(v)), [
@@ -559,18 +559,18 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
         '{"type":"file","path":"locked.txt","size":3,"mtime_ms":9,"sha256":null,"error":"EACCES: permission denied"}',
         '{"type":"end"}',
     ]);
-    assert.deepStrictEqual(asked[0], ['/home/me', {hash: true, skip: ['.git', 'node_modules', 'dist']}]);
+    assert.deepStrictEqual(asked[0], ['/home/user', {hash: true, skip: ['.git', 'node_modules', 'dist']}]);
     await until(() => logged.length > 0);
     assert.deepStrictEqual([logged[0][0], logged[0][1].names, logged[0][1].hashed], ['tree_listed', 7, 1]);
 
     // The same walk as events: one plain data line an object, the very objects of the JSON
-    const events = await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=sha256', null, {accept: 'text/event-stream'});
+    const events = await call(running, 'GET', '/fs?path=/home/user&tree=1&hash=sha256', null, {accept: 'text/event-stream'});
     assert.deepStrictEqual([events.status, events.headers['content-type']], [200, 'text/event-stream; charset=utf-8']);
     const blocks = events.body.split('\n\n').filter(v => v !== '');
     assert.strictEqual(blocks.every(v => v.startsWith('data: {')), true, 'no event names, nothing but data');
     assert.deepStrictEqual(blocks.map(v => v.slice(6)).sort(), JSON.parse(listed.body).map(v => JSON.stringify(v)).sort());
     assert.strictEqual(blocks.at(-1), 'data: {"type":"end"}');
-    assert.deepStrictEqual(asked[1], ['/home/me', {hash: true, skip: []}]);
+    assert.deepStrictEqual(asked[1], ['/home/user', {hash: true, skip: []}]);
 
     // A walk that stops before its end: a 502 before anything is sent; under way, an error
     // object with no path and no end
@@ -583,17 +583,17 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
     assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs?path=/nothing&tree=1')).body), {error: 'ENOENT: /nothing'});
     assert.strictEqual((await call(running, 'GET', '/fs?path=/nothing&tree=1', null, {accept: 'text/event-stream'})).status, 502);
 
-    assert.strictEqual((await call(running, 'GET', '/fs?path=/home/me&tree=1&hash=md5')).status, 400);
+    assert.strictEqual((await call(running, 'GET', '/fs?path=/home/user&tree=1&hash=md5')).status, 400);
 
     // A delay spaces events out, and holds the walk meanwhile; it is for events alone
     const time0 = Date.now();
-    const slow = await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=60', null, {accept: 'text/event-stream'});
+    const slow = await call(running, 'GET', '/fs?path=/home/user&tree=1&delay=60', null, {accept: 'text/event-stream'});
     assert.ok(Date.now() - time0 >= 420, 'seven names, a delay after each');
     assert.strictEqual((slow.body.match(/^data: /gm) || []).length, 8);
     for (const bad of ['delay=-1', 'delay=1001', 'delay=soon', 'delay=1.5']) {
-        assert.strictEqual((await call(running, 'GET', `/fs?path=/home/me&tree=1&${bad}`, null, {accept: 'text/event-stream'})).status, 400, bad);
+        assert.strictEqual((await call(running, 'GET', `/fs?path=/home/user&tree=1&${bad}`, null, {accept: 'text/event-stream'})).status, 400, bad);
     }
-    assert.match(JSON.parse((await call(running, 'GET', '/fs?path=/home/me&tree=1&delay=10')).body).error, /spaces events out/);
+    assert.match(JSON.parse((await call(running, 'GET', '/fs?path=/home/user&tree=1&delay=10')).body).error, /spaces events out/);
 
     // One JSON stops after 50,000 names and ends with an error, not end, and stops the walk;
     // events have no limit
@@ -633,9 +633,9 @@ test('a whole tree is objects of one shape, as one JSON array or as events, endi
     await until(() => destroyed);
     assert.ok(read < 1000, `the walk waited for the page: ${read} names read`);
 
-    const plain = await serve(t, {disk: disk_in_memory({'/home/me/a.txt': 'a'})});
-    assert.strictEqual((await call(plain, 'GET', '/fs?path=/home/me&tree=1')).status, 501);
-    assert.strictEqual(JSON.parse((await call(plain, 'GET', '/fs?path=/home/me')).body).items.length, 1, 'without tree the list is as it was');
+    const plain = await serve(t, {disk: disk_in_memory({'/home/user/a.txt': 'a'})});
+    assert.strictEqual((await call(plain, 'GET', '/fs?path=/home/user&tree=1')).status, 501);
+    assert.strictEqual(JSON.parse((await call(plain, 'GET', '/fs?path=/home/user')).body).items.length, 1, 'without tree the list is as it was');
 });
 
 test('a folder watched comes as server-sent events, an error before the watch holds as a 502, and a closed page ends it', async function (t) {
@@ -654,20 +654,20 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     // The answer waits for ready, then each line of the disk is one event
     const events = [];
     let status = null;
-    const request = http.request({host: '127.0.0.1', port: running.port, path: '/fs/watch?path=/home/me&tree=1&skip=node_modules&skip=.git'}, function (answer) {
+    const request = http.request({host: '127.0.0.1', port: running.port, path: '/fs/watch?path=/home/user&tree=1&skip=node_modules&skip=.git'}, function (answer) {
         status = [answer.statusCode, answer.headers['content-type']];
         answer.on('data', v => events.push(...v.toString('utf8').split('\n\n').filter(vv => vv !== '')));
     });
     request.end();
     await until(() => opened.length === 1);
-    assert.deepStrictEqual(opened[0].asked, {dir: '/home/me', options: {tree: true, skip: ['node_modules', '.git']}});
+    assert.deepStrictEqual(opened[0].asked, {dir: '/home/user', options: {tree: true, skip: ['node_modules', '.git']}});
     assert.strictEqual(status, null, 'nothing is answered before the watch holds');
-    opened[0].write('{"type":"ready","path":"/home/me"}\n{"type":"created","path":"a.txt","kind":"file","size":1,"mtime_ms":5}\n{"type":"res');
+    opened[0].write('{"type":"ready","path":"/home/user"}\n{"type":"created","path":"a.txt","kind":"file","size":1,"mtime_ms":5}\n{"type":"res');
     opened[0].write('ync","why":"lost"}\n');
     await until(() => events.length === 3);
     assert.deepStrictEqual(status, [200, 'text/event-stream; charset=utf-8']);
     assert.deepStrictEqual(events, [
-        'event: ready\ndata: {"type":"ready","path":"/home/me"}',
+        'event: ready\ndata: {"type":"ready","path":"/home/user"}',
         'event: created\ndata: {"type":"created","path":"a.txt","kind":"file","size":1,"mtime_ms":5}',
         'event: resync\ndata: {"type":"resync","why":"lost"}',
     ]);
@@ -676,7 +676,7 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     request.destroy();
     await until(() => opened[0].destroyed);
     await until(() => logged.length === 1);
-    assert.deepStrictEqual([logged[0][0], logged[0][1].path, logged[0][1].tree, logged[0][1].events], ['folder_watched', '/home/me', true, 2]);
+    assert.deepStrictEqual([logged[0][0], logged[0][1].path, logged[0][1].tree, logged[0][1].events], ['folder_watched', '/home/user', true, 2]);
 
     // A folder that cannot be watched is an error, not an empty stream
     const refused = call(running, 'GET', '/fs/watch?path=/nothing');
@@ -685,12 +685,12 @@ test('a folder watched comes as server-sent events, an error before the watch ho
     assert.deepStrictEqual([(await refused).status, JSON.parse((await refused).body).error], [502, 'ENOENT: /nothing']);
 
     // One that fails after it held says so as an event, and ends
-    const failed = call(running, 'GET', '/fs/watch?path=/home/me');
+    const failed = call(running, 'GET', '/fs/watch?path=/home/user');
     await until(() => opened.length === 3);
-    opened[2].write('{"type":"ready","path":"/home/me"}\n');
+    opened[2].write('{"type":"ready","path":"/home/user"}\n');
     await timers.setTimeout(50);
-    opened[2].destroy(new Error('/home/me is gone'));
-    assert.strictEqual((await failed).body, 'event: ready\ndata: {"type":"ready","path":"/home/me"}\n\nevent: error\ndata: {"error":"/home/me is gone"}\n\n');
+    opened[2].destroy(new Error('/home/user is gone'));
+    assert.strictEqual((await failed).body, 'event: ready\ndata: {"type":"ready","path":"/home/user"}\n\nevent: error\ndata: {"error":"/home/user is gone"}\n\n');
 
     // A disk that cannot watch
     const plain = await serve(t, {disk: disk_in_memory({})});
@@ -708,7 +708,7 @@ test('a line of the disk that is no JSON object fails the tree, the watch and th
         const opened = [];
         const disk = disk_that_copies_folders({'/a/proj/x.txt': 'x'});
         disk.tree = function () {
-            return said_in_turns(['{"type":"start","path":"/home/me"}\n', `${line}\n`]);
+            return said_in_turns(['{"type":"start","path":"/home/user"}\n', `${line}\n`]);
         };
         disk.watch = function () {
             const out = new stream.PassThrough();
@@ -718,20 +718,20 @@ test('a line of the disk that is no JSON object fails the tree, the watch and th
         const running = await serve(t, {disk});
 
         // A tree: a 502 as one JSON; as events, already under way, an error event and the end
-        const listed = await call(running, 'GET', '/fs?path=/home/me&tree=1');
+        const listed = await call(running, 'GET', '/fs?path=/home/user&tree=1');
         assert.deepStrictEqual([listed.status, JSON.parse(listed.body)], [502, {error: refusal}], line);
-        const events = await call(running, 'GET', '/fs?path=/home/me&tree=1', null, {accept: 'text/event-stream'});
+        const events = await call(running, 'GET', '/fs?path=/home/user&tree=1', null, {accept: 'text/event-stream'});
         assert.deepStrictEqual([events.status, events.body], [200, `data: {"type":"error","error":"${refusal}"}\n\n`], line);
 
         // A watch: a 502 before it held, an error event once it did
-        const refused = call(running, 'GET', '/fs/watch?path=/home/me');
+        const refused = call(running, 'GET', '/fs/watch?path=/home/user');
         await until(() => opened.length === 1);
         opened[0].write(`${line}\n`);
         assert.deepStrictEqual([(await refused).status, JSON.parse((await refused).body)], [502, {error: refusal}], line);
-        const failed = call(running, 'GET', '/fs/watch?path=/home/me');
+        const failed = call(running, 'GET', '/fs/watch?path=/home/user');
         await until(() => opened.length === 2);
-        opened[1].write(`{"type":"ready","path":"/home/me"}\n${line}\n`);
-        assert.strictEqual((await failed).body, `event: ready\ndata: {"type":"ready","path":"/home/me"}\n\nevent: error\ndata: {"error":"${refusal}"}\n\n`, line);
+        opened[1].write(`{"type":"ready","path":"/home/user"}\n${line}\n`);
+        assert.strictEqual((await failed).body, `event: ready\ndata: {"type":"ready","path":"/home/user"}\n\nevent: error\ndata: {"error":"${refusal}"}\n\n`, line);
 
         // A folder's copy: its walk fails as a link that dropped does, the copy says why and
         // waits to try again
@@ -853,38 +853,38 @@ test('a walk that names a path outside its folder fails the copy for good, befor
 });
 
 test('the room left on a folder\'s disk, for an upload to check it fits; a disk that cannot say answers 501, a refusal 502', async function (t) {
-    const disk = disk_in_memory({'/home/me/a.txt': 'a'});
+    const disk = disk_in_memory({'/home/user/a.txt': 'a'});
     const running = await serve(t, {disk});
 
     // A folder not made yet is the disk's to measure, at the nearest one that is
-    const room = await call(running, 'GET', `/fs/room?path=${encodeURIComponent('/home/me/new folder')}`);
+    const room = await call(running, 'GET', `/fs/room?path=${encodeURIComponent('/home/user/new folder')}`);
     assert.deepStrictEqual([room.status, JSON.parse(room.body)], [200, {bytes_free: 5000000000, inodes_free: 300000}]);
-    assert.deepStrictEqual(disk.measured, ['/home/me/new folder']);
-    assert.strictEqual((await call(running, 'POST', '/fs/room?path=/home/me')).status, 404);
+    assert.deepStrictEqual(disk.measured, ['/home/user/new folder']);
+    assert.strictEqual((await call(running, 'POST', '/fs/room?path=/home/user')).status, 404);
 
     // A disk that counts no inodes says null, whatever it left out
     disk.room = async function () {
         return {bytes_free: 7};
     };
-    assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs/room?path=/home/me')).body), {bytes_free: 7, inodes_free: null});
+    assert.deepStrictEqual(JSON.parse((await call(running, 'GET', '/fs/room?path=/home/user')).body), {bytes_free: 7, inodes_free: null});
 
     // A disk that refuses
     disk.room = async function () {
-        throw new Error('ENOTDIR: /home/me/a.txt/x');
+        throw new Error('ENOTDIR: /home/user/a.txt/x');
     };
-    const refused = await call(running, 'GET', '/fs/room?path=/home/me/a.txt/x');
-    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'ENOTDIR: /home/me/a.txt/x'}]);
+    const refused = await call(running, 'GET', '/fs/room?path=/home/user/a.txt/x');
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'ENOTDIR: /home/user/a.txt/x'}]);
 
     // A disk that cannot say: the page uploads without asking
     const plain_disk = disk_in_memory({});
     delete plain_disk.room;
     const plain = await serve(t, {disk: plain_disk});
-    const unknown = await call(plain, 'GET', '/fs/room?path=/home/me');
+    const unknown = await call(plain, 'GET', '/fs/room?path=/home/user');
     assert.deepStrictEqual([unknown.status, JSON.parse(unknown.body)], [501, {error: 'this disk cannot say how much room it has'}]);
 });
 
 test('many files as one tar: written as they come, with their times; a bad name refuses the tar, before the disk is asked when it is the first', async function (t) {
-    const disk = disk_in_memory({'/home/me/old.txt': 'old'});
+    const disk = disk_in_memory({'/home/user/old.txt': 'old'});
     const logged = [];
     const running = await serve(t, {disk, log: (event_name, fields) => logged.push([event_name, fields])});
 
@@ -901,12 +901,12 @@ test('many files as one tar: written as they come, with their times; a bad name 
     fs.writeFileSync(path.join(dir, long), 'long');
     fs.utimesSync(path.join(dir, 'top.txt'), 1600000000, 1600000000);
     const tarred = child_process.execFileSync('tar', ['-C', dir, '-cf', '-', '.']);
-    const landed = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/in', tarred);
+    const landed = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/in', tarred);
     assert.deepStrictEqual([landed.status, JSON.parse(landed.body)], [200, {files: 3, bytes: 11}]);
-    assert.deepStrictEqual([disk.files['/home/me/in/a/b/deep.txt'], disk.files['/home/me/in/top.txt'], disk.files[`/home/me/in/${long}`]], ['deep', 'top', 'long']);
-    assert.strictEqual(disk.files['/home/me/in/empty/'], '', 'an empty folder is made');
-    assert.strictEqual(disk.times['/home/me/in/top.txt'], 1600000000, 'a file keeps the time it had');
-    assert.deepStrictEqual(logged, [['files_copied', {dir: '/home/me/in', files: 3, bytes: 11, ms: logged[0][1].ms}]]);
+    assert.deepStrictEqual([disk.files['/home/user/in/a/b/deep.txt'], disk.files['/home/user/in/top.txt'], disk.files[`/home/user/in/${long}`]], ['deep', 'top', 'long']);
+    assert.strictEqual(disk.files['/home/user/in/empty/'], '', 'an empty folder is made');
+    assert.strictEqual(disk.times['/home/user/in/top.txt'], 1600000000, 'a file keeps the time it had');
+    assert.deepStrictEqual(logged, [['files_copied', {dir: '/home/user/in', files: 3, bytes: 11, ms: logged[0][1].ms}]]);
 
     // Written by hand: a long name, a ustar prefix, a link passed over
     const by_hand = tar_of([
@@ -915,45 +915,45 @@ test('many files as one tar: written as they come, with their times; a bad name 
         {prefix: 'p/'.repeat(60).slice(0, -1), name: 'prefixed.txt', text: 'pre', mtime: 1500000000},
         {name: 'link', type: '2'},
     ]);
-    assert.deepStrictEqual(JSON.parse((await call(running, 'POST', '/fs/upload/tar?dir=/home/me/hand', by_hand)).body), {files: 2, bytes: 7});
-    assert.strictEqual(disk.files[`/home/me/hand/${'x'.repeat(150)}.txt`], 'long');
-    assert.strictEqual(disk.files[`/home/me/hand/${'p/'.repeat(60)}prefixed.txt`], 'pre');
-    assert.strictEqual(disk.times[`/home/me/hand/${'p/'.repeat(60)}prefixed.txt`], 1500000000);
+    assert.deepStrictEqual(JSON.parse((await call(running, 'POST', '/fs/upload/tar?dir=/home/user/hand', by_hand)).body), {files: 2, bytes: 7});
+    assert.strictEqual(disk.files[`/home/user/hand/${'x'.repeat(150)}.txt`], 'long');
+    assert.strictEqual(disk.files[`/home/user/hand/${'p/'.repeat(60)}prefixed.txt`], 'pre');
+    assert.strictEqual(disk.times[`/home/user/hand/${'p/'.repeat(60)}prefixed.txt`], 1500000000);
 
     // A first name that walks out, or is absolute: refused before the disk is asked
     const tars = disk.tars.length;
-    const out_of = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', tar_of([{name: '../escape.txt', text: 'x'}]));
+    const out_of = await call(running, 'POST', '/fs/upload/tar?dir=/home/user', tar_of([{name: '../escape.txt', text: 'x'}]));
     assert.deepStrictEqual([out_of.status, JSON.parse(out_of.body).error], [400, '"../escape.txt" walks out of the folder the tar is sent to']);
-    const absolute = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', tar_of([{name: '/etc/passwd', text: 'x'}]));
+    const absolute = await call(running, 'POST', '/fs/upload/tar?dir=/home/user', tar_of([{name: '/etc/passwd', text: 'x'}]));
     assert.deepStrictEqual([absolute.status, /is an absolute name/.test(JSON.parse(absolute.body).error)], [400, true]);
     assert.strictEqual(disk.tars.length, tars, 'the disk was not asked');
 
     // A bad name later: what came before it is in, nothing after it
-    const later = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/later', tar_of([{name: 'one.txt', text: '1'}, {name: 'a/../../two.txt', text: '2'}, {name: 'three.txt', text: '3'}]));
+    const later = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/later', tar_of([{name: 'one.txt', text: '1'}, {name: 'a/../../two.txt', text: '2'}, {name: 'three.txt', text: '3'}]));
     assert.deepStrictEqual([later.status, /walks out/.test(JSON.parse(later.body).error)], [400, true]);
-    assert.deepStrictEqual(Object.keys(disk.files).filter(v => v.startsWith('/home/me/later/')), ['/home/me/later/one.txt']);
-    assert.strictEqual(disk.files['/home/me/two.txt'], undefined);
+    assert.deepStrictEqual(Object.keys(disk.files).filter(v => v.startsWith('/home/user/later/')), ['/home/user/later/one.txt']);
+    assert.strictEqual(disk.files['/home/user/two.txt'], undefined);
 
     // A body that stops before the tar ends, or is no tar at all
     const whole = tar_of([{name: 'cut.txt', text: 'x'.repeat(2000)}]);
-    const cut = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/cut', whole.subarray(0, 1024));
+    const cut = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/cut', whole.subarray(0, 1024));
     assert.deepStrictEqual([cut.status, JSON.parse(cut.body).error], [400, 'the tar was cut before its end']);
-    assert.strictEqual(disk.files['/home/me/cut/cut.txt'], undefined, 'no half file');
-    const junk = await call(running, 'POST', '/fs/upload/tar?dir=/home/me', Buffer.alloc(1024, 'j'));
+    assert.strictEqual(disk.files['/home/user/cut/cut.txt'], undefined, 'no half file');
+    const junk = await call(running, 'POST', '/fs/upload/tar?dir=/home/user', Buffer.alloc(1024, 'j'));
     assert.deepStrictEqual([junk.status, /not a tar/.test(JSON.parse(junk.body).error)], [400, true]);
     assert.strictEqual((await call(running, 'POST', '/fs/upload/tar', whole)).status, 400);
     assert.strictEqual(logged.length, 2, 'one line a tar, for the two that went in');
 
     // A disk that refuses, and one that takes no tar
     disk.write_tar = async function () {
-        throw new Error('EACCES: /home/me/locked');
+        throw new Error('EACCES: /home/user/locked');
     };
-    const refused = await call(running, 'POST', '/fs/upload/tar?dir=/home/me/locked', whole);
-    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'EACCES: /home/me/locked'}]);
+    const refused = await call(running, 'POST', '/fs/upload/tar?dir=/home/user/locked', whole);
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body)], [502, {error: 'EACCES: /home/user/locked'}]);
     const plain_disk = disk_in_memory({});
     delete plain_disk.write_tar;
     const plain = await serve(t, {disk: plain_disk});
-    const unknown = await call(plain, 'POST', '/fs/upload/tar?dir=/home/me', whole);
+    const unknown = await call(plain, 'POST', '/fs/upload/tar?dir=/home/user', whole);
     assert.deepStrictEqual([unknown.status, JSON.parse(unknown.body)], [501, {error: 'this disk cannot take a tar'}]);
 });
 
@@ -986,7 +986,7 @@ function disk_in_memory(files)
         throw new Error(`ENOENT: ${full}`);
     }
     out.list = async function (asked) {
-        const dir = ((asked === null) || (asked === '')) ? '/home/me' : asked;
+        const dir = ((asked === null) || (asked === '')) ? '/home/user' : asked;
         const names = new Set();
         for (const key of Object.keys(held)) {
             if (key.startsWith(`${dir}/`)) {

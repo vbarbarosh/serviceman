@@ -40,8 +40,7 @@ above it.
 - `console` — layout `console`, JetBrains Mono; dark is native, light reads like a printout.
 - `board` — layout `board`, Space Grotesk titles, state chips readable from a distance.
 
-The mockups these came from (with sample numbers, side by side):
-https://claude.ai/code/artifact/6b581c36-5ea9-4570-8bf0-bc7ea2273be8
+The mockups these came from (with sample numbers, side by side) are not kept in the repository.
 
 ## How it is wired
 

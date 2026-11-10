@@ -145,12 +145,12 @@ counts, the list and each request.
 `GET <base>/watch?path=<dir>` answers once the watch holds (a folder that cannot be watched is a
 502), then sends one event a change, until the page closes the request:
 
-    event: ready      {"type": "ready", "path": "/home/me/notes", "tree": false, "skip": []}
+    event: ready      {"type": "ready", "path": "/home/user/notes", "tree": false, "skip": []}
     event: created    {"type": "created", "path": "a.txt", "kind": "file", "size": 3, "mtime_ms": …}
     event: changed    {"type": "changed", "path": "a.txt", "kind": "file", "size": 6, "mtime_ms": …}
     event: removed    {"type": "removed", "path": "a.txt", "kind": "file", "size": null, "mtime_ms": null}
     event: resync     {"type": "resync", "why": "…"}
-    event: error      {"error": "/home/me/notes is gone"}, and the stream ends
+    event: error      {"error": "/home/user/notes is gone"}, and the stream ends
 
 - `path` of an event is relative to the folder watched. A folder says created and removed, never
   changed.

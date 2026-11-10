@@ -895,12 +895,12 @@ counts, the list and each request.
 <h3 id="a-folder-watched"><a class="anchor" href="#a-folder-watched" aria-hidden="true" tabindex="-1">#</a>A folder watched</h3>
 <p><code>GET &lt;base&gt;/watch?path=&lt;dir&gt;</code> answers once the watch holds (a folder that cannot be watched is a
 502), then sends one event a change, until the page closes the request:</p>
-<pre><code>event: ready      {&quot;type&quot;: &quot;ready&quot;, &quot;path&quot;: &quot;/home/me/notes&quot;, &quot;tree&quot;: false, &quot;skip&quot;: []}
+<pre><code>event: ready      {&quot;type&quot;: &quot;ready&quot;, &quot;path&quot;: &quot;/home/user/notes&quot;, &quot;tree&quot;: false, &quot;skip&quot;: []}
 event: created    {&quot;type&quot;: &quot;created&quot;, &quot;path&quot;: &quot;a.txt&quot;, &quot;kind&quot;: &quot;file&quot;, &quot;size&quot;: 3, &quot;mtime_ms&quot;: …}
 event: changed    {&quot;type&quot;: &quot;changed&quot;, &quot;path&quot;: &quot;a.txt&quot;, &quot;kind&quot;: &quot;file&quot;, &quot;size&quot;: 6, &quot;mtime_ms&quot;: …}
 event: removed    {&quot;type&quot;: &quot;removed&quot;, &quot;path&quot;: &quot;a.txt&quot;, &quot;kind&quot;: &quot;file&quot;, &quot;size&quot;: null, &quot;mtime_ms&quot;: null}
 event: resync     {&quot;type&quot;: &quot;resync&quot;, &quot;why&quot;: &quot;…&quot;}
-event: error      {&quot;error&quot;: &quot;/home/me/notes is gone&quot;}, and the stream ends
+event: error      {&quot;error&quot;: &quot;/home/user/notes is gone&quot;}, and the stream ends
 </code></pre>
 <ul>
 <li><code>path</code> of an event is relative to the folder watched. A folder says created and removed, never
