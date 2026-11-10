@@ -347,7 +347,9 @@ async function stop_programs(app)
 {
     const stops = [];
     for (const service of app.services) {
-        if ((service.type !== 'shell') || (service_phase(service) === 'stopped')) {
+        // One that waits to be started again is stopped too: its timer could start it while
+        // the others stop, and it would outlive serviceman
+        if ((service.type !== 'shell') || ((service_phase(service) === 'stopped') && service.state.instances.every(v => v.restart_timer === null))) {
             continue;
         }
         stops.push(service_stop(app, service, 'serviceman stops'));

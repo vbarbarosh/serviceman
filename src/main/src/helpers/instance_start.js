@@ -54,6 +54,10 @@ async function start_after_stop(app, service, instance)
     log_event(app, 'service_start_begin', {service: service.name, instance: instance.slot, type: service.type, of: service.remotes});
     instance.phase = 'starting';
     instance.start_under_way = true;
+    // This is the start a restart waited for, if one did: a timer left would start it again
+    // later, and the next end would set a second one that a stop could not reach
+    clearTimeout(instance.restart_timer);
+    instance.restart_timer = null;
     // A stop from here on is a stop of this start: the start ends when it sees it
     instance.asked_to_stop = false;
     instance.last_error = null;

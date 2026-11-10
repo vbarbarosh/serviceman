@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.80 — 2026-11-10
+
+- A program waiting to be started again (restart: always, after it ended by itself) is no longer started by its timer once Stop is pressed, the service is removed or changed by a Save, or serviceman stops; any start in the wait is the restart (`program_restart_cancel` in the log) (SM-181). Registered SM-371 (a program that ends at once is marked running).
+
 ## 1.0.79 — 2026-11-10
 
 - A copy of a file that got shorter while it was copied ends at once, "the file got shorter while it was copied", its part left a part and nothing landed under its name; the copy behind it goes (SM-206). Registered SM-369 (a folder's tar pads a shrunk file with zeros) and SM-370 (a download ends short with no error).

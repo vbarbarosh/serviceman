@@ -68,6 +68,12 @@ async function app_apply_config(app, config)
             const done = await service_uninstall(app, service);
             note(`${service.name}: removed from the config — ${((done === null) || (done === '')) ? 'anything running keeps running' : done}`);
         }
+        // A copy waiting to be started again would be started as this object, which nothing
+        // reaches once the new one is in; the new definition starts as its own policy says
+        for (const instance of service.state.instances) {
+            clearTimeout(instance.restart_timer);
+            instance.restart_timer = null;
+        }
     }
     const replaced = remotes_apply(app, config, note);
     app.config = Object.assign({}, config, {

@@ -15,7 +15,9 @@ async function service_uninstall(app, service)
         return null;
     }
     const done = [];
-    if (service_phase(service) !== 'stopped') {
+    // A program that ended by itself and waits to be started again is stopped and up all the
+    // same: left alone, its timer would start it once more, as a service nobody has any more
+    if ((service_phase(service) !== 'stopped') || service.state.instances.some(v => v.restart_timer !== null)) {
         await service_stop(app, service, 'the service was removed from the config');
         done.push('stopped');
     }

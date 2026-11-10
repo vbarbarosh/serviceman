@@ -279,6 +279,7 @@ config is shortened, because the real one was a scratch folder.
 | `program_end`             | It stopped by itself, and how.                              |
 | `program_follow_error`    | What it prints could not be read; said once, tried again.   |
 | `program_restart_wait`    | The restart policy is waiting before trying again.          |
+| `program_restart_cancel`  | A restart it waited for is called off: stopped, or removed from the config. |
 
 ### The agent
 

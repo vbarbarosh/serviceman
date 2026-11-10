@@ -2566,6 +2566,75 @@ test('the restart policy decides what follows a program that stops by itself', a
     }
 });
 
+test('a stop in the wait before a restart is a stop, and a start in it is the restart', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-pause-'));
+    const runs = path.join(dir, 'runs.txt');
+    // It quits cleanly at once twice, and stays up from its third run on
+    const running = await serviceman_start([
+        {
+            name: 'quitter',
+            type: 'shell',
+            command: `${process.execPath} -e "const fs = require('fs'); fs.appendFileSync('${runs}', 'x'); if (fs.readFileSync('${runs}', 'utf8').length >= 3) { setInterval(function () {}, 1000); }"`,
+            policy: {start: 'always', restart: 'always'},
+        },
+    ]);
+    const service = running.app.service_by_name.quitter;
+    const instance = service.state.instances[0];
+    function lines(pattern) {
+        return running.app.log_lines.filter(v => pattern.test(v));
+    }
+    try {
+        await service_ensure_running(running.app, service);
+        await wait_until(() => lines(/\[program_restart_wait\] service=quitter /).length === 1, 10000);
+        await service_stop(running.app, service, 'the test asked');
+        assert.strictEqual(service_phase(service), 'stopped');
+        assert.strictEqual(instance.restart_timer, null, 'nothing is left to start it again');
+        assert.strictEqual(lines(/\[program_restart_cancel\] service=quitter instance=1 restart=1 reason="the test asked"/).length, 1);
+        assert.strictEqual(instance.restarts, 1, 'the count the wait was made from is kept for a start that comes at once');
+
+        // Started again, it quits again and waits; a start in that wait is the restart, and
+        // leaves no timer to start it a second time
+        await service_ensure_running(running.app, service);
+        await wait_until(() => lines(/\[program_restart_wait\] service=quitter /).length === 2, 10000);
+        await service_ensure_running(running.app, service);
+        assert.strictEqual(service_phase(service), 'running');
+        assert.strictEqual(instance.restart_timer, null, 'the wait ended with the start it waited for');
+        assert.strictEqual(lines(/\[service_start_begin\] service=quitter /).length, 3);
+    }
+    finally {
+        await running.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+test('a program waiting to be started again is not started once it is out of the config, nor as its old definition', async function () {
+    const services = [
+        {name: 'gone', type: 'shell', command: `${process.execPath} -e "0"`, policy: {start: 'always', restart: 'always'}},
+        {name: 'edited', type: 'shell', command: `${process.execPath} -e "0"`, policy: {start: 'always', restart: 'always'}},
+    ];
+    const running = await serviceman_start(services);
+    const gone = running.app.service_by_name.gone;
+    const edited = running.app.service_by_name.edited;
+    try {
+        await service_ensure_running(running.app, gone);
+        await service_ensure_running(running.app, edited);
+        await wait_until(() => (gone.state.instances[0].restart_timer !== null) && (edited.state.instances[0].restart_timer !== null), 10000);
+
+        await app_apply_config(running.app, config_from_json(config_json([Object.assign({}, services[1], {command: `${process.execPath} -e "setInterval(function () {}, 1000);"`})]), __dirname));
+        assert.strictEqual(gone.state.instances[0].restart_timer, null, 'a removed program is not started again, as a service nobody has');
+        assert.ok(running.app.log_lines.some(v => /\[program_restart_cancel\] service=gone instance=1 restart=1 reason="the service was removed from the config"/.test(v)));
+        assert.ok(running.app.log_lines.some(v => /\[config_change\] change="gone: removed from the config — stopped/.test(v)));
+        assert.strictEqual(edited.state.instances[0].restart_timer, null, 'the old definition is not started as an object nothing reaches');
+        await wait_until(() => service_phase(running.app.service_by_name.edited) === 'running', 10000);
+        assert.strictEqual(running.app.log_lines.filter(v => /\[service_start_begin\] service=edited /.test(v)).length, 2, 'the new definition starts as its own policy says, and only it');
+    }
+    finally {
+        clearTimeout(gone.state.instances[0].restart_timer);
+        clearTimeout(edited.state.instances[0].restart_timer);
+        await running.close();
+    }
+});
+
 test('a program that would only fail later is refused', function () {
     function bad(json) {
         return function () {

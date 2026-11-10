@@ -821,7 +821,9 @@ edited**. The log says so with `service_try_again`.
 `restart` is `on_failure` (a bad exit code brings it back), `always` (any exit brings it
 back) or `never`. serviceman waits a second before the first restart and doubles the wait
 up to thirty seconds; a program that ran half a minute starts that count again. It applies
-to programs — a container is restarted by docker, through `run_args`.
+to programs — a container is restarted by docker, through `run_args`. Stop, or taking it out
+of the config, in that wait calls the restart off (`program_restart_cancel`); a start of any
+kind in it is the restart.
 
 An `always` service is never stopped by the idle policy. A service with requests in flight
 is never stopped either — the clock starts when the last one finishes.

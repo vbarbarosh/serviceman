@@ -1674,7 +1674,9 @@ edited</strong>. The log says so with <code>service_try_again</code>.</p>
 <p><code>restart</code> is <code>on_failure</code> (a bad exit code brings it back), <code>always</code> (any exit brings it
 back) or <code>never</code>. serviceman waits a second before the first restart and doubles the wait
 up to thirty seconds; a program that ran half a minute starts that count again. It applies
-to programs — a container is restarted by docker, through <code>run_args</code>.</p>
+to programs — a container is restarted by docker, through <code>run_args</code>. Stop, or taking it out
+of the config, in that wait calls the restart off (<code>program_restart_cancel</code>); a start of any
+kind in it is the restart.</p>
 <p>An <code>always</code> service is never stopped by the idle policy. A service with requests in flight
 is never stopped either — the clock starts when the last one finishes.</p>
 <h3 id="when-a-service-counts-as-ready"><a class="anchor" href="#when-a-service-counts-as-ready" aria-hidden="true" tabindex="-1">#</a>When a service counts as ready</h3>
