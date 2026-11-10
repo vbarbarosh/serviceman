@@ -422,8 +422,8 @@ function agent_fake(port, said)
             link_send_message(socket, {
                 type: 'hello',
                 agent: '1.33.1',
-                resources: {hostname: 'vps1', platform: 'linux', arch: 'x64', node: process.version, docker: null, can: ['security', 'port_list'], addresses: [], cpu: {count: 1}, mem: {total: 1024*1024*1024}, disk: {path: '/', total: 1024*1024*1024, free: 1024*1024}},
-                stats: {mem_free: 1024*1024, disk_free: 1024*1024, uptime_ms: 1000, load: [0, 0, 0]},
+                resources: {hostname: 'vps1', platform: 'linux', arch: 'x64', node: process.version, docker: null, can: ['security', 'port_list'], addresses: [], cpu: {count: 1, model: 'cpu'}, mem: {total: 1024*1024*1024}, disk: {path: '/', total: 1024*1024*1024, free: 1024*1024}},
+                stats: {mem_free: 1024*1024, disk_free: 1024*1024, uptime_ms: 1000, load: 0},
             });
             resolve(socket);
         });

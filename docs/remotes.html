@@ -950,6 +950,12 @@ servermon is off or silent (its last line older than 5 seconds) the numbers are 
 Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in <code>/api/v1/status</code>.</p>
+<p>What a machine says of itself is its own word, and is checked before it is kept. A hello whose
+<code>resources</code> are of another shape (no cpu, a memory that is no number) is refused whole: the link
+is closed, nothing of it is kept, and the machine stays as it was, away. Numbers of another
+shape are left out and the link stays: the page shows none, where the last good ones would pass
+for now. The log names the machine and the part, in <code>remote_link_error</code>, once a link each:
+<code>reason=hello_shape part=resources.mem.total</code>, <code>reason=stats_shape part=stats.load</code>.</p>
 <p>The <strong>Overview</strong> tab shows a machine at a glance: its state beside its name, its uptime in one
 row under it, then tiles for CPU, memory, disk and temperature, each with a bar under it (amber
 from 80%, red from 92%), and for its battery and the link; its history, then cards for the

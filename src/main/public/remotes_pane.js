@@ -254,7 +254,8 @@ const remotes_pane = {
                 services_text: `${services.length} ${(services.length === 1) ? 'service' : 'services'}`,
                 folders_text: (folders === 0) ? 'no folders' : `${folders} ${(folders === 1) ? 'folder' : 'folders'}`,
                 doors_text: (doors === 0) ? 'no door names' : `${doors} ${(doors === 1) ? 'door name' : 'door names'}`,
-                machine_text: (online && (machine !== null)) ? [machine.os || machine.platform, machine.arch, `up ${format_ms(machine.uptime_ms)}`].join(' · ') : '',
+                // What it runs on, and how long it has been up where its stats say
+                machine_text: (online && (machine !== null)) ? [machine.os || machine.platform, machine.arch].concat((machine.uptime_ms === null) ? [] : [`up ${format_ms(machine.uptime_ms)}`]).join(' · ') : '',
             };
         },
         bars_of: function (machine) {
@@ -266,7 +267,8 @@ const remotes_pane = {
                 const load = (machine.load === null) ? '' : ` · load ${machine.load.toFixed(2)}`;
                 out.push({key: 'cpu', label: 'CPU', percent: busy, text: `${busy}% busy${load}`});
             }
-            if (machine.mem.total > 0) {
+            // Free memory it does not say (no stats yet, servermon silent) is no bar, as with CPU
+            if ((machine.mem.total > 0) && (machine.mem.free !== null)) {
                 const used = Math.round((1 - machine.mem.free/machine.mem.total)*100);
                 out.push({key: 'memory', label: 'Memory', percent: used, text: `${format_bytes(machine.mem.free)} of ${format_bytes(machine.mem.total)} free`});
             }

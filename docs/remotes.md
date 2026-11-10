@@ -284,6 +284,13 @@ Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in `/api/v1/status`.
 
+What a machine says of itself is its own word, and is checked before it is kept. A hello whose
+`resources` are of another shape (no cpu, a memory that is no number) is refused whole: the link
+is closed, nothing of it is kept, and the machine stays as it was, away. Numbers of another
+shape are left out and the link stays: the page shows none, where the last good ones would pass
+for now. The log names the machine and the part, in `remote_link_error`, once a link each:
+`reason=hello_shape part=resources.mem.total`, `reason=stats_shape part=stats.load`.
+
 The **Overview** tab shows a machine at a glance: its state beside its name, its uptime in one
 row under it, then tiles for CPU, memory, disk and temperature, each with a bar under it (amber
 from 80%, red from 92%), and for its battery and the link; its history, then cards for the

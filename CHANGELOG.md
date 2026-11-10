@@ -2,6 +2,16 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.57 — 2026-11-10
+
+- A machine's hello was kept as it came: one with `resources: {}`, or a `stats` message with no
+  stats, made `GET /api/v1/status` answer 500 for every machine, and went on doing so with that
+  machine gone, until a restart. What it says is checked first (`remote_said_refusal.js`): a
+  hello of another shape is refused and nothing of it kept, stats of another shape are left
+  out, each said once a link as `remote_link_error`. The remotes list draws a machine with no
+  stats yet without a false Memory bar and "up 0ms", and a long word a machine says of itself
+  wraps inside its card. (SM-204)
+
 ## 1.0.56 — 2026-11-10
 
 - `bin/release` ran `bin/test` alone, pushed every local branch and every tag (`git push --all`,

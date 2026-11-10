@@ -17,8 +17,8 @@ function remote_state()
         update_not_taken: 0,
         // The groups this machine has already told us about, so each one is announced once
         groups: new Set(),
-        // Why a line it sent could not be kept as it came, each reason said once a link
-        // (remote_attach): {reason: true}
+        // Why a line it sent, its hello or its stats could not be kept as they came, each
+        // reason said once a link (remote_attach): {reason: true}
         lines_refused: {},
         connected_at: null,
         left_at: null,
@@ -35,8 +35,12 @@ function remote_state()
         // up; null while it answers (remote_call)
         unanswered_since: null,
         unanswered_method: null,
-        // What the machine says it is, for as long as it is connected
+        // The tags the machine says of itself, for as long as it is connected
         declared: [],
+        // What it says it is (its hello) and what moves on it (its stats): its own word, kept
+        // only when of the shape its readers take it to be (remote_said_refusal), null
+        // otherwise. Both stay when its link goes: a machine away is shown with what it last
+        // said.
         resources: null,
         stats: null,
         // The upgrade running on that machine, if one is: its lines as they arrive, and how it

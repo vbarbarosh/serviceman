@@ -2225,6 +2225,12 @@ button.tag:hover {
     flex-wrap: wrap;
 }
 
+/* What a machine says it runs on may be one long word: it wraps inside its card */
+.carries .list-right {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 /* Ctrl K: the box over the page, the hits under their kinds */
 .shade {
     position: fixed;

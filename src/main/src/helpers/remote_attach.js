@@ -22,6 +22,7 @@ const logline_tell = require('./logline_tell');
 const program_ended = require('./program_ended');
 const remote_call = require('./remote_call');
 const remote_measure = require('./remote_measure');
+const remote_said_refusal = require('./remote_said_refusal');
 const remote_services_lost = require('./remote_services_lost');
 const remote_services_wake = require('./remote_services_wake');
 const remote_tags = require('./remote_tags');
@@ -146,6 +147,16 @@ function message_read(app, remote, message)
         return;
     }
     if (message.type === 'hello') {
+        // Its hello is its own word, and the status reads what is kept of it for as long as
+        // serviceman runs: one whose resources are of another shape is refused whole, and
+        // nothing of it is kept. Its machine stays as it was before it: one that has said
+        // nothing, or what it said last.
+        const odd = remote_said_refusal('resources', message.resources);
+        if (odd !== null) {
+            link_error_once(app, remote, {reason: 'hello_shape', part: odd, then: 'refused, and its link closed'});
+            state.socket.destroy();
+            return;
+        }
         state.phase = 'online';
         state.heard_at = Date.now();
         state.agent_version = message.agent;
@@ -153,8 +164,8 @@ function message_read(app, remote, message)
         // happened: the version alone changes far more rarely than the file does
         state.agent_built = (message.built === undefined) ? null : message.built;
         state.resources = message.resources;
-        state.stats = message.stats;
         log_event(app, 'remote_online', Object.assign({remote: remote.name, from: state.address, agent: message.agent, tags: remote_tags(remote)}, machine_words(message.resources)));
+        stats_keep(app, remote, message.stats);
         remotes_update(app);
         measure_now(app, remote);
         services_wake(app, remote);
@@ -182,7 +193,9 @@ function message_read(app, remote, message)
         return;
     }
     if (message.type === 'stats') {
-        state.stats = message.stats;
+        if (stats_keep(app, remote, message.stats) === false) {
+            return;
+        }
         doors_seen(app, remote, message.stats.doors_seen);
         // What a machine can be asked for is not fixed for the life of a link: a root half
         // installed while it is connected is a machine that can do more than it said at hello
@@ -344,6 +357,20 @@ function door_adopt(app, name)
     });
 }
 
+// What moves on a machine, kept when it is of the shape its readers take it to be. Stats of
+// another shape are left out, and the ones before go with them: the page then shows no number,
+// where the last good ones would pass for now. Said once a link (link_error_once), for they
+// come every few seconds. Answers whether they were kept.
+function stats_keep(app, remote, stats)
+{
+    const odd = remote_said_refusal('stats', stats);
+    if (odd !== null) {
+        link_error_once(app, remote, {reason: 'stats_shape', part: odd, then: 'left out, and said once for this link'});
+    }
+    remote.state.stats = (odd === null) ? stats : null;
+    return odd === null;
+}
+
 // Everything that goes wrong on a link says so in one line, written in one place
 function link_error(app, remote, words)
 {
@@ -448,9 +475,6 @@ function measure_now(app, remote)
 // What the machine said it is, for the line that says it is online
 function machine_words(resources)
 {
-    if ((resources === undefined) || (resources === null)) {
-        return {said: 'nothing'};
-    }
     return {
         machine: resources.hostname,
         cpu: resources.cpu.count,

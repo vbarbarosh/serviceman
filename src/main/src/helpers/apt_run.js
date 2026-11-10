@@ -6,6 +6,7 @@ const reason_from_answer = require('../../../helpers/reason_from_answer');
 const remote_call = require('./remote_call');
 const remote_containers_restore = require('./remote_containers_restore');
 const remote_containers_running = require('./remote_containers_running');
+const remote_said_refusal = require('./remote_said_refusal');
 const stream_open = require('./stream_open');
 const streams_of = require('./streams_of');
 
@@ -82,7 +83,11 @@ async function apt_ended(app, remote, before, phase, error)
     // again now rather than at the next heartbeat half a minute from here
     const promise = remote_call(app, remote, 'stats');
     promise.then(function (stats) {
-        remote.state.stats = stats;
+        // Its answer is its own word, kept as a heartbeat's is: only of the shape its readers
+        // take it to be. Of another, what it said before stays until the next heartbeat.
+        if (remote_said_refusal('stats', stats) === null) {
+            remote.state.stats = stats;
+        }
     }, function () {
         // The link went with the run; the next heartbeat says what is true
     });
