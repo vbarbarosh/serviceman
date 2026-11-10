@@ -1675,15 +1675,22 @@ link is quiet between requests.</p>
 machine, read their logs, make folders for their volumes, and reach any port on its loopback
 through the tunnel. Treat it like an ssh key: one token per machine, 32 random bytes, kept in
 a file only root can read.</p>
-<p>The other direction is narrow, but not empty. The agent does what it is asked and nothing
-else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
-or to its docker socket, which is how a shell in one of its containers is opened from here. A
-forward&#39;s listener is the one way a connection on the machine reaches the host, and only under
-a forward&#39;s label.
-That socket is docker itself, so a remote trusts this host as much as this host trusts
-whoever reaches its control page. Its firewall too: ufw&#39;s rules are written from the control
-page, as root. The agent runs no shell of its own for the host, and it never dials anywhere
-except the <code>--url</code> you gave it.</p>
+<p>The other direction is wide. The agent does what this host asks, and this host asks for a great
+deal: it runs containers and any command line (a <code>shell</code> service), opens shells on the machine
+and keeps them, reads, writes and deletes files as the user it runs as, lists that machine&#39;s
+processes, ports, packages and disks, and takes a picture of its screen where it has one. It
+upgrades packages with apt; and where the machine has the agent&#39;s root half
+(<code>sudo bin/install-root</code>), it writes ufw&#39;s rules, turns ssh&#39;s passwords off, turns automatic
+updates on, and makes, opens and mounts encrypted volumes and shared folders, as root. Streams
+go to any port on the machine&#39;s loopback and to its docker socket. So a remote trusts this host
+as much as this host trusts whoever reaches its control page: whoever holds the owner&#39;s token
+there holds every machine as its agent&#39;s user, and as root where the root half is. A token
+made for an agent on the Tokens page is narrower: its machines, its rights, its folders.</p>
+<p>Nor does the agent dial the <code>--url</code> alone. It sends the machine&#39;s log lines to Logline where
+that is set up, dials the other machines&#39; peer port (7303) for a name one of them serves, and
+fetches juicefs from its release on GitHub the first time a shared folder is mounted. A forward&#39;s
+listener is the one way a connection on the machine reaches the host, and only under a
+forward&#39;s label.</p>
 <h2 id="not-built-yet"><a class="anchor" href="#not-built-yet" aria-hidden="true" tabindex="-1">#</a>Not built yet</h2>
 <ul>
 <li>A compose stack cannot be run by an agent.</li>

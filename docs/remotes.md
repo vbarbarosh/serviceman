@@ -969,15 +969,23 @@ machine, read their logs, make folders for their volumes, and reach any port on 
 through the tunnel. Treat it like an ssh key: one token per machine, 32 random bytes, kept in
 a file only root can read.
 
-The other direction is narrow, but not empty. The agent does what it is asked and nothing
-else: docker commands, a folder for a bind mount, and streams — to a port on its own loopback,
-or to its docker socket, which is how a shell in one of its containers is opened from here. A
-forward's listener is the one way a connection on the machine reaches the host, and only under
-a forward's label.
-That socket is docker itself, so a remote trusts this host as much as this host trusts
-whoever reaches its control page. Its firewall too: ufw's rules are written from the control
-page, as root. The agent runs no shell of its own for the host, and it never dials anywhere
-except the `--url` you gave it.
+The other direction is wide. The agent does what this host asks, and this host asks for a great
+deal: it runs containers and any command line (a `shell` service), opens shells on the machine
+and keeps them, reads, writes and deletes files as the user it runs as, lists that machine's
+processes, ports, packages and disks, and takes a picture of its screen where it has one. It
+upgrades packages with apt; and where the machine has the agent's root half
+(`sudo bin/install-root`), it writes ufw's rules, turns ssh's passwords off, turns automatic
+updates on, and makes, opens and mounts encrypted volumes and shared folders, as root. Streams
+go to any port on the machine's loopback and to its docker socket. So a remote trusts this host
+as much as this host trusts whoever reaches its control page: whoever holds the owner's token
+there holds every machine as its agent's user, and as root where the root half is. A token
+made for an agent on the Tokens page is narrower: its machines, its rights, its folders.
+
+Nor does the agent dial the `--url` alone. It sends the machine's log lines to Logline where
+that is set up, dials the other machines' peer port (7303) for a name one of them serves, and
+fetches juicefs from its release on GitHub the first time a shared folder is mounted. A forward's
+listener is the one way a connection on the machine reaches the host, and only under a
+forward's label.
 
 ## Not built yet
 

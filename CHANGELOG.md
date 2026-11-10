@@ -2,6 +2,14 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.48 — 2026-11-10
+
+- "What the token buys" in `docs/remotes.md` named docker commands, a folder and streams, and
+  said the agent runs no shell and dials only its `--url`. It says what an agent does now:
+  programs and shells, the user's files, apt, and with the root half ufw, ssh, encrypted
+  volumes and shared folders; and where else it dials (Logline, the peer port, juicefs).
+  (SM-316)
+
 ## 1.0.47 — 2026-11-10
 
 - `docs/config.md` and `docs/usecases.md` said a program does not outlive a restart of the
