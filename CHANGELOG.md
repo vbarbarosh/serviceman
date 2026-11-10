@@ -2,6 +2,13 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.50 — 2026-11-10
+
+- The test of a file's grant (1.0.33) changed the last letter of the grant's signature to prove
+  a changed grant is refused; the last letter of a base64 text holds bits that are thrown away,
+  so one run in sixteen the changed grant was the same grant and the test failed. It changes
+  the first letter now.
+
 ## 1.0.49 — 2026-11-10
 
 - `docs/how-it-works.md` said serviceman never deletes and that the next request always tries

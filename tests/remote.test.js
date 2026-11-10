@@ -2089,7 +2089,11 @@ test('a file opened in a tab is granted its own folder under the machine\'s name
             assert.deepStrictEqual([refused.status === 200, refused.body.includes('secret')], [false, false], asked);
         }
         assert.strictEqual((await fetch_host({port, host: 'ui2.fs.serviceman.localhost', path: index, token: null, headers: kept})).status, 403);
-        const changed = `${there.pathname}?grant=${there.searchParams.get('grant').replace(/.$/, v => (v === 'A') ? 'B' : 'A')}`;
+        // The first letter of the signature, not the last: the last one of a base64 text holds
+        // bits that are thrown away, and a letter changed there may spell the same bytes
+        const grant = there.searchParams.get('grant');
+        const at = grant.indexOf('.') + 1;
+        const changed = `${there.pathname}?grant=${grant.slice(0, at)}${(grant[at] === 'A') ? 'B' : 'A'}${grant.slice(at + 1)}`;
         assert.strictEqual((await fetch_host({port, host: name, path: changed, token: null})).status, 403);
         assert.strictEqual((await fetch_host({port, host: name, path: `${key}${there.search}`, token: null})).status, 403);
 
