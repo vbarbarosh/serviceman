@@ -131,7 +131,7 @@ test('refused/ keeps no more than its bound: at it the refused line waits in the
     for (let i = 0; i < 1000; i++) {
         fs.writeFileSync(path.join(dir, 'refused', `old-${i}.json`), '{}');
     }
-    assert.deepStrictEqual(logline_aside(dir), {files: 1000, bytes: 2000, full: true});
+    assert.deepStrictEqual(counted(logline_aside(dir)), {files: 1000, bytes: 2000, full: true});
     const logline = await logline_fake((asked, items) => items.some(v => v.line === 'never taken') ? 422 : true);
     const spool = spool_on_disk(dir);
     spool.add('never taken');
@@ -159,16 +159,44 @@ test('refused/ keeps no more than its bound: at it the refused line waits in the
 
 test('what is put aside is full at a thousand files or 64 MB, and a folder nobody made holds nothing', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'logline-ship-'));
-    assert.deepStrictEqual(logline_aside(dir), {files: 0, bytes: 0, full: false});
+    assert.deepStrictEqual(logline_aside(dir), {files: 0, bytes: 0, full: false, answer: null, oldest_at: null, newest_at: null});
     fs.mkdirSync(path.join(dir, 'refused'));
     fs.writeFileSync(path.join(dir, 'refused', '1-1.json'), '{"answer":"422"}');
     // What a crash in the middle of a write leaves is not a file of lines
     fs.writeFileSync(path.join(dir, 'refused', '2-2.json.new'), '{"ans');
-    assert.deepStrictEqual(logline_aside(dir), {files: 1, bytes: 16, full: false});
+    assert.deepStrictEqual(counted(logline_aside(dir)), {files: 1, bytes: 16, full: false});
     // A file of 64 MB that takes no room on the disk
     fs.truncateSync(path.join(dir, 'refused', '1-1.json'), 64*1024*1024);
-    assert.deepStrictEqual(logline_aside(dir), {files: 1, bytes: 64*1024*1024, full: true});
+    assert.deepStrictEqual(counted(logline_aside(dir)), {files: 1, bytes: 64*1024*1024, full: true});
+    assert.strictEqual(logline_aside(dir).answer, '422', 'its answer read from its head alone');
 });
+
+// The card on the Health page says why and since when: what Logline answered for the newest
+// file, and when the oldest and the newest were put aside
+test('what is put aside says what Logline answered for the newest file, and when the oldest and the newest came', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'logline-ship-'));
+    fs.mkdirSync(path.join(dir, 'refused'));
+    function put(name, text, at) {
+        fs.writeFileSync(path.join(dir, 'refused', name), text);
+        fs.utimesSync(path.join(dir, 'refused', name), new Date(at), new Date(at));
+    }
+    put('1-1.json', JSON.stringify({answer: '400 [0].labels: expected an array of {name, value}', batch: [{line: 'a'}]}), '2026-09-26T00:23:00Z');
+    put('2-9.json', JSON.stringify({answer: '422 clickhouse 500: Code: 252. "Too many partitions"', batch: [{line: 'b'}]}), '2026-09-26T00:27:00Z');
+    assert.deepStrictEqual(logline_aside(dir), {files: 2, bytes: logline_aside(dir).bytes, full: false, answer: '422 clickhouse 500: Code: 252. "Too many partitions"', oldest_at: '2026-09-26T00:23:00.000Z', newest_at: '2026-09-26T00:27:00.000Z'});
+    // A file of another order is read whole; one cut short says no answer, the counts stand
+    put('3-3.json', JSON.stringify({batch: [{line: 'c'}], answer: '400 [0].time: expected an ISO time'}), '2026-09-26T00:28:00Z');
+    assert.strictEqual(logline_aside(dir).answer, '400 [0].time: expected an ISO time');
+    put('4-4.json', '{"answer":"400 cut sh', '2026-09-26T00:29:00Z');
+    assert.deepStrictEqual([logline_aside(dir).files, logline_aside(dir).answer], [4, null]);
+    // A long answer is said in part
+    put('5-5.json', JSON.stringify({answer: `400 ${'x'.repeat(1000)}`, batch: []}), '2026-09-26T00:30:00Z');
+    assert.strictEqual(logline_aside(dir).answer.length, 300);
+});
+
+function counted(aside)
+{
+    return {files: aside.files, bytes: aside.bytes, full: aside.full};
+}
 
 test('killed after a line is put aside and before the spool moved on, the agent sends it again, keeps one file of it, and sends no line behind it twice, though that file filled refused/', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'logline-ship-'));

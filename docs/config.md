@@ -295,9 +295,11 @@ may span) is halved, and its half again, until a half is taken: a batch of too m
 in so, by halves, and what is left at the end is the one line Logline refuses. That line is put
 aside in `<agent folder>/logline/spool/refused/`, a file with Logline's `answer` and the line as
 `POST /lines` takes it, in `batch`, and every other line goes in. Nothing sends such a file
-again, and nothing deletes it; the problems bar names the machine for as long as one is there.
+again, and nothing deletes it; the problems bar names the machine for as long as one is there,
+its card with what Logline answered for the newest file, and counting from the oldest one.
 The folder keeps a thousand files or 64 MB: past that the refused line waits in the spool with
-every line behind it, as for a Logline that is away, until there is room. Once what Logline
+every line behind it, as for a Logline that is away, until there is room. The card is a warning
+while lines still go, and turns to a failure once a refused line waits there for room. Once what Logline
 refused is mended, a file goes by hand, from the machine, to where and with the token its agent
 was told in `logline/settings.json`:
 

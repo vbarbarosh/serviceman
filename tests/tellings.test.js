@@ -120,6 +120,8 @@ const STATS_ODD = [
     ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: 404}, 'logline.last_answer'],
     ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: '3', bytes: 0, full: false}}, 'logline.aside.files'],
     ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: 3, bytes: 0}}, 'logline.aside.full'],
+    ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: 3, bytes: 0, full: false, answer: 400}}, 'logline.aside.answer'],
+    ['logline', {collecting: true, containers: 1, sent: {lines: 0, batches: 0, bytes: 0}, waiting: {lines: 0, bytes: 0, oldest: null}, last_sent_at: null, last_answer: null, aside: {files: 3, bytes: 0, full: false, answer: null, oldest_at: 5}}, 'logline.aside.oldest_at'],
     ['doors_seen', 'site'],
     ['doors_seen', {site: 'now'}, 'doors_seen.*'],
 ];

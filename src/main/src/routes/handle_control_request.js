@@ -2783,6 +2783,8 @@ function view_from_problem(problem)
         subject: problem.subject,
         cause: problem.cause,
         fix: problem.fix,
+        // warn: something to look at that holds nothing back yet; bad otherwise
+        level: (problem.level === 'warn') ? 'warn' : 'bad',
         since: (problem.since === null) ? problem.first_seen : problem.since,
     };
 }

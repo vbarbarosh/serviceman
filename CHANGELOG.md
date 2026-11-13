@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.84 — 2026-11-13
+
+- A machine's card for lines Logline refused says what Logline answered for the newest file and counts from the oldest one; it is a warning while lines still go, and says "sends Logline nothing" only once a refused line waits for room. Agent 1.34.0.
+
 ## 1.0.83 — 2026-11-13
 
 - A Save of the config reads the file over the settings serviceman started with (`config/index.js`), as its start does: a file that names no `listen` or `control` no longer says they changed and waits for a restart. The same for a form's Save, a machine that joins and a revoked token's forwards.

@@ -83,7 +83,7 @@ test('lines put aside on a machine are a problem of their own for as long as the
     assert.deepStrictEqual(some.map(v => v.key), ['logline_aside:vps1'], 'while Logline takes every other line');
     assert.strictEqual(some[0].subject, 'Logline will not take some of vps1\'s lines');
     assert.match(some[0].cause, /^3 files of lines Logline refused are kept on the machine, in logline\/spool\/refused/);
-    assert.match(some[0].fix, /send them by hand once mended, or delete them/);
+    assert.match(some[0].fix, /send them by hand once fixed, or delete them/);
     const one = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: {files: 1, bytes: 300, full: false}}), NOW);
     assert.match(one[0].cause, /^1 file of lines Logline refused is kept/);
     // Full: the refused line waits in the spool, and the agent says what Logline answered
@@ -97,6 +97,36 @@ test('lines put aside on a machine are a problem of their own for as long as the
     assert.deepStrictEqual(problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: null}), NOW), []);
     assert.deepStrictEqual(problems_from_logline('vps1', logline('ok', null, 0, 0), NOW), []);
     assert.deepStrictEqual(problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {collecting: false, aside: {files: 3, bytes: 4096, full: false}}), NOW), []);
+});
+
+// The card says what Logline answered and since when, and that the machine sends nothing only
+// once a line really waits: full alone holds nothing back until Logline refuses one more
+test('lines put aside say why and since when, and are a failure only once a line waits for room', function () {
+    const told = {answer: '400 [0].labels: expected an array of {name, value}', oldest_at: '2026-09-26T00:23:00.000Z', newest_at: '2026-09-26T00:27:00.000Z'};
+    const full = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: Object.assign({files: 1175, bytes: 900000, full: true}, told)}), NOW);
+    assert.deepStrictEqual(full.map(v => [v.key, v.level]), [['logline_aside:vps1', 'warn']], 'lines go: a warning');
+    assert.strictEqual(full[0].subject, 'Logline refused vps1\'s lines, and no more fit aside');
+    assert.strictEqual(full[0].cause, 'Logline answered: 400 [0].labels: expected an array of {name, value} · 1,175 files kept on the machine, in logline/spool/refused of its agent\'s folder');
+    assert.match(full[0].fix, /^Lines still go\. Once Logline refuses one more, it waits with every line behind it/);
+    assert.strictEqual(full[0].since, Date.parse('2026-09-26T00:23:00Z'), 'since the oldest file, not since serviceman started');
+
+    const some = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: Object.assign({files: 502, bytes: 400000, full: false}, told)}), NOW);
+    assert.deepStrictEqual([some[0].level, some[0].subject, some[0].since], ['warn', 'Logline will not take some of vps1\'s lines', Date.parse('2026-09-26T00:23:00Z')]);
+    assert.match(some[0].cause, /^Logline answered: 400 \[0\]\.labels/);
+
+    // Full, and Logline refused one more: that line waits with the lines behind it, since the oldest of them
+    const held = problems_from_logline('vps1', Object.assign(logline('400 [0].line: expected a string', '2026-10-16T08:40:00Z', 40, 9000), {aside: Object.assign({files: 1000, bytes: 900000, full: true}, told)}), NOW);
+    const card = held.find(v => v.key === 'logline_aside:vps1');
+    assert.deepStrictEqual([card.level, card.subject, card.since], ['bad', 'vps1 sends Logline nothing until its refused/ has room', Date.parse('2026-10-16T08:40:00Z')]);
+    // Full while Logline is away or the token is refused: not this card's failure, the other cards say it
+    for (const answer of ['502 Bad Gateway', '429 slow down', '401 no such token', 'connect ECONNREFUSED 127.0.0.1:3100']) {
+        const away = problems_from_logline('vps1', Object.assign(logline(answer, '2026-10-16T08:40:00Z', 40, 9000), {aside: Object.assign({files: 1000, bytes: 900000, full: true}, told)}), NOW);
+        assert.strictEqual(away.find(v => v.key === 'logline_aside:vps1').level, 'warn', answer);
+    }
+    // An agent from before the answer and the times: the counts, as before
+    const old = problems_from_logline('vps1', Object.assign(logline('ok', null, 0, 0), {aside: {files: 3, bytes: 4096, full: false}}), NOW);
+    assert.deepStrictEqual([old[0].level, old[0].since], ['warn', null]);
+    assert.match(old[0].cause, /^3 files of lines Logline refused are kept on the machine/);
 });
 
 test('lines that wait while nothing went for ten minutes are a problem; a machine that sends is not', function () {
