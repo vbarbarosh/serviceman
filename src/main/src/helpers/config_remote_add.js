@@ -1,6 +1,6 @@
 const app_apply_config = require('./app_apply_config');
 const config_file_save = require('./config_file_save');
-const config_from_json = require('./config_from_json');
+const config_from_file = require('./config_from_file');
 const config_locked = require('./config_locked');
 const fs = require('fs');
 
@@ -26,7 +26,7 @@ async function remote_write(app, remote)
         json.services = services;
     }
     json.remotes.push(remote);
-    const config = config_from_json(json, app.config.base_dir);
+    const config = config_from_file(app, json);
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     await app_apply_config(app, config);
 }

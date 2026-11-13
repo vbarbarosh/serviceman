@@ -11,7 +11,7 @@ const canvas_of = require('../helpers/canvas_of');
 const canvas_view = require('../helpers/canvas_view');
 const canvas_write = require('../helpers/canvas_write');
 const config_file_save = require('../helpers/config_file_save');
-const config_from_json = require('../helpers/config_from_json');
+const config_from_file = require('../helpers/config_from_file');
 const config_locked = require('../helpers/config_locked');
 const container_disk = require('../../../../modules/docker/server/container_disk');
 const control_allowed = require('../control_allowed');
@@ -2112,7 +2112,7 @@ async function config_send(app, res)
 async function config_check(app, req, res)
 {
     const body = await body_fields(req, BODY_LIMIT_BYTES);
-    const refused = config_refused(String(body.text), app.config.base_dir);
+    const refused = config_refused(app, String(body.text));
     if (refused !== null) {
         send_json(res, 200, {ok: false, error: refused});
         return;
@@ -2139,12 +2139,12 @@ async function config_write(app, req, res)
         send_json(res, 409, {error: 'the config changed on disk since the editor loaded it — load it again'});
         return;
     }
-    const refused = config_refused(text, app.config.base_dir);
+    const refused = config_refused(app, text);
     if (refused !== null) {
         send_json(res, 400, {ok: false, error: refused});
         return;
     }
-    const config = config_from_json(JSON.parse(text), app.config.base_dir);
+    const config = config_from_file(app, JSON.parse(text));
     await config_file_save(app.config.path, text);
     log_event(app, 'config_saved', {hash: text_hash(text)});
     const applied = await app_apply_config(app, config);
@@ -2613,7 +2613,7 @@ async function config_file_write(app, res, change, miss_status)
     }
     let config;
     try {
-        config = config_from_json(json, app.config.base_dir);
+        config = config_from_file(app, json);
     }
     catch (error) {
         send_json(res, 400, {error: error.message});
@@ -2625,10 +2625,10 @@ async function config_file_write(app, res, change, miss_status)
 }
 
 // The reason the text cannot be a serviceman config, or null for a fine one
-function config_refused(text, base_dir)
+function config_refused(app, text)
 {
     try {
-        config_from_json(JSON.parse(text), base_dir);
+        config_from_file(app, JSON.parse(text));
         return null;
     }
     catch (error) {

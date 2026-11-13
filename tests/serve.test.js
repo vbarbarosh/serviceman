@@ -1185,6 +1185,30 @@ test('the config is read, checked, saved and applied from the control page', asy
     }
 });
 
+// The file names no listen and no control: serviceman starts on its settings' (config/index.js),
+// and a Save of the file as it is reads them the same way, so nothing has changed
+test('a Save of the config as it is changes nothing, the settings under the file read as at the start', async function () {
+    const settings = {listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}};
+    const running = await serviceman_start_file({
+        services: [{name: 'site', type: 'external', publish: {host: 'site.test'}, upstream: '127.0.0.1:9'}],
+    }, settings);
+    try {
+        const loaded = JSON.parse((await fetch_host({port: running.control_port, path: '/api/v1/config'})).body);
+        const check = await fetch_host({port: running.control_port, path: '/api/v1/config/check', method: 'POST', body: JSON.stringify({text: loaded.text})});
+        assert.strictEqual(JSON.parse(check.body).ok, true);
+        const saved = await fetch_host({port: running.control_port, path: '/api/v1/config', method: 'POST', body: JSON.stringify({text: loaded.text, hash: loaded.hash})});
+        assert.strictEqual(saved.status, 200);
+        const outcome = JSON.parse(saved.body);
+        assert.deepStrictEqual([outcome.restart_needed, outcome.notes], [false, []]);
+        // And the next one too: the settings went on with the config the first Save applied
+        const again = await fetch_host({port: running.control_port, path: '/api/v1/config', method: 'POST', body: JSON.stringify({text: loaded.text, hash: outcome.hash})});
+        assert.deepStrictEqual([JSON.parse(again.body).restart_needed, JSON.parse(again.body).notes], [false, []]);
+    }
+    finally {
+        await running.close();
+    }
+});
+
 test('a service is created, reshaped and removed through the control api', async function () {
     const far = await far_server();
     const running = await serviceman_start_file({
@@ -2875,13 +2899,13 @@ async function serviceman_start(services, options)
 }
 
 // The same serviceman, booted from a config file on disk — the config editor needs the file
-async function serviceman_start_file(json)
+async function serviceman_start_file(json, settings)
 {
     process.env.SERVICEMAN_TEST_STATE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-')), 'docker.json');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-config-'));
     const config_path = path.join(dir, 'serviceman.json');
     fs.writeFileSync(config_path, JSON.stringify(json, null, 4));
-    const out = await serviceman_serve(await profile_from_db(config_path));
+    const out = await serviceman_serve(await profile_from_db(config_path, settings));
     out.config_path = config_path;
     return out;
 }

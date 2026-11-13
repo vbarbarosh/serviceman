@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.83 — 2026-11-13
+
+- A Save of the config reads the file over the settings serviceman started with (`config/index.js`), as its start does: a file that names no `listen` or `control` no longer says they changed and waits for a restart. The same for a form's Save, a machine that joins and a revoked token's forwards.
+
 ## 1.0.82 — 2026-11-13
 
 - Restart pressed while a service is starting ends with the service running: whoever wants it up after a stop of its start gets a start of its own, not the cut start's end; an image pull that ends while its service starts is mended by the same line (SM-180). Registered SM-372 (a Stop pressed during a Restart's own stop is not the last word kept).

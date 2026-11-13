@@ -9,6 +9,8 @@ async function profile_from_db(db_path, settings)
     // The settings are the base; the db's own keys win, so a db from before the split runs as it did
     const out = config_from_json(Object.assign({}, settings, json), path.dirname(path.resolve(db_path)));
     out.path = path.resolve(db_path);
+    // Kept, so that a Save reads the file over the same settings (config_from_file)
+    out.settings = settings;
     return out;
 }
 
