@@ -1,8 +1,9 @@
 import format_ms_ago from './format_ms_ago.js';
+import secret_hidden from './secret_hidden.js';
 import to_clipboard from './to_clipboard.js';
 
 // A new version of an app folder from a script: the curl line that sends a zip to this service,
-// and a token for it alone, made here and shown once. What New zip… above does in three steps,
+// and a token for it alone, made here and copied once. What New zip… above does in three steps,
 // as one call for a deploy script.
 const service_script = {
     template: `
@@ -17,14 +18,14 @@ const service_script = {
     </div>
     <p class="muted">{{ tokens_text }}</p>
     <div v-if="(made !== null)" class="tk-made">
-        <p><b>{{ made.label }}</b>: copy it now, it is not shown again.</p>
+        <p><b>{{ made.label }}</b>: copy it now. Only its hash is kept, so it cannot be copied later.</p>
         <div class="tk-made-row">
-            <code>{{ made.token }}</code>
+            <code class="tk-hidden">{{ secret_hidden(made.token, made.token) }}</code>
             <button type="button" @click="copy('token', made.token)">{{ (copied === 'token') ? 'Copied' : 'Copy' }}</button>
         </div>
         <p>The line with it in:</p>
         <div class="tk-made-row">
-            <code>{{ made_line }}</code>
+            <code class="tk-hidden">{{ secret_hidden(made_line, made.token) }}</code>
             <button type="button" @click="copy('made', made_line)">{{ (copied === 'made') ? 'Copied' : 'Copy' }}</button>
         </div>
     </div>
@@ -36,7 +37,7 @@ const service_script = {
 `,
     props: ['view'],
     data: function () {
-        // tokens: the ones kept to this service alone; made: the one just made, shown this once
+        // tokens: the ones kept to this service alone; made: the one just made, to be copied this once
         return {tokens: [], made: null, copied: '', busy: false, bad: false, note: ''};
     },
     computed: {
@@ -55,6 +56,7 @@ const service_script = {
         },
     },
     methods: {
+        secret_hidden,
         load: async function () {
             try {
                 const answer = await fetch('/api/v1/tokens', {cache: 'no-store'});

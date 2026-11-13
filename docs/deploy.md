@@ -203,12 +203,12 @@ Even on this machine, and through the control socket, nothing gets in without a 
   the curl line beside it. `forwards` reads and writes the [forwards](config.md#forwards)
   between its machines, both ends on them (`GET` and `PUT /api/v1/forwards`), and leaves every
   other forward as it was: a way to whatever listens on their loopback and in their sockets, as
-  `ssh -L` is, so it is a key to those. It is shown once, and only its hash is kept, in
-  `data/control_tokens.json`. It never touches a secret, another machine, the config but the
-  forwards between its machines, or a service but the one it sends a new version to, and opens
-  no other shell. **Edit…** changes its label, machines (**every
+  `ssh -L` is, so it is a key to those. It can be copied once, drawn as dots even then, and only
+  its hash is kept, in `data/control_tokens.json`. It never touches a secret, another machine,
+  the config but the forwards between its machines, or a service but the one it sends a new
+  version to, and opens no other shell. **Edit…** changes its label, machines (**every
   machine**, those added later too, is one tick), rights, folders and apps in place, the token
-  staying the same; **Rotate…** gives it a new value, shown once, the old one refused at once;
+  staying the same; **Rotate…** gives it a new value, copied once, the old one refused at once;
   **Revoke…** ends it. What a revoked or rotated token holds open is cut at once (an open shell, a
   folder watch, an upload half sent), and so is what an edit takes from it; the forwards it asked
   for are set aside when it is revoked or may no longer hold them, saying whose they were. Its kept

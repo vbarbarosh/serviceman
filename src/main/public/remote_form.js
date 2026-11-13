@@ -2,6 +2,7 @@ import entry_from_form from './entry_from_form.js';
 import machine_drawing from './machine_drawing.js';
 import settled from './settled.js';
 import state_read from './state_read.js';
+import to_clipboard from './to_clipboard.js';
 
 const TOKEN_BYTES = 32;
 
@@ -66,7 +67,7 @@ const remote_form = {
             <label for="rf-token">Token</label>
             <div>
                 <div class="line">
-                    <input id="rf-token" v-model.trim="model.token" class="rf-token" spellcheck="false" autocomplete="off">
+                    <input id="rf-token" v-model.trim="model.token" class="rf-token secret" spellcheck="false" autocomplete="off">
                     <button type="button" @click="click_copy">{{ (copied ? 'Copied' : 'Copy') }}</button>
                     <button type="button" @click="click_another_one">Another one</button>
                 </div>
@@ -177,15 +178,14 @@ const remote_form = {
         click_another_one: function () {
             this.model.token = token_make();
         },
+        // The field shows dots, so this is the way to take the token
         click_copy: async function () {
-            try {
-                await navigator.clipboard.writeText(this.model.token);
+            if (await to_clipboard(this.model.token)) {
                 this.copied = true;
                 setTimeout(this.copied_forget, 1500);
+                return;
             }
-            catch {
-                this.report('the clipboard would not take it', true);
-            }
+            this.report('the clipboard would not take it', true);
         },
         copied_forget: function () {
             this.copied = false;

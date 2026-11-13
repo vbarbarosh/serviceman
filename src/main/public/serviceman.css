@@ -1246,11 +1246,24 @@ pre {
 
 #editor footer {
     display: flex;
+    flex-wrap: wrap;
     gap: .6rem;
     align-items: center;
     padding: .6rem 1.25rem;
     border-top: 1px solid var(--line);
     background: var(--panel);
+}
+
+/* A long note beside them (a path, an error, what the dots are) wraps, and goes under them
+   where the row has no room; the buttons keep their words on one line */
+#editor footer button {
+    flex-shrink: 0;
+}
+
+#editor footer > span {
+    flex: 1 1 16rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .form .grid {
@@ -1462,7 +1475,7 @@ pre {
     width: auto;
 }
 
-/* The Tokens page: a list of ticks each on its line, and the token just made, shown once */
+/* The Tokens page: a list of ticks each on its line, and the token just made, copied once */
 .tk-checks {
     display: flex;
     flex-direction: column;
@@ -1521,6 +1534,11 @@ pre {
     min-width: 0;
     overflow-wrap: anywhere;
     user-select: all;
+}
+
+/* Dots where the token is: selected, it would copy the dots, so Copy is the way to take it */
+.tk-made-row code.tk-hidden {
+    user-select: none;
 }
 
 /* Save stays put while a long form scrolls under it; the negative margins carry the bar out
@@ -3383,6 +3401,12 @@ article.rf h1 + p {
 
 .rf-token {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* A token in a field is drawn as dots, a password's are. It stays a text field, so no password
+   manager offers to keep it, and Copy beside it takes it. */
+input.secret {
+    -webkit-text-security: disc;
 }
 
 .rf-danger {

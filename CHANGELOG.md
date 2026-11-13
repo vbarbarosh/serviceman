@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.81 — 2026-11-13
+
+- A token is drawn as dots wherever the page shows it: a remote's Settings and install commands, the join token and its command, a token just made on the Tokens page or for an app folder, and every `token` in the Config editor. Copy takes the real one; Check and Save put each token back as it was, and one typed over the dots is the new one.
+
 ## 1.0.80 — 2026-11-10
 
 - A program waiting to be started again (restart: always, after it ended by itself) is no longer started by its timer once Stop is pressed, the service is removed or changed by a Save, or serviceman stops; any start in the wait is the restart (`program_restart_cancel` in the log) (SM-181). Registered SM-371 (a program that ends at once is marked running).

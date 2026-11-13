@@ -1,4 +1,5 @@
 import format_ms_ago from './format_ms_ago.js';
+import secret_hidden from './secret_hidden.js';
 import to_clipboard from './to_clipboard.js';
 
 // What each right lets a token do, in a few words
@@ -27,9 +28,9 @@ function aside_text(loaded)
 }
 
 // The tokens of the control door: each one for an agent or a program, with the machines it
-// sees and what it may do with them. A token is shown once, when it is made or given a new
-// value by a rotation; only its hash is kept. What it may do is edited in place, the token
-// staying the same.
+// sees and what it may do with them. A token can be copied once, when it is made or given a new
+// value by a rotation, and is drawn as dots even then; only its hash is kept. What it may do is
+// edited in place, the token staying the same.
 const tokens_form = {
     template: `
 <article id="detail" class="form">
@@ -96,19 +97,19 @@ const tokens_form = {
         </template>
     </div>
     <div v-if="(made !== null)" class="tk-made">
-        <p><b>{{ made.label }}</b>: copy it now, it is not shown again.</p>
+        <p><b>{{ made.label }}</b>: copy it now. Only its hash is kept, so it cannot be copied later.</p>
         <div class="tk-made-row">
-            <code>{{ made.token }}</code>
+            <code class="tk-hidden">{{ secret_hidden(made.token, made.token) }}</code>
             <button type="button" @click="copy('token', made.token)">{{ (copied === 'token') ? 'Copied' : 'Copy' }}</button>
         </div>
         <p>For an agent's box, as its environment:</p>
         <div class="tk-made-row">
-            <code>{{ env_line }}</code>
+            <code class="tk-hidden">{{ secret_hidden(env_line, made.token) }}</code>
             <button type="button" @click="copy('env', env_line)">{{ (copied === 'env') ? 'Copied' : 'Copy' }}</button>
         </div>
         <p>To check it, on the machine serviceman runs on:</p>
         <div class="tk-made-row">
-            <code>{{ check_line }}</code>
+            <code class="tk-hidden">{{ secret_hidden(check_line, made.token) }}</code>
             <button type="button" @click="copy('check', check_line)">{{ (copied === 'check') ? 'Copied' : 'Copy' }}</button>
         </div>
     </div>
@@ -138,7 +139,7 @@ const tokens_form = {
             rights_chosen: ['status'],
             folders: '',
             services_chosen: [],
-            // The token just made or rotated, the one time it is shown: {label, token}
+            // The token just made or rotated, the one time it can be copied: {label, token}
             made: null,
             copied: '',
             // The question a token's button asked and is not answered yet: {id, what}
@@ -168,6 +169,7 @@ const tokens_form = {
         },
     },
     methods: {
+        secret_hidden,
         load: async function () {
             const answer = await fetch('/api/v1/tokens', {cache: 'no-store'});
             const body = await answer.json();

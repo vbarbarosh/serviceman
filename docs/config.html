@@ -759,8 +759,10 @@ service out of the config — anything running keeps running.</p>
 <strong>Copies</strong>, the checkbox beside the image fetches it before the first visit, a remote&#39;s <strong>Tags</strong>
 sit in its form, and <strong>Let machines join</strong> on the Remotes page holds the join token and the tags a
 machine may claim.</p>
-<p>For the edge cases the pencil opens the config file in a code editor. <strong>Check</strong> reads the
-text and reports what is wrong without touching anything. <strong>Save</strong> writes the file and
+<p>For the edge cases the pencil opens the config file in a code editor. Each <code>token</code> in it is
+drawn as dots and a number (<code>&quot;•••••••••••• 2&quot;</code>), and <strong>Check</strong> and <strong>Save</strong> put it back as it
+was, wherever its block was moved; a token typed over the dots is the new one. <strong>Check</strong> reads
+the text and reports what is wrong without touching anything. <strong>Save</strong> writes the file and
 applies it the same way:</p>
 <ul>
 <li>A service whose definition did not change keeps running untouched.</li>
@@ -1469,7 +1471,7 @@ answers once the new version has started, or with what failed.</p>
 <p><strong>From a script, all of it in one call:</strong> the zip as the body of a <code>PUT</code>, with the owner&#39;s token
 or one with the <code>versions</code> right on the app&#39;s machine (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>).
 The service&#39;s page shows this line, and <strong>Make a token for …</strong> there makes a token kept to that
-service alone, shown once with the line filled in:</p>
+service alone, to be copied once with the line filled in (the page draws the token as dots):</p>
 <pre><code>curl -T ai-lab.zip -H &quot;Authorization: Bearer $TOKEN&quot; https://serviceman.example.com/api/v1/services/ai-lab/zip
 </code></pre>
 <p>serviceman reads the zip as the page does (one top folder, or <code>bin/run</code> at the top; its <code>data/</code>

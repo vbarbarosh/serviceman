@@ -10,6 +10,8 @@ import app_zip_read from './app_zip_read.js';
 import authwall_pane from './authwall_pane.js';
 import canvas_pane from './canvas_pane.js';
 import config_read from './config_read.js';
+import config_tokens_back from './config_tokens_back.js';
+import config_tokens_hidden from './config_tokens_hidden.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import data_table from './data_table.js';
 import file_manager from 'file_manager/file_manager.js';
@@ -254,7 +256,8 @@ const config_editor = {
     props: ['theme'],
     emits: ['close', 'saved'],
     data: function () {
-        return {hash: null, note: '', bad: false, busy: false};
+        // kept: each token the editor draws as dots, and what it stands for (config_tokens_hidden)
+        return {hash: null, note: '', bad: false, busy: false, kept: []};
     },
     watch: {
         theme: function (value) {
@@ -271,8 +274,10 @@ const config_editor = {
                     return;
                 }
                 this.hash = loaded.hash;
-                this.ace.setValue(loaded.text, -1);
-                this.report(loaded.path, false);
+                this.show(loaded.text);
+                this.ace.moveCursorTo(0, 0);
+                this.ace.scrollToLine(0);
+                this.report(this.kept_text(loaded.path), false);
                 this.ace.focus();
             }
             catch {
@@ -283,13 +288,14 @@ const config_editor = {
             }
         },
         check: async function () {
-            const answer = await fetch('/api/v1/config/check', {method: 'POST', body: JSON.stringify({text: this.ace.getValue()})});
+            const text = config_tokens_back(this.ace.getValue(), this.kept);
+            const answer = await fetch('/api/v1/config/check', {method: 'POST', body: JSON.stringify({text})});
             const outcome = await answer.json();
             this.report(outcome.ok ? 'the config reads fine' : outcome.error, outcome.ok === false);
         },
         save: async function () {
             this.busy = true;
-            const text = this.ace.getValue();
+            const text = config_tokens_back(this.ace.getValue(), this.kept);
             try {
                 const answer = await fetch('/api/v1/config', {method: 'POST', body: JSON.stringify({text, hash: this.hash})});
                 const outcome = await answer.json();
@@ -298,6 +304,8 @@ const config_editor = {
                     return;
                 }
                 this.hash = outcome.hash;
+                // A token written in over the dots is saved now, and drawn as dots too
+                this.show(text);
                 const notes = (outcome.notes.length > 0) ? outcome.notes.join(' · ') : 'nothing changed';
                 this.report(outcome.restart_needed ? `saved · ${notes}` : `saved and applied · ${notes}`, false);
                 this.$emit('saved');
@@ -320,6 +328,26 @@ const config_editor = {
         report: function (note, bad) {
             this.note = note;
             this.bad = bad;
+        },
+        // The text in the editor with every token as dots, the cursor and the scroll where they
+        // were
+        show: function (text) {
+            const hidden = config_tokens_hidden(text);
+            this.kept = hidden.kept;
+            if (hidden.text === this.ace.getValue()) {
+                return;
+            }
+            const cursor = this.ace.getCursorPosition();
+            const top = this.ace.session.getScrollTop();
+            this.ace.setValue(hidden.text, -1);
+            this.ace.moveCursorToPosition(cursor);
+            this.ace.session.setScrollTop(top);
+        },
+        kept_text: function (path) {
+            if (this.kept.length === 0) {
+                return path;
+            }
+            return `${path} · tokens as dots, kept as they are on Save; to change one, type over its dots`;
         },
     },
     mounted: function () {
@@ -364,14 +392,14 @@ const remote_install = {
             </dd>
         </dl>
         <label class="check wide"><input type="checkbox" v-model="root_half"> give it a root half too — the same file under the system's systemd, for the work that has to be root</label>
-        <snip :text="install_text"/>
+        <snip :text="install_text" :secret="token"/>
         <p v-if="root_half" class="muted">Run it as yourself, not with sudo in front: it asks for your password once, at the start, and uses it for the root half alone.</p>
         <p class="muted">No node on that machine? It is one file, and it goes in <code>~/bin</code> — nothing is installed and nothing else is touched:</p>
         <snip :text="node_text"/>
         <p class="muted">Or by hand — the two things that command does:</p>
-        <snip :text="file_text"/>
+        <snip :text="file_text" :secret="token"/>
         <p class="muted">Or start it as a container, if that machine has docker:</p>
-        <snip :text="docker_text"/>
+        <snip :text="docker_text" :secret="token"/>
         <p v-if="(door.socket !== null)" class="muted">The socket file must be on that machine. This command copies it there, and no port stays open on the two machines: <code>ssh -R {{ door_where }}:{{ door.socket }} {{ view.name }}</code></p>
         <p class="muted">
             <a :href="'/api/v1/agent.js'" download>Download the agent file</a> ·

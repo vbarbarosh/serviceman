@@ -48,8 +48,10 @@ Everything in this file has a place on that page: **Runs on** is a list of machi
 sit in its form, and **Let machines join** on the Remotes page holds the join token and the tags a
 machine may claim.
 
-For the edge cases the pencil opens the config file in a code editor. **Check** reads the
-text and reports what is wrong without touching anything. **Save** writes the file and
+For the edge cases the pencil opens the config file in a code editor. Each `token` in it is
+drawn as dots and a number (`"•••••••••••• 2"`), and **Check** and **Save** put it back as it
+was, wherever its block was moved; a token typed over the dots is the new one. **Check** reads
+the text and reports what is wrong without touching anything. **Save** writes the file and
 applies it the same way:
 
 - A service whose definition did not change keeps running untouched.
@@ -624,7 +626,7 @@ answers once the new version has started, or with what failed.
 **From a script, all of it in one call:** the zip as the body of a `PUT`, with the owner's token
 or one with the `versions` right on the app's machine ([a token for every caller](deploy.md#a-token-for-every-caller)).
 The service's page shows this line, and **Make a token for …** there makes a token kept to that
-service alone, shown once with the line filled in:
+service alone, to be copied once with the line filled in (the page draws the token as dots):
 
     curl -T ai-lab.zip -H "Authorization: Bearer $TOKEN" https://serviceman.example.com/api/v1/services/ai-lab/zip
 

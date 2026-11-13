@@ -21,7 +21,7 @@ const join_form = {
             <label>Token</label>
             <div>
                 <div class="line">
-                    <input v-model.trim="model.token" spellcheck="false">
+                    <input v-model.trim="model.token" class="secret" spellcheck="false" autocomplete="off">
                     <button type="button" @click="token_new">Another one</button>
                 </div>
             </div>
@@ -46,7 +46,7 @@ const join_form = {
                 <p class="muted">Where a new machine reaches this one — a tailscale name, a public address, whatever it can resolve.</p>
             </dd>
         </dl>
-        <snip :text="command"/>
+        <snip :text="command" :secret="saved_token"/>
         <p class="muted">One command, with the join token instead of a token of its own and the tags it claims. The agent is <a :href="'/api/v1/agent.js'" download>the same file</a> every other machine runs.</p>
     </template>
     <div class="actions">
