@@ -24,6 +24,7 @@ const service_inflight = require('../src/main/src/helpers/service_inflight');
 const service_phase = require('../src/main/src/helpers/service_phase');
 const service_probe = require('../src/main/src/helpers/service_probe');
 const service_redir = require('../src/main/src/service_redir');
+const service_restart = require('../src/main/src/helpers/service_restart');
 const service_stop = require('../src/main/src/helpers/service_stop');
 const stream = require('stream');
 const test = require('node:test');
@@ -143,6 +144,40 @@ test('restart stops it and starts it again as one ask, and waits for its own sto
         const wrong = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/quiet/restart'});
         assert.strictEqual(wrong.status, 405);
         assert.match(JSON.parse(wrong.body).error, /restart is a POST/);
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('a restart pressed while it starts ends with a new start running, and whoever waited on the one it cut is told', async function () {
+    const port = await free_port();
+    // It listens only after a while, so the start is caught waiting for its door to answer
+    const running = await serviceman_start([
+        {name: 'slow', type: 'shell', publish: {host: 'slow.test', port}, command: `${process.execPath} -e "setTimeout(function () { require('http').createServer(function (req, res) { res.end('up'); }).listen(${port}, '127.0.0.1'); }, 400);"`},
+    ]);
+    const service = running.app.service_by_name.slow;
+    function lines(pattern) {
+        return running.app.log_lines.filter(v => pattern.test(v));
+    }
+    try {
+        const first = service_ensure_running(running.app, service).then(() => 'up', e => e.message);
+        await wait_until(() => /^waiting for an answer/.test(String(service.state.doing)), 10000);
+        assert.strictEqual(service_phase(service), 'starting');
+
+        // Pressed twice, and a visitor in the middle of it: one stop, one new start, and all
+        // three are answered by it
+        const restarts = Promise.all([service_restart(running.app, service), service_restart(running.app, service)]);
+        const visitor = fetch_host({port: running.port, host: 'slow.test', path: '/'});
+        await restarts;
+        assert.strictEqual(service_phase(service), 'running', 'it runs the new start, not stopped for good');
+        assert.strictEqual(await first, 'slow: it was stopped before it answered', 'whoever waited on the start it cut is told so, not left waiting');
+        const answer = await visitor;
+        assert.strictEqual(answer.status, 200, answer.body);
+        assert.strictEqual(answer.body, 'up');
+        assert.strictEqual(lines(/\[service_start_begin\] service=slow /).length, 2, 'the start it cut, and one new one');
+        assert.strictEqual(lines(/\[service_restart_end_ok\] service=slow$/).length, 2);
+        assert.strictEqual(lines(/\[service_restart_end_error\]/).length, 0);
     }
     finally {
         await running.close();

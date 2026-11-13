@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.82 — 2026-11-13
+
+- Restart pressed while a service is starting ends with the service running: whoever wants it up after a stop of its start gets a start of its own, not the cut start's end; an image pull that ends while its service starts is mended by the same line (SM-180). Registered SM-372 (a Stop pressed during a Restart's own stop is not the last word kept).
+
 ## 1.0.81 — 2026-11-13
 
 - A token is drawn as dots wherever the page shows it: a remote's Settings and install commands, the join token and its command, a token just made on the Tokens page or for an app folder, and every `token` in the Config editor. Copy takes the real one; Check and Save put each token back as it was, and one typed over the dots is the new one.

@@ -10,9 +10,20 @@ function service_ensure_running(app, service)
         return Promise.resolve(service);
     }
     for (const instance of service.state.instances) {
-        if (instance.start_promise !== null) {
-            return instance.start_promise;
+        if (instance.start_promise === null) {
+            continue;
         }
+        if (instance.start_under_way && instance.asked_to_stop) {
+            // A start that was stopped on its way up ends a moment after the stop, as stopped.
+            // Whoever asks after the stop wants it up (a Restart, a visitor, a newer image), and
+            // gets a start of its own once that one is over, not that one's end as its answer.
+            return instance.start_promise.catch(function () {
+                // That end belongs to the stop, and instance_start wrote it
+            }).then(function () {
+                return service_ensure_running(app, service);
+            });
+        }
+        return instance.start_promise;
     }
     const first = service.state.instances[0];
     const out = instance_start(app, service, first);
