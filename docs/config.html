@@ -2006,13 +2006,24 @@ the name it has outside; under it, every app as a cell, a click opening it. A fo
 zipped in the page and sent the same way, and so is a page, as the <code>index.html</code> of an app of its
 own. What is none of them is said on the card at once, for what it is (<code>photo.png: it is a PNG picture, not a zip</code>, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.</p>
+<p><strong>Apps</strong> shows the apps that run from a folder of their own too, as the New service form makes
+them (<a href="#a-new-version-of-an-app-folder">a new version of an app folder</a>): a program run as <code>bin/run</code>
+in its folder, here or on a machine.</p>
 <p>A cell is its app&#39;s: <strong>New version…</strong> picks a zip or a page for it, and a zip, a folder or a page
-dropped on the cell goes the same way, as that app&#39;s new version whatever the file is called.
-<strong>Settings</strong> opens its page: its name, what it serves, its addresses, and Remove. A new name there
-takes its folder in <code>apps/</code> and the addresses made of its name with it (<code>notes.localhost</code> is
-<code>wiki.localhost</code>, <code>notes.apps.example.com</code> is <code>wiki.apps.example.com</code>); an address added by hand
-stays, and so does a folder the config names. A name another service has is a <code>409</code>, and so is
-one whose folder an app of that name left in <code>apps/</code>.</p>
+dropped on the cell goes the same way, as that app&#39;s new version whatever the file is called. An
+app of its own folder takes a zip or its folder, never a page: it goes in as its page&#39;s <strong>New
+zip…</strong> puts it, its <code>data/</code> kept as it is on its machine, and the cell says once it runs.
+<strong>Settings</strong> opens a small window over Apps with its name and its public addresses, the names a
+machine&#39;s door answers for it, and nothing more; one Save writes both, Cancel or Esc nothing, and
+the rest of the service is on its page, linked at the window&#39;s foot. A new address goes through
+the door that answers most names already, behind <code>authwall</code> where there is one.</p>
+<p>A new name takes the addresses made of its name with it (<code>notes.localhost</code> is <code>wiki.localhost</code>,
+<code>notes.apps.example.com</code> is <code>wiki.apps.example.com</code>), and an app of files its folder in <code>apps/</code>;
+an address added by hand stays, and so does a folder the config names. The door rules that answer
+for it, or put it in front of another as its wall, its secrets and the tokens kept to it go with
+the new name too, on any service renamed; what ran under the old name is stopped, never
+uninstalled, and the new name starts it on its first visitor. A name another service has is a
+<code>409</code>, and so is one whose folder an app of that name left in <code>apps/</code>.</p>
 <p>A name serviceman has not seen becomes a folder of files in the config and is served at once:
 <code>201</code>; a known one gets the new version: <code>200</code>. A new app has two names. One is beside
 serviceman&#39;s own, <code>notes.localhost</code> beside <code>serviceman.localhost</code>, as the New service form names

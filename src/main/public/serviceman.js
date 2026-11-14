@@ -1929,7 +1929,7 @@ const app = {
                 <span class="name">{{ view.title || view.name }}</span>
             </button>
         </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'apps'), open: (kind_now === 'apps')}" title="Pages and apps with no server, served by serviceman: drop a zip, get a link" @click="apps_show">
+        <button type="button" class="row kind" :class="{on: (kind_now === 'apps'), open: (kind_now === 'apps')}" title="Small apps: pages serviceman serves and apps run from a folder of their own; drop a zip, get a link" @click="apps_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>
             <span class="name">Apps</span>
             <span class="muted">{{ apps_count }}</span>
@@ -2035,7 +2035,7 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :state="state" @select="select_named"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :state="state" @select="select_named" @saved="poll"/></article>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
@@ -2349,9 +2349,10 @@ const app = {
         guarded_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
         },
-        // The folders of files serviceman serves: the apps sent to it
+        // The small apps: the folders of files serviceman serves, and the apps run from a folder
+        // of their own
         apps_count: function () {
-            return this.state.services.filter(v => v.type === 'files').length;
+            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null)).length;
         },
         forwards_count: function () {
             return (this.state.forwards === undefined) ? 0 : this.state.forwards.length;

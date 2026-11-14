@@ -392,6 +392,49 @@ test('an app renamed on its page takes its folder and its addresses with it', as
     assert.strictEqual((await fetch_host({port, host: 'site.localhost', path: '/'})).body, '<title>Own</title>');
 });
 
+// A rename, as the Apps card's Settings sends it, of an app run from its own folder: the address
+// made of its name, the door rules that answer for it or put it in front of another, its secrets
+// and the tokens kept to it all follow it. Before, the save was refused (a door rule named a
+// service nobody had), and the secrets and tokens stayed under the old name.
+test('an app run from its own folder renamed takes its address, door rules, secrets and tokens', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apps-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    const folder = path.join(dir, 'board');
+    const board = {name: 'board', type: 'shell', remotes: ['vps1'], cwd: folder, command: 'bin/run', publish: {hosts: ['board.localhost', 'board-wiki.example.com'], port: 3100}};
+    fs.writeFileSync(config_path, JSON.stringify({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        remotes: [{name: 'vps1', token: 'a'.repeat(64), inbound: {'board.example.com': {service: 'board', auth: 'wall'}, 'wall.example.com': {service: 'wall', auth: 'board'}, 'old.example.com': 'board'}}],
+        services: [board, {name: 'wall', type: 'external', publish: {host: 'wall.localhost'}, upstream: '127.0.0.1:1'}],
+    }, null, 4));
+    fs.mkdirSync(path.join(dir, 'data'));
+    fs.writeFileSync(path.join(dir, 'data', 'secrets.json'), JSON.stringify({global: {}, services: {board: {KEY: 'k1'}, wall: {KEY: 'k2'}}}));
+    fs.writeFileSync(path.join(dir, 'data', 'control_tokens.json'), JSON.stringify([{id: 't1', label: 'ci', sha256: 'x', remotes: ['*'], rights: ['versions'], services: ['board', 'wall'], made_at: 1}]));
+    const before = process.env.SERVICEMAN_STATE_DIR;
+    process.env.SERVICEMAN_STATE_DIR = path.join(dir, 'data');
+    const app = app_from_config(await profile_from_db(config_path));
+    const servers = await server_start(app);
+    t.after(function () {
+        servers.server.close();
+        servers.control.close();
+        servers.server.closeAllConnections();
+        servers.control.closeAllConnections();
+        process.env.SERVICEMAN_STATE_DIR = before;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const control = servers.control.address().port;
+    const answer = await fetch_host({port: control, host: '127.0.0.1', path: '/api/v1/services/board', method: 'PUT', body: JSON.stringify({service: Object.assign({}, board, {name: 'pad'})})});
+    assert.strictEqual(answer.status, 200, answer.body);
+    const json = JSON.parse(fs.readFileSync(config_path, 'utf8'));
+    assert.deepStrictEqual(json.services[0], Object.assign({}, board, {name: 'pad', publish: {hosts: ['pad.localhost', 'board-wiki.example.com'], port: 3100}}), 'the address made of its name follows it; one given by hand stays; its folder is where it was');
+    assert.deepStrictEqual(json.remotes[0].inbound, {'board.example.com': {service: 'pad', auth: 'wall'}, 'wall.example.com': {service: 'wall', auth: 'pad'}, 'old.example.com': 'pad'});
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'data', 'secrets.json'), 'utf8')).services, {wall: {KEY: 'k2'}, pad: {KEY: 'k1'}});
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'data', 'control_tokens.json'), 'utf8'))[0].services, ['pad', 'wall']);
+    const notes = JSON.parse(answer.body).notes;
+    assert.ok(notes.includes('board: renamed to pad'), notes.join('; '));
+    assert.strictEqual(notes.some(v => v.includes('removed from the config')), false, 'a rename, not a removal: no uninstall line runs');
+});
+
 // A folder dropped on the Apps page is zipped there: serviceman's own reader takes that zip as
 // it takes any, names with letters past ASCII and folders under folders included
 test('a folder zipped by the page is read by serviceman as a page\'s files', async function () {
@@ -423,6 +466,7 @@ test('the Apps card sends a page as an app of its own, a zip as it is, and says 
     const apps_pane = (await import(path.join(PUBLIC, 'apps_pane.js'))).default;
     const zip_blob = (await import(path.join(PUBLIC, 'zip_blob.js'))).default;
     const files_zip_items = require('../src/main/src/helpers/files_zip_items');
+    const zip_entries = require('../src/main/src/helpers/zip_entries');
     const sent = [];
     const fetch_before = global.fetch;
     global.fetch = async function (url, options) {
@@ -430,7 +474,8 @@ test('the Apps card sends a page as an app of its own, a zip as it is, and says 
         return new Response(JSON.stringify({made: true, address: 'http://x.localhost:3000/', public: null}), {status: 201});
     };
     try {
-        const card = {state: {listen: {port: 3000}, apps: null}, names_on: false, sent: null};
+        const hi = {name: 'hi', type: 'shell', app_folder: '/srv/hi', publish: {hosts: ['hi.localhost']}};
+        const card = Object.assign({state: {listen: {port: 3000}, apps: null}, apps: [hi], domain: null, names_on: false, sent: null}, apps_pane.methods);
         await apps_pane.methods.give.call(card, {file: new File(['<!doctype html><title>Two</title>'], '2.html')});
         assert.strictEqual(card.sent.error, '');
         assert.strictEqual(sent.length, 1);
@@ -466,6 +511,20 @@ test('the Apps card sends a page as an app of its own, a zip as it is, and says 
         await apps_pane.methods.give.call(card, {file: new File([zip], 'notes2.zip')}, 'board');
         assert.strictEqual(sent[3].url, '/api/v1/apps/board');
         assert.strictEqual(card.sent.name, 'board');
+        // An app run from its own folder takes its zip as it is, or its folder zipped without
+        // its data/, at its own new-version route; a page is no version of it, and goes nowhere
+        await apps_pane.methods.give.call(card, {file: new File([zip], 'whatever.zip')}, 'hi');
+        assert.strictEqual(card.sent.error, '');
+        assert.strictEqual(sent[4].url, '/api/v1/services/hi/zip');
+        assert.ok(sent[4].body.equals(zip));
+        assert.strictEqual(card.sent.link, 'http://hi.localhost:3000/');
+        await apps_pane.methods.give.call(card, {folder: [{path: 'hi/bin/run', file: new File(['#!/bin/sh'], 'run')}, {path: 'hi/data/keys.json', file: new File(['{}'], 'keys.json')}]}, 'hi');
+        assert.strictEqual(card.sent.error, '');
+        assert.deepStrictEqual(zip_entries(sent[5].body).filter(v => v.dir === false).map(v => v.name), ['hi/bin/run'], 'its data/ stays on its machine');
+        await apps_pane.methods.give.call(card, {file: new File(['<p>x</p>'], 'page.html')}, 'hi');
+        assert.strictEqual(card.sent.error, 'page.html: hi runs from its own folder, so its new version is a .zip of that folder, or the folder itself.');
+        assert.strictEqual(sent.length, 6);
+
         // The picker sits outside the card that takes a new app: a click on it bubbles, and the
         // card's own click took the pick of a cell's New version for a new app (notes2.zip made
         // an app notes2 instead of board's new version)

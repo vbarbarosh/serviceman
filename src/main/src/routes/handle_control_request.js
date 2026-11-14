@@ -86,6 +86,7 @@ const serve_static_file = require('../helpers/serve_static_file');
 const service_ensure_running = require('../helpers/service_ensure_running');
 const service_image_pull = require('../helpers/service_image_pull');
 const service_reinstall = require('../helpers/service_reinstall');
+const service_rename_ties = require('../helpers/service_rename_ties');
 const service_replace = require('../helpers/service_replace');
 const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
@@ -2229,8 +2230,10 @@ async function service_create(app, req, res)
 }
 
 // PUT /api/v1/services/<name> (body)
-// A new name is refused when another service has it; an app of files serviceman keeps takes its
-// folder and its names with it (app_files_rename)
+// A new name is refused when another service has it; an app takes the names made of its name
+// with it, and one of files serviceman keeps its folder too (app_files_rename); the door rules
+// that name it, its secrets and its tokens follow it (service_rename_ties); and what ran under
+// the old name is stopped, not uninstalled (app_apply_config)
 async function service_update(app, req, res, name)
 {
     const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
@@ -2238,13 +2241,15 @@ async function service_update(app, req, res, name)
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
     }
+    const renamed = (service.name !== name);
     let move = null;
+    let ties = null;
     await config_file_mutate(app, res, function (json) {
         const at = json.services.findIndex(v => v.name === name);
         if (at === -1) {
             return `no service named ${name}`;
         }
-        if ((service.name !== name) && json.services.some(v => v.name === service.name)) {
+        if (renamed && json.services.some(v => v.name === service.name)) {
             return {error: `a service named ${JSON.stringify(service.name)} already exists`, status: 409};
         }
         try {
@@ -2254,12 +2259,18 @@ async function service_update(app, req, res, name)
             return {error: error.message, status: error.status};
         }
         json.services[at] = service;
+        ties = renamed ? service_rename_ties(app, json, name, service.name) : null;
         return null;
     }, 404, async function () {
         if (move !== null) {
             await move();
             log_event(app, 'app_files_renamed', {service: name, name: service.name});
         }
+        if (ties !== null) {
+            ties();
+            log_event(app, 'service_renamed', {service: name, name: service.name});
+        }
+        return renamed ? {renamed: {[name]: service.name}} : {};
     });
 }
 
@@ -2698,9 +2709,12 @@ async function config_file_write(app, res, change, miss_status, prepare)
         send_json(res, 400, {error: error.message});
         return;
     }
+    // What prepare gives goes on to the apply: a service renamed, so its old name is not taken
+    // for one removed
+    let prepared = {};
     if (prepare !== undefined) {
         try {
-            await prepare();
+            prepared = (await prepare()) || {};
         }
         catch (error) {
             send_json(res, 500, {error: error.message});
@@ -2708,7 +2722,7 @@ async function config_file_write(app, res, change, miss_status, prepare)
         }
     }
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
-    const applied = await app_apply_config(app, config);
+    const applied = await app_apply_config(app, config, prepared);
     send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes});
 }
 

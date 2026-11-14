@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.98 — 2026-11-14
+
+- Settings on an app's card opens a small window over Apps, its name and public addresses alone; the apps that run from their own folder are on Apps too. A rename takes the service's door rules, secrets and tokens with it, and stops what ran under the old name instead of uninstalling it.
+
 ## 1.0.97 — 2026-11-14
 
 - An app's cell on Apps takes its new version (New version…, or dropped on it) and opens its page (Settings); a new name there takes its folder and its addresses with it, where before the app was lost under both names.

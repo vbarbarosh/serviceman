@@ -14,6 +14,7 @@ const remote_state = require('./remote_state');
 const service_ensure_running = require('./service_ensure_running');
 const service_phase = require('./service_phase');
 const service_probe = require('./service_probe');
+const service_stop = require('./service_stop');
 const service_uninstall = require('./service_uninstall');
 const service_waits_for_remote = require('./service_waits_for_remote');
 const state_from_service = require('./state_from_service');
@@ -27,8 +28,13 @@ const LINK_KEPT = {logs: null, log_dirs: null, inbound: null};
 
 // A new config lands on the running app: untouched services keep their state, the rest
 // start fresh and are reconciled with their containers at the next start
-async function app_apply_config(app, config)
+//
+//     given  {renamed}: {old name: new name} of a service the save renamed, which is no service
+//            removed: what ran under the old name stops, its uninstall line does not run, and
+//            its new name starts it on its first visitor
+async function app_apply_config(app, config, given)
 {
+    const renamed = ((given === undefined) || (given.renamed === undefined)) ? Object.create(null) : given.renamed;
     const out = {restart_needed: false, notes: []};
     function note(text) {
         out.notes.push(text);
@@ -69,7 +75,14 @@ async function app_apply_config(app, config)
         for (const instance of service.state.instances) {
             agent_reset(app, service, instance);
         }
-        if (config.services.some(v => v.name === service.name) === false) {
+        const renamed_to = Object.hasOwn(renamed, service.name) ? renamed[service.name] : null;
+        if ((renamed_to !== null) && config.services.some(v => v.name === renamed_to)) {
+            if ((service_phase(service) !== 'stopped') || service.state.instances.some(v => v.restart_timer !== null)) {
+                await service_stop(app, service, `the service was renamed to ${renamed_to}`);
+            }
+            note(`${service.name}: renamed to ${renamed_to}`);
+        }
+        else if (config.services.some(v => v.name === service.name) === false) {
             const done = await service_uninstall(app, service);
             note(`${service.name}: removed from the config — ${((done === null) || (done === '')) ? 'anything running keeps running' : done}`);
         }

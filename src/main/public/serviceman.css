@@ -4470,3 +4470,138 @@ article.rf .actions {
 .apps-pane .app-cell .dot {
     margin-right: .35rem;
 }
+
+/* An app's settings, in a small window over Apps: its name, its public addresses, Save */
+.apps-pane .app-settings {
+    width: min(30rem, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    padding: 1rem 1.2rem 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+
+.apps-pane .app-settings-head {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.apps-pane .app-settings-head h2 {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 1.15rem;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-settings-x {
+    flex: none;
+    margin: -.3rem -.5rem 0 0;
+    padding: .1rem .55rem;
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    transition: color .12s ease;
+}
+
+.apps-pane .app-settings-x:hover {
+    color: var(--fg);
+}
+
+.apps-pane .app-settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    margin-top: .9rem;
+}
+
+.apps-pane .app-settings-label {
+    font-weight: 600;
+}
+
+.apps-pane .app-settings-says {
+    margin: .3rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-pub {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    min-width: 0;
+}
+
+.apps-pane .app-pub-list {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* An address and how it is reached, remove at its right; a long one wraps in its own column */
+.apps-pane .app-pub-list li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .6rem;
+    padding: .4rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.apps-pane .app-pub-what {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-pub-list .app-pub-drop {
+    padding: .1rem .55rem;
+    color: var(--bad);
+}
+
+.apps-pane .app-pub-also {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-pub-how {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+}
+
+.apps-pane .app-pub-how select {
+    flex: 1 1 10rem;
+    width: auto;
+    min-width: 0;
+}
+
+.apps-pane .app-settings-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem .6rem;
+    margin-top: 1.2rem;
+}
+
+.apps-pane .app-settings-more {
+    margin-left: auto;
+}
+
+/* What Save ran into, on a line of its own under the buttons */
+.apps-pane .app-settings-note {
+    flex: 1 1 100%;
+    order: 3;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-settings-note:empty {
+    display: none;
+}

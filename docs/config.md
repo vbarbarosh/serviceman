@@ -1148,13 +1148,26 @@ own. What is none of them is said on the card at once, for what it is (`photo.pn
 picture, not a zip`, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.
 
+**Apps** shows the apps that run from a folder of their own too, as the New service form makes
+them ([a new version of an app folder](#a-new-version-of-an-app-folder)): a program run as `bin/run`
+in its folder, here or on a machine.
+
 A cell is its app's: **New version…** picks a zip or a page for it, and a zip, a folder or a page
-dropped on the cell goes the same way, as that app's new version whatever the file is called.
-**Settings** opens its page: its name, what it serves, its addresses, and Remove. A new name there
-takes its folder in `apps/` and the addresses made of its name with it (`notes.localhost` is
-`wiki.localhost`, `notes.apps.example.com` is `wiki.apps.example.com`); an address added by hand
-stays, and so does a folder the config names. A name another service has is a `409`, and so is
-one whose folder an app of that name left in `apps/`.
+dropped on the cell goes the same way, as that app's new version whatever the file is called. An
+app of its own folder takes a zip or its folder, never a page: it goes in as its page's **New
+zip…** puts it, its `data/` kept as it is on its machine, and the cell says once it runs.
+**Settings** opens a small window over Apps with its name and its public addresses, the names a
+machine's door answers for it, and nothing more; one Save writes both, Cancel or Esc nothing, and
+the rest of the service is on its page, linked at the window's foot. A new address goes through
+the door that answers most names already, behind `authwall` where there is one.
+
+A new name takes the addresses made of its name with it (`notes.localhost` is `wiki.localhost`,
+`notes.apps.example.com` is `wiki.apps.example.com`), and an app of files its folder in `apps/`;
+an address added by hand stays, and so does a folder the config names. The door rules that answer
+for it, or put it in front of another as its wall, its secrets and the tokens kept to it go with
+the new name too, on any service renamed; what ran under the old name is stopped, never
+uninstalled, and the new name starts it on its first visitor. A name another service has is a
+`409`, and so is one whose folder an app of that name left in `apps/`.
 
 A name serviceman has not seen becomes a folder of files in the config and is served at once:
 `201`; a known one gets the new version: `200`. A new app has two names. One is beside
