@@ -190,6 +190,7 @@ test('an app sent as a zip is made, served, and replaced whole by the next one',
     const said = JSON.parse(made.body);
     assert.strictEqual(said.made, true);
     assert.strictEqual(said.address, `http://notes.localhost:${port}/`, 'named beside serviceman.localhost, as the New service form names one');
+    assert.strictEqual(said.public, null, 'no apps domain, no name outside');
     assert.strictEqual(said.files, 3);
     const written = JSON.parse(fs.readFileSync(config_path, 'utf8'));
     assert.deepStrictEqual(written.services[1], {name: 'notes', type: 'files', publish: {host: 'notes.localhost'}}, 'written into the config like any service');
@@ -223,9 +224,9 @@ test('an app is sent with the apps right, and named under the apps domain', func
     assert.deepStrictEqual(control_route_right('PUT', '/api/v1/apps/notes'), {right: 'apps', said: 'send an app of files', remote: null});
     assert.strictEqual(control_route_right('PUT', '/api/v1/apps/notes/more'), null);
     const named = config_from_json({apps: {domain: 'apps.example.com'}, services: []}, '/srv/serviceman');
-    assert.strictEqual(app_files_put.host({config: named}, 'my_notes'), 'my-notes.apps.example.com');
+    assert.deepStrictEqual(app_files_put.hosts({config: named}, 'my_notes'), ['my-notes.apps.example.com', 'my-notes.localhost'], 'both names: outside, and here with no DNS');
     const plain = config_from_json({services: []}, '/srv/serviceman');
-    assert.strictEqual(app_files_put.host({config: plain}, 'notes'), 'notes.localhost');
+    assert.deepStrictEqual(app_files_put.hosts({config: plain}, 'notes'), ['notes.localhost']);
     assert.throws(() => config_from_json({apps: {domain: '*.example.com'}, services: []}, '/srv/serviceman'), /apps\.domain: a lowercase domain/);
 });
 
@@ -284,4 +285,39 @@ test('the apps domain is a page of a cell for each app under it', async function
     assert.strictEqual(page.body.includes('other.test'), false, 'a service elsewhere is not on it');
     assert.strictEqual((await fetch_host({port, host: 'apps.test', path: '/more'})).status, 404);
     assert.match(render_apps_page({services: []}, 'apps.test', 'apps.test'), /No app here yet: one sent to serviceman under apps\.test lands here/);
+});
+
+// With an apps domain, an app sent has both names: the one under the domain, for outside, and the
+// one beside serviceman's own, which the computer serviceman runs on reaches with no DNS
+test('an app sent with an apps domain answers on its name there and on its local one', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apps-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    fs.writeFileSync(config_path, JSON.stringify({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {domain: 'apps.example.com'},
+        services: [],
+    }, null, 4));
+    const before = process.env.SERVICEMAN_STATE_DIR;
+    process.env.SERVICEMAN_STATE_DIR = path.join(dir, 'data');
+    const app = app_from_config(await profile_from_db(config_path));
+    const servers = await server_start(app);
+    t.after(function () {
+        servers.server.close();
+        servers.control.close();
+        servers.server.closeAllConnections();
+        servers.control.closeAllConnections();
+        process.env.SERVICEMAN_STATE_DIR = before;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const port = servers.server.address().port;
+    const made = await fetch_host({port: servers.control.address().port, host: '127.0.0.1', path: '/api/v1/apps/notes', method: 'PUT', body: zip_bytes([{name: 'index.html', bytes: Buffer.from('<title>Notes</title>')}])});
+    assert.strictEqual(made.status, 201, made.body);
+    const said = JSON.parse(made.body);
+    assert.strictEqual(said.address, `http://notes.localhost:${port}/`, 'here: opens on this computer as it is');
+    assert.strictEqual(said.public, 'notes.apps.example.com', 'outside: through a machine\'s door');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).services[0].publish, {hosts: ['notes.apps.example.com', 'notes.localhost']});
+    for (const host of ['notes.localhost', 'notes.apps.example.com']) {
+        assert.strictEqual((await fetch_host({port, host, path: '/'})).body, '<title>Notes</title>', host);
+    }
 });

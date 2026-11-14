@@ -1139,17 +1139,20 @@ control port, with the owner's token or one given the `apps` right
 
     curl -T notes.zip -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 
-A name serviceman has not seen becomes a folder of files in the config, at an address of its
-own, and is served at once: `201`, with where it answers. A known one gets the new version:
-`200`. The address is the name under `apps.domain`:
+A name serviceman has not seen becomes a folder of files in the config and is served at once:
+`201`; a known one gets the new version: `200`. A new app has two names. One is beside
+serviceman's own, `notes.localhost` beside `serviceman.localhost`, as the New service form names
+a service, and the computer serviceman runs on reaches it with no DNS to change: a name under
+`.localhost` is that computer, in a browser and in its own resolver. The other, once the config
+has an apps domain, is under it, for outside:
 
 ```json
 "apps": {"domain": "apps.example.com"}
 ```
 
-`notes` answers on `notes.apps.example.com`; without a domain it is named the way the New
-service form names one, `notes.localhost` beside `serviceman.localhost`. A `_` in a name is a
-`-` in its address.
+`notes` then answers on `notes.apps.example.com` too. The answer says both: `address`, where it
+answers here (`http://notes.localhost:8080/`), and `public`, its name outside (`null` with no
+domain). A `_` in a name is a `-` in its addresses.
 
 The zip is the app's folder, or one folder holding it, with its `index.html` at the top. Every
 file of it goes, a `data/` too: nothing runs in a folder of files to keep one of its own. Its

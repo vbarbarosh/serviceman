@@ -16,14 +16,17 @@ const KIND_WORDS = {docker: 'a docker image', shell: 'a program', external: 'som
 
 // An app of files sent to serviceman as a zip: its files written beside its folder, then swapped
 // in whole, so a visitor meets the old version or the new one and never half of each. A name
-// serviceman has not seen yet becomes a folder of files in the config, at an address of its own
-// (app_files_host), the way the New service form would write it. A zip that is broken or no page
-// changes nothing; one app takes one zip at a time.
+// serviceman has not seen yet becomes a folder of files in the config, the way the New service
+// form would write it, at its names (app_files_hosts): the one beside serviceman's own, which the
+// computer serviceman runs on reaches with no DNS at all, and the one under the apps domain, for
+// outside. A zip that is broken or no page changes nothing; one app takes one zip at a time.
 //
 //     zip     the path of the zip on this host's disk
 //     signal  aborts the writing when the sender hangs up
 //
-//     {service, made, files, bytes}   made: true when the name was new
+//     {service, made, files, bytes, local, public}
+//     made    true when the name was new
+//     local   its name here, notes.localhost; public its name under the apps domain, or null
 async function app_files_put(app, name, zip, signal)
 {
     if (RE_NAME.test(name) === false) {
@@ -56,7 +59,11 @@ async function app_files_put(app, name, zip, signal)
             await config_locked(app, () => config_add(app, name));
         }
         log_event(app, 'app_files_put', {service: name, made: (before === undefined), files: items.files, bytes: items.bytes});
-        return {service: app.service_by_name[name], made: (before === undefined), files: items.files, bytes: items.bytes};
+        const service = app.service_by_name[name];
+        const domain = app.config.apps.domain;
+        const hosts = service.hosts.map(v => v.split('/')[0]);
+        const under = hosts.find(v => (domain !== null) && v.endsWith(`.${domain}`));
+        return {service, made: (before === undefined), files: items.files, bytes: items.bytes, local: hosts.find(v => v !== under) || hosts[0], public: (under === undefined) ? null : under};
     }
     finally {
         app.files_sending.delete(name);
@@ -106,23 +113,27 @@ async function config_add(app, name)
     if ((json.services || []).some(v => v.name === name)) {
         return;
     }
-    json.services = (json.services || []).concat([{name, type: 'files', publish: {host: app_files_host(app, name)}}]);
+    const hosts = app_files_hosts(app, name);
+    const publish = (hosts.length === 1) ? {host: hosts[0]} : {hosts};
+    json.services = (json.services || []).concat([{name, type: 'files', publish}]);
     const config = config_from_file(app, json);
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     await app_apply_config(app, config);
 }
 
-// notes.apps.example.com under the config's apps domain; without one, the way the New service
-// form names a service: notes.localhost beside serviceman.localhost. A hostname has no _ in it.
-function app_files_host(app, name)
+// An app's names: notes.apps.example.com under the config's apps domain, for outside, and
+// always the one the New service form would give it, notes.localhost beside
+// serviceman.localhost, which the computer serviceman runs on reaches by itself. A hostname has
+// no _ in it.
+//
+//     [domain name, local name], or [local name] with no apps domain
+function app_files_hosts(app, name)
 {
     const label = name.replace(/_/g, '-');
-    if (app.config.apps.domain !== null) {
-        return `${label}.${app.config.apps.domain}`;
-    }
     const host = (typeof app.config.control.host === 'string') ? app.config.control.host : 'localhost';
     const at = host.indexOf('.');
-    return `${label}.${(at === -1) ? host : host.slice(at + 1)}`;
+    const local = `${label}.${(at === -1) ? host : host.slice(at + 1)}`;
+    return (app.config.apps.domain === null) ? [local] : [`${label}.${app.config.apps.domain}`, local];
 }
 
 function failure(status, text)
@@ -130,6 +141,6 @@ function failure(status, text)
     return Object.assign(new Error(text), {status});
 }
 
-app_files_put.host = app_files_host;
+app_files_put.hosts = app_files_hosts;
 
 module.exports = app_files_put;

@@ -1999,14 +1999,17 @@ control port, with the owner&#39;s token or one given the <code>apps</code> righ
 (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>):</p>
 <pre><code>curl -T notes.zip -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 </code></pre>
-<p>A name serviceman has not seen becomes a folder of files in the config, at an address of its
-own, and is served at once: <code>201</code>, with where it answers. A known one gets the new version:
-<code>200</code>. The address is the name under <code>apps.domain</code>:</p>
+<p>A name serviceman has not seen becomes a folder of files in the config and is served at once:
+<code>201</code>; a known one gets the new version: <code>200</code>. A new app has two names. One is beside
+serviceman&#39;s own, <code>notes.localhost</code> beside <code>serviceman.localhost</code>, as the New service form names
+a service, and the computer serviceman runs on reaches it with no DNS to change: a name under
+<code>.localhost</code> is that computer, in a browser and in its own resolver. The other, once the config
+has an apps domain, is under it, for outside:</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;}
 </code></pre>
-<p><code>notes</code> answers on <code>notes.apps.example.com</code>; without a domain it is named the way the New
-service form names one, <code>notes.localhost</code> beside <code>serviceman.localhost</code>. A <code>_</code> in a name is a
-<code>-</code> in its address.</p>
+<p><code>notes</code> then answers on <code>notes.apps.example.com</code> too. The answer says both: <code>address</code>, where it
+answers here (<code>http://notes.localhost:8080/</code>), and <code>public</code>, its name outside (<code>null</code> with no
+domain). A <code>_</code> in a name is a <code>-</code> in its addresses.</p>
 <p>The zip is the app&#39;s folder, or one folder holding it, with its <code>index.html</code> at the top. Every
 file of it goes, a <code>data/</code> too: nothing runs in a folder of files to keep one of its own. Its
 files are written beside its folder and put in its place whole, so a visitor meets the old

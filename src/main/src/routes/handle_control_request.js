@@ -1847,7 +1847,9 @@ async function handle_app_put(app, req, res, name)
         try {
             const done = await app_files_put(app, name, zip, hang_up.signal);
             const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
-            send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.service.hosts[0]}${port}/`, files: done.files, bytes: done.bytes, service: view_from_service(done.service)});
+            // Where it answers here, on serviceman's own door, and the name it has outside, which a
+            // machine's door answers on its own port
+            send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.local}${port}/`, public: done.public, files: done.files, bytes: done.bytes, service: view_from_service(done.service)});
         }
         catch (error) {
             log_event(app, 'control_error', {service: name, reason: error.message});
