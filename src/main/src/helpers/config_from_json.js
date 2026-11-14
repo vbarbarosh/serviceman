@@ -537,18 +537,24 @@ function assert_publish_used(json, label)
     }
 }
 
-// An app that listens on a socket file instead of a port: "socket": "~/agency.sock", on the
-// machine "remote" names or on this host, ~ being the home of the agent's user there (or of
-// serviceman's own). Requests go into it the way a forward's connections go: through the link.
-// host and port are what the request says it was sent to; nothing dials them.
+// An app that listens on a socket file instead of a port: "socket": "~/agency.sock" on the
+// machine "remote" names, from / or ~/, ~ being the home of the agent's user there; on
+// serviceman's own side, with no machine, a path inside serviceman's state folder too
+// ("sockets/va.sock" is data/sockets/va.sock), as a forward's socket that lands here is.
+// Requests go into it the way a forward's connections go. host and port are what the request
+// says it was sent to; nothing dials them.
 function upstream_socket(json, label)
 {
     if (json.upstream !== undefined) {
         throw new Error(`${label}.socket: an external service answers at "upstream" or on "socket", not both`);
     }
     const socket = (typeof json.socket === 'string') ? json.socket.trim() : '';
-    if ((socket.startsWith('/') === false) && (socket.startsWith('~/') === false)) {
-        throw new Error(`${label}.socket: the path of the socket file its app listens on, from / or from ~/ (got ${JSON.stringify(json.socket)})`);
+    const machine = (json.remote !== undefined) || (Array.isArray(json.remotes) && (json.remotes.length > 0));
+    if (machine && (socket.startsWith('/') === false) && (socket.startsWith('~/') === false)) {
+        throw new Error(`${label}.socket: the path of the socket file its app listens on there, from / or from ~/ (got ${JSON.stringify(json.socket)})`);
+    }
+    if ((socket === '') || socket.includes('\0')) {
+        throw new Error(`${label}.socket: the path of the socket file its app listens on (got ${JSON.stringify(json.socket)})`);
     }
     return {host: 'localhost', port: 80, socket};
 }

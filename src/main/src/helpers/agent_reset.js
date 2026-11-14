@@ -1,6 +1,6 @@
 const http = require('http');
 const net = require('net');
-const os = require('os');
+const socket_place = require('./socket_place');
 const tunnel_agent = require('./tunnel_agent');
 
 const AGENT_OPTIONS = {keepAlive: true, maxSockets: 128};
@@ -8,7 +8,7 @@ const AGENT_OPTIONS = {keepAlive: true, maxSockets: 128};
 // A stopped service leaves dead sockets behind; the next start gets a clean pool. A service is
 // reached through the link its remote's agent dialled in on, never over the network; an
 // instance reserved nowhere gets a plain pool that nothing will dial through. An app on a
-// socket file is reached in that file, on its machine or on this host.
+// socket file is reached in that file, on its machine or on serviceman's own side.
 function agent_reset(app, service, instance)
 {
     if (instance.agent !== null) {
@@ -22,7 +22,7 @@ function agent_reset(app, service, instance)
     }
     instance.agent = new http.Agent(AGENT_OPTIONS);
     if (socket !== null) {
-        const file = socket.startsWith('~/') ? `${os.homedir()}${socket.slice(1)}` : socket;
+        const file = socket_place(app, socket).file;
         instance.agent.createConnection = function () {
             return net.connect({path: file});
         };

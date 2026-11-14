@@ -1,8 +1,11 @@
 // Where a service answers, in words for a log line or the page: host:port, or the socket file an
-// app listens on
+// app listens on, one of serviceman's own side as its cards say it (socket_place)
 function upstream_said(upstream)
 {
-    return (upstream.socket === undefined) ? `${upstream.host}:${upstream.port}` : upstream.socket;
+    if (upstream.socket === undefined) {
+        return `${upstream.host}:${upstream.port}`;
+    }
+    return (upstream.said === undefined) ? upstream.socket : upstream.said;
 }
 
 module.exports = upstream_said;

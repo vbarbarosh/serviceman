@@ -47,6 +47,8 @@ function view_from_service(service, now)
         app_folder: service_app_folder(service),
         // The socket file an app listens on, where serviceman passes its requests; null for any other
         socket: ((service.type === 'external') && (service.upstream.socket !== undefined)) ? service.upstream.socket : null,
+        // ...and as every card says it: data/sockets/va.sock for one of serviceman's own side
+        socket_said: ((service.type === 'external') && (service.upstream.socket !== undefined)) ? upstream_said(service.upstream) : null,
         // Where a program runs on its machine, as the config says it: a path under the agent's
         // services folder when it is not absolute, that folder itself when null. The page opens
         // its Files and its Shell there. null for anything but a program.

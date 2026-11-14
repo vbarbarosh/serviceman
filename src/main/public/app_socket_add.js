@@ -17,18 +17,19 @@ const app_socket_add = {
     </label>
     <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
     <label class="app-settings-row">
-        <span class="app-settings-label">Its app runs on</span>
+        <span class="app-settings-label">Its socket is</span>
         <select v-model="remote" :disabled="busy">
             <option :value="null" disabled>a machine…</option>
+            <option value="">in serviceman's own {{ folder }}/ folder</option>
             <option v-for="item of machines" :key="item.value" :value="item.value">{{ item.label }}</option>
-            <option value="">this host, where serviceman runs</option>
         </select>
     </label>
     <label class="app-settings-row">
         <span class="app-settings-label">Socket</span>
         <input v-model.trim="socket" :placeholder="socket_default" spellcheck="false" autocomplete="off" :disabled="busy" @keyup.enter="add">
     </label>
-    <p class="muted app-settings-says">the file your app listens on{{ (remote ? ', on ' + remote : '') }}; <code>~</code> is the home of {{ (remote === '' ? 'the user serviceman runs as' : 'the user its agent runs as') }}</p>
+    <p v-if="(remote === '')" class="muted app-settings-says">a file in serviceman's own <code>{{ folder }}/</code>, the folder <code>bin/run</code> gives its container: your app listens on it there</p>
+    <p v-else class="muted app-settings-says">the file your app listens on{{ (remote ? ', on ' + remote : '') }}; <code>~</code> is the home of the user its agent runs as</p>
     <div class="app-settings-foot">
         <button type="button" class="primary" :disabled="(busy || (name === '') || (remote === null))" @click="add">{{ (busy ? 'Adding…' : 'Add') }}</button>
         <button type="button" :disabled="busy" @click="close">Cancel</button>
@@ -40,10 +41,11 @@ const app_socket_add = {
     emits: ['close', 'made'],
     props: {
         // Every machine; the names every service has; the part of an app's name after its own,
-        // beside serviceman's (localhost)
+        // beside serviceman's (localhost); the folder serviceman keeps its own things in (data)
         remotes: {type: Array, required: true},
         names: {type: Array, required: true},
         suffix: {type: String, required: true},
+        folder: {type: String, required: true},
     },
     data: function () {
         // remote: null until a machine is picked, '' for this host
@@ -51,7 +53,7 @@ const app_socket_add = {
     },
     computed: {
         machines: function () {
-            return this.remotes.map(v => ({value: v.name, label: (v.title || v.name) + ((v.phase === 'online') ? '' : ' (offline)')}));
+            return this.remotes.map(v => ({value: v.name, label: `on ${v.title || v.name}` + ((v.phase === 'online') ? '' : ' (offline)')}));
         },
         label: function () {
             return (this.name === '') ? 'name' : this.name.replace(/_/g, '-');
@@ -59,8 +61,9 @@ const app_socket_add = {
         host: function () {
             return `${this.label}.${this.suffix}`;
         },
+        // In serviceman's own folder on its side, in the agent's home on a machine
         socket_default: function () {
-            return `~/${this.label}.sock`;
+            return (this.remote === '') ? `${this.folder}/sockets/${this.label}.sock` : `~/${this.label}.sock`;
         },
     },
     // Esc puts the window away, wherever the focus went, while nothing is being sent

@@ -2047,7 +2047,7 @@ const app = {
         <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" @close="form_open = false" @saved="form_saved"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
@@ -2348,6 +2348,10 @@ const app = {
         // Door names with a wall in front of them
         guarded_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
+        },
+        // The folder serviceman keeps its own things in, as its owner sees it: data/ under bin/run
+        state_folder: function () {
+            return (typeof this.state.state_dir !== 'string') ? 'data' : this.state.state_dir.replace(/\/+$/, '').split('/').pop();
         },
         // The small apps: the folders of files serviceman serves, the apps run from a folder of
         // their own, and the ones on a socket file

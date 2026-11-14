@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.101 — 2026-11-14
+
+- An app's socket on serviceman's side is a file in its `data/` folder, typed and said as `data/sockets/va.sock` on every card (no "this host"), and its Settings change it.
+
 ## 1.0.100 — 2026-11-14
 
 - New service has a third kind, **A proxy**: a name, the machine and the socket file its app listens on; a proxy's page and its What runs card say its socket.

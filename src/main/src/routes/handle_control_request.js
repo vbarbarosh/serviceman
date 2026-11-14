@@ -95,6 +95,7 @@ const service_try_again = require('../helpers/service_try_again');
 const service_zip_replace = require('../helpers/service_zip_replace');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
+const socket_place = require('../helpers/socket_place');
 const stream_open = require('../helpers/stream_open');
 const stream_read = require('../helpers/stream_read');
 const streams_of = require('../helpers/streams_of');
@@ -2247,6 +2248,7 @@ async function service_create(app, req, res)
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
     }
+    socket_typed(app, service);
     await config_file_mutate(app, res, function (json) {
         if (json.services.some(v => v.name === service.name)) {
             return `a service named ${JSON.stringify(service.name)} already exists`;
@@ -2268,6 +2270,7 @@ async function service_update(app, req, res, name)
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
     }
+    socket_typed(app, service);
     const renamed = (service.name !== name);
     let move = null;
     let ties = null;
@@ -2751,6 +2754,16 @@ async function config_file_write(app, res, change, miss_status, prepare)
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     const applied = await app_apply_config(app, config, prepared);
     send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes});
+}
+
+// A socket of serviceman's own side, as the page says it, data/sockets/va.sock, is the file
+// sockets/va.sock of its state folder (socket_place): written so, it is never data/data/…
+function socket_typed(app, service)
+{
+    const machine = (service.remote !== undefined) || (Array.isArray(service.remotes) && (service.remotes.length > 0));
+    if ((service.type === 'external') && (typeof service.socket === 'string') && (machine === false)) {
+        service.socket = socket_place.typed(app, service.socket.trim());
+    }
 }
 
 // The reason the text cannot be a serviceman config, or null for a fine one

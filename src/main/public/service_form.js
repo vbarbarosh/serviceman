@@ -220,11 +220,11 @@ const service_form = {
                         <p v-else-if="(m.port === '')" class="muted">Left empty, it is {{ detected_port === null ? '80' : detected_port + ', the one the image names' }}.</p>
                     </div>
                 </template>
-                <label>Runs on</label>
+                <label>{{ (m.type === 'external' ? 'Its socket on' : 'Runs on') }}</label>
                 <div>
                     <select v-if="(places.length > 0)" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
+                        <option v-if="(m.type === 'external')" value="">serviceman's own {{ state_folder }}/ folder</option>
                         <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
-                        <option v-if="(m.type === 'external')" value="">this host, where serviceman runs</option>
                     </select>
                     <p v-else class="bad">No machine yet. It runs where an agent is — add a remote first.</p>
                     <p v-if="(places.length > 0 && problems.places)" class="bad">{{ problems.places }}</p>
@@ -234,7 +234,8 @@ const service_form = {
                     <div>
                         <input v-model.trim="m.socket" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
                         <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
-                        <p v-else class="muted">The file its app listens on{{ (m.places[0].text === '' ? '' : ', on ' + place_text(m.places[0].text)) }}; <code>~</code> is the home of the user its agent runs as. serviceman passes every request into it, and never starts or stops it.</p>
+                        <p v-else-if="(m.places[0].text === '')" class="muted">A file in serviceman's own <code>{{ state_folder }}/</code>, the folder <code>bin/run</code> gives its container: its app listens on it there. serviceman passes every request into it, and never starts or stops it.</p>
+                        <p v-else class="muted">The file its app listens on, on {{ place_text(m.places[0].text) }}; <code>~</code> is the home of the user its agent runs as. serviceman passes every request into it, and never starts or stops it.</p>
                     </div>
                 </template>
                 <label>Address</label>
@@ -374,7 +375,7 @@ const service_form = {
                 <div>
                     <input v-model.trim="m.socket" placeholder="~/agency.sock" :class="{wrong: problems.socket}" spellcheck="false">
                     <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
-                    <p v-else class="muted">The socket file its app listens on, from <code>/</code> or <code>~/</code>, in place of an address: serviceman passes every request into it. Left empty, it answers at the address below.</p>
+                    <p v-else class="muted">The socket file its app listens on, in place of an address: serviceman passes every request into it. On a machine from <code>/</code> or <code>~/</code>; on serviceman's own side a path in its <code>{{ state_folder }}/</code> too. Left empty, it answers at the address below.</p>
                 </div>
                 <label v-if="(m.socket === '')">Answers at</label>
                 <div v-if="(m.socket === '')">
@@ -599,7 +600,8 @@ const service_form = {
 </article>
 `,
     components: {'copy-progress': copy_progress, duration, snip: snippet},
-    props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken'],
+    // folder: the one serviceman keeps its own things in, as its owner sees it (data)
+    props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder'],
     emits: ['close', 'saved'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
@@ -749,10 +751,15 @@ const service_form = {
             }
             return this.host_from_name(name);
         },
-        // A proxy's socket unless another is typed: named after it, in its agent's home
+        // A proxy's socket unless another is typed: named after it, in its agent's home, or in
+        // serviceman's own folder on its side
         socket_default: function () {
             const name = (this.m.name === '') ? this.easy_name : this.m.name;
-            return `~/${(name === '') ? 'agency' : name}.sock`;
+            const file = `${(name === '') ? 'agency' : name}.sock`;
+            return (this.m.places[0].text === '') ? `${this.state_folder}/sockets/${file}` : `~/${file}`;
+        },
+        state_folder: function () {
+            return ((this.folder === undefined) || (this.folder === null) || (this.folder === '')) ? 'data' : this.folder;
         },
         easy_name: function () {
             if ((this.m.type === 'shell') && this.made_short && (this.app_files !== null)) {
@@ -888,8 +895,8 @@ const service_form = {
             if ((model.type === 'external') && (places.length > 0) && places[0].startsWith('#')) {
                 out.places = 'It runs on one machine: pick that one, not a tag.';
             }
-            if ((model.type === 'external') && (model.socket !== '') && (model.socket.startsWith('/') === false) && (model.socket.startsWith('~/') === false)) {
-                out.socket = 'The path of the socket file, from / or from ~/: ~/agency.sock.';
+            if ((model.type === 'external') && (places.length > 0) && (model.socket !== '') && (model.socket.startsWith('/') === false) && (model.socket.startsWith('~/') === false)) {
+                out.socket = 'On a machine, the path of the socket file from / or from ~/: ~/agency.sock.';
             }
             // An app not picked yet is said once, where it is picked: the name comes from it
             const unpicked = (model.type === 'shell') && this.simple && this.creating && (this.app_files === null);

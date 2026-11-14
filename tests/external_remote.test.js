@@ -10,6 +10,7 @@ const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
 const test = require('node:test');
 const timers = require('timers/promises');
+const view_from_service = require('../src/main/src/helpers/view_from_service');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -165,8 +166,26 @@ test('an app on a socket file is reached in that file, here and on a machine', a
     assert.strictEqual(there.status, 200, there.body);
     assert.strictEqual(there.body, 'there saw /x');
 
+    // On serviceman's own side, a socket in its data folder, typed as the cards say it: the file
+    // sockets/notes.sock of the state folder, said data/sockets/notes.sock everywhere
+    fs.mkdirSync(path.join(app.state_dir, 'sockets'), {recursive: true});
+    const notes_app = http.createServer((req, res) => res.end(`notes saw ${req.url}`));
+    await new Promise(v => notes_app.listen(path.join(app.state_dir, 'sockets', 'notes.sock'), v));
+    t.after(() => notes_app.close());
+    const notes = await put('notes', {socket: 'data/sockets/notes.sock', remote: ''});
+    assert.strictEqual(notes.status, 201, notes.body);
+    assert.strictEqual(JSON.parse(notes.body).service.socket_said, 'data/sockets/notes.sock');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).services[1], {name: 'notes', type: 'external', publish: {host: 'notes.localhost'}, socket: 'sockets/notes.sock'});
+    assert.strictEqual((await fetch_host({port, host: 'notes.localhost', path: '/y'})).body, 'notes saw /y');
+    assert.strictEqual(view_from_service(app.service_by_name.agency).socket_said, '~/agency.sock', 'one on a machine is said as typed');
+    // An absolute path inside the data folder, as one typed before this was taken, is said so too
+    const whole = await put('whole', {socket: path.join(app.state_dir, 'sockets', 'notes.sock'), remote: ''});
+    assert.strictEqual(whole.status, 201, whole.body);
+    assert.strictEqual(JSON.parse(whole.body).service.socket_said, 'data/sockets/notes.sock');
+    assert.strictEqual((await fetch_host({port, host: 'whole.localhost', path: '/z'})).body, 'notes saw /z');
+
     const refused = [
-        [await put('agency', {socket: 'agency.sock'}), 400, 'the socket is the path of the file the app listens on, from / or from ~/ (got "agency.sock")'],
+        [await put('agency', {socket: 'agency.sock', remote: 'vps1'}), 400, 'the socket is the path of the file the app listens on there, from / or from ~/ (got "agency.sock")'],
         [await put('agency', {socket: '~/a.sock', remote: 'vps9'}), 400, 'no machine named vps9 is in the config'],
         [await put('Bad.Name', {socket: '~/a.sock'}), 400, 'Bad.Name: an app\'s name is lowercase letters, digits, - and _'],
     ];

@@ -35,7 +35,7 @@ const apps_pane = {
     </div>
     <div class="app-more">
         <button type="button" @click="socket_adding = true">+ An app on a socket</button>
-        <span class="muted">its program listens on a socket file, on a machine of yours; serviceman gives it an address</span>
+        <span class="muted">its program listens on a socket file, in serviceman's {{ state_folder }}/ folder or on a machine of yours; serviceman gives it an address</span>
     </div>
     <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
          for a new app when an app's New version asked for it -->
@@ -46,7 +46,7 @@ const apps_pane = {
         <template v-else>
             <p class="app-sent-head"><span class="dot running"></span><b>{{ sent.name }}</b> {{ sent.made ? 'is ready' : 'has its new version' }}</p>
             <p class="app-sent-link"><a :href="sent.link" target="_blank" rel="noopener">{{ sent.link }}</a><a class="button primary" :href="sent.link" target="_blank" rel="noopener">Open</a></p>
-            <p v-if="(sent.socket !== undefined)" class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : ' on this host') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
+            <p v-if="(sent.socket !== undefined)" class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : '') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
             <p v-if="((sent.other !== '') && names_on)" class="muted">and on this computer: <a :href="sent.other" target="_blank" rel="noopener">{{ sent.other }}</a></p>
             <p v-else-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
         </template>
@@ -61,15 +61,15 @@ const apps_pane = {
                 <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
             </a>
             <div class="app-acts">
-                <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket + ', the file its app listens on')" @click="copy(app.socket)">{{ (copied === app.socket ? 'Copied' : 'Copy socket') }}</button>
+                <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
                 <button v-else type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
                 <button type="button" :title="('The name and the public address of ' + app.name)" @click="settings = app">Settings</button>
             </div>
         </li>
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
-    <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="socket_adding = false" @made="socket_made"/>
-    <app-settings v-if="(settings !== null)" :app="settings" :host="host_of(settings)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
+    <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
+    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
 </section>
 `,
     components: {'app-settings': app_settings, 'app-socket-add': app_socket_add},
@@ -98,6 +98,10 @@ const apps_pane = {
             const at = location.hostname.indexOf('.');
             return (at === -1) ? 'localhost' : location.hostname.slice(at + 1);
         },
+        // The folder serviceman keeps its own things in, as its owner sees it: data/ under bin/run
+        state_folder: function () {
+            return (typeof this.state.state_dir !== 'string') ? 'data' : this.state.state_dir.replace(/\/+$/, '').split('/').pop();
+        },
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
         },
@@ -117,9 +121,10 @@ const apps_pane = {
             }
             return `A new version of ${app.name}: pick its .zip or its .html page, or drop a zip, a folder or a page on this card`;
         },
+        // An app's socket in the words the ready card says it in: data/sockets/va.sock on
+        // serviceman's own side, ~/va.sock on laptop on a machine
         socket_place: function (app) {
-            const remote = (app.remotes.length === 0) ? 'this host' : app.remotes[0];
-            return `${app.socket} on ${remote}`;
+            return (app.remotes.length === 0) ? app.socket_said : `${app.socket_said} on ${app.remotes[0]}`;
         },
         copy: async function (text) {
             if (await to_clipboard(text)) {
@@ -132,7 +137,7 @@ const apps_pane = {
             const port = this.state.listen.port;
             const tailnet = (this.names_on && (outside !== '')) ? `http://${outside}${(port === 80) ? '' : ':' + port}/` : '';
             this.socket_adding = false;
-            this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address, socket: said.socket, remote: said.remote};
+            this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address, socket: said.service.socket_said, remote: said.remote};
             this.$emit('saved');
         },
         // Its service page, from the settings window's foot

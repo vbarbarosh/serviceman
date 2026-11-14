@@ -5,17 +5,19 @@ const config_from_file = require('./config_from_file');
 const config_locked = require('./config_locked');
 const fs = require('fs');
 const log_event = require('./log_event');
+const socket_place = require('./socket_place');
 
 const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 
-// An app reached through a socket file: its program, on one of the machines or on this host,
+// An app reached through a socket file: its program, on a machine or on serviceman's side,
 // listens on that file, and serviceman answers the app's names by passing every request into
 // it. No files and no port: serviceman starts nothing, it is the app's own to run. A new name
 // becomes an external service at the names an app of files gets (app_files_put.hosts); a name
 // that is such an app already takes its new socket or machine, its names as they are.
 //
-//     given   {socket, remote}: the path, from / or ~/, and the machine it is on, '' or null
-//             for this host
+//     given   {socket, remote}: the path, from / or ~/, and the machine it is on; '' or null
+//             for serviceman's own side, where a path may be inside its state folder too
+//             (socket_place)
 //
 //     {service, made, local, public}, as app_files_put says it
 async function app_socket_put(app, name, given)
@@ -23,10 +25,15 @@ async function app_socket_put(app, name, given)
     if (RE_NAME.test(name) === false) {
         throw failure(400, `${name}: an app's name is lowercase letters, digits, - and _`);
     }
-    const socket = (typeof given.socket === 'string') ? given.socket.trim() : '';
+    const typed = (typeof given.socket === 'string') ? given.socket.trim() : '';
     const remote = ((typeof given.remote === 'string') && (given.remote !== '')) ? given.remote : null;
-    if ((socket.startsWith('/') === false) && (socket.startsWith('~/') === false)) {
-        throw failure(400, `the socket is the path of the file the app listens on, from / or from ~/ (got ${JSON.stringify(given.socket)})`);
+    // On serviceman's own side a path is in its state folder, typed as the cards say it or not
+    const socket = (remote === null) ? socket_place.typed(app, typed) : typed;
+    if ((remote !== null) && (socket.startsWith('/') === false) && (socket.startsWith('~/') === false)) {
+        throw failure(400, `the socket is the path of the file the app listens on there, from / or from ~/ (got ${JSON.stringify(given.socket)})`);
+    }
+    if (socket === '') {
+        throw failure(400, 'the socket is the path of the file the app listens on');
     }
     if ((remote !== null) && (app.remote_by_name[remote] === undefined)) {
         throw failure(400, `no machine named ${remote} is in the config`);

@@ -1106,9 +1106,12 @@ same as for a service that does not answer, and it answers again the moment the 
 
 With `socket` in place of `upstream`, its program listens on a socket file, and serviceman passes
 every request into that file: on the machine `remote` names, through its link as a forward carries
-a connection, or on this host without one. `~` is the home of the user the agent runs as there
-(of serviceman's own here). A machine's door hands its names to serviceman, which carries them
-in. This is what **Apps** adds as **An app on a socket**.
+a connection, from `/` or `~/` (`~` the home of the user the agent runs as there); or, with no
+`remote`, on serviceman's own side, where a path from neither is inside serviceman's state folder,
+as a forward's socket that lands there is: `sockets/agency.sock` is `data/sockets/agency.sock`
+under `bin/run`, the folder its container shares, and every card says it so. A machine's door
+hands its names to serviceman, which carries them in. This is what **Apps** adds as **An app on a
+socket**.
 
 ```json
 {
@@ -1177,11 +1180,12 @@ them ([a new version of an app folder](#a-new-version-of-an-app-folder)): a prog
 in its folder, here or on a machine.
 
 **+ An app on a socket** under the card adds one whose program listens on a socket file
-([something listening on a socket file](#something-listening-on-a-socket-file)): its name, the
-machine it runs on, and the file, `~/<name>.sock` unless another is typed. It answers at once at
-the names an app gets, the card saying the file to set the program to, with **Copy**; until the
-program listens there its address answers 502. Its cell has **Copy socket** in place of **New
-version…**. The same through the control door, with a token given the `apps` right:
+([something listening on a socket file](#something-listening-on-a-socket-file)): its name, where
+its socket is, serviceman's own `data/` folder or a machine, and the file, `data/sockets/<name>.sock`
+or `~/<name>.sock` there unless another is typed. It answers at once at the names an app gets, the
+card saying the file to set the program to, with **Copy**; until the program listens there its
+address answers 502. Its cell says the file the same way and has **Copy socket** in place of
+**New version…**; its **Settings** change the socket too. The same through the control door, with a token given the `apps` right:
 
     curl -X PUT -d '{"socket": "~/agency.sock", "remote": "laptop"}' -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
 

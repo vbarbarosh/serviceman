@@ -4608,6 +4608,13 @@ article.rf .actions {
     min-width: 0;
 }
 
+/* An app's socket: where it is, then its file, each a line of its own */
+.apps-pane .app-socket-how {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: .45rem;
+}
+
 .apps-pane .app-settings-foot {
     display: flex;
     flex-wrap: wrap;

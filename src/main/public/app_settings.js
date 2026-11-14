@@ -4,8 +4,8 @@ import door_rules_write from './door_rules_write.js';
 // The service a new public address is protected with unless another is picked: one called this
 const WALL_NAME = 'authwall';
 
-// An app's settings, in a small window over the Apps page: its name and its public addresses,
-// and nothing more. One Save writes them: the name first, so the addresses are written for the
+// An app's settings, in a small window over the Apps page: its name, its socket for an app on
+// one, and its public addresses, and nothing more. One Save writes them: the name first, so the addresses are written for the
 // name it has now (serviceman moves the ones it had with it); Cancel, Esc or a click beside the
 // window puts it away with nothing written. The rest of the service is on its own page, linked
 // at the foot.
@@ -22,6 +22,16 @@ const app_settings = {
         <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
     </label>
     <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
+    <div v-if="(app.socket !== null)" class="app-settings-row">
+        <span class="app-settings-label">Socket</span>
+        <div class="app-socket-how">
+            <select v-model="where" aria-label="Where its socket is" :disabled="busy">
+                <option value="">in serviceman's own {{ folder }}/ folder</option>
+                <option v-for="item of machines" :key="item.value" :value="item.value">on {{ item.label }}</option>
+            </select>
+            <input v-model.trim="socket" class="app-socket-path" :placeholder="socket_default" spellcheck="false" autocomplete="off" aria-label="The file its app listens on" :disabled="busy" @keyup.enter="save">
+        </div>
+    </div>
     <div class="app-settings-row">
         <span class="app-settings-label">Public address</span>
         <div class="app-pub">
@@ -61,11 +71,16 @@ const app_settings = {
         remotes: {type: Array, required: true},
         names: {type: Array, required: true},
         host: {type: String, required: true},
+        // The folder serviceman keeps its own things in, as its owner sees it: data
+        folder: {type: String, required: true},
     },
     data: function () {
         // current: its name in the config, the new one once a rename is in (a Save that stopped
-        // after it does not rename twice); gone: the public addresses taken away, written on Save
-        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, busy: false, note: '', bad: false};
+        // after it does not rename twice); gone: the public addresses taken away, written on
+        // Save; where and socket: an app on a socket's place and file, as its card says them
+        const where = ((this.app.socket === null) || (this.app.remotes.length === 0)) ? '' : this.app.remotes[0];
+        const socket = (this.app.socket === null) ? '' : this.app.socket_said;
+        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, busy: false, note: '', bad: false};
     },
     computed: {
         // Every name a machine's door answers for this app, by a rule of its own
@@ -121,8 +136,14 @@ const app_settings = {
         fresh_host: function () {
             return this.fresh.host.toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/\/.*$/, '');
         },
+        socket_default: function () {
+            return (this.where === '') ? `${this.folder}/sockets/${this.current}.sock` : `~/${this.current}.sock`;
+        },
+        socket_changed: function () {
+            return (this.app.socket !== null) && ((this.where !== this.where_was) || (this.socket !== this.socket_was));
+        },
         changed: function () {
-            return (this.name !== this.current) || (this.gone.length > 0) || (this.fresh_host !== '');
+            return (this.name !== this.current) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
         },
     },
     watch: {
@@ -179,6 +200,11 @@ const app_settings = {
                     await this.rename(name);
                     this.current = name;
                 }
+                if (this.socket_changed) {
+                    await this.socket_write();
+                    this.where_was = this.where;
+                    this.socket_was = this.socket;
+                }
                 // The rules each machine loses and gains, written machine by machine
                 const machines = new Set(this.gone.map(v => v.machine));
                 if (host !== '') {
@@ -209,6 +235,15 @@ const app_settings = {
             this.busy = false;
             this.$emit('saved', name);
             this.$emit('close');
+        },
+        // An app on a socket's new place or file, under the name it has now; one left empty is
+        // the one named after it there
+        socket_write: async function () {
+            const socket = (this.socket === '') ? this.socket_default : this.socket;
+            const answer = await fetch(`/api/v1/apps/${encodeURIComponent(this.current)}/socket`, {method: 'PUT', body: JSON.stringify({socket, remote: this.where})});
+            if (answer.ok === false) {
+                throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
+            }
         },
         // The service as the config has it, under its new name: serviceman moves its files, the
         // address made of its name, its door rules, its secrets and its tokens with it
