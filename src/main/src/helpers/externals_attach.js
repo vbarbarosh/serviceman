@@ -1,4 +1,5 @@
 const agent_reset = require('./agent_reset');
+const socket_folder_make = require('./socket_folder_make');
 const socket_place = require('./socket_place');
 
 // An external service on a machine of ours is reached through that machine's link, and one on
@@ -9,9 +10,12 @@ function externals_attach(app, services)
         if (service.type !== 'external') {
             continue;
         }
-        // A socket of serviceman's own side is said the way its cards say it: data/sockets/va.sock
+        // A socket of serviceman's own side is said the way its cards say it, data/sockets/va.sock,
+        // and its folder is there for the program to listen in
         if ((service.upstream.socket !== undefined) && (service.remotes.length === 0)) {
-            service.upstream.said = socket_place(app, service.upstream.socket).said;
+            const place = socket_place(app, service.upstream.socket);
+            service.upstream.said = place.said;
+            socket_folder_make(app, place.file);
         }
         for (const instance of service.state.instances) {
             if ((instance.remote !== null) || (service.upstream.socket !== undefined)) {

@@ -1132,7 +1132,8 @@ every request into that file: on the machine `remote` names, through its link as
 a connection, from `/` or `~/` (`~` the home of the user the agent runs as there); or, with no
 `remote`, on serviceman's own side, where a path from neither is inside serviceman's state folder,
 as a forward's socket that lands there is: `sockets/agency.sock` is `data/sockets/agency.sock`
-under `bin/run`, the folder its container shares, and every card says it so. A machine's door
+under `bin/run`, the folder its container shares, and every card says it so. Its folder there is
+made by serviceman, owned as `data/` is, so the program can listen in it at once. A machine's door
 hands its names to serviceman, which carries them in. This is what **Apps** adds as **An app on a
 socket**.
 

@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.103 — 2026-11-14
+
+- serviceman makes the folder of an app's socket in its `data/` (`data/sockets/`), owned as `data/` is: a program told to listen on `data/sockets/chat.sock` could not, the folder was never there.
+
 ## 1.0.102 — 2026-11-14
 
 - An app can be behind authwall: one box in its Settings (`auth` on a service), asked first at every address it has, on serviceman's own door, every machine's door and a websocket; a lock on its card.

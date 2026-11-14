@@ -167,13 +167,17 @@ test('an app on a socket file is reached in that file, here and on a machine', a
     assert.strictEqual(there.body, 'there saw /x');
 
     // On serviceman's own side, a socket in its data folder, typed as the cards say it: the file
-    // sockets/notes.sock of the state folder, said data/sockets/notes.sock everywhere
-    fs.mkdirSync(path.join(app.state_dir, 'sockets'), {recursive: true});
+    // sockets/notes.sock of the state folder, said data/sockets/notes.sock everywhere. Its folder
+    // is serviceman's to make, for the program told to listen there, owned as the data folder is.
+    assert.strictEqual(fs.existsSync(path.join(app.state_dir, 'sockets')), false);
+    const notes = await put('notes', {socket: 'data/sockets/notes.sock', remote: ''});
+    assert.strictEqual(notes.status, 201, notes.body);
+    const folder = fs.statSync(path.join(app.state_dir, 'sockets'));
+    assert.strictEqual(folder.mode & 0o777, 0o700);
+    assert.strictEqual(folder.uid, fs.statSync(app.state_dir).uid);
     const notes_app = http.createServer((req, res) => res.end(`notes saw ${req.url}`));
     await new Promise(v => notes_app.listen(path.join(app.state_dir, 'sockets', 'notes.sock'), v));
     t.after(() => notes_app.close());
-    const notes = await put('notes', {socket: 'data/sockets/notes.sock', remote: ''});
-    assert.strictEqual(notes.status, 201, notes.body);
     assert.strictEqual(JSON.parse(notes.body).service.socket_said, 'data/sockets/notes.sock');
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(config_path, 'utf8')).services[1], {name: 'notes', type: 'external', publish: {host: 'notes.localhost'}, socket: 'sockets/notes.sock'});
     assert.strictEqual((await fetch_host({port, host: 'notes.localhost', path: '/y'})).body, 'notes saw /y');
