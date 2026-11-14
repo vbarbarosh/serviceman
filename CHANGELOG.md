@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.96 — 2026-11-14
+
+- `/apps` typed in or reloaded opens Apps again, not "No such page"; a test now loads every address the page writes, its panes and tabs alike.
+
 ## 1.0.95 — 2026-11-14
 
 - Apps takes one `.html` page as an app of its own (`2.html` is `2`, the page its `index.html`); a file that is no zip is said for what it is (a PNG, a gzip, a page, a zip cut short), on the page before sending and by serviceman alike, and several things dropped at once are refused instead of the first one taken.

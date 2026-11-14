@@ -311,6 +311,27 @@ test('the control page lists the services and starts and stops them', async func
             assert.strictEqual(opened.status, 200, known);
             assert.match(opened.body, /<title>serviceman<\/title>/, known);
         }
+        // Every address the page writes is answered with the page, and the page opens it again:
+        // both lists are read from the page itself. A pane added there and not here was "No such
+        // page" on a reload (/apps, 1.0.95)
+        const page_source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'public', 'serviceman.js'), 'utf8');
+        const written = Array.from(new Set(Array.from(page_source.matchAll(/return ['`]\/([a-z-]+)/g), v => v[1]))).filter(v => v !== 'api').sort();
+        const read_back = Array.from(new Set(Array.from(page_source.matchAll(/route\.kind === '([a-z-]+)'/g), v => v[1]))).filter(v => v !== 'home').sort();
+        assert.ok(written.includes('apps') && (written.length > 15), `the panes the page writes: ${written.join(' ')}`);
+        assert.deepStrictEqual(read_back, written, 'a pane the page writes in its address and does not open from it');
+        function tabs_of(pick) {
+            const found = page_source.match(new RegExp(`this\\.${pick} = \\[([^\\]]+)\\]\\.includes`));
+            assert.ok(found, pick);
+            return Array.from(found[1].matchAll(/'([a-z-]+)'/g), v => v[1]);
+        }
+        const addresses = written.map(v => `/${v}`)
+            .concat(tabs_of('service_tab').map(v => `/services/one/${v}`))
+            .concat(tabs_of('remote_tab').map(v => `/remotes/vps1/${v}`));
+        for (const known of addresses) {
+            const opened = await fetch_host({port: running.control_port, host: '127.0.0.1', path: known});
+            assert.strictEqual(opened.status, 200, known);
+            assert.match(opened.body, /<title>serviceman<\/title>/, known);
+        }
         for (const wrong of ['/nothing-here', '/routes', '/log', '/services/ghost', '/services/one/nothing', '/remotes/ghost', '/services/one/settings/more', '/remotes/vps1/files/more', '/remotes/ghost/shell/work', '/remotes/vps1/shell/a.b', '/remotes/vps1/shell/work/more']) {
             const missing = await fetch_host({port: running.control_port, host: '127.0.0.1', path: wrong});
             assert.strictEqual(missing.status, 404, wrong);
