@@ -1075,7 +1075,8 @@ address and passes requests on.
 
 | Field      | What it is                                                      |
 |------------|-----------------------------------------------------------------|
-| `upstream` | Required. Where it already answers, as `host:port`. Plain HTTP. |
+| `upstream` | Where it already answers, as `host:port`. Plain HTTP. Required, unless `socket` is given. |
+| `socket`   | Instead of `upstream`: the socket file it listens on, from `/` or `~/`. |
 | `remote`   | The machine it runs on, when that is one of the remotes. Optional. |
 
 ### Something already running on a remote
@@ -1097,6 +1098,26 @@ machine and nothing else needs a route to it — a port bound to its loopback is
 
 It is still never started or stopped. When the machine's link is down a visitor gets 502, the
 same as for a service that does not answer, and it answers again the moment the link is back.
+
+### Something listening on a socket file
+
+With `socket` in place of `upstream`, its program listens on a socket file, and serviceman passes
+every request into that file: on the machine `remote` names, through its link as a forward carries
+a connection, or on this host without one. `~` is the home of the user the agent runs as there
+(of serviceman's own here). A machine's door hands its names to serviceman, which carries them
+in. This is what **Apps** adds as **An app on a socket**.
+
+```json
+{
+    "name": "agency",
+    "type": "external",
+    "remote": "laptop",
+    "publish": {"hosts": ["agency.apps.example.com", "agency.localhost"]},
+    "socket": "~/agency.sock"
+}
+```
+
+Until the program listens there a visitor gets 502, and the address answers the moment it does.
 
 It is never started, never stopped, never reaped — **Start** and **Stop** are refused, and
 only its cards are left on the control page. `publish` is
@@ -1151,6 +1172,15 @@ serviceman says the same of a body that is no zip.
 **Apps** shows the apps that run from a folder of their own too, as the New service form makes
 them ([a new version of an app folder](#a-new-version-of-an-app-folder)): a program run as `bin/run`
 in its folder, here or on a machine.
+
+**+ An app on a socket** under the card adds one whose program listens on a socket file
+([something listening on a socket file](#something-listening-on-a-socket-file)): its name, the
+machine it runs on, and the file, `~/<name>.sock` unless another is typed. It answers at once at
+the names an app gets, the card saying the file to set the program to, with **Copy**; until the
+program listens there its address answers 502. Its cell has **Copy socket** in place of **New
+version…**. The same through the control door, with a token given the `apps` right:
+
+    curl -X PUT -d '{"socket": "~/agency.sock", "remote": "laptop"}' -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
 
 A cell is its app's: **New version…** picks a zip or a page for it, and a zip, a folder or a page
 dropped on the cell goes the same way, as that app's new version whatever the file is called. An

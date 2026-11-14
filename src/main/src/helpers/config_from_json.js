@@ -352,7 +352,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         if ((typeof bare === 'string') && /[/\s]/.test(bare)) {
             throw new Error(`${label}.upstream: where it already answers, as host:port — plain http, no path (got ${JSON.stringify(json.upstream)})`);
         }
-        out.upstream = upstream_from_text(bare);
+        out.upstream = (json.socket === undefined) ? upstream_from_text(bare) : upstream_socket(json, label);
         // Nothing here starts it or stops it; it is already running, wherever it runs
         out.policy.start = 'always';
         out.policy.stop_after_idle_ms = null;
@@ -535,6 +535,22 @@ function assert_publish_used(json, label)
     if ((json.publish !== undefined) && ((typeof json.publish !== 'object') || (json.publish === null) || Array.isArray(json.publish))) {
         throw new Error(`${label}.publish: an object is required — {"host": "example.com", "port": 8080}`);
     }
+}
+
+// An app that listens on a socket file instead of a port: "socket": "~/agency.sock", on the
+// machine "remote" names or on this host, ~ being the home of the agent's user there (or of
+// serviceman's own). Requests go into it the way a forward's connections go: through the link.
+// host and port are what the request says it was sent to; nothing dials them.
+function upstream_socket(json, label)
+{
+    if (json.upstream !== undefined) {
+        throw new Error(`${label}.socket: an external service answers at "upstream" or on "socket", not both`);
+    }
+    const socket = (typeof json.socket === 'string') ? json.socket.trim() : '';
+    if ((socket.startsWith('/') === false) && (socket.startsWith('~/') === false)) {
+        throw new Error(`${label}.socket: the path of the socket file its app listens on, from / or from ~/ (got ${JSON.stringify(json.socket)})`);
+    }
+    return {host: 'localhost', port: 80, socket};
 }
 
 module.exports = config_from_json;

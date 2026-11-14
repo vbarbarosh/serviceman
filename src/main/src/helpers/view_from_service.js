@@ -3,6 +3,7 @@ const service_app_folder = require('./service_app_folder');
 const service_inflight = require('./service_inflight');
 const service_phase = require('./service_phase');
 const service_redir = require('../service_redir');
+const upstream_said = require('./upstream_said');
 
 // How much of what a service said goes into every status answer. The whole of it is 60 lines
 // and the page asks once a second; this is the tail that says what is happening now.
@@ -44,6 +45,8 @@ function view_from_service(service, now)
         // The folder of an app folder, which takes a new version with its data/ kept; null for
         // anything else
         app_folder: service_app_folder(service),
+        // The socket file an app listens on, where serviceman passes its requests; null for any other
+        socket: ((service.type === 'external') && (service.upstream.socket !== undefined)) ? service.upstream.socket : null,
         // Where a program runs on its machine, as the config says it: a path under the agent's
         // services folder when it is not absolute, that folder itself when null. The page opens
         // its Files and its Shell there. null for anything but a program.
@@ -111,7 +114,7 @@ function source_from_service(service)
     if (service.type === 'files') {
         return {label: 'Files', text: (service.folder === null) ? `apps/${service.name}` : service.folder, kept: (service.folder === null)};
     }
-    return {label: 'Answers at', text: `${service.upstream.host}:${service.upstream.port}`};
+    return {label: (service.upstream.socket === undefined) ? 'Answers at' : 'Its socket', text: upstream_said(service.upstream)};
 }
 
 function view_from_instance(service, instance, at)
@@ -123,7 +126,7 @@ function view_from_instance(service, instance, at)
         container: (service.type === 'docker') ? docker_container_name(service, instance.slot) : null,
         phase: instance.phase,
         remote: instance.remote,
-        upstream: (instance.upstream === null) ? null : `${instance.upstream.host}:${instance.upstream.port}`,
+        upstream: (instance.upstream === null) ? null : upstream_said(instance.upstream),
         uptime_ms: (instance.started_at === null) ? null : at - instance.started_at,
         idle_ms: (instance.last_activity_at === null) ? null : at - instance.last_activity_at,
         inflight: instance.inflight,

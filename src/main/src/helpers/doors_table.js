@@ -91,6 +91,11 @@ function place_of(app, service)
         // serviceman serves it itself: the door hands its requests over
         return {service: service.name, machine: null, kind: 'files'};
     }
+    // An app on a socket file is reached through serviceman, which carries its requests into the
+    // file over the link, as a forward carries a connection: the door hands them over
+    if ((service.type === 'external') && (service.upstream.socket !== undefined)) {
+        return {service: service.name, machine: null, kind: 'external'};
+    }
     if (service.type === 'external') {
         const upstream = service.upstream;
         return {service: service.name, machine, kind: 'external', upstream: (typeof upstream === 'string') ? upstream : `${upstream.host}:${upstream.port}`};

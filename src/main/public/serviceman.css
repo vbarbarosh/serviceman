@@ -4471,6 +4471,24 @@ article.rf .actions {
     margin-right: .35rem;
 }
 
+/* An app on a socket is added from a line under the drop card, and the card says the file */
+.apps-pane .app-more {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .4rem .75rem;
+    margin: -.4rem 0 1rem;
+}
+
+.apps-pane .app-sent-socket {
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-sent-socket button {
+    margin-left: .4rem;
+    padding: .1rem .55rem;
+}
+
 /* An app's settings, in a small window over Apps: its name, its public addresses, Save */
 .apps-pane .app-settings {
     width: min(30rem, 100%);

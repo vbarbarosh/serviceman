@@ -5,6 +5,7 @@ const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
 const app_files_put = require('../helpers/app_files_put');
 const app_files_rename = require('../helpers/app_files_rename');
+const app_socket_put = require('../helpers/app_socket_put');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_fields = require('../body_fields');
@@ -122,6 +123,7 @@ const ZIP_LIMIT_BYTES = 64*1024*1024*1024;
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
 const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
 const RE_APPS = /^\/api\/v1\/apps\/([^/]+)$/;
+const RE_APP_SOCKET = /^\/api\/v1\/apps\/([^/]+)\/socket$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -612,6 +614,11 @@ async function control_answer(app, req, res)
     const apps = RE_APPS.exec(url.pathname);
     if (apps !== null) {
         await handle_app_put(app, req, res, route_param(apps[1]));
+        return;
+    }
+    const app_socket = RE_APP_SOCKET.exec(url.pathname);
+    if (app_socket !== null) {
+        await handle_app_socket(app, req, res, route_param(app_socket[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -1860,6 +1867,26 @@ async function handle_app_put(app, req, res, name)
     }
     finally {
         fs.rmSync(dir, {recursive: true, force: true});
+    }
+}
+
+// PUT /api/v1/apps/<name>/socket   {socket, remote}: an app its program reaches through a
+// socket file, on that machine or on this host (app_socket_put). The answer says where it
+// answers, as for an app of files.
+async function handle_app_socket(app, req, res, name)
+{
+    if (req.method !== 'PUT') {
+        send_json(res, 405, {error: 'an app on a socket is a PUT of {"socket": "~/app.sock", "remote": "laptop"}'});
+        return;
+    }
+    try {
+        const done = await app_socket_put(app, name, await body_fields(req, BODY_LIMIT_BYTES));
+        const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
+        send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.local}${port}/`, public: done.public, service: view_from_service(done.service)});
+    }
+    catch (error) {
+        log_event(app, 'control_error', {service: name, reason: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
     }
 }
 

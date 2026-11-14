@@ -1,6 +1,8 @@
 import app_files_pick from './app_files_pick.js';
 import app_settings from './app_settings.js';
+import app_socket_add from './app_socket_add.js';
 import format_bytes from './format_bytes.js';
+import to_clipboard from './to_clipboard.js';
 import zip_blob from './zip_blob.js';
 import zip_entries from './zip_entries.js';
 
@@ -10,8 +12,9 @@ const RE_PAGE = /\.html?$/i;
 // What a cell says of its app's state, in a visitor's words
 const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stopping', failed: 'failed', lost: 'its machine went', stopped: 'asleep'};
 
-// The small apps: the ones of files serviceman serves, and the ones that run from a folder of their
-// own (bin/run), wherever that is; and a card to give it one more: a zip, a folder or one .html
+// The small apps: the ones of files serviceman serves, the ones that run from a folder of their
+// own (bin/run), wherever that is, and the ones whose program listens on a socket file, which
+// serviceman passes their requests into; and a card to give it one more: a zip, a folder or one .html
 // page dropped on it (or picked) goes to serviceman under the name of the file, and the card
 // answers with the link that opens it. A name serviceman has already is that app's new version.
 // Simple enough for anybody: drop, then click the link. Each app's cell opens it, takes a new
@@ -24,11 +27,15 @@ const apps_pane = {
     <div class="list-head">
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
-    <p class="muted">Small apps: a page serviceman serves, or an app that runs from its own folder. Drop a zip, a folder or one .html page here and it answers at an address of its own at once; dropped on an app's card, it is that app's new version.</p>
+    <p class="muted">Small apps: a page serviceman serves, an app that runs from its own folder, or one that listens on a socket file. Drop a zip, a folder or one .html page here and it answers at an address of its own at once; dropped on an app's card, it is that app's new version.</p>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
         <b>Drop a .zip, a folder or an .html page here</b>
         <span class="muted">or click to pick a .zip or a page · a zip or a folder has its index.html at the top</span>
+    </div>
+    <div class="app-more">
+        <button type="button" @click="socket_adding = true">+ An app on a socket</button>
+        <span class="muted">its program listens on a socket file, on a machine of yours; serviceman gives it an address</span>
     </div>
     <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
          for a new app when an app's New version asked for it -->
@@ -39,6 +46,7 @@ const apps_pane = {
         <template v-else>
             <p class="app-sent-head"><span class="dot running"></span><b>{{ sent.name }}</b> {{ sent.made ? 'is ready' : 'has its new version' }}</p>
             <p class="app-sent-link"><a :href="sent.link" target="_blank" rel="noopener">{{ sent.link }}</a><a class="button primary" :href="sent.link" target="_blank" rel="noopener">Open</a></p>
+            <p v-if="(sent.socket !== undefined)" class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : ' on this host') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
             <p v-if="((sent.other !== '') && names_on)" class="muted">and on this computer: <a :href="sent.other" target="_blank" rel="noopener">{{ sent.other }}</a></p>
             <p v-else-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
         </template>
@@ -49,19 +57,22 @@ const apps_pane = {
                 <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
                 <b>{{ app.title || app.name }}</b>
                 <span class="muted app-host">{{ host_of(app) }}</span>
-                <span class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
+                <span v-if="(app.socket !== null)" class="muted app-host" :title="socket_place(app)">{{ socket_place(app) }}</span>
+                <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
             </a>
             <div class="app-acts">
-                <button type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
+                <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket + ', the file its app listens on')" @click="copy(app.socket)">{{ (copied === app.socket ? 'Copied' : 'Copy socket') }}</button>
+                <button v-else type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
                 <button type="button" :title="('The name and the public address of ' + app.name)" @click="settings = app">Settings</button>
             </div>
         </li>
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
+    <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="socket_adding = false" @made="socket_made"/>
     <app-settings v-if="(settings !== null)" :app="settings" :host="host_of(settings)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
 </section>
 `,
-    components: {'app-settings': app_settings},
+    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add},
     emits: ['select', 'saved'],
     props: {
         state: {type: Object, required: true},
@@ -70,14 +81,22 @@ const apps_pane = {
         // sent: the last zip given, {name, bytes, busy, error, made, link, other}; over: the
         // app a drop is over; target: the app a pick is for, null for a new one; settings: the
         // app whose settings window is open, as it was when it opened
-        return {dragging: false, over: null, target: null, sent: null, settings: null, STATE_WORDS};
+        // socket_adding: the window for a new app on a socket is open; copied: the text the last
+        // Copy put on the clipboard
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, STATE_WORDS};
     },
     computed: {
         sending: function () {
             return (this.sent !== null) && this.sent.busy;
         },
         apps: function () {
-            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null)).slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+        },
+        // What an app's own name has after it, beside serviceman's: localhost for
+        // serviceman.localhost
+        suffix: function () {
+            const at = location.hostname.indexOf('.');
+            return (at === -1) ? 'localhost' : location.hostname.slice(at + 1);
         },
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
@@ -97,6 +116,24 @@ const apps_pane = {
                 return `A new version of ${app.name}: pick its .zip, or drop its zip or its folder on this card; its data/ stays as it is`;
             }
             return `A new version of ${app.name}: pick its .zip or its .html page, or drop a zip, a folder or a page on this card`;
+        },
+        socket_place: function (app) {
+            const remote = (app.remotes.length === 0) ? 'this host' : app.remotes[0];
+            return `${app.socket} on ${remote}`;
+        },
+        copy: async function (text) {
+            if (await to_clipboard(text)) {
+                this.copied = text;
+            }
+        },
+        // A new app on a socket: the card says where it answers, and the file to set its app to
+        socket_made: function (said) {
+            const outside = ((said.public === null) || (said.public === undefined)) ? '' : said.public;
+            const port = this.state.listen.port;
+            const tailnet = (this.names_on && (outside !== '')) ? `http://${outside}${(port === 80) ? '' : ':' + port}/` : '';
+            this.socket_adding = false;
+            this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address, socket: said.socket, remote: said.remote};
+            this.$emit('saved');
         },
         // Its service page, from the settings window's foot
         more: function (name) {

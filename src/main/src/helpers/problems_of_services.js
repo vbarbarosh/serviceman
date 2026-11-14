@@ -1,4 +1,5 @@
 const http = require('http');
+const upstream_said = require('./upstream_said');
 
 const TIMEOUT_MS = 5000;
 
@@ -31,7 +32,7 @@ async function problems_of_services(app)
 function probe(service, instance)
 {
     const upstream = instance.upstream;
-    const where = `${upstream.host}:${upstream.port}${(instance.remote === null) ? '' : ` on ${instance.remote}`}`;
+    const where = `${upstream_said(upstream)}${(instance.remote === null) ? '' : ` on ${instance.remote}`}`;
     const key = `service:${service.name}:${instance.slot}`;
     const begin = Date.now();
     function answered() {

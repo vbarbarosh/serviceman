@@ -2349,10 +2349,10 @@ const app = {
         guarded_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
         },
-        // The small apps: the folders of files serviceman serves, and the apps run from a folder
-        // of their own
+        // The small apps: the folders of files serviceman serves, the apps run from a folder of
+        // their own, and the ones on a socket file
         apps_count: function () {
-            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null)).length;
+            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).length;
         },
         forwards_count: function () {
             return (this.state.forwards === undefined) ? 0 : this.state.forwards.length;

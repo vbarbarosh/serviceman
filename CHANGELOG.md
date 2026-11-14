@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.99 — 2026-11-14
+
+- An app on a socket: Apps adds one whose program listens on a socket file, on a machine or here, and serviceman passes its requests into that file (`"socket"` in place of `"upstream"`; `PUT /api/v1/apps/<name>/socket`).
+
 ## 1.0.98 — 2026-11-14
 
 - Settings on an app's card opens a small window over Apps, its name and public addresses alone; the apps that run from their own folder are on Apps too. A rename takes the service's door rules, secrets and tokens with it, and stops what ran under the old name instead of uninstalling it.

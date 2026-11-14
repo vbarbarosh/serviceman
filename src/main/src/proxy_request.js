@@ -8,6 +8,7 @@ const instance_stopped = require('./helpers/instance_stopped');
 const log_bind = require('./helpers/log_bind');
 const log_event = require('./helpers/log_event');
 const render_error_page = require('./helpers/render_error_page');
+const upstream_said = require('./helpers/upstream_said');
 const wants_html = require('./wants_html');
 
 const DEAD_UPSTREAM_CODES = ['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENOTFOUND'];
@@ -43,7 +44,7 @@ function proxy_request(app, service, instance, req, res, deadline)
                     for (const name of res.getHeaderNames()) {
                         res.removeHeader(name);
                     }
-                    log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message});
+                    log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: upstream_said(upstream), reason: error.message});
                     render_error_page(res, 502, 'The service did not answer', error_detail(app, req, where_said(instance, `it answered what is no HTTP answer: ${error.message}`)), {retry: wants_html(req)});
                     proxy_req.destroy();
                     return;
@@ -53,7 +54,7 @@ function proxy_request(app, service, instance, req, res, deadline)
         }
         catch (error) {
             // No way to it at all: an external service on a machine whose link is down
-            log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message});
+            log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: upstream_said(upstream), reason: error.message});
             render_error_page(res, 502, 'The service did not answer', error_detail(app, req, where_said(instance, error.message)), {retry: wants_html(req)});
             resolve();
             return;
@@ -71,7 +72,7 @@ function proxy_request(app, service, instance, req, res, deadline)
                 return;
             }
             if (DEAD_UPSTREAM_CODES.includes(error.code)) {
-                log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: `${upstream.host}:${upstream.port}`, reason: error.message, hint: port_hint(service, error)});
+                log_event(app, 'upstream_error', {service: service.name, instance: instance.slot, remote: instance.remote, upstream: upstream_said(upstream), reason: error.message, hint: port_hint(service, error)});
                 instance.last_error = error.message;
                 agent_reset(app, service, instance);
                 // An external service is not ours to start again, so its address stays what it is

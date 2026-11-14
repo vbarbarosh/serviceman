@@ -1934,7 +1934,11 @@ address and passes requests on.</p>
 </thead>
 <tbody><tr>
 <td><code>upstream</code></td>
-<td>Required. Where it already answers, as <code>host:port</code>. Plain HTTP.</td>
+<td>Where it already answers, as <code>host:port</code>. Plain HTTP. Required, unless <code>socket</code> is given.</td>
+</tr>
+<tr>
+<td><code>socket</code></td>
+<td>Instead of <code>upstream</code>: the socket file it listens on, from <code>/</code> or <code>~/</code>.</td>
 </tr>
 <tr>
 <td><code>remote</code></td>
@@ -1957,6 +1961,21 @@ machine and nothing else needs a route to it — a port bound to its loopback is
 </code></pre>
 <p>It is still never started or stopped. When the machine&#39;s link is down a visitor gets 502, the
 same as for a service that does not answer, and it answers again the moment the link is back.</p>
+<h3 id="something-listening-on-a-socket-file"><a class="anchor" href="#something-listening-on-a-socket-file" aria-hidden="true" tabindex="-1">#</a>Something listening on a socket file</h3>
+<p>With <code>socket</code> in place of <code>upstream</code>, its program listens on a socket file, and serviceman passes
+every request into that file: on the machine <code>remote</code> names, through its link as a forward carries
+a connection, or on this host without one. <code>~</code> is the home of the user the agent runs as there
+(of serviceman&#39;s own here). A machine&#39;s door hands its names to serviceman, which carries them
+in. This is what <strong>Apps</strong> adds as <strong>An app on a socket</strong>.</p>
+<pre><code class="language-json">{
+    &quot;name&quot;: &quot;agency&quot;,
+    &quot;type&quot;: &quot;external&quot;,
+    &quot;remote&quot;: &quot;laptop&quot;,
+    &quot;publish&quot;: {&quot;hosts&quot;: [&quot;agency.apps.example.com&quot;, &quot;agency.localhost&quot;]},
+    &quot;socket&quot;: &quot;~/agency.sock&quot;
+}
+</code></pre>
+<p>Until the program listens there a visitor gets 502, and the address answers the moment it does.</p>
 <p>It is never started, never stopped, never reaped — <strong>Start</strong> and <strong>Stop</strong> are refused, and
 only its cards are left on the control page. <code>publish</code> is
 the address it answers on here; there is no <code>publish.port</code>, because nothing has a port
@@ -2009,6 +2028,14 @@ serviceman says the same of a body that is no zip.</p>
 <p><strong>Apps</strong> shows the apps that run from a folder of their own too, as the New service form makes
 them (<a href="#a-new-version-of-an-app-folder">a new version of an app folder</a>): a program run as <code>bin/run</code>
 in its folder, here or on a machine.</p>
+<p><strong>+ An app on a socket</strong> under the card adds one whose program listens on a socket file
+(<a href="#something-listening-on-a-socket-file">something listening on a socket file</a>): its name, the
+machine it runs on, and the file, <code>~/&lt;name&gt;.sock</code> unless another is typed. It answers at once at
+the names an app gets, the card saying the file to set the program to, with <strong>Copy</strong>; until the
+program listens there its address answers 502. Its cell has <strong>Copy socket</strong> in place of <strong>New
+version…</strong>. The same through the control door, with a token given the <code>apps</code> right:</p>
+<pre><code>curl -X PUT -d &#39;{&quot;socket&quot;: &quot;~/agency.sock&quot;, &quot;remote&quot;: &quot;laptop&quot;}&#39; -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
+</code></pre>
 <p>A cell is its app&#39;s: <strong>New version…</strong> picks a zip or a page for it, and a zip, a folder or a page
 dropped on the cell goes the same way, as that app&#39;s new version whatever the file is called. An
 app of its own folder takes a zip or its folder, never a page: it goes in as its page&#39;s <strong>New

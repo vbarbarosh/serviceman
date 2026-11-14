@@ -3,12 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const service_app_folder = require('./service_app_folder');
 
-// A new name for an app, one of files or one run from its own folder: the names made of the old
-// name go with it (board.localhost is pad.localhost, board.apps.example.com is
-// pad.apps.example.com), and for an app of files so does its folder, apps/<name> in the state
-// folder, when serviceman keeps it; a folder the config names stays where it is, and so does a
-// name given by hand. Without this the config named the app pad while its files stayed in
-// apps/board and it answered on board.localhost: gone under both names.
+// A new name for an app, one of files, one run from its own folder or one on a socket: the
+// names made of the old name go with it (board.localhost is pad.localhost,
+// board.apps.example.com is pad.apps.example.com), and for an app of files so does its folder,
+// apps/<name> in the state folder, when serviceman keeps it; a folder the config names stays
+// where it is, and so does a name given by hand. Without this the config named the app pad while
+// its files stayed in apps/board and it answered on board.localhost: gone under both names.
 //
 // Changes `after` in place, and gives what moves the folder, to run once the new config is found
 // good, or null when nothing moves. A refusal throws, with its status.
@@ -19,7 +19,8 @@ function app_files_rename(app, before, after)
 {
     const files = (before.type === 'files') && (after.type === 'files');
     const folder_app = (service_app_folder(before) !== null) && (service_app_folder(after) !== null);
-    if ((before.name === after.name) || ((files === false) && (folder_app === false))) {
+    const socket_app = (before.type === 'external') && (before.socket !== undefined) && (after.type === 'external') && (after.socket !== undefined);
+    if ((before.name === after.name) || ((files === false) && (folder_app === false) && (socket_app === false))) {
         return null;
     }
     if (files && app.files_sending.has(before.name)) {
