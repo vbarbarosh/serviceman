@@ -1139,10 +1139,14 @@ control port, with the owner's token or one given the `apps` right
 
     curl -T notes.zip -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 
-**On serviceman's page** it is one drop: **Apps** has a card to drop the zip or the folder on (or
-click and pick a zip), named after the file, `My Notes.zip` as `my-notes`. The card answers with
-the link that opens the app here and Open, and the name it has outside; under it, every app as a
-cell, a click opening it. A folder dropped is zipped in the page and sent the same way.
+**On serviceman's page** it is one drop: **Apps** has a card to drop the zip, the folder or one
+`.html` page on (or click and pick a zip or a page), named after the file, `My Notes.zip` as
+`my-notes`, `2.html` as `2`. The card answers with the link that opens the app here and Open, and
+the name it has outside; under it, every app as a cell, a click opening it. A folder dropped is
+zipped in the page and sent the same way, and so is a page, as the `index.html` of an app of its
+own. What is none of them is said on the card at once, for what it is (`photo.png: it is a PNG
+picture, not a zip`, a zip cut short, several things dropped at once), and nothing is sent;
+serviceman says the same of a body that is no zip.
 
 A name serviceman has not seen becomes a folder of files in the config and is served at once:
 `201`; a known one gets the new version: `200`. A new app has two names. One is beside

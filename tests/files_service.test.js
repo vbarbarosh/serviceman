@@ -343,3 +343,52 @@ test('a folder zipped by the page is read by serviceman as a page\'s files', asy
     }
     assert.strictEqual(Buffer.concat(chunks).toString(), 'console.log(1);');
 });
+
+// What is given to the Apps card goes as serviceman takes it: a page, 2.html, as an app of its
+// own with the page as its index.html (1.0.94 sent it as it was, and serviceman called it a
+// broken zip), a zip as it is once it reads, and what is neither is said on the card with its own
+// name, nothing sent
+test('the Apps card sends a page as an app of its own, a zip as it is, and says what is neither', async function () {
+    const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
+    const apps_pane = (await import(path.join(PUBLIC, 'apps_pane.js'))).default;
+    const zip_blob = (await import(path.join(PUBLIC, 'zip_blob.js'))).default;
+    const files_zip_items = require('../src/main/src/helpers/files_zip_items');
+    const sent = [];
+    const fetch_before = global.fetch;
+    global.fetch = async function (url, options) {
+        sent.push({url, body: Buffer.from(await options.body.arrayBuffer())});
+        return new Response(JSON.stringify({made: true, address: 'http://x.localhost:3000/', public: null}), {status: 201});
+    };
+    try {
+        const card = {state: {listen: {port: 3000}, apps: null}, names_on: false, sent: null};
+        await apps_pane.methods.give.call(card, {file: new File(['<!doctype html><title>Two</title>'], '2.html')});
+        assert.strictEqual(card.sent.error, '');
+        assert.strictEqual(sent.length, 1);
+        assert.strictEqual(sent[0].url, '/api/v1/apps/2', 'named after the page, its .html off');
+        const items = await files_zip_items('2.zip', sent[0].body);
+        assert.deepStrictEqual(items.items.map(v => [v.path, v.size]), [['index.html', 33]]);
+
+        const zip = Buffer.from(await (await zip_blob([{path: 'notes/index.html', file: new Blob(['<title>Notes</title>'])}])).arrayBuffer());
+        await apps_pane.methods.give.call(card, {file: new File([zip], 'My Notes.zip')});
+        assert.strictEqual(card.sent.error, '');
+        assert.strictEqual(sent[1].url, '/api/v1/apps/my-notes');
+        assert.ok(sent[1].body.equals(zip), 'a zip goes as it is');
+
+        const refused = [
+            [{file: new File([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], 'photo.png')}, 'photo.png: it is a PNG picture, not a zip.'],
+            [{file: new File(['<!doctype html><title>Two</title>'], '2.zip')}, '2.zip: it is an HTML page, not a zip.'],
+            [{file: new File([zip.subarray(0, 50)], 'cut.zip')}, 'cut.zip: it is a zip cut short: the list of its files, kept at its end, is missing.'],
+            [{file: new File([], 'empty.zip')}, 'empty.zip: it is empty, not a zip.'],
+            [{several: 3}, '3 things were dropped at once: drop one, a .zip, a folder or an .html page. Files that go together go as their folder.'],
+        ];
+        for (const [given, said] of refused) {
+            await apps_pane.methods.give.call(card, given);
+            assert.strictEqual(card.sent.error, said);
+            assert.strictEqual(card.sent.busy, false);
+        }
+        assert.strictEqual(sent.length, 2, 'nothing refused was sent');
+    }
+    finally {
+        global.fetch = fetch_before;
+    }
+});

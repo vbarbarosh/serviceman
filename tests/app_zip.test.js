@@ -55,6 +55,38 @@ test('what is not a zip is said to be one it cannot read', async function () {
     await assert.rejects(zip_entries(new Blob(['just some text, not a zip'])), /it is not a zip/);
 });
 
+// A page dropped on Apps, 2.html, was called a broken zip (1.0.94): what a file given for a zip
+// is instead is said by its first bytes, the same words in the page and in serviceman
+test('a file given for a zip that is none is said for what it is, in the page as in serviceman', async function () {
+    const zip_entries = (await import(path.join(PUBLIC, 'zip_entries.js'))).default;
+    const server_entries = require('../src/main/src/helpers/zip_entries');
+    const tar = Buffer.alloc(1024);
+    tar.write('index.html', 0);
+    tar.write('ustar', 257);
+    const cases = [
+        [Buffer.alloc(0), 'it is empty, not a zip'],
+        [zip_make([{name: 'index.html', mode: 0o100644, text: '<h1>2</h1>\n'.repeat(20)}]).subarray(0, 60), 'it is a zip cut short: the list of its files, kept at its end, is missing'],
+        [Buffer.from('\uFEFF\n  <!DOCTYPE html>\n<title>2</title>\n'), 'it is an HTML page, not a zip'],
+        [Buffer.from('<html><body>2</body></html>'), 'it is an HTML page, not a zip'],
+        [Buffer.from('<h1>2</h1>\n'), 'it is an HTML page, not a zip'],
+        [Buffer.from('<!-- the page -->\n<p>2</p>'), 'it is an HTML page, not a zip'],
+        [Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'), 'it is not a zip: it has no list of its files at its end'],
+        [Buffer.from('<pre>not taken for <p></pre>'), 'it is not a zip: it has no list of its files at its end'],
+        [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]), 'it is a PNG picture, not a zip'],
+        [Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16]), 'it is a JPEG picture, not a zip'],
+        [Buffer.from('%PDF-1.7\n'), 'it is a PDF, not a zip'],
+        [zlib.gzipSync(tar), 'it is a gzip file (.gz, .tar.gz), not a zip'],
+        [Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0, 4]), 'it is a 7z archive, not a zip'],
+        [Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0]), 'it is a RAR archive, not a zip'],
+        [tar, 'it is a tar archive, not a zip'],
+        [Buffer.from('just some text, <html> later'), 'it is not a zip: it has no list of its files at its end'],
+    ];
+    for (const [bytes, said] of cases) {
+        await assert.rejects(zip_entries(new Blob([bytes])), {message: said}, `the page: ${said}`);
+        assert.throws(() => server_entries(bytes), {message: said}, `serviceman: ${said}`);
+    }
+});
+
 // A zip above 4 GiB, or of more than 65535 files, keeps its sizes and places in zip64 fields:
 // the page reads it as serviceman reads one sent by PUT
 test('a zip64 is read in the page as a plain zip is', async function () {

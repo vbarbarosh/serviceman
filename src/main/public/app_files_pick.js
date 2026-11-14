@@ -1,8 +1,9 @@
-// What was given to the page as an app: a zip, or a folder with every file in it. A folder
-// comes from a picker (<input webkitdirectory>, each file with its path from the folder) or
-// from a drop, where it is walked through the browser's entries.
+// What was given to the page as an app: one file (a zip, or what the caller takes besides), or a
+// folder with every file in it. A folder comes from a picker (<input webkitdirectory>, each file
+// with its path from the folder) or from a drop, where it is walked through the browser's
+// entries. Several things dropped at once are counted, not one of them taken in their place.
 //
-//     {zip: File} | {folder: [{path, file}]} | null
+//     {file: File} | {folder: [{path, file}]} | {several: number} | null
 async function app_files_pick(input)
 {
     if (input instanceof DataTransfer) {
@@ -15,20 +16,24 @@ async function app_files_pick(input)
     if (input.webkitdirectory) {
         return {folder: files.map(v => ({path: v.webkitRelativePath, file: v}))};
     }
-    return {zip: files[0]};
+    return {file: files[0]};
 }
 
 async function dropped(transfer)
 {
-    const item = Array.from(transfer.items).find(v => v.kind === 'file');
-    const entry = ((item === undefined) || (typeof item.webkitGetAsEntry !== 'function')) ? null : item.webkitGetAsEntry();
+    // The entries are taken before the first await: a drop's items are gone once its event is over
+    const items = Array.from(transfer.items).filter(v => v.kind === 'file');
+    if (items.length > 1) {
+        return {several: items.length};
+    }
+    const entry = ((items.length === 0) || (typeof items[0].webkitGetAsEntry !== 'function')) ? null : items[0].webkitGetAsEntry();
     if ((entry !== null) && entry.isDirectory) {
         const files = [];
         await folder_walk(entry, files);
         return {folder: files};
     }
     const file = transfer.files[0];
-    return (file === undefined) ? null : {zip: file};
+    return (file === undefined) ? null : {file};
 }
 
 // Every file under a folder entry, with its path from the folder dropped, appdir/bin/run

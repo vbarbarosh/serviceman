@@ -51,7 +51,7 @@ test('a zip that is no app, or one made to do harm, is refused with a sentence',
         await assert.rejects(app_zip_items('lab.zip', zip_bytes(files)), re, JSON.stringify(files.map(v => v.name)));
     }
     await assert.rejects(app_zip_items('lab.zip', Buffer.from('not a zip at all')), /^Error: lab\.zip: it is not a zip: it has no list of its files at its end$/);
-    await assert.rejects(app_zip_items('lab.zip', Buffer.alloc(0)), /it is not a zip/);
+    await assert.rejects(app_zip_items('lab.zip', Buffer.alloc(0)), /^Error: lab\.zip: it is empty, not a zip$/);
 });
 
 // A zip above 4 GiB, or of more than 65535 files, keeps its sizes and places in zip64 fields:

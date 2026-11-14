@@ -1,13 +1,17 @@
 import app_files_pick from './app_files_pick.js';
 import format_bytes from './format_bytes.js';
 import zip_blob from './zip_blob.js';
+import zip_entries from './zip_entries.js';
+
+// A page of its own, given as one file: 2.html, notes.htm
+const RE_PAGE = /\.html?$/i;
 
 // What a cell says of its app's state, in a visitor's words
 const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stopping', failed: 'failed', lost: 'its machine went', stopped: 'asleep'};
 
-// The apps of files serviceman serves, and a card to give it one more: a zip or a folder dropped
-// on it (or picked) goes to serviceman under the name of the file, and the card answers with the
-// link that opens it. A name serviceman has already is that app's new version. Simple enough for
+// The apps of files serviceman serves, and a card to give it one more: a zip, a folder or one
+// .html page dropped on it (or picked) goes to serviceman under the name of the file, and the card
+// answers with the link that opens it. A name serviceman has already is that app's new version. Simple enough for
 // anybody: drop, then click the link.
 const apps_pane = {
     template: `
@@ -15,12 +19,12 @@ const apps_pane = {
     <div class="list-head">
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
-    <p class="muted">A page or an app with no server of its own, served by serviceman: drop its zip or its folder here and it answers at an address of its own at once. A zip of a name already here is that app's new version.</p>
+    <p class="muted">A page or an app with no server of its own, served by serviceman: drop its zip, its folder or its one .html page here and it answers at an address of its own at once. A zip of a name already here is that app's new version.</p>
     <div class="app-drop" :class="{over: dragging, busy: (sent !== null && sent.busy)}" role="button" tabindex="0" @click="$refs.zip.click()" @keyup.enter="$refs.zip.click()" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
-        <b>Drop a .zip or a folder here</b>
-        <span class="muted">or click to pick a .zip · an app or plain HTML, with its index.html at the top</span>
-        <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="picked">
+        <b>Drop a .zip, a folder or an .html page here</b>
+        <span class="muted">or click to pick a .zip or a page · a zip or a folder has its index.html at the top</span>
+        <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html" hidden @change="picked">
     </div>
     <div v-if="(sent !== null)" class="card app-sent" :class="{bad: (sent.error !== '')}">
         <p v-if="sent.busy" class="muted"><span class="spin"/>{{ sent.name }}: sending {{ format_bytes(sent.bytes) }}…</p>
@@ -100,22 +104,29 @@ const apps_pane = {
             event.target.value = '';
             await this.give(given);
         },
-        // A zip goes as it is; a folder is zipped here first. Its name is the file's, made one
-        // serviceman takes: notes.zip is notes, My Notes/ is my-notes.
+        // A zip goes as it is, once its list of files reads here; a folder is zipped here first,
+        // and so is one page, as the index.html of an app of its own. Its name is the file's, made
+        // one serviceman takes: notes.zip is notes, My Notes/ is my-notes, 2.html is 2. What is none
+        // of them is said on the card with its own name, and nothing is sent.
         give: async function (given) {
             if (given === null) {
                 return;
             }
+            if (given.several !== undefined) {
+                this.sent = {name: '', bytes: 0, busy: false, error: `${given.several} things were dropped at once: drop one, a .zip, a folder or an .html page. Files that go together go as their folder.`, made: false, link: '', other: ''};
+                return;
+            }
             const folder = (given.folder !== undefined);
-            const raw = folder ? ((given.folder.length === 0) ? '' : given.folder[0].path.split('/')[0]) : given.zip.name.replace(/\.zip$/i, '');
+            const page = (folder === false) && RE_PAGE.test(given.file.name);
+            const raw = folder ? ((given.folder.length === 0) ? '' : given.folder[0].path.split('/')[0]) : given.file.name.replace(page ? RE_PAGE : /\.zip$/i, '');
             const name = name_of(raw);
-            const bytes = folder ? given.folder.reduce((sum, v) => sum + v.file.size, 0) : given.zip.size;
+            const bytes = folder ? given.folder.reduce((sum, v) => sum + v.file.size, 0) : given.file.size;
             this.sent = {name, bytes, busy: true, error: '', made: false, link: '', other: ''};
             try {
                 if (folder && (given.folder.length === 0)) {
                     throw new Error('The folder is empty.');
                 }
-                const body = folder ? await zip_blob(given.folder) : given.zip;
+                const body = await body_of(given, page);
                 const answer = await fetch(`/api/v1/apps/${encodeURIComponent(name)}`, {method: 'PUT', body});
                 const said = await answer.json().catch(() => ({}));
                 if (answer.ok === false) {
@@ -134,6 +145,25 @@ const apps_pane = {
         },
     },
 };
+
+// What goes to serviceman: a folder zipped, a page zipped as the index.html of an app of its own,
+// and a zip as it is once its list of files reads; one that does not is said with its own name
+async function body_of(given, page)
+{
+    if (given.folder !== undefined) {
+        return zip_blob(given.folder);
+    }
+    if (page) {
+        return zip_blob([{path: 'index.html', file: given.file}]);
+    }
+    try {
+        await zip_entries(given.file);
+    }
+    catch (error) {
+        throw new Error(`${given.file.name}: ${error.message}.`);
+    }
+    return given.file;
+}
 
 // A name serviceman takes for an app, from a file's or a folder's: lowercase letters, digits,
 // - and _, starting with a letter or a digit; app when nothing of it is left

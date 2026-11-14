@@ -1780,7 +1780,7 @@ const service_page = {
             if (picked === null) {
                 return;
             }
-            const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
+            const read = (picked.file !== undefined) ? await app_zip_read(picked.file) : app_folder_read(picked.folder);
             const apart = app_data_apart(read);
             this.version_note = '';
             this.version_copy = null;

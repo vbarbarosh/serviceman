@@ -1,3 +1,4 @@
+import app_entries_read from './app_entries_read.js';
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
 import app_folder_read from './app_folder_read.js';
@@ -1210,7 +1211,11 @@ const service_form = {
             if (this.m.type !== 'shell') {
                 this.short_kind('shell');
             }
-            const read = (picked.zip !== undefined) ? await app_zip_read(picked.zip) : app_folder_read(picked.folder);
+            if (picked.several !== undefined) {
+                this.app_files = Object.assign(app_entries_read(`${picked.several} things`, [], `${picked.several} things were dropped at once: drop one, the app's folder or its zip.`), {name: ''});
+                return;
+            }
+            const read = (picked.file !== undefined) ? await app_zip_read(picked.file) : app_folder_read(picked.folder);
             this.app_files = Object.assign(read, {name: name_from_folder(read.label.replace(/\.zip$/i, ''))});
         },
         size_text: function (bytes) {

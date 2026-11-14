@@ -1,7 +1,8 @@
 // The files of a zip, read in the page: each one's name, mode and time, and its bytes when asked
 // for. A zip dropped on the page goes to a machine as its files, so nothing on that machine has
 // to unpack it. Stored and deflated entries are read, zip64 too, for a zip above 4 GiB or of
-// more than 65535 files; encrypted ones are refused with a sentence that says so.
+// more than 65535 files; encrypted ones are refused with a sentence that says so, and a file that
+// is no zip at all with one that says what it is, by its first bytes (not_zip_said).
 //
 //     [{name, dir, link, mode, mtime_s, size, bytes()}]
 //     link     a symbolic link, which a zip made on unix may hold
@@ -22,6 +23,25 @@ const UNIX_LINK = 0o120000;
 const FLAG_ENCRYPTED = 1;
 const METHOD_STORED = 0;
 const METHOD_DEFLATED = 8;
+// What a file given for a zip is instead, by the bytes it starts with
+const ZIP_LOCAL_START = [0x50, 0x4b, 0x03, 0x04];
+const KINDS = [
+    {start: [0x89, 0x50, 0x4e, 0x47], said: 'a PNG picture'},
+    {start: [0xff, 0xd8, 0xff], said: 'a JPEG picture'},
+    {start: [0x47, 0x49, 0x46, 0x38], said: 'a GIF picture'},
+    {start: [0x25, 0x50, 0x44, 0x46], said: 'a PDF'},
+    {start: [0x1f, 0x8b], said: 'a gzip file (.gz, .tar.gz)'},
+    {start: [0x42, 0x5a, 0x68], said: 'a bzip2 file'},
+    {start: [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00], said: 'an xz file'},
+    {start: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c], said: 'a 7z archive'},
+    {start: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07], said: 'a RAR archive'},
+];
+// A tar says so 257 bytes in
+const TAR_MAGIC_AT = 257;
+const TAR_MAGIC = 'ustar';
+const HEAD_BYTES = 512;
+// A page starts with its doctype, a comment or one of the tags a page or a piece of one starts with
+const RE_HTML_START = /^\s*<(!doctype\s+html|!--|(html|head|body|meta|title|link|base|script|style|main|div|section|p|h[1-6])[\s/>])/i;
 
 async function zip_entries(blob)
 {
@@ -34,7 +54,7 @@ async function zip_entries(blob)
         }
     }
     if (end === -1) {
-        throw new Error('it is not a zip: it has no list of its files at its end');
+        throw new Error(not_zip_said(new Uint8Array(await blob.slice(0, HEAD_BYTES).arrayBuffer())));
     }
     const tail_start = Math.max(0, blob.size - END_SEARCH_BYTES);
     const {count, size, offset} = await list_where(blob, tail, tail_start, end);
@@ -153,6 +173,37 @@ async function entry_bytes(blob, entry)
     }
     const unpacked = packed.stream().pipeThrough(new DecompressionStream('deflate-raw'));
     return new Uint8Array(await new Response(unpacked).arrayBuffer());
+}
+
+// What a file with no list of a zip's files at its end is, by its first bytes: nothing at all,
+// a zip that was cut short (a download that stopped), a file of another kind, or none known
+//
+//     head  its first bytes, up to HEAD_BYTES of them, a Uint8Array
+function not_zip_said(head)
+{
+    if (head.length === 0) {
+        return 'it is empty, not a zip';
+    }
+    if (starts_with(head, ZIP_LOCAL_START)) {
+        return 'it is a zip cut short: the list of its files, kept at its end, is missing';
+    }
+    const kind = KINDS.find(v => starts_with(head, v.start));
+    if (kind !== undefined) {
+        return `it is ${kind.said}, not a zip`;
+    }
+    const text = new TextDecoder().decode(head).replace(/^\uFEFF/, '');
+    if (text.slice(TAR_MAGIC_AT, TAR_MAGIC_AT + TAR_MAGIC.length) === TAR_MAGIC) {
+        return 'it is a tar archive, not a zip';
+    }
+    if (RE_HTML_START.test(text)) {
+        return 'it is an HTML page, not a zip';
+    }
+    return 'it is not a zip: it has no list of its files at its end';
+}
+
+function starts_with(head, bytes)
+{
+    return (head.length >= bytes.length) && bytes.every((v, i) => head[i] === v);
 }
 
 // A zip keeps its times as DOS does, in local time, to two seconds
