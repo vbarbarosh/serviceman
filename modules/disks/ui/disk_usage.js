@@ -45,7 +45,7 @@ const disk_usage = {
         <li v-for="line of notes" :key="line.text" :class="line.tone">{{ line.text }}</li>
     </ul>
     <div v-if="(top !== undefined && top.state !== 'failed')" class="du-tree" role="tree">
-        <button v-for="row of rows" :key="row.key" type="button" class="du-row" :class="{dim: ((row.folder === false) && (row.said === false)), unseen: row.unseen, waiting: row.waiting}" :style="{'--depth': row.depth}" :disabled="(row.folder === false)" role="treeitem" :aria-expanded="(row.folder ? row.open : undefined)" :title="row.path" @click="toggle(row)">
+        <button v-for="row of rows" :key="row.key" type="button" class="du-row" :class="{dim: ((row.folder === false) && (row.said === false)), unseen: row.unseen, waiting: row.waiting}" :style="{'--depth': row.depth}" :disabled="(row.folder === false)" role="treeitem" :aria-expanded="(row.folder ? row.open : undefined)" :title="row.tip" @click="toggle(row)">
             <span class="du-name">
                 <span class="du-fold" aria-hidden="true">{{ row.folder ? (row.open ? '▾' : '▸') : '' }}</span>
                 <code v-if="row.code">{{ row.name }}</code>
@@ -270,7 +270,7 @@ const disk_usage = {
             }
             const size = folder.size + extra;
             const open = (this.open[folder.path] === true);
-            return {key: folder.path, path: folder.path, name: folder.path.split('/').pop(), code: true, note, depth, size, share: size/this.scale, folder: (unread === false), open, unseen: false, waiting: false, said: (extra > 0)};
+            return {key: folder.path, path: folder.path, tip: folder.path, name: folder.path.split('/').pop(), code: true, note, depth, size, share: size/this.scale, folder: (unread === false), open, unseen: false, waiting: false, said: (extra > 0)};
         },
         // "held by java (pid 812), nginx (pid 90)"; as a user, only the user's own programs show
         deleted_note: function (answer) {
@@ -287,17 +287,20 @@ const disk_usage = {
             }
             return said.join('; ');
         },
-        // The row for what a count has yet to say: how long it has gone, and what comes next
+        // The row for what a count has yet to say: how long it has gone, and what comes next;
+        // its line is cut before the bar, and its tooltip names every folder the agent said
         row_waiting: function (path, depth) {
             const progress = this.progress[path];
             const started = this.counted[path].started;
             let note = this.clock_text(this.now - started);
+            let tip = path;
             if ((progress !== undefined) && (progress.waiting > 0)) {
-                const names = progress.waiting_shown.slice(0, 5).map(v => v.split('/').pop()).join(', ');
-                const more = (progress.waiting > 5) ? '…' : '';
-                note = `${note} · ${progress.waiting} to go: ${names}${more}`;
+                const names = progress.waiting_shown.map(v => v.split('/').pop());
+                const rest = progress.waiting - names.length;
+                note = `${note} · ${progress.waiting} to go: ${names.slice(0, 5).join(', ')}${(progress.waiting > 5) ? '…' : ''}`;
+                tip = `${progress.waiting} to go in ${path}: ${names.join(', ')}${(rest > 0) ? `, and ${rest} more` : ''}`;
             }
-            return Object.assign(row_said(path, depth, 'counting…'), {key: `${path}#counting`, code: false, note, waiting: true, busy: true});
+            return Object.assign(row_said(path, depth, 'counting…'), {key: `${path}#counting`, code: false, note, tip, waiting: true, busy: true});
         },
         toggle: function (row) {
             if (row.folder === false) {
@@ -399,7 +402,7 @@ const disk_usage = {
 // busy where the word is work going on (counting…), which turns a ring in front of it
 function row_said(path, depth, name)
 {
-    return {key: `${path}#said`, path, name, code: false, note: '', depth, size: null, share: 0, folder: false, open: false, unseen: false, waiting: false, said: false, busy: false};
+    return {key: `${path}#said`, path, tip: path, name, code: false, note: '', depth, size: null, share: 0, folder: false, open: false, unseen: false, waiting: false, said: false, busy: false};
 }
 
 // Many unreadable folders side by side say little one by one: "58 in /tmp" says it whole

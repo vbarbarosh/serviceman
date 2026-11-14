@@ -118,6 +118,20 @@
     max-width: none;
     height: .5rem;
 }
+/* A count's line under a folder keeps one line: its ring and word whole, the folders still to
+   come cut before the bar with "…", every one of them in the row's tooltip. A row is a button,
+   and a button with a ring in it does not wrap (serviceman.css): this says where it is cut. */
+.du-row.waiting .du-name {
+    flex-wrap: nowrap;
+}
+.du-row.waiting .du-name > :not(.muted) {
+    flex: none;
+}
+.du-row.waiting .du-name > .muted {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .du-row.waiting .du-bar {
     background: linear-gradient(90deg, var(--line) 0%, var(--accent) 50%, var(--line) 100%) 0 0/200% 100%;
     animation: du-waiting 1.5s linear infinite;

@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.86 — 2026-11-14
+
+- What takes the space: the "counting…" line under a folder keeps one line, its folders still to come cut before the bar with "…", every one of them in the row's tooltip; it ran under the bar, as a row with a ring in it does not wrap.
+
 ## 1.0.85 — 2026-11-14
 
 - What takes the space counts a disk once: the agent keeps what its one walk found in every folder, an hour after it was last asked for, and a folder opened afterwards, or while the walk goes on once it has been through it, opens at once; the count says when it was made, and Count again walks the disk anew. Docker's counts stay fresh. Agent 1.35.0.
