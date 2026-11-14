@@ -112,7 +112,7 @@ const service_status = {
             </dd>
         </template>
         <template v-else>
-            <dt>Answers at</dt>
+            <dt>{{ ((view.socket === null) || (view.socket === undefined)) ? 'Answers at' : 'Its socket' }}</dt>
             <dd><code>{{ view.upstream }}</code><template v-if="(view.remotes.length > 0)"><span class="muted"> on </span><button type="button" class="link" @click="$emit('remote', view.remotes[0])">{{ remote_text(view.remotes[0]) }}</button><span class="muted">, through its link</span></template></dd>
         </template>
         <dt>Requests</dt>

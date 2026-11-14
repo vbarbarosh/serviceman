@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.100 — 2026-11-14
+
+- New service has a third kind, **A proxy**: a name, the machine and the socket file its app listens on; a proxy's page and its What runs card say its socket.
+
 ## 1.0.99 — 2026-11-14
 
 - An app on a socket: Apps adds one whose program listens on a socket file, on a machine or here, and serviceman passes its requests into that file (`"socket"` in place of `"upstream"`; `PUT /api/v1/apps/<name>/socket`).

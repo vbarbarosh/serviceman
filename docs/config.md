@@ -15,7 +15,7 @@ missing image, a hostname written twice, a duration nobody can read.
 ## Edit from the control page
 
 Services are created and reshaped on the control page itself. **+ Add service** is a short
-form for the two common kinds. **A docker image** asks for the image; the name comes from it
+form for the three common kinds. **A docker image** asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. **An app folder** asks for the app's folder
 on this computer, or a `.zip` of it: **A folder…** or **A .zip…**, or either dropped on the
 form. The folder must hold `bin/run`, which serves the app on the port it finds in `PORT`, and
@@ -30,8 +30,11 @@ for an agent installed as its user), and never a folder that holds files already
 there when the service is removed, with the app's `data/`, which is the service's working space:
 nothing ever merges into it or overwrites it, a new version included. A folder already on the machine is
 named in **All settings…**, as the program's working folder. The name comes from the folder or
-the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
-name. **All settings…** opens every card, with what the short form filled in, for a program of
+the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. **A proxy** asks for a name, the machine its app runs on and
+the socket file the app listens on there, `~/<name>.sock` unless another is typed: serviceman
+passes every request into that file and never starts or stops the app
+([something listening on a socket file](#something-listening-on-a-socket-file)). All three get
+the machine they run on and an address made of their name. **All settings…** opens every card, with what the short form filled in, for a program of
 another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
 whole policy. A card's **Save** writes the config file and applies it at once; only the

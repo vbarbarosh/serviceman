@@ -202,6 +202,27 @@ test('a service made another kind loses what the kind it was alone reads', async
 });
 
 // SM-262, as the page's own code sends it: a machine's Settings, a new Title, Save
+// A proxy, an app its socket file reaches: a Save of its cards keeps the socket, writes a new
+// one, and takes it away when an address is given in its place
+test('a proxy keeps its socket through a Save, and an address in its place takes it away', async function () {
+    const proxy = {name: 'agency', type: 'external', remote: 'laptop', publish: {host: 'agency.localhost'}, socket: '~/agency.sock'};
+    const titled = await service_save(proxy, function (model) {
+        model.title = 'Agency';
+    });
+    assert.strictEqual(titled.note, '');
+    assert.deepStrictEqual(titled.sent, Object.assign({}, proxy, {title: 'Agency'}));
+    assert.deepStrictEqual(titled.shown, titled.sent);
+    const moved = await service_save(proxy, function (model) {
+        model.socket = '/run/agency.sock';
+    });
+    assert.deepStrictEqual(moved.sent, Object.assign({}, proxy, {socket: '/run/agency.sock'}));
+    const address = await service_save(proxy, function (model) {
+        model.socket = '';
+        model.upstream = '127.0.0.1:7000';
+    });
+    assert.deepStrictEqual(address.sent, {name: 'agency', type: 'external', remote: 'laptop', publish: {host: 'agency.localhost'}, upstream: '127.0.0.1:7000'});
+});
+
 test('a Save of a machine\'s Settings keeps its log folders', async function () {
     const titled = await remote_save(DESKTOP, v => Object.assign(v, {title: 'Desktop'}));
     assert.strictEqual(JSON.stringify(titled), JSON.stringify({name: 'desktop', title: 'Desktop', token: DESKTOP.token, tags: ['gpu'], log_dirs: DESKTOP.log_dirs}));

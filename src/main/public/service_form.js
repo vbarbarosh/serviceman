@@ -32,18 +32,22 @@ const KIND_NAMES = {
     files: 'A folder of files',
 };
 
-// What the short form makes: an image, or an app folder, a program of one shape. bin/run serves
-// it on PORT; bin/configure, then bin/build, for those it has, set it up once before the first run.
-const SHORT_KINDS = ['docker', 'shell'];
+// What the short form makes: an image, an app folder, a program of one shape, or a proxy into
+// a socket file. bin/run serves it on PORT; bin/configure, then bin/build, for those it has, set
+// it up once before the first run. A proxy's app listens on a socket file serviceman passes every
+// request into; serviceman never starts or stops it.
+const SHORT_KINDS = ['docker', 'shell', 'external'];
 
 const SHORT_NAMES = {
     docker: 'A docker image',
     shell: 'An app folder',
+    external: 'A proxy',
 };
 
 const SHORT_WORDS = {
     docker: 'an agent runs it and stops it on the machine you name',
     shell: 'its folder or a .zip of it, with bin/run, from this computer',
+    external: 'its app listens on a socket file on a machine; serviceman passes requests into it',
 };
 
 // The ports an app folder is given, the first one free from here: well away from serviceman's
@@ -68,7 +72,7 @@ const SECTIONS = [
 // Which card each thing that can be wrong is in
 const SECTION_PROBLEMS = {
     name: ['name'],
-    runs: ['port', 'command', 'upstream'],
+    runs: ['port', 'command', 'upstream', 'socket'],
     where: ['places'],
     address: ['hosts'],
     keep: ['secrets'],
@@ -182,7 +186,7 @@ const service_form = {
                         <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @paste="image_paste" @change="image_change">
                     </div>
                 </template>
-                <template v-else>
+                <template v-else-if="(m.type === 'shell')">
                     <label>App</label>
                     <div>
                         <div class="line">
@@ -201,7 +205,7 @@ const service_form = {
                 </template>
                 <label>Name</label>
                 <div>
-                    <input v-model.trim="m.name" :placeholder="(easy_name === '' ? (m.type === 'docker' ? 'grafana' : 'appdir') : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
+                    <input ref="short_name" v-model.trim="m.name" :placeholder="(easy_name === '' ? ({docker: 'grafana', shell: 'appdir', external: 'agency'})[m.type] : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
                     <p v-if="problems.name" class="bad">{{ problems.name }}</p>
                     <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its {{ m.type === 'docker' ? 'image' : ((app_files !== null && app_files.label.endsWith('/')) ? 'folder' : 'zip') }}.</p>
                 </div>
@@ -220,10 +224,19 @@ const service_form = {
                 <div>
                     <select v-if="(places.length > 0)" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
                         <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
+                        <option v-if="(m.type === 'external')" value="">this host, where serviceman runs</option>
                     </select>
                     <p v-else class="bad">No machine yet. It runs where an agent is — add a remote first.</p>
                     <p v-if="(places.length > 0 && problems.places)" class="bad">{{ problems.places }}</p>
                 </div>
+                <template v-if="(m.type === 'external')">
+                    <label>Socket</label>
+                    <div>
+                        <input v-model.trim="m.socket" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
+                        <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
+                        <p v-else class="muted">The file its app listens on{{ (m.places[0].text === '' ? '' : ', on ' + place_text(m.places[0].text)) }}; <code>~</code> is the home of the user its agent runs as. serviceman passes every request into it, and never starts or stops it.</p>
+                    </div>
+                </template>
                 <label>Address</label>
                 <div>
                     <p v-if="(easy_host === '')" class="muted">Taken from its name, once it has one that fits.</p>
@@ -357,8 +370,14 @@ const service_form = {
                 </div>
             </template>
             <template v-if="(section.id === 'runs' && m.type === 'external')">
-                <label>Answers at</label>
+                <label>Socket</label>
                 <div>
+                    <input v-model.trim="m.socket" placeholder="~/agency.sock" :class="{wrong: problems.socket}" spellcheck="false">
+                    <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
+                    <p v-else class="muted">The socket file its app listens on, from <code>/</code> or <code>~/</code>, in place of an address: serviceman passes every request into it. Left empty, it answers at the address below.</p>
+                </div>
+                <label v-if="(m.socket === '')">Answers at</label>
+                <div v-if="(m.socket === '')">
                     <input v-model.trim="m.upstream" placeholder="127.0.0.1:7000" :class="{wrong: problems.upstream}" spellcheck="false">
                     <p v-if="problems.upstream" class="bad">{{ problems.upstream }}</p>
                     <p v-else-if="(m.places[0].text !== '')" class="muted">An address <b>on {{ m.places[0].text }}</b>, as <code>host:port</code> — <code>127.0.0.1</code> is that machine's own loopback. serviceman passes requests on and never starts or stops it.</p>
@@ -730,6 +749,11 @@ const service_form = {
             }
             return this.host_from_name(name);
         },
+        // A proxy's socket unless another is typed: named after it, in its agent's home
+        socket_default: function () {
+            const name = (this.m.name === '') ? this.easy_name : this.m.name;
+            return `~/${(name === '') ? 'agency' : name}.sock`;
+        },
         easy_name: function () {
             if ((this.m.type === 'shell') && this.made_short && (this.app_files !== null)) {
                 return name_free(this.app_files.name, this.names || []);
@@ -758,7 +782,7 @@ const service_form = {
         // Whether what is made fills itself in from the short form: an image always does, an
         // app folder while it is made there
         made_short: function () {
-            return (this.m.type === 'docker') || ((this.m.type === 'shell') && this.simple);
+            return (this.m.type === 'docker') || (((this.m.type === 'shell') || (this.m.type === 'external')) && this.simple);
         },
         // The port an app folder is given: the first one no program of serviceman's is given
         // and its machine does not listen on now
@@ -858,8 +882,14 @@ const service_form = {
                     out.places = 'An app folder is on one machine: pick that one, not a tag.';
                 }
             }
-            if (this.tried && (model.type === 'external') && (model.upstream === '')) {
-                out.upstream = 'Where it already answers is needed, as host:port.';
+            if (this.tried && (model.type === 'external') && (model.upstream === '') && (this.model_now().socket === '')) {
+                out.upstream = 'Where it already answers is needed, as host:port, or the socket file it listens on.';
+            }
+            if ((model.type === 'external') && (places.length > 0) && places[0].startsWith('#')) {
+                out.places = 'It runs on one machine: pick that one, not a tag.';
+            }
+            if ((model.type === 'external') && (model.socket !== '') && (model.socket.startsWith('/') === false) && (model.socket.startsWith('~/') === false)) {
+                out.socket = 'The path of the socket file, from / or from ~/: ~/agency.sock.';
             }
             // An app not picked yet is said once, where it is picked: the name comes from it
             const unpicked = (model.type === 'shell') && this.simple && this.creating && (this.app_files === null);
@@ -881,12 +911,16 @@ const service_form = {
     },
     watch: {
         // While a new one is made, the machine given by default follows the kind: something
-        // already running starts on this host, a container or a program on the default machine
+        // already running starts on this host, a container, a program or a proxy (the short
+        // form's) on the default machine
         'model.type': function (type) {
             if (this.creating === false) {
                 return;
             }
             const place = this.model.places[0];
+            if ((type === 'external') && this.simple) {
+                return;
+            }
             if ((type === 'external') && (place.text === this.place_given)) {
                 place.text = '';
             }
@@ -921,6 +955,11 @@ const service_form = {
             const out = Object.assign({}, model, {name});
             if (model.type === 'docker') {
                 out.port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
+            }
+            else if (model.type === 'external') {
+                // A proxy's socket is named after it unless another is typed
+                out.socket = (model.socket === '') ? this.socket_default : model.socket;
+                out.upstream = '';
             }
             else {
                 // An app folder is one shape of program: bin/run on its port, bin/configure and
@@ -975,7 +1014,7 @@ const service_form = {
                 }
             }
             if ((id === 'runs') && (model.type === 'external')) {
-                lines.push((model.upstream === '') ? 'nowhere yet' : `already answers at ${model.upstream}`);
+                lines.push((model.socket !== '') ? `listens on ${model.socket}` : ((model.upstream === '') ? 'nowhere yet' : `already answers at ${model.upstream}`));
             }
             if ((id === 'runs') && (model.type === 'files')) {
                 lines.push((model.folder === '') ? 'kept by serviceman' : `the files in ${model.folder}`);
@@ -1171,7 +1210,7 @@ const service_form = {
         short_kind: function (type) {
             this.m.type = type;
             this.$nextTick(function () {
-                const field = (type === 'docker') ? this.$refs.image : this.$refs.pick;
+                const field = ({docker: this.$refs.image, shell: this.$refs.pick, external: this.$refs.short_name})[type];
                 if (field !== undefined) {
                     field.focus();
                 }
@@ -1185,7 +1224,9 @@ const service_form = {
                 this.image_change();
                 return;
             }
-            this.ports_read();
+            if (this.m.type === 'shell') {
+                this.ports_read();
+            }
         },
         // The whole form takes over from what the short one would make
         all_settings: function () {
@@ -1526,6 +1567,7 @@ function form_from_service(service)
         env: [],
         volumes: [],
         upstream: '',
+        socket: '',
         folder: '',
         command: '',
         user: '',
@@ -1591,6 +1633,7 @@ function form_from_service(service)
         out.volumes.push(Object.assign({key: Math.random()}, volume_row(volume)));
     }
     out.upstream = service.upstream || '';
+    out.socket = service.socket || '';
     out.folder = service.folder || '';
     out.command = service.command || '';
     out.cwd = service.cwd || '';
@@ -1746,6 +1789,10 @@ function json_from_service(model)
     if (model.type === 'external') {
         if (places.length > 0) {
             out.remote = places[0];
+        }
+        if (model.socket !== '') {
+            out.socket = model.socket;
+            return out;
         }
         out.upstream = model.upstream;
         return out;

@@ -1438,10 +1438,17 @@ pre {
     overflow-wrap: anywhere;
 }
 
-/* The short form asks one of two */
+/* The short form asks one of three */
 .form .kinds.short {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: 40rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: 58rem;
+}
+
+/* On a phone the three are one under another, each a line or two */
+@media (max-width: 40rem) {
+    .form .kinds.short {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .form .kind {

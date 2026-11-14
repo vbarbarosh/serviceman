@@ -728,7 +728,7 @@ node src/main data/serviceman.json --check   # read the config, report what is w
 missing image, a hostname written twice, a duration nobody can read.</p>
 <h2 id="edit-from-the-control-page"><a class="anchor" href="#edit-from-the-control-page" aria-hidden="true" tabindex="-1">#</a>Edit from the control page</h2>
 <p>Services are created and reshaped on the control page itself. <strong>+ Add service</strong> is a short
-form for the two common kinds. <strong>A docker image</strong> asks for the image; the name comes from it
+form for the three common kinds. <strong>A docker image</strong> asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. <strong>An app folder</strong> asks for the app&#39;s folder
 on this computer, or a <code>.zip</code> of it: <strong>A folder…</strong> or <strong>A .zip…</strong>, or either dropped on the
 form. The folder must hold <code>bin/run</code>, which serves the app on the port it finds in <code>PORT</code>, and
@@ -743,8 +743,11 @@ for an agent installed as its user), and never a folder that holds files already
 there when the service is removed, with the app&#39;s <code>data/</code>, which is the service&#39;s working space:
 nothing ever merges into it or overwrites it, a new version included. A folder already on the machine is
 named in <strong>All settings…</strong>, as the program&#39;s working folder. The name comes from the folder or
-the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. Both get the machine they run on and an address made of their
-name. <strong>All settings…</strong> opens every card, with what the short form filled in, for a program of
+the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. <strong>A proxy</strong> asks for a name, the machine its app runs on and
+the socket file the app listens on there, <code>~/&lt;name&gt;.sock</code> unless another is typed: serviceman
+passes every request into that file and never starts or stops the app
+(<a href="#something-listening-on-a-socket-file">something listening on a socket file</a>). All three get
+the machine they run on and an address made of their name. <strong>All settings…</strong> opens every card, with what the short form filled in, for a program of
 another shape or something already running; an address with a path strips its prefix. A service&#39;s own
 page is the same cards, each with <strong>Edit</strong> — addresses, image, storage, environment, the
 whole policy. A card&#39;s <strong>Save</strong> writes the config file and applies it at once; only the
