@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.97 — 2026-11-14
+
+- An app's cell on Apps takes its new version (New version…, or dropped on it) and opens its page (Settings); a new name there takes its folder and its addresses with it, where before the app was lost under both names.
+
 ## 1.0.96 — 2026-11-14
 
 - `/apps` typed in or reloaded opens Apps again, not "No such page"; a test now loads every address the page writes, its panes and tabs alike.

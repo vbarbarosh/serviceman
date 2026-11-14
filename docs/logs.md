@@ -524,6 +524,8 @@ list, in a bar under its header and first on its Health page.
 | `control_sign_in_refused`    | A token that is not the owner's was tried at the sign-in.                 |
 | `config_saved`               | The config was written, with the hash of what went in.                    |
 | `config_change`              | What the new config did to the running services.                          |
+| `app_files_put`              | An app of files got a zip: its name, whether it was new, its files and bytes. |
+| `app_files_renamed`          | An app of files took a new name, its folder and its addresses with it.    |
 | `shell_begin`                | A shell was opened inside a container.                                    |
 | `shell_end_ok`               | It was closed.                                                            |
 | `shell_refused`              | A shell was asked for from somewhere it may not be asked.                 |

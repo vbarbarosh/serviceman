@@ -264,6 +264,7 @@ const service_form = {
                     <input v-model.trim="m.name" :placeholder="(easy_name === '' ? 'grafana' : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
                     <p v-if="problems.name" class="bad">{{ problems.name }}</p>
                     <p v-else-if="(creating && m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its image.</p>
+                    <p v-else-if="(m.type === 'files')" class="muted">Lowercase letters, digits, <code>-</code> and <code>_</code>. The addresses made of it go with a new name{{ (m.folder === '' || m.folder === null || m.folder === undefined) ? ', and so does its folder in apps/' : '' }}.</p>
                     <p v-else class="muted">Lowercase letters, digits, <code>-</code> and <code>_</code>. It names the container and the folder.</p>
                 </div>
                 <label>Title</label>

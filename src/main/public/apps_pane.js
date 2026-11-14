@@ -12,7 +12,9 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 // The apps of files serviceman serves, and a card to give it one more: a zip, a folder or one
 // .html page dropped on it (or picked) goes to serviceman under the name of the file, and the card
 // answers with the link that opens it. A name serviceman has already is that app's new version. Simple enough for
-// anybody: drop, then click the link.
+// anybody: drop, then click the link. Each app's cell opens it, takes a new version of it
+// dropped on it or picked from it whatever the file is called, and opens its page, where its
+// name, what it serves, its addresses and Remove are.
 const apps_pane = {
     template: `
 <section class="apps-pane">
@@ -20,12 +22,14 @@ const apps_pane = {
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
     <p class="muted">A page or an app with no server of its own, served by serviceman: drop its zip, its folder or its one .html page here and it answers at an address of its own at once. A zip of a name already here is that app's new version.</p>
-    <div class="app-drop" :class="{over: dragging, busy: (sent !== null && sent.busy)}" role="button" tabindex="0" @click="$refs.zip.click()" @keyup.enter="$refs.zip.click()" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
+    <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
         <b>Drop a .zip, a folder or an .html page here</b>
         <span class="muted">or click to pick a .zip or a page · a zip or a folder has its index.html at the top</span>
-        <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html" hidden @change="picked">
     </div>
+    <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
+         for a new app when an app's New version asked for it -->
+    <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html" hidden @change="picked">
     <div v-if="(sent !== null)" class="card app-sent" :class="{bad: (sent.error !== '')}">
         <p v-if="sent.busy" class="muted"><span class="spin"/>{{ sent.name }}: sending {{ format_bytes(sent.bytes) }}…</p>
         <p v-else-if="(sent.error !== '')" class="bad">{{ sent.error }}</p>
@@ -37,26 +41,35 @@ const apps_pane = {
         </template>
     </div>
     <ul v-if="(apps.length > 0)" class="app-cells">
-        <li v-for="app of apps" :key="app.name">
+        <li v-for="app of apps" :key="app.name" :class="{over: (over === app.name)}" @dragover.prevent="over = app.name" @dragleave="dragged_off($event, app)" @drop.prevent.stop="dropped_on($event, app)">
             <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
                 <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
                 <b>{{ app.title || app.name }}</b>
                 <span class="muted app-host">{{ host_of(app) }}</span>
                 <span class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
             </a>
+            <div class="app-acts">
+                <button type="button" :disabled="sending" :title="('A new version of ' + app.name + ': pick its .zip or its .html page, or drop a zip, a folder or a page on this card')" @click="pick_for(app.name)">New version…</button>
+                <button type="button" :title="('The page of ' + app.name + ': its name, what it serves, its addresses, Remove')" @click="$emit('select', app.name)">Settings</button>
+            </div>
         </li>
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
 </section>
 `,
+    emits: ['select'],
     props: {
         state: {type: Object, required: true},
     },
     data: function () {
-        // sent: the last zip given, {name, bytes, busy, error, made, link, other}
-        return {dragging: false, sent: null, STATE_WORDS};
+        // sent: the last zip given, {name, bytes, busy, error, made, link, other}; over: the
+        // app a drop is over; target: the app a pick is for, null for a new one
+        return {dragging: false, over: null, target: null, sent: null, STATE_WORDS};
     },
     computed: {
+        sending: function () {
+            return (this.sent !== null) && this.sent.busy;
+        },
         apps: function () {
             return this.state.services.filter(v => v.type === 'files').slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
         },
@@ -97,18 +110,38 @@ const apps_pane = {
         },
         dropped: async function (event) {
             this.dragging = false;
-            await this.give(await app_files_pick(event.dataTransfer));
+            await this.give(await app_files_pick(event.dataTransfer), null);
+        },
+        // A drop on an app's cell is its new version, whatever the file is called
+        dropped_on: async function (event, app) {
+            this.over = null;
+            if (this.sending) {
+                return;
+            }
+            await this.give(await app_files_pick(event.dataTransfer), app.name);
+        },
+        // A drag that leaves the cell, not one that moves onto a part of it
+        dragged_off: function (event, app) {
+            if (event.currentTarget.contains(event.relatedTarget) === false) {
+                this.over = (this.over === app.name) ? null : this.over;
+            }
+        },
+        // The picker, for a new app (null) or for a new version of one
+        pick_for: function (name) {
+            this.target = name;
+            this.$refs.zip.click();
         },
         picked: async function (event) {
             const given = await app_files_pick(event.target);
             event.target.value = '';
-            await this.give(given);
+            await this.give(given, this.target);
         },
         // A zip goes as it is, once its list of files reads here; a folder is zipped here first,
         // and so is one page, as the index.html of an app of its own. Its name is the file's, made
         // one serviceman takes: notes.zip is notes, My Notes/ is my-notes, 2.html is 2. What is none
-        // of them is said on the card with its own name, and nothing is sent.
-        give: async function (given) {
+        // of them is said on the card with its own name, and nothing is sent. Given for an app
+        // already here (fixed), it goes under that app's name whatever its own.
+        give: async function (given, fixed) {
             if (given === null) {
                 return;
             }
@@ -119,7 +152,7 @@ const apps_pane = {
             const folder = (given.folder !== undefined);
             const page = (folder === false) && RE_PAGE.test(given.file.name);
             const raw = folder ? ((given.folder.length === 0) ? '' : given.folder[0].path.split('/')[0]) : given.file.name.replace(page ? RE_PAGE : /\.zip$/i, '');
-            const name = name_of(raw);
+            const name = ((fixed === null) || (fixed === undefined)) ? name_of(raw) : fixed;
             const bytes = folder ? given.folder.reduce((sum, v) => sum + v.file.size, 0) : given.file.size;
             this.sent = {name, bytes, busy: true, error: '', made: false, link: '', other: ''};
             try {

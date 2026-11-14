@@ -4,6 +4,7 @@ const agent_sign_key = require('../helpers/agent_sign_key');
 const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
 const app_files_put = require('../helpers/app_files_put');
+const app_files_rename = require('../helpers/app_files_rename');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_fields = require('../body_fields');
@@ -2228,6 +2229,8 @@ async function service_create(app, req, res)
 }
 
 // PUT /api/v1/services/<name> (body)
+// A new name is refused when another service has it; an app of files serviceman keeps takes its
+// folder and its names with it (app_files_rename)
 async function service_update(app, req, res, name)
 {
     const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
@@ -2235,14 +2238,29 @@ async function service_update(app, req, res, name)
         send_json(res, 400, {error: 'the body carries no service object'});
         return;
     }
+    let move = null;
     await config_file_mutate(app, res, function (json) {
         const at = json.services.findIndex(v => v.name === name);
         if (at === -1) {
             return `no service named ${name}`;
         }
+        if ((service.name !== name) && json.services.some(v => v.name === service.name)) {
+            return {error: `a service named ${JSON.stringify(service.name)} already exists`, status: 409};
+        }
+        try {
+            move = app_files_rename(app, json.services[at], service);
+        }
+        catch (error) {
+            return {error: error.message, status: error.status};
+        }
         json.services[at] = service;
         return null;
-    }, 404);
+    }, 404, async function () {
+        if (move !== null) {
+            await move();
+            log_event(app, 'app_files_renamed', {service: name, name: service.name});
+        }
+    });
 }
 
 // DELETE /api/v1/services/<name>
@@ -2648,13 +2666,15 @@ function object_from_body(body, name)
 }
 
 // Reads the config file, lets the caller change it, refuses anything the validator refuses,
-// then writes the file and applies it to the running app
-function config_file_mutate(app, res, change, miss_status)
+// then writes the file and applies it to the running app. `prepare`, when given, runs once the
+// new config is found good and before it is written: what has to be on disk for it (an app's
+// folder under its new name)
+function config_file_mutate(app, res, change, miss_status, prepare)
 {
-    return config_locked(app, () => config_file_write(app, res, change, miss_status));
+    return config_locked(app, () => config_file_write(app, res, change, miss_status, prepare));
 }
 
-async function config_file_write(app, res, change, miss_status)
+async function config_file_write(app, res, change, miss_status, prepare)
 {
     if (app.config.path === undefined) {
         send_json(res, 400, {error: 'serviceman runs without a config file'});
@@ -2677,6 +2697,15 @@ async function config_file_write(app, res, change, miss_status)
     catch (error) {
         send_json(res, 400, {error: error.message});
         return;
+    }
+    if (prepare !== undefined) {
+        try {
+            await prepare();
+        }
+        catch (error) {
+            send_json(res, 500, {error: error.message});
+            return;
+        }
     }
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     const applied = await app_apply_config(app, config);

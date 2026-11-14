@@ -2035,7 +2035,7 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :state="state"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :state="state" @select="select_named"/></article>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>

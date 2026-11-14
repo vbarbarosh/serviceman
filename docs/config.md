@@ -1148,6 +1148,14 @@ own. What is none of them is said on the card at once, for what it is (`photo.pn
 picture, not a zip`, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.
 
+A cell is its app's: **New version…** picks a zip or a page for it, and a zip, a folder or a page
+dropped on the cell goes the same way, as that app's new version whatever the file is called.
+**Settings** opens its page: its name, what it serves, its addresses, and Remove. A new name there
+takes its folder in `apps/` and the addresses made of its name with it (`notes.localhost` is
+`wiki.localhost`, `notes.apps.example.com` is `wiki.apps.example.com`); an address added by hand
+stays, and so does a folder the config names. A name another service has is a `409`, and so is
+one whose folder an app of that name left in `apps/`.
+
 A name serviceman has not seen becomes a folder of files in the config and is served at once:
 `201`; a known one gets the new version: `200`. A new app has two names. One is beside
 serviceman's own, `notes.localhost` beside `serviceman.localhost`, as the New service form names

@@ -322,6 +322,76 @@ test('an app sent with an apps domain answers on its name there and on its local
     }
 });
 
+// A new name for an app, as its page's Name card saves it: its folder and the addresses made of
+// its name go with it, an address given by hand stays, and a name another service has, or a
+// folder an app of that name left behind, is refused. Before, the config said pad while the
+// files stayed in apps/board and the app answered on board.localhost: gone under both names.
+test('an app renamed on its page takes its folder and its addresses with it', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apps-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    fs.writeFileSync(config_path, JSON.stringify({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {domain: 'apps.example.com'},
+        services: [{name: 'far', type: 'external', publish: {host: 'far.localhost'}, upstream: '127.0.0.1:1'}],
+    }, null, 4));
+    const before = process.env.SERVICEMAN_STATE_DIR;
+    process.env.SERVICEMAN_STATE_DIR = path.join(dir, 'data');
+    const app = app_from_config(await profile_from_db(config_path));
+    const servers = await server_start(app);
+    t.after(function () {
+        servers.server.close();
+        servers.control.close();
+        servers.server.closeAllConnections();
+        servers.control.closeAllConnections();
+        process.env.SERVICEMAN_STATE_DIR = before;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const port = servers.server.address().port;
+    const control = servers.control.address().port;
+    const apps_dir = path.join(dir, 'data', 'apps');
+    function save(name, service) {
+        return fetch_host({port: control, host: '127.0.0.1', path: `/api/v1/services/${name}`, method: 'PUT', body: JSON.stringify({service})});
+    }
+    function services() {
+        return JSON.parse(fs.readFileSync(config_path, 'utf8')).services;
+    }
+    const made = await fetch_host({port: control, host: '127.0.0.1', path: '/api/v1/apps/board', method: 'PUT', body: zip_bytes([{name: 'index.html', bytes: Buffer.from('<title>Board</title>')}])});
+    assert.strictEqual(made.status, 201, made.body);
+
+    // What the page sends: the app as it is, its new name, and an address added by hand
+    const renamed = await save('board', {name: 'pad', type: 'files', publish: {hosts: ['board.apps.example.com', 'board.localhost', 'board-wiki.example.com']}});
+    assert.strictEqual(renamed.status, 200, renamed.body);
+    assert.deepStrictEqual(services()[1], {name: 'pad', type: 'files', publish: {hosts: ['pad.apps.example.com', 'pad.localhost', 'board-wiki.example.com']}}, 'the names made of its name follow it; one given by hand stays');
+    assert.ok(fs.existsSync(path.join(apps_dir, 'pad', 'index.html')), 'its files are in apps/pad');
+    assert.strictEqual(fs.existsSync(path.join(apps_dir, 'board')), false, 'and nothing is left in apps/board');
+    for (const host of ['pad.localhost', 'pad.apps.example.com', 'board-wiki.example.com']) {
+        assert.strictEqual((await fetch_host({port, host, path: '/'})).body, '<title>Board</title>', host);
+    }
+    assert.strictEqual((await fetch_host({port, host: 'board.localhost', path: '/'})).status, 404, 'its old name answers nothing');
+
+    const taken = await save('pad', {name: 'far', type: 'files', publish: {host: 'pad.localhost'}});
+    assert.strictEqual(taken.status, 409, taken.body);
+    assert.strictEqual(JSON.parse(taken.body).error, 'a service named "far" already exists');
+    fs.mkdirSync(path.join(apps_dir, 'old'));
+    const left = await save('pad', {name: 'old', type: 'files', publish: {host: 'pad.localhost'}});
+    assert.strictEqual(left.status, 409, left.body);
+    assert.strictEqual(JSON.parse(left.body).error, 'apps/old is there already, left by an app of that name before: send old a zip to take it back, or pick another name');
+    assert.strictEqual(services()[1].name, 'pad', 'a refused name changes nothing');
+    assert.strictEqual((await fetch_host({port, host: 'pad.localhost', path: '/'})).body, '<title>Board</title>');
+
+    // A folder of its own, named in the config, stays where it is; its addresses still follow
+    const own = path.join(dir, 'own');
+    fs.mkdirSync(own);
+    fs.writeFileSync(path.join(own, 'index.html'), '<title>Own</title>');
+    assert.strictEqual((await save('pad', {name: 'pad', type: 'files', folder: own, publish: {host: 'pad.localhost'}})).status, 200);
+    const moved = await save('pad', {name: 'site', type: 'files', folder: own, publish: {host: 'pad.localhost'}});
+    assert.strictEqual(moved.status, 200, moved.body);
+    assert.deepStrictEqual(services()[1].publish, {host: 'site.localhost'});
+    assert.ok(fs.existsSync(path.join(own, 'index.html')), 'a folder the config names is not moved');
+    assert.strictEqual((await fetch_host({port, host: 'site.localhost', path: '/'})).body, '<title>Own</title>');
+});
+
 // A folder dropped on the Apps page is zipped there: serviceman's own reader takes that zip as
 // it takes any, names with letters past ASCII and folders under folders included
 test('a folder zipped by the page is read by serviceman as a page\'s files', async function () {
@@ -348,7 +418,7 @@ test('a folder zipped by the page is read by serviceman as a page\'s files', asy
 // own with the page as its index.html (1.0.94 sent it as it was, and serviceman called it a
 // broken zip), a zip as it is once it reads, and what is neither is said on the card with its own
 // name, nothing sent
-test('the Apps card sends a page as an app of its own, a zip as it is, and says what is neither', async function () {
+test('the Apps card sends a page as an app of its own, a zip as it is, and says what is neither; a cell sends its app\'s new version', async function () {
     const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
     const apps_pane = (await import(path.join(PUBLIC, 'apps_pane.js'))).default;
     const zip_blob = (await import(path.join(PUBLIC, 'zip_blob.js'))).default;
@@ -387,6 +457,21 @@ test('the Apps card sends a page as an app of its own, a zip as it is, and says 
             assert.strictEqual(card.sent.busy, false);
         }
         assert.strictEqual(sent.length, 2, 'nothing refused was sent');
+
+        // Given for an app already here, from its cell, it goes under that app's name, whatever
+        // the file is called
+        await apps_pane.methods.give.call(card, {file: new File(['<!doctype html><title>Draft</title>'], 'draft.html')}, 'journal');
+        assert.strictEqual(card.sent.error, '');
+        assert.strictEqual(sent[2].url, '/api/v1/apps/journal');
+        await apps_pane.methods.give.call(card, {file: new File([zip], 'notes2.zip')}, 'board');
+        assert.strictEqual(sent[3].url, '/api/v1/apps/board');
+        assert.strictEqual(card.sent.name, 'board');
+        // The picker sits outside the card that takes a new app: a click on it bubbles, and the
+        // card's own click took the pick of a cell's New version for a new app (notes2.zip made
+        // an app notes2 instead of board's new version)
+        const card_html = apps_pane.template.slice(apps_pane.template.indexOf('<div class="app-drop"'));
+        const card_end = card_html.indexOf('\n    </div>');
+        assert.ok((card_end > 0) && (card_html.indexOf('ref="zip"') > card_end), 'the file input is not inside .app-drop');
     }
     finally {
         global.fetch = fetch_before;
