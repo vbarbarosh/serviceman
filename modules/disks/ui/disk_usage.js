@@ -2,9 +2,11 @@ import format_bytes from '../../format_bytes.js';
 
 // What takes the space on one disk of a machine: its biggest folders, each with a bar of its
 // share of what the disk uses, and a click on one opens the folders inside it. Counting reads
-// every folder, a minute on a big disk, so a disk is counted when asked and each folder once;
-// while it is counted, the folders done so far show at once, already to be opened, with a
-// clock and the folders still to come. What the agent could not read is in the tree too: a
+// every folder, a minute on a big disk, so a disk is counted once, when asked: the machine
+// keeps what it found in every folder, and a folder opened is answered from that count at
+// once, the count kept from before too, which says when it was made, until Count again. While
+// it is counted, the folders done so far show at once, already to be opened, with a clock and
+// the folders still to come. What the agent could not read is in the tree too: a
 // folder it could not read says so, docker's and the journal's own folders take the size they
 // say they keep, files deleted but still open are a row of their own, and so is what is still
 // in no folder. The space has to add up to what the disk uses, or the tree does not say where
@@ -62,7 +64,8 @@ const disk_usage = {
     },
     emits: ['close'],
     data: function () {
-        // counted: by folder, {state: counting | done | failed, started, answer, error}
+        // counted: by folder, {state: counting | done | failed, started, at, answer, error},
+        // at when the machine counted it, which a count it kept makes earlier than the answer
         // progress: by folder being counted, what the agent has counted of it so far
         // live: false once the machine's agent turns out to be from before progress
         return {counted: {}, open: {}, progress: {}, live: true, now: Date.now()};
@@ -169,7 +172,7 @@ const disk_usage = {
             if (elsewhere.length > 0) {
                 out.push({tone: '', text: `This disk is also mounted at ${elsewhere.join(', ')}, outside ${this.root}: not counted here.`});
             }
-            out.push({tone: 'muted', text: `Counted ${(answer.rooted === true) ? 'as root' : 'as the agent\'s user'} in ${(answer.took_ms/1000).toFixed(1)}s, this disk alone.`});
+            out.push({tone: 'muted', text: `Counted ${(answer.rooted === true) ? 'as root' : 'as the agent\'s user'} in ${(answer.took_ms/1000).toFixed(1)}s ${this.at_text(this.top.at)}, this disk alone.`});
             return out;
         },
         // The tree as rows: a folder's own folders under it while it is open, biggest first,
@@ -217,7 +220,7 @@ const disk_usage = {
                 this.counted = {};
                 this.open = {};
                 this.progress = {};
-                this.count(this.root, (this.root === '/'));
+                this.count(this.root, (this.root === '/'), false);
             },
         },
     },
@@ -232,6 +235,12 @@ const disk_usage = {
         clock_text: function (ms) {
             const total = Math.max(0, Math.round(ms/1000));
             return (total < 60) ? `${total}s` : `${Math.floor(total/60)}m ${String(total % 60).padStart(2, '0')}s`;
+        },
+        // "at 1:41:20 PM", as the disk list says when it was read; a count from another day
+        // names the day too
+        at_text: function (at) {
+            const when = new Date(at);
+            return (when.toDateString() === new Date().toDateString()) ? `at ${when.toLocaleTimeString()}` : `on ${when.toLocaleString()}`;
         },
         share_of: function (bytes) {
             return Math.min(1, bytes/this.scale);
@@ -296,30 +305,41 @@ const disk_usage = {
             }
             this.open[row.path] = (row.open === false);
             if ((row.open === false) && (this.counted[row.path] === undefined)) {
-                this.count(row.path, false);
+                this.count(row.path, false, false);
             }
         },
-        count_again: function () {
+        // A new count of the disk. The open folders show what it counts in them as it goes, and
+        // are asked once it is done: asked before, they would be answered from the count it
+        // replaces.
+        count_again: async function () {
+            const open = Object.keys(this.open).filter(v => this.open[v]);
             this.counted = {};
             this.progress = {};
-            this.count(this.root, (this.root === '/'));
-            for (const path of Object.keys(this.open).filter(v => this.open[v])) {
-                this.count(path, false);
+            for (const path of open) {
+                this.counted[path] = {state: 'counting', started: Date.now(), at: null, answer: null, error: null};
+            }
+            await this.count(this.root, (this.root === '/'), true);
+            for (const path of open) {
+                this.count(path, false, false);
             }
         },
-        count: async function (path, extras) {
-            this.counted[path] = {state: 'counting', started: Date.now(), answer: null, error: null};
+        // again: a new count, where a count the machine keeps would do otherwise
+        count: async function (path, extras, again) {
+            const before = this.counted[path];
+            const started = ((before !== undefined) && (before.state === 'counting')) ? before.started : Date.now();
+            this.counted[path] = {state: 'counting', started, at: null, answer: null, error: null};
             this.ticking_start();
             try {
-                const answer = await fetch(`${this.base}/usage?path=${encodeURIComponent(path)}${extras ? '&extras=1' : ''}`);
+                const answer = await fetch(`${this.base}/usage?path=${encodeURIComponent(path)}${extras ? '&extras=1' : ''}${again ? '&again=1' : ''}`);
                 const said = await answer.json();
                 if (answer.ok === false) {
                     throw new Error(said.error || `the machine answered ${answer.status}`);
                 }
-                this.counted[path] = {state: 'done', started: this.counted[path].started, answer: said, error: null};
+                // An agent from before kept counts says no age: it has just counted
+                this.counted[path] = {state: 'done', started, at: Date.now() - (said.age_ms || 0), answer: said, error: null};
             }
             catch (error) {
-                this.counted[path] = {state: 'failed', started: this.counted[path].started, answer: null, error: error.message};
+                this.counted[path] = {state: 'failed', started, at: null, answer: null, error: error.message};
             }
             finally {
                 delete this.progress[path];

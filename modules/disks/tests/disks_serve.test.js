@@ -88,8 +88,9 @@ test('disks: any other door or method is a 404, and the machine is not asked', a
 test('disks: usage counts the folder asked, from the root, with docker and the journal when asked', async function () {
     const running = await serve(() => ANSWER);
     try {
-        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=${encodeURIComponent('/var/log')}`, 'GET'), {status: 200, body: {asked: {path: '/var/log', extras: false}}});
-        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=/&extras=1`, 'GET'), {status: 200, body: {asked: {path: '/', extras: true}}});
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=${encodeURIComponent('/var/log')}`, 'GET'), {status: 200, body: {asked: {path: '/var/log', extras: false, kept: true}}});
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=/&extras=1`, 'GET'), {status: 200, body: {asked: {path: '/', extras: true, kept: true}}});
+        assert.deepStrictEqual(await fetch_json(`${running.base}/usage?path=/&extras=1&again=1`, 'GET'), {status: 200, body: {asked: {path: '/', extras: true, kept: false}}}, 'Count again: a new count, not the one kept');
         assert.strictEqual((await fetch_json(`${running.base}/usage?path=var`, 'GET')).status, 400);
         assert.strictEqual((await fetch_json(`${running.base}/usage`, 'GET')).status, 400);
         assert.deepStrictEqual(await fetch_json(`${running.base}/usage/progress?path=/var&extras=1`, 'GET'), {status: 200, body: {progress: {path: '/var'}}});

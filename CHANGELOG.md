@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.85 — 2026-11-14
+
+- What takes the space counts a disk once: the agent keeps what its one walk found in every folder, an hour after it was last asked for, and a folder opened afterwards, or while the walk goes on once it has been through it, opens at once; the count says when it was made, and Count again walks the disk anew. Docker's counts stay fresh. Agent 1.35.0.
+
 ## 1.0.84 — 2026-11-13
 
 - A machine's card for lines Logline refused says what Logline answered for the newest file and counts from the oldest one; it is a warning while lines still go, and says "sends Logline nothing" only once a refused line waits for room. Agent 1.34.0.

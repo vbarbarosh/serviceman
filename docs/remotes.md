@@ -383,7 +383,11 @@ is pressed, never on a clock. The ports it listens on are in the **Firewall** ta
 **Disks** is every filesystem mounted there, from `df`, and **What takes the space** counts
 where a disk's space went: its folders, biggest first, each with its share of what the disk
 uses, and a click on one opens the folders inside it. It is `du -x` run over there, on that disk
-alone, when asked: a minute on a big disk. Where the same disk is mounted again inside the
+alone, when asked: a minute on a big disk. That one walk reads every folder, and the machine keeps
+what it found in each for an hour after it was last asked for: a folder opened then, or while
+the walk goes on once it has been through it, opens at once, a folder under 16 MiB in a moment
+(it is counted again, which takes no longer). The count says when it was made, and **Count
+again** walks the disk anew. Where the same disk is mounted again inside the
 folder on its own (a btrfs subvolume such as `/home`, which `du -x` stops at), that part is
 counted too and added where it sits. While it runs, the folders already counted show at
 once and can be opened, with a clock, a bar of what has been found so far, and the folders still

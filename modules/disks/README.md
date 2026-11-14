@@ -14,7 +14,8 @@ the base, and decides who may ask.
 serviceman is the first host: its Disks tab of a machine is this component, and the read is `df`
 run over there by the machine's agent. **What takes the space**, on the list or on a disk's row,
 counts that disk's folders and shows them biggest first, each with its share; a click on a folder
-opens the folders inside it, counted then. Above them it says what the count cannot see: the
+opens the folders inside it, from the same count: the machine keeps what its one walk found in
+every folder, for an hour after it was last asked for, and **Count again** walks the disk anew. Above them it says what the count cannot see: the
 folders the agent could not read, files deleted but still held open, the space in no folder
 counted, and what docker and the system journal keep. A machine's Overview leads there from its Disk card.
 
@@ -37,7 +38,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 | Door | What it does |
 |---|---|
 | `GET <base>` | what the host's `read()` answers, below |
-| `GET <base>/usage?path=/var&extras=1` | what takes the space in one folder: the host's `usage({path, extras})` |
+| `GET <base>/usage?path=/var&extras=1&again=1` | what takes the space in one folder: the host's `usage({path, extras, kept})`, `kept` unless `again=1` |
 | `GET <base>/usage/progress?path=/var` | how a count of that folder goes while it runs: the host's `usage_progress({path})` |
 
     {at, commands: ['df -PkT', 'df -PiT'],
@@ -49,7 +50,7 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
 - `total`, `used`, `free` are bytes; the inodes are `null` where the filesystem does not count
   them.
 - `key_of` names the pool whose key this small volume holds (Ubuntu's encrypted ZFS), or null.
-- `usage` answers `{path, total, files, folders: [{path, size}], unread: [path], took_ms,
+- `usage` answers `{path, total, files, folders: [{path, size}], unread: [path], took_ms, age_ms,
   type, parts: [{path, size}], deleted, extras}`: the folders in that folder with their sizes,
   biggest first, counted on its own disk alone (`du -x` over there), `files` what lies in the
   folder itself, `unread` the folders that could not be read, whose size is then in no folder;
@@ -59,7 +60,10 @@ Under the base the host mounts it at — serviceman's is `/api/v1/remotes/<name>
   name, size}]}`, files deleted but still open on that disk, for a folder a disk is mounted at
   (`null` for any other, and absent from an older agent). With `extras=1`, `extras` is
   `{docker: [{what, size}], docker_root, docker_driver, journal}`, what docker and the journal
-  say they keep, the folder docker keeps it in and how, `null` where they cannot say.
+  say they keep, the folder docker keeps it in and how, `null` where they cannot say. With
+  `kept`, a count the machine keeps will do, of the folder or of one above it on the same disk,
+  and `age_ms` says how long ago it was made (0 while it runs); a folder below 16 MiB is kept
+  as its size alone, and counted on its own when asked. Without, it is counted now.
 - `usage_progress` answers `{path, counting, took_ms, folders: [{path, size}], waiting,
   waiting_shown: [path]}`: the folders counted so far, biggest first, how many are still to
   come and the first of them by name. `counting` is false when no count of that folder runs. Only names and sizes: nothing is read out of a file. A path that is not from

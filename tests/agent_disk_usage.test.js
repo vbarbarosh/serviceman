@@ -69,12 +69,14 @@ test('a count running says the folders it has counted so far, and those still to
 });
 
 // Where the machine has the agent's root half, the count is its: du as root, each folder said
-// over the socket as du finishes it, and the answer says it was counted as root
+// over the socket as du finishes it, and the answer says it was counted as root; a folder in
+// it opens from that count
 test('a count is the root half\'s where there is one, and says so', async function (t) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
     const socket = path.join(dir, 'root.sock');
     fs.mkdirSync(path.join(dir, 'logs'));
-    fs.writeFileSync(path.join(dir, 'logs/big.log'), Buffer.alloc(1024*1024, 1));
+    fs.mkdirSync(path.join(dir, 'logs/old'));
+    fs.writeFileSync(path.join(dir, 'logs/old/big.log'), Buffer.alloc(agent_disk_usage.KEPT_LEAST + 1024*1024, 1));
     const asked = [];
     // The root half's side of the socket: one line of json in, its lines and its reply out
     const server = net.createServer(function (conn) {
@@ -102,7 +104,122 @@ test('a count is the root half\'s where there is one, and says so', async functi
     assert.deepStrictEqual(asked, ['disk_usage']);
     assert.strictEqual(answer.rooted, true);
     assert.strictEqual(path.basename(answer.folders[0].path), 'logs');
-    assert.ok(answer.folders[0].size >= 1024*1024);
+    assert.ok(answer.folders[0].size >= agent_disk_usage.KEPT_LEAST);
+    const logs = await agent_disk_usage({path: path.join(dir, 'logs'), kept: true}, {docker: 'docker', root_socket: socket});
+    assert.deepStrictEqual(logs.folders.map(v => path.basename(v.path)), ['old']);
+    assert.strictEqual(logs.rooted, true);
+    assert.deepStrictEqual(asked, ['disk_usage'], 'logs from the same count as root, not a second one');
+});
+
+// du reads every folder under the one it counts, so the count keeps them: a folder opened
+// after it is answered from it, at once, and a file put there since is not seen until the
+// folder is counted again. A folder under KEPT_LEAST is kept without its insides and counted
+// on its own when opened; a name with a newline in it stays one name.
+test('a folder in a counted one is answered from the same count, until it is counted again', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
+    t.after(function () {
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const big = path.join(dir, 'big');
+    fs.mkdirSync(path.join(big, 'deep'), {recursive: true});
+    fs.mkdirSync(path.join(dir, 'small/inner'), {recursive: true});
+    fs.mkdirSync(path.join(dir, 'two\nlines'));
+    fs.writeFileSync(path.join(big, 'deep/data.bin'), Buffer.alloc(agent_disk_usage.KEPT_LEAST + 1024*1024, 1));
+    fs.writeFileSync(path.join(dir, 'small/inner/f'), Buffer.alloc(64*1024, 1));
+
+    const whole = await agent_disk_usage({path: dir, kept: true}, {docker: 'docker'});
+    assert.deepStrictEqual(whole.folders.map(v => path.basename(v.path)), ['big', 'small', 'two\nlines'], 'a newline in a name keeps it one name');
+    assert.ok(whole.age_ms < 1000, 'counted just now');
+    fs.writeFileSync(path.join(big, 'deep/new.bin'), Buffer.alloc(2*1024*1024, 1));
+    fs.writeFileSync(path.join(dir, 'small/inner/g'), Buffer.alloc(64*1024, 1));
+
+    const opened = await agent_disk_usage({path: big, kept: true}, {docker: 'docker'});
+    assert.deepStrictEqual(opened.folders, [{path: path.join(big, 'deep'), size: whole.folders[0].size - opened.files}]);
+    assert.strictEqual(opened.total, whole.folders[0].size, 'the size the count said: new.bin came after it');
+    assert.strictEqual(opened.took_ms, whole.took_ms, 'the same count');
+    const deeper = await agent_disk_usage({path: path.join(big, 'deep'), kept: true}, {docker: 'docker'});
+    assert.strictEqual(deeper.total, opened.folders[0].size);
+    const small = await agent_disk_usage({path: path.join(dir, 'small'), kept: true}, {docker: 'docker'});
+    assert.ok(small.folders[0].size >= 128*1024, 'too small to keep: counted on its own, g in it');
+
+    const again = await agent_disk_usage({path: dir}, {docker: 'docker'});
+    assert.ok(again.folders[0].size >= whole.folders[0].size + 2*1024*1024, 'counted again: new.bin in it');
+    const reopened = await agent_disk_usage({path: big, kept: true}, {docker: 'docker'});
+    assert.strictEqual(reopened.total, again.folders[0].size, 'a folder in it opens from the new count');
+});
+
+// A folder opened while its disk is being counted waits for that count, not for a count of
+// its own, and is answered the moment du has said it; while it waits, what is counted in it
+// so far shows. du here is a stand-in that stops halfway.
+test('a folder opened while the count runs is answered as soon as du has said it', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
+    const bin = path.join(dir, 'bin');
+    const PATH = process.env.PATH;
+    t.after(function () {
+        process.env.PATH = PATH;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    for (const name of ['bin', 'top/a/x', 'top/a/y', 'top/b']) {
+        fs.mkdirSync(path.join(dir, name), {recursive: true});
+    }
+    const top = path.join(dir, 'top');
+    const big = agent_disk_usage.KEPT_LEAST;
+    fs.writeFileSync(path.join(bin, 'du'), [
+        '#!/bin/sh',
+        'for v; do top=$v; done',
+        `printf '%s\\t%s\\0' ${big} "$top/a/x" 4096 "$top/a/y" ${big + 8192} "$top/a"`,
+        'sleep 1',
+        `printf '%s\\t%s\\0' 4096 "$top/b" ${big + 16384} "$top"`,
+        '',
+    ].join('\n'), {mode: 0o755});
+    process.env.PATH = `${bin}:${PATH}`;
+
+    const whole = agent_disk_usage({path: top, kept: true}, {docker: 'docker'});
+    const opened = await agent_disk_usage({path: path.join(top, 'a'), kept: true}, {docker: 'docker'});
+    assert.deepStrictEqual(opened.folders.map(v => path.basename(v.path)), ['x', 'y']);
+    assert.strictEqual(opened.files, 4096);
+    const running = agent_disk_usage.progress({path: top});
+    assert.strictEqual(running.counting, true, 'answered while the count still runs');
+    assert.deepStrictEqual(running.folders, [{path: path.join(top, 'a'), size: big + 8192}]);
+    assert.deepStrictEqual(running.waiting_shown, [path.join(top, 'b')]);
+    assert.deepStrictEqual((await whole).folders.map(v => path.basename(v.path)), ['a', 'b']);
+});
+
+// A root half from before whole trees answers the first level alone: what is inside those
+// folders is not known, and a folder opened is counted on its own, as it always was
+test('a root half from before whole trees still counts each folder opened', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-usage-'));
+    const socket = path.join(dir, 'root.sock');
+    fs.mkdirSync(path.join(dir, 'logs/old'), {recursive: true});
+    fs.writeFileSync(path.join(dir, 'logs/old/big.log'), Buffer.alloc(agent_disk_usage.KEPT_LEAST + 1024*1024, 1));
+    const asked = [];
+    const server = net.createServer(function (conn) {
+        let rest = '';
+        conn.on('data', async function (chunk) {
+            rest += chunk.toString('utf8');
+            if (rest.includes('\n') === false) {
+                return;
+            }
+            const job = JSON.parse(rest.slice(0, rest.indexOf('\n')));
+            asked.push(job.params.path);
+            // What an older root half did with the same ask: depth was not a word it knew
+            const value = await agent_disk_usage.root({path: job.params.path, deleted: job.params.deleted}, function (stream, text) {
+                conn.write(`${JSON.stringify({type: 'line', stream, text})}\n`);
+            });
+            conn.end(`${JSON.stringify({type: 'reply', ok: true, value})}\n`);
+        });
+    });
+    await new Promise(v => server.listen(socket, v));
+    t.after(function () {
+        server.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+
+    const whole = await agent_disk_usage({path: dir, kept: true}, {docker: 'docker', root_socket: socket});
+    assert.strictEqual(whole.rooted, true);
+    const logs = await agent_disk_usage({path: path.join(dir, 'logs'), kept: true}, {docker: 'docker', root_socket: socket});
+    assert.deepStrictEqual(logs.folders.map(v => path.basename(v.path)), ['old']);
+    assert.deepStrictEqual(asked, [dir, path.join(dir, 'logs')], 'logs counted on its own');
 });
 
 // du names a folder it cannot read in more than one way: by its own path when it is run by
@@ -138,11 +255,14 @@ test('the same disk mounted again in a folder is counted with it, another disk i
     assert.deepStrictEqual(agent_disk_usage.disk_parts('/boot', mounts, v => devs[v]), []);
     assert.deepStrictEqual(agent_disk_usage.disk_parts('/', [], v => devs[v]), [], 'no mount table, nothing to add');
 
-    const sizes = new Map([['/', 10e9], ['/usr', 8e9], ['/home', 9e3]]);
-    const counted = agent_disk_usage.sizes_with_parts('/', sizes, [{path: '/home', size: 400e9}, {path: '/home/user/cache', size: 30e9}]);
-    assert.strictEqual(counted.get('/home'), 430e9, '/home takes its own count in place of its mount point\'s, and its cache in it');
-    assert.strictEqual(counted.get('/'), 10e9 - 9e3 + 430e9);
-    assert.strictEqual(counted.get('/usr'), 8e9);
+    const tree = {size: 10e9, kids: new Map([['usr', {size: 8e9, kids: null}], ['home', {size: 9e3, kids: new Map()}]])};
+    agent_disk_usage.tree_graft(tree, '/', '/home', {size: 400e9, kids: new Map([['user', {size: 350e9, kids: new Map()}]])});
+    agent_disk_usage.tree_graft(tree, '/', '/home/user/cache', {size: 30e9, kids: new Map()});
+    assert.strictEqual(tree.kids.get('home').size, 430e9, '/home takes its own count in place of its mount point\'s, and its cache in it');
+    assert.strictEqual(tree.size, 10e9 - 9e3 + 430e9);
+    assert.strictEqual(tree.kids.get('usr').size, 8e9);
+    assert.strictEqual(tree.kids.get('home').kids.get('user').size, 380e9, 'the cache grows the folder it sits in');
+    assert.strictEqual(tree.kids.get('home').kids.get('user').kids.get('cache').size, 30e9);
 });
 
 // A file deleted while it is still open keeps its space, in no folder: it is found by its

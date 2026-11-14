@@ -3,10 +3,12 @@
 // {device, type, mounts, disk, total, used, free, inodes_total, inodes_used, inodes_free,
 // encrypted, key_of}. It is read when asked and kept nowhere.
 //
-// And `usage({path, extras})`, what takes the space in one folder of that machine, counted on
-// that one disk: {path, total, files, folders: [{path, size}], unread: [path], took_ms, extras}.
-// files is what lies in the folder itself, unread what could not be read; extras, when asked,
-// what docker and the journal keep, which the folders do not always show. And
+// And `usage({path, extras, kept})`, what takes the space in one folder of that machine,
+// counted on that one disk: {path, total, files, folders: [{path, size}], unread: [path],
+// took_ms, age_ms, extras}. files is what lies in the folder itself, unread what could not be
+// read; extras, when asked, what docker and the journal keep, which the folders do not always
+// show. kept says a count the machine keeps will do, the folder's own or one of a folder above
+// it, age_ms old; again=1 asks for a new one. And
 // `usage_progress({path})`, how such a count goes while it runs: {path, counting, took_ms,
 // folders: [{path, size}], waiting, waiting_shown: [path]}.
 //
@@ -20,7 +22,7 @@ async function disks_serve(req, res, options)
             send_json(res, 200, await options.read());
             return;
         }
-        // GET <base>/usage?path=/var&extras=1
+        // GET <base>/usage?path=/var&extras=1&again=1
         // GET <base>/usage/progress?path=/var
         const door = tail.split('?')[0];
         const usage = (door === '/usage') ? options.usage : ((door === '/usage/progress') ? options.usage_progress : undefined);
@@ -31,7 +33,7 @@ async function disks_serve(req, res, options)
                 send_json(res, 400, {error: 'path: the folder to count, from the root: /var'});
                 return;
             }
-            send_json(res, 200, await usage((door === '/usage') ? {path: asked, extras: (query.get('extras') === '1')} : {path: asked}));
+            send_json(res, 200, await usage((door === '/usage') ? {path: asked, extras: (query.get('extras') === '1'), kept: (query.get('again') !== '1')} : {path: asked}));
             return;
         }
         send_json(res, 404, {error: `no such door: ${tail}`});
