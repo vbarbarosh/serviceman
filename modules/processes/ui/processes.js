@@ -10,7 +10,8 @@ import items_view from '../../items_view.js';
 // Everything running on a machine, as the tree it is: a process sits under the one that
 // started it, and a branch folds away. A click on a process opens the ones it started, or
 // closes them, and shows it whole: its full command and every number, which a row has no room
-// for, in a bar at the foot of the view, so the rows stay where they were clicked. ps is run
+// for, in a window over the page, so the rows stay where they were clicked; Esc or a click
+// beside it puts it away. ps is run
 // over there when the pane opens and when Read again is pressed — a table this long on a clock
 // would be a machine talking about itself all day, and a tree that moves under the hand is one
 // nobody can read.
@@ -28,7 +29,8 @@ const processes = {
             </div>
         </template>
     </items-view>
-    <div v-if="(picked !== null)" class="dt-whole">
+    <div v-if="(picked !== null)" class="dt-window" @click.self="picked = null">
+    <div ref="picked_box" class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
         <template v-if="(picked_in(items_now) !== null)">
             <div class="dt-whole-head">
                 <b>{{ picked }}</b>
@@ -48,6 +50,7 @@ const processes = {
             <button type="button" class="link" @click="picked = null">Close</button>
         </div>
     </div>
+    </div>
 </article>
 `,
     components: {'items-view': items_view},
@@ -65,6 +68,18 @@ const processes = {
         // items_now: the processes as last read, for the picked one's numbers
         return {window_ms: null, picked: null, items_now: []};
     },
+    watch: {
+        // A process shown whole is where the keys go: Esc puts its window away
+        picked: function (pid) {
+            if (pid !== null) {
+                this.$nextTick(function () {
+                    if (this.$refs.picked_box !== undefined) {
+                        this.$refs.picked_box.focus({preventScroll: true});
+                    }
+                });
+            }
+        },
+    },
     computed: {
         cpu_title: function () {
             if (this.window_ms === null) {
@@ -72,6 +87,19 @@ const processes = {
             }
             return `What each process used over the ${this.window_ms} ms before the list was read; 100% is one whole core.`;
         },
+    },
+    // Esc puts a process's window away, wherever the focus went
+    mounted: function () {
+        const self = this;
+        this.escape_listener = function (event) {
+            if ((event.key === 'Escape') && (self.picked !== null)) {
+                self.picked = null;
+            }
+        };
+        document.addEventListener('keydown', this.escape_listener);
+    },
+    unmounted: function () {
+        document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
         format_bytes,

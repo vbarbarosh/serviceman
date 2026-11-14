@@ -6,8 +6,8 @@ import format_ms from './format_ms.js';
 const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
 
 // How everything is: what is wrong first, as cards that say why and what mends it, then a table
-// per kind of thing, a row per thing and a column per check. A click on a row shows it whole at
-// the foot of the view: what stands behind each check, and what a narrow screen folded away.
+// per kind of thing, a row per thing and a column per check. A click on a row shows it whole in
+// a window over the page: what stands behind each check, and what a narrow screen folded away.
 // Nothing here is changed by hand, it follows the checks.
 const health_pane = {
     template: `

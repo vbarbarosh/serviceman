@@ -3,7 +3,7 @@
 Everything running on one machine, for a web page: every process as the tree it is, each
 under the one that started it, with its user, CPU, memory, how long it has run and its state. It
 starts with the first level open; a click on a process opens the ones it started, or closes
-them, and shows it whole in a bar at the foot of the view: its full command and every number,
+them, and shows it whole in a window over the page: its full command and every number,
 which a narrow screen folds out of its row. Fold all leaves the roots, a filter keeps every
 match in its place in the tree, and List puts the heaviest CPU first, a column's header sorting
 by it.

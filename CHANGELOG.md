@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.93 — 2026-11-14
+
+- A row clicked in any table opens whole in a window over the page, its actions inside, where it opened in a bar pinned to the page's foot; Esc, Close or a click beside it puts it away. A process on the Processes tab the same; a forward's form, Add or Edit, opens in such a window too, Edit closing the row's first.
+
 ## 1.0.92 — 2026-11-14
 
 - Apps, a page on serviceman's page: a card to drop an app's zip or folder on (or click and pick a zip), which answers with the link that opens it and Open, and every app of files as a cell. A dropped folder is zipped in the page. The status says the apps domain.

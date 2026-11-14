@@ -375,7 +375,7 @@ Overview and Health say so.
 One more thing its page reads on the spot and keeps nowhere. **Processes** is every process
 on that machine, as the tree it is: each one under the one that started it. It starts with the
 first level open, and a click on a process opens the ones it started, or closes them, and shows
-it whole in a bar at the foot of the view: its full command, its parent and every number. Typing in its box keeps the processes whose command, user or pid match, with the ones
+it whole in a window over the page: its full command, its parent and every number. Typing in its box keeps the processes whose command, user or pid match, with the ones
 above them dimmed so each keeps its place in the tree; **List** lists them heaviest CPU first
 instead, and a column's header sorts by it, RSS for the heaviest in memory. It is `ps` run over there when the pane opens and when **Read again**
 is pressed, never on a clock. The ports it listens on are in the **Firewall** tab, below.
@@ -643,7 +643,7 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | A critical CVE, new or with a fix out              | The machine's last Security look against Ubuntu's list: a new one until the bar is closed on it, a fix out until it is in use. [Its vulnerabilities](#its-vulnerabilities). |
 
 Health shows the rest beside them, said but not counted as problems, one table per part with a
-column per check; a click on a row shows every check's detail in a bar at the foot of the view. Logline's store counts as
+column per check; a click on a row shows every check's detail in a window over the page. Logline's store counts as
 working while the machines' lines are taken: its address is theirs to reach, and serviceman may
 not be able to look it up.
 

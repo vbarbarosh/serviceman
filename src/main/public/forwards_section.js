@@ -22,7 +22,8 @@ const forwards_section = {
         </div>
     </div>
     <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
-    <div v-if="making" ref="make" class="fwd-make" :class="{editing: (editing !== null)}" @keyup.esc="clear">
+    <div v-if="making" class="dt-window" @click.self="clear">
+    <div ref="make" class="fwd-make" :class="{editing: (editing !== null)}" role="dialog" aria-modal="true">
         <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.label) }}</h2>
         <div class="fwd-ends">
             <div class="fwd-end">
@@ -58,6 +59,7 @@ const forwards_section = {
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </div>
     </div>
+    </div>
     <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span></template>
@@ -68,9 +70,9 @@ const forwards_section = {
             <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
         </template>
-        <template #actions="{row}">
+        <template #actions="{row, close}">
             <label title="Listening, or set aside for now"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)">listening</label>
-            <button type="button" :disabled="busy" @click="edit(row)">edit</button>
+            <button type="button" :disabled="busy" @click="close(); edit(row)">edit</button>
             <button type="button" class="danger" :disabled="busy" @click="drop(row)">forget it</button>
         </template>
         <template #empty>No forwards yet — <button type="button" class="link" :disabled="making" @click="begin">add the first one</button>: a socket on the laptop, say, answered by a port on a server.</template>
@@ -168,6 +170,19 @@ const forwards_section = {
             }
             return `${this.fresh.from_remote}-${port[1]}`.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
         },
+    },
+    // Esc puts the form's window away, wherever the focus went (a busy button lets it go)
+    mounted: function () {
+        const self = this;
+        this.escape_listener = function (event) {
+            if ((event.key === 'Escape') && self.making && (self.busy === false)) {
+                self.clear();
+            }
+        };
+        document.addEventListener('keydown', this.escape_listener);
+    },
+    unmounted: function () {
+        document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
         // Where it stands, in a word or two; the whole of it is under What is wrong
@@ -320,10 +335,9 @@ const forwards_section = {
             this.report('', false);
             this.form_show();
         },
-        // An edit clicked far down the list brings the form into view, ready to type in
+        // The form opens in its window over the list, ready to type in
         form_show: function () {
             this.$nextTick(function () {
-                this.$refs.make.scrollIntoView({block: 'nearest'});
                 this.$refs.first.focus({preventScroll: true});
             });
         },

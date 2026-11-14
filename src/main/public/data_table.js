@@ -4,11 +4,11 @@ import {Comment} from 'vue';
 
 // The one table of every page: the same look and the same behaviour wherever a list of things
 // is shown. Columns that do not fit fold away, the least needed first (fold_table). A click on a
-// row that has more to show, anywhere but its links, buttons and boxes, shows it whole in a bar
-// at the foot of the view: every column, what folded and what has more to say, so the rows stay
-// where they were clicked; a click on it again, or Close, puts the bar away. No mark down the
-// left edge, no details opening under a row. Actions sit last, one style for all, and fold into
-// the bar on a narrow screen.
+// row that has more to show, anywhere but its links, buttons and boxes, shows it whole in a
+// window over the page: every column, what folded and what has more to say, its actions, so the
+// rows stay where they were clicked; Close, Esc or a click beside it puts the window away. No
+// mark down the left edge, no details opening under a row. Actions sit last, one style for all,
+// and fold into the window on a narrow screen.
 //
 // Props
 //     columns    [{key, label, fold, wraps, clip, align, sort, hide, spread}]: fold a number, the
@@ -51,8 +51,10 @@ import {Comment} from 'vue';
 //     cell        {row, column, more}: a cell, more true when drawn in the details; an icon
 //                 goes first in it as an element with class dt-icon
 //     details     {row}: more lines of the row's bar, as dt and dd
-//     actions     {row, ask}: the row's actions, buttons; ask(question, yes, action) puts a
-//                 question in their place, "Remove it?" with yes and Cancel, the same everywhere
+//     actions     {row, ask, close}: the row's actions, buttons; ask(question, yes, action) puts
+//                 a question in their place, "Remove it?" with yes and Cancel, the same
+//                 everywhere; close() puts the row's window away, for an action that opens one
+//                 of its own (a form)
 //     below       {row}: rows of the page's own under the row, full width, drawn when it renders
 //                 anything (a log, a form, a message)
 //     group_head  {group, rows}: the row that begins a group
@@ -91,7 +93,7 @@ const data_table = {
                         </template>
                         <td v-if="(has_actions && (spread_over(row).includes('actions') === false))" data-fold="actions" class="dt-actions">
                             <span v-if="asking_of(row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
-                            <slot v-else name="actions" :row="row" :ask="(question, yes, action) => ask(row, question, yes, action)"/>
+                            <slot v-else name="actions" :row="row" :ask="(question, yes, action) => ask(row, question, yes, action)" :close="() => (whole = null)"/>
                         </td>
                     </tr>
                     <tr v-if="below_of(row)" class="dt-below">
@@ -104,10 +106,11 @@ const data_table = {
             </tbody>
         </table>
     </fold-table>
-    <div v-if="whole_shown(folded)" class="dt-whole">
+    <div v-if="whole_shown(folded)" class="dt-window" @click.self="whole = null">
+    <div ref="whole" class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
         <div class="dt-whole-head">
             <b><slot name="cell" :row="whole_row" :column="columns[0]" :more="true">{{ whole_row[columns[0].key] }}</slot></b>
-            <button type="button" class="link" @click="whole = null">Close</button>
+            <button type="button" class="link" title="Close (Esc)" @click="whole = null">Close</button>
         </div>
         <dl class="fold-details">
             <template v-for="column of whole_columns(whole_row)" :key="('whole-' + column.key)">
@@ -119,10 +122,11 @@ const data_table = {
                 <dt>{{ actions_label }}</dt>
                 <dd class="fold-actions dt-actions">
                     <span v-if="asking_of(whole_row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
-                    <slot v-else name="actions" :row="whole_row" :ask="(question, yes, action) => ask(whole_row, question, yes, action)"/>
+                    <slot v-else name="actions" :row="whole_row" :ask="(question, yes, action) => ask(whole_row, question, yes, action)" :close="() => (whole = null)"/>
                 </dd>
             </template>
         </dl>
+    </div>
     </div>
 </div>
 `,
@@ -155,6 +159,30 @@ const data_table = {
         // limit; and the question standing in a row's actions, {key, question, yes, action}
         // folded: the columns folded now, as fold_table last said, for the bar outside it
         return {whole: null, folded: [], all_shown: false, asking: null};
+    },
+    watch: {
+        // A window opened takes the keys; Esc puts it away wherever the focus went since
+        whole: function (key) {
+            if (key !== null) {
+                this.$nextTick(function () {
+                    if (this.$refs.whole !== undefined) {
+                        this.$refs.whole.focus({preventScroll: true});
+                    }
+                });
+            }
+        },
+    },
+    mounted: function () {
+        const self = this;
+        this.escape_listener = function (event) {
+            if ((event.key === 'Escape') && (self.whole !== null)) {
+                self.whole = null;
+            }
+        };
+        document.addEventListener('keydown', this.escape_listener);
+    },
+    unmounted: function () {
+        document.removeEventListener('keydown', this.escape_listener);
     },
     computed: {
         has_actions: function () {

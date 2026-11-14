@@ -220,9 +220,7 @@ section {
     min-height: 0;
 }
 
-/* --foot is the padding under a page, for a bar pinned to its foot to cover it */
 article {
-    --foot: 1rem;
     overflow: auto;
     padding: 1rem 1.25rem;
 }
@@ -815,19 +813,40 @@ button:disabled:hover {
     overflow-wrap: anywhere;
 }
 
-/* A row clicked, whole, in a bar pinned to the foot of the view, so the rows stay where they
-   were clicked: the same bar for every table, the process tree's included */
+/* A row clicked, whole, in a window over the page, so the rows stay where they were clicked:
+   the same window for every table, the process tree's included, and for a form that opens over
+   its list (a forward's) */
+.dt-window {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, .45);
+}
+
 .dt-whole {
-    position: sticky;
-    /* A page's padding is the edge its bar sticks at: past it, to the window's own edge */
-    bottom: calc(-1 * var(--foot, 0px));
-    z-index: 2;
-    margin-top: .75rem;
-    padding: .6rem .8rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    width: min(42rem, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
     background: var(--panel);
-    box-shadow: var(--shadow-up);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+
+.dt-whole:focus {
+    outline: none;
+}
+
+.dt-window > .fwd-make {
+    width: min(60rem, 100%);
+    max-height: calc(100vh - 2rem);
+    margin-top: 0;
+    overflow: auto;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
 }
 
 .dt-whole-head {
@@ -1815,7 +1834,6 @@ article.list {
     display: flex;
     flex-direction: column;
     gap: .9rem;
-    --foot: 1.25rem;
     padding: 1.25rem 1.5rem;
 }
 
@@ -2425,7 +2443,6 @@ button.palette-hit.on {
     }
 
     article.list {
-        --foot: 1rem;
         padding: 1rem;
     }
 
