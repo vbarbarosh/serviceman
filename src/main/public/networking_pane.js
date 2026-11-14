@@ -17,13 +17,13 @@ const networking_pane = {
     <h1>Doors</h1>
     <p class="muted">Whatever connects to <code>http.sock</code> beside a machine's agent is answered by that agent: it asks the wall in front of the name, and only on a yes carries the request to the service — on its own machine, or through the agent of the machine the service runs on, over the tailnet. serviceman writes each machine the table it routes by and is in none of it: with serviceman down, the doors go on answering. Only what a table cannot route — a service serviceman answers itself — still goes through serviceman.</p>
     <h2>What the doors answer</h2>
-    <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
+    <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it, and answered by <code>*</code> each of those names is answered by the app whose own address it is: one rule for every app under a domain. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
     <p class="muted"><b>Behind</b> is a service asked before anything else is touched — an authwall. The door asks it <code>/auth/sidecar</code>, carries its <code>X-Auth-User</code> to the service on a yes, and on a no sends the visitor to <code>/auth/sign-in</code> on the name they asked for; a wall that cannot be asked lets nothing through. One wall stands in front of as many names as point at it, and serviceman writes nothing into it: whose email may pass is the wall's own business.</p>
     <data-table :columns="rule_columns" :rows="rules" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="On" empty="No door answers anything yet.">
         <template #cell="{row, column, more}">
             <span v-if="(column.key === 'host')" class="dt-state"><span class="dot" :class="rule_dot(row)"/><code class="name">{{ row.host }}</code></span>
             <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
-            <template v-else-if="(column.key === 'service')">{{ row.service }}<span v-if="(known(row.service) === false)" class="bad"> — no such service</span></template>
+            <template v-else-if="(column.key === 'service')"><span v-if="(row.service === '*')" class="muted">the app whose address it is</span><template v-else>{{ row.service }}</template><span v-if="(known(row.service) === false)" class="bad"> — no such service</span></template>
             <span v-else-if="(column.key === 'behind')" :class="{muted: (row.auth === null)}">{{ (row.auth !== null) ? row.auth : (more ? 'nothing — anyone may reach it' : 'nothing') }}</span>
         </template>
         <template #actions="{row}">
@@ -103,8 +103,10 @@ bin/restart</pre>
         machine_options: function () {
             return this.machines.map(v => ({value: v.name, label: v.title || v.name}));
         },
+        // "*" is one rule for every app under a domain: the service whose own address the
+        // name is answers it
         service_options: function () {
-            return this.services.map(v => ({value: v.name, label: v.title || v.name}));
+            return [{value: '*', label: 'the app whose address it is: *'}].concat(this.services.map(v => ({value: v.name, label: v.title || v.name})));
         },
         auth_options: function () {
             return this.services.map(v => ({value: v.name, label: `behind ${v.title || v.name}`}));
@@ -124,7 +126,7 @@ bin/restart</pre>
     },
     methods: {
         known: function (name) {
-            return this.services.some(v => v.name === name);
+            return (name === '*') || this.services.some(v => v.name === name);
         },
         rule_key: function (rule) {
             return `${rule.machine} ${rule.host}`;

@@ -35,7 +35,8 @@ const service_doors = {
             <button type="button" class="danger" :disabled="busy" @click="drop(row)">remove</button>
         </template>
     </data-table>
-    <p v-else class="muted">None. This service answers its own address on serviceman; a public address is a name a machine's door answers for it too — <code>echo.example.com</code>, served from that machine's public side, and protected by a wall if you like.</p>
+    <p v-for="row of by_domain" :key="(row.machine + ' ' + row.pattern + ' ' + row.host)" class="muted">Also <a v-if="(row.off === false)" :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a><code v-else>{{ row.host }}</code> through {{ row.title }}'s door, by its one rule for <code>{{ row.pattern }}</code><template v-if="(row.auth !== null)">, behind {{ row.auth }}</template><template v-if="row.off">, set aside</template>: the app whose address a name is answers it. It is changed on Doors.</p>
+    <p v-if="((rules.length === 0) && (by_domain.length === 0))" class="muted">None. This service answers its own address on serviceman; a public address is a name a machine's door answers for it too — <code>echo.example.com</code>, served from that machine's public side, and protected by a wall if you like.</p>
     <div v-if="adding" class="door-add">
         <input v-model.trim="fresh.host" placeholder="echo.example.com" spellcheck="false" aria-label="Address" @keyup.enter="add">
         <select v-model="fresh.machine" aria-label="Through the door of">
@@ -81,6 +82,26 @@ const service_doors = {
                         continue;
                     }
                     out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth, door_problem: door_problem(item)});
+                }
+            }
+            return out;
+        },
+        // The names a door's rule of "*" gives this service: every one of its own addresses the
+        // rule's pattern covers. That rule is every app's under it, so it is shown here and
+        // changed on Doors.
+        by_domain: function () {
+            const out = [];
+            const own = this.view.publish.hosts.map(v => v.split('/')[0]);
+            for (const item of this.remotes) {
+                const inbound = (item.inbound === undefined) ? {} : item.inbound;
+                for (const pattern of Object.keys(inbound)) {
+                    const rule = (typeof inbound[pattern] === 'string') ? {service: inbound[pattern]} : inbound[pattern];
+                    if (rule.service !== '*') {
+                        continue;
+                    }
+                    for (const host of own.filter(v => (v === pattern) || (pattern.startsWith('*.') && v.endsWith(pattern.slice(1)) && (v.length > pattern.length - 1)))) {
+                        out.push({machine: item.name, title: item.title || item.name, pattern, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth});
+                    }
                 }
             }
             return out;

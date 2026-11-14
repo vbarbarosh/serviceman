@@ -1,4 +1,5 @@
 const inbound_rule = require('./inbound_rule');
+const route_from_request = require('../routes/route_from_request');
 const wall_ask = require('./wall_ask');
 
 // What a request that came in through a machine's door may reach on this host: the service the
@@ -12,13 +13,16 @@ const wall_ask = require('./wall_ask');
 // at this host's own alike: that header is the wall's word, or nobody's. A service answers on
 // its own address too, and there nobody stands in front of it to say who the visitor is.
 //
-//     {service, wall, off}
+//     {service, wall, off, route}
 //     service  the service that answers, or null for a name the door was never given, or one
-//              set aside
+//              set aside; for a rule of "*", the service whose own address the name is, or null
+//              where none has it
 //     wall     the service that has to say yes before it is answered, or null; a wall's own
 //              pages, its sign-in and its callbacks, are the wall's to answer, with no wall in
 //              front of them
 //     off      the name is there and set aside
+//     route    {path, service} as the request is routed: a rule of "*" keeps the path its
+//              service answers on, which the service may take off
 function door_inbound(app, req, host, pathname)
 {
     claim_drop(req);
@@ -30,8 +34,12 @@ function door_inbound(app, req, host, pathname)
     const walled = ((rule === null) || (rule.auth === null)) ? null : app.service_by_name[rule.auth] || null;
     const own = (walled !== null) && wall_ask.own(pathname);
     const named = own ? rule.auth : ((rule === null) ? null : rule.service);
+    if ((named === '*') && (rule.off === false)) {
+        const found = route_from_request(app, host, pathname);
+        return {service: (found === null) ? null : found.service, wall: walled, off: false, route: found};
+    }
     const service = ((rule === null) || rule.off) ? null : app.service_by_name[named] || null;
-    return {service, wall: own ? null : walled, off: (rule !== null) && rule.off};
+    return {service, wall: own ? null : walled, off: (rule !== null) && rule.off, route: {path: '', service}};
 }
 
 // The visitor's own word on who they are, taken out before the request is routed, the wall is

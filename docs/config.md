@@ -1159,6 +1159,10 @@ folder or has no `index.html` is a `400` and changes nothing. One app takes one 
 (`409` for a second), and a name that is a service of another kind is a `409` too: a new
 version of an app folder goes to `/api/v1/services/<name>/zip`.
 
+From outside, one rule on a machine's door answers every app under the domain, each at its own
+address, the sign-in in front: `"*.apps.example.com": {"service": "*", "auth": "authwall"}`
+([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)).
+
 ## Load tests
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address

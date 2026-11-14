@@ -66,7 +66,7 @@ function handle_request(app, req, res)
             res.end('404 Not Found\n');
         });
     }
-    const inbound = (door === null) ? null : door.service;
+    const inbound = (door === null) ? null : door.route;
     const wall = (door === null) ? null : door.wall;
     // The control page, and a machine's files under it — phone.fs.<control host> — are the
     // control's to answer on this door as well; the control decides who may have them
@@ -97,8 +97,9 @@ function pathname_of(req)
     return (mark === -1) ? req.url : req.url.slice(0, mark);
 }
 
-// `inbound` is the service a machine's door named for this request, where it came in through
-// one — a service answers there because a door says so, not because it publishes the name.
+// `inbound` is the route a machine's door gave this request, {path, service}, where it came in
+// through one — a service answers there because a door says so, not because it publishes the
+// name; a door's rule of "*" gives the route of the service that does.
 // `wall` is the service that has to say yes before it is answered.
 async function request_answer(app, req, res, host, quiet, inbound, wall)
 {
@@ -140,7 +141,7 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         // that name is gone: this one is the wall's word.
         req.headers['x-auth-user'] = said.user;
     }
-    const route = ((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : {path: '', service: inbound};
+    const route = ((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : inbound;
     if (route === null) {
         render_error_page(res, 404, 'No service answers on this address', `${host || 'the request carries no Host header'}${pathname}`);
         return;

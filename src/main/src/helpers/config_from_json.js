@@ -124,12 +124,13 @@ function config_from_json(json, base_dir)
     }
     // A door says which service answers each of its names, and may name a wall to ask before
     // anything is answered at all. Neither can be a service that is not in the config: a rule
-    // naming one is a rule nothing could ever act on.
+    // naming one is a rule nothing could ever act on. "*" is the service whose own address the
+    // name is, whichever that is when a visitor asks: one rule for every app under a domain.
     for (const remote of out.remotes) {
         for (const host of Object.keys(remote.inbound)) {
             const rule = remote.inbound[host];
             const label = `remotes: ${JSON.stringify(remote.name)} answers ${JSON.stringify(host)}`;
-            if (names.includes(rule.service) === false) {
+            if ((rule.service !== '*') && (names.includes(rule.service) === false)) {
                 throw new Error(`${label} with the service ${JSON.stringify(rule.service)}, and no service has that name`);
             }
             if ((rule.auth !== null) && (names.includes(rule.auth) === false)) {

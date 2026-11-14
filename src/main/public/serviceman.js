@@ -97,7 +97,7 @@ const service_status = {
         <dt>Address</dt>
         <dd>
             <span v-if="(view.publish.hosts.length === 0 && door_names.length === 0)" class="muted">none — it only runs</span>
-            <span v-for="host of view.publish.hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a></span>
+            <span v-for="host of own_hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a></span>
             <span v-for="name of door_names" :key="(name.machine + ' ' + name.host)" class="svc-host" :class="{muted: name.off}"><a v-if="(name.host.startsWith('*') === false)" :href="('https://' + name.host)" target="_blank" rel="noopener">{{ name.host }}</a><code v-else>{{ name.host }}</code> <span class="muted">via {{ name.title }}<template v-if="(name.auth !== null)">, behind {{ name.auth }}</template><template v-if="name.off"> · off</template></span></span>
         </dd>
         <template v-if="(view.type === 'files')">
@@ -130,14 +130,27 @@ const service_status = {
     emits: ['remote'],
     computed: {
         // The names machines' doors answer for this service, beside its own
+        // Its own addresses, but those a door also answers: a door's rule of "*" answers an app
+        // on its own address, said once, with the door
+        own_hosts: function () {
+            return this.view.publish.hosts.filter(v => this.door_names.every(vv => vv.host !== v));
+        },
         door_names: function () {
             const out = [];
             for (const item of ((this.remotes === undefined) ? [] : this.remotes)) {
                 const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
                     const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
+                    const auth = (rule.auth === undefined) ? null : rule.auth;
                     if (rule.service === this.view.name) {
-                        out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth});
+                        out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth});
+                    }
+                    // A rule of "*" answers each of its names with the service whose own
+                    // address it is: this one's, where the rule covers them
+                    if (rule.service === '*') {
+                        for (const own of this.view.publish.hosts.map(v => v.split('/')[0]).filter(v => (v === host) || (host.startsWith('*.') && v.endsWith(host.slice(1)) && (v.length > host.length - 1)))) {
+                            out.push({machine: item.name, title: item.title || item.name, host: own, off: (rule.off === true), auth});
+                        }
                     }
                 }
             }

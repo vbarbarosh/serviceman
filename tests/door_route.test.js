@@ -135,6 +135,67 @@ test('a door routes through the wall to the service itself, and goes on with ser
     }
 });
 
+// One rule for every app under a domain: "*" is answered by the service whose own address the
+// name is, a folder of files here, behind the wall, which is asked once per visit, by serviceman;
+// a name no app has is a 404 and never reaches the wall, and the wall's own pages are the wall's
+test('a door rule of * answers each name with the app whose address it is, the wall asked once', async function () {
+    const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-doors-state-'));
+    process.env.SERVICEMAN_STATE_DIR = state_dir;
+    fs.mkdirSync(path.join(state_dir, 'apps', 'notes'), {recursive: true});
+    fs.writeFileSync(path.join(state_dir, 'apps', 'notes', 'index.html'), '<title>Notes</title>');
+    let asked = 0;
+    const wall = await server_of(function (req, res) {
+        if (req.url === '/auth/sidecar') {
+            asked++;
+            res.writeHead((req.headers.cookie === 'session=good') ? 200 : 401, (req.headers.cookie === 'session=good') ? {'x-auth-user': 'user@example.com'} : {});
+            res.end();
+            return;
+        }
+        res.end(`the wall's own page ${req.url}`);
+    });
+    const running = await serviceman_start({
+        remotes: [{name: 'laptop', token: TOKEN_LAPTOP, inbound: {'*.apps.example.com': {service: '*', auth: 'authwall'}}}],
+        services: [
+            {name: 'authwall', type: 'external', publish: {host: 'authwall.internal'}, upstream: `127.0.0.1:${wall.address().port}`},
+            {name: 'notes', type: 'files', publish: {host: 'notes.apps.example.com'}},
+        ],
+    });
+    const dir_laptop = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-laptop-'));
+    const agent = agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_AGENT_DIR: dir_laptop, SERVICEMAN_HTTP_SOCKET_MODE: '0600', SERVICEMAN_PEER_PORT: '0'});
+    const door = path.join(dir_laptop, 'http.sock');
+    try {
+        const laptop = running.app.remote_by_name.laptop;
+        await wait_until(() => (laptop.state.doors_told !== null) && (laptop.state.doors_told === doors_table(running.app, laptop).version) && fs.existsSync(door), 15000);
+
+        const refused = await fetch_socket(door, 'notes.apps.example.com', '/');
+        assert.strictEqual(refused.status, 302);
+        assert.strictEqual(refused.headers.location, '/auth/sign-in?return=%2F');
+        assert.strictEqual(asked, 1, 'the wall is asked once, by serviceman, not again by the door');
+
+        const page = await fetch_socket(door, 'notes.apps.example.com', '/', {cookie: 'session=good'});
+        assert.strictEqual(page.status, 200);
+        assert.strictEqual(page.body, '<title>Notes</title>');
+        const kept = await fetch_socket(door, 'notes.apps.example.com', '/notes/42', {cookie: 'session=good'});
+        assert.strictEqual(kept.body, '<title>Notes</title>');
+        assert.strictEqual(asked, 3);
+
+        const none = await fetch_socket(door, 'other.apps.example.com', '/', {cookie: 'session=good'});
+        assert.strictEqual(none.status, 404, 'a name no app has');
+        assert.strictEqual(asked, 3, 'and the wall is not asked for it');
+
+        const own = await fetch_socket(door, 'notes.apps.example.com', '/auth/sign-in');
+        assert.strictEqual(own.status, 200);
+        assert.match(own.body, /the wall's own page \/auth\/sign-in/);
+        assert.strictEqual(asked, 3);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        wall.close();
+        delete process.env.SERVICEMAN_STATE_DIR;
+    }
+});
+
 // A service that sleeps is woken by the door itself, and only answered once the program in it
 // answers: docker's port takes connections the moment the container starts and drops them
 // until then, which a door that trusted the open port would pass on as a 502. serviceman is told

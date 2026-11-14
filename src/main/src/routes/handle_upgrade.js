@@ -53,7 +53,7 @@ async function socket_answer(app, req, socket, head)
         }
         req.headers['x-auth-user'] = said.user;
     }
-    const route = (door === null) ? route_from_request(app, host, pathname) : {path: '', service: door.service};
+    const route = (door === null) ? route_from_request(app, host, pathname) : door.route;
     if (route === null) {
         socket.destroy();
         return;

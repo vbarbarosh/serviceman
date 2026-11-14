@@ -2014,6 +2014,9 @@ version or the new one, never half of each; a zip that is broken, holds links, l
 folder or has no <code>index.html</code> is a <code>400</code> and changes nothing. One app takes one zip at a time
 (<code>409</code> for a second), and a name that is a service of another kind is a <code>409</code> too: a new
 version of an app folder goes to <code>/api/v1/services/&lt;name&gt;/zip</code>.</p>
+<p>From outside, one rule on a machine&#39;s door answers every app under the domain, each at its own
+address, the sign-in in front: <code>&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}</code>
+(<a href="remotes.html#a-machine-that-takes-the-traffic">A machine that takes the traffic</a>).</p>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

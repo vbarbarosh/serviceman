@@ -831,6 +831,18 @@ The name is not the service's own address: `echo` goes on publishing whatever it
 and this is a name it also answers to, on that machine's front. Nothing has to be renamed to
 be served from another machine.
 
+**One rule for every app under a domain:** `"*"` in place of a service's name answers each name
+under the pattern with the service whose own address it is, whichever that is when a visitor
+asks, so an app sent to serviceman ([An app sent to serviceman](config.md#an-app-sent-to-serviceman))
+is reached from outside the moment it is made, with no rule of its own:
+
+```json
+{"name": "vps1", "token": "0c0f…a91b", "inbound": {"*.apps.example.com": {"service": "*", "auth": "authwall"}}}
+```
+
+A name no service has is a 404, and the wall is not asked for it. serviceman answers such a name
+itself, over the machine's link, and asks the wall once: the door hands it over as it is.
+
 A rule can be set aside without being taken away — the name keeps its place and stops
 answering, which is what an afternoon of quiet wants rather than retyping it later:
 

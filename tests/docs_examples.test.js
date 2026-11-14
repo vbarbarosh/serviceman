@@ -125,7 +125,8 @@ function config_of(value)
     const rules = config.remotes.flatMap(v => Object.values(v.inbound || {}));
     const served = [].concat(rules.map(v => (typeof v === 'string') ? v : v.service), rules.map(v => v.auth), (config.load_tests || []).map(v => v.service));
     for (const name of served) {
-        if ((typeof name === 'string') && (services.has(name) === false)) {
+        // "*" is no service: it is the one whose own address the name is
+        if ((typeof name === 'string') && (name !== '*') && (services.has(name) === false)) {
             services.add(name);
             config.services.push({name, type: 'external', publish: {host: `${name}.internal.example.com`}, upstream: '127.0.0.1:8000'});
         }

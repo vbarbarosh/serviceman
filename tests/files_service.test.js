@@ -3,6 +3,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const control_route_right = require('../src/main/src/helpers/control_route_right');
+const doors_table = require('../src/main/src/helpers/doors_table');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const os = require('os');
@@ -225,4 +226,22 @@ test('an app is sent with the apps right, and named under the apps domain', func
     const plain = config_from_json({services: []}, '/srv/serviceman');
     assert.strictEqual(app_files_put.host({config: plain}, 'notes'), 'notes.localhost');
     assert.throws(() => config_from_json({apps: {domain: '*.example.com'}, services: []}, '/srv/serviceman'), /apps\.domain: a lowercase domain/);
+});
+
+// A door's rule of "*" names no service: it is the one whose own address the name is, so the
+// config takes it, and the table the machine routes by hands such a name to serviceman
+test('a door rule of * is taken by the config, and the machine\'s table leaves it to serviceman', function () {
+    const config = config_from_json({
+        remotes: [{name: 'vps1', token: '0123456789abcdef0123456789abcdef', inbound: {'*.apps.example.com': {service: '*', auth: 'authwall'}}}],
+        services: [
+            {name: 'authwall', type: 'external', publish: {host: 'authwall.internal'}, upstream: '127.0.0.1:9000'},
+            {name: 'notes', type: 'files', publish: {host: 'notes.apps.example.com'}},
+        ],
+    }, '/srv/serviceman');
+    assert.deepStrictEqual(config.remotes[0].inbound['*.apps.example.com'], {service: '*', off: false, auth: 'authwall'});
+    const app = app_from_config(config);
+    const table = doors_table(app, app.remote_by_name.vps1);
+    assert.deepStrictEqual(table.names['*.apps.example.com'], {service: '*', wall: 'authwall', off: false});
+    assert.deepStrictEqual(Object.keys(table.services), ['authwall'], 'no service is called *');
+    assert.throws(() => config_from_json({remotes: [{name: 'vps1', token: '0123456789abcdef0123456789abcdef', inbound: {'*.apps.example.com': {service: '*', auth: 'nowall'}}}], services: []}, '/srv/serviceman'), /behind "nowall", and no service has that name/);
 });

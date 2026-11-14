@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.89 — 2026-11-14
+
+- One door rule for every app under a domain: `"*.apps.example.com": {"service": "*", "auth": "authwall"}` answers each name with the service whose own address it is, the wall asked once, by serviceman; a name no app has is a 404 that never reaches the wall. An app's page shows the public name the rule gives it, and Doors says what `*` means. Agent 1.36.0.
+
 ## 1.0.88 — 2026-11-14
 
 - An app of files is sent as a zip of its folder: `PUT /api/v1/apps/<name>`, through the control socket too, with the owner's token or one given the new `apps` right. A new name becomes a folder of files in the config at `<name>.<apps.domain>` (or beside serviceman.localhost) and is served at once; a known one gets the new version, swapped in whole. The Services list groups folders of files as served by serviceman.

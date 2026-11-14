@@ -1554,6 +1554,14 @@ public addresses and adds, switches and removes them; the <strong>Doors</strong>
 <p>The name is not the service&#39;s own address: <code>echo</code> goes on publishing whatever it publishes,
 and this is a name it also answers to, on that machine&#39;s front. Nothing has to be renamed to
 be served from another machine.</p>
+<p><strong>One rule for every app under a domain:</strong> <code>&quot;*&quot;</code> in place of a service&#39;s name answers each name
+under the pattern with the service whose own address it is, whichever that is when a visitor
+asks, so an app sent to serviceman (<a href="config.html#an-app-sent-to-serviceman">An app sent to serviceman</a>)
+is reached from outside the moment it is made, with no rule of its own:</p>
+<pre><code class="language-json">{&quot;name&quot;: &quot;vps1&quot;, &quot;token&quot;: &quot;0c0f…a91b&quot;, &quot;inbound&quot;: {&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}}}
+</code></pre>
+<p>A name no service has is a 404, and the wall is not asked for it. serviceman answers such a name
+itself, over the machine&#39;s link, and asks the wall once: the door hands it over as it is.</p>
 <p>A rule can be set aside without being taken away — the name keeps its place and stops
 answering, which is what an afternoon of quiet wants rather than retyping it later:</p>
 <pre><code class="language-json">&quot;inbound&quot;: {&quot;echo.example.com&quot;: {&quot;service&quot;: &quot;echo&quot;, &quot;off&quot;: true}}

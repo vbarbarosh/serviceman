@@ -88,6 +88,11 @@ async function route(options, req, host, group)
     if (rule.off) {
         return {answer: {status: 404, why: `${host} is switched off`}};
     }
+    // "*" is the service whose own address the name is: serviceman knows which, and asks the
+    // wall itself, so the visitor's sign-in is asked once
+    if (rule.service === '*') {
+        return {target: null};
+    }
     const own = (rule.wall !== null) && agent_wall_ask.own(req.url);
     const name = own ? rule.wall : rule.service;
     if ((rule.wall !== null) && (own === false)) {
