@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.90 — 2026-11-14
+
+- The page of cells: the apps domain itself (`apps.example.com`) is a page with a cell for every service whose own address is under it, each with its state, opening it on a click; on serviceman's own door, and through a machine's door where a rule gives the bare name to `*`, behind its wall.
+
 ## 1.0.89 — 2026-11-14
 
 - One door rule for every app under a domain: `"*.apps.example.com": {"service": "*", "auth": "authwall"}` answers each name with the service whose own address it is, the wall asked once, by serviceman; a name no app has is a 404 that never reaches the wall. An app's page shows the public name the rule gives it, and Doors says what `*` means. Agent 1.36.0.

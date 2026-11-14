@@ -2017,6 +2017,13 @@ version of an app folder goes to <code>/api/v1/services/&lt;name&gt;/zip</code>.
 <p>From outside, one rule on a machine&#39;s door answers every app under the domain, each at its own
 address, the sign-in in front: <code>&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}</code>
 (<a href="remotes.html#a-machine-that-takes-the-traffic">A machine that takes the traffic</a>).</p>
+<p><strong>The page of cells</strong> is the domain itself, <code>apps.example.com</code>: a cell for every service whose own
+address is under it, an app sent to serviceman or anything else published there, by name, each
+with its state (running, asleep, starting, failed) and opening it on a click, on the port the page
+was asked on. serviceman answers it on its own door, and through a machine&#39;s door where a rule
+gives the bare name to <code>&quot;*&quot;</code> too, the pattern covering only the names under it:</p>
+<pre><code class="language-json">&quot;inbound&quot;: {&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}, &quot;apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}}
+</code></pre>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

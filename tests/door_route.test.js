@@ -154,7 +154,8 @@ test('a door rule of * answers each name with the app whose address it is, the w
         res.end(`the wall's own page ${req.url}`);
     });
     const running = await serviceman_start({
-        remotes: [{name: 'laptop', token: TOKEN_LAPTOP, inbound: {'*.apps.example.com': {service: '*', auth: 'authwall'}}}],
+        apps: {domain: 'apps.example.com'},
+        remotes: [{name: 'laptop', token: TOKEN_LAPTOP, inbound: {'*.apps.example.com': {service: '*', auth: 'authwall'}, 'apps.example.com': {service: '*', auth: 'authwall'}}}],
         services: [
             {name: 'authwall', type: 'external', publish: {host: 'authwall.internal'}, upstream: `127.0.0.1:${wall.address().port}`},
             {name: 'notes', type: 'files', publish: {host: 'notes.apps.example.com'}},
@@ -187,6 +188,13 @@ test('a door rule of * answers each name with the app whose address it is, the w
         assert.strictEqual(own.status, 200);
         assert.match(own.body, /the wall's own page \/auth\/sign-in/);
         assert.strictEqual(asked, 3);
+
+        // The domain itself is the page of its apps, behind the same wall
+        assert.strictEqual((await fetch_socket(door, 'apps.example.com', '/')).status, 302);
+        const home = await fetch_socket(door, 'apps.example.com', '/', {cookie: 'session=good'});
+        assert.strictEqual(home.status, 200);
+        assert.ok(home.body.includes('href="//notes.apps.example.com/"'), 'a cell for notes, on the name the door answers');
+        assert.strictEqual(asked, 5);
     }
     finally {
         agent.kill('SIGKILL');

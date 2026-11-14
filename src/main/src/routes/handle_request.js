@@ -11,6 +11,7 @@ const log_within = require('../helpers/log_within');
 const pool_acquire = require('../helpers/pool_acquire');
 const pool_release = require('../helpers/pool_release');
 const proxy_request = require('../proxy_request');
+const render_apps_page = require('../helpers/render_apps_page');
 const render_error_page = require('../helpers/render_error_page');
 const render_waiting_page = require('../render_waiting_page');
 const route_from_request = require('./route_from_request');
@@ -53,7 +54,7 @@ function handle_request(app, req, res)
     // door was told to answer this name with, behind its wall, and by nothing else: the
     // control page never among it (door_inbound, which reads a websocket handshake the same way)
     const door = door_inbound(app, req, host, pathname_of(req));
-    if ((door !== null) && (door.service === null)) {
+    if ((door !== null) && (door.service === null) && (door.home !== true)) {
         // A name that is switched off says so, because the answer is the same 404 either
         // way and the difference is the whole of what somebody is looking for
         const off = door.off ? {off: true} : {};
@@ -142,6 +143,13 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         req.headers['x-auth-user'] = said.user;
     }
     const route = ((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : inbound;
+    if ((route === null) && (app.config.apps.domain !== null) && (host === app.config.apps.domain) && (pathname === '/')) {
+        // The apps domain itself, which no service has: the page of every app under it
+        answered_by = 'apps';
+        res.writeHead(200, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': 'frame-ancestors \'none\''});
+        res.end((req.method === 'HEAD') ? undefined : render_apps_page(app, app.config.apps.domain, req.headers.host));
+        return;
+    }
     if (route === null) {
         render_error_page(res, 404, 'No service answers on this address', `${host || 'the request carries no Host header'}${pathname}`);
         return;

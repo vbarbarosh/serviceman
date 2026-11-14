@@ -1163,6 +1163,16 @@ From outside, one rule on a machine's door answers every app under the domain, e
 address, the sign-in in front: `"*.apps.example.com": {"service": "*", "auth": "authwall"}`
 ([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)).
 
+**The page of cells** is the domain itself, `apps.example.com`: a cell for every service whose own
+address is under it, an app sent to serviceman or anything else published there, by name, each
+with its state (running, asleep, starting, failed) and opening it on a click, on the port the page
+was asked on. serviceman answers it on its own door, and through a machine's door where a rule
+gives the bare name to `"*"` too, the pattern covering only the names under it:
+
+```json
+"inbound": {"*.apps.example.com": {"service": "*", "auth": "authwall"}, "apps.example.com": {"service": "*", "auth": "authwall"}}
+```
+
 ## Load tests
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address

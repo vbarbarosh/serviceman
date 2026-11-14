@@ -10,6 +10,7 @@ const os = require('os');
 const path = require('path');
 const profile_from_db = require('../src/main/src/helpers/profile_from_db');
 const reap_idle = require('../src/main/src/helpers/reap_idle');
+const render_apps_page = require('../src/main/src/helpers/render_apps_page');
 const server_start = require('../src/main/src/helpers/server_start');
 const service_phase = require('../src/main/src/helpers/service_phase');
 const test = require('node:test');
@@ -244,4 +245,43 @@ test('a door rule of * is taken by the config, and the machine\'s table leaves i
     assert.deepStrictEqual(table.names['*.apps.example.com'], {service: '*', wall: 'authwall', off: false});
     assert.deepStrictEqual(Object.keys(table.services), ['authwall'], 'no service is called *');
     assert.throws(() => config_from_json({remotes: [{name: 'vps1', token: '0123456789abcdef0123456789abcdef', inbound: {'*.apps.example.com': {service: '*', auth: 'nowall'}}}], services: []}, '/srv/serviceman'), /behind "nowall", and no service has that name/);
+});
+
+// The apps domain itself is the page of its apps: a cell for every service whose own address is
+// under it, each opening it on the port the visitor came in on; a service elsewhere is not on it
+test('the apps domain is a page of a cell for each app under it', async function (t) {
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-files-'));
+    const before = process.env.SERVICEMAN_STATE_DIR;
+    process.env.SERVICEMAN_STATE_DIR = state;
+    const config = config_from_json({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {domain: 'apps.test'},
+        services: [
+            {name: 'notes', title: 'Notes', type: 'files', publish: {host: 'notes.apps.test'}},
+            {name: 'agency', title: 'Visual Agency', type: 'external', publish: {host: 'agency.apps.test'}, upstream: '127.0.0.1:1'},
+            {name: 'other', type: 'files', publish: {host: 'other.test'}},
+        ],
+    }, state);
+    const app = app_from_config(config);
+    const servers = await server_start(app);
+    t.after(function () {
+        servers.server.close();
+        servers.control.close();
+        servers.server.closeAllConnections();
+        servers.control.closeAllConnections();
+        process.env.SERVICEMAN_STATE_DIR = before;
+        fs.rmSync(state, {recursive: true, force: true});
+    });
+    const port = servers.server.address().port;
+    const page = await fetch_host({port, host: `apps.test:${port}`, path: '/'});
+    assert.strictEqual(page.status, 200);
+    assert.match(page.headers['content-type'], /text\/html/);
+    assert.match(page.body, /2 apps under apps\.test/);
+    assert.ok(page.body.includes(`href="//notes.apps.test:${port}/"`), 'a cell opens its app, on the port the visitor came in on');
+    assert.ok(page.body.includes(`href="//agency.apps.test:${port}/"`));
+    assert.ok(page.body.indexOf('Notes') < page.body.indexOf('Visual Agency'), 'by name');
+    assert.strictEqual(page.body.includes('other.test'), false, 'a service elsewhere is not on it');
+    assert.strictEqual((await fetch_host({port, host: 'apps.test', path: '/more'})).status, 404);
+    assert.match(render_apps_page({services: []}, 'apps.test', 'apps.test'), /No app here yet: one sent to serviceman under apps\.test lands here/);
 });
