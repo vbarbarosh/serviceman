@@ -321,3 +321,25 @@ test('an app sent with an apps domain answers on its name there and on its local
         assert.strictEqual((await fetch_host({port, host, path: '/'})).body, '<title>Notes</title>', host);
     }
 });
+
+// A folder dropped on the Apps page is zipped there: serviceman's own reader takes that zip as
+// it takes any, names with letters past ASCII and folders under folders included
+test('a folder zipped by the page is read by serviceman as a page\'s files', async function () {
+    const zip_blob = (await import(path.join(__dirname, '..', 'src', 'main', 'public', 'zip_blob.js'))).default;
+    const files_zip_items = require('../src/main/src/helpers/files_zip_items');
+    const blob = await zip_blob([
+        {path: 'my site/index.html', file: new Blob(['<title>Site</title>'])},
+        {path: 'my site/assets/app.js', file: new Blob(['console.log(1);'])},
+        {path: 'my site/Ünïcode.txt', file: new Blob(['ü'])},
+        {path: 'my site/empty.txt', file: new Blob([])},
+    ]);
+    assert.strictEqual(blob.type, 'application/zip');
+    const items = await files_zip_items('my site.zip', Buffer.from(await blob.arrayBuffer()));
+    assert.deepStrictEqual(items.items.map(v => v.path), ['index.html', 'assets/app.js', 'Ünïcode.txt', 'empty.txt'], 'the one top folder taken off, as for any zip');
+    assert.strictEqual(items.files, 4);
+    const chunks = [];
+    for await (const chunk of items.items[1].stream()) {
+        chunks.push(chunk);
+    }
+    assert.strictEqual(Buffer.concat(chunks).toString(), 'console.log(1);');
+});

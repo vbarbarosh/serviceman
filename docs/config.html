@@ -1999,6 +1999,10 @@ control port, with the owner&#39;s token or one given the <code>apps</code> righ
 (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>):</p>
 <pre><code>curl -T notes.zip -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 </code></pre>
+<p><strong>On serviceman&#39;s page</strong> it is one drop: <strong>Apps</strong> has a card to drop the zip or the folder on (or
+click and pick a zip), named after the file, <code>My Notes.zip</code> as <code>my-notes</code>. The card answers with
+the link that opens the app here and Open, and the name it has outside; under it, every app as a
+cell, a click opening it. A folder dropped is zipped in the page and sent the same way.</p>
 <p>A name serviceman has not seen becomes a folder of files in the config and is served at once:
 <code>201</code>; a known one gets the new version: <code>200</code>. A new app has two names. One is beside
 serviceman&#39;s own, <code>notes.localhost</code> beside <code>serviceman.localhost</code>, as the New service form names

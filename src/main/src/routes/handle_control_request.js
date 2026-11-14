@@ -2879,6 +2879,8 @@ function state_from_app(app)
         agent_built,
         listen: app.config.listen,
         control: app.config.control,
+        // The domain the apps sent to serviceman are named under, null for none
+        apps: app.config.apps,
         // Whether a machine may add itself, and what it may claim — never the token itself
         join: (app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix},
         // Where Logline is, and whether its admin token is kept — never the token itself

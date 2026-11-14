@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.92 — 2026-11-14
+
+- Apps, a page on serviceman's page: a card to drop an app's zip or folder on (or click and pick a zip), which answers with the link that opens it and Open, and every app of files as a cell. A dropped folder is zipped in the page. The status says the apps domain.
+
 ## 1.0.91 — 2026-11-14
 
 - An app sent while the config has an apps domain gets both names: `notes.apps.example.com` for outside, and `notes.localhost` beside serviceman's own, which the computer serviceman runs on reaches with no DNS. The answer says both, `address` here and `public` outside.

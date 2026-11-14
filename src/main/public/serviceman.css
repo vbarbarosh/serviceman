@@ -4301,3 +4301,120 @@ article.rf .actions {
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
 }
+
+/* Apps: a card to drop an app's zip or folder on, what came of it, and the apps as cells */
+.apps-pane .app-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .35rem;
+    margin: 1rem 0;
+    padding: 1.6rem 1rem;
+    border: 2px dashed var(--line-strong);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--muted);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+.apps-pane .app-drop b {
+    color: var(--fg);
+}
+
+.apps-pane .app-drop:hover,
+.apps-pane .app-drop:focus-visible,
+.apps-pane .app-drop.over {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.apps-pane .app-drop.busy {
+    opacity: .6;
+    pointer-events: none;
+}
+
+.apps-pane .app-sent {
+    margin: 0 0 1rem;
+    padding: .7rem 1rem;
+    overflow-wrap: anywhere;
+}
+
+/* A dot in a line of words, where the page's dots sit in rows that are flex */
+.apps-pane .dot {
+    display: inline-block;
+    vertical-align: -.05em;
+}
+
+.apps-pane .app-sent p {
+    margin: .3rem 0;
+}
+
+.apps-pane .app-sent-head .dot {
+    margin-right: .45rem;
+}
+
+.apps-pane .app-sent-link {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem .75rem;
+}
+
+.apps-pane .app-sent-link a.button {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
+.apps-pane .app-cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: .9rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.apps-pane .app-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    height: 100%;
+    padding: .8rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+.apps-pane .app-cell:hover {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.apps-pane .app-tile {
+    display: grid;
+    place-items: center;
+    height: 5rem;
+    margin-bottom: .45rem;
+    border-radius: 8px;
+    background: hsl(var(--hue) 40% 36%);
+    color: #fff;
+    font-size: 1.9rem;
+    font-weight: 700;
+}
+
+.apps-pane .app-cell b,
+.apps-pane .app-host {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.apps-pane .app-cell .dot {
+    margin-right: .35rem;
+}
