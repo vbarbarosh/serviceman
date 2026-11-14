@@ -1250,6 +1250,10 @@ which is the default.</p>
 <td>Wake it, then send the visitor to this address instead of proxying. Optional.</td>
 </tr>
 <tr>
+<td><code>auth</code></td>
+<td>The service to ask before anything of it answers, at every address it has: an authwall (<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>). Optional.</td>
+</tr>
+<tr>
 <td><code>policy</code></td>
 <td>The fields below.</td>
 </tr>
@@ -1257,6 +1261,23 @@ which is the default.</p>
 </div>
 <p>Everything else in a service says how it is run: the image, the command, the address it
 already answers on.</p>
+<h3 id="behind-a-wall-at-every-address"><a class="anchor" href="#behind-a-wall-at-every-address" aria-hidden="true" tabindex="-1">#</a>Behind a wall at every address</h3>
+<p><code>auth</code> puts a service behind a wall wherever a visitor comes from: its own address on
+serviceman, every name a machine&#39;s door gives it, a websocket. The wall is another service,
+<a href="https://github.com/vbarbarosh/authwall">authwall</a> or anything that answers its door, and it is
+asked as a door asks it (<a href="remotes.html#a-wall-in-front-of-a-name">a wall in front of a name</a>):
+before anything of the service is touched, even whether it is up; a no sends the visitor to
+<code>/auth/sign-in</code> on the name they asked for, and <code>/auth/…</code> there is the wall&#39;s own.</p>
+<pre><code class="language-json">&quot;services&quot;: [
+    {&quot;name&quot;: &quot;authwall&quot;, &quot;type&quot;: &quot;external&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;authwall.localhost&quot;}, &quot;upstream&quot;: &quot;127.0.0.1:3200&quot;},
+    {&quot;name&quot;: &quot;notes&quot;, &quot;type&quot;: &quot;files&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;notes.localhost&quot;}, &quot;auth&quot;: &quot;authwall&quot;}
+]
+</code></pre>
+<p>A door&#39;s rule may name a wall too: a service with its own asks its own, once, in place of the
+rule&#39;s. On <strong>Apps</strong> it is one box in an app&#39;s <strong>Settings</strong>, <strong>Behind authwall</strong>, there once a
+service called <code>authwall</code> is, and the same box is <strong>Sign-in</strong> in the <strong>Addresses</strong> card of any
+service&#39;s page; an app behind it has a lock before its address, and the <strong>Authwall</strong> page lists
+it with every address it has.</p>
 <h3 id="publish"><a class="anchor" href="#publish" aria-hidden="true" tabindex="-1">#</a>publish</h3>
 <div class="table-wrap"><table>
 <thead>
@@ -2047,8 +2068,9 @@ address answers 502. Its cell says the file the same way and has <strong>Copy so
 dropped on the cell goes the same way, as that app&#39;s new version whatever the file is called. An
 app of its own folder takes a zip or its folder, never a page: it goes in as its page&#39;s <strong>New
 zip…</strong> puts it, its <code>data/</code> kept as it is on its machine, and the cell says once it runs.
-<strong>Settings</strong> opens a small window over Apps with its name and its public addresses, the names a
-machine&#39;s door answers for it, and nothing more; one Save writes both, Cancel or Esc nothing, and
+<strong>Settings</strong> opens a small window over Apps with its name, one box, <strong>Behind authwall</strong>
+(<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>), and its public addresses,
+the names a machine&#39;s door answers for it, and nothing more; one Save writes them all, Cancel or Esc nothing, and
 the rest of the service is on its page, linked at the window&#39;s foot. A new address goes through
 the door that answers most names already, behind <code>authwall</code> where there is one.</p>
 <p>A new name takes the addresses made of its name with it (<code>notes.localhost</code> is <code>wiki.localhost</code>,

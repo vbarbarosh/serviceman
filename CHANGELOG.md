@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.102 — 2026-11-14
+
+- An app can be behind authwall: one box in its Settings (`auth` on a service), asked first at every address it has, on serviceman's own door, every machine's door and a websocket; a lock on its card.
+
 ## 1.0.101 — 2026-11-14
 
 - An app's socket on serviceman's side is a file in its `data/` folder, typed and said as `data/sockets/va.sock` on every card (no "this host"), and its Settings change it.

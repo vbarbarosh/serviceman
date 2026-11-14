@@ -874,6 +874,10 @@ was asked for, the whole address, the visitor's cookie and their address, and re
 `/auth/…` on a walled name is the wall's own: its sign-in page, its callbacks. That is what
 lets the sign-in happen on the visitor's own address rather than somewhere else.
 
+A service can stand behind a wall of its own, at every address it has and on every door
+([behind a wall at every address](config.md#behind-a-wall-at-every-address)): its wall is the
+one asked, in place of the rule's.
+
 **Their address is the one the front saw.** The wall is told the last address in
 `X-Forwarded-For`: a front adds the address it saw to the end of whatever the visitor sent, as
 `$proxy_add_x_forwarded_for` does above, so the ones before the last are the visitor's to write

@@ -25,6 +25,7 @@ const FULL = {
     remotes: ['laptop'],
     publish: {hosts: ['full.localhost/app'], port: 8080, strip_prefix: true},
     redirect: 'http://localhost:8090',
+    auth: 'far',
     image: 'demo/full:1',
     env: {MODE: 'prod', WORKERS: 4},
     volumes: [{source: '/srv/full', target: '/data', readonly: true, create: false}, 'cache:/cache'],
@@ -154,6 +155,12 @@ test('what was taken out in a card goes from the file, and what no card shows ne
     assert.deepStrictEqual((await service_save(FULL, v => Object.assign(v, {env: []}))).sent, entry_omit(FULL, 'env'));
     assert.deepStrictEqual((await service_save(FULL, v => v.env.pop())).sent, Object.assign({}, FULL, {env: {MODE: 'prod'}}));
     assert.deepStrictEqual((await service_save(FULL, v => Object.assign(v, {title: ''}))).sent, entry_omit(FULL, 'title'));
+
+    // The Sign-in box: cleared, the wall goes from the file; ticked, it comes in after the
+    // address, and nothing else moves
+    assert.deepStrictEqual((await service_save(FULL, v => Object.assign(v, {auth: ''}))).sent, entry_omit(FULL, 'auth'));
+    const walled = (await service_save(WHOAMI, v => Object.assign(v, {auth: 'authwall'}))).sent;
+    assert.strictEqual(JSON.stringify(walled), JSON.stringify({name: 'whoami', type: 'docker', remote: 'laptop', publish: {host: 'whoami.localhost', port: 80}, auth: 'authwall', image: 'demo/whoami', run_args: ['--memory', '256m'], args: ['--verbose']}));
 
     // An address added where the file had a list of one: a list, and no `host` beside it. A
     // machine changed where the file had a list of one: `remote`, and no `remotes` beside it.

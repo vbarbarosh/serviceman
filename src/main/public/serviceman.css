@@ -4478,6 +4478,12 @@ article.rf .actions {
     margin-right: .35rem;
 }
 
+/* Behind a wall: a lock before its address, in the address's own colour */
+.apps-pane .app-lock {
+    margin-right: .3rem;
+    vertical-align: -1px;
+}
+
 /* An app on a socket is added from a line under the drop card, and the card says the file */
 .apps-pane .app-more {
     display: flex;
@@ -4606,6 +4612,25 @@ article.rf .actions {
     flex: 1 1 10rem;
     width: auto;
     min-width: 0;
+}
+
+/* Behind authwall or not: the box, then its words, which wrap beside it */
+.apps-pane .app-wall {
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    cursor: pointer;
+}
+
+.apps-pane .app-wall input {
+    flex: none;
+    width: auto;
+    margin: .2rem 0 0;
+}
+
+.apps-pane .app-wall.none {
+    color: var(--muted);
+    cursor: default;
 }
 
 /* An app's socket: where it is, then its file, each a line of its own */

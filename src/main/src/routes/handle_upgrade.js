@@ -11,10 +11,12 @@ const service_ensure_running = require('../helpers/service_ensure_running');
 const service_phase = require('../helpers/service_phase');
 const url_logged = require('../helpers/url_logged');
 const wall_ask = require('../helpers/wall_ask');
+const wall_route = require('../helpers/wall_route');
 
 // Websocket handshakes wake a sleeping service too, then hand the socket over. One that came
 // in through a machine's door is held to the door's rules as a request is: the service the
-// rule names, past the wall it names, and nothing else.
+// rule names, past the wall it names, and nothing else; one at this host's own door is held to
+// the wall its service stands behind.
 function handle_upgrade(app, req, socket, head)
 {
     return log_group_from(socket.log_group, () => socket_answer(app, req, socket, head));
@@ -42,18 +44,20 @@ async function socket_answer(app, req, socket, head)
         socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;
     }
-    if ((door !== null) && (door.wall !== null)) {
+    // At this host's own door the name routes it, behind the wall its service stands behind
+    const found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : {route: door.route, wall: door.wall};
+    if (found.wall !== null) {
         // Nothing of the service is touched until the wall has said this visitor may pass; a
         // handshake refused is a 401, since there is no page to send a socket to
-        const said = await wall_ask(app, door.wall, req, host);
+        const said = await wall_ask(app, found.wall, req, host);
         if (said.ok === false) {
-            log_event(app, 'wall_refused', {wall: door.wall.name, host, path: url_logged(pathname)});
+            log_event(app, 'wall_refused', {wall: found.wall.name, host, path: url_logged(pathname)});
             socket.end('HTTP/1.1 401 Unauthorized\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
             return;
         }
         req.headers['x-auth-user'] = said.user;
     }
-    const route = (door === null) ? route_from_request(app, host, pathname) : door.route;
+    const route = found.route;
     if (route === null) {
         socket.destroy();
         return;

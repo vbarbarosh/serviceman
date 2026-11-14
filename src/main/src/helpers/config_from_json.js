@@ -122,6 +122,16 @@ function config_from_json(json, base_dir)
         names.push(service.name);
         out.services.push(service);
     }
+    // A service's own wall is another service of the config, asked before it on every request:
+    // one named that nobody has would be a wall nobody could ask, which lets nothing through
+    for (const service of out.services) {
+        if ((service.auth !== null) && (names.includes(service.auth) === false)) {
+            throw new Error(`services: ${JSON.stringify(service.name)} is behind ${JSON.stringify(service.auth)}, and no service has that name`);
+        }
+        if (service.auth === service.name) {
+            throw new Error(`services: ${JSON.stringify(service.name)} is behind itself — a wall and what it guards are two services`);
+        }
+    }
     // A door says which service answers each of its names, and may name a wall to ask before
     // anything is answered at all. Neither can be a service that is not in the config: a rule
     // naming one is a rule nothing could ever act on. "*" is the service whose own address the
@@ -305,6 +315,10 @@ function service_from_json(json, service_defaults, base_dir, label)
         redirect: redirect_from_json(json.redirect, `${label}.redirect`),
         title: json.title || json.name || '',
         policy: policy_from_json(json.policy || {}, service_defaults, `${label}.policy`),
+        // The wall it stands behind wherever it is asked: on serviceman's own door, on every
+        // machine's, through a websocket. A door's rule may name a wall too; this one holds
+        // whichever way a visitor comes.
+        auth: auth_from_json(json.auth, `${label}.auth`),
     };
     out.routes = routes_from_hosts(out.hosts);
     if (out.type === 'docker') {
@@ -381,6 +395,18 @@ function service_from_json(json, service_defaults, base_dir, label)
     }
     assert_service_valid(out, label);
     return out;
+}
+
+// The name of the service a service stands behind, or null for none
+function auth_from_json(json, label)
+{
+    if ((json === undefined) || (json === null) || (json === '')) {
+        return null;
+    }
+    if (typeof json !== 'string') {
+        throw new Error(`${label}: the name of the service that stands in front of it — an authwall (got ${JSON.stringify(json)})`);
+    }
+    return json;
 }
 
 // Where the visitor is sent once the service is up. The address here wakes it; the address there

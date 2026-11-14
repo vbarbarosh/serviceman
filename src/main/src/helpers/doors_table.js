@@ -8,7 +8,7 @@ const remote_candidates = require('./remote_candidates');
 // routing when serviceman is away:
 //
 // - names: the names its door answers, each with the service behind it, the wall in front of
-//   it and whether it is on;
+//   it (the service's own, or the rule's) and whether it is on;
 // - services: where each of those runs, and where each service of this machine runs that
 //   another machine's door names — so its agent can answer its peers;
 // - peers: how to reach the other machines' agents, and the token each asks with;
@@ -21,7 +21,7 @@ function doors_table(app, remote)
     const names = {};
     const wanted = new Set();
     for (const host of Object.keys(remote.inbound || {})) {
-        const rule = rule_of(remote.inbound[host]);
+        const rule = rule_of(app, remote.inbound[host]);
         names[host] = rule;
         wanted.add(rule.service);
         if (rule.wall !== null) {
@@ -35,7 +35,7 @@ function doors_table(app, remote)
             continue;
         }
         for (const host of Object.keys(other.inbound || {})) {
-            const rule = rule_of(other.inbound[host]);
+            const rule = rule_of(app, other.inbound[host]);
             for (const name of [rule.service, rule.wall]) {
                 const service = (name === null) ? undefined : app.service_by_name[name];
                 if ((service !== undefined) && (place_of(app, service).machine === remote.name)) {
@@ -69,13 +69,19 @@ function doors_table(app, remote)
 }
 
 // A rule as the config holds it — a service's name alone, or {service, off, auth} — in the one
-// shape the door reads
-function rule_of(rule)
+// shape the door reads. The wall is the one its service stands behind wherever it is asked, or
+// else the rule's own (wall_route); a rule of "*" is handed to serviceman, which asks the wall
+// of the app it finds.
+function rule_of(app, rule)
 {
+    const service = (typeof rule === 'string') ? rule : rule.service;
+    const named = app.service_by_name[service];
+    const own = ((named === undefined) || (named.auth === null) || (named.auth === undefined)) ? null : named.auth;
     if (typeof rule === 'string') {
-        return {service: rule, wall: null, off: false};
+        return {service, wall: own, off: false};
     }
-    return {service: rule.service, wall: ((rule.auth === undefined) || (rule.auth === null) || (rule.auth === '')) ? null : rule.auth, off: (rule.off === true)};
+    const said = ((rule.auth === undefined) || (rule.auth === null) || (rule.auth === '')) ? null : rule.auth;
+    return {service, wall: (own === null) ? said : own, off: (rule.off === true)};
 }
 
 // Where a service runs and how its machine reaches it: the machine a running copy is on, or the

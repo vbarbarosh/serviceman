@@ -25,6 +25,7 @@ const socket_pending = require('../helpers/socket_pending');
 const timers = require('timers/promises');
 const url_logged = require('../helpers/url_logged');
 const wall_ask = require('../helpers/wall_ask');
+const wall_route = require('../helpers/wall_route');
 const wants_html = require('../wants_html');
 
 const RESERVED_PREFIX = '/__serviceman__/';
@@ -67,11 +68,9 @@ function handle_request(app, req, res)
             res.end('404 Not Found\n');
         });
     }
-    const inbound = (door === null) ? null : door.route;
-    const wall = (door === null) ? null : door.wall;
     // The control page, and a machine's files under it — phone.fs.<control host> — are the
     // control's to answer on this door as well; the control decides who may have them
-    if ((inbound === null) && (app.config.control.host !== null) && ((host === app.config.control.host) || (fs_host_of(app, req) !== null))) {
+    if ((door === null) && (app.config.control.host !== null) && ((host === app.config.control.host) || (fs_host_of(app, req) !== null))) {
         return handle_control_request(app, req, res);
     }
     socket_pending(req.socket, res);
@@ -79,9 +78,9 @@ function handle_request(app, req, res)
     // the page's own machinery, not a visit: it gets no group and no lines, because a log
     // three quarters made of polls is a log nobody can read.
     if (url_quiet(req.url)) {
-        return log_within(req.socket.log_group, () => request_answer(app, req, res, host, true, inbound, wall));
+        return log_within(req.socket.log_group, () => request_answer(app, req, res, host, true, door));
     }
-    return log_group_from(req.socket.log_group, () => request_answer(app, req, res, host, false, inbound, wall));
+    return log_group_from(req.socket.log_group, () => request_answer(app, req, res, host, false, door));
 }
 
 // Requests serviceman makes to itself from a page it wrote
@@ -98,11 +97,12 @@ function pathname_of(req)
     return (mark === -1) ? req.url : req.url.slice(0, mark);
 }
 
-// `inbound` is the route a machine's door gave this request, {path, service}, where it came in
-// through one — a service answers there because a door says so, not because it publishes the
-// name; a door's rule of "*" gives the route of the service that does.
-// `wall` is the service that has to say yes before it is answered.
-async function request_answer(app, req, res, host, quiet, inbound, wall)
+// `door` is what a machine's door said of this request (door_inbound), where it came in
+// through one, or null: its route — a service answers there because a door says so, not
+// because it publishes the name; a door's rule of "*" gives the route of the service that
+// does — and its wall, the service that has to say yes before it is answered. At this host's
+// own door the name routes it, behind the wall its service stands behind (wall_route).
+async function request_answer(app, req, res, host, quiet, door)
 {
     const time0 = Date.now();
     let answered_by = null;
@@ -127,9 +127,13 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         return;
     }
 
+    // A wall the service stands behind is asked whichever way it is reached
+    const found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : door;
+    const route = found.route;
+    const wall = found.wall;
     // Nothing of the service is touched — not woken, not asked, not even named in the log —
     // until the wall has said this visitor may pass
-    if ((wall !== undefined) && (wall !== null)) {
+    if (wall !== null) {
         const said = await wall_ask(app, wall, req, host);
         if (said.ok === false) {
             log_event(app, 'wall_refused', {wall: wall.name, host, path: url_logged(pathname)});
@@ -142,7 +146,6 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         // that name is gone: this one is the wall's word.
         req.headers['x-auth-user'] = said.user;
     }
-    const route = ((inbound === undefined) || (inbound === null)) ? route_from_request(app, host, pathname) : inbound;
     if ((route === null) && (app.config.apps.domain !== null) && (host === app.config.apps.domain) && (pathname === '/')) {
         // The apps domain itself, which no service has: the page of every app under it
         answered_by = 'apps';

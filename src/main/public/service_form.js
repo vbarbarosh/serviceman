@@ -438,6 +438,11 @@ const service_form = {
                         <p v-if="(m.strip_prefix === false)" class="svc-warn">The service sees <code>{{ prefix_example.asked }}</code> as it is. Most apps expect to live at <code>/</code> and answer 404 to that.</p>
                     </div>
                 </template>
+                <label>Sign-in</label>
+                <div>
+                    <label class="check wide"><input type="checkbox" :checked="(m.auth !== '')" :disabled="(wall_for === null)" @change="m.auth = ($event.target.checked ? wall_for : '')"> behind {{ (wall_for === null ? 'authwall' : wall_for) }} — every visitor signs in first, at every address it has</label>
+                    <p v-if="(wall_for === null)" class="muted">No authwall yet: a service called <code>authwall</code> is added first.</p>
+                </div>
                 <template v-if="((m.type === 'docker') || (m.type === 'shell'))">
                     <label>Hands over to</label>
                     <div>
@@ -662,6 +667,15 @@ const service_form = {
         };
     },
     computed: {
+        // The wall the Sign-in box puts it behind: the one it is behind already, or the one
+        // called authwall; null when there is none
+        wall_for: function () {
+            if (this.m.auth !== '') {
+                return this.m.auth;
+            }
+            const names = this.names || [];
+            return (names.includes('authwall') && (this.m.name !== 'authwall')) ? 'authwall' : null;
+        },
         creating: function () {
             return this.original === null;
         },
@@ -1045,6 +1059,9 @@ const service_form = {
                 }
                 for (const host of hosts) {
                     lines.push(host);
+                }
+                if (model.auth !== '') {
+                    lines.push(`behind ${model.auth}, at every address`);
                 }
                 if (hosts.some(v => v.includes('/'))) {
                     if (model.strip_prefix) {
@@ -1566,6 +1583,8 @@ function form_from_service(service)
         hosts: [],
         strip_prefix: false,
         redirect: '',
+        // The wall it stands behind at every address, or '' for none
+        auth: '',
         image: '',
         port: '',
         network: '',
@@ -1629,6 +1648,7 @@ function form_from_service(service)
     }
     out.strip_prefix = publish.strip_prefix === true;
     out.redirect = service.redirect || '';
+    out.auth = ((service.auth === undefined) || (service.auth === null)) ? '' : service.auth;
     out.image = service.image || '';
     out.port = (publish.port === undefined) ? '' : String(publish.port);
     out.network = service.network || '';
@@ -1736,6 +1756,9 @@ function json_from_service(model)
     out.publish = publish_from_model(model);
     if ((model.redirect !== '') && ((model.type === 'docker') || (model.type === 'shell'))) {
         out.redirect = model.redirect;
+    }
+    if (model.auth !== '') {
+        out.auth = model.auth;
     }
     if (model.type === 'docker') {
         out.image = model.image;

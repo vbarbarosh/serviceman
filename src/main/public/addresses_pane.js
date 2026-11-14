@@ -73,7 +73,7 @@ const addresses_pane = {
                 service_by_name[service.name] = service;
                 for (const host of service.publish.hosts) {
                     const note = (host.includes('/') && service.publish.strip_prefix) ? 'prefix stripped' : '';
-                    out.push(this.row_of(`${service.name} ${host}`, host, this.url_of(host), note, service, null, null, false));
+                    out.push(this.row_of(`${service.name} ${host}`, host, this.url_of(host), note, service, null, service.auth, false));
                 }
             }
             for (const remote of this.state.remotes) {
@@ -81,7 +81,9 @@ const addresses_pane = {
                 for (const host of Object.keys(rule_by_host)) {
                     const rule = rule_by_host[host];
                     const service = service_by_name[rule.service] || null;
-                    out.push(this.row_of(`${remote.name} ${host}`, host, `https://${host}/`, '', service, remote, rule.auth, rule.off));
+                    // The wall the service stands behind at every address comes before the rule's
+                    const behind = ((service !== null) && (service.auth !== null)) ? service.auth : rule.auth;
+                    out.push(this.row_of(`${remote.name} ${host}`, host, `https://${host}/`, '', service, remote, behind, rule.off));
                 }
             }
             out.sort((a, b) => a.address.localeCompare(b.address));

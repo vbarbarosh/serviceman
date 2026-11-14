@@ -1599,6 +1599,9 @@ was asked for, the whole address, the visitor&#39;s cookie and their address, an
 </div>
 <p><code>/auth/…</code> on a walled name is the wall&#39;s own: its sign-in page, its callbacks. That is what
 lets the sign-in happen on the visitor&#39;s own address rather than somewhere else.</p>
+<p>A service can stand behind a wall of its own, at every address it has and on every door
+(<a href="config.html#behind-a-wall-at-every-address">behind a wall at every address</a>): its wall is the
+one asked, in place of the rule&#39;s.</p>
 <p><strong>Their address is the one the front saw.</strong> The wall is told the last address in
 <code>X-Forwarded-For</code>: a front adds the address it saw to the end of whatever the visitor sent, as
 <code>$proxy_add_x_forwarded_for</code> does above, so the ones before the last are the visitor&#39;s to write

@@ -13,7 +13,7 @@ const authwall_pane = {
     template: `
 <article id="detail">
     <h1>Authwall</h1>
-    <p class="muted">How visitors sign in. A door asks the wall <code>/auth/sidecar</code> before anything behind a name is touched: a yes carries the request on with <code>X-Auth-User</code>, a no sends the visitor to <code>/auth/sign-in</code>, and a wall that cannot be asked lets nothing through. Who may pass is the wall's own business; serviceman writes nothing into it.</p>
+    <p class="muted">How visitors sign in. An app behind it (its Settings, on Apps) asks it at every address it has; a door asks the wall <code>/auth/sidecar</code> before anything behind a name is touched: a yes carries the request on with <code>X-Auth-User</code>, a no sends the visitor to <code>/auth/sign-in</code>, and a wall that cannot be asked lets nothing through. Who may pass is the wall's own business; serviceman writes nothing into it.</p>
     <div v-if="(wall === null)" class="card svc-status">
         <div class="row-of svc-state">
             <span class="pill">None yet</span>
@@ -31,7 +31,7 @@ const authwall_pane = {
             </div>
             <p v-if="(others.length > 0)" class="muted">
                 {{ others.length === 1 ? 'Another wall is' : 'Other walls are' }} in use too:
-                <template v-for="(item, i) of others" :key="item.name"><template v-if="(i > 0)">, </template><button type="button" class="link" @click="picked = item.name">{{ item.name }}</button> ({{ item.count === 1 ? 'one name' : item.count + ' names' }})</template>.
+                <template v-for="(item, i) of others" :key="item.name"><template v-if="(i > 0)">, </template><button type="button" class="link" @click="picked = item.name">{{ item.name }}</button> ({{ item.count }} guarded)</template>.
                 <button v-if="(wall !== wall_default)" type="button" class="link" @click="picked = null">Back to {{ wall_default }}</button>
             </p>
             <div class="actions">
@@ -39,7 +39,16 @@ const authwall_pane = {
             </div>
         </div>
         <h2>What it guards</h2>
-        <data-table :columns="guarded_columns" :rows="guarded" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" empty="Nothing yet — pick a name below.">
+        <data-table v-if="(behind.length > 0)" :columns="behind_columns" :rows="behind" row_key="name" actions_label="Change">
+            <template #cell="{row, column}">
+                <button v-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.name)">{{ row.title || row.name }}</button>
+                <template v-else-if="(column.key === 'where')"><span class="muted">every address it has:</span> <code v-for="(host, i) of hosts_of(row)" :key="host" class="name">{{ host }}{{ (i < hosts_of(row).length - 1 ? ' ' : '') }}</code></template>
+            </template>
+            <template #actions="{row}">
+                <button type="button" :disabled="busy" @click="unwall(row)">Stop guarding</button>
+            </template>
+        </data-table>
+        <data-table v-if="((guarded.length > 0) || (behind.length === 0))" :columns="guarded_columns" :rows="guarded" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" empty="Nothing yet — pick a name below, or an app's Settings on Apps.">
             <template #cell="{row, column}">
                 <template v-if="(column.key === 'host')"><code class="name">{{ row.host }}</code><span v-if="row.off" class="muted"> · set aside</span></template>
                 <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
@@ -50,7 +59,7 @@ const authwall_pane = {
             </template>
         </data-table>
         <h2>Not behind it</h2>
-        <data-table :columns="open_columns" :rows="open" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" :empty="('Every name a door answers is behind ' + wall + '.')">
+        <data-table :columns="open_columns" :rows="open" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" :empty="((rules.length === 0) ? 'No door answers a name yet.' : ('Every name a door answers is behind ' + wall + '.'))">
             <template #cell="{row, column}">
                 <template v-if="(column.key === 'host')"><code class="name">{{ row.host }}</code><span v-if="row.off" class="muted"> · set aside</span></template>
                 <template v-else-if="(column.key === 'machine')">{{ row.title }}</template>
@@ -81,6 +90,17 @@ const authwall_pane = {
                 {key: 'service', label: 'Answered by', fold: 1},
             ];
         },
+        behind_columns: function () {
+            return [
+                {key: 'service', label: 'App or service'},
+                {key: 'where', label: 'Where', wraps: true, fold: 1},
+            ];
+        },
+        // The services behind this wall wherever they are asked, by a box of their own (an app's
+        // Settings): every address they have, not a name of a door
+        behind: function () {
+            return this.state.services.filter(v => (v.auth === this.wall));
+        },
         open_columns: function () {
             return [
                 {key: 'host', label: 'Name', wraps: true},
@@ -89,8 +109,12 @@ const authwall_pane = {
                 {key: 'behind', label: 'Behind', fold: 1},
             ];
         },
-        // Every name a machine's door answers, with the wall in front of it
+        // Every name a machine's door answers, with the wall in front of it; a name of a service
+        // that stands behind a wall at every address is that service's, in its row above
         rules: function () {
+            return this.rules_all.filter(v => this.walled_names.includes(v.service) === false);
+        },
+        rules_all: function () {
             const out = [];
             for (const item of this.state.remotes) {
                 const inbound = (item.inbound === undefined) ? {} : item.inbound;
@@ -101,11 +125,17 @@ const authwall_pane = {
             }
             return out;
         },
-        // The walls in use, the busiest first
+        walled_names: function () {
+            return this.state.services.filter(v => (v.auth !== null) && (v.auth !== undefined)).map(v => v.name);
+        },
+        // The walls in use, the busiest first: names of doors and services behind each
         walls: function () {
             const counts = {};
             for (const rule of this.rules.filter(v => v.auth !== null)) {
                 counts[rule.auth] = (counts[rule.auth] || 0) + 1;
+            }
+            for (const item of this.state.services.filter(v => (v.auth !== null) && (v.auth !== undefined))) {
+                counts[item.auth] = (counts[item.auth] || 0) + 1;
             }
             return Object.keys(counts).map(v => ({name: v, count: counts[v]})).sort((a, b) => b.count - a.count);
         },
@@ -127,7 +157,15 @@ const authwall_pane = {
         },
         head: function () {
             const count = this.guarded.length;
-            const guards = (count === 0) ? 'guards nothing yet' : `guards ${(count === 1) ? 'one name' : `${count} names`}`;
+            const apps = this.behind.length;
+            const parts = [];
+            if (apps > 0) {
+                parts.push((apps === 1) ? 'one app at every address' : `${apps} apps at every address`);
+            }
+            if (count > 0) {
+                parts.push((count === 1) ? 'one name' : `${count} names`);
+            }
+            const guards = (parts.length === 0) ? 'guards nothing yet' : `guards ${parts.join(' and ')}`;
             if (this.service === null) {
                 return {pill: 'failed', text: 'no such service', detail: `Names are behind ${this.wall}, and no service is called that: a door lets nothing through them.`};
             }
@@ -144,6 +182,11 @@ const authwall_pane = {
         },
     },
     methods: {
+        // A service's own addresses, then the names doors give it
+        hosts_of: function (service) {
+            const doors = this.rules_all.filter(v => v.service === service.name).map(v => v.host);
+            return service.publish.hosts.concat(doors.filter(v => service.publish.hosts.includes(v) === false));
+        },
         rule_key: function (rule) {
             return `${rule.machine} ${rule.host}`;
         },
@@ -161,6 +204,29 @@ const authwall_pane = {
             if (problem !== null) {
                 this.report(problem, true);
             }
+        },
+        // A service out from behind the wall: it answers its addresses as before, and a door's
+        // rule that names a wall still has that one asked
+        unwall: async function (row) {
+            this.busy = true;
+            this.report('', false);
+            try {
+                const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
+                const entry = (JSON.parse(loaded.text).services || []).find(v => v.name === row.name);
+                if (entry === undefined) {
+                    throw new Error(`${row.name} is not in the config any more`);
+                }
+                const service = Object.assign({}, entry);
+                delete service.auth;
+                const answer = await fetch(`/api/v1/services/${encodeURIComponent(row.name)}`, {method: 'PUT', body: JSON.stringify({service})});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
+                }
+            }
+            catch (error) {
+                this.report(error.message, true);
+            }
+            this.busy = false;
         },
         report: function (note, bad) {
             this.note = note;

@@ -36,6 +36,8 @@ function view_from_service(service, now)
             strip_prefix: service.strip_prefix,
         },
         phase,
+        // The wall it stands behind wherever it is asked, or null
+        auth: (service.auth === undefined) ? null : service.auth,
         redirect: (service.redirect === undefined) ? null : service.redirect,
         // The address serviceman keeps for it on its own hostname, for the rules that only
         // accept `localhost` — an OAuth callback above all

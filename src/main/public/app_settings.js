@@ -5,10 +5,14 @@ import door_rules_write from './door_rules_write.js';
 const WALL_NAME = 'authwall';
 
 // An app's settings, in a small window over the Apps page: its name, its socket for an app on
-// one, and its public addresses, and nothing more. One Save writes them: the name first, so the addresses are written for the
-// name it has now (serviceman moves the ones it had with it); Cancel, Esc or a click beside the
-// window puts it away with nothing written. The rest of the service is on its own page, linked
-// at the foot.
+// one, whether it is behind authwall, and its public addresses, and nothing more. One Save
+// writes them: the name and the wall first, in one change of its service, so the addresses are
+// written for the name it has now (serviceman moves the ones it had with it); Cancel, Esc or a
+// click beside the window puts it away with nothing written. The rest of the service is on its
+// own page, linked at the foot.
+//
+// Behind authwall, every visitor signs in before anything of the app answers, at every address
+// it has: its own beside serviceman's, and every name a machine's door gives it.
 const app_settings = {
     template: `
 <div class="dt-window" @click.self="close">
@@ -33,11 +37,19 @@ const app_settings = {
         </div>
     </div>
     <div class="app-settings-row">
+        <span class="app-settings-label">Sign-in</span>
+        <label class="app-wall" :class="{none: (wall === null)}">
+            <input v-model="walled" type="checkbox" :disabled="(busy || (wall === null))">
+            <span>Behind {{ (wall === null ? 'authwall' : wall) }} <span class="muted">· every visitor signs in first, at every address</span></span>
+        </label>
+        <p v-if="(wall === null)" class="muted app-settings-says">No authwall yet: a service called <code>authwall</code> is added on the Authwall page first.</p>
+    </div>
+    <div class="app-settings-row">
         <span class="app-settings-label">Public address</span>
         <div class="app-pub">
             <ul v-if="(kept.length > 0)" class="app-pub-list">
                 <li v-for="row of kept" :key="(row.machine + ' ' + row.host)">
-                    <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (row.auth === null ? '' : ' · behind ' + row.auth) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
+                    <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (behind_of(row) === null ? '' : ' · behind ' + behind_of(row)) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
                     <button type="button" class="app-pub-drop" :disabled="busy" :title="('Take ' + row.host + ' away when you save')" @click="drop(row)">remove</button>
                 </li>
             </ul>
@@ -48,7 +60,7 @@ const app_settings = {
                     <option value="">through the door of…</option>
                     <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
                 </select>
-                <select v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
+                <select v-if="(walled === false)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
                     <option value="">protected by nothing</option>
                     <option v-for="item of walls" :key="item" :value="item">protected by {{ item }}</option>
                 </select>
@@ -80,7 +92,9 @@ const app_settings = {
         // Save; where and socket: an app on a socket's place and file, as its card says them
         const where = ((this.app.socket === null) || (this.app.remotes.length === 0)) ? '' : this.app.remotes[0];
         const socket = (this.app.socket === null) ? '' : this.app.socket_said;
-        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, busy: false, note: '', bad: false};
+        // walled: whether it is behind its wall, as the box says it now
+        const walled = (this.app.auth !== null) && (this.app.auth !== undefined);
+        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, walled, walled_was: walled, busy: false, note: '', bad: false};
     },
     computed: {
         // Every name a machine's door answers for this app, by a rule of its own
@@ -142,8 +156,16 @@ const app_settings = {
         socket_changed: function () {
             return (this.app.socket !== null) && ((this.where !== this.where_was) || (this.socket !== this.socket_was));
         },
+        // The wall the box puts it behind: the one it is behind already, or the one called
+        // authwall; null when there is none to put it behind
+        wall: function () {
+            if ((this.app.auth !== null) && (this.app.auth !== undefined)) {
+                return this.app.auth;
+            }
+            return (this.names.includes(WALL_NAME) && (this.app.name !== WALL_NAME)) ? WALL_NAME : null;
+        },
         changed: function () {
-            return (this.name !== this.current) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
+            return (this.name !== this.current) || (this.walled !== this.walled_was) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
         },
     },
     watch: {
@@ -179,6 +201,10 @@ const app_settings = {
         drop: function (row) {
             this.gone.push(row);
         },
+        // The wall an address is behind as it will be: the app's own while the box is on
+        behind_of: function (row) {
+            return this.walled ? this.wall : row.auth;
+        },
         report: function (note, bad) {
             this.note = note;
             this.bad = bad;
@@ -196,9 +222,10 @@ const app_settings = {
             this.report('', false);
             const name = this.name;
             try {
-                if (name !== this.current) {
-                    await this.rename(name);
+                if ((name !== this.current) || (this.walled !== this.walled_was)) {
+                    await this.service_write(name);
                     this.current = name;
+                    this.walled_was = this.walled;
                 }
                 if (this.socket_changed) {
                     await this.socket_write();
@@ -212,7 +239,9 @@ const app_settings = {
                 }
                 for (const machine of machines) {
                     const gone = this.gone.filter(v => v.machine === machine).map(v => v.host);
-                    const fresh = this.fresh;
+                    // Behind its wall, a new address is behind it too, and stays so if the box is
+                    // cleared one day
+                    const fresh = Object.assign({}, this.fresh, this.walled ? {auth: this.wall} : {});
                     const problem = await door_rules_write(machine, function (inbound) {
                         for (const item of gone) {
                             delete inbound[item];
@@ -245,15 +274,23 @@ const app_settings = {
                 throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
             }
         },
-        // The service as the config has it, under its new name: serviceman moves its files, the
-        // address made of its name, its door rules, its secrets and its tokens with it
-        rename: async function (name) {
+        // The service as the config has it, under its new name and behind its wall or not: on a
+        // rename serviceman moves its files, the address made of its name, its door rules, its
+        // secrets and its tokens with it
+        service_write: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             const entry = (JSON.parse(loaded.text).services || []).find(v => v.name === this.current);
             if (entry === undefined) {
                 throw new Error(`${this.current} is not in the config any more`);
             }
-            const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.current)}`, {method: 'PUT', body: JSON.stringify({service: Object.assign({}, entry, {name})})});
+            const service = Object.assign({}, entry, {name});
+            if (this.walled) {
+                service.auth = this.wall;
+            }
+            else {
+                delete service.auth;
+            }
+            const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.current)}`, {method: 'PUT', body: JSON.stringify({service})});
             if (answer.ok === false) {
                 throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
             }

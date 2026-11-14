@@ -4,7 +4,8 @@ const secrets_read = require('./secrets_read');
 const secrets_write = require('./secrets_write');
 
 // What else carries a service's name, moved to its new one. In the config about to be written:
-// the machines' door rules that answer for it, or put it in front of another as its wall. Once
+// the machines' door rules that answer for it, or put it in front of another as its wall, and
+// the services it stands in front of as their own wall. Once
 // that config is found good: its secrets, and the tokens whose new versions are kept to it.
 // Before, a rename of a service a door answered for was refused (the rule named a service nobody
 // had), and its secrets and tokens stayed under a name nobody had, read by no program.
@@ -15,6 +16,12 @@ const secrets_write = require('./secrets_write');
 // Gives what moves the secrets and the tokens, to run once the config is found good.
 function service_rename_ties(app, json, before, after)
 {
+    // The services it stands in front of, as their own wall
+    for (const service of (Array.isArray(json.services) ? json.services : [])) {
+        if ((service !== null) && (typeof service === 'object') && (service.auth === before)) {
+            service.auth = after;
+        }
+    }
     for (const remote of (Array.isArray(json.remotes) ? json.remotes : [])) {
         const inbound = remote.inbound;
         if ((inbound === null) || (typeof inbound !== 'object')) {

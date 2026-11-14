@@ -81,7 +81,7 @@ const service_doors = {
                     if (rule.service !== this.view.name) {
                         continue;
                     }
-                    out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth, door_problem: door_problem(item)});
+                    out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth: this.wall_of(rule), said: (rule.auth === undefined) ? null : rule.auth, door_problem: door_problem(item)});
                 }
             }
             return out;
@@ -100,7 +100,7 @@ const service_doors = {
                         continue;
                     }
                     for (const host of own.filter(v => (v === pattern) || (pattern.startsWith('*.') && v.endsWith(pattern.slice(1)) && (v.length > pattern.length - 1)))) {
-                        out.push({machine: item.name, title: item.title || item.name, pattern, host, off: (rule.off === true), auth: (rule.auth === undefined) ? null : rule.auth});
+                        out.push({machine: item.name, title: item.title || item.name, pattern, host, off: (rule.off === true), auth: this.wall_of(rule)});
                     }
                 }
             }
@@ -119,6 +119,14 @@ const service_doors = {
         },
     },
     methods: {
+        // The wall a name of it is behind: the one the service stands behind at every address,
+        // which a door asks in place of its own, or else the rule's
+        wall_of: function (rule) {
+            if ((this.view.auth !== null) && (this.view.auth !== undefined)) {
+                return this.view.auth;
+            }
+            return (rule.auth === undefined) ? null : rule.auth;
+        },
         rule_key: function (rule) {
             return `${rule.machine} ${rule.host}`;
         },
@@ -151,7 +159,7 @@ const service_doors = {
             }
             const service = this.view.name;
             await this.write(rule.machine, function (inbound) {
-                inbound[rule.host] = door_rule_value(service, on === false, rule.auth);
+                inbound[rule.host] = door_rule_value(service, on === false, rule.said);
             });
         },
         drop: async function (rule) {

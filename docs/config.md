@@ -429,10 +429,33 @@ which is the default.
 | `publish` | Everything outside: the address it answers on, and the port behind it.           |
 | `remotes` | The machines it may run on, best first. Required for `docker` and `shell`; none for the rest. |
 | `redirect`| Wake it, then send the visitor to this address instead of proxying. Optional.    |
+| `auth`    | The service to ask before anything of it answers, at every address it has: an authwall ([behind a wall at every address](#behind-a-wall-at-every-address)). Optional. |
 | `policy`  | The fields below.                                                                |
 
 Everything else in a service says how it is run: the image, the command, the address it
 already answers on.
+
+### Behind a wall at every address
+
+`auth` puts a service behind a wall wherever a visitor comes from: its own address on
+serviceman, every name a machine's door gives it, a websocket. The wall is another service,
+[authwall](https://github.com/vbarbarosh/authwall) or anything that answers its door, and it is
+asked as a door asks it ([a wall in front of a name](remotes.md#a-wall-in-front-of-a-name)):
+before anything of the service is touched, even whether it is up; a no sends the visitor to
+`/auth/sign-in` on the name they asked for, and `/auth/…` there is the wall's own.
+
+```json
+"services": [
+    {"name": "authwall", "type": "external", "publish": {"host": "authwall.localhost"}, "upstream": "127.0.0.1:3200"},
+    {"name": "notes", "type": "files", "publish": {"host": "notes.localhost"}, "auth": "authwall"}
+]
+```
+
+A door's rule may name a wall too: a service with its own asks its own, once, in place of the
+rule's. On **Apps** it is one box in an app's **Settings**, **Behind authwall**, there once a
+service called `authwall` is, and the same box is **Sign-in** in the **Addresses** card of any
+service's page; an app behind it has a lock before its address, and the **Authwall** page lists
+it with every address it has.
 
 ### publish
 
@@ -1193,8 +1216,9 @@ A cell is its app's: **New version…** picks a zip or a page for it, and a zip,
 dropped on the cell goes the same way, as that app's new version whatever the file is called. An
 app of its own folder takes a zip or its folder, never a page: it goes in as its page's **New
 zip…** puts it, its `data/` kept as it is on its machine, and the cell says once it runs.
-**Settings** opens a small window over Apps with its name and its public addresses, the names a
-machine's door answers for it, and nothing more; one Save writes both, Cancel or Esc nothing, and
+**Settings** opens a small window over Apps with its name, one box, **Behind authwall**
+([behind a wall at every address](#behind-a-wall-at-every-address)), and its public addresses,
+the names a machine's door answers for it, and nothing more; one Save writes them all, Cancel or Esc nothing, and
 the rest of the service is on its page, linked at the window's foot. A new address goes through
 the door that answers most names already, behind `authwall` where there is one.
 

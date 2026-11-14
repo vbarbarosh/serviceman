@@ -20,7 +20,8 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 // Simple enough for anybody: drop, then click the link. Each app's cell opens it, takes a new
 // version of it dropped on it or picked from it whatever the file is called (an app of its own
 // folder takes a zip or a folder, and keeps its data/), and opens its settings in a small window
-// over the page: its name and its public addresses.
+// over the page: its name, whether it is behind authwall, and its public addresses. One behind
+// a wall has a lock before its address.
 const apps_pane = {
     template: `
 <section class="apps-pane">
@@ -56,14 +57,14 @@ const apps_pane = {
             <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
                 <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
                 <b>{{ app.title || app.name }}</b>
-                <span class="muted app-host">{{ host_of(app) }}</span>
+                <span class="muted app-host"><svg v-if="(app.auth !== null)" class="app-lock" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" role="img" :aria-label="('behind ' + app.auth)"><title>{{ ('Behind ' + app.auth + ': every visitor signs in first') }}</title><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>{{ host_of(app) }}</span>
                 <span v-if="(app.socket !== null)" class="muted app-host" :title="socket_place(app)">{{ socket_place(app) }}</span>
                 <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
             </a>
             <div class="app-acts">
                 <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
                 <button v-else type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
-                <button type="button" :title="('The name and the public address of ' + app.name)" @click="settings = app">Settings</button>
+                <button type="button" :title="('The name, the sign-in and the public address of ' + app.name)" @click="settings = app">Settings</button>
             </div>
         </li>
     </ul>

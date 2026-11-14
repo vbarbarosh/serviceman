@@ -98,7 +98,7 @@ const service_status = {
         <dt>Address</dt>
         <dd>
             <span v-if="(view.publish.hosts.length === 0 && door_names.length === 0)" class="muted">none — it only runs</span>
-            <span v-for="host of own_hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a></span>
+            <span v-for="host of own_hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a><span v-if="(view.auth !== null)" class="muted"> behind {{ view.auth }}</span></span>
             <span v-for="name of door_names" :key="(name.machine + ' ' + name.host)" class="svc-host" :class="{muted: name.off}"><a v-if="(name.host.startsWith('*') === false)" :href="('https://' + name.host)" target="_blank" rel="noopener">{{ name.host }}</a><code v-else>{{ name.host }}</code> <span class="muted">via {{ name.title }}<template v-if="(name.auth !== null)">, behind {{ name.auth }}</template><template v-if="name.off"> · off</template></span></span>
         </dd>
         <template v-if="(view.type === 'files')">
@@ -142,7 +142,8 @@ const service_status = {
                 const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
                     const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
-                    const auth = (rule.auth === undefined) ? null : rule.auth;
+                    // The wall it stands behind at every address comes first: the door's is not asked
+                    const auth = (this.view.auth !== null) ? this.view.auth : ((rule.auth === undefined) ? null : rule.auth);
                     if (rule.service === this.view.name) {
                         out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth});
                     }
@@ -2006,7 +2007,7 @@ const app = {
         <button type="button" class="row kind" :class="{on: (kind_now === 'authwall'), open: (kind_now === 'authwall')}" title="How visitors sign in: the wall a door asks first" @click="authwall_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
             <span class="name">Authwall</span>
-            <span class="muted" :title="(guarded_count + ' door names behind a wall')">{{ guarded_count }}</span>
+            <span class="muted" :title="(guarded_count + ' door names and apps behind a wall')">{{ guarded_count }}</span>
         </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'load-tests'), open: (kind_now === 'load-tests')}" title="k6 sent at a service: how it holds up under many users" @click="load_tests_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><path d="M4 20h16"/></svg>
@@ -2345,9 +2346,10 @@ const app = {
         logline_count: function () {
             return this.state.remotes.filter(v => v.logline.logs === 'all').length;
         },
-        // Door names with a wall in front of them
+        // Door names with a wall in front of them, and services behind one wherever they are asked
         guarded_count: function () {
-            return this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
+            const names = this.state.remotes.reduce((sum, remote) => sum + Object.values((remote.inbound === undefined) ? {} : remote.inbound).filter(v => (typeof v === 'object') && (v.auth !== undefined)).length, 0);
+            return names + this.state.services.filter(v => (v.auth !== null) && (v.auth !== undefined)).length;
         },
         // The folder serviceman keeps its own things in, as its owner sees it: data/ under bin/run
         state_folder: function () {

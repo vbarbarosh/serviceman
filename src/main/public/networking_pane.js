@@ -118,7 +118,10 @@ bin/restart</pre>
             for (const item of this.machines) {
                 const inbound = (item.inbound === undefined) ? {} : item.inbound;
                 for (const host of Object.keys(inbound)) {
-                    out.push({machine: item.name, title: item.title || item.name, host, service: inbound[host].service, off: (inbound[host].off === true), auth: (inbound[host].auth === undefined) ? null : inbound[host].auth});
+                    // The wall its service stands behind at every address is the one asked
+                    const own = this.state.services.find(v => v.name === inbound[host].service);
+                    const auth = ((own !== undefined) && (own.auth !== null)) ? own.auth : ((inbound[host].auth === undefined) ? null : inbound[host].auth);
+                    out.push({machine: item.name, title: item.title || item.name, host, service: inbound[host].service, off: (inbound[host].off === true), auth, said: (inbound[host].auth === undefined) ? null : inbound[host].auth});
                 }
             }
             return out;
@@ -204,7 +207,7 @@ bin/restart</pre>
         },
         edit: function (rule) {
             this.editing = rule;
-            this.fresh = {machine: rule.machine, host: rule.host, service: rule.service, auth: (rule.auth === null) ? '' : rule.auth};
+            this.fresh = {machine: rule.machine, host: rule.host, service: rule.service, auth: (rule.said === null) ? '' : rule.said};
             this.report('', false);
         },
         clear: function () {
@@ -215,7 +218,7 @@ bin/restart</pre>
         // how a name comes back subtly different.
         turn: async function (rule, on) {
             await this.rules_write(rule.machine, function (inbound) {
-                inbound[rule.host] = door_rule_value(rule.service, on === false, rule.auth);
+                inbound[rule.host] = door_rule_value(rule.service, on === false, rule.said);
             });
         },
         drop: async function (rule) {
