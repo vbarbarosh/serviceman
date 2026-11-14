@@ -112,4 +112,8 @@ function mode_guess(path, bytes)
     return ((bytes[0] === 0x23) && (bytes[1] === 0x21)) ? 0o755 : 0o644;
 }
 
+app_zip_items.entries_read = entries_read;
+app_zip_items.entry_check = entry_check;
+app_zip_items.path_leaves = path_leaves;
+
 module.exports = app_zip_items;

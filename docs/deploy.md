@@ -200,7 +200,10 @@ Even on this machine, and through the control socket, nothing gets in without a 
   [A new version of an app folder](config.md#a-new-version-of-an-app-folder)): what it sends
   runs there as the app, so it is a key to those apps; **Apps** keeps it to the app folders
   ticked, and a service's page makes one for that service alone, **Make a token for …**, with
-  the curl line beside it. `forwards` reads and writes the [forwards](config.md#forwards)
+  the curl line beside it. `apps` sends an app of files, a new one or a new version
+  (`PUT /api/v1/apps/<name>`, [An app sent to serviceman](config.md#an-app-sent-to-serviceman)):
+  a page served at an address of its own, which serviceman writes into the config for a name it
+  has not seen; it touches no machine and no other kind of service. `forwards` reads and writes the [forwards](config.md#forwards)
   between its machines, both ends on them (`GET` and `PUT /api/v1/forwards`), and leaves every
   other forward as it was: a way to whatever listens on their loopback and in their sockets, as
   `ssh -L` is, so it is a key to those. It can be copied once, drawn as dots even then, and only

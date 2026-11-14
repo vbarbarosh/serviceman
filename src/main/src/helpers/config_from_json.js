@@ -82,6 +82,8 @@ function config_from_json(json, base_dir)
         services: [],
         // What k6 is sent at, and from where
         load_tests: load_tests_from_json(json.load_tests, 'load_tests'),
+        // The apps sent to serviceman: the domain each is named under
+        apps: apps_from_json(json.apps, 'apps'),
     };
     const service_defaults = defaults;
     if (Array.isArray(json.services) === false) {
@@ -160,6 +162,27 @@ function config_from_json(json, base_dir)
         }
     }
     return out;
+}
+
+// {"domain": "apps.example.com"}: an app sent as notes answers on notes.apps.example.com.
+// Without one it is named the way the New service form names one: after the control page's.
+//
+//     {domain}   domain null when none is given
+function apps_from_json(json, label)
+{
+    if ((json === undefined) || (json === null)) {
+        return {domain: null};
+    }
+    if ((typeof json !== 'object') || Array.isArray(json)) {
+        throw new Error(`${label}: an object is required — {"domain": "apps.example.com"}`);
+    }
+    if ((json.domain === undefined) || (json.domain === null)) {
+        return {domain: null};
+    }
+    if ((typeof json.domain !== 'string') || (json.domain !== json.domain.toLowerCase()) || (/^[a-z0-9.-]+$/.test(json.domain) === false) || json.domain.startsWith('.') || json.domain.endsWith('.')) {
+        throw new Error(`${label}.domain: a lowercase domain, no port and no path, is required (got ${JSON.stringify(json.domain)})`);
+    }
+    return {domain: json.domain};
 }
 
 // Where a service may run, in the order it is tried: a machine by name, or `#tag` for every

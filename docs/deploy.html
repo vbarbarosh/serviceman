@@ -940,7 +940,10 @@ to them. <code>versions</code> sends a new version of an app folder on its machi
 <a href="config.html#a-new-version-of-an-app-folder">A new version of an app folder</a>): what it sends
 runs there as the app, so it is a key to those apps; <strong>Apps</strong> keeps it to the app folders
 ticked, and a service&#39;s page makes one for that service alone, <strong>Make a token for …</strong>, with
-the curl line beside it. <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
+the curl line beside it. <code>apps</code> sends an app of files, a new one or a new version
+(<code>PUT /api/v1/apps/&lt;name&gt;</code>, <a href="config.html#an-app-sent-to-serviceman">An app sent to serviceman</a>):
+a page served at an address of its own, which serviceman writes into the config for a name it
+has not seen; it touches no machine and no other kind of service. <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
 between its machines, both ends on them (<code>GET</code> and <code>PUT /api/v1/forwards</code>), and leaves every
 other forward as it was: a way to whatever listens on their loopback and in their sockets, as
 <code>ssh -L</code> is, so it is a key to those. It can be copied once, drawn as dots even then, and only

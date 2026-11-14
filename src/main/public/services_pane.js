@@ -128,9 +128,11 @@ const services_pane = {
                 if (this.is_shown(service, wanted) === false) {
                     continue;
                 }
-                const key = this.grouped ? (service.remotes[0] || '') : 'all';
+                // A folder of files is on no machine: serviceman serves it, in a group no machine's
+                // name or tag can take
+                const key = this.grouped ? ((service.type === 'files') ? '*files' : (service.remotes[0] || '')) : 'all';
                 if (group_by_key[key] === undefined) {
-                    const title = (key === '') ? 'Runs somewhere else' : `Machines tagged ${key}`;
+                    const title = (key === '*files') ? 'Served by serviceman' : ((key === '') ? 'Runs somewhere else' : `Machines tagged ${key}`);
                     group_by_key[key] = {key, title, phase: null, text: '', rows: []};
                 }
                 group_by_key[key].rows.push(this.row_of(service));

@@ -3,6 +3,7 @@ const agent_install_sh = require('../helpers/agent_install_sh');
 const agent_sign_key = require('../helpers/agent_sign_key');
 const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
+const app_files_put = require('../helpers/app_files_put');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_fields = require('../body_fields');
@@ -118,6 +119,7 @@ const ZIP_LIMIT_BYTES = 64*1024*1024*1024;
 
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
 const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
+const RE_APPS = /^\/api\/v1\/apps\/([^/]+)$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -603,6 +605,11 @@ async function control_answer(app, req, res)
     const zip = RE_ZIP.exec(url.pathname);
     if (zip !== null) {
         await handle_zip(app, req, res, route_param(zip[1]));
+        return;
+    }
+    const apps = RE_APPS.exec(url.pathname);
+    if (apps !== null) {
+        await handle_app_put(app, req, res, route_param(apps[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -1804,6 +1811,52 @@ function handle_action(app, req, res, name, action)
         log_event(app, 'control_error', {service: service.name, reason: error.message});
     });
     send_json(res, 202, view_from_service(service));
+}
+
+// PUT /api/v1/apps/<name>   an app of files, the zip of its folder as the body
+// A name serviceman has not seen yet becomes a folder of files at an address of its own; a known
+// one gets the new version. `curl -T notes.zip`, through the control socket too, with a token
+// that may send apps. The answer says where it answers.
+async function handle_app_put(app, req, res, name)
+{
+    if (req.method !== 'PUT') {
+        send_json(res, 405, {error: 'an app is a PUT with the zip of its folder as the body: curl -T notes.zip'});
+        return;
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-zip-'));
+    const zip = path.join(dir, 'app.zip');
+    try {
+        let written;
+        try {
+            written = await body_file_write(req, zip, ZIP_LIMIT_BYTES);
+        }
+        catch (error) {
+            send_json(res, (error.status === undefined) ? 400 : error.status, {error: `the zip was not read whole: ${error.message}`});
+            return;
+        }
+        if (written.bytes === 0) {
+            send_json(res, 400, {error: 'the body is empty: the zip goes as the body, curl -T notes.zip'});
+            return;
+        }
+        const hang_up = new AbortController();
+        res.on('close', function () {
+            if (res.writableFinished === false) {
+                hang_up.abort();
+            }
+        });
+        try {
+            const done = await app_files_put(app, name, zip, hang_up.signal);
+            const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
+            send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.service.hosts[0]}${port}/`, files: done.files, bytes: done.bytes, service: view_from_service(done.service)});
+        }
+        catch (error) {
+            log_event(app, 'control_error', {service: name, reason: error.message});
+            send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+        }
+    }
+    finally {
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
 }
 
 // PUT /api/v1/services/<name>/zip   a new version of an app folder, the zip as the body

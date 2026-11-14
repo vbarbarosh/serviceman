@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.88 — 2026-11-14
+
+- An app of files is sent as a zip of its folder: `PUT /api/v1/apps/<name>`, through the control socket too, with the owner's token or one given the new `apps` right. A new name becomes a folder of files in the config at `<name>.<apps.domain>` (or beside serviceman.localhost) and is served at once; a known one gets the new version, swapped in whole. The Services list groups folders of files as served by serviceman.
+
 ## 1.0.87 — 2026-11-14
 
 - A fourth kind of service, `files`: a folder of files, a page or an app with no server, served by serviceman itself, `index.html` for any address the app keeps that names no file; nothing is started, stopped or put to sleep. Kept by serviceman in `apps/<name>` of its state folder unless `folder` names one. On the page: its own cards, a "Serves" line, no Start, Stop or Logs.

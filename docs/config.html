@@ -821,6 +821,11 @@ edited it in parallel. Load it again and repeat the edit.</p>
 <td>What k6 is sent at. See <strong>Load tests</strong> at the end.</td>
 </tr>
 <tr>
+<td><code>apps</code></td>
+<td>none</td>
+<td>The domain an app sent to serviceman is named under. See <strong>An app sent to serviceman</strong>.</td>
+</tr>
+<tr>
 <td><code>services</code></td>
 <td>required</td>
 <td>The list below.</td>
@@ -1988,6 +1993,27 @@ at its root.</p>
 <p>There is no machine, no port and no copies: it is served by serviceman itself. On a machine&#39;s
 door (<a href="remotes.html">Remotes</a>) its name is handed to serviceman as any other. <strong>Start</strong> and
 <strong>Stop</strong> have nothing to do, and it has no log of its own.</p>
+<h3 id="an-app-sent-to-serviceman"><a class="anchor" href="#an-app-sent-to-serviceman" aria-hidden="true" tabindex="-1">#</a>An app sent to serviceman</h3>
+<p>An app of files goes in as a zip of its folder, with one call, through the control socket or the
+control port, with the owner&#39;s token or one given the <code>apps</code> right
+(<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>):</p>
+<pre><code>curl -T notes.zip -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
+</code></pre>
+<p>A name serviceman has not seen becomes a folder of files in the config, at an address of its
+own, and is served at once: <code>201</code>, with where it answers. A known one gets the new version:
+<code>200</code>. The address is the name under <code>apps.domain</code>:</p>
+<pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;}
+</code></pre>
+<p><code>notes</code> answers on <code>notes.apps.example.com</code>; without a domain it is named the way the New
+service form names one, <code>notes.localhost</code> beside <code>serviceman.localhost</code>. A <code>_</code> in a name is a
+<code>-</code> in its address.</p>
+<p>The zip is the app&#39;s folder, or one folder holding it, with its <code>index.html</code> at the top. Every
+file of it goes, a <code>data/</code> too: nothing runs in a folder of files to keep one of its own. Its
+files are written beside its folder and put in its place whole, so a visitor meets the old
+version or the new one, never half of each; a zip that is broken, holds links, leads outside its
+folder or has no <code>index.html</code> is a <code>400</code> and changes nothing. One app takes one zip at a time
+(<code>409</code> for a second), and a name that is a service of another kind is a <code>409</code> too: a new
+version of an app folder goes to <code>/api/v1/services/&lt;name&gt;/zip</code>.</p>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

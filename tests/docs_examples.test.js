@@ -7,8 +7,8 @@ const test = require('node:test');
 const DOCS = path.join(__dirname, '..', 'docs');
 // What a whole config may hold, and what a service may: a block that is a part of either is
 // read by its keys
-const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'join', 'logline', 'load_tests'];
-const SERVICE_KEYS = ['policy', 'volumes', 'env', 'run_args', 'network', 'args', 'publish', 'image', 'command', 'argv', 'cwd', 'upstream', 'redirect'];
+const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'join', 'logline', 'load_tests', 'apps'];
+const SERVICE_KEYS = ['policy', 'volumes', 'env', 'run_args', 'network', 'args', 'publish', 'image', 'command', 'argv', 'cwd', 'upstream', 'redirect', 'folder'];
 const REMOTE_KEYS = ['inbound', 'tags'];
 // The service a part of a service is tried in, and the token a shortened one (`0c0f…a91b`)
 // stands for: a reader puts their own there

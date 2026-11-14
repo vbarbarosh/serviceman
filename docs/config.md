@@ -83,6 +83,7 @@ edited it in parallel. Load it again and repeat the edit.
 | `remotes`    | `[]`                | The machines that carry services. See below.                   |
 | `logline`    | none                | Where the remotes send their logs. See **Logline** below.      |
 | `load_tests` | `[]`                | What k6 is sent at. See **Load tests** at the end.             |
+| `apps`       | none                | The domain an app sent to serviceman is named under. See **An app sent to serviceman**. |
 | `services`   | required            | The list below.                                                |
 
 ### A socket file instead of a port
@@ -1129,6 +1130,34 @@ at its root.
 There is no machine, no port and no copies: it is served by serviceman itself. On a machine's
 door ([Remotes](remotes.md)) its name is handed to serviceman as any other. **Start** and
 **Stop** have nothing to do, and it has no log of its own.
+
+### An app sent to serviceman
+
+An app of files goes in as a zip of its folder, with one call, through the control socket or the
+control port, with the owner's token or one given the `apps` right
+([a token for every caller](deploy.md#a-token-for-every-caller)):
+
+    curl -T notes.zip -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
+
+A name serviceman has not seen becomes a folder of files in the config, at an address of its
+own, and is served at once: `201`, with where it answers. A known one gets the new version:
+`200`. The address is the name under `apps.domain`:
+
+```json
+"apps": {"domain": "apps.example.com"}
+```
+
+`notes` answers on `notes.apps.example.com`; without a domain it is named the way the New
+service form names one, `notes.localhost` beside `serviceman.localhost`. A `_` in a name is a
+`-` in its address.
+
+The zip is the app's folder, or one folder holding it, with its `index.html` at the top. Every
+file of it goes, a `data/` too: nothing runs in a folder of files to keep one of its own. Its
+files are written beside its folder and put in its place whole, so a visitor meets the old
+version or the new one, never half of each; a zip that is broken, holds links, leads outside its
+folder or has no `index.html` is a `400` and changes nothing. One app takes one zip at a time
+(`409` for a second), and a name that is a service of another kind is a `409` too: a new
+version of an app folder goes to `/api/v1/services/<name>/zip`.
 
 ## Load tests
 
