@@ -421,7 +421,7 @@ which is the default.
 |-----------|----------------------------------------------------------------------------------|
 | `name`    | Lowercase letters, digits, `-` and `_`. It names the container and the API path. |
 | `title`   | The name on the control page and on the waiting page. Optional.                  |
-| `type`    | `docker`, `shell` or `external`.                                                 |
+| `type`    | `docker`, `shell`, `external` or `files`.                                        |
 | `publish` | Everything outside: the address it answers on, and the port behind it.           |
 | `remotes` | The machines it may run on, best first. Required for `docker` and `shell`; none for the rest. |
 | `redirect`| Wake it, then send the visitor to this address instead of proxying. Optional.    |
@@ -1102,6 +1102,33 @@ only its cards are left on the control page. `publish` is
 the address it answers on here; there is no `publish.port`, because nothing has a port
 *inside*. When it stops answering a visitor gets 502 and the address stays as written, since
 there is nothing serviceman could restart.
+
+## type: files
+
+```json
+{
+    "name": "notes",
+    "title": "Notes",
+    "type": "files",
+    "publish": {"host": "notes.example.com"}
+}
+```
+
+A folder of files, a page or an app with no server of its own: serviceman reads them the
+moment they are asked for, and nothing is started, stopped or put to sleep. Any address the app
+keeps for itself that names no file (`/notes/42`) is answered with its `index.html`, so a page
+reloaded where it left off is the page again; an address that names a file that is not there
+(`/app.js`) is a 404. Nothing outside the folder is read. On a path of a shared name
+(`tools.example.com/notes`) its files are served from that path down, its folder holding them
+at its root.
+
+| Field    | What it is                                                                                  |
+|----------|---------------------------------------------------------------------------------------------|
+| `folder` | Where its files are, read from the config's own folder. Optional: without it they are kept by serviceman, in `apps/<name>` of its state folder. |
+
+There is no machine, no port and no copies: it is served by serviceman itself. On a machine's
+door ([Remotes](remotes.md)) its name is handed to serviceman as any other. **Start** and
+**Stop** have nothing to do, and it has no log of its own.
 
 ## Load tests
 

@@ -87,6 +87,10 @@ function place_of(app, service)
     const running = service.state.instances.find(v => (v.remote !== null) && (v.remote !== undefined));
     const candidates = remote_candidates(app, service);
     const machine = (running !== undefined) ? running.remote : ((candidates.length === 0) ? null : candidates[0].name);
+    if (service.type === 'files') {
+        // serviceman serves it itself: the door hands its requests over
+        return {service: service.name, machine: null, kind: 'files'};
+    }
     if (service.type === 'external') {
         const upstream = service.upstream;
         return {service: service.name, machine, kind: 'external', upstream: (typeof upstream === 'string') ? upstream : `${upstream.host}:${upstream.port}`};

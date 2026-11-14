@@ -2,6 +2,7 @@ const format_duration_ms = require('../../../helpers/format_duration_ms');
 const instance_stop = require('./instance_stop');
 const pool_autoscale = require('./pool_autoscale');
 const service_inflight = require('./service_inflight');
+const service_never_started = require('./service_never_started');
 const service_stop = require('./service_stop');
 
 // The other half of the policy: the pool follows the work, extra instances shrink to the floor,
@@ -10,7 +11,7 @@ function reap_idle(app)
 {
     const now = Date.now();
     for (const service of app.services) {
-        if (service.type === 'external') {
+        if (service_never_started(service)) {
             continue;
         }
         pool_autoscale(app, service, now);

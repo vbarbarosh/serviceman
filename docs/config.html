@@ -689,7 +689,7 @@ img {
 <li><a href="overview.html">Overview</a></li>
 <li><a href="philosophy.html">Philosophy</a></li>
 <li><a href="usecases.html">Use cases</a></li>
-<li class="current"><a href="config.html" aria-current="page">Config</a><ul class="toc"><li><a href="#edit-from-the-control-page">Edit from the control page</a></li><li><a href="#the-whole-file">The whole file</a></li><li><a href="#remotes">Remotes</a></li><li><a href="#a-service-on-a-remote">A service on a remote</a></li><li><a href="#a-service">A service</a></li><li><a href="#addresses-with-a-path">Addresses with a path</a></li><li><a href="#an-address-serviceman-keeps-for-a-service">An address serviceman keeps for a service</a></li><li><a href="#wake-it-then-hand-the-visitor-over">Wake it, then hand the visitor over</a></li><li><a href="#type-shell">type: shell</a></li><li><a href="#policy">Policy</a></li><li><a href="#more-than-one-instance">More than one instance</a></li><li><a href="#type-docker">type: docker</a></li><li><a href="#what-a-start-shows">What a start shows</a></li><li><a href="#storage-1">Storage</a></li><li><a href="#type-external">type: external</a></li><li><a href="#load-tests">Load tests</a></li></ul></li>
+<li class="current"><a href="config.html" aria-current="page">Config</a><ul class="toc"><li><a href="#edit-from-the-control-page">Edit from the control page</a></li><li><a href="#the-whole-file">The whole file</a></li><li><a href="#remotes">Remotes</a></li><li><a href="#a-service-on-a-remote">A service on a remote</a></li><li><a href="#a-service">A service</a></li><li><a href="#addresses-with-a-path">Addresses with a path</a></li><li><a href="#an-address-serviceman-keeps-for-a-service">An address serviceman keeps for a service</a></li><li><a href="#wake-it-then-hand-the-visitor-over">Wake it, then hand the visitor over</a></li><li><a href="#type-shell">type: shell</a></li><li><a href="#policy">Policy</a></li><li><a href="#more-than-one-instance">More than one instance</a></li><li><a href="#type-docker">type: docker</a></li><li><a href="#what-a-start-shows">What a start shows</a></li><li><a href="#storage-1">Storage</a></li><li><a href="#type-external">type: external</a></li><li><a href="#type-files">type: files</a></li><li><a href="#load-tests">Load tests</a></li></ul></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
@@ -1227,7 +1227,7 @@ which is the default.</p>
 </tr>
 <tr>
 <td><code>type</code></td>
-<td><code>docker</code>, <code>shell</code> or <code>external</code>.</td>
+<td><code>docker</code>, <code>shell</code>, <code>external</code> or <code>files</code>.</td>
 </tr>
 <tr>
 <td><code>publish</code></td>
@@ -1957,6 +1957,37 @@ only its cards are left on the control page. <code>publish</code> is
 the address it answers on here; there is no <code>publish.port</code>, because nothing has a port
 <em>inside</em>. When it stops answering a visitor gets 502 and the address stays as written, since
 there is nothing serviceman could restart.</p>
+<h2 id="type-files"><a class="anchor" href="#type-files" aria-hidden="true" tabindex="-1">#</a>type: files</h2>
+<pre><code class="language-json">{
+    &quot;name&quot;: &quot;notes&quot;,
+    &quot;title&quot;: &quot;Notes&quot;,
+    &quot;type&quot;: &quot;files&quot;,
+    &quot;publish&quot;: {&quot;host&quot;: &quot;notes.example.com&quot;}
+}
+</code></pre>
+<p>A folder of files, a page or an app with no server of its own: serviceman reads them the
+moment they are asked for, and nothing is started, stopped or put to sleep. Any address the app
+keeps for itself that names no file (<code>/notes/42</code>) is answered with its <code>index.html</code>, so a page
+reloaded where it left off is the page again; an address that names a file that is not there
+(<code>/app.js</code>) is a 404. Nothing outside the folder is read. On a path of a shared name
+(<code>tools.example.com/notes</code>) its files are served from that path down, its folder holding them
+at its root.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>folder</code></td>
+<td>Where its files are, read from the config&#39;s own folder. Optional: without it they are kept by serviceman, in <code>apps/&lt;name&gt;</code> of its state folder.</td>
+</tr>
+</tbody></table>
+</div>
+<p>There is no machine, no port and no copies: it is served by serviceman itself. On a machine&#39;s
+door (<a href="remotes.html">Remotes</a>) its name is handed to serviceman as any other. <strong>Start</strong> and
+<strong>Stop</strong> have nothing to do, and it has no log of its own.</p>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

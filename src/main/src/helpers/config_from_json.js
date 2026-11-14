@@ -168,6 +168,9 @@ function config_from_json(json, base_dir)
 // runs on, when it is reached through that machine's link.
 function remotes_from_service(json, label)
 {
+    if ((json.type === 'files') && ((json.remotes !== undefined) || (json.remote !== undefined))) {
+        throw new Error(`${label}.remote: a folder of files is served by serviceman itself; it names no machine`);
+    }
     if ((json.remotes === undefined) && (json.remote === undefined)) {
         if (TYPES_CARRIED.includes(json.type)) {
             throw new Error(`${label}.remotes: a ${json.type} service runs on a machine with an agent — name one, or a #tag`);
@@ -309,6 +312,17 @@ function service_from_json(json, service_defaults, base_dir, label)
         }
         out.upstream = upstream_from_text(bare);
         // Nothing here starts it or stops it; it is already running, wherever it runs
+        out.policy.start = 'always';
+        out.policy.stop_after_idle_ms = null;
+    }
+    if (out.type === 'files') {
+        if (publish.port !== undefined) {
+            throw new Error(`${label}.publish.port: a folder of files is served by serviceman itself; nothing in it listens on a port`);
+        }
+        // Where its files are, read from the config's own folder; null is apps/<name> in
+        // serviceman's state folder, where an app sent to serviceman is kept
+        out.folder = ((json.folder === undefined) || (json.folder === null)) ? null : path.resolve(base_dir, String(json.folder));
+        // Nothing runs: serviceman reads the files the moment they are asked for
         out.policy.start = 'always';
         out.policy.stop_after_idle_ms = null;
     }

@@ -3,6 +3,7 @@ const docker_probe = require('./docker_probe');
 const instance_stopped = require('./instance_stopped');
 const log_event = require('./log_event');
 const remote_candidates = require('./remote_candidates');
+const service_never_started = require('./service_never_started');
 const service_waits_for_remote = require('./service_waits_for_remote');
 const shell_probe_on = require('./shell_probe_on');
 
@@ -11,7 +12,7 @@ const shell_probe_on = require('./shell_probe_on');
 // again keeps its clocks: the container never stopped.
 async function service_probe(app, service)
 {
-    if ((service.type === 'external') || service_waits_for_remote(app, service)) {
+    if (service_never_started(service) || service_waits_for_remote(app, service)) {
         return;
     }
     for (const instance of service.state.instances) {

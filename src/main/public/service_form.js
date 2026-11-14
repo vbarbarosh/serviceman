@@ -15,18 +15,20 @@ import snippet from './snippet.js';
 import state_read from './state_read.js';
 
 // What a service can be, in the order the question is worth asking
-const KINDS = ['docker', 'shell', 'external'];
+const KINDS = ['docker', 'shell', 'external', 'files'];
 
 const KIND_WORDS = {
     docker: 'an agent runs it and stops it on the machine you name',
     shell: 'a command line kept alive on a machine of yours',
     external: 'serviceman only gives it an address, and never starts it',
+    files: 'a page or an app with no server: serviceman serves its folder itself',
 };
 
 const KIND_NAMES = {
     docker: 'A docker image',
     shell: 'A program',
     external: 'Something already running',
+    files: 'A folder of files',
 };
 
 // What the short form makes: an image, or an app folder, a program of one shape. bin/run serves
@@ -53,10 +55,10 @@ const IDLE_STEPS = ['2m', '10m', '1h'];
 // A service is read top to bottom in these cards, on its page and while it is made. `must` is
 // what a new one cannot do without; the rest open closed, on serviceman's defaults.
 const SECTIONS = [
-    {id: 'name', title: 'Name', kinds: ['docker', 'shell', 'external'], must: true},
-    {id: 'runs', title: 'What runs', kinds: ['docker', 'shell', 'external'], must: true},
+    {id: 'name', title: 'Name', kinds: ['docker', 'shell', 'external', 'files'], must: true},
+    {id: 'runs', title: 'What runs', kinds: ['docker', 'shell', 'external', 'files'], must: true},
     {id: 'where', title: 'Where it runs', kinds: ['docker', 'shell', 'external'], must: true},
-    {id: 'address', title: 'Addresses', kinds: ['docker', 'shell', 'external'], must: true},
+    {id: 'address', title: 'Addresses', kinds: ['docker', 'shell', 'external', 'files'], must: true},
     {id: 'keep', title: 'Storage and secrets', kinds: ['docker', 'shell'], must: false},
     {id: 'policy', title: 'When it runs', kinds: ['docker', 'shell'], must: false},
     {id: 'scale', title: 'Copies', kinds: ['docker'], must: false},
@@ -361,6 +363,13 @@ const service_form = {
                     <p v-else class="muted">Where it already answers, as <code>host:port</code>. serviceman passes requests on and never starts or stops it.</p>
                 </div>
             </template>
+            <template v-if="(section.id === 'runs' && m.type === 'files')">
+                <label>Folder</label>
+                <div>
+                    <input v-model.trim="m.folder" :placeholder="('apps/' + (m.name || 'its-name') + ', kept by serviceman')" spellcheck="false">
+                    <p class="muted">Its files, served as they are: <code>index.html</code> for any page the app asks for that is no file. Left empty, serviceman keeps them itself, where an app sent to it goes; a folder written here is read from the config's own folder.</p>
+                </div>
+            </template>
             <template v-if="(section.id === 'where' && m.type === 'external')">
                 <label>Machine</label>
                 <div>
@@ -407,7 +416,7 @@ const service_form = {
                         <p v-if="(m.strip_prefix === false)" class="svc-warn">The service sees <code>{{ prefix_example.asked }}</code> as it is. Most apps expect to live at <code>/</code> and answer 404 to that.</p>
                     </div>
                 </template>
-                <template v-if="(m.type !== 'external')">
+                <template v-if="((m.type === 'docker') || (m.type === 'shell'))">
                     <label>Hands over to</label>
                     <div>
                         <input v-model.trim="m.redirect" placeholder="http://localhost:8090 — optional" spellcheck="false">
@@ -660,7 +669,9 @@ const service_form = {
                 }
                 const open = this.creating ? (item.must || (this.opened[item.id] === true)) : ((this.editing === item.id) || (this.kind_changing && item.must));
                 const wrong = (SECTION_PROBLEMS[item.id] || []).some(v => this.problems[v] !== undefined);
-                out.push({id: item.id, title: item.title, must: item.must, open, wrong, last: false, summary: this.summary_of(item.id, this.model)});
+                // A folder of files has nothing that runs: its card says what it serves
+                const title = ((item.id === 'runs') && (this.m.type === 'files')) ? 'What it serves' : item.title;
+                out.push({id: item.id, title, must: item.must, open, wrong, last: false, summary: this.summary_of(item.id, this.model)});
             }
             // Save and Cancel go under the last card open: a new kind opens several at once
             const opened = out.filter(v => v.open);
@@ -760,8 +771,10 @@ const service_form = {
         config_text: function () {
             return JSON.stringify(this.entry_of(this.model_now()), null, 4);
         },
+        // A folder of files is served from its path down whatever this says: its files are at
+        // the root of its folder
         prefix_on: function () {
-            return this.m.hosts.some(v => v.text.includes('/'));
+            return (this.m.type !== 'files') && this.m.hosts.some(v => v.text.includes('/'));
         },
         // Whether the service as saved already answers on a path; its choice about the path
         // is then its own, and a new path does not overrule it
@@ -961,6 +974,9 @@ const service_form = {
             }
             if ((id === 'runs') && (model.type === 'external')) {
                 lines.push((model.upstream === '') ? 'nowhere yet' : `already answers at ${model.upstream}`);
+            }
+            if ((id === 'runs') && (model.type === 'files')) {
+                lines.push((model.folder === '') ? 'kept by serviceman' : `the files in ${model.folder}`);
             }
             if ((id === 'where') && (model.type === 'external')) {
                 lines.push((model.places[0].text === '') ? 'this host, where serviceman runs' : `${this.place_text(model.places[0].text)}, through its link`);
@@ -1504,6 +1520,7 @@ function form_from_service(service)
         env: [],
         volumes: [],
         upstream: '',
+        folder: '',
         command: '',
         user: '',
         secrets: [],
@@ -1568,6 +1585,7 @@ function form_from_service(service)
         out.volumes.push(Object.assign({key: Math.random()}, volume_row(volume)));
     }
     out.upstream = service.upstream || '';
+    out.folder = service.folder || '';
     out.command = service.command || '';
     out.cwd = service.cwd || '';
     out.user = service.user || '';
@@ -1724,6 +1742,12 @@ function json_from_service(model)
             out.remote = places[0];
         }
         out.upstream = model.upstream;
+        return out;
+    }
+    if (model.type === 'files') {
+        if (model.folder !== '') {
+            out.folder = model.folder;
+        }
         return out;
     }
     const policy = {};

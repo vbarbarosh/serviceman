@@ -1,11 +1,12 @@
 const instance_stop = require('./instance_stop');
 const log_event = require('./log_event');
+const service_never_started = require('./service_never_started');
 
 // Stops the whole pool; two callers asking at once share one stop
 function service_stop(app, service, reason)
 {
     const state = service.state;
-    if (service.type === 'external') {
+    if (service_never_started(service)) {
         return Promise.resolve();
     }
     if (state.stop_promise !== null) {

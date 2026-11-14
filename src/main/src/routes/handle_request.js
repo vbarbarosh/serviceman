@@ -15,7 +15,9 @@ const render_error_page = require('../helpers/render_error_page');
 const render_waiting_page = require('../render_waiting_page');
 const route_from_request = require('./route_from_request');
 const send_json = require('../helpers/send_json');
+const serve_static_file = require('../helpers/serve_static_file');
 const service_ensure_running = require('../helpers/service_ensure_running');
+const service_files_folder = require('../helpers/service_files_folder');
 const service_phase = require('../helpers/service_phase');
 const service_redir = require('../service_redir');
 const socket_pending = require('../helpers/socket_pending');
@@ -161,6 +163,15 @@ async function request_answer(app, req, res, host, quiet, inbound, wall)
         return;
     }
     service.state.requests++;
+    if (service.type === 'files') {
+        // A folder of files, read the moment it is asked for: nothing to wake, nothing to pass
+        // on. Its files are at the root of its folder, so a path it shares a name on comes off.
+        for (const instance of service.state.instances) {
+            instance.last_activity_at = Date.now();
+        }
+        await serve_static_file(app, {name: service.name, root: service_files_folder(app, service), one_page: true}, {url: (remainder || '/') + query, method: req.method}, res, route.path);
+        return;
+    }
     if (service.strip_prefix) {
         req.url = (remainder || '/') + query;
     }

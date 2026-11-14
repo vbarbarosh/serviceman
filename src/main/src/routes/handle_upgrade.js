@@ -59,6 +59,11 @@ async function socket_answer(app, req, socket, head)
         return;
     }
     const service = route.service;
+    if (service.type === 'files') {
+        // A folder of files holds no socket to hand over
+        socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
+        return;
+    }
     if (service.strip_prefix) {
         req.url = (pathname.slice(route.path.length) || '/') + query;
     }

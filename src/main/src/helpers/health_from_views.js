@@ -227,7 +227,7 @@ function phase_check(service)
         return check('phase', 'State', 'ok', `running${up}`, null);
     }
     if (phase === 'stopped') {
-        return check('phase', 'State', 'none', 'asleep', (service.type === 'external') ? null : 'Starts on the next visit.');
+        return check('phase', 'State', 'none', 'asleep', ((service.type === 'external') || (service.type === 'files')) ? null : 'Starts on the next visit.');
     }
     return check('phase', 'State', 'none', phase, null);
 }

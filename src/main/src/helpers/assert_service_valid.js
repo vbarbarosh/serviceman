@@ -1,6 +1,6 @@
 const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 
-const TYPES = ['docker', 'external', 'shell'];
+const TYPES = ['docker', 'external', 'files', 'shell'];
 
 const RESTARTS = ['never', 'on_failure', 'always'];
 
@@ -29,6 +29,9 @@ function assert_service_valid(service, label)
     }
     if (service.type === 'external') {
         assert_external_valid(service, label);
+    }
+    if ((service.type === 'files') && (service.policy.instances.max !== 1)) {
+        throw new Error(`${label}.policy.instances: a folder of files is served by serviceman itself; there are no copies of it`);
     }
     if ((service.type === 'shell') && (service.policy.instances.max !== 1)) {
         throw new Error(`${label}.policy.instances: a program runs as one copy; write a second service for a second copy`);

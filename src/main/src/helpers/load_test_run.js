@@ -9,6 +9,7 @@ const load_test_url = require('./load_test_url');
 const log_event = require('./log_event');
 const remote_call = require('./remote_call');
 const service_ensure_running = require('./service_ensure_running');
+const service_never_started = require('./service_never_started');
 const tailnet_ip_read = require('./tailnet_ip_read');
 
 const K6_IMAGE = 'grafana/k6';
@@ -94,7 +95,7 @@ async function run(app, test, test_run)
         throw new Error(`${test.service} has no address to ask — give the test one`);
     }
     const service = app.service_by_name[test.service];
-    if ((service !== undefined) && (service.type !== 'external')) {
+    if ((service !== undefined) && (service_never_started(service) === false)) {
         const time0 = Date.now();
         await service_ensure_running(app, service);
         test_run.wake_ms = Date.now() - time0;

@@ -1772,6 +1772,10 @@ function handle_action(app, req, res, name, action)
         send_json(res, 400, {error: `${name} runs somewhere else; serviceman gives it an address, nothing more`});
         return;
     }
+    if (service.type === 'files') {
+        send_json(res, 400, {error: `${name} is a folder of files serviceman serves itself; nothing runs to start or stop`});
+        return;
+    }
     if ((action === 'update') && ((service.type !== 'shell') || (service.lifecycle.install === null))) {
         send_json(res, 400, {error: `${name} has no install line: there is nothing to fetch again`});
         return;

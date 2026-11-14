@@ -20,6 +20,7 @@ serviceman's business.
 | `docker`   | A docker image                        | The agent runs `docker run` on a port docker picks, then `stop` |
 | `shell`    | A program on a machine of yours       | The agent runs it and keeps it alive, stopped with its group   |
 | `external` | Something already running             | Never started or stopped — an address, and a proxy             |
+| `files`    | A folder of files: a page, an app     | Served by serviceman itself; nothing runs                      |
 
 A `docker` and a `shell` service name the machine they run on — one, a list, or a `#tag` —
 and that machine runs the agent. See [Remotes](remotes.md).

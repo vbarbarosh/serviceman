@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.87 — 2026-11-14
+
+- A fourth kind of service, `files`: a folder of files, a page or an app with no server, served by serviceman itself, `index.html` for any address the app keeps that names no file; nothing is started, stopped or put to sleep. Kept by serviceman in `apps/<name>` of its state folder unless `folder` names one. On the page: its own cards, a "Serves" line, no Start, Stop or Logs.
+
 ## 1.0.86 — 2026-11-14
 
 - What takes the space: the "counting…" line under a folder keeps one line, its folders still to come cut before the bar with "…", every one of them in the row's tooltip; it ran under the bar, as a row with a ring in it does not wrap.

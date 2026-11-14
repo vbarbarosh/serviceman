@@ -52,6 +52,11 @@ function state_from_service(service)
         }));
         return out;
     }
+    if (service.type === 'files') {
+        // Nothing runs: serviceman reads its files the moment they are asked for
+        out.instances.push(Object.assign(instance_new(1), {phase: 'running', started_at: Date.now(), last_activity_at: Date.now()}));
+        return out;
+    }
     for (let slot = 1; slot <= service.policy.instances.max; slot++) {
         out.instances.push(instance_new(slot));
     }

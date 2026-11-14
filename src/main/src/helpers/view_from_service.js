@@ -107,6 +107,10 @@ function source_from_service(service)
         const line = ((service.command === undefined) || (service.command === null)) ? service.argv.join(' ') : service.command;
         return {label: 'Command', text: (service.cwd === null) ? line : `${line} in ${service.cwd}`};
     }
+    // kept: the folder is apps/<name> of serviceman's own state folder, where an app sent to it goes
+    if (service.type === 'files') {
+        return {label: 'Files', text: (service.folder === null) ? `apps/${service.name}` : service.folder, kept: (service.folder === null)};
+    }
     return {label: 'Answers at', text: `${service.upstream.host}:${service.upstream.port}`};
 }
 

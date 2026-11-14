@@ -100,7 +100,11 @@ const service_status = {
             <span v-for="host of view.publish.hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a></span>
             <span v-for="name of door_names" :key="(name.machine + ' ' + name.host)" class="svc-host" :class="{muted: name.off}"><a v-if="(name.host.startsWith('*') === false)" :href="('https://' + name.host)" target="_blank" rel="noopener">{{ name.host }}</a><code v-else>{{ name.host }}</code> <span class="muted">via {{ name.title }}<template v-if="(name.auth !== null)">, behind {{ name.auth }}</template><template v-if="name.off"> · off</template></span></span>
         </dd>
-        <template v-if="(view.type !== 'external')">
+        <template v-if="(view.type === 'files')">
+            <dt>Serves</dt>
+            <dd>the files in <code>{{ view.source.text }}</code><template v-if="view.source.kept"> of serviceman's state folder</template></dd>
+        </template>
+        <template v-else-if="(view.type !== 'external')">
             <dt>Runs on</dt>
             <dd>
                 <template v-for="(name, i) of view.remotes" :key="name"><span v-if="(i > 0)" class="muted"> then </span><button type="button" class="link" @click="$emit('remote', name)">{{ remote_text(name) }}</button></template>
@@ -152,6 +156,9 @@ const service_status = {
             if (this.view.type === 'external') {
                 return 'already running';
             }
+            if (this.view.type === 'files') {
+                return 'serving its files';
+            }
             if ((this.view.phase === 'running') && (this.view.policy.instances.max > 1)) {
                 return `running · ${this.view.instances_running} of ${this.view.policy.instances.max}`;
             }
@@ -163,6 +170,9 @@ const service_status = {
             const view = this.view;
             if (view.type === 'external') {
                 return 'serviceman passes requests on and never starts or stops it';
+            }
+            if (view.type === 'files') {
+                return 'serviceman reads them when they are asked for; nothing runs';
             }
             // No failed start behind it: what failed was the setting up of a new version
             if (view.gave_up && (view.failures === 0)) {
@@ -1539,7 +1549,7 @@ const service_files = {
 function tab_allowed(view, tab)
 {
     if (tab === 'logs') {
-        return view.type !== 'external';
+        return (view.type !== 'external') && (view.type !== 'files');
     }
     if ((tab === 'files') || (tab === 'shell')) {
         return (view.type === 'shell') || ((view.type === 'docker') && (view.phase === 'running'));
@@ -1606,6 +1616,7 @@ const service_page = {
             </button>
             <span v-if="(waiting && view.doing === null)" class="muted"><span class="spin"/>{{ view.phase }}…</span>
             <span v-if="(view.type === 'external')" class="muted">runs somewhere else — serviceman only answers for it</span>
+            <span v-if="(view.type === 'files')" class="muted">a folder of files — serviceman serves them itself</span>
         </div>
         <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">Logs in Logline ↗</a>
     </div>
@@ -1693,7 +1704,7 @@ const service_page = {
             return tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
         driven: function () {
-            return this.view.type !== 'external';
+            return (this.view.type !== 'external') && (this.view.type !== 'files');
         },
         // Whether it has files and a shell to open: Files and Shell show when they do
         inside: function () {
