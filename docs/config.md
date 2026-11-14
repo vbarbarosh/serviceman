@@ -1181,6 +1181,22 @@ gives the bare name to `"*"` too, the pattern covering only the names under it:
 "inbound": {"*.apps.example.com": {"service": "*", "auth": "authwall"}, "apps.example.com": {"service": "*", "auth": "authwall"}}
 ```
 
+**On your tailnet,** with no DNS server of your own: with `dns`, serviceman answers the domain's
+names on that UDP port, the domain itself and every name under it, each with this machine's
+tailnet address, and refuses any other name.
+
+```json
+"apps": {"domain": "apps.example.com", "dns": 53}
+```
+
+The address is what `tailscale ip -4` says, asked until it says one (the image has tailscale), or
+`address`, `100.64.0.20`. Then one setting in Tailscale's admin console: **DNS**, **Add
+nameserver**, **Custom**, serviceman's tailnet address, **Restrict to domain** `apps.example.com`.
+Every device of the tailnet then opens `http://notes.apps.example.com:3000/`, serviceman's own
+port, which the tailnet reaches in its container, and the page of cells at
+`http://apps.example.com:3000/`; nothing of it is reached from outside the tailnet. **Apps**
+leads with that link once `dns` is set. A change of `dns` or `address` waits for a restart.
+
 ## Load tests
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address

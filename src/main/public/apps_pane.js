@@ -28,7 +28,8 @@ const apps_pane = {
         <template v-else>
             <p class="app-sent-head"><span class="dot running"></span><b>{{ sent.name }}</b> {{ sent.made ? 'is ready' : 'has its new version' }}</p>
             <p class="app-sent-link"><a :href="sent.link" target="_blank" rel="noopener">{{ sent.link }}</a><a class="button primary" :href="sent.link" target="_blank" rel="noopener">Open</a></p>
-            <p v-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
+            <p v-if="((sent.other !== '') && names_on)" class="muted">and on this computer: <a :href="sent.other" target="_blank" rel="noopener">{{ sent.other }}</a></p>
+            <p v-else-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
         </template>
     </div>
     <ul v-if="(apps.length > 0)" class="app-cells">
@@ -58,16 +59,23 @@ const apps_pane = {
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
         },
+        // Whether serviceman answers the apps' names on the tailnet (apps.dns): their names under
+        // the domain then open on every device of it, on serviceman's own port
+        names_on: function () {
+            return (this.domain !== null) && (this.state.apps.dns !== null) && (this.state.apps.dns !== undefined);
+        },
     },
     methods: {
         format_bytes: function (bytes) {
             return format_bytes(bytes);
         },
-        // The name it opens on here, on serviceman's own door: not the one under the apps domain,
-        // which answers only once the tailnet or a machine's door does
+        // The name it opens on: its name under the apps domain where the tailnet answers it,
+        // and otherwise the one on serviceman's own door here
         host_of: function (app) {
             const hosts = app.publish.hosts.map(v => v.split('/')[0]);
-            return hosts.find(v => (this.domain === null) || (v.endsWith(`.${this.domain}`) === false)) || hosts[0] || '';
+            const suffix = (this.domain === null) ? null : `.${this.domain}`;
+            const found = hosts.find(v => (((suffix !== null) && v.endsWith(suffix)) === this.names_on));
+            return found || hosts[0] || '';
         },
         link_of: function (app) {
             const port = this.state.listen.port;
@@ -113,9 +121,12 @@ const apps_pane = {
                 if (answer.ok === false) {
                     throw new Error(said.error || `serviceman answered ${answer.status}`);
                 }
-                // The address that opens here now; its name outside answers only once the tailnet
-                // or a machine's door does
-                this.sent = {name, bytes, busy: false, error: '', made: said.made, link: said.address, other: ((said.public === null) || (said.public === undefined)) ? '' : said.public};
+                // Its tailnet name where serviceman answers it, on serviceman's port; the address
+                // here otherwise, its name outside said beside it
+                const outside = ((said.public === null) || (said.public === undefined)) ? '' : said.public;
+                const port = this.state.listen.port;
+                const tailnet = (this.names_on && (outside !== '')) ? `http://${outside}${(port === 80) ? '' : ':' + port}/` : '';
+                this.sent = {name, bytes, busy: false, error: '', made: said.made, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address};
             }
             catch (error) {
                 this.sent = {name, bytes, busy: false, error: error.message, made: false, link: '', other: ''};

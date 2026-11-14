@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.94 — 2026-11-14
+
+- The apps' names on the tailnet: with `"apps": {"domain": …, "dns": 53}` serviceman answers the domain's names on that UDP port, each with this machine's tailnet address (`tailscale ip -4`, or `apps.address`), and refuses any other; with one split-DNS setting in Tailscale's admin, `http://notes.apps.example.com:3000/` opens on every device of the tailnet. Apps leads with that link once it is set.
+
 ## 1.0.93 — 2026-11-14
 
 - A row clicked in any table opens whole in a window over the page, its actions inside, where it opened in a bar pinned to the page's foot; Esc, Close or a click beside it puts it away. A process on the Processes tab the same; a forward's form, Add or Edit, opens in such a window too, Edit closing the row's first.

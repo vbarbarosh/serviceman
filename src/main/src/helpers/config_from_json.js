@@ -167,23 +167,41 @@ function config_from_json(json, base_dir)
 
 // {"domain": "apps.example.com"}: an app sent as notes answers on notes.apps.example.com.
 // Without one it is named the way the New service form names one: after the control page's.
+// With dns, serviceman answers the domain's names on that UDP port, each with address, or with
+// this machine's tailnet address where address is left out (apps_dns_start).
 //
-//     {domain}   domain null when none is given
+//     {domain, dns, address}   null for each one not given
 function apps_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
-        return {domain: null};
+        return {domain: null, dns: null, address: null};
     }
     if ((typeof json !== 'object') || Array.isArray(json)) {
         throw new Error(`${label}: an object is required — {"domain": "apps.example.com"}`);
     }
-    if ((json.domain === undefined) || (json.domain === null)) {
-        return {domain: null};
+    const out = {domain: null, dns: null, address: null};
+    if ((json.domain !== undefined) && (json.domain !== null)) {
+        if ((typeof json.domain !== 'string') || (json.domain !== json.domain.toLowerCase()) || (/^[a-z0-9.-]+$/.test(json.domain) === false) || json.domain.startsWith('.') || json.domain.endsWith('.')) {
+            throw new Error(`${label}.domain: a lowercase domain, no port and no path, is required (got ${JSON.stringify(json.domain)})`);
+        }
+        out.domain = json.domain;
     }
-    if ((typeof json.domain !== 'string') || (json.domain !== json.domain.toLowerCase()) || (/^[a-z0-9.-]+$/.test(json.domain) === false) || json.domain.startsWith('.') || json.domain.endsWith('.')) {
-        throw new Error(`${label}.domain: a lowercase domain, no port and no path, is required (got ${JSON.stringify(json.domain)})`);
+    if ((json.dns !== undefined) && (json.dns !== null)) {
+        if ((Number.isInteger(json.dns) === false) || (json.dns < 0) || (json.dns > 65535)) {
+            throw new Error(`${label}.dns: the UDP port the domain's names are answered on is required, 53 (got ${JSON.stringify(json.dns)})`);
+        }
+        if (out.domain === null) {
+            throw new Error(`${label}.dns: names are answered for the apps domain, and there is none: give "domain" too`);
+        }
+        out.dns = json.dns;
     }
-    return {domain: json.domain};
+    if ((json.address !== undefined) && (json.address !== null)) {
+        if ((typeof json.address !== 'string') || (/^\d{1,3}(\.\d{1,3}){3}$/.test(json.address) === false) || json.address.split('.').some(v => Number(v) > 255)) {
+            throw new Error(`${label}.address: the IPv4 address the names lead to is required, 100.64.0.20 (got ${JSON.stringify(json.address)})`);
+        }
+        out.address = json.address;
+    }
+    return out;
 }
 
 // Where a service may run, in the order it is tried: a machine by name, or `#tag` for every

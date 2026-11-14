@@ -2031,6 +2031,18 @@ was asked on. serviceman answers it on its own door, and through a machine&#39;s
 gives the bare name to <code>&quot;*&quot;</code> too, the pattern covering only the names under it:</p>
 <pre><code class="language-json">&quot;inbound&quot;: {&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}, &quot;apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}}
 </code></pre>
+<p><strong>On your tailnet,</strong> with no DNS server of your own: with <code>dns</code>, serviceman answers the domain&#39;s
+names on that UDP port, the domain itself and every name under it, each with this machine&#39;s
+tailnet address, and refuses any other name.</p>
+<pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;, &quot;dns&quot;: 53}
+</code></pre>
+<p>The address is what <code>tailscale ip -4</code> says, asked until it says one (the image has tailscale), or
+<code>address</code>, <code>100.64.0.20</code>. Then one setting in Tailscale&#39;s admin console: <strong>DNS</strong>, <strong>Add
+nameserver</strong>, <strong>Custom</strong>, serviceman&#39;s tailnet address, <strong>Restrict to domain</strong> <code>apps.example.com</code>.
+Every device of the tailnet then opens <code>http://notes.apps.example.com:3000/</code>, serviceman&#39;s own
+port, which the tailnet reaches in its container, and the page of cells at
+<code>http://apps.example.com:3000/</code>; nothing of it is reached from outside the tailnet. <strong>Apps</strong>
+leads with that link once <code>dns</code> is set. A change of <code>dns</code> or <code>address</code> waits for a restart.</p>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

@@ -1,3 +1,4 @@
+const apps_dns_start = require('./apps_dns_start');
 const connection_group = require('./connection_group');
 const control_owner_token = require('./control_owner_token');
 const fs = require('fs');
@@ -24,7 +25,8 @@ async function server_start(app)
     // The port the services are really on: the config may say 0, which means whichever is free
     app.listen_port = server.address().port;
     // Every door can be closed, and each can be a port or a file: the services, the control page
-    const out = {server, service_socket: null, control: null, socket: null};
+    // And the names of the apps, on the tailnet, where the config asks for them (apps.dns)
+    const out = {server, service_socket: null, control: null, socket: null, dns: apps_dns_start(app)};
     if (app.config.listen.socket !== null) {
         out.service_socket = await file_open(app, service_server(app), app.config.listen.socket, app.config.listen.socket_mode);
     }

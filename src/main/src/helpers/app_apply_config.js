@@ -39,6 +39,11 @@ async function app_apply_config(app, config)
         out.restart_needed = true;
         note('listen or control changed — that part waits for a serviceman restart');
     }
+    // The names of the apps are answered on a port opened at the start
+    if ((config.apps.dns !== running.apps.dns) || (config.apps.address !== running.apps.address) || ((config.apps.dns !== null) && (config.apps.domain !== running.apps.domain))) {
+        out.restart_needed = true;
+        note('apps.dns, apps.address or the domain they answer changed — that part waits for a serviceman restart');
+    }
     const fresh = [];
     const next_services = [];
     for (const item of config.services) {
