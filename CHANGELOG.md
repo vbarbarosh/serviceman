@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.115 — 2026-11-15
+
+- Two agent tests no longer race their own fakes: the fake apt-get notes its call whole or not at all, and the bin/update tests wait for the run to end by asking.
+
 ## 1.0.114 — 2026-11-15
 
 - Every library at its latest: node-helpers 3.80.1, ws 8.23.0, vue 3.5.45, marked 18.2.0; the images on Node 26 LTS, web-terminal on Ubuntu 26.04; a machine with no node is given v24.22.3.

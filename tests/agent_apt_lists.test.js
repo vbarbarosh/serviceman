@@ -7,14 +7,17 @@ const path = require('path');
 const test = require('node:test');
 
 // A machine's apt under a folder of its own: an apt-get that writes down what it was asked and
-// takes `wait` seconds over each run, and fails an update where `fail` says
+// takes `wait` seconds over each run, and fails an update where `fail` says. Its first two words
+// are written whole or not at all: Cancel's SIGINT waits until the line is down, so a run stopped
+// at its start leaves no half of one (a cut in a pipe, stopped mid-way, left an empty line)
 function apt_make(t, wait, fail)
 {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-apt-lists-'));
     t.after(() => fs.rmSync(base, {recursive: true, force: true}));
     const asked = path.join(base, 'asked');
     const apt = path.join(base, 'apt-get');
-    fs.writeFileSync(apt, `#!/bin/sh\necho "$*" | cut -d' ' -f1-2 >> ${asked}\nsleep ${wait}\n${fail ? 'case "$*" in *update*) echo "E: The repository \'https://example.com stable Release\' does not have a Release file." >&2; exit 100 ;; esac\n' : ''}exit 0\n`, {mode: 0o755});
+    const note = `trap 'stopped=1' INT\necho "$1\${2+ $2}" >> ${asked}\ntrap - INT\n[ -z "$stopped" ] || kill -INT $$\n`;
+    fs.writeFileSync(apt, `#!/bin/sh\n${note}sleep ${wait}\n${fail ? 'case "$*" in *update*) echo "E: The repository \'https://example.com stable Release\' does not have a Release file." >&2; exit 100 ;; esac\n' : ''}exit 0\n`, {mode: 0o755});
     return {base, apt, asked: () => (fs.existsSync(asked) ? fs.readFileSync(asked, 'utf8').trim().split('\n') : [])};
 }
 
