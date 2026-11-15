@@ -29,7 +29,7 @@
                     </div>
 
                     <div class="status-group">
-                        <span class="query-status">{{ queryStatus }}</span>
+                        <span class="query-status">{{ (searching ? ('Querying… ' + loadingSeconds) : queryStatus) }}</span>
                         <div class="disk-control" @click.stop>
                             <button
                                 type="button"
@@ -104,7 +104,9 @@
                         aria-label="Find a label or value"
                         @input="scheduleLabels"
                     >
-                    <div class="labels-list">
+                    <div class="labels-list" :class="{stale: (loading.labels || loadErrors.labels)}">
+                        <div v-if="loading.labels" class="labels-note" role="status"><i class="spinner" aria-hidden="true"></i>Counting labels · {{ loadingSeconds }}</div>
+                        <div v-else-if="loadErrors.labels" class="labels-note failed" :title="loadErrors.labels">Not counted for this range, these are from before: {{ loadErrors.labels }}</div>
                         <section v-for="group in labelGroups" :key="group.name" class="label-group" :class="{open: group.open}">
                             <button
                                 type="button"
@@ -136,7 +138,7 @@
                                 <span v-if="group.hidden" class="label-more">{{ group.hidden }} more · find them above</span>
                             </div>
                         </section>
-                        <div v-if="!labelGroups.length" class="labels-empty">
+                        <div v-if="(!labelGroups.length && !loading.labels)" class="labels-empty">
                             {{ labelFind.trim() ? 'No label or value matches' : 'No labels in this range' }}
                         </div>
                     </div>
@@ -270,12 +272,16 @@
                     <div class="chart-heading">
                         <div>
                             <span class="eyebrow">Volume</span>
-                            <strong>{{ formattedEventCount }}</strong>
-                            <span>events</span>
+                            <span v-if="loading.volume" class="part-waiting"><i class="spinner" aria-hidden="true"></i>Counting · {{ rangeLabel }} · {{ loadingSeconds }}</span>
+                            <span v-else-if="loadErrors.volume" class="part-failed" :title="loadErrors.volume">Not counted: {{ loadErrors.volume }}</span>
+                            <template v-else>
+                                <strong>{{ formattedEventCount }}</strong>
+                                <span>events</span>
+                            </template>
                         </div>
                         <span class="bucket-label">{{ bucketLabel }}</span>
                     </div>
-                    <div class="histogram" role="img" aria-label="Filtered events over time">
+                    <div class="histogram" :class="{waiting: loading.volume}" role="img" aria-label="Filtered events over time">
                         <svg viewBox="0 0 1000 70" preserveAspectRatio="none">
                             <line v-for="y in [5, 35, 65]" :key="y" class="grid" x1="0" x2="1000" :y1="y" :y2="y"></line>
                             <rect
@@ -367,7 +373,17 @@
                                 </span>
                             </div>
                         </div>
-                        <div v-if="(!rows.length && !loadingInitial)" class="empty-state">
+                        <div v-if="(loading.rows && !rows.length)" class="empty-state" role="status">
+                            <i class="spinner large" aria-hidden="true"></i>
+                            <strong>Loading lines · {{ rangeLabel }}</strong>
+                            <span>{{ loadingSeconds }}</span>
+                        </div>
+                        <div v-else-if="(loadErrors.rows && !rows.length)" class="empty-state failed" role="alert">
+                            <strong>The lines did not load</strong>
+                            <span class="failed-reason" :title="loadErrors.rows">{{ loadErrors.rows }}</span>
+                            <button type="button" @click="runSearch">Try again</button>
+                        </div>
+                        <div v-else-if="(!rows.length && !loadingInitial)" class="empty-state">
                             <strong>No logs in this range</strong>
                             <span>Change the substrings or widen the date range.</span>
                         </div>

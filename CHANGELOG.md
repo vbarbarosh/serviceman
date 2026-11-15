@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.118 — 2026-11-16
+
+- Logline shows a long range part by part, with its seconds counting, and lets go of a range picked again; ClickHouse stops its queries.
+
 ## 1.0.117 — 2026-11-15
 
 - Ctrl-C says at once that serviceman stops and which programs it stops, then every half a second which are left; a second Ctrl-C says which it left behind.

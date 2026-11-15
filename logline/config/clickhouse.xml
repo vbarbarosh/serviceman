@@ -6,6 +6,9 @@
             <readonly>1</readonly>
             <max_execution_time>30</max_execution_time>
             <max_threads>4</max_threads>
+            <!-- A range picked again lets go of the older one's requests: their queries stop here
+                 too, instead of running on beside the new ones until the 30 seconds are up -->
+            <cancel_http_readonly_queries_on_client_close>1</cancel_http_readonly_queries_on_client_close>
         </log_ui_readonly>
     </profiles>
 

@@ -541,6 +541,12 @@ input[type="datetime-local"]:focus {
 
 .label-group + .label-group { border-top: 1px solid var(--line-soft); }
 
+.labels-list.stale .label-group { opacity: 0.5; }
+
+.labels-note { display: flex; align-items: baseline; gap: 6px; margin: 2px 6px 8px; color: var(--muted); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+
+.labels-note.failed { display: -webkit-box; overflow: hidden; color: var(--red); -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
 .label-name {
     display: flex;
     align-items: center;
@@ -709,7 +715,30 @@ input[type="datetime-local"]:focus {
 
 .bucket-label { color: var(--faint) !important; }
 
-.histogram { height: 92px; margin-top: 2px; }
+.histogram { position: relative; height: 92px; margin-top: 2px; }
+
+/* The range is being counted: a light passes over the empty chart, where the bars will be */
+.histogram.waiting { overflow: hidden; }
+
+.histogram.waiting::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -30%;
+    width: 30%;
+    height: 72px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--blue) 22%, transparent), transparent);
+    animation: histogram-sweep 1.4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes histogram-sweep {
+    to { left: 100%; }
+}
+
+.chart-heading .part-waiting { display: inline-flex; align-items: baseline; color: var(--text); font-size: 12px; }
+
+.chart-heading .part-failed { overflow: hidden; max-width: 70vw; color: var(--red); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
 .histogram svg { display: block; width: 100%; height: 72px; overflow: visible; }
 
@@ -845,6 +874,30 @@ input[type="datetime-local"]:focus {
 .empty-state strong { color: var(--text); font-size: 14px; }
 
 .empty-state span { font-size: 12px; }
+
+.empty-state.failed strong { color: var(--red); }
+
+.empty-state .failed-reason { display: -webkit-box; overflow: hidden; max-width: min(64ch, 80vw); overflow-wrap: anywhere; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+
+.empty-state button { justify-self: center; margin-top: 6px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; }
+
+.empty-state button:hover { border-color: var(--accent); }
+
+/* Something is on its way */
+.spinner { flex: none; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border: 1.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spinner-turn 0.8s linear infinite; }
+
+.spinner.large { justify-self: center; width: 18px; height: 18px; margin: 0 0 6px; border-width: 2px; }
+
+@keyframes spinner-turn {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner,
+    .histogram.waiting::after { animation: none; }
+
+    .histogram.waiting::after { left: 0; width: 100%; background: color-mix(in srgb, var(--blue) 6%, transparent); }
+}
 
 .loading-older { position: absolute; top: 12px; left: 50%; z-index: 2; transform: translateX(-50%); padding: 6px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--panel-2); color: var(--muted); font-size: 11px; }
 

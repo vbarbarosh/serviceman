@@ -191,6 +191,16 @@
                 hasMoreOlder: false,
                 loadingOlder: false,
                 loadingInitial: false,
+                // The parts of a search still asked, and why one failed; each shows as it lands
+                loading: {rows: false, volume: false, labels: false},
+                loadErrors: {rows: '', volume: '', labels: ''},
+                loadingSince: 0,
+                clock: 0,
+                clockTimer: null,
+                // The current search's requests, its live polls' and its older pages' too: a newer
+                // search aborts them all
+                searchController: null,
+                polling: false,
                 queryStatus: 'Ready',
                 selectedRow: null,
                 investigation: null,
@@ -316,6 +326,15 @@
                 return `${fromText} → ${to.toLocaleString([], sameDay ? clock : {...day, ...clock})}`;
             },
 
+            // Any part of the search still on its way
+            searching: function () {
+                return this.loading.rows || this.loading.volume || this.loading.labels;
+            },
+
+            loadingSeconds: function () {
+                return `${(Math.max(0, this.clock - this.loadingSince)/1000).toFixed(1)} s`;
+            },
+
             bucketLabel: function () {
                 if (!this.active) {
                     return '';
@@ -362,11 +381,11 @@
             },
 
             rangeStartLabel: function () {
-                return this.active ? this.shortTime(this.active.from) : '';
+                return this.active ? this.axisTime(this.active.from) : '';
             },
 
             rangeEndLabel: function () {
-                return this.active ? this.shortTime(this.active.to) : '';
+                return this.active ? this.axisTime(this.active.to) : '';
             },
 
             detailMetadata: function () {
@@ -506,6 +525,8 @@
             window.clearTimeout(this.toastTimer);
             window.clearTimeout(this.searchTimer);
             window.clearTimeout(this.labelTimer);
+            window.clearInterval(this.clockTimer);
+            this.searchController?.abort();
             window.cancelAnimationFrame(this.scrollAnimationFrame);
         },
 
@@ -747,7 +768,11 @@
                     param_range_from: filters.from,
                     param_range_to: filters.to,
                 });
+                // The table is split by day and kept in order by TimestampTime, the second of each
+                // line: bounded by it too, a query reads the days of its range alone, not the table
                 const clauses = [
+                    "TimestampTime >= toDateTime(parseDateTime64BestEffort({range_from:String}, 9, 'UTC'))",
+                    "TimestampTime <= toDateTime(parseDateTime64BestEffort({range_to:String}, 9, 'UTC'))",
                     "Timestamp >= parseDateTime64BestEffort({range_from:String}, 9, 'UTC')",
                     "Timestamp < parseDateTime64BestEffort({range_to:String}, 9, 'UTC')",
                 ];
@@ -852,9 +877,10 @@
                 return `ResourceAttributes[{label_key_${index}:String}]`;
             },
 
-            clickhouse: async function (sql, params) {
+            clickhouse: async function (sql, params, signal) {
                 const response = await fetch(`/clickhouse?${params.toString()}`, {
                     method: 'POST',
+                    signal,
                     credentials: 'omit',
                     headers: {'Content-Type': 'text/plain; charset=utf-8'},
                     body: sql,
@@ -899,7 +925,7 @@
                     FORMAT
                         JSONEachRow
                 `;
-                return this.clickhouse(sql, params);
+                return this.clickhouse(sql, params, options.signal);
             },
 
             chooseBucket: function (from, to) {
@@ -907,7 +933,7 @@
                 return BUCKETS.find(v => v >= target) || BUCKETS[BUCKETS.length - 1];
             },
 
-            queryHistogram: async function (filters) {
+            queryHistogram: async function (filters, signal) {
                 const bucketSeconds = this.chooseBucket(filters.from, filters.to);
                 const {where, params} = this.buildWhere(filters);
                 const sql = `
@@ -925,13 +951,13 @@
                     FORMAT
                         JSONEachRow
                 `;
-                return {bucketSeconds, data: await this.clickhouse(sql, params)};
+                return {bucketSeconds, data: await this.clickhouse(sql, params, signal)};
             },
 
             // Every label name and its most frequent values in the range, counted the way facets are:
             // a value's count keeps every other filter, including the other labels, but not its own
             // label's selection, so choosing a second host still shows how many lines it has
-            queryLabels: async function (filters) {
+            queryLabels: async function (filters, signal) {
                 const {where, params} = this.buildWhere(filters, {withoutLabels: true});
                 const conditions = this.labelConditions(filters.labels, params);
                 const names = Object.keys(conditions);
@@ -981,7 +1007,7 @@
                         JSONEachRow
                 `;
                 const groups = new Map();
-                for (const row of await this.clickhouse(sql, params)) {
+                for (const row of await this.clickhouse(sql, params, signal)) {
                     if (!groups.has(row.name)) {
                         groups.set(row.name, {name: row.name, total: Number(row.value_count), values: []});
                     }
@@ -1001,13 +1027,15 @@
                 }
                 const generation = ++this.labelGeneration;
                 try {
-                    const catalog = await this.queryLabels(this.active);
+                    const catalog = await this.queryLabels(this.active, this.searchController?.signal);
                     if (generation === this.labelGeneration) {
                         this.labelCatalog = catalog;
                     }
                 }
                 catch (error) {
-                    console.error('Could not refresh labels', error);
+                    if (error.name !== 'AbortError') {
+                        console.error('Could not refresh labels', error);
+                    }
                 }
             },
 
@@ -1453,6 +1481,9 @@
                 return out;
             },
 
+            // A search shows each part the moment it lands, where it belongs: the lines first, the
+            // volume and the labels after them, never held for the slowest. A newer search aborts
+            // every request of this one, and ClickHouse drops the query of a request let go.
             runSearch: async function () {
                 window.clearTimeout(this.searchTimer);
                 let filters;
@@ -1463,61 +1494,109 @@
                     this.showToast(error.message);
                     return false;
                 }
+                this.searchController?.abort();
+                const controller = new AbortController();
+                this.searchController = controller;
                 const generation = ++this.requestGeneration;
+                const labelGeneration = ++this.labelGeneration;
                 this.active = filters;
                 this.rows = [];
                 this.selectedRow = null;
                 this.hasMoreOlder = false;
                 this.loadingInitial = true;
+                // The volume of the new range, empty until it is counted: never the old one's bars
+                this.histogram = [];
+                this.bucketSeconds = this.chooseBucket(filters.from, filters.to);
+                this.loading = {rows: true, volume: true, labels: true};
+                this.loadErrors = {rows: '', volume: '', labels: ''};
+                this.loadingSince = Date.now();
+                this.clockStart();
                 this.scrollTop = 0;
                 if (this.$refs.viewport) {
                     this.$refs.viewport.scrollTop = 0;
                 }
                 this.queryStatus = 'Querying…';
-                try {
-                    const time0 = performance.now();
-                    const labelGeneration = ++this.labelGeneration;
-                    const [rawRows, histogram, labels] = await Promise.all([
-                        this.queryRows(filters),
-                        this.queryHistogram(filters),
-                        this.queryLabels(filters).catch(this.labelsKept),
-                    ]);
-                    if (generation !== this.requestGeneration) {
-                        return;
-                    }
-                    if (labelGeneration === this.labelGeneration) {
-                        this.labelCatalog = labels;
-                    }
-                    this.rows = this.deduplicate(rawRows).reverse();
-                    this.hasMoreOlder = rawRows.length === PAGE_SIZE;
-                    this.histogram = histogram.data;
-                    this.bucketSeconds = histogram.bucketSeconds;
-                    this.queryStatus = `${this.formatCount(this.rows.length)} loaded · ${Math.round(performance.now() - time0)} ms`;
-                    await this.restoreSelectionFromUrl(filters);
-                    this.$nextTick(this.scrollAfterSearch);
-                    this.syncUrlState();
-                    return true;
-                }
-                catch (error) {
-                    if (generation !== this.requestGeneration) {
-                        return;
-                    }
-                    this.queryStatus = 'Query failed';
-                    this.showToast(error.message);
-                    console.error(error);
+                const time0 = performance.now();
+                const rows = this.queryRows(filters, {signal: controller.signal}).then(this.rowsLanded.bind(this, generation, filters), this.searchPartFailed.bind(this, generation, 'rows'));
+                const volume = this.queryHistogram(filters, controller.signal).then(this.volumeLanded.bind(this, generation), this.searchPartFailed.bind(this, generation, 'volume'));
+                const labels = this.queryLabels(filters, controller.signal).then(this.labelsLanded.bind(this, generation, labelGeneration), this.searchPartFailed.bind(this, generation, 'labels'));
+                const [succeeded] = await Promise.all([rows, volume, labels]);
+                if (generation !== this.requestGeneration) {
                     return false;
                 }
-                finally {
-                    if (generation === this.requestGeneration) {
-                        this.loadingInitial = false;
-                    }
+                if (succeeded) {
+                    this.queryStatus = `${this.formatCount(this.rows.length)} loaded · ${Math.round(performance.now() - time0)} ms`;
+                    this.syncUrlState();
+                }
+                else {
+                    this.queryStatus = 'Query failed';
+                }
+                return succeeded;
+            },
+
+            // The lines of a search, the moment they land
+            rowsLanded: async function (generation, filters, rawRows) {
+                if (generation !== this.requestGeneration) {
+                    return false;
+                }
+                this.rows = this.deduplicate(rawRows).reverse();
+                this.hasMoreOlder = rawRows.length === PAGE_SIZE;
+                this.loading.rows = false;
+                this.loadingInitial = false;
+                // The line a shared link points at: the lines are here even when it is not
+                await this.restoreSelectionFromUrl(filters).catch(e => this.showToast(e.message));
+                this.$nextTick(this.scrollAfterSearch);
+                return true;
+            },
+
+            volumeLanded: function (generation, histogram) {
+                if (generation !== this.requestGeneration) {
+                    return;
+                }
+                this.histogram = histogram.data;
+                this.bucketSeconds = histogram.bucketSeconds;
+                this.loading.volume = false;
+            },
+
+            labelsLanded: function (generation, labelGeneration, catalog) {
+                if (generation !== this.requestGeneration) {
+                    return;
+                }
+                if (labelGeneration === this.labelGeneration) {
+                    this.labelCatalog = catalog;
+                }
+                this.loading.labels = false;
+            },
+
+            // A part of a search that did not come: said in its own place, a label count keeping
+            // the labels already shown; one a newer search let go says nothing
+            searchPartFailed: function (generation, part, e) {
+                if ((generation !== this.requestGeneration) || (e.name === 'AbortError')) {
+                    return false;
+                }
+                console.error(e);
+                this.loading[part] = false;
+                this.loadErrors[part] = e.message;
+                if (part === 'rows') {
+                    this.loadingInitial = false;
+                }
+                return false;
+            },
+
+            // The seconds a search has taken so far, counted while any part of it is on its way
+            clockStart: function () {
+                this.clock = Date.now();
+                if (this.clockTimer === null) {
+                    this.clockTimer = window.setInterval(this.clockTick, 100);
                 }
             },
 
-            // A failed label query keeps the labels already shown
-            labelsKept: function (error) {
-                console.error('Could not refresh labels', error);
-                return this.labelCatalog;
+            clockTick: function () {
+                this.clock = Date.now();
+                if (!this.searching) {
+                    window.clearInterval(this.clockTimer);
+                    this.clockTimer = null;
+                }
             },
 
             scrollAfterSearch: function () {
@@ -1536,9 +1615,13 @@
                 if (this.loadingOlder || !this.hasMoreOlder || !this.active || !this.rows.length) {
                     return;
                 }
+                const generation = this.requestGeneration;
                 this.loadingOlder = true;
                 try {
-                    const rawRows = await this.queryRows(this.active, {before: this.rows[0].cursor});
+                    const rawRows = await this.queryRows(this.active, {before: this.rows[0].cursor, signal: this.searchController?.signal});
+                    if (generation !== this.requestGeneration) {
+                        return;
+                    }
                     const known = new Set(this.rows.map(v => v.key));
                     const additions = this.deduplicate(rawRows, known).reverse();
                     const previousTop = this.$refs.viewport?.scrollTop || 0;
@@ -1553,31 +1636,42 @@
                     this.syncUrlState();
                 }
                 catch (error) {
-                    this.hasMoreOlder = false;
-                    this.showToast(error.message);
+                    if ((generation === this.requestGeneration) && (error.name !== 'AbortError')) {
+                        this.hasMoreOlder = false;
+                        this.showToast(error.message);
+                    }
                 }
                 finally {
                     this.loadingOlder = false;
                 }
             },
 
+            // A live poll: one at a time, and never while its search is still on its way. One that a
+            // newer search overtook changes nothing: the range it was asked for is gone.
             pollNewer: async function () {
-                if (!this.followLive || !this.active || this.loadingInitial) {
+                if (!this.followLive || !this.active || this.searching || this.polling) {
                     return;
                 }
+                const generation = this.requestGeneration;
+                const signal = this.searchController?.signal;
                 const time0 = performance.now();
                 const now = new Date();
                 const nextFilters = {...this.active, to: now.toISOString()};
-                this.rangeTo = this.toLocalInputValue(now);
+                this.polling = true;
                 try {
                     const wasEmpty = !this.rows.length;
                     const rawRows = wasEmpty
-                        ? await this.queryRows(nextFilters)
+                        ? await this.queryRows(nextFilters, {signal})
                         : await this.queryRows(nextFilters, {
                             after: this.rows[this.rows.length - 1].cursor,
                             direction: 'asc',
                             limit: 1000,
+                            signal,
                         });
+                    if (generation !== this.requestGeneration) {
+                        return;
+                    }
+                    this.rangeTo = this.toLocalInputValue(now);
                     this.active = nextFilters;
                     let additionsCount = 0;
                     if (rawRows.length) {
@@ -1599,9 +1693,12 @@
                     this.pollCount += 1;
                     if (this.pollCount % 4 === 0) {
                         const [histogram] = await Promise.all([
-                            this.queryHistogram(nextFilters),
+                            this.queryHistogram(nextFilters, signal),
                             this.refreshLabels(),
                         ]);
+                        if (generation !== this.requestGeneration) {
+                            return;
+                        }
                         this.histogram = histogram.data;
                         this.bucketSeconds = histogram.bucketSeconds;
                     }
@@ -1613,8 +1710,13 @@
                     this.syncUrlState();
                 }
                 catch (error) {
-                    this.queryStatus = 'Live retry pending';
-                    console.error(error);
+                    if ((generation === this.requestGeneration) && (error.name !== 'AbortError')) {
+                        this.queryStatus = 'Live retry pending';
+                        console.error(error);
+                    }
+                }
+                finally {
+                    this.polling = false;
                 }
             },
 
@@ -2137,6 +2239,15 @@
 
             shortTime: function (value) {
                 return new Date(value).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+            },
+
+            // An end of the chart's axis: the day too once the range is longer than one, or both
+            // ends of seven days read the same time
+            axisTime: function (value) {
+                if ((new Date(this.active.to) - new Date(this.active.from)) <= 86400*1000) {
+                    return this.shortTime(value);
+                }
+                return new Date(value).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
             },
 
             intervalLabel: function (seconds) {
