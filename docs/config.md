@@ -1276,6 +1276,18 @@ gives the bare name to `"*"` too, the pattern covering only the names under it:
 "inbound": {"*.apps.example.com": {"service": "*", "auth": "authwall"}, "apps.example.com": {"service": "*", "auth": "authwall"}}
 ```
 
+**Every app on one page,** to type in a browser: `http://apps.localhost:3000/` on the computer
+serviceman runs on, and serviceman's own name on the tailnet, `http://serviceman.tail1234.ts.net:3000/`,
+on every device of it (its first word, `http://serviceman:3000/`, where MagicDNS is on, or its
+tailnet address). A cell for every app, by name, with its state, opens it the way that browser
+reaches it: at its name on this computer (`notes.localhost:3000`), at its own port on the tailnet
+(`serviceman.tail1234.ts.net:3400`, below); one whose port does not listen says so and opens
+nothing. `apps` is `apps.` and the rest of serviceman's own name, as an app is named
+(`apps.example.org` beside `serviceman.example.org`). A name a service has is that service's,
+and the page answers only at `/`. Through a machine's door neither name is a page: there only
+the domain's is, where a rule gives it (above). **Apps** says both addresses on top, each with
+its **Copy**.
+
 **On your tailnet, with nothing to set up:** every app has a port of its own on serviceman, so
 every device of the tailnet opens it by serviceman's tailnet name, `notes` at
 `http://serviceman.tail1234.ts.net:3400/`, with no domain, no DNS and nothing typed in Tailscale's

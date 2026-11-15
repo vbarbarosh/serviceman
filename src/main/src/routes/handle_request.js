@@ -1,4 +1,5 @@
 const app_port_route = require('../helpers/app_port_route');
+const apps_page_of = require('../helpers/apps_page_of');
 const client_address = require('../client_address');
 const door_inbound = require('../helpers/door_inbound');
 const error_detail = require('../error_detail');
@@ -25,6 +26,8 @@ const service_files_folder = require('../helpers/service_files_folder');
 const service_phase = require('../helpers/service_phase');
 const service_redir = require('../service_redir');
 const socket_pending = require('../helpers/socket_pending');
+const tailnet_ip_read = require('../helpers/tailnet_ip_read');
+const tailnet_name_read = require('../helpers/tailnet_name_read');
 const timers = require('timers/promises');
 const url_logged = require('../helpers/url_logged');
 const wall_ask = require('../helpers/wall_ask');
@@ -172,11 +175,15 @@ async function request_answer(app, req, res, host, quiet, door)
         // that name is gone: this one is the wall's word.
         req.headers['x-auth-user'] = said.user;
     }
-    if ((route === null) && (app.config.apps.domain !== null) && (host === app.config.apps.domain) && (pathname === '/')) {
-        // The apps domain itself, which no service has: the page of every app under it
+    // A page of apps, at a name no service has: the apps domain itself, apps.localhost on this
+    // computer, serviceman's own tailnet name on the tailnet. Through a machine's door only the
+    // domain is one: serviceman's own name or address on the tailnet is no name of that door's.
+    // On an app's own port nothing but the app answers, an app gone since included.
+    const page = ((route === null) && (pathname === '/') && (req.socket.app_port === undefined)) ? apps_page_of(app, host, {name: tailnet_name_read.known(), ip: tailnet_ip_read.known()}) : null;
+    if ((page !== null) && ((door === null) || (page.way === 'domain'))) {
         answered_by = 'apps';
         res.writeHead(200, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': 'frame-ancestors \'none\''});
-        res.end((req.method === 'HEAD') ? undefined : render_apps_page(app, app.config.apps.domain, req.headers.host));
+        res.end((req.method === 'HEAD') ? undefined : render_apps_page(app, page, req.headers.host));
         return;
     }
     if (route === null) {

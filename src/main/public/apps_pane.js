@@ -21,7 +21,8 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 // version of it dropped on it or picked from it whatever the file is called (an app of its own
 // folder takes a zip or a folder, and keeps its data/), and opens its settings in a small window
 // over the page: its name, whether it is behind authwall, and its public addresses. One behind
-// a wall has a lock before its address.
+// a wall has a lock before its address. On top, the address of the page of every app, to type
+// in a browser here or on a phone of the tailnet.
 const apps_pane = {
     template: `
 <section class="apps-pane">
@@ -29,6 +30,14 @@ const apps_pane = {
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
     <p class="muted">Small apps: a page serviceman serves, an app that runs from its own folder, or one that listens on a socket file. Drop a zip, a folder or one .html page here and it answers at an address of its own at once; dropped on an app's card, it is that app's new version.</p>
+    <div v-if="(page_links.length > 0)" class="app-page">
+        <b>Every app on one page:</b>
+        <span v-for="link of page_links" :key="link.href" class="app-page-link">
+            <a :href="link.href" target="_blank" rel="noopener" :title="('Type it in a browser ' + link.where + ': a cell for every app, each opening it')">{{ link.text }}</a>
+            <span class="muted">{{ link.where }}</span>
+            <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
+        </span>
+    </div>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
         <b>Drop a .zip, a folder or an .html page here</b>
@@ -117,6 +126,28 @@ const apps_pane = {
         },
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
+        },
+        // The page of every app, at each name a browser reaches it by (apps_page_of on the
+        // server): apps.localhost on this computer, serviceman's own tailnet name on every device
+        // of the tailnet, the apps domain where the tailnet answers its names. A name a service
+        // has is that service's, and gives no link here.
+        // [{href, text, where}]
+        page_links: function () {
+            const port = this.state.listen.port;
+            const at = (port === 80) ? '' : `:${port}`;
+            const taken = new Set(this.state.services.flatMap(v => v.publish.hosts.map(vv => vv.split('/')[0].toLowerCase())));
+            const tailnet = ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
+            const out = [];
+            const names = [[`apps.${this.suffix}`, 'on this computer'], [tailnet, 'on every device of your tailnet']];
+            if (this.names_on) {
+                names.push([this.domain, 'on your tailnet, by its name']);
+            }
+            for (const [name, where] of names) {
+                if ((name !== null) && (taken.has(name.toLowerCase()) === false)) {
+                    out.push({href: `http://${name}${at}/`, text: `${name}${at}`, where});
+                }
+            }
+            return out;
         },
         // Whether serviceman answers the apps' names on the tailnet (apps.dns): their names under
         // the domain then open on every device of it, on serviceman's own port

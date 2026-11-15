@@ -24,4 +24,9 @@ function tailnet_ip_read()
     });
 }
 
+// The address as last read, for an answer that cannot wait for tailscale
+tailnet_ip_read.known = function () {
+    return known.ip;
+};
+
 module.exports = tailnet_ip_read;

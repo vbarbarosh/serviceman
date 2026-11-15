@@ -284,7 +284,7 @@ test('the apps domain is a page of a cell for each app under it', async function
     assert.ok(page.body.indexOf('Notes') < page.body.indexOf('Visual Agency'), 'by name');
     assert.strictEqual(page.body.includes('other.test'), false, 'a service elsewhere is not on it');
     assert.strictEqual((await fetch_host({port, host: 'apps.test', path: '/more'})).status, 404);
-    assert.match(render_apps_page({services: []}, 'apps.test', 'apps.test'), /No app here yet: one sent to serviceman under apps\.test lands here/);
+    assert.match(render_apps_page({services: []}, {way: 'domain', domain: 'apps.test'}, 'apps.test'), /No app here yet: one sent to serviceman under apps\.test lands here/);
 });
 
 // With an apps domain, an app sent has both names: the one under the domain, for outside, and the

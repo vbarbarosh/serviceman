@@ -1,5 +1,7 @@
+const app_files_put = require('./app_files_put');
 const html_escape = require('./html_escape');
 const page_tokens = require('./page_tokens');
+const service_is_app = require('./service_is_app');
 const service_phase = require('./service_phase');
 const theme_switch = require('./theme_switch');
 
@@ -85,6 +87,14 @@ header p, .none {
 .dot.failed {
     background: var(--bad);
 }
+.cell.off, .cell.off:hover {
+    border-color: var(--line);
+    background: var(--panel);
+    opacity: .6;
+}
+.cell.off .tile {
+    background: hsl(var(--hue) 10% 36%);
+}
 #theme {
     position: fixed;
     top: 1rem;
@@ -99,35 +109,41 @@ header p, .none {
 }
 `;
 
+// A Host and its port: apps.example.com:3000, [fd7a:115c:a1e0::15]:3000
+const RE_HOST_PORT = /^(.*?)(:[0-9]+)?$/;
+
 // What a cell says of its app's state, in a visitor's words
 const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stopping', failed: 'failed', lost: 'its machine went', stopped: 'asleep'};
 
-// The page of cells at the apps domain itself: every service whose own address is under it, an
-// app sent to serviceman or anything else published there, each a cell that opens it, with its
-// state. The addresses keep the port the visitor came in on, so the page works on serviceman's
-// own door as behind a machine's.
+// A page of apps (apps_page_of): a cell for each, by name, with its state, opening it the way the
+// browser that asked reaches it.
 //
-//     domain  apps.example.com
-//     asked   the Host the visitor asked with, its port too: apps.example.com:3000
-function render_apps_page(app, domain, asked)
+//     domain   at the apps domain itself: every service whose own address is under it, an app
+//              sent to serviceman or anything else published there, on the port the page was
+//              asked on, so the page works on serviceman's own door as behind a machine's
+//     here     at apps.localhost: every app, at its name on this computer, on the page's port
+//     tailnet  at serviceman's tailnet name: every app, at its own port on the name typed; one
+//              whose port does not listen is a cell that says so and opens nothing
+//
+//     page     {way, domain}, as apps_page_of gives it
+//     asked    the Host the visitor asked with, its port too: apps.example.com:3000
+function render_apps_page(app, page, asked)
 {
-    const at = String(asked || '').indexOf(':');
-    const port = (at === -1) ? '' : String(asked).slice(at);
-    const cells = [];
-    for (const service of app.services) {
-        const host = service.hosts.map(v => v.split('/')[0]).find(v => v.endsWith(`.${domain}`) && (v.startsWith('*') === false));
-        if (host === undefined) {
-            continue;
-        }
-        cells.push({service, host, title: service.title || service.name});
-    }
+    const [, name_asked, port = ''] = RE_HOST_PORT.exec(String(asked || ''));
+    const cells = cells_of(app, page, name_asked, port);
     cells.sort((a, b) => a.title.localeCompare(b.title));
     const items = cells.map(function (cell) {
         const phase = service_phase(cell.service);
-        return `<li><a class="cell" href="//${html_escape(cell.host)}${html_escape(port)}/" title="${html_escape(cell.title)} · ${html_escape(cell.host)}"><span class="tile" style="--hue: ${hue_of(cell.service.name)}">${html_escape(Array.from(cell.title)[0].toUpperCase())}</span><b>${html_escape(cell.title)}</b><span class="host">${html_escape(cell.host)}</span><span class="state"><i class="dot ${html_escape(phase)}"></i>${html_escape(STATE_WORDS[phase] || phase)}</span></a></li>`;
+        const tile = `<span class="tile" style="--hue: ${hue_of(cell.service.name)}">${html_escape(Array.from(cell.title)[0].toUpperCase())}</span><b>${html_escape(cell.title)}</b>`;
+        if (cell.href === null) {
+            return `<li><div class="cell off" title="${html_escape(cell.title)} · ${html_escape(cell.why)}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot"></i>${html_escape(cell.why)}</span></div></li>`;
+        }
+        return `<li><a class="cell" href="${html_escape(cell.href)}" title="${html_escape(cell.title)} · ${html_escape(cell.href.slice(2))}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot ${html_escape(phase)}"></i>${html_escape(STATE_WORDS[phase] || phase)}</span></a></li>`;
     });
-    const list = (items.length === 0) ? `<p class="none">No app here yet: one sent to serviceman under ${html_escape(domain)} lands here.</p>` : `<ul class="cells">${items.join('')}</ul>`;
-    const count = `${cells.length} ${(cells.length === 1) ? 'app' : 'apps'} under ${html_escape(domain)}`;
+    const none = (page.way === 'domain') ? `No app here yet: one sent to serviceman under ${html_escape(page.domain)} lands here.` : 'No app here yet: one dropped on serviceman\'s Apps page lands here.';
+    const list = (items.length === 0) ? `<p class="none">${none}</p>` : `<ul class="cells">${items.join('')}</ul>`;
+    const apps = `${cells.length} ${(cells.length === 1) ? 'app' : 'apps'}`;
+    const where = {domain: `under ${html_escape(page.domain)}`, here: 'on this computer', tailnet: 'on every device of your tailnet'}[page.way];
     const theme = theme_switch();
     return `<!doctype html>
 <html lang="en">
@@ -136,11 +152,57 @@ function render_apps_page(app, domain, asked)
 <title>Apps</title>
 <style>${PAGE_CSS}</style>
 <script>${theme.stamp}</script>
-<header><h1>Apps</h1><p>${count}</p></header>
+<header><h1>Apps</h1><p>${apps} ${where}</p></header>
 ${list}
 ${theme.button}
 <script>${theme.toggle}</script>
 `;
+}
+
+// The cells of a page: {service, title, address, href, why}, href null for one that opens
+// nothing from here, why then saying so
+function cells_of(app, page, name_asked, port)
+{
+    const out = [];
+    for (const service of app.services) {
+        const hosts = service.hosts.filter(v => (v.startsWith('*') === false));
+        const title = service.title || service.name;
+        if (page.way === 'domain') {
+            const host = hosts.map(v => v.split('/')[0]).find(v => v.endsWith(`.${page.domain}`));
+            if (host !== undefined) {
+                out.push({service, title, address: host, href: `//${host}${port}/`, why: ''});
+            }
+            continue;
+        }
+        if ((service_is_app(service) === false) || (hosts.length === 0)) {
+            continue;
+        }
+        if (page.way === 'here') {
+            const here = app_files_put.hosts(app, service.name);
+            const local = here[here.length - 1];
+            const suffix = local.slice(local.indexOf('.'));
+            const host = hosts.find(v => v.split('/')[0].endsWith(suffix)) || hosts[0];
+            out.push({service, title, address: host, href: `//${host.split('/')[0]}${port}${path_of(host)}`, why: ''});
+            continue;
+        }
+        const own = app.app_ports_here[service.name];
+        if ((own === undefined) || (own.error !== null)) {
+            // As Apps says it: another program holds it, or it closed
+            const why = (own === undefined) ? 'no port of its own' : (/EADDRINUSE/.test(own.error) ? 'its port is taken' : 'its port is closed');
+            out.push({service, title, address: (own === undefined) ? 'no port' : `port ${own.port}`, href: null, why});
+            continue;
+        }
+        // The name is the same on every cell, and long: the port is what tells them apart
+        out.push({service, title, address: `port ${own.port}`, href: `//${name_asked}:${own.port}/`, why: ''});
+    }
+    return out;
+}
+
+// The path a host of a service names, tools.example.com/pdf: /pdf, and / for none
+function path_of(host)
+{
+    const at = host.indexOf('/');
+    return (at === -1) ? '/' : host.slice(at);
 }
 
 // Each app its own colour, the same on every visit

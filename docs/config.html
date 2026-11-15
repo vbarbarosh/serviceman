@@ -2117,6 +2117,17 @@ was asked on. serviceman answers it on its own door, and through a machine&#39;s
 gives the bare name to <code>&quot;*&quot;</code> too, the pattern covering only the names under it:</p>
 <pre><code class="language-json">&quot;inbound&quot;: {&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}, &quot;apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}}
 </code></pre>
+<p><strong>Every app on one page,</strong> to type in a browser: <code>http://apps.localhost:3000/</code> on the computer
+serviceman runs on, and serviceman&#39;s own name on the tailnet, <code>http://serviceman.tail1234.ts.net:3000/</code>,
+on every device of it (its first word, <code>http://serviceman:3000/</code>, where MagicDNS is on, or its
+tailnet address). A cell for every app, by name, with its state, opens it the way that browser
+reaches it: at its name on this computer (<code>notes.localhost:3000</code>), at its own port on the tailnet
+(<code>serviceman.tail1234.ts.net:3400</code>, below); one whose port does not listen says so and opens
+nothing. <code>apps</code> is <code>apps.</code> and the rest of serviceman&#39;s own name, as an app is named
+(<code>apps.example.org</code> beside <code>serviceman.example.org</code>). A name a service has is that service&#39;s,
+and the page answers only at <code>/</code>. Through a machine&#39;s door neither name is a page: there only
+the domain&#39;s is, where a rule gives it (above). <strong>Apps</strong> says both addresses on top, each with
+its <strong>Copy</strong>.</p>
 <p><strong>On your tailnet, with nothing to set up:</strong> every app has a port of its own on serviceman, so
 every device of the tailnet opens it by serviceman&#39;s tailnet name, <code>notes</code> at
 <code>http://serviceman.tail1234.ts.net:3400/</code>, with no domain, no DNS and nothing typed in Tailscale&#39;s
