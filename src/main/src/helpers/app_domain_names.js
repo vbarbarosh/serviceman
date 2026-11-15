@@ -1,4 +1,4 @@
-const service_app_folder = require('./service_app_folder');
+const service_is_app = require('./service_is_app');
 
 // When a save sets the apps domain, or moves it, every app gets its name under it written in,
 // as an app made after the domain has it from the start: va.apps.example.com beside
@@ -17,7 +17,7 @@ function app_domain_names(json, config, before)
     if (domain === before) {
         return out;
     }
-    const apps = config.services.filter(is_app).map(v => v.name);
+    const apps = config.services.filter(service_is_app).map(v => v.name);
     for (const entry of json.services) {
         if (apps.includes(entry.name) === false) {
             continue;
@@ -46,17 +46,6 @@ function app_domain_names(json, config, before)
         entry.publish = Object.assign((hosts.length === 1) ? {host: hosts[0]} : {hosts}, rest);
     }
     return out;
-}
-
-function is_app(service)
-{
-    if (service.type === 'files') {
-        return true;
-    }
-    if (service_app_folder(service) !== null) {
-        return true;
-    }
-    return (service.type === 'external') && (service.upstream !== undefined) && (service.upstream !== null) && (service.upstream.socket !== undefined);
 }
 
 function hosts_of(entry)

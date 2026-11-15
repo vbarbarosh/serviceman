@@ -72,6 +72,9 @@ function app_from_config(config)
         // (forwards_here)
         forwards_here: Object.create(null),
         forwards_here_lock: Promise.resolve(),
+        // Each app's own port, by app, and one change to them at a time (app_ports_here)
+        app_ports_here: Object.create(null),
+        app_ports_lock: Promise.resolve(),
         // The last upgrade of several machines at once, from the Remotes list (apt_all_run), and
         // the container this serviceman runs in: the machine that runs it goes last
         apt_all: null,

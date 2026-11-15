@@ -26,6 +26,7 @@ const app_settings = {
         <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
     </label>
     <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
+    <p v-if="(tailnet !== '')" class="muted app-settings-says">on every device of your tailnet at <a :href="tailnet" target="_blank" rel="noopener"><code>{{ tailnet }}</code></a></p>
     <div v-if="(app.socket !== null)" class="app-settings-row">
         <span class="app-settings-label">Socket</span>
         <div class="app-socket-how">
@@ -83,6 +84,8 @@ const app_settings = {
         remotes: {type: Array, required: true},
         names: {type: Array, required: true},
         host: {type: String, required: true},
+        // Its own port on serviceman's tailnet name, http://serviceman.tail1234.ts.net:3101/, or ''
+        tailnet: {type: String, default: ''},
         // The folder serviceman keeps its own things in, as its owner sees it: data
         folder: {type: String, required: true},
     },

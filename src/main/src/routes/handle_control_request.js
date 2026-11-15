@@ -2983,6 +2983,8 @@ function state_from_app(app)
         control: app.config.control,
         // The domain the apps sent to serviceman are named under, null for none
         apps: app.config.apps,
+        // Each app's own port, by app: {port, error}, error null for one that listens
+        app_ports: app_ports_view(app),
         // serviceman's own name on the tailnet, which a new agent is told to dial; null off one
         tailnet: {name: tailnet_name_read.known()},
         // Whether a machine may add itself, and what it may claim — never the token itself
@@ -3007,6 +3009,17 @@ function state_from_app(app)
         // A run's lines are its log, asked for when opened; one going shows its last few
         load_test_runs: app.load_test_runs.map(v => Object.assign({}, v, {lines: (v.ended_at === null) ? v.lines.slice(-40) : []})),
     };
+}
+
+// Each app's own port as it is now (app_ports_here), for Apps to give each its tailnet link
+function app_ports_view(app)
+{
+    const out = {};
+    for (const name of Object.keys(app.app_ports_here)) {
+        const found = app.app_ports_here[name];
+        out[name] = {port: found.port, error: found.error};
+    }
+    return out;
 }
 
 module.exports = handle_control_request;

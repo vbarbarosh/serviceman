@@ -1,3 +1,4 @@
+const app_port_route = require('../helpers/app_port_route');
 const door_inbound = require('../helpers/door_inbound');
 const format_seconds = require('../../../helpers/format_seconds');
 const is_localhost_name = require('../helpers/is_localhost_name');
@@ -17,8 +18,8 @@ const wall_route = require('../helpers/wall_route');
 
 // Websocket handshakes wake a sleeping service too, then hand the socket over. One that came
 // in through a machine's door is held to the door's rules as a request is: the service the
-// rule names, past the wall it names, and nothing else; one at this host's own door is held to
-// the wall its service stands behind.
+// rule names, past the wall it names, and nothing else; one on an app's own port is that app's;
+// one at this host's own door is held to the wall its service stands behind.
 function handle_upgrade(app, req, socket, head)
 {
     return log_group_from(socket.log_group, () => socket_answer(app, req, socket, head));
@@ -39,7 +40,9 @@ async function socket_answer(app, req, socket, head)
     }
     socket.once('end', hung_up);
 
-    const door = door_inbound(app, req, host, pathname);
+    // One that came in on an app's own port is that app's, whatever name it carries
+    const own = app_port_route(app, req, host, pathname);
+    const door = (own === null) ? door_inbound(app, req, host, pathname) : null;
     if ((door !== null) && (door.service === null)) {
         // The visitor learns nothing of which machine this is or why: the log has that
         log_event(app, 'inbound_refused', Object.assign({remote: req.socket.tunnel_from, host, upgrade: String(req.headers.upgrade || '')}, door.off ? {off: true} : {}));
@@ -48,15 +51,14 @@ async function socket_answer(app, req, socket, head)
     }
     // A name under .localhost is this computer's own: asked from anywhere else it was typed by
     // hand, and it is no name here
-    if (is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
+    if ((own === null) && is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
         log_event(app, 'localhost_refused', {host, ip: (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress, upgrade: String(req.headers.upgrade || '')});
         socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;
     }
     // A load test's key is serviceman's alone: no service sees it
     delete req.headers[localhost_name_allowed.header];
-    // At this host's own door the name routes it, behind the wall its service stands behind
-    const found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : {route: door.route, wall: door.wall};
+    const found = found_of(app, host, pathname, own, door);
     if (found.wall !== null) {
         // Nothing of the service is touched until the wall has said this visitor may pass; a
         // handshake refused is a 401, since there is no page to send a socket to
@@ -117,6 +119,19 @@ async function socket_answer(app, req, socket, head)
         log_event(app, 'socket_end_ok', `${format_seconds(Date.now() - time0)} ${service.name}#${instance.slot}`);
     }));
     proxy_upgrade(app, service, instance, req, socket, head);
+}
+
+// Its route and its wall: as an app's own port or a machine's door gave them, and at this
+// host's own door as the name routes it, behind the wall its service stands behind
+function found_of(app, host, pathname, own, door)
+{
+    if (own !== null) {
+        return own;
+    }
+    if (door !== null) {
+        return {route: door.route, wall: door.wall};
+    }
+    return wall_route(app, host, pathname, route_from_request(app, host, pathname), null);
 }
 
 module.exports = handle_upgrade;

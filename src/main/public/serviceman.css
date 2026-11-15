@@ -4478,6 +4478,36 @@ article.rf .actions {
     margin-right: .35rem;
 }
 
+/* Its own port on serviceman's tailnet name, a link of its own between the card's link and
+   what can be done to it; the whole address is in its title and in Settings */
+.apps-pane .app-tailnet {
+    overflow: hidden;
+    margin: 0 .8rem .55rem;
+    color: var(--muted);
+    font-size: .85rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-decoration: none;
+    transition: color .12s ease;
+}
+
+.apps-pane a.app-tailnet:hover {
+    color: var(--accent);
+}
+
+.apps-pane .app-tailnet svg {
+    margin-right: .3rem;
+    vertical-align: -2px;
+}
+
+.apps-pane .app-tailnet.bad {
+    color: var(--bad);
+}
+
+.apps-pane .app-sent-tailnet a {
+    overflow-wrap: anywhere;
+}
+
 /* Behind a wall: a lock before its address, in the address's own colour */
 .apps-pane .app-lock {
     margin-right: .3rem;

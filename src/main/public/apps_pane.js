@@ -50,6 +50,7 @@ const apps_pane = {
             <p class="app-sent-link"><a :href="sent.link" target="_blank" rel="noopener">{{ sent.link }}</a><a class="button primary" :href="sent.link" target="_blank" rel="noopener">Open</a></p>
             <p v-if="((sent.other !== '') && names_on)" class="muted">and on this computer: <a :href="sent.other" target="_blank" rel="noopener">{{ sent.other }}</a></p>
             <p v-else-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
+            <p v-if="(tailnet_of(sent.name) !== '')" class="muted app-sent-tailnet">on every device of your tailnet: <a :href="tailnet_of(sent.name)" target="_blank" rel="noopener">{{ tailnet_of(sent.name) }}</a></p>
             <template v-if="(sent.socket !== undefined)">
                 <p class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : '') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
                 <p class="muted">Your app makes that file when it starts listening{{ ((sent.remote || (sent.socket.startsWith(state_folder + '/') === false)) ? '' : '; serviceman has made its folder, in the ' + state_folder + '/ beside its bin/run') }}. Until then the address answers 502.</p>
@@ -65,6 +66,8 @@ const apps_pane = {
                 <span v-if="(app.socket !== null)" class="muted app-host" :title="socket_place(app)">{{ socket_place(app) }}</span>
                 <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
             </a>
+            <a v-if="(tailnet_of(app.name) !== '')" class="app-tailnet" :href="tailnet_of(app.name)" target="_blank" rel="noopener" :title="('On every device of your tailnet, nothing to set up: ' + tailnet_of(app.name))"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>tailnet :{{ port_of(app.name).port }}</a>
+            <span v-else-if="((port_of(app.name) !== null) && (port_of(app.name).error !== null))" class="app-tailnet bad" :title="('Port ' + port_of(app.name).port + ' does not listen: ' + port_of(app.name).error + '. Tried again every minute.')">tailnet :{{ port_of(app.name).port }} {{ (/EADDRINUSE/.test(port_of(app.name).error) ? 'taken' : 'closed') }}</span>
             <div class="app-acts">
                 <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
                 <button v-else type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
@@ -74,7 +77,7 @@ const apps_pane = {
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
-    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
+    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
 </section>
 `,
     components: {'app-settings': app_settings, 'app-socket-add': app_socket_add},
@@ -160,6 +163,21 @@ const apps_pane = {
             const suffix = (this.domain === null) ? null : `.${this.domain}`;
             const found = hosts.find(v => (((suffix !== null) && v.endsWith(suffix)) === this.names_on));
             return found || hosts[0] || '';
+        },
+        // An app's own port as serviceman says it (app_ports_here): {port, error}, or null
+        port_of: function (name) {
+            const ports = this.state.app_ports;
+            return ((ports === undefined) || (ports === null) || (ports[name] === undefined)) ? null : ports[name];
+        },
+        // Its own port on serviceman's tailnet name: every device of the tailnet opens it there,
+        // with no name or DNS set up; '' while it does not listen or the name is not known
+        tailnet_of: function (name) {
+            const found = this.port_of(name);
+            const tailnet = ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
+            if ((found === null) || (found.error !== null) || (tailnet === null)) {
+                return '';
+            }
+            return `http://${tailnet}:${found.port}/`;
         },
         link_of: function (app) {
             const port = this.state.listen.port;

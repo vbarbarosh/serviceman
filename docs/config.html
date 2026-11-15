@@ -827,7 +827,7 @@ edited it in parallel. Load it again and repeat the edit.</p>
 <tr>
 <td><code>apps</code></td>
 <td>none</td>
-<td>The domain an app sent to serviceman is named under. See <strong>An app sent to serviceman</strong>.</td>
+<td>The domain an app sent to serviceman is named under, and the apps&#39; own ports. See <strong>An app sent to serviceman</strong>.</td>
 </tr>
 <tr>
 <td><code>services</code></td>
@@ -2116,7 +2116,23 @@ was asked on. serviceman answers it on its own door, and through a machine&#39;s
 gives the bare name to <code>&quot;*&quot;</code> too, the pattern covering only the names under it:</p>
 <pre><code class="language-json">&quot;inbound&quot;: {&quot;*.apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}, &quot;apps.example.com&quot;: {&quot;service&quot;: &quot;*&quot;, &quot;auth&quot;: &quot;authwall&quot;}}
 </code></pre>
-<p><strong>On your tailnet,</strong> with no DNS server of your own: with <code>dns</code>, serviceman answers the domain&#39;s
+<p><strong>On your tailnet, with nothing to set up:</strong> every app has a port of its own on serviceman, so
+every device of the tailnet opens it by serviceman&#39;s tailnet name, <code>notes</code> at
+<code>http://serviceman.tail1234.ts.net:3400/</code>, with no domain, no DNS and nothing typed in Tailscale&#39;s
+admin. <strong>Apps</strong> shows each one&#39;s link on its card, under <strong>tailnet</strong>, and its <strong>Settings</strong> the whole
+address. Whatever name a request on that port carries, it is that app&#39;s, behind the wall the app
+stands behind, and nothing else is reached there: no other service, never the control page.</p>
+<pre><code class="language-json">&quot;apps&quot;: {&quot;ports&quot;: 3400}
+</code></pre>
+<p><code>ports</code> is the first of them, <code>3400</code> unless said (3100 is Loki&#39;s); <code>null</code> gives none. A new app takes the lowest one
+free from it up, past serviceman&#39;s own ports, and keeps it: it is written in <code>app_ports.json</code> of the
+state folder, the same after a restart and after other apps come and go, it follows a rename, and an
+app taken out lets it go for the next new one. Each listens where the service port does
+(<code>listen.host</code>): in the image the tailnet reaches every port of it, and <code>bin/run</code> publishes only
+3000 and 3001 on this computer (<a href="deploy.html#serviceman-in-a-container-with-tailscale-inside">the image&#39;s doors</a>). One another program
+holds is said on the app&#39;s card and in the log, and tried again every minute. Beside a
+<code>listen.port</code> of <code>0</code>, the apps&#39; ports are <code>0</code> too, whichever is free, kept nowhere.</p>
+<p><strong>On your tailnet, by name,</strong> with no DNS server of your own: with <code>dns</code>, serviceman answers the domain&#39;s
 names on that UDP port, the domain itself and every name under it, each with this machine&#39;s
 tailnet address, and refuses any other name.</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;, &quot;dns&quot;: 53}

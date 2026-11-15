@@ -16,6 +16,7 @@ const DEFAULT_LISTEN_PORT = 8080;
 const DEFAULT_CONTROL_HOST = 'serviceman.localhost';
 const DEFAULT_CONTROL_PORT = 8081;
 const DEFAULT_CONTROL_BIND = '127.0.0.1';
+const DEFAULT_APP_PORTS = 3400;
 const DEFAULT_SOCKET_MODE = 0o600;
 const DEFAULT_START_TIMEOUT = '120s';
 const DEFAULT_START_TRIES = 2;
@@ -82,8 +83,8 @@ function config_from_json(json, base_dir)
         services: [],
         // What k6 is sent at, and from where
         load_tests: load_tests_from_json(json.load_tests, 'load_tests'),
-        // The apps sent to serviceman: the domain each is named under
-        apps: apps_from_json(json.apps, 'apps'),
+        // The apps sent to serviceman: the domain each is named under, and their own ports
+        apps: apps_from_json(json.apps, 'apps', (listen.port === undefined) ? DEFAULT_LISTEN_PORT : listen.port),
     };
     const service_defaults = defaults;
     if (Array.isArray(json.services) === false) {
@@ -180,16 +181,28 @@ function config_from_json(json, base_dir)
 // With dns, serviceman answers the domain's names on that UDP port, each with address, or with
 // this machine's tailnet address where address is left out (apps_dns_start).
 //
-//     {domain, dns, address}   null for each one not given
-function apps_from_json(json, label)
+// Every app has a port of its own as well, from `ports` up, kept for it (app_ports_here):
+// serviceman.tail1234.ts.net:3101 opens it from the tailnet with no name to set up. null gives
+// none; 0 gives each one whichever port is free, as a listen.port of 0 does, and is the default
+// beside one.
+//
+//     {domain, dns, address, ports}   null for each one not given
+function apps_from_json(json, label, listen_port)
 {
+    const ports = (listen_port === 0) ? 0 : DEFAULT_APP_PORTS;
     if ((json === undefined) || (json === null)) {
-        return {domain: null, dns: null, address: null};
+        return {domain: null, dns: null, address: null, ports};
     }
     if ((typeof json !== 'object') || Array.isArray(json)) {
         throw new Error(`${label}: an object is required — {"domain": "apps.example.com"}`);
     }
-    const out = {domain: null, dns: null, address: null};
+    const out = {domain: null, dns: null, address: null, ports};
+    if (json.ports !== undefined) {
+        if ((json.ports !== null) && ((Number.isInteger(json.ports) === false) || (json.ports < 0) || (json.ports > 65535))) {
+            throw new Error(`${label}.ports: the first of the apps' own ports is required, 3400, or null for none (got ${JSON.stringify(json.ports)})`);
+        }
+        out.ports = json.ports;
+    }
     if ((json.domain !== undefined) && (json.domain !== null)) {
         if ((typeof json.domain !== 'string') || (json.domain !== json.domain.toLowerCase()) || (/^[a-z0-9.-]+$/.test(json.domain) === false) || json.domain.startsWith('.') || json.domain.endsWith('.')) {
             throw new Error(`${label}.domain: a lowercase domain, no port and no path, is required (got ${JSON.stringify(json.domain)})`);

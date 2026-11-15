@@ -1002,6 +1002,22 @@ config is shortened, because the real one was a scratch folder.</p>
 <td><code>socket_end_error</code></td>
 <td>It never got that far.</td>
 </tr>
+<tr>
+<td><code>app_port_listen</code></td>
+<td>An app listens on a port of its own: the app and the address.</td>
+</tr>
+<tr>
+<td><code>app_port_listen_error</code></td>
+<td>It could not, and why; tried again every minute, said once per reason.</td>
+</tr>
+<tr>
+<td><code>app_port_close</code></td>
+<td>An app taken out of the config, renamed, or with the ports turned off stopped listening on its port.</td>
+</tr>
+<tr>
+<td><code>app_port_apply_error</code></td>
+<td>Following the config for the apps&#39; ports failed, and why; the next change is still applied.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="services"><a class="anchor" href="#services" aria-hidden="true" tabindex="-1">#</a>Services</h3>

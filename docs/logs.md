@@ -231,6 +231,10 @@ config is shortened, because the real one was a scratch folder.
 | `socket_begin`     | A websocket was joined to a copy of a service.                              |
 | `socket_end_ok`    | It closed, how long it was held, and by which copy.                         |
 | `socket_end_error` | It never got that far.                                                      |
+| `app_port_listen`  | An app listens on a port of its own: the app and the address.               |
+| `app_port_listen_error` | It could not, and why; tried again every minute, said once per reason. |
+| `app_port_close`   | An app taken out of the config, renamed, or with the ports turned off stopped listening on its port. |
+| `app_port_apply_error` | Following the config for the apps' ports failed, and why; the next change is still applied. |
 
 ### Services
 

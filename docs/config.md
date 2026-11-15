@@ -87,7 +87,7 @@ edited it in parallel. Load it again and repeat the edit.
 | `remotes`    | `[]`                | The machines that carry services. See below.                   |
 | `logline`    | none                | Where the remotes send their logs. See **Logline** below.      |
 | `load_tests` | `[]`                | What k6 is sent at. See **Load tests** at the end.             |
-| `apps`       | none                | The domain an app sent to serviceman is named under. See **An app sent to serviceman**. |
+| `apps`       | none                | The domain an app sent to serviceman is named under, and the apps' own ports. See **An app sent to serviceman**. |
 | `services`   | required            | The list below.                                                |
 
 ### A socket file instead of a port
@@ -1275,7 +1275,27 @@ gives the bare name to `"*"` too, the pattern covering only the names under it:
 "inbound": {"*.apps.example.com": {"service": "*", "auth": "authwall"}, "apps.example.com": {"service": "*", "auth": "authwall"}}
 ```
 
-**On your tailnet,** with no DNS server of your own: with `dns`, serviceman answers the domain's
+**On your tailnet, with nothing to set up:** every app has a port of its own on serviceman, so
+every device of the tailnet opens it by serviceman's tailnet name, `notes` at
+`http://serviceman.tail1234.ts.net:3400/`, with no domain, no DNS and nothing typed in Tailscale's
+admin. **Apps** shows each one's link on its card, under **tailnet**, and its **Settings** the whole
+address. Whatever name a request on that port carries, it is that app's, behind the wall the app
+stands behind, and nothing else is reached there: no other service, never the control page.
+
+```json
+"apps": {"ports": 3400}
+```
+
+`ports` is the first of them, `3400` unless said (3100 is Loki's); `null` gives none. A new app takes the lowest one
+free from it up, past serviceman's own ports, and keeps it: it is written in `app_ports.json` of the
+state folder, the same after a restart and after other apps come and go, it follows a rename, and an
+app taken out lets it go for the next new one. Each listens where the service port does
+(`listen.host`): in the image the tailnet reaches every port of it, and `bin/run` publishes only
+3000 and 3001 on this computer ([the image's doors](deploy.md#serviceman-in-a-container-with-tailscale-inside)). One another program
+holds is said on the app's card and in the log, and tried again every minute. Beside a
+`listen.port` of `0`, the apps' ports are `0` too, whichever is free, kept nowhere.
+
+**On your tailnet, by name,** with no DNS server of your own: with `dns`, serviceman answers the domain's
 names on that UDP port, the domain itself and every name under it, each with this machine's
 tailnet address, and refuses any other name.
 

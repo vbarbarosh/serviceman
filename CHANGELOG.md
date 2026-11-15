@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.111 — 2026-11-15
+
+- Every app has a port of its own, from `apps.ports` (3400) up, kept in `app_ports.json`: `http://serviceman.tail1234.ts.net:3400/` opens it from the tailnet with nothing to set up; **Apps** shows each link.
+
 ## 1.0.110 — 2026-11-15
 
 - `tutorials/00-authwall.md`: authwall set up once, which `01` to `05` start from; a file picked is shown picked in a tutorial's video.

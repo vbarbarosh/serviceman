@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const app_from_config = require('./src/helpers/app_from_config');
+const app_ports_here = require('./src/helpers/app_ports_here');
 const cli = require('@vbarbarosh/node-helpers/src/cli');
 const config = require('../../config');
 const counters_apply = require('./src/helpers/counters_apply');
@@ -99,8 +100,10 @@ async function main()
             counters_apply(service, saved[service.name]);
         }
         forward_totals_apply(app, forward_totals_read(app));
-        // The forwards that show up on serviceman itself listen as soon as it does
+        // The forwards that show up on serviceman itself listen as soon as it does, and so does
+        // each app's own port
         forwards_here(app);
+        app_ports_here(app);
         await probe_all(app);
         start_always(app);
         image_prepull_start(app);
@@ -134,6 +137,8 @@ async function main()
             // A forward that could not listen is tried again, on a machine or here
             forwards_tell(app);
             forwards_here(app);
+            // An app's port another program held may be free by now
+            app_ports_here(app);
             // And a table of shared folders a machine did not take, once its root half can
             shared_tell(app);
         }, LOGLINE_INTERVAL_MS);

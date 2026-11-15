@@ -1,4 +1,5 @@
 const agent_reset = require('./agent_reset');
+const app_ports_here = require('./app_ports_here');
 const app_routes_rebuild = require('./app_routes_rebuild');
 const counters_apply = require('./counters_apply');
 const counters_from_service = require('./counters_from_service');
@@ -119,6 +120,8 @@ async function app_apply_config(app, config, given)
     doors_tell(app);
     forwards_tell(app);
     forwards_here(app);
+    // A new app has its own port before the answer that says it was made; a renamed one keeps its
+    await app_ports_here(app, renamed);
     for (const service of fresh) {
         await service_probe(app, service);
     }

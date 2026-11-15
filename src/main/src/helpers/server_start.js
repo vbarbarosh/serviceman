@@ -41,6 +41,10 @@ async function server_start(app)
         out.socket = await file_open(app, control_server(app), app.config.control.socket, app.config.control.socket_mode);
     }
     app.servers = out;
+    // And each app's own port, as the service port answers (app_ports_here)
+    app.app_ports_server = function () {
+        return service_server(app);
+    };
     return out;
 }
 
@@ -61,9 +65,10 @@ function service_server(app)
             socket.destroy();
         });
         const host = String(req.headers.host || '').toLowerCase().split(':')[0];
-        // A handshake that came in through a machine's door is a service's or nobody's: the
-        // control page is never reached that way, as handle_request says of a request
-        if ((socket.tunnel_from === undefined) && (app.config.control.host !== null) && (host === app.config.control.host)) {
+        // A handshake that came in through a machine's door, or on an app's own port, is a
+        // service's or nobody's: the control page is never reached that way, as handle_request
+        // says of a request
+        if ((socket.tunnel_from === undefined) && (socket.app_port === undefined) && (app.config.control.host !== null) && (host === app.config.control.host)) {
             greet(app, req, socket, head);
             return;
         }

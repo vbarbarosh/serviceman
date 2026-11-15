@@ -1,3 +1,4 @@
+const app_port_route = require('../helpers/app_port_route');
 const client_address = require('../client_address');
 const door_inbound = require('../helpers/door_inbound');
 const error_detail = require('../error_detail');
@@ -53,6 +54,11 @@ function referer_logged(req)
 function handle_request(app, req, res)
 {
     const host = String(req.headers.host || '').toLowerCase().split(':')[0];
+    // One that came in on an app's own port is that app's, whatever name it carries
+    const own = app_port_route(app, req, host, pathname_of(req));
+    if (own !== null) {
+        return answer_grouped(app, req, res, host, own);
+    }
     // A request that came in through a machine's door is answered by the service that machine's
     // door was told to answer this name with, behind its wall, and by nothing else: the
     // control page never among it (door_inbound, which reads a websocket handshake the same way)
@@ -83,6 +89,13 @@ function handle_request(app, req, res)
             render_error_page(res, 404, 'No service answers on this address', `${host}${pathname_of(req)}`);
         });
     }
+    return answer_grouped(app, req, res, host, door);
+}
+
+// A request a service may answer, under its own group: `found` is {route, wall} as its door
+// gave them, a machine's or an app's own port, or null for one the name routes
+function answer_grouped(app, req, res, host, found)
+{
     // A load test's key is serviceman's alone: no service sees it
     delete req.headers[localhost_name_allowed.header];
     socket_pending(req.socket, res);
@@ -90,9 +103,9 @@ function handle_request(app, req, res)
     // the page's own machinery, not a visit: it gets no group and no lines, because a log
     // three quarters made of polls is a log nobody can read.
     if (url_quiet(req.url)) {
-        return log_within(req.socket.log_group, () => request_answer(app, req, res, host, true, door));
+        return log_within(req.socket.log_group, () => request_answer(app, req, res, host, true, found));
     }
-    return log_group_from(req.socket.log_group, () => request_answer(app, req, res, host, false, door));
+    return log_group_from(req.socket.log_group, () => request_answer(app, req, res, host, false, found));
 }
 
 // Requests serviceman makes to itself from a page it wrote
@@ -110,10 +123,11 @@ function pathname_of(req)
 }
 
 // `door` is what a machine's door said of this request (door_inbound), where it came in
-// through one, or null: its route — a service answers there because a door says so, not
-// because it publishes the name; a door's rule of "*" gives the route of the service that
-// does — and its wall, the service that has to say yes before it is answered. At this host's
-// own door the name routes it, behind the wall its service stands behind (wall_route).
+// through one, or what an app's own port said (app_port_route), or null: its route — a service
+// answers there because a door says so, not because it publishes the name; a door's rule of
+// "*" gives the route of the service that does — and its wall, the service that has to say yes
+// before it is answered. At this host's own door the name routes it, behind the wall its
+// service stands behind (wall_route).
 async function request_answer(app, req, res, host, quiet, door)
 {
     const time0 = Date.now();
