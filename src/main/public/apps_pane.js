@@ -45,11 +45,15 @@ const apps_pane = {
         <p v-if="sent.busy" class="muted"><span class="spin"/>{{ sent.name }}: {{ (sent.doing ? sent.doing : 'sending ' + format_bytes(sent.bytes)) }}…</p>
         <p v-else-if="(sent.error !== '')" class="bad">{{ sent.error }}</p>
         <template v-else>
-            <p class="app-sent-head"><span class="dot running"></span><b>{{ sent.name }}</b> {{ sent.made ? 'is ready' : 'has its new version' }}</p>
+            <p v-if="(sent.socket !== undefined)" class="app-sent-head"><span class="dot"></span><b>{{ sent.name }}</b> is added: it answers once your app listens on its socket</p>
+            <p v-else class="app-sent-head"><span class="dot running"></span><b>{{ sent.name }}</b> {{ sent.made ? 'is ready' : 'has its new version' }}</p>
             <p class="app-sent-link"><a :href="sent.link" target="_blank" rel="noopener">{{ sent.link }}</a><a class="button primary" :href="sent.link" target="_blank" rel="noopener">Open</a></p>
-            <p v-if="(sent.socket !== undefined)" class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : '') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
             <p v-if="((sent.other !== '') && names_on)" class="muted">and on this computer: <a :href="sent.other" target="_blank" rel="noopener">{{ sent.other }}</a></p>
             <p v-else-if="(sent.other !== '')" class="muted">its name outside, once your tailnet or a machine's door answers it: <code>{{ sent.other }}</code></p>
+            <template v-if="(sent.socket !== undefined)">
+                <p class="app-sent-socket">Set your app to listen on <code>{{ sent.socket }}</code>{{ (sent.remote ? ' on ' + sent.remote : '') }} <button type="button" @click="copy(sent.socket)">{{ (copied === sent.socket ? 'Copied' : 'Copy') }}</button></p>
+                <p class="muted">Your app makes that file when it starts listening{{ ((sent.remote || (sent.socket.startsWith(state_folder + '/') === false)) ? '' : '; serviceman has made its folder, in the ' + state_folder + '/ beside its bin/run') }}. Until then the address answers 502.</p>
+            </template>
         </template>
     </div>
     <ul v-if="(apps.length > 0)" class="app-cells">

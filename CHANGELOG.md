@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.104 — 2026-11-15
+
+- A new app on a socket, and New service's proxy, start in serviceman's own `data/` folder; its card says it waits for its app, which makes the socket file when it listens, not "is ready".
+
 ## 1.0.103 — 2026-11-14
 
 - serviceman makes the folder of an app's socket in its `data/` (`data/sockets/`), owned as `data/` is: a program told to listen on `data/sockets/chat.sock` could not, the folder was never there.

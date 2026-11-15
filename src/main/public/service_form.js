@@ -47,7 +47,7 @@ const SHORT_NAMES = {
 const SHORT_WORDS = {
     docker: 'an agent runs it and stops it on the machine you name',
     shell: 'its folder or a .zip of it, with bin/run, from this computer',
-    external: 'its app listens on a socket file on a machine; serviceman passes requests into it',
+    external: 'its app listens on a socket file, in serviceman\'s own folder or on a machine; serviceman passes requests into it',
 };
 
 // The ports an app folder is given, the first one free from here: well away from serviceman's
@@ -222,7 +222,7 @@ const service_form = {
                 </template>
                 <label>{{ (m.type === 'external' ? 'Its socket on' : 'Runs on') }}</label>
                 <div>
-                    <select v-if="(places.length > 0)" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
+                    <select v-if="((places.length > 0) || (m.type === 'external'))" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
                         <option v-if="(m.type === 'external')" value="">serviceman's own {{ state_folder }}/ folder</option>
                         <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
                     </select>
@@ -722,6 +722,10 @@ const service_form = {
         kind_changing: function () {
             return (this.creating === false) && (this.editing === 'name') && (this.m.type !== this.model.type);
         },
+        // Whether the form was opened from a machine's page, for a new service on that machine
+        from_machine: function () {
+            return this.places.some(v => v.value === this.remote);
+        },
         // The machine a new service is given: the one it was added from, or the first there is
         place_default: function () {
             const found = this.places.find(v => v.value === this.remote);
@@ -932,14 +936,15 @@ const service_form = {
     },
     watch: {
         // While a new one is made, the machine given by default follows the kind: something
-        // already running starts on this host, a container, a program or a proxy (the short
-        // form's) on the default machine
+        // already running starts on this host, a proxy (the short form's) in serviceman's own
+        // data/ folder unless the form was opened from a machine's page, a container or a
+        // program on the default machine
         'model.type': function (type) {
             if (this.creating === false) {
                 return;
             }
             const place = this.model.places[0];
-            if ((type === 'external') && this.simple) {
+            if ((type === 'external') && this.simple && this.from_machine) {
                 return;
             }
             if ((type === 'external') && (place.text === this.place_given)) {

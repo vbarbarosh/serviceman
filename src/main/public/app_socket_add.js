@@ -1,5 +1,5 @@
-// A new app on a socket, in a small window over Apps: its name, the machine its program runs on
-// and the socket file it listens on there. serviceman answers the app's address by passing every
+// A new app on a socket, in a small window over Apps: its name, where its program listens
+// (serviceman's own data/ folder unless a machine is picked) and the socket file there. serviceman answers the app's address by passing every
 // request into that file; nothing is started, the app is its own to run. Add sends it; Cancel,
 // Esc or a click beside the window puts it away with nothing sent.
 const app_socket_add = {
@@ -19,7 +19,6 @@ const app_socket_add = {
     <label class="app-settings-row">
         <span class="app-settings-label">Its socket is</span>
         <select v-model="remote" :disabled="busy">
-            <option :value="null" disabled>a machine…</option>
             <option value="">in serviceman's own {{ folder }}/ folder</option>
             <option v-for="item of machines" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
@@ -31,7 +30,7 @@ const app_socket_add = {
     <p v-if="(remote === '')" class="muted app-settings-says">a file in serviceman's own <code>{{ folder }}/</code>, the folder <code>bin/run</code> gives its container: your app listens on it there</p>
     <p v-else class="muted app-settings-says">the file your app listens on{{ (remote ? ', on ' + remote : '') }}; <code>~</code> is the home of the user its agent runs as</p>
     <div class="app-settings-foot">
-        <button type="button" class="primary" :disabled="(busy || (name === '') || (remote === null))" @click="add">{{ (busy ? 'Adding…' : 'Add') }}</button>
+        <button type="button" class="primary" :disabled="(busy || (name === ''))" @click="add">{{ (busy ? 'Adding…' : 'Add') }}</button>
         <button type="button" :disabled="busy" @click="close">Cancel</button>
         <span class="app-settings-note" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
@@ -48,8 +47,8 @@ const app_socket_add = {
         folder: {type: String, required: true},
     },
     data: function () {
-        // remote: null until a machine is picked, '' for this host
-        return {name: '', remote: null, socket: '', busy: false, note: '', bad: false};
+        // remote: '' for serviceman's own data/ folder, where a new one starts, or a machine
+        return {name: '', remote: '', socket: '', busy: false, note: '', bad: false};
     },
     computed: {
         machines: function () {
@@ -87,7 +86,7 @@ const app_socket_add = {
             }
         },
         add: async function () {
-            if (this.busy || (this.name === '') || (this.remote === null)) {
+            if (this.busy || (this.name === '')) {
                 return;
             }
             if (this.names.includes(this.name)) {

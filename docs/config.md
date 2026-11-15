@@ -30,11 +30,12 @@ for an agent installed as its user), and never a folder that holds files already
 there when the service is removed, with the app's `data/`, which is the service's working space:
 nothing ever merges into it or overwrites it, a new version included. A folder already on the machine is
 named in **All settings…**, as the program's working folder. The name comes from the folder or
-the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. **A proxy** asks for a name, the machine its app runs on and
-the socket file the app listens on there, `~/<name>.sock` unless another is typed: serviceman
-passes every request into that file and never starts or stops the app
-([something listening on a socket file](#something-listening-on-a-socket-file)). All three get
-the machine they run on and an address made of their name. **All settings…** opens every card, with what the short form filled in, for a program of
+the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. **A proxy** asks for a name, where its app listens,
+serviceman's own `data/` folder unless a machine is picked (or the form was opened from a machine's
+page), and the socket file there, `data/sockets/<name>.sock` or `~/<name>.sock` on a machine unless
+another is typed: serviceman passes every request into that file and never starts or stops the app
+([something listening on a socket file](#something-listening-on-a-socket-file)). All three get an
+address made of their name; a container and an app folder, the machine they run on. **All settings…** opens every card, with what the short form filled in, for a program of
 another shape or something already running; an address with a path strips its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
 whole policy. A card's **Save** writes the config file and applies it at once; only the
@@ -1205,10 +1206,11 @@ in its folder, here or on a machine.
 
 **+ An app on a socket** under the card adds one whose program listens on a socket file
 ([something listening on a socket file](#something-listening-on-a-socket-file)): its name, where
-its socket is, serviceman's own `data/` folder or a machine, and the file, `data/sockets/<name>.sock`
-or `~/<name>.sock` there unless another is typed. It answers at once at the names an app gets, the
-card saying the file to set the program to, with **Copy**; until the program listens there its
-address answers 502. Its cell says the file the same way and has **Copy socket** in place of
+its socket is, serviceman's own `data/` folder (chosen as it opens) or a machine, and the file,
+`data/sockets/<name>.sock` or `~/<name>.sock` there unless another is typed. It answers at once at
+the names an app gets, the card saying the file to set the program to, with **Copy**, and that it
+waits for the program: the program makes that file when it starts listening (serviceman makes only
+its folder), and until then the address answers 502. Its cell says the file the same way and has **Copy socket** in place of
 **New version…**; its **Settings** change the socket too. The same through the control door, with a token given the `apps` right:
 
     curl -X PUT -d '{"socket": "~/agency.sock", "remote": "laptop"}' -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
