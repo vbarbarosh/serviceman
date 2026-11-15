@@ -97,11 +97,14 @@ const apps_pane = {
         apps: function () {
             return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
         },
-        // What an app's own name has after it, beside serviceman's: localhost for
-        // serviceman.localhost
+        // What an app's own name has after it, beside serviceman's own name in its config, as
+        // serviceman names a new app (app_files_hosts): localhost for serviceman.localhost,
+        // wherever this page was opened from
         suffix: function () {
-            const at = location.hostname.indexOf('.');
-            return (at === -1) ? 'localhost' : location.hostname.slice(at + 1);
+            const control = this.state.control;
+            const host = ((control === undefined) || (control === null) || (typeof control.host !== 'string')) ? 'localhost' : control.host;
+            const at = host.indexOf('.');
+            return (at === -1) ? host : host.slice(at + 1);
         },
         // The folder serviceman keeps its own things in, as its owner sees it: data/ under bin/run
         state_folder: function () {

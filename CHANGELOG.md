@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.105 — 2026-11-15
+
+- **+ An app on a socket** says the app's address as serviceman gives it, from its config's name: opened at `127.0.0.1` it said `gggggg.0.0.1`.
+
 ## 1.0.104 — 2026-11-15
 
 - A new app on a socket, and New service's proxy, start in serviceman's own `data/` folder; its card says it waits for its app, which makes the socket file when it listens, not "is ready".
