@@ -34,6 +34,7 @@ import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
 import program_place from './program_place.js';
 import program_shell from './program_shell.js';
+import rail_fold from './rail_fold.js';
 import rail_gauges from './rail_gauges.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
@@ -63,7 +64,6 @@ import tokens_form from './tokens_form.js';
 import updates_lists from './updates_lists.js';
 import volumes_pane from './volumes_pane.js';
 import walls_of from './walls_of.js';
-
 import {createApp} from 'vue';
 
 const POLL_MS = 1000;
@@ -1930,13 +1930,17 @@ const app = {
             <span class="name">Security</span>
             <span :class="security_tally.state" :title="security_tally.title">{{ security_tally.text }}</span>
         </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'services' && selected_name === null), open: (kind_now === 'services')}" @click="home_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
-            <span class="name">Services</span>
-            <span class="muted">{{ state.services.length }}</span>
-        </button>
-        <!-- The open kind shows what is in it, one step in, under its own row -->
-        <div v-if="(kind_now === 'services' && state.services.length > 0)" class="rail-tree">
+        <div class="rail-kind" :class="{on: (kind_now === 'services' && selected_name === null)}">
+            <button type="button" class="row kind" :class="{on: (kind_now === 'services' && selected_name === null), open: (kind_now === 'services')}" @click="home_show">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
+                <span class="name">Services</span>
+                <span class="muted">{{ state.services.length }}</span>
+            </button>
+            <rail-fold v-if="(kind_now === 'services' && state.services.length > 0)" :folded="rail_folded.includes('services')" what="services" @toggle="rail_fold_toggle('services')"/>
+        </div>
+        <!-- The open kind shows what is in it, one step in, under its own row, unless its arrow
+             folded that away -->
+        <div v-if="(kind_now === 'services' && state.services.length > 0 && rail_folded.includes('services') === false)" class="rail-tree">
             <button v-for="view of rail_services" :key="view.name" type="button" class="row" :class="{on: (view.name === selected_name)}" :title="view.name" @click="select(view)">
                 <dot :phase="(view.doing === null ? view.phase : 'starting')"/>
                 <span class="name">{{ view.title || view.name }}</span>
@@ -1947,12 +1951,15 @@ const app = {
             <span class="name">Apps</span>
             <span class="muted">{{ apps_count }}</span>
         </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'remotes' && remote_name === null), open: (kind_now === 'remotes')}" @click="remotes_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-            <span class="name">Remotes</span>
-            <span :class="(remotes_offline > 0 ? 'bad' : 'muted')">{{ remotes_offline > 0 ? remotes_offline + ' offline' : state.remotes.length }}</span>
-        </button>
-        <div v-if="(kind_now === 'remotes' && state.remotes.length > 0)" class="rail-tree">
+        <div class="rail-kind" :class="{on: (kind_now === 'remotes' && remote_name === null)}">
+            <button type="button" class="row kind" :class="{on: (kind_now === 'remotes' && remote_name === null), open: (kind_now === 'remotes')}" @click="remotes_show">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+                <span class="name">Remotes</span>
+                <span :class="(remotes_offline > 0 ? 'bad' : 'muted')">{{ remotes_offline > 0 ? remotes_offline + ' offline' : state.remotes.length }}</span>
+            </button>
+            <rail-fold v-if="(kind_now === 'remotes' && state.remotes.length > 0)" :folded="rail_folded.includes('remotes')" what="machines" @toggle="rail_fold_toggle('remotes')"/>
+        </div>
+        <div v-if="(kind_now === 'remotes' && state.remotes.length > 0 && rail_folded.includes('remotes') === false)" class="rail-tree">
             <button v-for="item of rail_remotes" :key="item.name" type="button" class="row" :class="{on: (item.name === remote_name)}" :title="item.name" @click="remote_select(item)">
                 <dot :phase="remote_dot(item)" :title="remote_unanswered_said(item)"/>
                 <span class="name">{{ item.title || item.name }}</span>
@@ -1962,12 +1969,15 @@ const app = {
                 </span>
             </button>
         </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'addresses'), open: (kind_now === 'addresses')}" @click="addresses_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
-            <span class="name">Addresses</span>
-            <span class="muted">{{ addresses_count }}</span>
-        </button>
-        <div v-if="(kind_now === 'addresses' && rail_addresses.length > 0)" class="rail-tree">
+        <div class="rail-kind" :class="{on: (kind_now === 'addresses')}">
+            <button type="button" class="row kind" :class="{on: (kind_now === 'addresses'), open: (kind_now === 'addresses')}" @click="addresses_show">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+                <span class="name">Addresses</span>
+                <span class="muted">{{ addresses_count }}</span>
+            </button>
+            <rail-fold v-if="(kind_now === 'addresses' && rail_addresses.length > 0)" :folded="rail_folded.includes('addresses')" what="addresses" @toggle="rail_fold_toggle('addresses')"/>
+        </div>
+        <div v-if="(kind_now === 'addresses' && rail_addresses.length > 0 && rail_folded.includes('addresses') === false)" class="rail-tree">
             <button v-for="item of rail_addresses" :key="item.key" type="button" class="row" :title="('goes to ' + item.service)" @click="select_named(item.service)">
                 <span class="name"><code>{{ item.address }}</code></span>
             </button>
@@ -1982,12 +1992,15 @@ const app = {
             <span class="name">Forwards</span>
             <span class="muted">{{ forwards_count }}</span>
         </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'storage'), open: (kind_now === 'storage')}" @click="volumes_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-            <span class="name">Storage</span>
-            <span class="muted">{{ volumes_count }}</span>
-        </button>
-        <div v-if="(kind_now === 'storage' && rail_folders.length > 0)" class="rail-tree">
+        <div class="rail-kind" :class="{on: (kind_now === 'storage')}">
+            <button type="button" class="row kind" :class="{on: (kind_now === 'storage'), open: (kind_now === 'storage')}" @click="volumes_show">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+                <span class="name">Storage</span>
+                <span class="muted">{{ volumes_count }}</span>
+            </button>
+            <rail-fold v-if="(kind_now === 'storage' && rail_folders.length > 0)" :folded="rail_folded.includes('storage')" what="folders" @toggle="rail_fold_toggle('storage')"/>
+        </div>
+        <div v-if="(kind_now === 'storage' && rail_folders.length > 0 && rail_folded.includes('storage') === false)" class="rail-tree">
             <button v-for="item of rail_folders" :key="item.key" type="button" class="row" :title="item.title" @click="select_named(item.service)">
                 <span class="name"><code>{{ item.name }}</code></span>
             </button>
@@ -1997,12 +2010,15 @@ const app = {
             <span class="name">Shared folders</span>
             <span class="muted">{{ shared_count }}</span>
         </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'secrets'), open: (kind_now === 'secrets')}" @click="secrets_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
-            <span class="name">Secrets</span>
-            <span class="muted">{{ secrets_count }}</span>
-        </button>
-        <div v-if="(kind_now === 'secrets' && secret_names.length > 0)" class="rail-tree">
+        <div class="rail-kind" :class="{on: (kind_now === 'secrets')}">
+            <button type="button" class="row kind" :class="{on: (kind_now === 'secrets'), open: (kind_now === 'secrets')}" @click="secrets_show">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
+                <span class="name">Secrets</span>
+                <span class="muted">{{ secrets_count }}</span>
+            </button>
+            <rail-fold v-if="(kind_now === 'secrets' && secret_names.length > 0)" :folded="rail_folded.includes('secrets')" what="secrets" @toggle="rail_fold_toggle('secrets')"/>
+        </div>
+        <div v-if="(kind_now === 'secrets' && secret_names.length > 0 && rail_folded.includes('secrets') === false)" class="rail-tree">
             <button v-for="name of rail_secrets" :key="name" type="button" class="row" @click="secrets_show">
                 <span class="name"><code>{{ name }}</code></span>
             </button>
@@ -2068,7 +2084,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2079,6 +2095,8 @@ const app = {
             skin: storage_get('serviceman.skin') || '',
             // The numbers beside each machine in the rail, as its Overview's tiles tick them
             rail_numbers: rail_numbers_read(),
+            // The kinds whose list under their row is folded away, kept in this browser
+            rail_folded: rail_folded_read(),
             skins: [],
             skin_menu: false,
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
@@ -3091,6 +3109,11 @@ const app = {
             this.remote_name = null;
         },
         // A tick on a machine's Overview tile shows that number beside every machine in the rail
+        // A kind's list folded away or back, the page shown staying as it is
+        rail_fold_toggle: function (kind) {
+            this.rail_folded = this.rail_folded.includes(kind) ? this.rail_folded.filter(v => v !== kind) : this.rail_folded.concat([kind]);
+            storage_set('serviceman.rail_folded', JSON.stringify(this.rail_folded));
+        },
         rail_number_pick: function (pick) {
             const others = this.rail_numbers.filter(v => (v !== pick.key));
             this.rail_numbers = pick.on ? [...others, pick.key] : others;
@@ -3284,6 +3307,19 @@ function rail_numbers_read()
     }
     catch {
         return ['cpu', 'memory'];
+    }
+}
+
+// The kinds of the rail whose list is folded away, kept in this browser; anything unreadable is
+// none, every list shown
+function rail_folded_read()
+{
+    try {
+        const kept = JSON.parse(storage_get('serviceman.rail_folded'));
+        return Array.isArray(kept) ? kept.filter(v => ['services', 'remotes', 'addresses', 'storage', 'secrets'].includes(v)) : [];
+    }
+    catch {
+        return [];
     }
 }
 

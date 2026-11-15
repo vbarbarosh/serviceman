@@ -1818,6 +1818,54 @@ kbd {
     font-weight: 600;
 }
 
+/* A kind whose items are listed under it: its row, then the arrow that folds the list away,
+   one line across the rail, the selected colour over both */
+nav .rail-kind {
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--line);
+    background: var(--bar);
+}
+
+nav .rail-kind > .row {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-bottom: 0;
+}
+
+nav .rail-kind.on {
+    background: var(--sel);
+}
+
+.rail-fold {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color .12s ease, background .12s ease;
+}
+
+.rail-fold:hover {
+    background: var(--bar-hover);
+    color: var(--fg);
+}
+
+.rail-fold svg {
+    transition: transform .12s ease;
+}
+
+.rail-fold.folded svg {
+    transform: rotate(-90deg);
+}
+
 /* The items of the open kind, one step in, with a guide line down their left */
 .rail-tree {
     flex: none;
@@ -2522,8 +2570,13 @@ button.palette-hit.on {
     }
 
     nav#rail .rail-gap,
-    nav#rail .rail-tree {
+    nav#rail .rail-tree,
+    nav#rail .rail-fold {
         display: none;
+    }
+
+    nav#rail .rail-kind {
+        border-bottom: 0;
     }
 
     #find {

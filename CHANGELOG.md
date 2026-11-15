@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.120 — 2026-11-16
+
+- An arrow beside an open kind of the rail (Services, Remotes, Addresses, Storage, Secrets) folds its list away and back; the page stays, and the fold is kept in this browser.
+
 ## 1.0.119 — 2026-11-16
 
 - A wall per team: the Authwall page lists the walls and makes one for another team, a copy of authwall with its own users; every Sign-in is one list of the walls.
