@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.110 — 2026-11-15
+
+- `tutorials/00-authwall.md`: authwall set up once, which `01` to `05` start from; a file picked is shown picked in a tutorial's video.
+
 ## 1.0.109 — 2026-11-15
 
 - The **Config** page's save of an apps domain gives every app its name under it, made before the domain or after (`va.apps.example.com`); a domain moved moves them.

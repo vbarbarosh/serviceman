@@ -4,8 +4,8 @@ A site already on **Apps**, behind authwall, given a public name in its **Settin
 the door of a machine that takes traffic from outside. That machine's door asks authwall
 first, so a visitor signs in on the public name itself.
 
-**Before it starts:** a fresh serviceman with `authwall` (at `authwall.localhost`, a user `demo`,
-password `demo-pass-1234`), `my-site` (a folder of files, titled "My site", at
+**Before it starts:** a fresh serviceman with `authwall` as
+[00](00-authwall.md) leaves it (its user `demo`, password `demo-pass-1234`), `my-site` (a folder of files, titled "My site", at
 `my-site.localhost`, behind authwall) and one machine, `laptop`, its agent dialled in with its
 door open; in front of that door, port `8443` of this computer, and `my-site.example.test`
 pointing at it, as a public name would point at a machine's front.

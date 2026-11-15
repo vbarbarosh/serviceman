@@ -4,8 +4,8 @@ A dashboard that already answers on a port of this computer: **New service**, **
 settings…**, **Something already running** gives it an address; the **Sign-in** box on its
 page's **Addresses** card puts authwall in front of it.
 
-**Before it starts:** a fresh serviceman with `authwall` (at `authwall.localhost`, a user `demo`,
-password `demo-pass-1234`); `dash`, a small page titled "Dashboard" already listening on
+**Before it starts:** a fresh serviceman with `authwall` as
+[00](00-authwall.md) leaves it (its user `demo`, password `demo-pass-1234`); `dash`, a small page titled "Dashboard" already listening on
 `127.0.0.1:8090`, which shows the `X-Auth-User` it is given in an element `#who` ("none"
 without one).
 

@@ -6,6 +6,7 @@ after the page or a feature changes too, by following this page.
 
 | File | What it shows |
 |------|---------------|
+| [00-authwall.md](00-authwall.md) | authwall set up once, as a docker image: every tutorial after it starts there |
 | [01-a-static-site.md](01-a-static-site.md) | A zip of HTML given on **Apps**, open at once, then behind authwall |
 | [02-a-proxy-into-a-socket.md](02-a-proxy-into-a-socket.md) | A program with no port, reached through a socket file, behind authwall |
 | [03-something-already-running.md](03-something-already-running.md) | A dashboard already on a port, given an address and a sign-in |
@@ -43,6 +44,10 @@ draws one: an arrow above everything on the page, put where the mouse is on ever
 ring for a moment on each click. The run moves the mouse to what it is about to click or type
 into, in a short glide of about half a second, never a jump, then clicks. After a page loads,
 the cursor is put back where it was.
+
+**A file picked is seen picked.** A recorded browser draws no window of its own when a page
+asks for a file, so the run draws one over the page: a folder, its files, the one to pick, **Open**;
+the cursor clicks the file, then **Open**, and the window goes as the page gets the file.
 
 **The voice says each step's Say line.** The lines are spoken before the run starts, one sound
 file each, so the run knows how long each takes; at each step the run waits as long as its line

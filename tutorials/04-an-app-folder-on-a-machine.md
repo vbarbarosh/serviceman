@@ -5,8 +5,8 @@ machine whose agent dialled in, where it sleeps until somebody visits. Behind au
 stranger asking for its page is sent to sign in and wakes nothing; authwall's own sign-in page
 asks the app for `/favicon.ico`, which authwall lets through, and that wakes it.
 
-**Before it starts:** a fresh serviceman with `authwall` (at `authwall.localhost`, a user `demo`,
-password `demo-pass-1234`) and one machine, `laptop`, its agent dialled in; `notes-app.zip`, a
+**Before it starts:** a fresh serviceman with `authwall` as
+[00](00-authwall.md) leaves it (its user `demo`, password `demo-pass-1234`) and one machine, `laptop`, its agent dialled in; `notes-app.zip`, a
 folder with `bin/run` starting a small server on `PORT`, titled "Notes", which shows the
 `X-Auth-User` it is given in an element `#who`.
 
@@ -32,7 +32,7 @@ folder with `bin/run` starting a small server on `PORT`, titled "Notes", which s
 
 ### 2. kind
 
-- **Do:** click **An app folder**; **A .zip…** and pick `notes-app.zip`.
+- **Do:** click **An app folder**; **A .zip…**; in the window that opens, pick `notes-app.zip`, **Open**.
 - **See:** the zip named in the form, with how many files it holds, laptop as its machine.
 - **Say:** Pick An app folder, and give it the zip.
 

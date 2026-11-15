@@ -5,8 +5,8 @@ A program with no port of its own, listening on a socket file in serviceman's `d
 file, says so until the program listens, then picks it up by itself. Behind authwall, the
 program hears who signed in.
 
-**Before it starts:** a fresh serviceman with `authwall` (at `authwall.localhost`, a user `demo`,
-password `demo-pass-1234`) and one machine, `laptop`; `chat`, a small program that listens on the
+**Before it starts:** a fresh serviceman with `authwall` as
+[00](00-authwall.md) leaves it (its user `demo`, password `demo-pass-1234`) and one machine, `laptop`; `chat`, a small program that listens on the
 socket file it is given and answers "Hello, stranger", or "Hello, you" with the `X-Auth-User`
 serviceman passes it, in an element `#who`.
 

@@ -4,8 +4,8 @@ A folder of HTML, zipped, given on **Apps**: it answers at once at an address of
 to anyone on this computer; then one box in its **Settings** puts it behind authwall, which asks
 a visitor to sign in first.
 
-**Before it starts:** a fresh serviceman with no services but `authwall` (a service at
-`authwall.localhost` with a user `demo`, password `demo-pass-1234`); `my-site.zip`, a folder
+**Before it starts:** a fresh serviceman with no services but `authwall` as
+[00](00-authwall.md) leaves it (its user `demo`, password `demo-pass-1234`); `my-site.zip`, a folder
 whose `index.html` is titled "My site", at the top of the zip.
 
 ## Flowchart
@@ -29,7 +29,7 @@ whose `index.html` is titled "My site", at the top of the zip.
 
 ### 2. give
 
-- **Do:** click the drop card and pick `my-site.zip`.
+- **Do:** click the drop card; in the window that opens, pick `my-site.zip`, **Open**.
 - **See:** the card says my-site is ready, with its address and **Open**.
 - **Say:** Click the drop card, or drop the zip on it. serviceman unpacks it and gives it an address.
 
