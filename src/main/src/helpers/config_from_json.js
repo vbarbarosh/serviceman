@@ -8,6 +8,7 @@ const logline_from_json = require('./logline_from_json');
 const path = require('path');
 const program_mark = require('./program_mark');
 const remotes_from_json = require('./remotes_from_json');
+const service_is_app = require('./service_is_app');
 const upstream_from_text = require('./upstream_from_text');
 const volumes_from_json = require('./volumes_from_json');
 
@@ -133,6 +134,21 @@ function config_from_json(json, base_dir)
             throw new Error(`services: ${JSON.stringify(service.name)} is behind itself — a wall and what it guards are two services`);
         }
     }
+    // The wall Apps names stands in front of the page of apps and of every app with no wall of
+    // its own, one sent tomorrow too: each takes it here, marked as the one Apps gave, so every
+    // way to an app asks it (its names, its own port, a door, a websocket). The wall itself is
+    // never put behind itself, an app though it may be.
+    if (out.apps.auth !== null) {
+        if (names.includes(out.apps.auth) === false) {
+            throw new Error(`apps.auth: every app is behind ${JSON.stringify(out.apps.auth)}, and no service has that name`);
+        }
+        for (const service of out.services) {
+            if (service_is_app(service) && (service.auth === null) && (service.name !== out.apps.auth)) {
+                service.auth = out.apps.auth;
+                service.auth_from = 'apps';
+            }
+        }
+    }
     // A door says which service answers each of its names, and may name a wall to ask before
     // anything is answered at all. Neither can be a service that is not in the config: a rule
     // naming one is a rule nothing could ever act on. "*" is the service whose own address the
@@ -177,6 +193,7 @@ function config_from_json(json, base_dir)
 }
 
 // {"domain": "apps.example.com"}: an app sent as notes answers on notes.apps.example.com.
+// With auth, the page of apps and every app with no wall of its own stand behind that service.
 // Without one it is named the way the New service form names one: after the control page's.
 // With dns, serviceman answers the domain's names on that UDP port, each with address, or with
 // this machine's tailnet address where address is left out (apps_dns_start).
@@ -186,17 +203,17 @@ function config_from_json(json, base_dir)
 // none; 0 gives each one whichever port is free, as a listen.port of 0 does, and is the default
 // beside one.
 //
-//     {domain, dns, address, ports}   null for each one not given
+//     {domain, dns, address, ports, auth}   null for each one not given
 function apps_from_json(json, label, listen_port)
 {
     const ports = (listen_port === 0) ? 0 : DEFAULT_APP_PORTS;
     if ((json === undefined) || (json === null)) {
-        return {domain: null, dns: null, address: null, ports};
+        return {domain: null, dns: null, address: null, ports, auth: null};
     }
     if ((typeof json !== 'object') || Array.isArray(json)) {
         throw new Error(`${label}: an object is required — {"domain": "apps.example.com"}`);
     }
-    const out = {domain: null, dns: null, address: null, ports};
+    const out = {domain: null, dns: null, address: null, ports, auth: auth_from_json(json.auth, `${label}.auth`)};
     if (json.ports !== undefined) {
         if ((json.ports !== null) && ((Number.isInteger(json.ports) === false) || (json.ports < 0) || (json.ports > 65535))) {
             throw new Error(`${label}.ports: the first of the apps' own ports is required, 3400, or null for none (got ${JSON.stringify(json.ports)})`);

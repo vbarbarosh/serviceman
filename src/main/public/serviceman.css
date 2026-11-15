@@ -4627,6 +4627,15 @@ article.rf .actions {
     padding: .1rem .55rem;
 }
 
+/* The box on top: the page of apps and every app behind authwall, under the page's addresses */
+.apps-pane .apps-wall {
+    margin: .7rem 0 0;
+}
+
+.apps-pane .apps-wall-says {
+    margin: .25rem 0 0 1.6rem;
+}
+
 /* An app on a socket is added from a line under the drop card, and the card says the file */
 .apps-pane .app-more {
     display: flex;

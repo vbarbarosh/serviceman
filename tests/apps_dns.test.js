@@ -86,5 +86,5 @@ test('the apps\' names need a domain, and an address is one', function () {
     assert.throws(bad({domain: 'apps.test', dns: 'fifty'}), /apps\.dns: the UDP port/);
     assert.throws(bad({domain: 'apps.test', address: '100.64.0'}), /apps\.address: the IPv4 address/);
     assert.throws(bad({domain: 'apps.test', address: '100.64.0.300'}), /apps\.address/);
-    assert.deepStrictEqual(config_from_json({apps: {domain: 'apps.test', dns: 53}, services: []}, '/srv/serviceman').apps, {domain: 'apps.test', dns: 53, address: null, ports: 3400});
+    assert.deepStrictEqual(config_from_json({apps: {domain: 'apps.test', dns: 53}, services: []}, '/srv/serviceman').apps, {domain: 'apps.test', dns: 53, address: null, ports: 3400, auth: null});
 });

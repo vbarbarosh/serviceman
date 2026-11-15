@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.116 — 2026-11-15
+
+- One box on top of **Apps** puts the page of apps and every app, a new one too, behind authwall (`"apps": {"auth": "authwall"}`); the page asks it first on each of its names, its sign-in there.
+
 ## 1.0.115 — 2026-11-15
 
 - Two agent tests no longer race their own fakes: the fake apt-get notes its call whole or not at all, and the bin/update tests wait for the run to end by asking.

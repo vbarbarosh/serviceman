@@ -87,7 +87,7 @@ edited it in parallel. Load it again and repeat the edit.
 | `remotes`    | `[]`                | The machines that carry services. See below.                   |
 | `logline`    | none                | Where the remotes send their logs. See **Logline** below.      |
 | `load_tests` | `[]`                | What k6 is sent at. See **Load tests** at the end.             |
-| `apps`       | none                | The domain an app sent to serviceman is named under, and the apps' own ports. See **An app sent to serviceman**. |
+| `apps`       | none                | The domain an app sent to serviceman is named under, the apps' own ports, and the wall in front of the page of apps and every app (`auth`). See **An app sent to serviceman**. |
 | `services`   | required            | The list below.                                                |
 
 ### A socket file instead of a port
@@ -1287,6 +1287,26 @@ nothing. `apps` is `apps.` and the rest of serviceman's own name, as an app is n
 and the page answers only at `/`. Through a machine's door neither name is a page: there only
 the domain's is, where a rule gives it (above). **Apps** says both addresses on top, each with
 its **Copy**.
+
+**The page and every app behind authwall:** one box on top of **Apps**, under those addresses,
+puts the page of apps and every app behind `authwall`, an app sent tomorrow too. The page asks it
+first on each of its names, and `/auth/…` there is the wall's own, so the sign-in comes up on the
+name you typed; each app asks it at every address it has, as its own box would
+([behind a wall at every address](#behind-a-wall-at-every-address)). An app with a wall of its
+own keeps that one, and the wall itself is never put behind itself. While the box is on, an app's
+own box in its **Settings** shows ticked, from Apps; off again, each app is as its own box says.
+Through a machine's door, a rule that names a wall keeps it. In the config it is one field,
+the name of the wall's service:
+
+```json
+"apps": {"auth": "authwall"},
+"services": [
+    {"name": "authwall", "type": "external", "publish": {"host": "authwall.localhost"}, "upstream": "127.0.0.1:3200"}
+]
+```
+
+The same through the control door: `PUT /api/v1/apps` with `{"auth": "authwall"}`, or
+`{"auth": null}` for none.
 
 **On your tailnet, with nothing to set up:** every app has a port of its own on serviceman, so
 every device of the tailnet opens it by serviceman's tailnet name, `notes` at

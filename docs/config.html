@@ -827,7 +827,7 @@ edited it in parallel. Load it again and repeat the edit.</p>
 <tr>
 <td><code>apps</code></td>
 <td>none</td>
-<td>The domain an app sent to serviceman is named under, and the apps&#39; own ports. See <strong>An app sent to serviceman</strong>.</td>
+<td>The domain an app sent to serviceman is named under, the apps&#39; own ports, and the wall in front of the page of apps and every app (<code>auth</code>). See <strong>An app sent to serviceman</strong>.</td>
 </tr>
 <tr>
 <td><code>services</code></td>
@@ -2128,6 +2128,22 @@ nothing. <code>apps</code> is <code>apps.</code> and the rest of serviceman&#39;
 and the page answers only at <code>/</code>. Through a machine&#39;s door neither name is a page: there only
 the domain&#39;s is, where a rule gives it (above). <strong>Apps</strong> says both addresses on top, each with
 its <strong>Copy</strong>.</p>
+<p><strong>The page and every app behind authwall:</strong> one box on top of <strong>Apps</strong>, under those addresses,
+puts the page of apps and every app behind <code>authwall</code>, an app sent tomorrow too. The page asks it
+first on each of its names, and <code>/auth/…</code> there is the wall&#39;s own, so the sign-in comes up on the
+name you typed; each app asks it at every address it has, as its own box would
+(<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>). An app with a wall of its
+own keeps that one, and the wall itself is never put behind itself. While the box is on, an app&#39;s
+own box in its <strong>Settings</strong> shows ticked, from Apps; off again, each app is as its own box says.
+Through a machine&#39;s door, a rule that names a wall keeps it. In the config it is one field,
+the name of the wall&#39;s service:</p>
+<pre><code class="language-json">&quot;apps&quot;: {&quot;auth&quot;: &quot;authwall&quot;},
+&quot;services&quot;: [
+    {&quot;name&quot;: &quot;authwall&quot;, &quot;type&quot;: &quot;external&quot;, &quot;publish&quot;: {&quot;host&quot;: &quot;authwall.localhost&quot;}, &quot;upstream&quot;: &quot;127.0.0.1:3200&quot;}
+]
+</code></pre>
+<p>The same through the control door: <code>PUT /api/v1/apps</code> with <code>{&quot;auth&quot;: &quot;authwall&quot;}</code>, or
+<code>{&quot;auth&quot;: null}</code> for none.</p>
 <p><strong>On your tailnet, with nothing to set up:</strong> every app has a port of its own on serviceman, so
 every device of the tailnet opens it by serviceman&#39;s tailnet name, <code>notes</code> at
 <code>http://serviceman.tail1234.ts.net:3400/</code>, with no domain, no DNS and nothing typed in Tailscale&#39;s

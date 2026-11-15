@@ -359,6 +359,10 @@ async function control_answer(app, req, res)
         await service_create(app, req, res);
         return;
     }
+    if ((url.pathname === '/api/v1/apps') && (req.method === 'PUT')) {
+        await apps_settings_update(app, req, res);
+        return;
+    }
     if ((url.pathname === '/api/v1/remotes') && (req.method === 'POST')) {
         await remote_create(app, req, res);
         return;
@@ -2262,6 +2266,34 @@ async function config_write(app, req, res)
         notes.unshift(`${named.removed.join(', ')}: no longer named under ${before}`);
     }
     send_json(res, 200, Object.assign({ok: true, restart_needed: applied.restart_needed, notes, hash: text_hash(text)}, renamed ? {text} : {}));
+}
+
+// PUT /api/v1/apps   {auth}: the wall in front of the page of apps and of every app with none
+// of its own, a new one too, or null for none; an app's own wall stays its own either way
+async function apps_settings_update(app, req, res)
+{
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    const auth = (body === null) ? undefined : body.auth;
+    if ((auth !== null) && ((typeof auth !== 'string') || (auth.trim() === ''))) {
+        send_json(res, 400, {error: 'auth: the name of the service every app stands behind, or null for none'});
+        return;
+    }
+    await config_file_mutate(app, res, function (json) {
+        const apps = ((json.apps !== null) && (typeof json.apps === 'object') && (Array.isArray(json.apps) === false)) ? json.apps : {};
+        if (auth === null) {
+            delete apps.auth;
+        }
+        else {
+            apps.auth = auth.trim();
+        }
+        if (Object.keys(apps).length === 0) {
+            delete json.apps;
+        }
+        else {
+            json.apps = apps;
+        }
+        return null;
+    }, 400);
 }
 
 // POST /api/v1/services (body)

@@ -38,6 +38,8 @@ function view_from_service(service, now)
         phase,
         // The wall it stands behind wherever it is asked, or null
         auth: (service.auth === undefined) ? null : service.auth,
+        // 'apps' where that wall is the one Apps puts in front of every app, null where it is its own
+        auth_from: (service.auth_from === 'apps') ? 'apps' : null,
         redirect: (service.redirect === undefined) ? null : service.redirect,
         // The address serviceman keeps for it on its own hostname, for the rules that only
         // accept `localhost` — an OAuth callback above all

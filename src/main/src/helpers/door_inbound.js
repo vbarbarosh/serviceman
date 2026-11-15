@@ -24,7 +24,8 @@ const wall_route = require('./wall_route');
 //     route    {path, service} as the request is routed: a rule of "*" keeps the path its
 //              service answers on, which the service may take off
 //     home     a rule of "*" asked for the apps domain itself, which no service has: the page of
-//              its apps answers it (render_apps_page), behind the rule's wall
+//              its apps answers it (render_apps_page), behind the rule's wall or else the one
+//              Apps names
 function door_inbound(app, req, host, pathname)
 {
     claim_drop(req);
@@ -37,7 +38,12 @@ function door_inbound(app, req, host, pathname)
         return {service: null, wall: null, off: (rule !== null) && rule.off, route: null};
     }
     if (rule.service === '*') {
-        const found = wall_route(app, host, pathname, route_from_request(app, host, pathname), rule.auth);
+        let found = wall_route(app, host, pathname, route_from_request(app, host, pathname), rule.auth);
+        // The apps domain itself, which no service has: the page of its apps, behind the rule's
+        // wall, or else the one Apps names, its sign-in that wall's on the domain
+        if ((found.route === null) && (found.wall === null) && (app.config.apps.domain !== null) && (host === app.config.apps.domain)) {
+            found = wall_route.apps_page(app, pathname);
+        }
         const home = (found.route === null) && (app.config.apps.domain !== null) && (host === app.config.apps.domain);
         return {service: (found.route === null) ? null : found.route.service, wall: found.wall, off: false, route: found.route, home};
     }

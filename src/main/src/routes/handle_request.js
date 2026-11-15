@@ -157,7 +157,17 @@ async function request_answer(app, req, res, host, quiet, door)
     }
 
     // A wall the service stands behind is asked whichever way it is reached
-    const found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : door;
+    let found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : door;
+    // A page of apps, at a name no service has: the apps domain itself, apps.localhost on this
+    // computer, serviceman's own tailnet name on the tailnet. Through a machine's door only the
+    // domain is one: serviceman's own name or address on the tailnet is no name of that door's.
+    // On an app's own port nothing but the app answers, an app gone since included.
+    const page_name = ((found.route === null) && (req.socket.app_port === undefined)) ? apps_page_of(app, host, {name: tailnet_name_read.known(), ip: tailnet_ip_read.known()}) : null;
+    const page = ((page_name !== null) && ((door === null) || (page_name.way === 'domain'))) ? page_name : null;
+    // Behind the wall Apps names, its sign-in on the page's own names; a door has asked its own
+    if ((page !== null) && (door === null)) {
+        found = wall_route.apps_page(app, pathname);
+    }
     const route = found.route;
     const wall = found.wall;
     // Nothing of the service is touched — not woken, not asked, not even named in the log —
@@ -175,12 +185,7 @@ async function request_answer(app, req, res, host, quiet, door)
         // that name is gone: this one is the wall's word.
         req.headers['x-auth-user'] = said.user;
     }
-    // A page of apps, at a name no service has: the apps domain itself, apps.localhost on this
-    // computer, serviceman's own tailnet name on the tailnet. Through a machine's door only the
-    // domain is one: serviceman's own name or address on the tailnet is no name of that door's.
-    // On an app's own port nothing but the app answers, an app gone since included.
-    const page = ((route === null) && (pathname === '/') && (req.socket.app_port === undefined)) ? apps_page_of(app, host, {name: tailnet_name_read.known(), ip: tailnet_ip_read.known()}) : null;
-    if ((page !== null) && ((door === null) || (page.way === 'domain'))) {
+    if ((page !== null) && (route === null) && (pathname === '/')) {
         answered_by = 'apps';
         res.writeHead(200, {'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': 'frame-ancestors \'none\''});
         res.end((req.method === 'HEAD') ? undefined : render_apps_page(app, page, req.headers.host));

@@ -40,4 +40,19 @@ function wall_name(app, host, pathname, service, door_wall)
     return (walled === undefined) ? null : walled.service.auth;
 }
 
+// The page of apps behind the wall Apps names (apps.auth), at a name of the page no service has:
+// {route, wall} as wall_route gives them, the wall's own pages under /auth answered by the wall
+// on the page's names so a visitor can sign in there; nothing in front where Apps names none.
+wall_route.apps_page = function (app, pathname) {
+    const name = app.config.apps.auth;
+    const wall = (name === null) ? undefined : app.service_by_name[name];
+    if (wall === undefined) {
+        return {route: null, wall: null};
+    }
+    if (wall_ask.own(pathname)) {
+        return {route: {path: '', service: wall}, wall: null};
+    }
+    return {route: null, wall};
+};
+
 module.exports = wall_route;

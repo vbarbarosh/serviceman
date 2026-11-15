@@ -6,6 +6,9 @@ import to_clipboard from './to_clipboard.js';
 import zip_blob from './zip_blob.js';
 import zip_entries from './zip_entries.js';
 
+// The wall the box on top puts every app behind, as an app's own box does (app_settings)
+const WALL_NAME = 'authwall';
+
 // A page of its own, given as one file: 2.html, notes.htm
 const RE_PAGE = /\.html?$/i;
 
@@ -22,7 +25,8 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 // folder takes a zip or a folder, and keeps its data/), and opens its settings in a small window
 // over the page: its name, whether it is behind authwall, and its public addresses. One behind
 // a wall has a lock before its address. On top, the address of the page of every app, to type
-// in a browser here or on a phone of the tailnet.
+// in a browser here or on a phone of the tailnet, and one box that puts that page and every app,
+// a new one too, behind authwall (apps.auth).
 const apps_pane = {
     template: `
 <section class="apps-pane">
@@ -38,6 +42,12 @@ const apps_pane = {
             <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
         </span>
     </div>
+    <label class="app-wall apps-wall" :class="{none: (wall === null)}">
+        <input type="checkbox" :checked="all_walled" :disabled="(wall_busy || (wall === null))" @change="wall_all($event.target.checked)">
+        <span>Behind {{ (wall === null ? 'authwall' : wall) }}: this page and every app <span class="muted">· every visitor signs in first, a new app too; off, each app keeps its own box</span></span>
+    </label>
+    <p v-if="(wall === null)" class="muted apps-wall-says">No authwall yet: a service called <code>authwall</code> is added on the Authwall page first.</p>
+    <p v-if="(wall_error !== '')" class="bad apps-wall-says">{{ wall_error }}</p>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
         <b>Drop a .zip, a folder or an .html page here</b>
@@ -102,7 +112,8 @@ const apps_pane = {
         // app whose settings window is open, as it was when it opened
         // socket_adding: the window for a new app on a socket is open; copied: the text the last
         // Copy put on the clipboard
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, STATE_WORDS};
+        // wall_busy: the box on top is being saved; wall_error: why its last save was refused
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', STATE_WORDS};
     },
     computed: {
         sending: function () {
@@ -126,6 +137,18 @@ const apps_pane = {
         },
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
+        },
+        // Whether the page of apps and every app stand behind the wall Apps names
+        all_walled: function () {
+            return (this.state.apps !== undefined) && (this.state.apps !== null) && (typeof this.state.apps.auth === 'string');
+        },
+        // The wall the box puts them behind: the one named already, or a service called
+        // authwall; null when there is none to put them behind
+        wall: function () {
+            if (this.all_walled) {
+                return this.state.apps.auth;
+            }
+            return this.state.services.some(v => v.name === WALL_NAME) ? WALL_NAME : null;
         },
         // The page of every app, at each name a browser reaches it by (apps_page_of on the
         // server): apps.localhost on this computer, serviceman's own tailnet name on every device
@@ -173,6 +196,25 @@ const apps_pane = {
         copy: async function (text) {
             if (await to_clipboard(text)) {
                 this.copied = text;
+            }
+        },
+        // The box on top, saved as it is clicked: the page of apps and every app behind the wall,
+        // or each app back to its own box
+        wall_all: async function (on) {
+            this.wall_busy = true;
+            this.wall_error = '';
+            try {
+                const answer = await fetch('/api/v1/apps', {method: 'PUT', body: JSON.stringify({auth: on ? this.wall : null})});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
+                }
+                this.$emit('saved');
+            }
+            catch (error) {
+                this.wall_error = error.message;
+            }
+            finally {
+                this.wall_busy = false;
             }
         },
         // A new app on a socket: the card says where it answers, and the file to set its app to

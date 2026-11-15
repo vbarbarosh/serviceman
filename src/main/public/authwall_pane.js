@@ -39,13 +39,15 @@ const authwall_pane = {
             </div>
         </div>
         <h2>What it guards</h2>
+        <p v-if="guards_apps" class="muted">The page of every app too, and every app sent from now on: the box on top of Apps.</p>
         <data-table v-if="(behind.length > 0)" :columns="behind_columns" :rows="behind" row_key="name" actions_label="Change">
             <template #cell="{row, column}">
                 <button v-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.name)">{{ row.title || row.name }}</button>
                 <template v-else-if="(column.key === 'where')"><span class="muted">every address it has:</span> <code v-for="(host, i) of hosts_of(row)" :key="host" class="name">{{ host }}{{ (i < hosts_of(row).length - 1 ? ' ' : '') }}</code></template>
             </template>
             <template #actions="{row}">
-                <button type="button" :disabled="busy" @click="unwall(row)">Stop guarding</button>
+                <span v-if="(row.auth_from === 'apps')" class="muted">with every app: the box on top of Apps</span>
+                <button v-else type="button" :disabled="busy" @click="unwall(row)">Stop guarding</button>
             </template>
         </data-table>
         <data-table v-if="((guarded.length > 0) || (behind.length === 0))" :columns="guarded_columns" :rows="guarded" :row_key="rule_key" :row_class="v => (v.off ? 'off' : [])" actions_label="Change" empty="Nothing yet — pick a name below, or an app's Settings on Apps.">
@@ -96,8 +98,13 @@ const authwall_pane = {
                 {key: 'where', label: 'Where', wraps: true, fold: 1},
             ];
         },
+        // Whether Apps puts the page of apps and every app behind this wall
+        guards_apps: function () {
+            return (this.state.apps !== undefined) && (this.state.apps !== null) && (this.state.apps.auth === this.wall) && (this.wall !== null);
+        },
         // The services behind this wall wherever they are asked, by a box of their own (an app's
-        // Settings): every address they have, not a name of a door
+        // Settings) or as every app (the box on top of Apps): every address they have, not a name
+        // of a door
         behind: function () {
             return this.state.services.filter(v => (v.auth === this.wall));
         },

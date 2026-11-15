@@ -39,9 +39,10 @@ const app_settings = {
     </div>
     <div class="app-settings-row">
         <span class="app-settings-label">Sign-in</span>
-        <label class="app-wall" :class="{none: (wall === null)}">
-            <input v-model="walled" type="checkbox" :disabled="(busy || (wall === null))">
-            <span>Behind {{ (wall === null ? 'authwall' : wall) }} <span class="muted">· every visitor signs in first, at every address</span></span>
+        <label class="app-wall" :class="{none: ((wall === null) || from_apps)}">
+            <input v-if="from_apps" type="checkbox" checked disabled>
+            <input v-else v-model="walled" type="checkbox" :disabled="(busy || (wall === null))">
+            <span>Behind {{ (wall === null ? 'authwall' : wall) }} <span class="muted">· {{ (from_apps ? 'as every app: the box on top of Apps' : 'every visitor signs in first, at every address') }}</span></span>
         </label>
         <p v-if="(wall === null)" class="muted app-settings-says">No authwall yet: a service called <code>authwall</code> is added on the Authwall page first.</p>
     </div>
@@ -95,8 +96,9 @@ const app_settings = {
         // Save; where and socket: an app on a socket's place and file, as its card says them
         const where = ((this.app.socket === null) || (this.app.remotes.length === 0)) ? '' : this.app.remotes[0];
         const socket = (this.app.socket === null) ? '' : this.app.socket_said;
-        // walled: whether it is behind its wall, as the box says it now
-        const walled = (this.app.auth !== null) && (this.app.auth !== undefined);
+        // walled: whether it is behind a wall of its own, as the box says it now; one Apps puts
+        // in front of every app is not its own, and is not written into it
+        const walled = (this.app.auth !== null) && (this.app.auth !== undefined) && (this.app.auth_from !== 'apps');
         return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, walled, walled_was: walled, busy: false, note: '', bad: false};
     },
     computed: {
@@ -167,6 +169,10 @@ const app_settings = {
             }
             return (this.names.includes(WALL_NAME) && (this.app.name !== WALL_NAME)) ? WALL_NAME : null;
         },
+        // Its wall is the one Apps puts in front of every app, not a box of its own
+        from_apps: function () {
+            return (this.app.auth_from === 'apps');
+        },
         changed: function () {
             return (this.name !== this.current) || (this.walled !== this.walled_was) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
         },
@@ -204,9 +210,10 @@ const app_settings = {
         drop: function (row) {
             this.gone.push(row);
         },
-        // The wall an address is behind as it will be: the app's own while the box is on
+        // The wall an address is behind as it will be: the app's own while the box is on, and
+        // the one Apps puts in front of every app
         behind_of: function (row) {
-            return this.walled ? this.wall : row.auth;
+            return (this.walled || this.from_apps) ? this.wall : row.auth;
         },
         report: function (note, bad) {
             this.note = note;
