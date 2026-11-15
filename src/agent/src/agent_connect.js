@@ -17,7 +17,10 @@ const DIAL_TIMEOUT_MS = parseInt(process.env.SERVICEMAN_DIAL_TIMEOUT_MS || '1500
 //
 // The door is a host and a port, or a socket file — `unix:///run/serviceman.sock`. A socket file
 // is what an ssh forward hands you, so an agent can reach a serviceman that listens on nothing.
-function agent_connect(options)
+//
+// `tailnet` is this machine on the tailnet (agent_tailnet), or null: a machine that joins is
+// named after its tailnet name, where it has one.
+function agent_connect(options, tailnet)
 {
     return new Promise(function (resolve, reject) {
         const url = new URL(options.url);
@@ -33,6 +36,7 @@ function agent_connect(options)
                 // it can do; a machine that holds its own token is already written down
                 'serviceman-machine': options.machine,
                 'serviceman-tags': options.tags.join(','),
+                'serviceman-tailnet': ((tailnet === null) || (tailnet === undefined) || (tailnet.name === null)) ? '' : tailnet.name,
             },
         }));
         request.setTimeout(DIAL_TIMEOUT_MS, function () {

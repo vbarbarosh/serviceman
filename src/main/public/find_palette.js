@@ -1,5 +1,6 @@
 import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
+import tailnet_name_of from './tailnet_name_of.js';
 
 // Ctrl K: one box that finds anything on the page by any word it carries — a service by its
 // name, address or image, a machine by its hostname, a folder by its path — and says what kind
@@ -64,7 +65,7 @@ const find_palette = {
                 const machine = ((remote.machine === undefined) || (remote.machine === null)) ? null : remote.machine;
                 const count = services.filter(v => v.remotes.includes(remote.name)).length;
                 const sub = `${remote_state_text(remote).split(' · ')[0]} · ${count} ${(count === 1) ? 'service' : 'services'}`;
-                const words = [remote.name, (machine === null) ? '' : machine.hostname].concat(remote.tags);
+                const words = [remote.name, (machine === null) ? '' : machine.hostname, tailnet_name_of(machine)].concat(remote.tags);
                 out.push({kind: 'remote', key: `remote ${remote.name}`, text: remote.title || remote.name, sub, words, phase: remote_dot(remote), target: {kind: 'remote', name: remote.name}});
             }
             for (const service of services) {

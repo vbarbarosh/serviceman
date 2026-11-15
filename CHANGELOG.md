@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.112 — 2026-11-15
+
+- A machine shows its tailnet name beside its own (**Remotes**, its page, the search), and one that joins is named after it, `auto-laptop` (agent 1.37.0). **Addresses** says who opens each name and each app's port, ✓ ✗ or ? with what was measured, and where it is set.
+
 ## 1.0.111 — 2026-11-15
 
 - Every app has a port of its own, from `apps.ports` (3400) up, kept in `app_ports.json`: `http://serviceman.tail1234.ts.net:3400/` opens it from the tailnet with nothing to set up; **Apps** shows each link.

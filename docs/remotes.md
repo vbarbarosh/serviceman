@@ -55,13 +55,14 @@ serviceman builds that file out of its own modules every time it is asked for, s
 never be out of date. To carry it over yourself instead, `bin/agent-bundle` writes the same
 file here.
 
-| Option     | What it is                                                              |
-|------------|-------------------------------------------------------------------------|
-| `--url`    | Where serviceman answers, or a socket file. `SERVICEMAN_URL`.           |
-| `--token`  | The token of this machine. `SERVICEMAN_TOKEN`.                          |
-| `--dir`    | The folder whose free space is reported. `SERVICEMAN_DIR`, default `/`. |
-| `--docker` | The docker command on that machine. `SERVICEMAN_DOCKER`.                |
-| `--once`   | Dial once and exit when the link drops, instead of dialling again.      |
+| Option        | What it is                                                                       |
+|---------------|----------------------------------------------------------------------------------|
+| `--url`       | Where serviceman answers, or a socket file. `SERVICEMAN_URL`.                    |
+| `--token`     | The token of this machine. `SERVICEMAN_TOKEN`.                                   |
+| `--dir`       | The folder whose free space is reported. `SERVICEMAN_DIR`, default `/`.          |
+| `--docker`    | The docker command on that machine. `SERVICEMAN_DOCKER`.                         |
+| `--tailscale` | The tailscale command, which says its name on the tailnet. `SERVICEMAN_TAILSCALE`. |
+| `--once`      | Dial once and exit when the link drops, instead of dialling again.               |
 
 ### An image
 
@@ -268,6 +269,11 @@ The line says what it claimed and what was dropped. **A tag in the config is a f
 a machine is a claim** — only `tags_allowed` is honoured, because a machine that names its own
 tags is choosing which of your work it receives.
 
+**It is named after its name on the tailnet,** so one machine has one name in serviceman and in
+Tailscale: `laptop.tail1234.ts.net` joins as `auto-laptop`, the prefix kept. Its agent
+reads the name from `tailscale status` on that machine; a machine on no tailnet is named after
+its hostname, as before. A name taken already gets six letters more, `auto-laptop-3f9a1c`.
+
 The machine says which machine it is (`--machine`, the hostname by default), so the same box
 coming back takes its own entry instead of leaving a dead one behind. That identity is worth
 exactly as much as the join token: **whoever holds it can add a machine to your fleet and claim
@@ -306,6 +312,12 @@ servermon is off or silent (its last line older than 5 seconds) the numbers are 
 Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in `/api/v1/status`.
+
+**Its name on the tailnet** stands beside the one serviceman gives it: on its card and its row
+under **Remotes**, and on its page, under the name and in the **Machine** card with its tailnet
+address. The agent asks the machine's own tailscale (`tailscale status`) at every hello; an agent
+before 1.37 does not, and a machine on no tailnet shows none. The filter and the search in the
+header find a machine by it as by its name.
 
 What a machine says of itself is its own word, and is checked before it is kept. A hello whose
 `resources` are of another shape (no cpu, a memory that is no number) is refused whole: the link

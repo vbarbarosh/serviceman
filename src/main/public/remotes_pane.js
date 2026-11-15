@@ -12,6 +12,7 @@ import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_uptime from './remote_uptime.js';
+import tailnet_name_of from './tailnet_name_of.js';
 
 const REMOTES_VIEW_KEY = 'serviceman.remotes_view';
 
@@ -33,7 +34,7 @@ const remotes_pane = {
         </div>
     </div>
     <div class="list-tools">
-        <input v-model.trim="filter" type="search" placeholder="filter by name, hostname, tag" spellcheck="false">
+        <input v-model.trim="filter" type="search" placeholder="filter by name, hostname, tailnet name, tag" spellcheck="false">
         <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
             <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
             {{ chip.label }}
@@ -56,6 +57,7 @@ const remotes_pane = {
                 <span class="pill" :class="pill_class(card)">{{ card.pill }}</span>
                 <agent-pill :current="card.agent"/>
             </div>
+            <p v-if="(card.tailnet !== null)" class="machine-tailnet muted">tailnet <code class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + card.tailnet)">{{ card.tailnet }}</code></p>
             <p v-for="line of card.troubles" :key="line" class="alert">{{ line }}</p>
             <div v-if="(card.bars.length > 0)" class="bars">
                 <template v-for="bar of card.bars" :key="bar.label">
@@ -89,6 +91,7 @@ const remotes_pane = {
                 <span class="dot" :class="row.dot"/>
                 <button type="button" class="link" title="The machine's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
                 <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
+                <code v-if="(row.tailnet !== null)" class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + row.tailnet)">{{ row.tailnet }}</code>
             </span>
             <!-- A machine with no numbers says why across their empty cells: since when it is away,
                  what waits for it, what went wrong -->
@@ -165,7 +168,7 @@ const remotes_pane = {
                     return false;
                 }
                 const machine = (remote.machine === undefined) ? null : remote.machine;
-                const words = [remote.name, remote.title || '', (machine === null) ? '' : machine.hostname].concat(remote.tags).join(' ').toLowerCase();
+                const words = [remote.name, remote.title || '', (machine === null) ? '' : machine.hostname, tailnet_name_of(machine)].concat(remote.tags).join(' ').toLowerCase();
                 return (wanted === '') || words.includes(wanted);
             });
         },
@@ -238,6 +241,8 @@ const remotes_pane = {
                 remote,
                 title: remote.title || remote.name,
                 name_shown: is_name_in_title(remote.title, remote.name) === false,
+                // Its name on the tailnet, beside the one serviceman gives it; null for none
+                tailnet: (tailnet_name_of(machine) === '') ? null : tailnet_name_of(machine),
                 online,
                 // running, waiting while its answers do not come, failed while it is away
                 dot: remote_dot(remote),

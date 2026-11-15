@@ -27,6 +27,7 @@ const timers = require('timers/promises');
 const tunnel_inbound = require('../src/main/src/helpers/tunnel_inbound');
 const tunnel_open = require('../src/main/src/helpers/tunnel_open');
 const tunnel_window = require('../src/helpers/tunnel_window');
+const view_from_remote = require('../src/main/src/helpers/view_from_remote');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -35,6 +36,9 @@ const JOIN_TOKEN = 'aaaabbbbccccddddeeeeffff00001111';
 
 // Every agent this file spawns keeps its state here — never beside its own file in src/
 process.env.SERVICEMAN_AGENT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-'));
+// No agent here asks the tailscale of the computer the tests run on: a machine that joins is
+// named after its tailnet name, and the names below are the ones it gives itself
+process.env.SERVICEMAN_TAILSCALE = path.join(process.env.SERVICEMAN_AGENT_DIR, 'no-tailscale');
 // The machine's numbers are servermon's: an agent given this log folder starts it, and the
 // servermon it started outlives it, so the file stops it at the end
 const LOGS_ENV = {SERVICEMAN_LOG_DIR: path.join(process.env.SERVICEMAN_AGENT_DIR, 'logs')};
@@ -397,6 +401,69 @@ test('a machine nobody wrote down adds itself with the join token, and claims on
         finally {
             again.kill('SIGKILL');
         }
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await serviceman_close(app, servers);
+    }
+});
+
+// A machine has one name in serviceman and in Tailscale: one that joins is named after its
+// tailnet name, the prefix kept, and its page shows the whole name and address beside it
+test('a machine that joins is named after its tailnet name, and shows it', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tailnet-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    fs.writeFileSync(config_path, JSON.stringify({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        join: {token: JOIN_TOKEN, name_prefix: 'auto-'},
+        services: [],
+    }, null, 4));
+    // tailscale as it answers on a machine of the tailnet, the dot DNS ends a name with included
+    const tailscale = path.join(dir, 'tailscale');
+    const said = {Self: {DNSName: 'laptop.tail1234.ts.net.', TailscaleIPs: ['100.64.0.21', 'fd7a:115c:a1e0::15']}};
+    fs.writeFileSync(tailscale, `#!/bin/sh\ncat <<'EOF'\n${JSON.stringify(said)}\nEOF\n`, {mode: 0o755});
+    const app = app_from_config(await profile_from_db(config_path));
+    app.state_dir = path.join(dir, 'state');
+    const servers = await server_start(app);
+    const agent = agent_start(servers.control.address().port, JOIN_TOKEN, ['--machine', 'box-21'], {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), SERVICEMAN_TAILSCALE: tailscale});
+    try {
+        await wait_until(() => app.remote_by_name['auto-laptop'] !== undefined);
+        const joined = app.remote_by_name['auto-laptop'];
+        assert.strictEqual(joined.machine, 'box-21', 'the machine is still known by what it calls itself');
+        await wait_until(() => joined.state.phase === 'online');
+        assert.deepStrictEqual(view_from_remote(joined).machine.tailnet, {name: 'laptop.tail1234.ts.net', ip: '100.64.0.21'});
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await serviceman_close(app, servers);
+    }
+});
+
+// A machine off the tailnet joins as before, named after what it calls itself
+test('a machine with no tailnet name joins under its own name, with no tailnet shown', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-no-tailnet-'));
+    const config_path = path.join(dir, 'serviceman.json');
+    fs.writeFileSync(config_path, JSON.stringify({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        join: {token: JOIN_TOKEN, name_prefix: 'auto-'},
+        services: [],
+    }, null, 4));
+    // tailscale installed and logged out: it answers, with nothing about this machine
+    const tailscale = path.join(dir, 'tailscale');
+    fs.writeFileSync(tailscale, '#!/bin/sh\necho \'{"BackendState": "NeedsLogin", "Self": null}\'\n', {mode: 0o755});
+    const app = app_from_config(await profile_from_db(config_path));
+    app.state_dir = path.join(dir, 'state');
+    const servers = await server_start(app);
+    const agent = agent_start(servers.control.address().port, JOIN_TOKEN, ['--machine', 'box-22'], {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), SERVICEMAN_TAILSCALE: tailscale});
+    try {
+        await wait_until(() => app.remote_by_name['auto-box-22'] !== undefined);
+        const joined = app.remote_by_name['auto-box-22'];
+        await wait_until(() => joined.state.phase === 'online');
+        const tailnet = view_from_remote(joined).machine.tailnet;
+        // The box's own interfaces may hold a tailnet address; a name, never
+        assert.strictEqual((tailnet === null) || (tailnet.name === null), true);
     }
     finally {
         agent.kill('SIGKILL');

@@ -7,6 +7,7 @@ const agent_say = require('./agent_say');
 const agent_service_target = require('./agent_service_target');
 const crypto = require('crypto');
 const http = require('http');
+const is_tailnet_address = require('../../helpers/is_tailnet_address');
 const log_uid = require('../../helpers/log_uid');
 
 // The port the machines' agents reach each other on, over the tailnet
@@ -27,7 +28,7 @@ function agent_peer_serve(options, group)
     if ((port === 0) || Number.isNaN(port)) {
         return;
     }
-    const hosts = (options.peer_host === '') ? agent_addresses().filter(is_tailnet) : [options.peer_host];
+    const hosts = (options.peer_host === '') ? agent_addresses().filter(is_tailnet_address) : [options.peer_host];
     if (hosts.length === 0) {
         agent_say(group, 'peer_serve_off', {reason: 'this machine has no tailnet address'});
         return;
@@ -128,17 +129,6 @@ function same(given, wanted)
     const a = Buffer.from(given);
     const b = Buffer.from(String(wanted));
     return (a.length === b.length) && (a.length > 0) && crypto.timingSafeEqual(a, b);
-}
-
-// A tailnet address: tailscale's 100.64.0.0/10, and its fd7a:115c:a1e0::/48
-function is_tailnet(address)
-{
-    const v4 = /^100\.(\d+)\./.exec(address);
-    if (v4 !== null) {
-        const second = Number(v4[1]);
-        return (second >= 64) && (second <= 127);
-    }
-    return address.toLowerCase().startsWith('fd7a:115c:a1e0:');
 }
 
 module.exports = agent_peer_serve;

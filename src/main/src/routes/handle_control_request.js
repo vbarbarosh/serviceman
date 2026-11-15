@@ -1,3 +1,4 @@
+const address_ways_read = require('../helpers/address_ways_read');
 const agent_bundle = require('../../../agent/bundler/agent_bundle');
 const agent_install_sh = require('../helpers/agent_install_sh');
 const agent_sign_key = require('../helpers/agent_sign_key');
@@ -396,6 +397,10 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/apt-cancel') && (req.method === 'POST')) {
         await handle_apt_all_cancel(app, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/addresses/ways') && (req.method === 'GET')) {
+        send_json(res, 200, {ways: await address_ways_read(app)});
         return;
     }
     if ((url.pathname === '/api/v1/volumes') && (req.method === 'GET')) {

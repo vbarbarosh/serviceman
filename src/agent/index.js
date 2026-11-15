@@ -18,6 +18,7 @@ const agent_servermon = require('./src/agent_servermon');
 const agent_sleep_watch = require('./src/agent_sleep_watch');
 const agent_status_ask = require('./src/agent_status_ask');
 const agent_status_serve = require('./src/agent_status_serve');
+const agent_tailnet = require('./src/agent_tailnet');
 const agent_token_keep = require('./src/agent_token_keep');
 const agent_token_read = require('./src/agent_token_read');
 const agent_uninstall = require('./src/agent_uninstall');
@@ -56,6 +57,9 @@ to give and none to get wrong.
             back (env SERVICEMAN_MACHINE, default the hostname)
   --dir     the folder whose free space is reported (env SERVICEMAN_DIR, default /)
   --docker  the docker command on this machine (env SERVICEMAN_DOCKER, default docker)
+  --tailscale
+            the tailscale command on this machine, which says its name on the
+            tailnet (env SERVICEMAN_TAILSCALE, default tailscale)
   --apt     what apt-get is on this machine (env SERVICEMAN_APT). Without one,
             "sudo -n apt-get", or "apt-get" where the agent is root — so a
             sudoers line on that machine may name apt-get and nothing else
@@ -215,7 +219,7 @@ async function main()
             agent_say(group, 'agent_connect_begin', {url: options.url});
             status.phase = 'dialling';
             status.since = Date.now();
-            const link = await agent_connect(options);
+            const link = await agent_connect(options, await agent_tailnet(options));
             wait_ms = FIRST_WAIT_MS;
             up_at = Date.now();
             agent_say(group, 'agent_connect_end_ok', {remote: link.name});
@@ -294,6 +298,7 @@ function options_from_argv(argv)
         tags: tags_from_argv(argv, env),
         dir: text_after(argv, '--dir', env.SERVICEMAN_DIR || '/'),
         docker: text_after(argv, '--docker', env.SERVICEMAN_DOCKER || 'docker'),
+        tailscale: text_after(argv, '--tailscale', env.SERVICEMAN_TAILSCALE || 'tailscale'),
         apt: text_after(argv, '--apt', env.SERVICEMAN_APT || ''),
         ufw: text_after(argv, '--ufw', env.SERVICEMAN_UFW || ''),
         role: text_after(argv, '--role', env.SERVICEMAN_ROLE || ''),

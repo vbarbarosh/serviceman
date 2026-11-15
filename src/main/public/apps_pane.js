@@ -84,6 +84,8 @@ const apps_pane = {
     emits: ['select', 'saved'],
     props: {
         state: {type: Object, required: true},
+        // The app whose Settings window opens at once (Addresses' "set in"), null for none
+        open: {type: String, default: null},
     },
     data: function () {
         // sent: the last zip given, {name, bytes, busy, error, made, link, other}; over: the
@@ -293,6 +295,12 @@ const apps_pane = {
                 this.sent = {name, bytes, busy: false, error: error.message, made: false, link: '', other: '', doing: ''};
             }
         },
+    },
+    created: function () {
+        if (this.open !== null) {
+            const found = this.apps.find(v => v.name === this.open);
+            this.settings = (found === undefined) ? null : found;
+        }
     },
 };
 

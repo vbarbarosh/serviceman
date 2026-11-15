@@ -13,6 +13,19 @@ test('a machine names the folder its agent installs into, an older agent the one
     assert.strictEqual(view_from_remote(remote).machine.services, null);
 });
 
+// The agent says its name and address on the tailnet; the view keeps a name that is a name and
+// an address that is an address, and says null for an agent too old to say
+test('a machine shows its tailnet name and address as its agent said them', function () {
+    const remote = remote_make({tailnet: {name: 'laptop.tail1234.ts.net', ip: '100.64.0.21'}});
+    assert.deepStrictEqual(view_from_remote(remote).machine.tailnet, {name: 'laptop.tail1234.ts.net', ip: '100.64.0.21'});
+    remote.state.resources.tailnet = {name: '<script>', ip: '100.64.0.21'};
+    assert.deepStrictEqual(view_from_remote(remote).machine.tailnet, {name: null, ip: '100.64.0.21'});
+    remote.state.resources.tailnet = null;
+    assert.strictEqual(view_from_remote(remote).machine.tailnet, null);
+    delete remote.state.resources.tailnet;
+    assert.strictEqual(view_from_remote(remote).machine.tailnet, null);
+});
+
 function remote_make(resources)
 {
     return {

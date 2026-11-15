@@ -8,6 +8,7 @@ const agent_os = require('./agent_os');
 const agent_peer_serve = require('./agent_peer_serve');
 const agent_services_dir = require('./agent_services_dir');
 const agent_shell = require('./agent_shell');
+const agent_tailnet = require('./agent_tailnet');
 const crypto = require('crypto');
 const docker_socket_path = require('../../helpers/docker_socket_path');
 const os = require('os');
@@ -21,7 +22,10 @@ async function agent_resources(options)
 {
     const cpus = os.cpus();
     const disk = await agent_disk(options.dir);
-    const docker = await agent_shell([options.docker, 'version', '--format', '{{.Server.Version}}'], {timeout: DOCKER_SAY_MS});
+    const [docker, tailnet] = await Promise.all([
+        agent_shell([options.docker, 'version', '--format', '{{.Server.Version}}'], {timeout: DOCKER_SAY_MS}),
+        agent_tailnet(options),
+    ]);
     const can = await agent_can(options);
     return {
         hostname: os.hostname(),
@@ -52,6 +56,9 @@ async function agent_resources(options)
         services: agent_services_dir(),
         // Where other machines see this one: what Logline binds this machine's token to
         addresses: agent_addresses(),
+        // Its name and address on the tailnet, {name, ip}, or null off one: shown beside the
+        // name serviceman gives it
+        tailnet,
         // What it was last told about Logline, so the host tells it only what changed. The
         // token is named by its hash: it is not the host's to read back.
         logline: logline_said(),

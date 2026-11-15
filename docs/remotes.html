@@ -780,6 +780,10 @@ file here.</p>
 <td>The docker command on that machine. <code>SERVICEMAN_DOCKER</code>.</td>
 </tr>
 <tr>
+<td><code>--tailscale</code></td>
+<td>The tailscale command, which says its name on the tailnet. <code>SERVICEMAN_TAILSCALE</code>.</td>
+</tr>
+<tr>
 <td><code>--once</code></td>
 <td>Dial once and exit when the link drops, instead of dialling again.</td>
 </tr>
@@ -940,6 +944,10 @@ were waiting for a machine that did not exist when they were written.</p>
 <p>The line says what it claimed and what was dropped. <strong>A tag in the config is a fact; a tag from
 a machine is a claim</strong> — only <code>tags_allowed</code> is honoured, because a machine that names its own
 tags is choosing which of your work it receives.</p>
+<p><strong>It is named after its name on the tailnet,</strong> so one machine has one name in serviceman and in
+Tailscale: <code>laptop.tail1234.ts.net</code> joins as <code>auto-laptop</code>, the prefix kept. Its agent
+reads the name from <code>tailscale status</code> on that machine; a machine on no tailnet is named after
+its hostname, as before. A name taken already gets six letters more, <code>auto-laptop-3f9a1c</code>.</p>
 <p>The machine says which machine it is (<code>--machine</code>, the hostname by default), so the same box
 coming back takes its own entry instead of leaving a dead one behind. That identity is worth
 exactly as much as the join token: <strong>whoever holds it can add a machine to your fleet and claim
@@ -971,6 +979,11 @@ servermon is off or silent (its last line older than 5 seconds) the numbers are 
 Overview and Health say so. This host
 pings the agent every 30 seconds for the delay, and sends a megabyte there and back every ten
 minutes for the speed. All of it is on the control page, and in <code>/api/v1/status</code>.</p>
+<p><strong>Its name on the tailnet</strong> stands beside the one serviceman gives it: on its card and its row
+under <strong>Remotes</strong>, and on its page, under the name and in the <strong>Machine</strong> card with its tailnet
+address. The agent asks the machine&#39;s own tailscale (<code>tailscale status</code>) at every hello; an agent
+before 1.37 does not, and a machine on no tailnet shows none. The filter and the search in the
+header find a machine by it as by its name.</p>
 <p>What a machine says of itself is its own word, and is checked before it is kept. A hello whose
 <code>resources</code> are of another shape (no cpu, a memory that is no number) is refused whole: the link
 is closed, nothing of it is kept, and the machine stays as it was, away. Numbers of another

@@ -57,6 +57,23 @@ An address is a hostname with an optional path:
 With `publish.strip_prefix`, the service behind `/pdf` sees `/report` instead of `/pdf/report` —
 apps that expect to live at the root need it.
 
+The **Addresses** page lists every name a request arrives on, each app's own port among them, with
+its whole way: who opens it, whether it does, and where it is set.
+
+| Who opens it  | How it is found                                         | ✓ when                                        |
+|---------------|---------------------------------------------------------|-----------------------------------------------|
+| this computer | a `.localhost` name, by itself                          | always                                        |
+| your tailnet  | an app's port on serviceman's tailnet name              | the port listens and tailscale names serviceman |
+| your tailnet  | a name under the apps domain, by serviceman's DNS       | this computer's DNS leads it to serviceman    |
+| anyone        | its own DNS, to serviceman or to a machine's door       | its DNS leads to that machine's address       |
+
+A name is looked up as this computer's DNS answers it, every 30 seconds while the page is open.
+✗ is what was measured not to work (no DNS answer, another program on the port, `apps.dns` not
+set), said under it; ? is a DNS answer that leads elsewhere, said with both addresses: a cloud
+machine's public address is often on none of its own interfaces, so serviceman does not call it
+broken. **Set in** opens where the name is written: an app's **Settings** on **Apps**, a
+service's settings, the config at its `apps` domain, or **Doors**.
+
 ## Policy
 
 Every service carries the rules of its own life: when to start, when to sleep, how long a
@@ -99,7 +116,8 @@ service, its state, its addresses, its policy and its instances, and it does the
 - **The front page** — every service, one row each, under the machine it runs on: its
   address, kind and state. A filter and the state chips narrow it; the name in the header
   brings it back. The rail holds one row per kind — Services, Remotes, Addresses, Storage,
-  Secrets — and **Addresses** lists every name that reaches a service.
+  Secrets — and **Addresses** lists every name that reaches a service, with who opens it and
+  whether it does.
 - **Map** — all of it as one picture: every address to the service that answers it, every
   service to the machine it runs on (a solid line where it runs now, a dashed one where it
   may), and every machine to Logline where it sends its logs. Pointing at anything lights up

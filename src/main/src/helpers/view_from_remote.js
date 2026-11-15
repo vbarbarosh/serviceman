@@ -1,6 +1,9 @@
 const remote_tags = require('./remote_tags');
 const remote_unanswered = require('./remote_unanswered');
 
+const RE_DNS_NAME = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*$/;
+const RE_IP = /^[0-9a-f:.]+$/i;
+
 // The picture of one remote the control page reads. `logline` is the config's, null when this
 // host sends nobody's lines anywhere.
 function view_from_remote(remote, now, logline)
@@ -83,6 +86,9 @@ function machine_of(state)
         can: Array.isArray(resources.can) ? resources.can : null,
         // The addresses others may see it at; null from an agent that does not say
         addresses: Array.isArray(resources.addresses) ? resources.addresses : null,
+        // Its name and address on the tailnet, {name, ip}, each null where it is not known; null
+        // off a tailnet, and from an agent before 1.37 that does not say
+        tailnet: tailnet_of(resources.tailnet),
         cpu: resources.cpu,
         mem: {total: resources.mem.total, free: (stats === null) ? null : stats.mem_free},
         disk: {path: resources.disk.path, total: resources.disk.total, free: (stats === null) ? resources.disk.free : stats.disk_free},
@@ -105,6 +111,18 @@ function machine_of(state)
         // null is no door — an agent from before them, or one whose link is not up.
         door: ((stats === null) || (stats.door === undefined)) ? null : stats.door,
     };
+}
+
+// What the agent said of the tailnet, kept to the shape the page reads: a name is a DNS name
+// and an address an address, whatever else the hello carried
+function tailnet_of(said)
+{
+    if ((said === null) || (typeof said !== 'object')) {
+        return null;
+    }
+    const name = ((typeof said.name === 'string') && RE_DNS_NAME.test(said.name)) ? said.name : null;
+    const ip = ((typeof said.ip === 'string') && RE_IP.test(said.ip)) ? said.ip : null;
+    return ((name === null) && (ip === null)) ? null : {name, ip};
 }
 
 // The folder its agent installs into. An agent before 1.23 does not say, and installs into

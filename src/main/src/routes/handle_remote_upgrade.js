@@ -9,8 +9,11 @@ const remotes_claimed_read = require('../helpers/remotes_claimed_read');
 
 // A machine says which machine it is: its hostname, a container id, anything stable
 const RE_MACHINE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
+// A tailnet name as MagicDNS gives it, laptop.tail1234.ts.net, and the longest a DNS name is
+const RE_TAILNET = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*$/;
+const TAILNET_LONGEST = 253;
 
-// GET /api/v1/remote (header:authorization, header:serviceman-machine, header:serviceman-tags)
+// GET /api/v1/remote (header:authorization, header:serviceman-machine, header:serviceman-tags, header:serviceman-tailnet)
 // The door an agent on another machine knocks on. serviceman never dials out: the agent
 // dials in, so a box behind NAT or a firewall needs nothing open.
 //
@@ -91,7 +94,15 @@ async function remote_of(app, req, socket)
         refuse(app, socket, 403, 'Forbidden', `${machine} joined before and holds a token of its own: the join token joins a machine once`, {remote: before.name, machine, from: socket.remoteAddress, reason: 'joined_before'});
         return null;
     }
-    return {remote: await remote_join(app, machine, tags_claimed(req), socket.remoteAddress), joined: true};
+    return {remote: await remote_join(app, machine, tags_claimed(req), socket.remoteAddress, tailnet_claimed(req)), joined: true};
+}
+
+// Its name on the tailnet as its agent read it from tailscale, '' for none or one that is not a
+// name: what the new remote is named after
+function tailnet_claimed(req)
+{
+    const name = String(req.headers['serviceman-tailnet'] || '').trim().toLowerCase();
+    return (RE_TAILNET.test(name) && (name.length <= TAILNET_LONGEST)) ? name : '';
 }
 
 // What the machine says it is. The config decides which of it is kept.

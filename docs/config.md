@@ -393,7 +393,8 @@ serviceman-agent --url https://serviceman.example.com --token <the join token> -
 
 serviceman writes the new machine into this file — with a secret of its own, the tags it was
 allowed to claim, and the `machine` it says it is — and it appears on the control page like any
-other. That secret is handed to the machine as it joins, and its agent keeps it beside itself
+other. It is named after its name on the tailnet, `name_prefix` before it (`auto-laptop`
+for `laptop.tail1234.ts.net`), or after its hostname on a machine with no tailnet. That secret is handed to the machine as it joins, and its agent keeps it beside itself
 (`token` in its folder) and dials with it from then on: the same machine coming back takes its
 own entry again instead of leaving a dead one, and once it has dialled with its own token the
 join token is refused for its name (`remote_refused` with `joined_before`), so whoever holds the

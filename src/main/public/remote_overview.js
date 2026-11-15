@@ -12,6 +12,7 @@ import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_uptime from './remote_uptime.js';
+import tailnet_name_of from './tailnet_name_of.js';
 import to_clipboard from './to_clipboard.js';
 import updates_lists from './updates_lists.js';
 
@@ -35,7 +36,7 @@ const remote_overview = {
             </div>
         </div>
         <div class="ov-summary">
-            <span>remote <code>{{ view.name }}</code><template v-for="part in summary" :key="part.text"> · <span :class="{tag: part.tag}">{{ part.text }}</span></template></span>
+            <span>remote <code>{{ view.name }}</code><template v-if="(tailnet_name !== '')"> · tailnet <code class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + tailnet_name)">{{ tailnet_name }}</code></template><template v-for="part in summary" :key="part.text"> · <span :class="{tag: part.tag}">{{ part.text }}</span></template></span>
         </div>
         <p v-if="(view.machine === null)" class="alert">This machine has not connected since serviceman last started, so nothing is known about it yet. A running agent dials in by itself; a machine without one needs it: <button type="button" class="link" @click="$emit('tab', 'install')">Install the agent →</button></p>
         <p v-else-if="(view.phase !== 'online')" class="alert">The agent on this machine is not connected. What is below is what it last said.</p>
@@ -64,6 +65,10 @@ const remote_overview = {
                 <template v-if="(view.machine.uptime_ms !== null)">
                     <dt>Up</dt>
                     <dd>{{ format_ms(view.machine.uptime_ms) }}</dd>
+                </template>
+                <template v-if="(view.machine.tailnet !== null) && (view.machine.tailnet !== undefined)">
+                    <dt>Tailnet</dt>
+                    <dd><code v-if="(view.machine.tailnet.name !== null)">{{ view.machine.tailnet.name }}</code><template v-if="((view.machine.tailnet.name !== null) && (view.machine.tailnet.ip !== null))"> · </template><code v-if="(view.machine.tailnet.ip !== null)">{{ view.machine.tailnet.ip }}</code></dd>
                 </template>
                 <template v-if="(addresses.length > 0)">
                     <dt>Addresses</dt>
@@ -231,6 +236,10 @@ const remote_overview = {
                 out.push({icon: 'link', label: 'Link', text: (view.latency_ms === null) ? '—' : format_ms(view.latency_ms), value: null, note: (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps), go: 'Test the link', tab: 'link-test'});
             }
             return out;
+        },
+        // Its name on the tailnet, beside the one serviceman gives it; '' for none
+        tailnet_name: function () {
+            return tailnet_name_of(this.view.machine);
         },
         addresses: function () {
             const found = this.view.machine.addresses;

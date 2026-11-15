@@ -279,7 +279,9 @@ const config_editor = {
     </footer>
 </div>
 `,
-    props: ['theme'],
+    // seek: the text the cursor is put on once the config is loaded, '"apps"' for the apps
+    // domain; '' for the top
+    props: ['theme', 'seek'],
     emits: ['close', 'saved'],
     data: function () {
         // kept: each token the editor draws as dots, and what it stands for (config_tokens_hidden)
@@ -303,6 +305,10 @@ const config_editor = {
                 this.show(loaded.text);
                 this.ace.moveCursorTo(0, 0);
                 this.ace.scrollToLine(0);
+                // Opened for one setting, from the page that names it: the cursor on its key
+                if ((typeof this.seek === 'string') && (this.seek !== '')) {
+                    this.ace.find(this.seek, {caseSensitive: true, wholeWord: false, regExp: false});
+                }
                 this.report(this.kept_text(loaded.path), false);
                 this.ace.focus();
             }
@@ -2033,14 +2039,14 @@ const app = {
         </button>
     </nav>
     <section>
-        <config-editor v-if="editor_open" :theme="theme" @close="editor_open = false" @saved="poll"/>
+        <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :state="state" @select="select_named" @saved="poll"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll"/></article>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
@@ -2048,7 +2054,7 @@ const app = {
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
-        <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named"/>
+        <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
         <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
@@ -2076,6 +2082,8 @@ const app = {
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
             problems_seen: problems_seen_read(),
             editor_open: false,
+            // The text the config editor puts its cursor on as it opens, '' for the top
+            editor_seek: '',
             form_open: false,
             // A service the new-service form starts from — the Clone button fills it
             form_source: null,
@@ -2115,6 +2123,8 @@ const app = {
             networking_open: false,
             forwards_open: false,
             apps_open: false,
+            // The app whose Settings window Apps opens with, null for none
+            apps_settings_of: null,
             networking_key: 0,
             remotes_open: false,
             addresses_open: false,
@@ -2396,6 +2406,10 @@ const app = {
                     out.push({key: `${service.name} ${host}`, address: host, service: service.name});
                 }
             }
+            // Each app's own port, as Addresses names it: on serviceman's name on the tailnet
+            for (const name of Object.keys(this.app_ports)) {
+                out.push({key: `port ${name}`, address: `${(this.tailnet_name === null) ? '' : this.tailnet_name}:${this.app_ports[name].port}`, service: name});
+            }
             for (const remote of this.state.remotes) {
                 const rule_by_host = (remote.inbound === undefined) ? {} : remote.inbound;
                 for (const host of Object.keys(rule_by_host)) {
@@ -2404,6 +2418,10 @@ const app = {
             }
             out.sort((a, b) => rail_compare(a.address, b.address));
             return out;
+        },
+        // Each app's own port, {app: {port, error}}; none from a serviceman before them
+        app_ports: function () {
+            return ((this.state.app_ports === undefined) || (this.state.app_ports === null)) ? {} : this.state.app_ports;
         },
         // The folders under Storage; each opens the service that keeps it
         rail_folders: function () {
@@ -2425,9 +2443,10 @@ const app = {
         remotes_offline: function () {
             return this.state.remotes.filter(v => v.phase !== 'online').length;
         },
-        // Every name a request arrives on: what the services publish and what the doors carry in
+        // Every name a request arrives on: what the services publish, each app's own port, and
+        // what the doors carry in
         addresses_count: function () {
-            let out = 0;
+            let out = Object.keys(this.app_ports).length;
             for (const service of this.state.services) {
                 out += service.publish.hosts.length;
             }
@@ -2797,6 +2816,12 @@ const app = {
             this.panes_close();
             this.apps_open = true;
         },
+        // Apps with one app's Settings window open: where its names are set
+        apps_settings_show: function (name) {
+            this.panes_close();
+            this.apps_settings_of = name;
+            this.apps_open = true;
+        },
         remotes_show: function () {
             this.panes_close();
             this.remote_name = null;
@@ -2901,6 +2926,8 @@ const app = {
         // tab is not a pane — it stays picked across all of this.
         panes_close: function () {
             this.editor_open = false;
+            this.editor_seek = '';
+            this.apps_settings_of = null;
             this.join_form_open = false;
             this.secrets_open = false;
             this.tokens_open = false;
@@ -2949,6 +2976,12 @@ const app = {
         },
         editor_show: function () {
             this.panes_close();
+            this.editor_open = true;
+        },
+        // The config with the cursor on one setting: '"apps"' for the apps domain
+        editor_seek_show: function (seek) {
+            this.panes_close();
+            this.editor_seek = seek;
             this.editor_open = true;
         },
         select: function (view) {
