@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.107 — 2026-11-15
+
+- `tutorials/`: five ways of using serviceman as steps (do, see, say) and how an agent makes each one's video from them: browser and flowchart side by side, a voice, its captions, a cursor.
+
 ## 1.0.106 — 2026-11-15
 
 - A name under `.localhost` answers this computer only: a tailnet device or a machine's door that asks for one gets a 404. In the image the tailnet is the container's loopback (`SERVICEMAN_LOOPBACK`), this computer `bin/run`'s published port (`SERVICEMAN_PUBLISHED`); a load test brings its run's key; tailscale's proxy moves to `127.0.0.2:1055`.
