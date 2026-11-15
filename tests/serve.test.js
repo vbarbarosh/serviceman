@@ -26,6 +26,7 @@ const service_probe = require('../src/main/src/helpers/service_probe');
 const service_redir = require('../src/main/src/service_redir');
 const service_restart = require('../src/main/src/helpers/service_restart');
 const service_stop = require('../src/main/src/helpers/service_stop');
+const serviceman_stop = require('../src/main/src/helpers/serviceman_stop');
 const stream = require('stream');
 const test = require('node:test');
 const timers = require('timers/promises');
@@ -651,6 +652,48 @@ test('a program that drops the signal is stopped anyway, and the whole chain goe
         assert.strictEqual(await port_free(port), true, 'the server under the shell went too');
         assert.strictEqual(group_alive(pid), false, 'and so did everything else in its group');
         assert.ok(running.app.log_lines.some(v => /\[program_killed\] \d+\.\d{3}s service=chain pid=\d+ note="it was asked to stop and did not"/.test(v)), 'and the log says which program had to be killed');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('Ctrl-C says at once what serviceman stops, then twice a second what it still waits on', async function () {
+    const port = await free_port();
+    const deaf = `${process.execPath} -e "process.on('SIGTERM', function () {}); require('http').createServer(function (req, res) { res.end('still here'); }).listen(${port}, '127.0.0.1');"`;
+    const running = await serviceman_start([
+        {name: 'chain', type: 'shell', publish: {host: 'chain.test', port}, command: `${deaf} & wait`},
+    ]);
+    try {
+        assert.strictEqual((await fetch_host({port: running.port, host: 'chain.test', path: '/'})).body, 'still here');
+        const from = running.app.log_lines.length;
+
+        const stop = serviceman_stop(running.app, 'SIGINT');
+        assert.match(running.app.log_lines[from], /\[serviceman_signal\] signal=SIGINT stopping=1:\["chain"\]$/, 'the first line comes at once, before the program is asked');
+        assert.deepStrictEqual(await stop.promise, []);
+        const took = Date.now() - stop.time0;
+
+        const lines = running.app.log_lines.slice(from);
+        const ticks = lines.filter(v => v.includes('[serviceman_tick]'));
+        assert.ok(took >= 1000, `the program took its time (${took}ms)`);
+        assert.ok(Math.abs(ticks.length - Math.floor(took/500)) <= 1, `a line every half a second: ${ticks.length} in ${took}ms`);
+        assert.match(ticks[0], /\[serviceman_tick\] 0\.5\d\ds stopping=1:\["chain"\]$/);
+        await timers.setTimeout(600);
+        assert.strictEqual(running.app.log_lines.filter(v => v.includes('[serviceman_tick]')).length, ticks.length, 'and none once it is over');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+test('Ctrl-C with nothing to stop is one line and no wait', async function () {
+    const running = await serviceman_start([]);
+    try {
+        const from = running.app.log_lines.length;
+        const stop = serviceman_stop(running.app, 'SIGTERM');
+        assert.deepStrictEqual(await stop.promise, []);
+        assert.ok((Date.now() - stop.time0) < 100);
+        assert.deepStrictEqual(running.app.log_lines.slice(from).map(v => v.replace(/^\[[^\]]+\]\[[^\]]+\]/, '')), ['[serviceman_signal] signal=SIGTERM stopping=0:[]']);
     }
     finally {
         await running.close();

@@ -183,17 +183,28 @@ tried is not:
     [2026-08-21T10:55:23.155Z][cv6jqwrvnzwz][group_spawn] parent=c1847u2jmc0t
     [2026-08-21T10:55:23.155Z][cv6jqwrvnzwz][remote_refused] from=127.0.0.1 reason=unknown_token
 
-**Going down.** The programs it started are stopped, the containers are left running, and the
-file is flushed before the process leaves — so the last lines are always there:
+**Going down.** On Ctrl-C, or a signal like it, the first line comes at once and names the
+programs it stops; while it waits on them, a line every half a second says which are left. The
+containers are left running, and the file is flushed before the process leaves, so the last
+lines are always there. Here one program ignores its SIGTERM and is given 1.2 s to stop:
 
-    [2026-08-21T10:55:27.163Z][cvnuyjizo92h][group_spawn] parent=cuj0e3pihkge
-    [2026-08-21T10:55:27.163Z][c7bx3pwfsgr7][group_spawn] parent=cvnuyjizo92h
-    [2026-08-21T10:55:27.163Z][c7bx3pwfsgr7][service_stop_begin] service=faller instance=1 reason="serviceman stops"
-    [2026-08-21T10:55:27.163Z][c7bx3pwfsgr7][service_stop_end_ok] service=faller instance=1
-    [2026-08-21T10:55:27.163Z][cvnuyjizo92h][serviceman_end_ok] signal=SIGTERM containers="left running"
+    [2026-11-15T21:57:30.263Z][cqvbjuetzp5d][serviceman_signal] signal=SIGINT stopping=1:["chain"]
+    [2026-11-15T21:57:30.264Z][cg8upzvssb89][group_spawn] parent=cqvbjuetzp5d
+    [2026-11-15T21:57:30.264Z][cg8upzvssb89][service_stop_begin] service=chain instance=1 reason="serviceman stops"
+    [2026-11-15T21:57:30.267Z][cnmfozrnhc4v][program_end] remote=vps1 service=chain slot=1 how=SIGTERM
+    [2026-11-15T21:57:30.764Z][cqvbjuetzp5d][serviceman_tick] 0.501s stopping=1:["chain"]
+    [2026-11-15T21:57:31.265Z][cqvbjuetzp5d][serviceman_tick] 1.003s stopping=1:["chain"]
+    [2026-11-15T21:57:31.526Z][c9aisw0sxh79][program_killed] 1.259s service=chain pid=7825 note="it was asked to stop and did not"
+    [2026-11-15T21:57:31.526Z][c9aisw0sxh79][agent_call_ok] remote=vps1 method=program_stop service=chain slot=1 took=1.261s
+    [2026-11-15T21:57:31.527Z][cg8upzvssb89][service_stop_end_ok] 1.263s service=chain instance=1
+    [2026-11-15T21:57:31.529Z][cqvbjuetzp5d][serviceman_end_ok] signal=SIGINT took=1.267s containers="left running"
 
-All of it is one run, copied out of the daily file as it was written; only the path of the
-config is shortened, because the real one was a scratch folder.
+A second Ctrl-C does not wait: `serviceman_end_error` says which programs it left, and the
+process goes.
+
+Each run is copied out of the log as it was written: the coming up and the visits are one, the
+stop another; only the path of the config is shortened, because the real one was a scratch
+folder.
 
 ## The senders
 
@@ -212,8 +223,10 @@ config is shortened, because the real one was a scratch folder.
 | `serviceman_closed`      | The control page answers this machine only.                   |
 | `serviceman_exposed`     | `control.exposed` is on, and what that means.                 |
 | `serviceman_error`       | serviceman broke on a request; the reason is in the words.    |
-| `serviceman_end_ok`      | It stopped on a signal, and the containers were left running. |
-| `serviceman_end_error`   | A program would not stop; it left anyway, and says why.       |
+| `serviceman_signal`      | A signal came, Ctrl-C or one like it: the programs it stops, at once. |
+| `serviceman_tick`        | Every half a second while it stops: how long so far, and the programs still stopping. |
+| `serviceman_end_ok`      | It stopped on a signal, how long the stop `took=`, and the containers were left running. |
+| `serviceman_end_error`   | A program would not stop, or a second signal did not wait for it; it left anyway, and says why. |
 | `group_spawn`            | A group began, and the group it came from.                    |
 
 ### Visitors

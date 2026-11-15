@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.117 — 2026-11-15
+
+- Ctrl-C says at once that serviceman stops and which programs it stops, then every half a second which are left; a second Ctrl-C says which it left behind.
+
 ## 1.0.116 — 2026-11-15
 
 - One box on top of **Apps** puts the page of apps and every app, a new one too, behind authwall (`"apps": {"auth": "authwall"}`); the page asks it first on each of its names, its sign-in there.

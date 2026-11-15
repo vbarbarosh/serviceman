@@ -9,6 +9,7 @@ const counters_read = require('./src/helpers/counters_read');
 const counters_write = require('./src/helpers/counters_write');
 const doors_tell = require('./src/helpers/doors_tell');
 const file_log_from_env = require('./src/helpers/file_log_from_env');
+const format_seconds = require('../helpers/format_seconds');
 const forward_totals_apply = require('./src/helpers/forward_totals_apply');
 const forward_totals_read = require('./src/helpers/forward_totals_read');
 const forward_totals_write = require('./src/helpers/forward_totals_write');
@@ -21,6 +22,7 @@ const log_event = require('./src/helpers/log_event');
 const log_stdout_time_from_env = require('./src/helpers/log_stdout_time_from_env');
 const log_trunk = require('./src/helpers/log_trunk');
 const log_within = require('./src/helpers/log_within');
+const log_words = require('../helpers/log_words');
 const logline_sweep = require('./src/helpers/logline_sweep');
 const path = require('path');
 const problems_check = require('./src/helpers/problems_check');
@@ -34,8 +36,8 @@ const server_start = require('./src/helpers/server_start');
 const service_ensure_running = require('./src/helpers/service_ensure_running');
 const service_phase = require('./src/helpers/service_phase');
 const service_probe = require('./src/helpers/service_probe');
-const service_stop = require('./src/helpers/service_stop');
 const service_waits_for_remote = require('./src/helpers/service_waits_for_remote');
+const serviceman_stop = require('./src/helpers/serviceman_stop');
 const shared_tell = require('./src/helpers/shared_tell');
 const tailnet_ip_read = require('./src/helpers/tailnet_ip_read');
 const tailnet_name_read = require('./src/helpers/tailnet_name_read');
@@ -296,26 +298,30 @@ function policy_text(service)
 
 function watch_signals(app)
 {
-    let leaving = false;
+    let stop = null;
     function bye(signal) {
-        if (leaving) {
-            // The second signal is an order, not a request: this end stops where it stands
+        if (stop !== null) {
+            // The second signal is an order, not a request: this end stops where it stands, and
+            // says what it left
+            const left = (stop.stopping.length === 0) ? '' : `, not waiting for ${stop.stopping.join(', ')}`;
+            log_within(app.log_group, function () {
+                end_error(app, signal, stop, `a second signal${left}`);
+            });
             process.exit(1);
             return;
         }
-        leaving = true;
         // The end of the process belongs to the group the start of it is in
         log_within(app.log_group, function () {
-            const promise = stop_programs(app);
-            promise.then(function () {
+            stop = serviceman_stop(app, signal);
+            stop.promise.then(function (failed) {
                 counters_save(app);
                 forward_totals_save(app);
-                log_event(app, 'serviceman_end_ok', {signal, containers: 'left running'});
-                leave(app);
-            }, function (error) {
-                counters_save(app);
-                forward_totals_save(app);
-                log_event(app, 'serviceman_end_error', {signal, reason: error.message});
+                if (failed.length === 0) {
+                    log_event(app, 'serviceman_end_ok', `signal=${signal} took=${format_seconds(Date.now() - stop.time0)} containers="left running"`);
+                }
+                else {
+                    end_error(app, signal, stop, failed.join('; '));
+                }
                 leave(app);
             });
         });
@@ -325,6 +331,12 @@ function watch_signals(app)
             bye(signal);
         });
     }
+}
+
+// It left with a program not stopped: one that would not, or one a second signal left behind
+function end_error(app, signal, stop, reason)
+{
+    log_event(app, 'serviceman_end_error', `signal=${signal} took=${format_seconds(Date.now() - stop.time0)} ${log_words({reason})}`);
 }
 
 // A disk that is full or read-only costs the counters, not the process
@@ -356,18 +368,3 @@ async function leave(app)
     process.exit(0);
 }
 
-// Programs stop with serviceman. One that outlives it — a kill, a crash, a second signal —
-// is taken back at the next start instead of being fought for its port
-async function stop_programs(app)
-{
-    const stops = [];
-    for (const service of app.services) {
-        // One that waits to be started again is stopped too: its timer could start it while
-        // the others stop, and it would outlive serviceman
-        if ((service.type !== 'shell') || ((service_phase(service) === 'stopped') && service.state.instances.every(v => v.restart_timer === null))) {
-            continue;
-        }
-        stops.push(service_stop(app, service, 'serviceman stops'));
-    }
-    await Promise.all(stops).catch(function () {});
-}
