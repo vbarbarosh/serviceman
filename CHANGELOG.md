@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.108 — 2026-11-15
+
+- A new agent dials serviceman's own name on the tailnet: a machine's **Install** tab and **Machines that join by themselves** start with it (`tailscale status`), not with the page's `serviceman.localhost`.
+
 ## 1.0.107 — 2026-11-15
 
 - `tutorials/`: five ways of using serviceman as steps (do, see, say) and how an agent makes each one's video from them: browser and flowchart side by side, a voice, its captions, a cursor.

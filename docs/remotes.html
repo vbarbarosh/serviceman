@@ -729,7 +729,11 @@ dialled. The visitor sees no difference.</p>
 <h2 id="add-a-remote"><a class="anchor" href="#add-a-remote" aria-hidden="true" tabindex="-1">#</a>Add a remote</h2>
 <p><strong>+ Add remote</strong> on the control page asks for a name, makes the token for you, and writes it
 to the config. The remote appears under <strong>Remotes</strong> at once — offline, with the two ways to put the
-agent on that machine, filled in with its name, this host&#39;s address and its token.</p>
+agent on that machine, filled in with its name, this host&#39;s address and its token. The address is
+serviceman&#39;s own name on the tailnet, as tailscale in its image says (<code>serviceman.tail1234.ts.net</code>,
+at the control port), which every machine on the tailnet reaches; off a tailnet it is the address
+the page was opened on, to change for one the machine can reach. <strong>Machines that join by
+themselves</strong> starts its command with the same address.</p>
 <p>By hand it is the same thing, with a secret of your own:</p>
 <pre><code>openssl rand -hex 32
 </code></pre>

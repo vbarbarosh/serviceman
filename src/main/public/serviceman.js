@@ -1,6 +1,7 @@
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
+import agent_url_of from './agent_url_of.js';
 import app_data_apart from './app_data_apart.js';
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
@@ -434,7 +435,7 @@ const remote_install = {
 </article>
 `,
     components: {snip: snippet},
-    props: ['view', 'control'],
+    props: ['view', 'control', 'tailnet'],
     data: function () {
         return {token: null, door_key: null, typed: '', root_half: false};
     },
@@ -442,14 +443,16 @@ const remote_install = {
         token_text: function () {
             return (this.token === null) ? '<the token in the config>' : this.token;
         },
+        // serviceman's own name on the tailnet, at its control port, where tailscale has given
+        // it one; else what this page was opened on
         agent_url: function () {
-            return `${location.protocol}//${location.host}`;
+            return agent_url_of(this.tailnet, this.control.port);
         },
         // The ways in that the config gives an agent: a port, a socket file, or the two of them.
         //
-        // What is filled in is what this page was opened on, which is right until serviceman
-        // moves — behind tailscale, into a container, behind a name. The address the machine
-        // over there must use is the one thing this end cannot know, so it can be typed.
+        // What is filled in is serviceman's own tailnet name, which every machine on the tailnet
+        // reaches, or with none what this page was opened on. A machine off the tailnet may
+        // reach this one by another name entirely, so it can be typed.
         doors: function () {
             const out = [];
             if (this.control.port !== null) {
@@ -458,7 +461,7 @@ const remote_install = {
                     label: 'http',
                     socket: null,
                     mark: this.agent_url,
-                    hint: 'Where that machine reaches this one — a tailscale name, a public address, anything it can resolve.',
+                    hint: ((this.tailnet === null) || (this.tailnet === undefined)) ? 'Where that machine reaches this one — a tailscale name, a public address, anything it can resolve.' : 'serviceman\'s own name on the tailnet, as tailscale says. A machine off the tailnet: another address it can resolve.',
                 });
             }
             if (this.control.socket !== null) {
@@ -1415,12 +1418,12 @@ const remote_page = {
         <p class="muted">The agent on this machine is from before machine shells, so none can be opened yet.</p>
         <p class="muted">It updates itself within a minute or two of being connected. If it stays old, run <code>bin/update</code> in the agent's folder on that machine — <code>~/serviceman-agent</code>, or <code>/opt/serviceman-agent</code> where it was installed as root.</p>
     </article>
-    <remote-install v-else-if="(tab_now === 'install')" :key="('install-' + view.name)" :view="view" :control="control"/>
+    <remote-install v-else-if="(tab_now === 'install')" :key="('install-' + view.name)" :view="view" :control="control" :tailnet="tailnet"/>
     </keep-alive>
 </div>
 `,
     components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
-    props: ['view', 'remotes', 'services', 'control', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
+    props: ['view', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
     emits: ['create', 'files_path', 'list', 'logline', 'rail', 'saved', 'select', 'service', 'tab'],
     data: function () {
         return {original: null, edit_key: 0};
@@ -2046,10 +2049,10 @@ const app = {
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named"/>
         <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
-        <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" @close="join_form_open = false" @saved="poll"/>
+        <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
@@ -2140,6 +2143,10 @@ const app = {
     },
     computed: {
         // What is wrong now, as the last look found it (problems_check), the oldest first
+        // serviceman's own name on the tailnet, null off one: where a new agent is told to dial
+        tailnet_name: function () {
+            return ((this.state === null) || (this.state.tailnet === undefined)) ? null : this.state.tailnet.name;
+        },
         problems: function () {
             return ((this.state === null) || (this.state.problems === undefined)) ? [] : this.state.problems;
         },

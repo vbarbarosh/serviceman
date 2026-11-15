@@ -1,3 +1,4 @@
+import agent_url_of from './agent_url_of.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
@@ -57,7 +58,7 @@ const join_form = {
 </article>
 `,
     components: {snip: snippet},
-    props: ['join'],
+    props: ['join', 'tailnet', 'port'],
     emits: ['close', 'saved'],
     data: function () {
         const join = ((this.join === undefined) || (this.join === null)) ? null : this.join;
@@ -69,7 +70,7 @@ const join_form = {
                 name_prefix: (join === null) ? 'auto-' : join.name_prefix,
             },
             saved_token: (join === null) ? '' : join.token,
-            where: `${location.protocol}//${location.host}`,
+            where: agent_url_of(this.tailnet, this.port),
             note: '',
             bad: false,
             busy: false,

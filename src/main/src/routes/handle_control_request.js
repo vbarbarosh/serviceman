@@ -99,6 +99,7 @@ const socket_place = require('../helpers/socket_place');
 const stream_open = require('../helpers/stream_open');
 const stream_read = require('../helpers/stream_read');
 const streams_of = require('../helpers/streams_of');
+const tailnet_name_read = require('../helpers/tailnet_name_read');
 const term_create_refusal = require('../../../helpers/term_create_refusal');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const terminal_serve = require('../../../../modules/terminal/server/terminal_serve');
@@ -2964,6 +2965,8 @@ function state_from_app(app)
         control: app.config.control,
         // The domain the apps sent to serviceman are named under, null for none
         apps: app.config.apps,
+        // serviceman's own name on the tailnet, which a new agent is told to dial; null off one
+        tailnet: {name: tailnet_name_read.known()},
         // Whether a machine may add itself, and what it may claim — never the token itself
         join: (app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix},
         // Where Logline is, and whether its admin token is kept — never the token itself

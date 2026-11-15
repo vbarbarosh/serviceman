@@ -36,6 +36,7 @@ const service_probe = require('./src/helpers/service_probe');
 const service_stop = require('./src/helpers/service_stop');
 const service_waits_for_remote = require('./src/helpers/service_waits_for_remote');
 const shared_tell = require('./src/helpers/shared_tell');
+const tailnet_name_read = require('./src/helpers/tailnet_name_read');
 
 const UPDATE_INTERVAL_MS = 60000;
 // How often the quiet ones are looked at. A machine that is talking costs nothing here, so
@@ -136,6 +137,8 @@ async function main()
             // And a table of shared folders a machine did not take, once its root half can
             shared_tell(app);
         }, LOGLINE_INTERVAL_MS);
+        // Its own tailnet name at once, for a machine added in the first minute
+        tailnet_name_read();
         setTimeout(function () {
             problems_tick(app);
         }, PROBLEMS_FIRST_MS);
@@ -151,6 +154,8 @@ function problems_tick(app)
     problems_check(app).catch(function (error) {
         log_event(app, 'problems_check_error', {reason: error.message});
     });
+    // Its own name on the tailnet, for the commands that start a new agent: read until known
+    tailnet_name_read();
     // The Security page's looks keep their own hour; the minute only sees which are due
     security_check(app, false);
 }
