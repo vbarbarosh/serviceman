@@ -12,6 +12,7 @@ after the page or a feature changes too, by following this page.
 | [03-something-already-running.md](03-something-already-running.md) | A dashboard already on a port, given an address and a sign-in |
 | [04-an-app-folder-on-a-machine.md](04-an-app-folder-on-a-machine.md) | An app folder with `bin/run` on a machine, asleep until a visit |
 | [05-a-public-name-through-a-door.md](05-a-public-name-through-a-door.md) | A public name answered through a machine's door, behind authwall |
+| [06-three-walls-each-with-its-app.md](06-three-walls-each-with-its-app.md) | Three walls for three teams (Google only, users named, an open demo), an app behind each |
 
 ## A tutorial file
 

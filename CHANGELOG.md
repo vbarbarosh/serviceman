@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.121 — 2026-11-16
+
+- Tutorial 06: three walls for three teams (Google only, users named, an open demo), an app behind each, each wall built on its authwall recipe.
+
 ## 1.0.120 — 2026-11-16
 
 - An arrow beside an open kind of the rail (Services, Remotes, Addresses, Storage, Secrets) folds its list away and back; the page stays, and the fold is kept in this browser.
