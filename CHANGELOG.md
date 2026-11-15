@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.106 — 2026-11-15
+
+- A name under `.localhost` answers this computer only: a tailnet device or a machine's door that asks for one gets a 404. In the image the tailnet is the container's loopback (`SERVICEMAN_LOOPBACK`), this computer `bin/run`'s published port (`SERVICEMAN_PUBLISHED`); a load test brings its run's key; tailscale's proxy moves to `127.0.0.2:1055`.
+
 ## 1.0.105 — 2026-11-15
 
 - **+ An app on a socket** says the app's address as serviceman gives it, from its config's name: opened at `127.0.0.1` it said `gggggg.0.0.1`.

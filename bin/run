@@ -20,12 +20,15 @@ cd $scriptdir/..
 # the log has the link to open. SERVICEMAN_OWNER_TOKEN, when set, is the control page's owner
 # token; without it serviceman makes one in data/owner.token, which bin/owner-token prints.
 # Both go in by name: docker reads them from this environment, so neither value stands on the
-# command line for every process list to read.
+# command line for every process list to read. SERVICEMAN_PUBLISHED tells serviceman that its
+# two doors are published on this machine's loopback alone, so what comes in through them is
+# this computer: a name under .localhost is answered to that, and not to the tailnet.
 docker run --rm --init \
     -p 127.0.0.1:3000:3000 \
     -p 127.0.0.1:3001:3001 \
     -v $PWD/data:/app/data \
     -e TS_AUTHKEY \
     -e SERVICEMAN_OWNER_TOKEN \
+    -e SERVICEMAN_PUBLISHED=loopback \
     -v serviceman-tailscale:/var/lib/tailscale \
     serviceman

@@ -769,13 +769,14 @@ machine that carries the service: serviceman in here runs nothing itself.</p>
 <p><strong>The tailnet is a way in, and a proxy is the way out.</strong> tailscaled runs in userspace mode, so
 nothing serviceman dials goes through it: from in here a tailnet address is not routed and a
 tailnet name does not resolve. tailscaled also runs a proxy on the container&#39;s own
-<code>localhost:1055</code>, published nowhere, and <code>TAILNET_PROXY</code> points serviceman at it. Its calls to
+<code>127.0.0.2:1055</code>, published nowhere and out of the tailnet&#39;s way (what the tailnet sends in is
+dialled to <code>127.0.0.1</code>), and <code>TAILNET_PROXY</code> points serviceman at it. Its calls to
 Logline go that way, so Logline&#39;s address may be a tailnet IP or a <code>*.ts.net</code> name. Nothing else
 serviceman does uses it.</p>
 <p><strong>Each build takes the newest tailscale.</strong> The binaries come from the <code>tailscale/tailscale:stable</code>
 image, and <code>bin/build</code> builds with <code>--pull</code>, so every build fetches the newest stable release,
 and the newest <code>node:24-alpine</code>, for the machine&#39;s own architecture.</p>
-<p>Three things follow from that network, and the image handles all three:</p>
+<p>Four things follow from that network, and the image handles all four:</p>
 <p><strong>A published port does not arrive on the container&#39;s loopback.</strong> So both doors bind
 <code>0.0.0.0</code> inside, where docker forwards to. What may reach them is decided outside, by
 <code>-p 127.0.0.1:...</code> on the machine.</p>
@@ -784,6 +785,17 @@ local it was on the machine, and without <code>exposed</code> the control page a
 Its wall is the <code>127.0.0.1</code> in <code>-p 127.0.0.1:3001:3001</code>. Take <code>exposed</code> out of the config to
 have the control page over the tailnet only — those connections <em>do</em> arrive on the loopback in
 here, so they are let in.</p>
+<p><strong>A name under <code>.localhost</code> answers this computer only.</strong> A browser sends such a name to its own
+computer and nowhere else, so one that comes from the tailnet was typed by hand. In here the
+doors are the other way round from a machine&#39;s: the tailnet arrives on the container&#39;s loopback
+(the image sets <code>SERVICEMAN_LOOPBACK=tailnet</code>), and this computer through the published port,
+which <code>bin/run</code> binds to the machine&#39;s loopback and says so (<code>SERVICEMAN_PUBLISHED=loopback</code>). A
+tailnet device that asks for <code>va.localhost</code> gets the 404 of a name serviceman does not know; on
+the tailnet an app is reached at its name under the apps domain
+(<a href="config.html#an-app-sent-to-serviceman">on your tailnet</a>). A <code>docker run</code> of your own without
+<code>SERVICEMAN_PUBLISHED</code> answers a <code>.localhost</code> name to nobody, since serviceman cannot see where
+its port was published. A load test from a machine still reaches one: its requests bring the key
+of their run. The control page has its own wall, its token, and stays as it is.</p>
 <p><strong>An agent on the machine reaches it through a socket, not a port.</strong> The socket is a file, and a
 file in the container is nowhere — so mount the folder it should live in and point
 <code>control.socket</code> at it:</p>
@@ -836,6 +848,10 @@ nothing itself, so it needs no docker socket and no docker command.</p>
 <td><code>SERVICEMAN_OWNER_TOKEN</code></td>
 <td>The owner&#39;s token of the control page, instead of <code>data/owner.token</code>.</td>
 </tr>
+<tr>
+<td><code>SERVICEMAN_PUBLISHED</code></td>
+<td><code>loopback</code>: the doors are published on the machine&#39;s loopback alone, so what comes through them is this computer. <code>bin/run</code> sets it.</td>
+</tr>
 </tbody></table>
 </div>
 <p><code>bin/run</code> hands these two to docker by name, from your environment, so neither value stands on
@@ -881,7 +897,7 @@ the agents that dial in again.</p>
 <tbody><tr>
 <td>The services, <code>listen</code></td>
 <td><code>127.0.0.1</code></td>
-<td>Anyone who reaches the address.</td>
+<td>Anyone who reaches the address; a name under <code>.localhost</code>, this computer only.</td>
 </tr>
 <tr>
 <td>The services, <code>listen.socket</code></td>

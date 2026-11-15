@@ -1,5 +1,7 @@
 const door_inbound = require('../helpers/door_inbound');
 const format_seconds = require('../../../helpers/format_seconds');
+const is_localhost_name = require('../helpers/is_localhost_name');
+const localhost_name_allowed = require('../helpers/localhost_name_allowed');
 const log_bind = require('../helpers/log_bind');
 const log_event = require('../helpers/log_event');
 const log_group_from = require('../helpers/log_group_from');
@@ -44,6 +46,15 @@ async function socket_answer(app, req, socket, head)
         socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;
     }
+    // A name under .localhost is this computer's own: asked from anywhere else it was typed by
+    // hand, and it is no name here
+    if (is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
+        log_event(app, 'localhost_refused', {host, ip: (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress, upgrade: String(req.headers.upgrade || '')});
+        socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
+        return;
+    }
+    // A load test's key is serviceman's alone: no service sees it
+    delete req.headers[localhost_name_allowed.header];
     // At this host's own door the name routes it, behind the wall its service stands behind
     const found = (door === null) ? wall_route(app, host, pathname, route_from_request(app, host, pathname), null) : {route: door.route, wall: door.wall};
     if (found.wall !== null) {

@@ -47,14 +47,16 @@ test('a test without an address asks the service where serviceman serves it', fu
     assert.strictEqual(load_test_url(app, app.config.load_tests[1]), 'https://hello.example.com/', null);
 });
 
-test('the k6 script sends a name where it is told to, and carries the pass marks it has', function () {
+test('the k6 script sends a name where it is told to, with its run\'s key, and carries the pass marks it has', function () {
     const test_local = {vus: 5, duration: '10s', p95_ms: 500, errors_pct: 1};
-    const script = k6_script(test_local, 'http://hello.localhost:3000/', '100.64.0.7');
+    const script = k6_script(test_local, 'http://hello.localhost:3000/', '100.64.0.7', 'k3y');
     assert.match(script, /"hello\.localhost": "100\.64\.0\.7"/);
+    assert.match(script, /http\.get\("http:\/\/hello\.localhost:3000\/", \{"headers":\{"x-serviceman-load-test":"k3y"\}\}\)/);
     assert.match(script, /"p\(95\)<500"/);
     assert.match(script, /"rate<=0\.01"/);
-    const bare = k6_script({vus: 5, duration: '10s', p95_ms: null, errors_pct: null}, 'https://hello.example.com/', null);
+    const bare = k6_script({vus: 5, duration: '10s', p95_ms: null, errors_pct: null}, 'https://hello.example.com/', null, null);
     assert.match(bare, /"hosts": \{\}/);
+    assert.match(bare, /http\.get\("https:\/\/hello\.example\.com\/", \{\}\)/);
     assert.match(bare, /"thresholds": \{\}/);
 });
 

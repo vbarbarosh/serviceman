@@ -1,5 +1,6 @@
 const app_routes_rebuild = require('./app_routes_rebuild');
 const crypto = require('crypto');
+const doors_from_env = require('./doors_from_env');
 const externals_attach = require('./externals_attach');
 const load_test_runs_read = require('./load_test_runs_read');
 const own_container_id = require('./own_container_id');
@@ -30,6 +31,12 @@ function app_from_config(config)
         // The doors this host answers on, once they are open. A request that comes in through
         // a machine's link is handed to the services one.
         servers: null,
+        // Which way in is this computer and which the tailnet, where serviceman cannot tell by
+        // itself: in its image (doors_from_env, localhost_name_allowed)
+        doors: doors_from_env(process.env),
+        // The keys of the load tests running now, each of its run: their requests bring it to
+        // be answered at a .localhost name from their machine (localhost_name_allowed)
+        load_test_keys: new Set(),
         // What signs a grant to open a machine's files under their own address (fs_grant_make):
         // made here, kept nowhere, so a grant ends with the process that gave it
         fs_grant_key: crypto.randomBytes(32),

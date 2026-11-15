@@ -115,10 +115,22 @@ async function run(app, test, test_run)
         ip = (tailnet === null) ? '127.0.0.1' : tailnet;
         test_run.via = (tailnet === null) ? 'the remote\'s own loopback: this serviceman is not on a tailnet' : `serviceman on the tailnet, at ${tailnet}`;
     }
+    // Its machine is no .localhost name's own, so its requests bring this run's key to be
+    // answered there, held only while k6 runs (localhost_name_allowed)
+    const key = (ip === null) ? null : crypto.randomBytes(24).toString('hex');
     test_run.phase = 'running';
-    const script = Buffer.from(k6_script(test, test_run.url, ip)).toString('base64');
+    const script = Buffer.from(k6_script(test, test_run.url, ip, key)).toString('base64');
     const argv = ['run', '--rm', '--name', `serviceman-k6-${test_run.id}`, '--network', 'host', '-e', `K6_SCRIPT=${script}`, '--entrypoint', 'sh', K6_IMAGE, '-c', K6_SHELL];
-    const answer = await remote_call(app, remote, 'docker', {argv, service: `${k6_lane}${test_run.id}`}, PULL_MS + test.duration_ms);
+    if (key !== null) {
+        app.load_test_keys.add(key);
+    }
+    let answer;
+    try {
+        answer = await remote_call(app, remote, 'docker', {argv, service: `${k6_lane}${test_run.id}`}, PULL_MS + test.duration_ms);
+    }
+    finally {
+        app.load_test_keys.delete(key);
+    }
     if (test_run.phase === 'stopping') {
         test_run.phase = 'stopped';
         return;

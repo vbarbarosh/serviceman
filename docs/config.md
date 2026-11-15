@@ -1237,7 +1237,9 @@ A name serviceman has not seen becomes a folder of files in the config and is se
 `201`; a known one gets the new version: `200`. A new app has two names. One is beside
 serviceman's own, `notes.localhost` beside `serviceman.localhost`, as the New service form names
 a service, and the computer serviceman runs on reaches it with no DNS to change: a name under
-`.localhost` is that computer, in a browser and in its own resolver. The other, once the config
+`.localhost` is that computer, in a browser and in its own resolver, and serviceman answers it
+to that computer alone, never to the tailnet or a machine's door
+([the image's doors](deploy.md#serviceman-in-a-container-with-tailscale-inside)). The other, once the config
 has an apps domain, is under it, for outside:
 
 ```json

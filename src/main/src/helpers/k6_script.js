@@ -1,8 +1,13 @@
+const localhost_name_allowed = require('./localhost_name_allowed');
+
 // The k6 script of one load test: its users ask for one address for its duration. `ip`, when
 // given, is where the address's name is sent instead of asking DNS: a .localhost name is
-// serviceman's own, and nothing but serviceman knows where it is.
-function k6_script(test, url, ip)
+// serviceman's own, and nothing but serviceman knows where it is. `key`, when given, goes with
+// every request: serviceman answers a .localhost name to this computer alone, and to a load
+// test that brings the key of its run.
+function k6_script(test, url, ip, key)
 {
+    const params = (key === null) ? {} : {headers: {[localhost_name_allowed.header]: key}};
     const host = new URL(url).hostname;
     const options = {
         vus: test.vus,
@@ -26,7 +31,7 @@ export const options = ${JSON.stringify(options, null, 4)};
 let told = false;
 
 export default function () {
-    const res = http.get(${JSON.stringify(url)});
+    const res = http.get(${JSON.stringify(url)}, ${JSON.stringify(params)});
     if ((told === false) && ((res.status === 0) || (res.status >= 400))) {
         told = true;
         console.warn((res.status === 0) ? res.error : \`answered \${res.status}\`);

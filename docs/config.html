@@ -2087,7 +2087,9 @@ uninstalled, and the new name starts it on its first visitor. A name another ser
 <code>201</code>; a known one gets the new version: <code>200</code>. A new app has two names. One is beside
 serviceman&#39;s own, <code>notes.localhost</code> beside <code>serviceman.localhost</code>, as the New service form names
 a service, and the computer serviceman runs on reaches it with no DNS to change: a name under
-<code>.localhost</code> is that computer, in a browser and in its own resolver. The other, once the config
+<code>.localhost</code> is that computer, in a browser and in its own resolver, and serviceman answers it
+to that computer alone, never to the tailnet or a machine&#39;s door
+(<a href="deploy.html#serviceman-in-a-container-with-tailscale-inside">the image&#39;s doors</a>). The other, once the config
 has an apps domain, is under it, for outside:</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;}
 </code></pre>

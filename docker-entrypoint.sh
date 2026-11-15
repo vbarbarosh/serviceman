@@ -9,12 +9,18 @@
 #
 # The way out is its proxy: in userspace mode nothing dialled here goes through tailscale, so a
 # tailnet address is not routed and a tailnet name does not resolve. TAILNET_PROXY tells
-# serviceman where the proxy is, and serviceman uses it to reach Logline.
+# serviceman where the proxy is, and serviceman uses it to reach Logline. It listens on
+# 127.0.0.2, out of the tailnet's way: what the tailnet sends in is dialled to 127.0.0.1, and a
+# proxy there would carry a tailnet device out as serviceman.
+#
+# So in here this container's loopback is the tailnet, and serviceman is told so
+# (SERVICEMAN_LOOPBACK): a name under .localhost is this computer's alone, and a tailnet device
+# that types one by hand is answered as for any name serviceman does not know.
 
 set -eu
 
 TS_SOCKET=/var/run/tailscale/tailscaled.sock
-TS_PROXY=localhost:1055
+TS_PROXY=127.0.0.2:1055
 CONFIG=${SERVICEMAN_CONFIG:-/app/data/serviceman.json}
 WAIT_TRIES=100
 
@@ -145,4 +151,5 @@ if (typeof control.socket === "string" && shared(control.socket) === false) {
 ' "$CONFIG"
 
 export TAILNET_PROXY="http://$TS_PROXY"
+export SERVICEMAN_LOOPBACK=tailnet
 exec node /app/src/main

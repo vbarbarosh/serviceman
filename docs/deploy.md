@@ -70,7 +70,8 @@ machine that carries the service: serviceman in here runs nothing itself.
 **The tailnet is a way in, and a proxy is the way out.** tailscaled runs in userspace mode, so
 nothing serviceman dials goes through it: from in here a tailnet address is not routed and a
 tailnet name does not resolve. tailscaled also runs a proxy on the container's own
-`localhost:1055`, published nowhere, and `TAILNET_PROXY` points serviceman at it. Its calls to
+`127.0.0.2:1055`, published nowhere and out of the tailnet's way (what the tailnet sends in is
+dialled to `127.0.0.1`), and `TAILNET_PROXY` points serviceman at it. Its calls to
 Logline go that way, so Logline's address may be a tailnet IP or a `*.ts.net` name. Nothing else
 serviceman does uses it.
 
@@ -78,7 +79,7 @@ serviceman does uses it.
 image, and `bin/build` builds with `--pull`, so every build fetches the newest stable release,
 and the newest `node:24-alpine`, for the machine's own architecture.
 
-Three things follow from that network, and the image handles all three:
+Four things follow from that network, and the image handles all four:
 
 **A published port does not arrive on the container's loopback.** So both doors bind
 `0.0.0.0` inside, where docker forwards to. What may reach them is decided outside, by
@@ -89,6 +90,18 @@ local it was on the machine, and without `exposed` the control page answers 404 
 Its wall is the `127.0.0.1` in `-p 127.0.0.1:3001:3001`. Take `exposed` out of the config to
 have the control page over the tailnet only — those connections *do* arrive on the loopback in
 here, so they are let in.
+
+**A name under `.localhost` answers this computer only.** A browser sends such a name to its own
+computer and nowhere else, so one that comes from the tailnet was typed by hand. In here the
+doors are the other way round from a machine's: the tailnet arrives on the container's loopback
+(the image sets `SERVICEMAN_LOOPBACK=tailnet`), and this computer through the published port,
+which `bin/run` binds to the machine's loopback and says so (`SERVICEMAN_PUBLISHED=loopback`). A
+tailnet device that asks for `va.localhost` gets the 404 of a name serviceman does not know; on
+the tailnet an app is reached at its name under the apps domain
+([on your tailnet](config.md#an-app-sent-to-serviceman)). A `docker run` of your own without
+`SERVICEMAN_PUBLISHED` answers a `.localhost` name to nobody, since serviceman cannot see where
+its port was published. A load test from a machine still reaches one: its requests bring the key
+of their run. The control page has its own wall, its token, and stays as it is.
 
 **An agent on the machine reaches it through a socket, not a port.** The socket is a file, and a
 file in the container is nowhere — so mount the folder it should live in and point
@@ -115,6 +128,7 @@ nothing itself, so it needs no docker socket and no docker command.
 |--------------------------|--------------------------------------------------------------------------|
 | `TS_AUTHKEY`             | Joins the tailnet with no hands. Without it, `docker logs` has the link. |
 | `SERVICEMAN_OWNER_TOKEN` | The owner's token of the control page, instead of `data/owner.token`.    |
+| `SERVICEMAN_PUBLISHED`   | `loopback`: the doors are published on the machine's loopback alone, so what comes through them is this computer. `bin/run` sets it. |
 
 `bin/run` hands these two to docker by name, from your environment, so neither value stands on
 its command line; a container's environment is still readable by whoever may run `docker
@@ -158,7 +172,7 @@ Nothing is open until the config opens it.
 
 | Door                               | Bound to      | Who is answered                                |
 |------------------------------------|---------------|------------------------------------------------|
-| The services, `listen`             | `127.0.0.1`   | Anyone who reaches the address.                |
+| The services, `listen`             | `127.0.0.1`   | Anyone who reaches the address; a name under `.localhost`, this computer only. |
 | The services, `listen.socket`      | a file        | Anyone who may open the file.                  |
 | The control page, `control.socket` | a file        | Anyone who may open the file, mode `0600`.     |
 | The control page, `control`        | `127.0.0.1`   | This machine only, over either port.           |

@@ -4,6 +4,8 @@ const error_detail = require('../error_detail');
 const format_seconds = require('../../../helpers/format_seconds');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_request = require('./handle_control_request');
+const is_localhost_name = require('../helpers/is_localhost_name');
+const localhost_name_allowed = require('../helpers/localhost_name_allowed');
 const log_bind = require('../helpers/log_bind');
 const log_event = require('../helpers/log_event');
 const log_group_from = require('../helpers/log_group_from');
@@ -73,6 +75,16 @@ function handle_request(app, req, res)
     if ((door === null) && (app.config.control.host !== null) && ((host === app.config.control.host) || (fs_host_of(app, req) !== null))) {
         return handle_control_request(app, req, res);
     }
+    // A name under .localhost is this computer's own: asked from anywhere else it was typed by
+    // hand, and it is no name here, said as any name serviceman does not know is
+    if (is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
+        return log_group_from(req.socket.log_group, async function () {
+            log_event(app, 'localhost_refused', {host, ip: client_address(req)});
+            render_error_page(res, 404, 'No service answers on this address', `${host}${pathname_of(req)}`);
+        });
+    }
+    // A load test's key is serviceman's alone: no service sees it
+    delete req.headers[localhost_name_allowed.header];
     socket_pending(req.socket, res);
     // The waiting page asks this every couple of seconds for as long as somebody waits. It is
     // the page's own machinery, not a visit: it gets no group and no lines, because a log

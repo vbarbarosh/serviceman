@@ -223,6 +223,7 @@ config is shortened, because the real one was a scratch folder.
 | `connection_begin` | A client opened a connection; every request on it is a child of this group. |
 | `connection_end`   | It closed, how long it was held, and what was still unfinished on it.       |
 | `request_begin`    | The method and the path, then who asked and which page sent them.           |
+| `localhost_refused`| A name under `.localhost` asked from elsewhere than this computer: the name and who asked. |
 | `request_end`      | The status, how long it took, and the copy that answered.                   |
 | `request_wait`     | The start was slow, so the waiting page was shown.                          |
 | `request_timeout`  | No answer within `request_timeout`.                                         |
