@@ -14,6 +14,7 @@ import service_from_form from './service_from_form.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
+import wall_select from './wall_select.js';
 
 // What a service can be, in the order the question is worth asking
 const KINDS = ['docker', 'shell', 'external', 'files'];
@@ -440,8 +441,8 @@ const service_form = {
                 </template>
                 <label>Sign-in</label>
                 <div>
-                    <label class="check wide"><input type="checkbox" :checked="(m.auth !== '')" :disabled="(wall_for === null)" @change="m.auth = ($event.target.checked ? wall_for : '')"> behind {{ (wall_for === null ? 'authwall' : wall_for) }} — every visitor signs in first, at every address it has</label>
-                    <p v-if="(wall_for === null)" class="muted">No authwall yet: a service called <code>authwall</code> is added first.</p>
+                    <wall-select v-model="m.auth" :walls="(walls || [])" none="open: no sign-in" :self="m.name" @create="$emit('walls')"/>
+                    <p class="muted">Behind a wall, every visitor signs in first, at every address it has.</p>
                 </div>
                 <template v-if="((m.type === 'docker') || (m.type === 'shell'))">
                     <label>Hands over to</label>
@@ -604,10 +605,11 @@ const service_form = {
     </div>
 </article>
 `,
-    components: {'copy-progress': copy_progress, duration, snip: snippet},
-    // folder: the one serviceman keeps its own things in, as its owner sees it (data)
-    props: ['remotes', 'names', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder'],
-    emits: ['close', 'saved'],
+    components: {'copy-progress': copy_progress, duration, snip: snippet, 'wall-select': wall_select},
+    // folder: the one serviceman keeps its own things in, as its owner sees it (data); walls:
+    // walls_of(state), for the Sign-in list
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder'],
+    emits: ['close', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
         const model = form_from_service((this.original === null) ? source : this.original);
@@ -667,15 +669,6 @@ const service_form = {
         };
     },
     computed: {
-        // The wall the Sign-in box puts it behind: the one it is behind already, or the one
-        // called authwall; null when there is none
-        wall_for: function () {
-            if (this.m.auth !== '') {
-                return this.m.auth;
-            }
-            const names = this.names || [];
-            return (names.includes('authwall') && (this.m.name !== 'authwall')) ? 'authwall' : null;
-        },
         creating: function () {
             return this.original === null;
         },

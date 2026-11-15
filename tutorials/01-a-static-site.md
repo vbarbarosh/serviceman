@@ -1,7 +1,7 @@
 # 01. A static site
 
 A folder of HTML, zipped, given on **Apps**: it answers at once at an address of its own, open
-to anyone on this computer; then one box in its **Settings** puts it behind authwall, which asks
+to anyone on this computer; then one pick in its **Settings** puts it behind authwall, which asks
 a visitor to sign in first.
 
 **Before it starts:** a fresh serviceman with no services but `authwall` as
@@ -13,7 +13,7 @@ whose `index.html` is titled "My site", at the top of the zip.
 - `have`, a step: my-site.zip, index.html at the top; picked
 - `give`, a question: how is it given? On **Apps**; or with `curl` to `PUT /api/v1/apps` (not shown)
 - `ready`, a step: my-site.localhost answers
-- `wall`, a question: behind authwall? Yes, the box; no: `open`, anyone opens it
+- `wall`, a question: behind authwall? Yes, its Sign-in; no: `open`, anyone opens it
 - `signed`, a question: is the visitor signed in? No; yes: `straight`, the site at once
 - `signin`, a step: authwall asks to sign in
 - `right`, a question: is the password right? Yes; no: `refused`, the sign-in stays
@@ -47,9 +47,9 @@ whose `index.html` is titled "My site", at the top of the zip.
 
 ### 5. wall
 
-- **Do:** back on **Apps**, **Settings** on my-site's card; tick **Behind authwall**; **Save**.
+- **Do:** back on **Apps**, **Settings** on my-site's card; under **Sign-in** pick **behind authwall**; **Save**.
 - **See:** a lock beside my-site's address on its card.
-- **Say:** In its Settings, one box puts it behind authwall. Its card shows a lock.
+- **Say:** In its Settings, one pick puts it behind authwall. Its card shows a lock.
 
 ### 6. signin
 

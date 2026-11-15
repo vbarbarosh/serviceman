@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.119 — 2026-11-16
+
+- A wall per team: the Authwall page lists the walls and makes one for another team, a copy of authwall with its own users; every Sign-in is one list of the walls.
+
 ## 1.0.118 — 2026-11-16
 
 - Logline shows a long range part by part, with its seconds counting, and lets go of a range picked again; ClickHouse stops its queries.

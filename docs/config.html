@@ -1276,10 +1276,26 @@ before anything of the service is touched, even whether it is up; a no sends the
 ]
 </code></pre>
 <p>A door&#39;s rule may name a wall too: a service with its own asks its own, once, in place of the
-rule&#39;s. On <strong>Apps</strong> it is one box in an app&#39;s <strong>Settings</strong>, <strong>Behind authwall</strong>, there once a
-service called <code>authwall</code> is, and the same box is <strong>Sign-in</strong> in the <strong>Addresses</strong> card of any
-service&#39;s page; an app behind it has a lock before its address, and the <strong>Authwall</strong> page lists
-it with every address it has.</p>
+rule&#39;s. On <strong>Apps</strong> it is the <strong>Sign-in</strong> list in an app&#39;s <strong>Settings</strong>, and the same list is
+<strong>Sign-in</strong> in the <strong>Addresses</strong> card of any service&#39;s page: open, or behind one of the walls
+there are; an app behind one has a lock before its address, and the <strong>Authwall</strong> page lists it
+with every address it has.</p>
+<h3 id="a-wall-per-team"><a class="anchor" href="#a-wall-per-team" aria-hidden="true" tabindex="-1">#</a>A wall per team</h3>
+<p>Each team may have a wall of its own, with its own users: the <strong>Authwall</strong> page lists the walls,
+and <strong>+ A wall for another team</strong> makes one, a copy of <code>authwall</code> under a new name
+(<code>authwall-team-a</code>, its title the team&#39;s). The last option of every <strong>Sign-in</strong> list opens that
+form. A wall is a service called <code>authwall</code>, one whose name starts with <code>authwall-</code>, or any service
+something stands behind.</p>
+<p>The copy runs as <code>authwall</code> does: the same image, port, machines and environment, who may sign
+in among them. It is a wall of its own: its address is made of its name
+(<code>authwall-team-a.localhost</code>, and a setting naming <code>authwall.localhost</code> names the new one), every
+path it writes is kept under its own name, and it takes none of <code>AUTHWALL_SECRET</code>, <code>AUTHWALL_DB</code>
+and <code>AUTHWALL_SEED</code>; the first user typed in the form is its seed. Only a wall serviceman runs as
+a docker image can be copied. The same through the control door:</p>
+<pre><code>POST /api/v1/walls
+{&quot;from&quot;: &quot;authwall&quot;, &quot;name&quot;: &quot;authwall-team-a&quot;, &quot;title&quot;: &quot;team A&quot;, &quot;user&quot;: {&quot;username&quot;: &quot;ann&quot;, &quot;password&quot;: &quot;…&quot;, &quot;email&quot;: &quot;ann@example.com&quot;}}
+</code></pre>
+<p><code>user</code> may be <code>null</code>, for a wall with no user yet.</p>
 <h3 id="publish"><a class="anchor" href="#publish" aria-hidden="true" tabindex="-1">#</a>publish</h3>
 <div class="table-wrap"><table>
 <thead>
@@ -2072,8 +2088,8 @@ its folder), and until then the address answers 502. Its cell says the file the 
 dropped on the cell goes the same way, as that app&#39;s new version whatever the file is called. An
 app of its own folder takes a zip or its folder, never a page: it goes in as its page&#39;s <strong>New
 zip…</strong> puts it, its <code>data/</code> kept as it is on its machine, and the cell says once it runs.
-<strong>Settings</strong> opens a small window over Apps with its name, one box, <strong>Behind authwall</strong>
-(<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>), and its public addresses,
+<strong>Settings</strong> opens a small window over Apps with its name, its <strong>Sign-in</strong>, one of the walls or
+none (<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>), and its public addresses,
 the names a machine&#39;s door answers for it, and nothing more; one Save writes them all, Cancel or Esc nothing, and
 the rest of the service is on its page, linked at the window&#39;s foot. A new address goes through
 the door that answers most names already, behind <code>authwall</code> where there is one.</p>
@@ -2128,13 +2144,14 @@ nothing. <code>apps</code> is <code>apps.</code> and the rest of serviceman&#39;
 and the page answers only at <code>/</code>. Through a machine&#39;s door neither name is a page: there only
 the domain&#39;s is, where a rule gives it (above). <strong>Apps</strong> says both addresses on top, each with
 its <strong>Copy</strong>.</p>
-<p><strong>The page and every app behind authwall:</strong> one box on top of <strong>Apps</strong>, under those addresses,
-puts the page of apps and every app behind <code>authwall</code>, an app sent tomorrow too. The page asks it
-first on each of its names, and <code>/auth/…</code> there is the wall&#39;s own, so the sign-in comes up on the
-name you typed; each app asks it at every address it has, as its own box would
-(<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>). An app with a wall of its
-own keeps that one, and the wall itself is never put behind itself. While the box is on, an app&#39;s
-own box in its <strong>Settings</strong> shows ticked, from Apps; off again, each app is as its own box says.
+<p><strong>The page and every app behind a wall:</strong> one list on top of <strong>Apps</strong>, <strong>This page and every
+app</strong>, under those addresses, puts the page of apps and every app behind the wall picked, an app
+sent tomorrow too. The page asks it first on each of its names, and <code>/auth/…</code> there is the wall&#39;s
+own, so the sign-in comes up on the name you typed; each app asks it at every address it has, as
+its own pick would (<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>). An app
+with a wall of its own keeps that one, and the wall itself is never put behind itself. While one
+is picked there, an app with none of its own says &quot;as every app&quot; in its <strong>Settings</strong>; back to
+open, each app is as its own pick says.
 Through a machine&#39;s door, a rule that names a wall keeps it. In the config it is one field,
 the name of the wall&#39;s service:</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;auth&quot;: &quot;authwall&quot;},

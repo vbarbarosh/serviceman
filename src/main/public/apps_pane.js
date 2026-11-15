@@ -3,11 +3,10 @@ import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
 import format_bytes from './format_bytes.js';
 import to_clipboard from './to_clipboard.js';
+import wall_select from './wall_select.js';
+import walls_of from './walls_of.js';
 import zip_blob from './zip_blob.js';
 import zip_entries from './zip_entries.js';
-
-// The wall the box on top puts every app behind, as an app's own box does (app_settings)
-const WALL_NAME = 'authwall';
 
 // A page of its own, given as one file: 2.html, notes.htm
 const RE_PAGE = /\.html?$/i;
@@ -23,10 +22,10 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 // Simple enough for anybody: drop, then click the link. Each app's cell opens it, takes a new
 // version of it dropped on it or picked from it whatever the file is called (an app of its own
 // folder takes a zip or a folder, and keeps its data/), and opens its settings in a small window
-// over the page: its name, whether it is behind authwall, and its public addresses. One behind
-// a wall has a lock before its address. On top, the address of the page of every app, to type
-// in a browser here or on a phone of the tailnet, and one box that puts that page and every app,
-// a new one too, behind authwall (apps.auth).
+// over the page: its name, the wall it is behind, and its public addresses. One behind a wall has
+// a lock before its address. On top, the address of the page of every app, to type in a browser
+// here or on a phone of the tailnet, and one list that puts that page and every app, a new one
+// too, behind a wall (apps.auth); its last option opens the Authwall page to make one.
 const apps_pane = {
     template: `
 <section class="apps-pane">
@@ -42,11 +41,11 @@ const apps_pane = {
             <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
         </span>
     </div>
-    <label class="app-wall apps-wall" :class="{none: (wall === null)}">
-        <input type="checkbox" :checked="all_walled" :disabled="(wall_busy || (wall === null))" @change="wall_all($event.target.checked)">
-        <span>Behind {{ (wall === null ? 'authwall' : wall) }}: this page and every app <span class="muted">· every visitor signs in first, a new app too; off, each app keeps its own box</span></span>
-    </label>
-    <p v-if="(wall === null)" class="muted apps-wall-says">No authwall yet: a service called <code>authwall</code> is added on the Authwall page first.</p>
+    <div class="apps-wall">
+        <label class="apps-wall-label" for="apps-wall-pick">This page and every app:</label>
+        <wall-select id="apps-wall-pick" :model-value="wall" :walls="walls" none="open: each app as its own Settings say" label="The wall in front of this page and every app" :disabled="wall_busy" @update:model-value="change_wall_all" @create="$emit('walls')"/>
+        <span class="muted">{{ ((wall === '') ? 'an app picks its own wall in its Settings' : 'every visitor signs in first, a new app too; a wall an app picks itself stays its own') }}</span>
+    </div>
     <p v-if="(wall_error !== '')" class="bad apps-wall-says">{{ wall_error }}</p>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
@@ -96,11 +95,11 @@ const apps_pane = {
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
-    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :remotes="state.remotes" :names="state.services.map(v => v.name)" @close="settings = null" @saved="$emit('saved')" @more="more"/>
+    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add},
-    emits: ['select', 'saved'],
+    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add, 'wall-select': wall_select},
+    emits: ['select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
         // The app whose Settings window opens at once (Addresses' "set in"), null for none
@@ -112,7 +111,7 @@ const apps_pane = {
         // app whose settings window is open, as it was when it opened
         // socket_adding: the window for a new app on a socket is open; copied: the text the last
         // Copy put on the clipboard
-        // wall_busy: the box on top is being saved; wall_error: why its last save was refused
+        // wall_busy: the list on top is being saved; wall_error: why its last save was refused
         return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', STATE_WORDS};
     },
     computed: {
@@ -138,17 +137,13 @@ const apps_pane = {
         domain: function () {
             return ((this.state.apps === undefined) || (this.state.apps === null)) ? null : this.state.apps.domain;
         },
-        // Whether the page of apps and every app stand behind the wall Apps names
-        all_walled: function () {
-            return (this.state.apps !== undefined) && (this.state.apps !== null) && (typeof this.state.apps.auth === 'string');
-        },
-        // The wall the box puts them behind: the one named already, or a service called
-        // authwall; null when there is none to put them behind
+        // The wall Apps puts in front of its page and every app, '' for none
         wall: function () {
-            if (this.all_walled) {
-                return this.state.apps.auth;
-            }
-            return this.state.services.some(v => v.name === WALL_NAME) ? WALL_NAME : null;
+            const apps = this.state.apps;
+            return ((apps !== undefined) && (apps !== null) && (typeof apps.auth === 'string')) ? apps.auth : '';
+        },
+        walls: function () {
+            return walls_of(this.state);
         },
         // The page of every app, at each name a browser reaches it by (apps_page_of on the
         // server): apps.localhost on this computer, serviceman's own tailnet name on every device
@@ -198,13 +193,13 @@ const apps_pane = {
                 this.copied = text;
             }
         },
-        // The box on top, saved as it is clicked: the page of apps and every app behind the wall,
-        // or each app back to its own box
-        wall_all: async function (on) {
+        // The list on top, saved as it is picked: the page of apps and every app behind a wall, or
+        // each app back to its own pick
+        change_wall_all: async function (wall) {
             this.wall_busy = true;
             this.wall_error = '';
             try {
-                const answer = await fetch('/api/v1/apps', {method: 'PUT', body: JSON.stringify({auth: on ? this.wall : null})});
+                const answer = await fetch('/api/v1/apps', {method: 'PUT', body: JSON.stringify({auth: (wall === '') ? null : wall})});
                 if (answer.ok === false) {
                     throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
                 }

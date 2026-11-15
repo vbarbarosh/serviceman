@@ -454,10 +454,30 @@ before anything of the service is touched, even whether it is up; a no sends the
 ```
 
 A door's rule may name a wall too: a service with its own asks its own, once, in place of the
-rule's. On **Apps** it is one box in an app's **Settings**, **Behind authwall**, there once a
-service called `authwall` is, and the same box is **Sign-in** in the **Addresses** card of any
-service's page; an app behind it has a lock before its address, and the **Authwall** page lists
-it with every address it has.
+rule's. On **Apps** it is the **Sign-in** list in an app's **Settings**, and the same list is
+**Sign-in** in the **Addresses** card of any service's page: open, or behind one of the walls
+there are; an app behind one has a lock before its address, and the **Authwall** page lists it
+with every address it has.
+
+### A wall per team
+
+Each team may have a wall of its own, with its own users: the **Authwall** page lists the walls,
+and **+ A wall for another team** makes one, a copy of `authwall` under a new name
+(`authwall-team-a`, its title the team's). The last option of every **Sign-in** list opens that
+form. A wall is a service called `authwall`, one whose name starts with `authwall-`, or any service
+something stands behind.
+
+The copy runs as `authwall` does: the same image, port, machines and environment, who may sign
+in among them. It is a wall of its own: its address is made of its name
+(`authwall-team-a.localhost`, and a setting naming `authwall.localhost` names the new one), every
+path it writes is kept under its own name, and it takes none of `AUTHWALL_SECRET`, `AUTHWALL_DB`
+and `AUTHWALL_SEED`; the first user typed in the form is its seed. Only a wall serviceman runs as
+a docker image can be copied. The same through the control door:
+
+    POST /api/v1/walls
+    {"from": "authwall", "name": "authwall-team-a", "title": "team A", "user": {"username": "ann", "password": "…", "email": "ann@example.com"}}
+
+`user` may be `null`, for a wall with no user yet.
 
 ### publish
 
@@ -1220,8 +1240,8 @@ A cell is its app's: **New version…** picks a zip or a page for it, and a zip,
 dropped on the cell goes the same way, as that app's new version whatever the file is called. An
 app of its own folder takes a zip or its folder, never a page: it goes in as its page's **New
 zip…** puts it, its `data/` kept as it is on its machine, and the cell says once it runs.
-**Settings** opens a small window over Apps with its name, one box, **Behind authwall**
-([behind a wall at every address](#behind-a-wall-at-every-address)), and its public addresses,
+**Settings** opens a small window over Apps with its name, its **Sign-in**, one of the walls or
+none ([behind a wall at every address](#behind-a-wall-at-every-address)), and its public addresses,
 the names a machine's door answers for it, and nothing more; one Save writes them all, Cancel or Esc nothing, and
 the rest of the service is on its page, linked at the window's foot. A new address goes through
 the door that answers most names already, behind `authwall` where there is one.
@@ -1288,13 +1308,14 @@ and the page answers only at `/`. Through a machine's door neither name is a pag
 the domain's is, where a rule gives it (above). **Apps** says both addresses on top, each with
 its **Copy**.
 
-**The page and every app behind authwall:** one box on top of **Apps**, under those addresses,
-puts the page of apps and every app behind `authwall`, an app sent tomorrow too. The page asks it
-first on each of its names, and `/auth/…` there is the wall's own, so the sign-in comes up on the
-name you typed; each app asks it at every address it has, as its own box would
-([behind a wall at every address](#behind-a-wall-at-every-address)). An app with a wall of its
-own keeps that one, and the wall itself is never put behind itself. While the box is on, an app's
-own box in its **Settings** shows ticked, from Apps; off again, each app is as its own box says.
+**The page and every app behind a wall:** one list on top of **Apps**, **This page and every
+app**, under those addresses, puts the page of apps and every app behind the wall picked, an app
+sent tomorrow too. The page asks it first on each of its names, and `/auth/…` there is the wall's
+own, so the sign-in comes up on the name you typed; each app asks it at every address it has, as
+its own pick would ([behind a wall at every address](#behind-a-wall-at-every-address)). An app
+with a wall of its own keeps that one, and the wall itself is never put behind itself. While one
+is picked there, an app with none of its own says "as every app" in its **Settings**; back to
+open, each app is as its own pick says.
 Through a machine's door, a rule that names a wall keeps it. In the config it is one field,
 the name of the wall's service:
 

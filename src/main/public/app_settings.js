@@ -1,18 +1,20 @@
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import wall_select from './wall_select.js';
 
 // The service a new public address is protected with unless another is picked: one called this
 const WALL_NAME = 'authwall';
 
 // An app's settings, in a small window over the Apps page: its name, its socket for an app on
-// one, whether it is behind authwall, and its public addresses, and nothing more. One Save
+// one, the wall it is behind, and its public addresses, and nothing more. One Save
 // writes them: the name and the wall first, in one change of its service, so the addresses are
 // written for the name it has now (serviceman moves the ones it had with it); Cancel, Esc or a
 // click beside the window puts it away with nothing written. The rest of the service is on its
 // own page, linked at the foot.
 //
-// Behind authwall, every visitor signs in before anything of the app answers, at every address
-// it has: its own beside serviceman's, and every name a machine's door gives it.
+// Behind a wall, every visitor signs in before anything of the app answers, at every address it
+// has: its own beside serviceman's, and every name a machine's door gives it. Each team may have
+// a wall of its own; the list's last option opens the Authwall page to make one.
 const app_settings = {
     template: `
 <div class="dt-window" @click.self="close">
@@ -39,12 +41,10 @@ const app_settings = {
     </div>
     <div class="app-settings-row">
         <span class="app-settings-label">Sign-in</span>
-        <label class="app-wall" :class="{none: ((wall === null) || from_apps)}">
-            <input v-if="from_apps" type="checkbox" checked disabled>
-            <input v-else v-model="walled" type="checkbox" :disabled="(busy || (wall === null))">
-            <span>Behind {{ (wall === null ? 'authwall' : wall) }} <span class="muted">· {{ (from_apps ? 'as every app: the box on top of Apps' : 'every visitor signs in first, at every address') }}</span></span>
-        </label>
-        <p v-if="(wall === null)" class="muted app-settings-says">No authwall yet: a service called <code>authwall</code> is added on the Authwall page first.</p>
+        <div class="app-wall-pick">
+            <wall-select v-model="pick" :walls="walls" :none="(from_apps ? ('as every app: behind ' + app.auth) : 'open: no sign-in')" :self="app.name" :disabled="busy" @create="$emit('walls')"/>
+            <p class="muted app-settings-says">{{ ((wall === null) ? 'anyone may open it' : 'every visitor signs in first, at every address') }}</p>
+        </div>
     </div>
     <div class="app-settings-row">
         <span class="app-settings-label">Public address</span>
@@ -62,9 +62,9 @@ const app_settings = {
                     <option value="">through the door of…</option>
                     <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
                 </select>
-                <select v-if="(walled === false)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
+                <select v-if="(wall === null)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
                     <option value="">protected by nothing</option>
-                    <option v-for="item of walls" :key="item" :value="item">protected by {{ item }}</option>
+                    <option v-for="item of guards" :key="item" :value="item">protected by {{ item }}</option>
                 </select>
             </div>
         </div>
@@ -78,7 +78,8 @@ const app_settings = {
 </div>
 </div>
 `,
-    emits: ['close', 'saved', 'more'],
+    components: {'wall-select': wall_select},
+    emits: ['close', 'saved', 'more', 'walls'],
     props: {
         app: {type: Object, required: true},
         // Every machine, with the door rules of each (inbound); the names of every service
@@ -89,6 +90,8 @@ const app_settings = {
         tailnet: {type: String, default: ''},
         // The folder serviceman keeps its own things in, as its owner sees it: data
         folder: {type: String, required: true},
+        // walls_of(state), for the Sign-in list
+        walls: {type: Array, required: true},
     },
     data: function () {
         // current: its name in the config, the new one once a rename is in (a Save that stopped
@@ -96,10 +99,10 @@ const app_settings = {
         // Save; where and socket: an app on a socket's place and file, as its card says them
         const where = ((this.app.socket === null) || (this.app.remotes.length === 0)) ? '' : this.app.remotes[0];
         const socket = (this.app.socket === null) ? '' : this.app.socket_said;
-        // walled: whether it is behind a wall of its own, as the box says it now; one Apps puts
-        // in front of every app is not its own, and is not written into it
-        const walled = (this.app.auth !== null) && (this.app.auth !== undefined) && (this.app.auth_from !== 'apps');
-        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, walled, walled_was: walled, busy: false, note: '', bad: false};
+        // pick: the wall of its own, as the list says it now, '' for none; one Apps puts in front
+        // of every app is not its own, and is not written into it
+        const pick = ((this.app.auth === null) || (this.app.auth === undefined) || (this.app.auth_from === 'apps')) ? '' : this.app.auth;
+        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, pick, pick_was: pick, busy: false, note: '', bad: false};
     },
     computed: {
         // Every name a machine's door answers for this app, by a rule of its own
@@ -147,8 +150,9 @@ const app_settings = {
         machines: function () {
             return this.remotes.map(v => ({value: v.name, label: v.title || v.name}));
         },
-        // Any other service may stand in front; the one called authwall first
-        walls: function () {
+        // What may stand in front of a new address: any other service, the one called authwall
+        // first
+        guards: function () {
             const others = this.names.filter(v => v !== this.app.name);
             return others.filter(v => v === WALL_NAME).concat(others.filter(v => v !== WALL_NAME));
         },
@@ -161,20 +165,20 @@ const app_settings = {
         socket_changed: function () {
             return (this.app.socket !== null) && ((this.where !== this.where_was) || (this.socket !== this.socket_was));
         },
-        // The wall the box puts it behind: the one it is behind already, or the one called
-        // authwall; null when there is none to put it behind
+        // The wall it will stand behind: its own pick, or else the one Apps puts in front of every
+        // app; null for none
         wall: function () {
-            if ((this.app.auth !== null) && (this.app.auth !== undefined)) {
-                return this.app.auth;
+            if (this.pick !== '') {
+                return this.pick;
             }
-            return (this.names.includes(WALL_NAME) && (this.app.name !== WALL_NAME)) ? WALL_NAME : null;
+            return this.from_apps ? this.app.auth : null;
         },
         // Its wall is the one Apps puts in front of every app, not a box of its own
         from_apps: function () {
             return (this.app.auth_from === 'apps');
         },
         changed: function () {
-            return (this.name !== this.current) || (this.walled !== this.walled_was) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
+            return (this.name !== this.current) || (this.pick !== this.pick_was) || (this.gone.length > 0) || (this.fresh_host !== '') || this.socket_changed;
         },
     },
     watch: {
@@ -183,7 +187,7 @@ const app_settings = {
         'fresh.host': function (now, was) {
             if ((was === '') && (now !== '') && (this.fresh.machine === '')) {
                 this.fresh.machine = front_of(this.remotes);
-                this.fresh.auth = this.walls.includes(WALL_NAME) ? WALL_NAME : '';
+                this.fresh.auth = this.guards.includes(WALL_NAME) ? WALL_NAME : '';
             }
         },
     },
@@ -210,10 +214,10 @@ const app_settings = {
         drop: function (row) {
             this.gone.push(row);
         },
-        // The wall an address is behind as it will be: the app's own while the box is on, and
-        // the one Apps puts in front of every app
+        // The wall an address is behind as it will be: the app's own, or the one Apps puts in
+        // front of every app, or else the address's own
         behind_of: function (row) {
-            return (this.walled || this.from_apps) ? this.wall : row.auth;
+            return (this.wall !== null) ? this.wall : row.auth;
         },
         report: function (note, bad) {
             this.note = note;
@@ -232,10 +236,10 @@ const app_settings = {
             this.report('', false);
             const name = this.name;
             try {
-                if ((name !== this.current) || (this.walled !== this.walled_was)) {
+                if ((name !== this.current) || (this.pick !== this.pick_was)) {
                     await this.service_write(name);
                     this.current = name;
-                    this.walled_was = this.walled;
+                    this.pick_was = this.pick;
                 }
                 if (this.socket_changed) {
                     await this.socket_write();
@@ -249,9 +253,9 @@ const app_settings = {
                 }
                 for (const machine of machines) {
                     const gone = this.gone.filter(v => v.machine === machine).map(v => v.host);
-                    // Behind its wall, a new address is behind it too, and stays so if the box is
-                    // cleared one day
-                    const fresh = Object.assign({}, this.fresh, this.walled ? {auth: this.wall} : {});
+                    // Behind its own wall, a new address is behind it too, and stays so if the pick
+                    // is cleared one day
+                    const fresh = Object.assign({}, this.fresh, (this.pick !== '') ? {auth: this.pick} : {});
                     const problem = await door_rules_write(machine, function (inbound) {
                         for (const item of gone) {
                             delete inbound[item];
@@ -294,8 +298,8 @@ const app_settings = {
                 throw new Error(`${this.current} is not in the config any more`);
             }
             const service = Object.assign({}, entry, {name});
-            if (this.walled) {
-                service.auth = this.wall;
+            if (this.pick !== '') {
+                service.auth = this.pick;
             }
             else {
                 delete service.auth;

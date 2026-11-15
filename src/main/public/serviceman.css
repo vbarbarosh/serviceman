@@ -4627,9 +4627,18 @@ article.rf .actions {
     padding: .1rem .55rem;
 }
 
-/* The box on top: the page of apps and every app behind authwall, under the page's addresses */
+/* The list on top: the page of apps and every app behind a wall, under the page's addresses;
+   its label, the list and its words wrap as the width asks */
 .apps-pane .apps-wall {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .6rem;
     margin: .7rem 0 0;
+}
+
+.apps-pane .apps-wall-label {
+    font-weight: 600;
 }
 
 .apps-pane .apps-wall-says {
@@ -4766,23 +4775,11 @@ article.rf .actions {
     min-width: 0;
 }
 
-/* Behind authwall or not: the box, then its words, which wrap beside it */
-.apps-pane .app-wall {
-    display: flex;
-    align-items: flex-start;
-    gap: .5rem;
-    cursor: pointer;
-}
-
-.apps-pane .app-wall input {
-    flex: none;
-    width: auto;
-    margin: .2rem 0 0;
-}
-
-.apps-pane .app-wall.none {
-    color: var(--muted);
-    cursor: default;
+/* The wall an app is behind: the list, then its words under it */
+.apps-pane .app-wall-pick {
+    display: grid;
+    gap: .25rem;
+    min-width: 0;
 }
 
 /* An app's socket: where it is, then its file, each a line of its own */
@@ -4813,4 +4810,121 @@ article.rf .actions {
 
 .apps-pane .app-settings-note:empty {
     display: none;
+}
+
+/* A list of walls: as wide as its longest wall, never wider than its column */
+.wall-select {
+    width: auto;
+    max-width: 100%;
+    min-width: 12rem;
+}
+
+/* Authwall: the walls as cards side by side, the one looked at marked; a long name wraps inside
+   its card */
+.wall-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+    gap: .6rem;
+    margin: 1rem 0 0;
+}
+
+.wall-card {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    min-width: 0;
+    padding: .65rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease;
+}
+
+.wall-card:hover {
+    background: var(--hover);
+}
+
+.wall-card.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.wall-card .wall-lock {
+    flex: none;
+    color: var(--run);
+}
+
+.wall-card-words {
+    display: grid;
+    gap: .1rem;
+    min-width: 0;
+}
+
+.wall-card-words code {
+    overflow-wrap: anywhere;
+}
+
+/* The wall looked at, under the button or the form that makes another */
+.wall-status {
+    margin-top: 1rem;
+}
+
+/* A wall for another team: a label column beside its fields, one column on a phone */
+.wall-new {
+    margin: 1rem 0;
+    padding: .9rem 1rem;
+}
+
+.wall-new h2 {
+    margin: 0 0 .4rem;
+}
+
+.wall-new-row {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    align-items: center;
+    gap: .6rem;
+    margin-top: .6rem;
+}
+
+.wall-new-row input {
+    max-width: 24rem;
+}
+
+.wall-new-user {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: .5rem;
+    max-width: 36rem;
+}
+
+.wall-new-user input {
+    max-width: none;
+}
+
+.wall-new-says {
+    margin: .25rem 0 0 7.6rem;
+}
+
+/* Its buttons inside the card, not in the footer bar a page's form pins them to */
+.wall-new.form .actions {
+    position: static;
+    margin: 1rem 0 0;
+    padding: 0;
+    border-top: 0;
+    background: none;
+}
+
+@media (max-width: 560px) {
+    .wall-new-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .25rem;
+    }
+
+    .wall-new-says {
+        margin-left: 0;
+    }
 }

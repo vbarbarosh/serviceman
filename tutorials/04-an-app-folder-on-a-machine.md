@@ -16,7 +16,7 @@ folder with `bin/run` starting a small server on `PORT`, titled "Notes", which s
 - `kind`, a question: what kind? **An app folder**; or a docker image (not shown)
 - `where`, a question: which machine? laptop; or another one (not shown)
 - `asleep`, a step: asleep, nothing runs yet
-- `wall`, a question: behind authwall? Yes, the box; no: any visit wakes it (not shown)
+- `wall`, a question: behind authwall? Yes, its Sign-in; no: any visit wakes it (not shown)
 - `page`, a step: a stranger asks for its page; still asleep
 - `public`, a question: a path authwall makes public? Yes: `fav`, `/favicon.ico` wakes it; no
 - `signin`, a step: authwall asks to sign in
@@ -50,9 +50,9 @@ folder with `bin/run` starting a small server on `PORT`, titled "Notes", which s
 
 ### 5. wall
 
-- **Do:** **Settings** on notes-app's card; tick **Behind authwall**; **Save**.
+- **Do:** **Settings** on notes-app's card; under **Sign-in** pick **behind authwall**; **Save**.
 - **See:** a lock beside its address on its card.
-- **Say:** One box in its Settings puts it behind authwall.
+- **Say:** One pick in its Settings puts it behind authwall.
 
 ### 6. page
 

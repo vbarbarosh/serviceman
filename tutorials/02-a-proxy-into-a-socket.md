@@ -16,7 +16,7 @@ serviceman passes it, in an element `#who`.
 - `kind`, a question: what kind? **A proxy**; or a docker image (not shown)
 - `where`, a question: where is its socket? serviceman's `data/`; or on a machine (not shown)
 - `listens`, a question: is it listening yet? Yes, started; no: `bad`, 502 until it does
-- `wall`, a question: behind authwall? Yes, the box; no: `open`, hello, stranger
+- `wall`, a question: behind authwall? Yes, its Sign-in; no: `open`, hello, stranger
 - `signed`, a question: is the visitor signed in? No; yes: `straight`, straight in
 - `signin`, a step: authwall, sign in as demo
 - `hello`, the end: hello, you: it knows who
@@ -55,9 +55,9 @@ serviceman passes it, in an element `#who`.
 
 ### 6. wall
 
-- **Do:** on **Apps**, **Settings** on chat's card; tick **Behind authwall**; **Save**.
+- **Do:** on **Apps**, **Settings** on chat's card; under **Sign-in** pick **behind authwall**; **Save**.
 - **See:** a lock beside chat's address on its card.
-- **Say:** One box in its Settings puts chat behind authwall.
+- **Say:** One pick in its Settings puts chat behind authwall.
 
 ### 7. signin
 

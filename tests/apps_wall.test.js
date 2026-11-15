@@ -166,6 +166,47 @@ test('PUT /api/v1/apps puts the page and every app behind the wall, and takes th
     assert.strictEqual((await fetch_host({port, host: 'serviceman.localhost', method: 'PUT', path: '/api/v1/apps', body: JSON.stringify({auth: 'authwall'}), token: null})).status, 401, 'the owner\'s alone');
 });
 
+// A wall for another team, made on the Authwall page: a copy of authwall in the config, its own
+// address and first user, the first wall as it was; what cannot be a copy is refused, unwritten
+test('POST /api/v1/walls makes a wall for another team, and refuses what cannot be one', async function (t) {
+    const state = state_make(t, []);
+    const file = path.join(state, 'serviceman.json');
+    const wall = {name: 'authwall', type: 'docker', image: 'vbarbarosh/authwall:latest', remotes: ['laptop'], publish: {host: 'authwall.localhost', port: 3000}, env: {AUTHWALL_SEED: 'demo:demo-pass-1234:user@example.com'}, volumes: [{source: '', target: '/app/data'}]};
+    const first = {
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {ports: null},
+        remotes: [{name: 'laptop', token: 'cccccccccccccccccccccccccccccccc'}],
+        services: [wall, {name: 'gate', type: 'external', publish: {host: 'gate.localhost'}, upstream: '127.0.0.1:9'}],
+    };
+    fs.writeFileSync(file, `${JSON.stringify(first, null, 4)}\n`);
+    const config = config_from_json(first, state);
+    config.path = file;
+    const app = app_from_config(config);
+    const port = await boot(t, app);
+    function post(from, body, token) {
+        return fetch_host({port, host: 'serviceman.localhost', method: 'POST', path: '/api/v1/walls', body: JSON.stringify(Object.assign({from}, body)), token});
+    }
+    const user = {username: 'ann', password: 'a-long-password', email: 'ann@example.com'};
+
+    const made = await post('authwall', {name: 'authwall-team-a', title: 'team A', user});
+    assert.strictEqual(made.status, 200, made.body);
+    const services = JSON.parse(fs.readFileSync(file, 'utf8')).services;
+    assert.deepStrictEqual(services[0], wall, 'the first wall is left as it was');
+    assert.deepStrictEqual(services[2].publish, {host: 'authwall-team-a.localhost', port: 3000});
+    assert.strictEqual(services[2].title, 'team A');
+    assert.deepStrictEqual(JSON.parse(services[2].env.AUTHWALL_SEED), [{username: 'ann', emails: 'ann@example.com', password: 'a-long-password'}]);
+    assert.deepStrictEqual(app.service_by_name['authwall-team-a'].volumes.map(v => v.keep), ['authwall-team-a/app-data'], 'running with storage of its own');
+
+    assert.strictEqual((await post('authwall', {name: 'authwall-team-a', title: '', user: null})).status, 409, 'a name that is taken');
+    assert.strictEqual((await post('nobody', {name: 'authwall-team-b', title: '', user: null})).status, 404, 'a wall that is not there');
+    assert.strictEqual((await post('gate', {name: 'authwall-team-b', title: '', user: null})).status, 400, 'a wall serviceman does not run');
+    assert.strictEqual((await post('authwall', {name: 'authwall-team-b', title: '', user: {username: 'bob', password: '', email: ''}})).status, 400, 'a first user with no password');
+    assert.strictEqual((await post('authwall', {name: 'Team B', title: '', user: null})).status, 400, 'a name a service cannot have');
+    assert.strictEqual((await post('authwall', {name: 'authwall-team-b', title: '', user: null}, null)).status, 401, 'the owner\'s alone');
+    assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).services.length, 3, 'a refusal writes nothing');
+});
+
 // A wall that lets in the cookie session=good, its own pages answered under /auth; it notes the
 // name each question was asked for
 async function wall_make(t)

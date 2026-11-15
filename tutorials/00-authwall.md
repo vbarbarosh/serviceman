@@ -14,7 +14,7 @@ docker; nothing called `authwall` yet.
 - `named`, a step: its name is `authwall`, the name every other service asks for
 - `user`, a step: its first user, in its environment
 - `kept`, a step: `/app/data` kept, its users and its key
-- `ready`, the end: **Behind authwall** offered on every app
+- `ready`, the end: **behind authwall** in every app's **Sign-in**
 
 ## Steps
 
@@ -51,5 +51,5 @@ docker; nothing called `authwall` yet.
 ### 6. ready
 
 - **Do:** open **Apps**, **Settings** on any app.
-- **See:** the box **Behind authwall** in it, and **Authwall** in the sidebar.
-- **Say:** Now every app's Settings has the box Behind authwall. The tutorials after this one start here.
+- **See:** its **Sign-in** list, **behind authwall · family** in it, and **Authwall** in the sidebar.
+- **Say:** Now every app's Settings can put it behind authwall. The tutorials after this one start here.

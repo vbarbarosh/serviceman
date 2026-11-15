@@ -62,6 +62,7 @@ import storage_set from './storage_set.js';
 import tokens_form from './tokens_form.js';
 import updates_lists from './updates_lists.js';
 import volumes_pane from './volumes_pane.js';
+import walls_of from './walls_of.js';
 
 import {createApp} from 'vue';
 
@@ -1690,7 +1691,7 @@ const service_page = {
     <!-- The overview is how it stands, then what it is made of: one card per part, each
          edited in place -->
     <keep-alive :max="10">
-    <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :original="original" :port="port" :redir="view.redir" @saved="saved">
+    <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" @saved="saved" @walls="$emit('walls')">
         <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
         <service-script v-if="(view.app_folder !== null)" :view="view"/>
@@ -1709,8 +1710,8 @@ const service_page = {
 </div>
 `,
     components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
-    props: ['view', 'busy', 'port', 'remotes', 'names', 'tab', 'theme', 'logline', 'control'],
-    emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update'],
+    props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control'],
+    emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
         // version_new: a new version of an app folder, a folder or a zip read and on its way
@@ -2047,11 +2048,11 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll" @walls="wall_new"/></article>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
-        <authwall-pane v-else-if="authwall_open" :state="state" @create="create" @doors="networking_show" @select="select_named"/>
+        <authwall-pane v-else-if="authwall_open" :key="('authwall-' + authwall_new)" :state="state" :creating="(authwall_new > 0)" @create="create" @doors="networking_show" @saved="poll" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
@@ -2059,9 +2060,9 @@ const app = {
         <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
@@ -2115,6 +2116,8 @@ const app = {
             health_open: false,
             security_open: false,
             authwall_open: false,
+            // How many times a list of walls asked for a new one: the Authwall page opens with its form
+            authwall_new: 0,
             load_tests_open: false,
             secrets_count: '',
             volumes_open: false,
@@ -2373,6 +2376,10 @@ const app = {
         // The folder serviceman keeps its own things in, as its owner sees it: data/ under bin/run
         state_folder: function () {
             return (typeof this.state.state_dir !== 'string') ? 'data' : this.state.state_dir.replace(/\/+$/, '').split('/').pop();
+        },
+        // The walls there are, for every list a wall is picked from
+        walls: function () {
+            return (this.state === null) ? [] : walls_of(this.state);
         },
         // The small apps: the folders of files serviceman serves, the apps run from a folder of
         // their own, and the ones on a socket file
@@ -2794,6 +2801,13 @@ const app = {
         authwall_show: function () {
             this.panes_close();
             this.authwall_open = true;
+            this.authwall_new = 0;
+        },
+        // A list of walls asked for a new one: the Authwall page, its form open
+        wall_new: function () {
+            this.panes_close();
+            this.authwall_open = true;
+            this.authwall_new += 1;
         },
         load_tests_show: function () {
             this.panes_close();

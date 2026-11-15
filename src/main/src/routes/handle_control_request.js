@@ -115,6 +115,7 @@ const volumes_serve = require('../../../../modules/volumes/server/volumes_serve'
 const vulnerabilities_kept = require('../helpers/vulnerabilities_kept');
 const vulnerabilities_serve = require('../../../../modules/vulnerabilities/server/vulnerabilities_serve');
 const vulnerabilities_view = require('../helpers/vulnerabilities_view');
+const wall_copy = require('../helpers/wall_copy');
 const wants_html = require('../wants_html');
 
 // How far from the middle of the Canvas a machine may be put
@@ -621,6 +622,10 @@ async function control_answer(app, req, res)
     const zip = RE_ZIP.exec(url.pathname);
     if (zip !== null) {
         await handle_zip(app, req, res, route_param(zip[1]));
+        return;
+    }
+    if ((url.pathname === '/api/v1/walls') && (req.method === 'POST')) {
+        await wall_create(app, req, res);
         return;
     }
     const apps = RE_APPS.exec(url.pathname);
@@ -2358,6 +2363,59 @@ async function service_update(app, req, res, name)
         }
         return renamed ? {renamed: {[name]: service.name}} : {};
     });
+}
+
+// POST /api/v1/walls (body)
+// A wall for another team: {from, name, title, user} makes a copy of the wall called from under
+// the new name, a wall of its own (wall_copy); user is its first user, {username, password,
+// email}, or null for none
+async function wall_create(app, req, res)
+{
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    const fresh = wall_from_body(body);
+    if (typeof fresh === 'string') {
+        send_json(res, 400, {error: fresh});
+        return;
+    }
+    const control = (typeof app.config.control.host === 'string') ? app.config.control.host : 'localhost';
+    const domain = control.includes('.') ? control.slice(control.indexOf('.') + 1) : control;
+    await config_file_mutate(app, res, function (json) {
+        const entry = json.services.find(v => v.name === fresh.from);
+        if (entry === undefined) {
+            return `no service named ${fresh.from}`;
+        }
+        if (json.services.some(v => v.name === fresh.name)) {
+            return {error: `a service named ${JSON.stringify(fresh.name)} already exists`, status: 409};
+        }
+        try {
+            json.services.push(wall_copy(entry, fresh, domain));
+        }
+        catch (error) {
+            return {error: error.message, status: error.status};
+        }
+        return null;
+    }, 404);
+}
+
+// {from, name, title, user} of a new wall as the page sends it, or the sentence that refuses it
+function wall_from_body(body)
+{
+    if ((typeof body.from !== 'string') || (body.from === '') || (typeof body.name !== 'string') || (body.name === '')) {
+        return 'the body names the wall copied and the new one: {"from": "authwall", "name": "authwall-team-a", "title": "team A", "user": null}';
+    }
+    const title = (typeof body.title === 'string') ? body.title.trim() : '';
+    if ((body.user === undefined) || (body.user === null)) {
+        return {from: body.from, name: body.name, title, user: null};
+    }
+    const user = body.user;
+    const fields = ['username', 'password', 'email'].map(v => ((typeof user[v] === 'string') ? user[v] : ''));
+    if (fields[1] === '') {
+        return 'its first user needs a password';
+    }
+    if ((fields[0] === '') && (fields[2] === '')) {
+        return 'its first user needs a name or an email';
+    }
+    return {from: body.from, name: body.name, title, user: {username: fields[0], password: fields[1], email: fields[2]}};
 }
 
 // DELETE /api/v1/services/<name>

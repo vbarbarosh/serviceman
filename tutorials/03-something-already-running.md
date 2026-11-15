@@ -42,9 +42,9 @@ without one).
 
 ### 4. wall
 
-- **Do:** on dash's page, **Edit** on the **Addresses** card; tick the box "every visitor signs in first"; **Save**.
+- **Do:** on dash's page, **Edit** on the **Addresses** card; under **Sign-in** pick **behind authwall**; **Save**.
 - **See:** the card says dash.localhost is behind authwall.
-- **Say:** On its page, the Addresses card has a Sign-in box. Tick it, and save.
+- **Say:** On its page, the Addresses card has a Sign-in list. Pick authwall, and save.
 
 ### 5. signin
 
