@@ -2093,7 +2093,10 @@ to that computer alone, never to the tailnet or a machine&#39;s door
 has an apps domain, is under it, for outside:</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;domain&quot;: &quot;apps.example.com&quot;}
 </code></pre>
-<p><code>notes</code> then answers on <code>notes.apps.example.com</code> too. The answer says both: <code>address</code>, where it
+<p><code>notes</code> then answers on <code>notes.apps.example.com</code> too. An app made before the domain gets its name
+under it when the <strong>Config</strong> page saves the domain, written into its addresses as a new one gets it;
+a domain moved takes the old names away and writes the new ones, and a name another service answers
+is left to it. The answer says both: <code>address</code>, where it
 answers here (<code>http://notes.localhost:8080/</code>), and <code>public</code>, its name outside (<code>null</code> with no
 domain). A <code>_</code> in a name is a <code>-</code> in its addresses.</p>
 <p>The zip is the app&#39;s folder, or one folder holding it, with its <code>index.html</code> at the top. Every

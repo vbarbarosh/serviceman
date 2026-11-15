@@ -1246,7 +1246,10 @@ has an apps domain, is under it, for outside:
 "apps": {"domain": "apps.example.com"}
 ```
 
-`notes` then answers on `notes.apps.example.com` too. The answer says both: `address`, where it
+`notes` then answers on `notes.apps.example.com` too. An app made before the domain gets its name
+under it when the **Config** page saves the domain, written into its addresses as a new one gets it;
+a domain moved takes the old names away and writes the new ones, and a name another service answers
+is left to it. The answer says both: `address`, where it
 answers here (`http://notes.localhost:8080/`), and `public`, its name outside (`null` with no
 domain). A `_` in a name is a `-` in its addresses.
 

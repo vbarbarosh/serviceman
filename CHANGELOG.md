@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.109 — 2026-11-15
+
+- The **Config** page's save of an apps domain gives every app its name under it, made before the domain or after (`va.apps.example.com`); a domain moved moves them.
+
 ## 1.0.108 — 2026-11-15
 
 - A new agent dials serviceman's own name on the tailnet: a machine's **Install** tab and **Machines that join by themselves** start with it (`tailscale status`), not with the page's `serviceman.localhost`.

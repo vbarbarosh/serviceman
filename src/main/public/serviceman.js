@@ -330,8 +330,9 @@ const config_editor = {
                     return;
                 }
                 this.hash = outcome.hash;
-                // A token written in over the dots is saved now, and drawn as dots too
-                this.show(text);
+                // A token written in over the dots is saved now, and drawn as dots too; the text
+                // serviceman saved, where it wrote more in (every app's name under a new domain)
+                this.show((typeof outcome.text === 'string') ? outcome.text : text);
                 const notes = (outcome.notes.length > 0) ? outcome.notes.join(' · ') : 'nothing changed';
                 this.report(outcome.restart_needed ? `saved · ${notes}` : `saved and applied · ${notes}`, false);
                 this.$emit('saved');

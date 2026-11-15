@@ -3,6 +3,7 @@ const agent_install_sh = require('../helpers/agent_install_sh');
 const agent_sign_key = require('../helpers/agent_sign_key');
 const agent_signature = require('../helpers/agent_signature');
 const app_apply_config = require('../helpers/app_apply_config');
+const app_domain_names = require('../helpers/app_domain_names');
 const app_files_put = require('../helpers/app_files_put');
 const app_files_rename = require('../helpers/app_files_rename');
 const app_socket_put = require('../helpers/app_socket_put');
@@ -2223,7 +2224,7 @@ async function config_write(app, req, res)
         return;
     }
     const body = await body_fields(req, BODY_LIMIT_BYTES);
-    const text = String(body.text);
+    let text = String(body.text);
     const on_disk = await fs.promises.readFile(app.config.path, 'utf8');
     if (text_hash(on_disk) !== body.hash) {
         send_json(res, 409, {error: 'the config changed on disk since the editor loaded it — load it again'});
@@ -2234,11 +2235,28 @@ async function config_write(app, req, res)
         send_json(res, 400, {ok: false, error: refused});
         return;
     }
-    const config = config_from_file(app, JSON.parse(text));
+    const json = JSON.parse(text);
+    let config = config_from_file(app, json);
+    // The apps domain set or moved: every app's name under it goes in with this save, and the
+    // editor is given the text as it is saved
+    const before = app.config.apps.domain;
+    const named = app_domain_names(json, config, before);
+    const renamed = (named.added.length > 0) || (named.removed.length > 0);
+    if (renamed) {
+        text = `${JSON.stringify(json, null, 4)}\n`;
+        config = config_from_file(app, json);
+    }
     await config_file_save(app.config.path, text);
     log_event(app, 'config_saved', {hash: text_hash(text)});
     const applied = await app_apply_config(app, config);
-    send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes, hash: text_hash(text)});
+    const notes = applied.notes.slice();
+    if (named.added.length > 0) {
+        notes.unshift(`${named.added.join(', ')}: named under ${config.apps.domain} too`);
+    }
+    if (named.removed.length > 0) {
+        notes.unshift(`${named.removed.join(', ')}: no longer named under ${before}`);
+    }
+    send_json(res, 200, Object.assign({ok: true, restart_needed: applied.restart_needed, notes, hash: text_hash(text)}, renamed ? {text} : {}));
 }
 
 // POST /api/v1/services (body)
