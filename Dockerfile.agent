@@ -12,7 +12,7 @@
 # --network host puts the agent on the loopback where docker publishes the ports, which is
 # where it reaches the containers it starts.
 
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 # The bundler needs the helpers it is written with; the agent it writes needs nothing
@@ -23,7 +23,7 @@ COPY src ./src
 COPY modules/file_manager/server/tar_parser.js ./modules/file_manager/server/
 RUN node src/agent/bin/build /serviceman-agent.js
 
-FROM node:24-alpine
+FROM node:26-alpine
 RUN apk add --no-cache docker-cli
 COPY --from=build /serviceman-agent.js /usr/local/bin/serviceman-agent.js
 # Its logs, servermon's among them: the machine's numbers come from servermon, which runs only

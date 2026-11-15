@@ -77,7 +77,7 @@ serviceman does uses it.
 
 **Each build takes the newest tailscale.** The binaries come from the `tailscale/tailscale:stable`
 image, and `bin/build` builds with `--pull`, so every build fetches the newest stable release,
-and the newest `node:24-alpine`, for the machine's own architecture.
+and the newest `node:26-alpine`, for the machine's own architecture.
 
 Four things follow from that network, and the image handles all four:
 

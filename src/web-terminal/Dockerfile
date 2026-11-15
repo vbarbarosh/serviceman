@@ -9,16 +9,17 @@
 # Every terminal is a shell of the user `term`, not of root: what a page may do in the
 # container is what that user may.
 
-FROM node:24-bookworm-slim AS deps
+FROM node:26-trixie-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:24-bookworm-slim AS node
+FROM node:26-trixie-slim AS node
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
+# libatomic1 for node: from 26 on it needs that library, and Ubuntu's image has none
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 tini tmux ca-certificates curl less nano procps \
+    && apt-get install -y --no-install-recommends python3 tini tmux ca-certificates curl less nano procps libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 # The repo's layout, so the paths the app reads its files from are the same here as in a checkout

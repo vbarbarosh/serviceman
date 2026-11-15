@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.114 — 2026-11-15
+
+- Every library at its latest: node-helpers 3.80.1, ws 8.23.0, vue 3.5.45, marked 18.2.0; the images on Node 26 LTS, web-terminal on Ubuntu 26.04; a machine with no node is given v24.22.3.
+
 ## 1.0.113 — 2026-11-15
 
 - Every app on one page, to type in a browser: `apps.localhost:3000` here, serviceman's tailnet name (`serviceman.tail1234.ts.net:3000`) on the tailnet; each cell opens its app the way that device reaches it. **Apps** says both addresses on top.

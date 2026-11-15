@@ -342,7 +342,7 @@ const service_form = {
                 <div><input v-model.trim="m.cwd" placeholder="a folder of serviceman's own — optional" spellcheck="false"></div>
                 <label>Image</label>
                 <div>
-                    <input v-model.trim="m.image" placeholder="node:24-alpine — optional" spellcheck="false">
+                    <input v-model.trim="m.image" placeholder="node:26-alpine — optional" spellcheck="false">
                     <p class="muted">Where its lines run, with the folder at <code>/app</code>. Empty runs them on the machine itself.</p>
                 </div>
                 <template v-if="(m.image !== '')">

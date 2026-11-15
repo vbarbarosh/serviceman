@@ -775,7 +775,7 @@ Logline go that way, so Logline&#39;s address may be a tailnet IP or a <code>*.t
 serviceman does uses it.</p>
 <p><strong>Each build takes the newest tailscale.</strong> The binaries come from the <code>tailscale/tailscale:stable</code>
 image, and <code>bin/build</code> builds with <code>--pull</code>, so every build fetches the newest stable release,
-and the newest <code>node:24-alpine</code>, for the machine&#39;s own architecture.</p>
+and the newest <code>node:26-alpine</code>, for the machine&#39;s own architecture.</p>
 <p>Four things follow from that network, and the image handles all four:</p>
 <p><strong>A published port does not arrive on the container&#39;s loopback.</strong> So both doors bind
 <code>0.0.0.0</code> inside, where docker forwards to. What may reach them is decided outside, by

@@ -16,12 +16,12 @@
 # afresh, so each build takes the newest release, for whatever architecture it builds on
 FROM tailscale/tailscale:stable AS tailscale
 
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:24-alpine
+FROM node:26-alpine
 # No docker command line in here: the containers of a service are started by an agent, on the
 # machine that is meant to carry them, so serviceman itself never runs docker
 RUN apk add --no-cache ca-certificates

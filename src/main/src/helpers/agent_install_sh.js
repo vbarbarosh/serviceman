@@ -9,8 +9,10 @@
 // What it does is small enough to read before running it, which is the least a script piped
 // into a shell owes anybody: fetch one file, write one env file, and — where systemd is — one
 // unit that keeps it up. No package manager, no repository, nothing installed but the agent.
-// The node a machine without one is told to fetch: the same as the install page shows
-const NODE_VERSION = 'v24.19.0';
+// The node a machine without one is told to fetch: the same as the install page shows. The
+// newest 24, not 26: from 26 on node also needs libatomic1, which a bare machine may lack, and
+// this one file is meant to run with nothing beside it
+const NODE_VERSION = 'v24.22.3';
 
 function agent_install_sh(url)
 {

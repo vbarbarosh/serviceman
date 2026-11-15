@@ -78,7 +78,7 @@ docker run -d --name serviceman-agent --restart always \
     serviceman-agent
 ```
 
-The image is the one file on `node:24-alpine`, with a docker client beside it. Three things
+The image is the one file on `node:26-alpine`, with a docker client beside it. Three things
 it needs from the machine: the **docker socket**, so it can run the containers it is asked
 for; **`--network host`**, so it reaches those containers where docker publishes them, on the
 loopback; and **`/` mounted read-only** with `SERVICEMAN_DIR=/host`, so the free space it

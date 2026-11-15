@@ -744,7 +744,7 @@ secrets gets no file and no command at all.
     "name": "google-docs-writer",
     "type": "shell",
     "remote": "laptop",
-    "image": "node:24-alpine",
+    "image": "node:26-alpine",
     "publish": {"host": "google-docs-writer.example.com", "port": 8090},
     "command": "bin/run",
     "lifecycle": {"install": "npm install"}
@@ -754,13 +754,13 @@ secrets gets no file and no command at all.
 With an `image`, every line runs **inside a container of that image**, with the program's folder
 mounted at `/app` and `/app` as the working folder. The install line becomes
 
-    docker run --rm --volume <folder>:/app --workdir /app node:24-alpine /bin/sh -c "npm install"
+    docker run --rm --volume <folder>:/app --workdir /app node:26-alpine /bin/sh -c "npm install"
 
 and the program itself becomes a container of serviceman's own, published like any other:
 
     docker run -d --name serviceman-google-docs-writer --label serviceman.service=… \
         --volume <folder>:/app --workdir /app --publish 127.0.0.1::8090 \
-        node:24-alpine /bin/sh -c "bin/run"
+        node:26-alpine /bin/sh -c "bin/run"
 
 **Nothing of ours runs in a container as root.** The default is the user running serviceman or
 the agent, by number — `--user 1000:1000` — because a container that writes into a mounted

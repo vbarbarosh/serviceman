@@ -1571,7 +1571,7 @@ secrets gets no file and no command at all.</p>
     &quot;name&quot;: &quot;google-docs-writer&quot;,
     &quot;type&quot;: &quot;shell&quot;,
     &quot;remote&quot;: &quot;laptop&quot;,
-    &quot;image&quot;: &quot;node:24-alpine&quot;,
+    &quot;image&quot;: &quot;node:26-alpine&quot;,
     &quot;publish&quot;: {&quot;host&quot;: &quot;google-docs-writer.example.com&quot;, &quot;port&quot;: 8090},
     &quot;command&quot;: &quot;bin/run&quot;,
     &quot;lifecycle&quot;: {&quot;install&quot;: &quot;npm install&quot;}
@@ -1579,12 +1579,12 @@ secrets gets no file and no command at all.</p>
 </code></pre>
 <p>With an <code>image</code>, every line runs <strong>inside a container of that image</strong>, with the program&#39;s folder
 mounted at <code>/app</code> and <code>/app</code> as the working folder. The install line becomes</p>
-<pre><code>docker run --rm --volume &lt;folder&gt;:/app --workdir /app node:24-alpine /bin/sh -c &quot;npm install&quot;
+<pre><code>docker run --rm --volume &lt;folder&gt;:/app --workdir /app node:26-alpine /bin/sh -c &quot;npm install&quot;
 </code></pre>
 <p>and the program itself becomes a container of serviceman&#39;s own, published like any other:</p>
 <pre><code>docker run -d --name serviceman-google-docs-writer --label serviceman.service=… \
     --volume &lt;folder&gt;:/app --workdir /app --publish 127.0.0.1::8090 \
-    node:24-alpine /bin/sh -c &quot;bin/run&quot;
+    node:26-alpine /bin/sh -c &quot;bin/run&quot;
 </code></pre>
 <p><strong>Nothing of ours runs in a container as root.</strong> The default is the user running serviceman or
 the agent, by number — <code>--user 1000:1000</code> — because a container that writes into a mounted

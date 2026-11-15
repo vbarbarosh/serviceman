@@ -69,8 +69,9 @@ const POLL_MS = 1000;
 
 // A machine with no node cannot run the agent, and the whole of node it needs is one file.
 // The archive is unpacked as it arrives and only bin/node is kept, in ~/bin; the install line
-// prints the same command, for the machine's own processor, when it finds no node.
-const NODE_TEXT = 'mkdir -p ~/bin && v=v24.19.0 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
+// prints the same command, for the machine's own processor, when it finds no node. Node 24, as
+// agent_install_sh.js says why.
+const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
 
 const dot = {
     template: `<span class="dot" :class="phase"/>`,

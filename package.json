@@ -1,6 +1,6 @@
 {
     "name": "serviceman",
-    "version": "1.0.113",
+    "version": "1.0.114",
     "private": true,
     "license": "MIT",
     "description": "Serve services by hostname, start them on the first request, stop them when idle",
@@ -11,8 +11,8 @@
         "test": "node --test --test-concurrency=1 tests/*.test.js"
     },
     "dependencies": {
-        "@vbarbarosh/node-helpers": "^3.78.1",
-        "ws": "^8.22.0"
+        "@vbarbarosh/node-helpers": "^3.80.1",
+        "ws": "^8.23.0"
     },
     "devDependencies": {
         "@codemirror/commands": "^6.11.1",
@@ -37,8 +37,8 @@
         "ace-builds": "^1.45.2",
         "codemirror": "^6.0.2",
         "esbuild": "^0.28.2",
-        "marked": "^18.1.1",
+        "marked": "^18.2.0",
         "nodemon": "^3.1.14",
-        "vue": "^3.5.44"
+        "vue": "^3.5.45"
     }
 }
