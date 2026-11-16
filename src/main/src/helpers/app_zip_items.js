@@ -2,6 +2,9 @@ const zip_entries = require('./zip_entries');
 
 // The files go to the machine as a ustar tar, whose sizes are eleven octal digits
 const TAR_FILE_LIMIT_BYTES = 0o77777777777;
+// What serviceman runs itself: it runs whatever mode the zip gives it, since a zip made where
+// the run bits were lost would leave the app unable to start (app_files_send.js does the same)
+const RUN_BY_SERVICEMAN = ['bin/run', 'bin/configure', 'bin/build'];
 
 // A zip of an app folder sent to serviceman, judged as the page judges one picked there
 // (src/main/public/app_entries_read.js and app_data_apart.js): what is under its one top
@@ -57,7 +60,7 @@ async function app_zip_items(label, source)
             throw new Error(`${label} holds ${entry.name}, of ${entry.size} bytes: a file above 8 GiB is not sent.`);
         }
         const first = await entry_check(label, entry);
-        out.items.push({path, mode: (entry.mode !== 0) ? entry.mode : mode_guess(path, first), mtime_s: entry.mtime_s, size: entry.size, stream: entry.stream});
+        out.items.push({path, mode: mode_of(path, entry.mode, first), mtime_s: entry.mtime_s, size: entry.size, stream: entry.stream});
         out.bytes += entry.size;
     }
     return out;
@@ -101,6 +104,13 @@ function in_data(top, entry)
 function path_leaves(path)
 {
     return path.startsWith('/') || path.split('/').includes('..');
+}
+
+// The mode the zip gives a file, or a guess when it gives none; what serviceman runs runs
+function mode_of(path, mode, bytes)
+{
+    const given = (mode !== 0) ? mode : mode_guess(path, bytes);
+    return RUN_BY_SERVICEMAN.includes(path) ? (given | 0o111) : given;
 }
 
 // A file with no mode of its own runs when it is in bin/ or is a script, #! first

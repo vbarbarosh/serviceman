@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.127 — 2026-11-16
+
+- An app folder's `bin/run`, `bin/configure` and `bin/build` run whatever mode its zip gave them: a zip made where the run bits were lost no longer leaves the app unable to start.
+
 ## 1.0.126 — 2026-11-16
 
 - A program that ends while it starts fails its start at once, saying how it ended (with a hint for codes 126 and 127), and its restart comes as promised; it was waited on until start_timeout, the waiting page never saying it had ended.

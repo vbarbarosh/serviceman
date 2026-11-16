@@ -27,6 +27,20 @@ test('a zip of an app folder is read as the page reads one: its one top folder s
     assert.strictEqual(read.items[1].mtime_s > 0, true, 'the time the zip keeps');
 });
 
+// A zip made where the run bits were lost says 644 of its bin/run: what serviceman runs itself
+// runs whatever the zip says, and every other file keeps the mode it came with
+test('bin/run, bin/configure and bin/build run whatever mode the zip gives them; the rest keep theirs', async function () {
+    const zip = zip_bytes([
+        {name: 'bin/run', bytes: RUN, mode: 0o644},
+        {name: 'bin/configure', bytes: SCRIPT, mode: 0o600},
+        {name: 'bin/build', bytes: SCRIPT, mode: 0o644},
+        {name: 'bin/notes.txt', bytes: Buffer.from('x'), mode: 0o644},
+        {name: 'server.js', bytes: Buffer.from('x'), mode: 0o640},
+    ]);
+    const read = await app_zip_items('lab.zip', zip);
+    assert.deepStrictEqual(read.items.map(v => [v.path, v.mode.toString(8)]), [['bin/run', '755'], ['bin/configure', '711'], ['bin/build', '755'], ['bin/notes.txt', '644'], ['server.js', '640']]);
+});
+
 test('bin/run at the top is the app as it is, whatever is beside it; a zip with no data/ says so', async function () {
     const read = await app_zip_items('lab.zip', zip_bytes([{name: 'bin/run', bytes: RUN}, {name: 'notes/', bytes: null}, {name: 'notes/x.txt', bytes: Buffer.from('x')}]));
     assert.deepStrictEqual(read.items.map(v => v.path), ['bin/run', 'notes/', 'notes/x.txt']);

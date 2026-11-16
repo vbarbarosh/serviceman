@@ -3,12 +3,15 @@ import tar_blob from './tar_blob.js';
 
 // A tar is made of blocks of this many bytes
 const TAR_BLOCK = 512;
+// What serviceman runs itself: it runs whatever mode the zip gives it, since a zip made where
+// the run bits were lost would leave the app unable to start (app_zip_items.js does the same)
+const RUN_BY_SERVICEMAN = ['bin/run', 'bin/configure', 'bin/build'];
 
 // The files of an app, from a zip or a folder (app_entries_read), sent to a folder of a machine:
 // the folder is made, and the files go as one tar through the File Manager's upload, which checks
 // every name and keeps every mode. A file that came with no mode, as every file of a folder
-// picked in a browser does, runs when it is in bin/ or starts with #!. What comes back is the
-// folder as the machine names it, ~ written out.
+// picked in a browser does, runs when it is in bin/ or starts with #!; bin/run, bin/configure
+// and bin/build always run. What comes back is the folder as the machine names it, ~ written out.
 //
 // The folder must be new or empty: files of another app left there would mix with these.
 //
@@ -34,7 +37,8 @@ async function app_files_send(app, machine, folder, say, copy)
             continue;
         }
         const bytes = await entry.bytes();
-        const mode = (entry.mode !== 0) ? entry.mode : await mode_guess(path, bytes);
+        const given = (entry.mode !== 0) ? entry.mode : await mode_guess(path, bytes);
+        const mode = RUN_BY_SERVICEMAN.includes(path) ? (given | 0o111) : given;
         items.push({path, mode, mtime_s: entry.mtime_s, bytes});
     }
     await answer_read(fetch(`${base}/mkdir`, {method: 'POST', body: JSON.stringify({path: folder})}));
