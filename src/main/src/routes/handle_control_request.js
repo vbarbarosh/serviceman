@@ -3096,15 +3096,16 @@ function view_from_problem(problem)
     };
 }
 
-// Why the apps' own ports answer http, {why, fix, link}, as Health says it, but from the
-// first ask on rather than after two checks; null while they answer https or nothing is known
+// Why the apps' own ports answer http, {why, said, fix, link}, as Health says it, but from the
+// first ask on rather than after two checks; said is tailscale's own refusal; null while they
+// answer https or nothing is known
 function https_off_of(app)
 {
     const found = problems_of_tailnet_cert(app);
     if (found.length === 0) {
         return null;
     }
-    return {why: found[0].why, fix: found[0].fix, link: found[0].link};
+    return {why: found[0].why, said: app.tailnet_cert.error, fix: found[0].fix, link: found[0].link};
 }
 
 function state_from_app(app)

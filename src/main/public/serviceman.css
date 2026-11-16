@@ -4782,11 +4782,56 @@ article.rf .actions {
     color: var(--bad);
 }
 
-/* Over http while the tailnet gives no certificate: why is in its title, and on the bar */
+/* Over http while the tailnet gives no certificate: why is in its title, and in the note on top */
 .apps-pane .app-tailnet.http,
 .apps-pane .app-http-why,
 .app-settings-says .app-http-why {
     color: var(--busy-text);
+}
+
+/* Why the apps' tailnet links open over http, on Apps and Addresses: a lock, the words, and
+   the page that turns HTTPS on, which goes under the words on a phone */
+.https-off-note {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .6rem 1rem;
+    margin: .75rem 0 1rem;
+    padding: .7rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--busy) 45%, transparent);
+    border-radius: 8px;
+    background: var(--busy-soft);
+}
+
+.https-off-note svg {
+    align-self: start;
+    margin-top: .1rem;
+    color: var(--busy-text);
+}
+
+.https-off-says p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.https-off-says p + p {
+    margin-top: .2rem;
+    font-size: .85rem;
+}
+
+.https-off-note a.button {
+    white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+    .https-off-note {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .https-off-note a.button {
+        grid-column: 2;
+        justify-self: start;
+    }
 }
 
 .apps-pane .app-sent-tailnet a {

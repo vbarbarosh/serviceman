@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.142 — 2026-11-17
+
+- Apps and Addresses say at once, in a note over the tailnet links, that they open over http and why, with tailscale's own words and the link that turns HTTPS on.
+
 ## 1.0.141 — 2026-11-17
 
 - When the tailnet gives no certificate, the page says why where you look: the bar on every page, Health, each app's tailnet link and the page of apps; HTTPS off for the tailnet links Tailscale's DNS page, where it is turned on.

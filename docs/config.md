@@ -1397,9 +1397,11 @@ tailnet gives certificates once HTTPS is turned on in its DNS settings, in Tails
 until then, or with no tailscale, the ports answer http as before, and the log says why
 (`tailnet_cert_error`, [Logs](logs.md)). Where tailscale refuses one, **Health** has a card with its
 reason and what mends it ([When something is wrong](remotes.md#when-something-is-wrong)), and the
-bar on every page says it too; HTTPS off for the tailnet comes with a link to Tailscale's DNS page,
-where it is turned on. Each app's tailnet link says it is http and why, wherever it is shown:
-**Apps**, an app's **Settings**, **Addresses** and the page of apps.
+bar on every page says it too, from its second check on, a minute after a start; HTTPS off for the
+tailnet comes with a link to Tailscale's DNS page, where it is turned on. **Apps** and
+**Addresses** say it at once, in a note over their tailnet links, with tailscale's own words and
+that link; each app's tailnet link says it is http and why, wherever it is shown: **Apps**, an
+app's **Settings**, **Addresses** and the page of apps.
 
 **The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to

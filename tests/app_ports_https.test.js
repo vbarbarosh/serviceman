@@ -143,6 +143,7 @@ test('an app\'s own port answers https and http, and sends a browser on to https
     app.tailnet_cert.error = '500 Internal Server Error: your Tailscale account does not support getting TLS certs';
     const off = (await status_of(servers)).tailnet.https_off;
     assert.strictEqual(off.why, 'HTTPS is off for your tailnet');
+    assert.strictEqual(off.said, '500 Internal Server Error: your Tailscale account does not support getting TLS certs');
     assert.deepStrictEqual(off.link, {text: 'Turn HTTPS on in Tailscale', href: 'https://login.tailscale.com/admin/dns'});
 
     app.tailnet_cert.domain = NAME;

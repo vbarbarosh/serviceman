@@ -3,6 +3,7 @@ import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
 import apps_search from './apps_search.js';
 import format_bytes from './format_bytes.js';
+import https_off_note from './https_off_note.js';
 import to_clipboard from './to_clipboard.js';
 import wall_select from './wall_select.js';
 import walls_of from './walls_of.js';
@@ -42,6 +43,7 @@ const apps_pane = {
             <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
         </span>
     </div>
+    <https-off-note v-if="https_off_shown" :https_off="https_off"/>
     <div class="apps-wall">
         <label class="apps-wall-label" for="apps-wall-pick">This page and every app:</label>
         <wall-select id="apps-wall-pick" :model-value="wall" :walls="walls" none="open: each app as its own Settings say" label="The wall in front of this page and every app" :disabled="wall_busy" @update:model-value="change_wall_all" @create="$emit('walls')"/>
@@ -103,7 +105,7 @@ const apps_pane = {
     <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add, 'wall-select': wall_select},
+    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
     emits: ['select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
@@ -129,6 +131,10 @@ const apps_pane = {
         https_off: function () {
             const tailnet = this.state.tailnet;
             return ((tailnet === undefined) || (tailnet === null) || (tailnet.https_off === undefined)) ? null : tailnet.https_off;
+        },
+        // Said on top while any app has a tailnet link that opens over http
+        https_off_shown: function () {
+            return (this.https_off !== null) && this.state.services.some(v => (this.tailnet_of(v.name) !== ''));
         },
         // Every service: to whoever opens it, an app is an app whatever runs it
         apps: function () {

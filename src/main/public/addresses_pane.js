@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import https_off_note from './https_off_note.js';
 
 // How often the ways are asked again while the page is open: serviceman keeps each lookup as long
 const WAYS_EVERY_MS = 30000;
@@ -34,6 +35,7 @@ const addresses_pane = {
             <span class="muted">{{ chip.count }}</span>
         </button>
     </div>
+    <https-off-note v-if="https_off_shown" :https_off="state.tailnet.https_off"/>
     <p v-if="(ways_error !== '')" class="bad">Not checked whether each opens: {{ ways_error }}</p>
     <data-table :columns="columns" :rows="rows" row_key="key" :row_class="v => (v.off ? 'off' : [])" :empty="((rows_all.length === 0) ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.')">
         <template #cell="{row, column, more}">
@@ -65,7 +67,7 @@ const addresses_pane = {
     <p v-if="(note !== '')" class="bad">{{ note }}</p>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'https-off-note': https_off_note},
     // remote: the one machine whose door names the list is narrowed to, or null for every address
     props: ['state', 'remote'],
     emits: ['apps', 'config', 'doors', 'only', 'select', 'settings'],
@@ -86,6 +88,14 @@ const addresses_pane = {
                 {key: 'behind', label: 'Behind', fold: 1},
                 {key: 'on', label: 'On'},
             ];
+        },
+        // Said over the table while an app's own port has a tailnet link that opens over http
+        https_off_shown: function () {
+            const tailnet = this.state.tailnet;
+            if ((tailnet === undefined) || (tailnet === null) || (tailnet.https_off === undefined) || (tailnet.https_off === null)) {
+                return false;
+            }
+            return this.rows_all.some(v => (v.kind === 'port') && (v.url !== ''));
         },
         // Sorted by the name itself, the way one is looked for
         rows_all: function () {
