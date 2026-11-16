@@ -19,6 +19,7 @@ const log_ids_valid = require('../../../helpers/log_ids_valid');
 const log_line = require('./log_line');
 const log_scope = require('./log_scope');
 const logline_tell = require('./logline_tell');
+const mounts_tell = require('./mounts_tell');
 const program_ended = require('./program_ended');
 const remote_call = require('./remote_call');
 const remote_measure = require('./remote_measure');
@@ -185,6 +186,9 @@ function message_read(app, remote, message)
         state.forwards_told = null;
         state.forwards_error = null;
         forwards_tell(app);
+        // And its mounts: the sockets of an agent that started again are not there yet
+        state.mounts_error = null;
+        mounts_tell(app);
         // And its shared folders: what it mounts is kept over there, but a new link is told
         // afresh, in case the table changed while it was away
         state.shared_told = null;

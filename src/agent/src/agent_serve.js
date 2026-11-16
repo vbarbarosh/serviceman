@@ -21,6 +21,7 @@ const agent_logline_set = require('./agent_logline_set');
 const agent_metrics_ping = require('./agent_metrics_ping');
 const agent_metrics_read = require('./agent_metrics_read');
 const agent_metrics_state = require('./agent_metrics_state');
+const agent_mounts_set = require('./agent_mounts_set');
 const agent_package_list = require('./agent_package_list');
 const agent_package_versions = require('./agent_package_versions');
 const agent_port_list = require('./agent_port_list');
@@ -617,6 +618,9 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'forwards_set') {
         return await agent_forwards_set(params.forwards, group);
+    }
+    if (method === 'mounts_set') {
+        return await agent_mounts_set(options, params.mounts, group);
     }
     if (method === 'logline_set') {
         const settings = agent_logline_set(params);

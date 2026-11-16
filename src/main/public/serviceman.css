@@ -457,6 +457,49 @@ button:disabled:hover {
     margin: .75rem 0;
 }
 
+/* A mount's mode: two choices side by side, the picked one framed */
+.mount-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: .75rem;
+}
+
+.mount-modes label {
+    display: flex;
+    flex: 1 1 14rem;
+    gap: .5rem;
+    align-items: baseline;
+    justify-content: flex-start;
+    min-width: 0;
+    padding: .45rem .6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.form .mount-modes input {
+    flex: none;
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.mount-modes label.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.mount-rw {
+    color: var(--busy-text);
+}
+
+/* A long label wraps, the folder's path beside it takes what is left: the label keeps room
+   for a few words a line, never one letter */
+.mounts .fold-room > table > * > tr > .wraps {
+    min-width: 12rem;
+}
+
 .fwd-make-foot {
     display: flex;
     flex-wrap: wrap;

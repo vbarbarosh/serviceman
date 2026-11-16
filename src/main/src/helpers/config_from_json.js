@@ -5,6 +5,7 @@ const join_from_json = require('./join_from_json');
 const lifecycle_from_json = require('./lifecycle_from_json');
 const load_tests_from_json = require('./load_tests_from_json');
 const logline_from_json = require('./logline_from_json');
+const mounts_from_json = require('./mounts_from_json');
 const path = require('path');
 const program_mark = require('./program_mark');
 const remotes_from_json = require('./remotes_from_json');
@@ -81,6 +82,8 @@ function config_from_json(json, base_dir)
         remotes: remotes_from_json(json.remotes, 'remotes'),
         // A port or a socket on one machine, answered on another, through both links
         forwards: forwards_from_json(json.forwards, 'forwards'),
+        // A folder of one machine, mounted on another, through both links
+        mounts: mounts_from_json(json.mounts, 'mounts'),
         services: [],
         // What k6 is sent at, and from where
         load_tests: load_tests_from_json(json.load_tests, 'load_tests'),
@@ -177,6 +180,18 @@ function config_from_json(json, base_dir)
             const name = out.forwards[i][side].remote;
             if (out.remotes.some(v => v.name === name) === false) {
                 throw new Error(`forwards[${i}].${side}.remote: no remote named ${JSON.stringify(name)} is in the config`);
+            }
+        }
+    }
+    for (let i = 0; i < out.mounts.length; i++) {
+        for (const side of ['from', 'to']) {
+            // serviceman itself is no remote of its own config
+            if (out.mounts[i][side].here) {
+                continue;
+            }
+            const name = out.mounts[i][side].remote;
+            if (out.remotes.some(v => v.name === name) === false) {
+                throw new Error(`mounts[${i}].${side}.remote: no remote named ${JSON.stringify(name)} is in the config`);
             }
         }
     }

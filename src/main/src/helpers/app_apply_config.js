@@ -11,6 +11,7 @@ const link_send_message = require('../../../helpers/link_send_message');
 const log_event = require('./log_event');
 const logline_revoke = require('./logline_revoke');
 const logline_sweep = require('./logline_sweep');
+const mounts_tell = require('./mounts_tell');
 const remote_state = require('./remote_state');
 const service_ensure_running = require('./service_ensure_running');
 const service_phase = require('./service_phase');
@@ -120,6 +121,7 @@ async function app_apply_config(app, config, given)
     doors_tell(app);
     forwards_tell(app);
     forwards_here(app);
+    mounts_tell(app);
     // A new app has its own port before the answer that says it was made; a renamed one keeps its
     await app_ports_here(app, renamed);
     for (const service of fresh) {

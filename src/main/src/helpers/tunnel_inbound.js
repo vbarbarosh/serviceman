@@ -1,5 +1,6 @@
 const forward_join = require('./forward_join');
 const link_send_stream = require('../../../helpers/link_send_stream');
+const mount_join = require('./mount_join');
 const tunnel_stream = require('./tunnel_stream');
 
 // The most streams a machine has open towards this host at once. It opens one for each request
@@ -45,8 +46,14 @@ function tunnel_inbound(app, remote, body)
         counted(state, id);
         return null;
     }
+    // A mount's sshfs on that machine dialled its folder, which is joined to it
+    if (typeof target.mount === 'string') {
+        mount_join(app, remote, id, target.mount);
+        counted(state, id);
+        return null;
+    }
     if (target.http === undefined) {
-        refuse(state, id, 'EBADTARGET', 'a machine opens an http stream or a forward on this host, and nothing else');
+        refuse(state, id, 'EBADTARGET', 'a machine opens an http stream, a forward or a mount on this host, and nothing else');
         return null;
     }
     if (app.servers === null) {

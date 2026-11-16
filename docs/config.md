@@ -240,6 +240,36 @@ gets those whose `from.remote` is a machine it sees: a token that carries `loki.
 them as they are, whatever it is sent. One whose `from` has a `host` is listed too, and a token
 may not carry it: its forward would reach an address beyond the machine, and is the owner's.
 
+### Mounts
+
+A folder of one machine, mounted on another, read-only or read-write: `from` is where the folder
+is, `to` where it shows up. sshfs on `to` speaks SFTP over both machines' links, through
+serviceman, to the folder, which shows it and nothing outside it. No ssh and no key.
+**Mounts** in the rail writes this list for you; [Mounts](mounts.md) says how it works.
+
+```json
+"mounts": [
+    {"label": "photos", "from": {"remote": "laptop", "path": "~/Pictures"}, "to": {"remote": "vps1", "path": "/mnt/photos"}, "mode": "ro"},
+    {"label": "serviceman's data", "from": {"here": true, "path": "."}, "to": {"remote": "vps1", "path": "/mnt/serviceman"}, "mode": "ro"}
+]
+```
+
+| Field         | What it is                                                                         |
+|---------------|------------------------------------------------------------------------------------|
+| `label`       | Any text of one line, up to 100 characters, one per mount.                         |
+| `from.remote` | The machine the folder is on.                                                      |
+| `from.here`   | Or `true` in place of `from.remote`: the folder is serviceman's own, in its state dir. |
+| `from.path`   | The folder: from `/` or `~/` on a machine, `~` the agent's user's home. On serviceman itself, a folder inside its state dir written from it, `.` for the whole of it, never through `..`. |
+| `to.remote`   | The machine it is mounted on, with the agent's root half. Never serviceman itself. |
+| `to.path`     | Where: a full path one level below the top at least (`/mnt/photos`), never under the system's own folders (`/etc`, `/usr`, `/var/lib/serviceman`…). Two mounts on one machine never share a path, nor sit one inside the other. |
+| `mode`        | `ro` (read-only, the default) or `rw` (read-write).                               |
+| `off`         | `true` sets it aside: written down, and not mounted.                               |
+
+Both machines run the agent, version 1.38 or newer; a folder of serviceman's own needs it only on
+`to`. A program reads the list with `GET /api/v1/mounts`, `{"mounts": [...]}` as this file
+writes them, and writes it back whole, changed, with `PUT /api/v1/mounts`. Both are the owner's
+alone: no token's right reaches them.
+
 ### Logline
 
 [Logline](../logline/) is where the remotes' logs go: one endpoint, and ClickHouse behind it.

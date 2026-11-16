@@ -371,6 +371,9 @@ minute, and they would bury the rest.
 | `forward_listen`          | A forward listens here, and where: a socket file or a port. |
 | `forward_listen_error`    | It could not listen, and why; tried again every minute.     |
 | `forward_close`           | A forward taken out of the config stopped listening.        |
+| `mount_socket_listen`     | A mount's socket listens here, for its sshfs to dial, and where. |
+| `mount_socket_error`      | It could not listen, and why; tried again at the next telling. |
+| `mount_socket_close`      | A mount taken out of the config stopped listening.          |
 
 What an agent says about sending its machine's lines to Logline:
 
@@ -468,6 +471,16 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `forward_here_apply_error` | Following the config for those forwards failed, and why; the next change is still applied. |
 | `forward_set_aside`   | A forward a token asked for was set aside, as the token was revoked or may no longer hold it: the forward, the token's label and why. |
 | `forward_set_aside_error` | Setting them aside failed, and why; the token is revoked or changed all the same. |
+
+### Mounts
+
+| Sender               | What it says                                                             |
+|----------------------|--------------------------------------------------------------------------|
+| `mounts_told`        | A machine was told the mounts it makes; `states=` where each one stands, said when one changed. |
+| `mounts_tell_error`  | Telling it failed, and why; said once per reason.                        |
+| `mount_error`        | A mount's sshfs dialled and its folder could not be reached, and why: the folder's machine offline, a folder that is not there; said once per reason in a row. |
+| `root_mounts_keep_line`  | On a machine: the root half's minute mounted or unmounted something. |
+| `root_mounts_keep_error` | On a machine: a mount failed, and why; said once per reason.          |
 
 ### Shared folders
 

@@ -30,6 +30,7 @@ import logline_link from './logline_link.js';
 import logline_pane from './logline_pane.js';
 import logline_stage from './logline_stage.js';
 import map_pane from './map_pane.js';
+import mounts_section from './mounts_section.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
 import program_place from './program_place.js';
@@ -2015,6 +2016,11 @@ const app = {
             <span class="name">Shared folders</span>
             <span class="muted">{{ shared_count }}</span>
         </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'mounts'), open: (kind_now === 'mounts')}" title="A folder of one machine, mounted on another" @click="mounts_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5A1.5 1.5 0 0 1 3.5 6H7l1.5 1.5H10V16H2z"/><path d="M14 9.5A1.5 1.5 0 0 1 15.5 8H19l1.5 1.5H22V18h-8z"/><path d="M10 12h3M11.5 10.5L13 12l-1.5 1.5"/></svg>
+            <span class="name">Mounts</span>
+            <span class="muted">{{ mounts_count }}</span>
+        </button>
         <div class="rail-kind" :class="{on: (kind_now === 'secrets')}">
             <button type="button" class="row kind" :class="{on: (kind_now === 'secrets'), open: (kind_now === 'secrets')}" @click="secrets_show">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
@@ -2069,6 +2075,7 @@ const app = {
         <tokens-form v-else-if="tokens_open"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
+        <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state"/></article>
         <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll" @walls="wall_new"/></article>
         <tailscale-pane v-else-if="tailscale_open" :state="state"/>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
@@ -2090,7 +2097,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2151,6 +2158,7 @@ const app = {
             shared_count: '',
             networking_open: false,
             forwards_open: false,
+            mounts_open: false,
             apps_open: false,
             // The app whose Settings window Apps opens with, null for none
             apps_settings_of: null,
@@ -2275,6 +2283,9 @@ const app = {
             if (this.forwards_open) {
                 return '/forwards';
             }
+            if (this.mounts_open) {
+                return '/mounts';
+            }
             if (this.apps_open) {
                 return '/apps';
             }
@@ -2354,6 +2365,9 @@ const app = {
             if (this.forwards_open) {
                 return 'forwards';
             }
+            if (this.mounts_open) {
+                return 'mounts';
+            }
             if (this.apps_open) {
                 return 'apps';
             }
@@ -2416,6 +2430,9 @@ const app = {
         // their own, and the ones on a socket file
         apps_count: function () {
             return this.state.services.length;
+        },
+        mounts_count: function () {
+            return (this.state.mounts === undefined) ? 0 : this.state.mounts.length;
         },
         forwards_count: function () {
             return (this.state.forwards === undefined) ? 0 : this.state.forwards.length;
@@ -2670,6 +2687,10 @@ const app = {
                 this.forwards_open = true;
                 return;
             }
+            if (route.kind === 'mounts') {
+                this.mounts_open = true;
+                return;
+            }
             if (route.kind === 'apps') {
                 this.apps_open = true;
                 return;
@@ -2866,6 +2887,10 @@ const app = {
             this.panes_close();
             this.forwards_open = true;
         },
+        mounts_show: function () {
+            this.panes_close();
+            this.mounts_open = true;
+        },
         apps_show: function () {
             this.panes_close();
             this.apps_open = true;
@@ -2991,6 +3016,7 @@ const app = {
             this.remote_form_open = false;
             this.networking_open = false;
             this.forwards_open = false;
+            this.mounts_open = false;
             this.apps_open = false;
             this.logline_open = false;
             this.health_open = false;

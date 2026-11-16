@@ -2,6 +2,7 @@ const agent_apt = require('./agent_apt');
 const agent_apt_lists_at = require('./agent_apt_lists_at');
 const agent_built = require('./agent_built');
 const agent_disk_usage = require('./agent_disk_usage');
+const agent_mounts = require('./agent_mounts');
 const agent_port_list = require('./agent_port_list');
 const agent_root_refresh = require('./agent_root_refresh');
 const agent_root_socket = require('./agent_root_socket');
@@ -59,6 +60,7 @@ function agent_root_serve(options)
         const owner = owner_set(path, options);
         agent_say(boot, 'root_begin', {socket: path, user: owner, root: (process.getuid !== undefined) && (process.getuid() === 0)});
         shared_keep_start(options, boot);
+        mounts_keep_start(options, boot);
         apt_lists_keep_start(state, options, boot);
     });
     for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -111,6 +113,33 @@ function shared_keep_start(options, group)
         catch (error) {
             if (error.message !== said) {
                 agent_say(group, 'root_shared_keep_error', {reason: error.message});
+            }
+            said = error.message;
+        }
+    }
+    setTimeout(keep, SHARED_FIRST_MS);
+    setInterval(keep, SHARED_KEEP_MS).unref();
+}
+
+// The folders of other machines this one was told to mount, kept mounted with nobody asking,
+// as shared folders are: a mount whose sshfs died, or that a reboot took, is mounted again
+function mounts_keep_start(options, group)
+{
+    let said = null;
+    async function keep() {
+        try {
+            const answer = await agent_mounts(options, {action: 'keep'}, function (stream, text) {
+                agent_say(group, 'root_mounts_keep_line', {text});
+            });
+            const failed = (answer.ok === false) ? answer.error : answer.items.filter(v => v.state === 'error').map(v => v.error).join('; ');
+            if ((failed !== '') && (failed !== said)) {
+                agent_say(group, 'root_mounts_keep_error', {reason: failed});
+            }
+            said = failed;
+        }
+        catch (error) {
+            if (error.message !== said) {
+                agent_say(group, 'root_mounts_keep_error', {reason: error.message});
             }
             said = error.message;
         }
@@ -308,6 +337,9 @@ async function method_run(state, options, job, say)
     }
     if (method === 'shared') {
         return await agent_shared(options, job.params, say);
+    }
+    if (method === 'mounts') {
+        return await agent_mounts(options, job.params, say);
     }
     if (method === 'uninstall') {
         // The machine has been taken out of the host's config, and the session half is going

@@ -65,6 +65,13 @@ function remote_state()
         forwards_sending: null,
         forwards_said: null,
         forwards_error: null,
+        // The mounts it was told to make, a telling in flight, what it answered
+        // ({root, items: [{label, path, mode, state, error}], leaving}), when, and why the last
+        // telling failed. What it answered stays while it is away, as it was then.
+        mounts_sending: null,
+        mounts_said: null,
+        mounts_said_at: null,
+        mounts_error: null,
         logline_error: null,
         logline_busy: null,
         // The addresses its token was issued for, and when

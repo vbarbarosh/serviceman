@@ -66,6 +66,8 @@ function app_from_config(config)
         // totals of the last one added. A label is any line of text, `constructor` too: the
         // tables by label have no prototype for it to find
         forward_counts: Object.create(null),
+        // What went through each mount, by label (mount_join)
+        mount_counts: Object.create(null),
         // What forward_totals_write last put on disk, so an unchanged one is not written again
         forward_totals_text: null,
         // The forwards serviceman itself listens for, by label, and one change to them at a time

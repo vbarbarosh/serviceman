@@ -694,6 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
+<li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
 </ul>
@@ -1059,6 +1060,61 @@ gets those whose <code>from.remote</code> is a machine it sees: a token that car
 <code>vps1</code> and the machine it carries it to. The sources are read and never written: <code>PUT</code> keeps
 them as they are, whatever it is sent. One whose <code>from</code> has a <code>host</code> is listed too, and a token
 may not carry it: its forward would reach an address beyond the machine, and is the owner&#39;s.</p>
+<h3 id="mounts"><a class="anchor" href="#mounts" aria-hidden="true" tabindex="-1">#</a>Mounts</h3>
+<p>A folder of one machine, mounted on another, read-only or read-write: <code>from</code> is where the folder
+is, <code>to</code> where it shows up. sshfs on <code>to</code> speaks SFTP over both machines&#39; links, through
+serviceman, to the folder, which shows it and nothing outside it. No ssh and no key.
+<strong>Mounts</strong> in the rail writes this list for you; <a href="mounts.html">Mounts</a> says how it works.</p>
+<pre><code class="language-json">&quot;mounts&quot;: [
+    {&quot;label&quot;: &quot;photos&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;path&quot;: &quot;~/Pictures&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;path&quot;: &quot;/mnt/photos&quot;}, &quot;mode&quot;: &quot;ro&quot;},
+    {&quot;label&quot;: &quot;serviceman&#39;s data&quot;, &quot;from&quot;: {&quot;here&quot;: true, &quot;path&quot;: &quot;.&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;path&quot;: &quot;/mnt/serviceman&quot;}, &quot;mode&quot;: &quot;ro&quot;}
+]
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>label</code></td>
+<td>Any text of one line, up to 100 characters, one per mount.</td>
+</tr>
+<tr>
+<td><code>from.remote</code></td>
+<td>The machine the folder is on.</td>
+</tr>
+<tr>
+<td><code>from.here</code></td>
+<td>Or <code>true</code> in place of <code>from.remote</code>: the folder is serviceman&#39;s own, in its state dir.</td>
+</tr>
+<tr>
+<td><code>from.path</code></td>
+<td>The folder: from <code>/</code> or <code>~/</code> on a machine, <code>~</code> the agent&#39;s user&#39;s home. On serviceman itself, a folder inside its state dir written from it, <code>.</code> for the whole of it, never through <code>..</code>.</td>
+</tr>
+<tr>
+<td><code>to.remote</code></td>
+<td>The machine it is mounted on, with the agent&#39;s root half. Never serviceman itself.</td>
+</tr>
+<tr>
+<td><code>to.path</code></td>
+<td>Where: a full path one level below the top at least (<code>/mnt/photos</code>), never under the system&#39;s own folders (<code>/etc</code>, <code>/usr</code>, <code>/var/lib/serviceman</code>…). Two mounts on one machine never share a path, nor sit one inside the other.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>ro</code> (read-only, the default) or <code>rw</code> (read-write).</td>
+</tr>
+<tr>
+<td><code>off</code></td>
+<td><code>true</code> sets it aside: written down, and not mounted.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Both machines run the agent, version 1.38 or newer; a folder of serviceman&#39;s own needs it only on
+<code>to</code>. A program reads the list with <code>GET /api/v1/mounts</code>, <code>{&quot;mounts&quot;: [...]}</code> as this file
+writes them, and writes it back whole, changed, with <code>PUT /api/v1/mounts</code>. Both are the owner&#39;s
+alone: no token&#39;s right reaches them.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>

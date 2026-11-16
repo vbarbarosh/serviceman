@@ -9,6 +9,7 @@ const agent_http_serve = require('./src/agent_http_serve');
 const agent_logline = require('./src/agent_logline');
 const agent_metrics = require('./src/agent_metrics');
 const agent_peer_serve = require('./src/agent_peer_serve');
+const agent_pipe = require('./src/agent_pipe');
 const agent_programs_adopt = require('./src/agent_programs_adopt');
 const agent_root_serve = require('./src/agent_root_serve');
 const agent_root_socket = require('./src/agent_root_socket');
@@ -123,6 +124,12 @@ async function main()
     if (argv[0] === '--verify') {
         // Not an agent this time: whether a file is the host's, said by the exit code
         process.exitCode = agent_verify_file(argv[1], argv[2], argv[3]) ? 0 : 1;
+        return;
+    }
+    if (argv[0] === '--pipe') {
+        // Not an agent this time: sshfs's "ssh" for a mount of this machine, joined to the socket
+        // the session half listens on for it (agent_mounts)
+        agent_pipe(argv[1]);
         return;
     }
     if (argv.includes('--status')) {

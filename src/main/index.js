@@ -24,6 +24,7 @@ const log_trunk = require('./src/helpers/log_trunk');
 const log_within = require('./src/helpers/log_within');
 const log_words = require('../helpers/log_words');
 const logline_sweep = require('./src/helpers/logline_sweep');
+const mounts_tell = require('./src/helpers/mounts_tell');
 const path = require('path');
 const problems_check = require('./src/helpers/problems_check');
 const profile_from_db = require('./src/helpers/profile_from_db');
@@ -138,6 +139,9 @@ async function main()
             });
             // Where a service runs moves as it starts and stops; the doors follow within the minute
             doors_tell(app);
+            // A mount whose sshfs died, or whose path is free since, is mounted again, and the
+            // page hears where each one stands
+            mounts_tell(app);
             // A forward that could not listen is tried again, on a machine or here
             forwards_tell(app);
             forwards_here(app);

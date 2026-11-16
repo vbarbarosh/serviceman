@@ -109,6 +109,7 @@ const terminal_serve = require('../../../../modules/terminal/server/terminal_ser
 const transfer_queue = require('../../../../modules/file_manager/server/transfer_queue');
 const url_logged = require('../helpers/url_logged');
 const view_from_forward = require('../helpers/view_from_forward');
+const view_from_mount = require('../helpers/view_from_mount');
 const view_from_remote = require('../helpers/view_from_remote');
 const view_from_service = require('../helpers/view_from_service');
 const volumes_of_app = require('../helpers/volumes_of_app');
@@ -193,7 +194,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'apps', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
+const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -427,6 +428,14 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/forwards') && (req.method === 'GET')) {
         await forwards_send(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/mounts') && (req.method === 'GET')) {
+        await mounts_send(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/mounts') && (req.method === 'PUT')) {
+        await mounts_put(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/forwards') && (req.method === 'PUT')) {
@@ -2758,6 +2767,40 @@ async function forwards_put(app, req, res)
     });
 }
 
+// GET /api/v1/mounts
+// The mounts as the config file writes them, for a list to be changed and written back whole.
+// The owner's alone: a mount reaches into a machine's files (control_route_right names no token
+// right for it).
+async function mounts_send(app, req, res)
+{
+    if (app.config.path === undefined) {
+        send_json(res, 400, {error: 'serviceman runs without a config file'});
+        return;
+    }
+    const json = JSON.parse(await fs.promises.readFile(app.config.path, 'utf8'));
+    send_json(res, 200, {mounts: Array.isArray(json.mounts) ? json.mounts : []});
+}
+
+// PUT /api/v1/mounts {"mounts": [...]}
+// The whole list, as GET gave it and changed: the config is checked with it before it is
+// written (config_file_mutate), and each machine is told its own (mounts_tell)
+async function mounts_put(app, req, res)
+{
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    if (Array.isArray(body.mounts) === false) {
+        send_json(res, 400, {error: 'mounts: a list is required'});
+        return;
+    }
+    await config_file_mutate(app, res, function (json) {
+        if (body.mounts.length === 0) {
+            delete json.mounts;
+            return null;
+        }
+        json.mounts = body.mounts;
+        return null;
+    });
+}
+
 // A token's list with `by` written by serviceman, never taken from the token: a forward it sends
 // back as it was keeps the `by` it had, the owner's none; one it adds or changes is the token's
 function forwards_asked_by(before, own, token)
@@ -3103,6 +3146,8 @@ function state_from_app(app)
         // What each machine leaves open to harm, as the last look at it found: the Security page
         security,
         forwards,
+        // Folders of one machine mounted on another, each where it stands (view_from_mount)
+        mounts: app.config.mounts.map(v => view_from_mount(app, v)),
         // Where a forward that shows up on serviceman itself puts its socket file
         state_dir: app.state_dir,
         // What k6 is sent at, each with the address it asks, and the runs so far, oldest first

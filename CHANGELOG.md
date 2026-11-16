@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.138 — 2026-11-16
+
+- Mounts: a folder of one machine, or serviceman's own data/, mounted on another, read-only or read-write, from a page of its own; sshfs over the agents' links, no ssh, nothing outside the folder seen (agent 1.38.0).
+
 ## 1.0.137 — 2026-11-16
 
 - A Tailscale page: serviceman's name and address on the tailnet, the certificate or why there is none, the apps' names, the way out, and every call it made to tailscale.

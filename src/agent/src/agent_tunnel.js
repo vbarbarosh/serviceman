@@ -10,6 +10,7 @@ const agent_tar_get = require('./agent_tar_get');
 const agent_tar_put = require('./agent_tar_put');
 const link_send_stream = require('../../helpers/link_send_stream');
 const net = require('net');
+const sftp_stream = require('../../helpers/sftp_stream');
 const tunnel_window = require('../../helpers/tunnel_window');
 
 const LAST_ID = 0xffffffff;
@@ -151,6 +152,11 @@ function target_socket(target)
     }
     if (target.tree !== undefined) {
         return agent_fs_tree(target.tree);
+    }
+    if (target.sftp !== undefined) {
+        // A folder of this machine, mounted on another (agent_mounts there): that one sees the
+        // folder and nothing outside it
+        return sftp_stream(agent_path_expand(String(target.sftp.path)), {read_only: target.sftp.mode !== 'rw'});
     }
     if (target.path !== undefined) {
         return net.connect({path: agent_path_expand(target.path)});

@@ -7,7 +7,7 @@ const test = require('node:test');
 const DOCS = path.join(__dirname, '..', 'docs');
 // What a whole config may hold, and what a service may: a block that is a part of either is
 // read by its keys
-const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'join', 'logline', 'load_tests', 'apps'];
+const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'mounts', 'join', 'logline', 'load_tests', 'apps'];
 const SERVICE_KEYS = ['policy', 'volumes', 'env', 'run_args', 'network', 'args', 'publish', 'image', 'command', 'argv', 'cwd', 'upstream', 'redirect', 'folder'];
 const REMOTE_KEYS = ['inbound', 'tags'];
 // The service a part of a service is tried in, and the token a shortened one (`0c0f…a91b`)
@@ -132,7 +132,7 @@ function config_of(value)
         }
     }
     const remotes = new Set(config.remotes.map(v => v.name));
-    const ends = (config.forwards || []).flatMap(v => [v.from, v.to]).filter(v => (v !== undefined) && (v !== null));
+    const ends = [].concat(config.forwards || [], config.mounts || []).flatMap(v => [v.from, v.to]).filter(v => (v !== undefined) && (v !== null));
     const machines = [].concat(config.services.flatMap(v => [].concat(v.remotes || [], v.remote)), ends.map(v => v.remote), (config.load_tests || []).map(v => v.remote));
     for (const name of machines) {
         if ((typeof name === 'string') && (name.startsWith('#') === false) && (remotes.has(name) === false)) {

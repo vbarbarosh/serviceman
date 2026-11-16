@@ -694,6 +694,7 @@ img {
 <li class="current"><a href="logs.html" aria-current="page">The log</a><ul class="toc"><li><a href="#what-a-value-looks-like">What a value looks like</a></li><li><a href="#how-long-it-took">How long it took</a></li><li><a href="#the-laws">The laws</a></li><li><a href="#one-sender-one-place">One sender, one place</a></li><li><a href="#traces">Traces</a></li><li><a href="#the-senders">The senders</a></li><li><a href="#what-is-never-written">What is never written</a></li><li><a href="#where-the-lines-go">Where the lines go</a></li></ul></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
+<li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
 </ul>
@@ -1379,6 +1380,18 @@ minute, and they would bury the rest.</p>
 <td><code>forward_close</code></td>
 <td>A forward taken out of the config stopped listening.</td>
 </tr>
+<tr>
+<td><code>mount_socket_listen</code></td>
+<td>A mount&#39;s socket listens here, for its sshfs to dial, and where.</td>
+</tr>
+<tr>
+<td><code>mount_socket_error</code></td>
+<td>It could not listen, and why; tried again at the next telling.</td>
+</tr>
+<tr>
+<td><code>mount_socket_close</code></td>
+<td>A mount taken out of the config stopped listening.</td>
+</tr>
 </tbody></table>
 </div>
 <p>What an agent says about sending its machine&#39;s lines to Logline:</p>
@@ -1651,6 +1664,36 @@ group says whose it is, and that group&#39;s <code>group_spawn</code> here names
 <tr>
 <td><code>forward_set_aside_error</code></td>
 <td>Setting them aside failed, and why; the token is revoked or changed all the same.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="mounts"><a class="anchor" href="#mounts" aria-hidden="true" tabindex="-1">#</a>Mounts</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Sender</th>
+<th>What it says</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mounts_told</code></td>
+<td>A machine was told the mounts it makes; <code>states=</code> where each one stands, said when one changed.</td>
+</tr>
+<tr>
+<td><code>mounts_tell_error</code></td>
+<td>Telling it failed, and why; said once per reason.</td>
+</tr>
+<tr>
+<td><code>mount_error</code></td>
+<td>A mount&#39;s sshfs dialled and its folder could not be reached, and why: the folder&#39;s machine offline, a folder that is not there; said once per reason in a row.</td>
+</tr>
+<tr>
+<td><code>root_mounts_keep_line</code></td>
+<td>On a machine: the root half&#39;s minute mounted or unmounted something.</td>
+</tr>
+<tr>
+<td><code>root_mounts_keep_error</code></td>
+<td>On a machine: a mount failed, and why; said once per reason.</td>
 </tr>
 </tbody></table>
 </div>
