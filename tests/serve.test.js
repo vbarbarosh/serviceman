@@ -700,6 +700,107 @@ test('Ctrl-C with nothing to stop is one line and no wait', async function () {
     }
 });
 
+// A wall is woken as any service is: one that cannot start says so at once, as a page, and the
+// service behind it is not touched; never a request held for the whole start, then a 500
+test('an app behind a wall that cannot start is answered: the wall did not start', async function () {
+    const port = await free_port();
+    const running = await serviceman_start([
+        {name: 'gate', type: 'shell', publish: {host: 'gate.test', port}, command: 'exit 3', policy: {start_timeout: '4s'}},
+        {name: 'echo', type: 'external', publish: {host: 'echo.test'}, upstream: '127.0.0.1:9', auth: 'gate'},
+    ]);
+    try {
+        const time0 = Date.now();
+        const page = await fetch_host({port: running.port, host: 'echo.test', path: '/', headers: {accept: 'text/html'}});
+        assert.strictEqual(page.status, 503, page.body);
+        assert.match(page.body, /<h1>Starting gate<\/h1>/, 'a browser sees the wall start, as it would any service');
+        assert.ok((Date.now() - time0) < 15000, `shown before the start's whole wait (${Date.now() - time0}ms)`);
+        // The page asks how the wall stands, on the name it was opened at, until it says
+        const asked = page_polls(page.body);
+        let status = null;
+        for (const deadline = Date.now() + 15000; Date.now() < deadline; await timers.setTimeout(200)) {
+            status = JSON.parse((await fetch_host({port: running.port, host: 'echo.test', path: asked})).body);
+            if (status.phase === 'failed') {
+                break;
+            }
+        }
+        assert.strictEqual(status.phase, 'failed', 'and the page says the wall failed, its reason kept from a stranger');
+        const api = await fetch_host({port: running.port, host: 'echo.test', path: '/api'});
+        assert.strictEqual(api.status, 502, 'and a request that is no page is told the wall did not start');
+        assert.match(api.body, /gate did not start/);
+        assert.ok(running.app.log_lines.every(v => /serviceman_error/.test(v) === false), 'no request broke');
+        assert.strictEqual(running.app.service_by_name.echo.state.requests, 0, 'the service behind it untouched');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+// A wall slow to start shows its own waiting page, and the page is answered each time it asks
+// how the wall stands, whoever asks, until the wall is up; opened again, it sends a stranger to
+// sign in and a visitor signed in on to the app: on a name of the app's own and under a path
+test('an app behind a wall that is slow to start waits on the wall\'s page, then goes on', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-gate-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    fs.writeFileSync(path.join(dir, 'gate.js'), `const http = require('http');
+setTimeout(function () {
+    http.createServer(function (req, res) {
+        if (req.url.startsWith('/auth/sidecar')) {
+            const good = (req.headers.cookie === 'session=good');
+            res.writeHead(good ? 200 : 401, good ? {'x-auth-user': 'user@example.com'} : {});
+            res.end();
+            return;
+        }
+        res.end('the wall answers ' + req.url);
+    }).listen(Number(process.argv[2]), '127.0.0.1');
+}, 3500);
+`);
+    const far = await far_server();
+    t.after(far.close);
+    const port = await free_port();
+    const running = await serviceman_start([
+        {name: 'gate', type: 'shell', publish: {host: 'gate.test', port}, command: `${process.execPath} ${JSON.stringify(path.join(dir, 'gate.js'))} ${port}`},
+        {name: 'echo', type: 'external', publish: {hosts: ['echo.test', 'tools.test/echo']}, upstream: `127.0.0.1:${far.port}`, auth: 'gate'},
+    ]);
+    async function visit(host, at, cookie) {
+        const headers = Object.assign({accept: 'text/html'}, (cookie === undefined) ? {} : {cookie});
+        const page = await fetch_host({port: running.port, host, path: at, headers, token: null});
+        assert.strictEqual(page.status, 503, page.body);
+        assert.match(page.body, /<h1>Starting gate<\/h1>/, `${host}${at}: the wall's own waiting page`);
+        const asked = page_polls(page.body);
+        let status = null;
+        for (const deadline = Date.now() + 20000; Date.now() < deadline; await timers.setTimeout(200)) {
+            const answer = await fetch_host({port: running.port, host, path: asked, headers: (cookie === undefined) ? {} : {cookie}, token: null});
+            assert.strictEqual(answer.status, 200, `${host}${asked} answers the page each time it asks: ${answer.status} ${answer.body.slice(0, 120)}`);
+            status = JSON.parse(answer.body);
+            if (status.phase === 'running') {
+                break;
+            }
+        }
+        assert.strictEqual(status.phase, 'running', `${host}${at}: the page is told the wall is up`);
+        return await fetch_host({port: running.port, host, path: at, headers, token: null});
+    }
+    try {
+        const stranger = await visit('echo.test', '/');
+        assert.deepStrictEqual([stranger.status, stranger.headers.location], [302, '/auth/sign-in?return=%2F'], 'a stranger is sent to sign in');
+        assert.strictEqual(running.app.service_by_name.echo.state.requests, 0, 'the app behind the wall untouched');
+
+        await service_stop(running.app, running.app.service_by_name.gate, 'the test asked');
+        const member = await visit('tools.test', '/echo/', 'session=good');
+        assert.deepStrictEqual([member.status, member.body], [200, 'the other server answers /echo/'], 'a visitor signed in goes on to the app, under its path');
+    }
+    finally {
+        await running.close();
+    }
+});
+
+// The address a waiting page asks how the start stands, as its script builds it
+function page_polls(body)
+{
+    const found = /const status_url = ("[^"]*");/.exec(body);
+    assert.notStrictEqual(found, null, 'the page says where it asks');
+    return JSON.parse(found[1]);
+}
+
 test('a service that stopped is not still up: no machine, no address, no clock', async function () {
     const running = await serviceman_start([
         {name: 'notes', type: 'docker', publish: {host: 'notes.test', port: 8080}, image: 'demo/notes'},
@@ -1157,7 +1258,7 @@ test('the waiting page of a path-scoped service polls under its own prefix', asy
     try {
         const waiting = await fetch_host({port: running.port, host: 'tools.test', path: '/app/', headers: {accept: 'text/html'}});
         assert.strictEqual(waiting.status, 503);
-        assert.match(waiting.body, /const prefix = "\/app";/);
+        assert.match(waiting.body, /const status_url = "\/app\/__serviceman__\/status\.json";/);
 
         const status = await fetch_host({port: running.port, host: 'tools.test', path: '/app/__serviceman__/status.json'});
         assert.strictEqual(JSON.parse(status.body).phase, 'starting');

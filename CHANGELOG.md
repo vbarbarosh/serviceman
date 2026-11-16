@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.124 — 2026-11-16
+
+- A wall that is not up is woken as any service is: a slow start shows its waiting page, which asks how the wall stands at an address of its own until it is up; one that fails says so at once, never a 500 after the whole start.
+
 ## 1.0.123 — 2026-11-16
 
 - The name of a variable or a secret on a service's page is wide enough to read whole (`AUTHWALL_GOOGLE_CLIENT_SECRET`); on a phone it has a line of its own over its value.

@@ -17,7 +17,7 @@ setInterval(function () {
 }, 250);
 async function tick() {
     try {
-        const response = await fetch(prefix + '/__serviceman__/status.json', {cache: 'no-store'});
+        const response = await fetch(status_url, {cache: 'no-store'});
         const status = await response.json();
         // The step it is on, when there is one worth a name of its own: a four minute
         // download that reads as starting is what makes a start look like a hang
@@ -67,8 +67,9 @@ function said(lines) {
 }
 `;
 
-// Shown while the container boots; the page reloads itself the moment the service answers
-function render_waiting_page(app, service, res, prefix)
+// Shown while the container boots; the page asks `status` how the start stands, and reloads
+// itself the moment the service answers
+function render_waiting_page(app, service, res, status)
 {
     const title = html_escape(service.title || service.name);
     const body = `<h1>Starting ${title}</h1>
@@ -78,7 +79,7 @@ function render_waiting_page(app, service, res, prefix)
 <p class="numbers" id="numbers"></p>
 <pre id="said" hidden></pre>
 <p class="error" id="error"></p>`;
-    const html = render_page({title: `Starting ${title}`, body, script: `const prefix = ${JSON.stringify(prefix || '')};${SCRIPT}`});
+    const html = render_page({title: `Starting ${title}`, body, script: `const status_url = ${JSON.stringify(status)};${SCRIPT}`});
     res.writeHead(503, {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',

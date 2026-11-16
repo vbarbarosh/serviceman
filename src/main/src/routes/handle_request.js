@@ -35,6 +35,10 @@ const wall_route = require('../helpers/wall_route');
 const wants_html = require('../wants_html');
 
 const RESERVED_PREFIX = '/__serviceman__/';
+// Where the waiting page of a service asks how its start stands, under the path it answers on
+const SERVICE_STATUS = `${RESERVED_PREFIX}status.json`;
+// And the waiting page of a wall: an address of its own, since the service's is behind the wall
+const WALL_STATUS = `${RESERVED_PREFIX}wall.json`;
 const NO_REFERER = '';
 const QUICK_START_MS = 2500;
 
@@ -171,8 +175,24 @@ async function request_answer(app, req, res, host, quiet, door)
     const route = found.route;
     const wall = found.wall;
     // Nothing of the service is touched — not woken, not asked, not even named in the log —
-    // until the wall has said this visitor may pass
+    // until the wall has said this visitor may pass. A wall that is not up is woken as any
+    // service is: a slow start shows its waiting page, and one that fails says so at once,
+    // never a request held for the whole start and then a 500. The page asks how the wall
+    // stands at an address of its own, answered to anyone, up or not: once the wall is up, the
+    // service's own would send a stranger to sign in, and tell one signed in of a service asleep.
     if (wall !== null) {
+        const wall_status = `${(route === null) ? '' : route.path}${WALL_STATUS}`;
+        if (pathname === wall_status) {
+            answered_by = wall.name;
+            send_json(res, 200, status_of(app, req, wall));
+            return;
+        }
+        if (service_phase(wall) !== 'running') {
+            answered_by = wall.name;
+            if (await wake_or_answer(app, wall, req, res, wall_status) === false) {
+                return;
+            }
+        }
         const said = await wall_ask(app, wall, req, host);
         if (said.ok === false) {
             log_event(app, 'wall_refused', {wall: wall.name, host, path: url_logged(pathname)});
@@ -199,17 +219,8 @@ async function request_answer(app, req, res, host, quiet, door)
     answered_by = service.name;
     const remainder = pathname.slice(route.path.length);
     if ((remainder || '/').startsWith(RESERVED_PREFIX)) {
-        // The waiting page polls this from a visitor's browser: it says whether the service is
-        // up, and nothing else about it; a reason and what the program printed go to a visitor
-        // as they go on the page, through error_detail and said_of, that is not at all
-        send_json(res, 200, {
-            phase: service_phase(service),
-            doing: service.state.doing,
-            progress: service.state.progress,
-            progress_text: service.state.progress_text,
-            error: (service.state.last_error === null) ? null : error_detail(app, req, service.state.last_error),
-            said: said_of(app, req, service),
-        });
+        // The waiting page polls this from a visitor's browser (status_of)
+        send_json(res, 200, status_of(app, req, service));
         return;
     }
     service.state.requests++;
@@ -226,7 +237,7 @@ async function request_answer(app, req, res, host, quiet, door)
         req.url = (remainder || '/') + query;
     }
     if (service_phase(service) !== 'running') {
-        const woke = await wake_or_answer(app, service, req, res, route.path);
+        const woke = await wake_or_answer(app, service, req, res, `${route.path}${SERVICE_STATUS}`);
         if (woke === false) {
             return;
         }
@@ -293,14 +304,30 @@ function port_asked(req)
     return ((port === '80') || (port === '')) ? '' : `:${port}`;
 }
 
+// How a starting service stands, for its waiting page: whether it is up, and nothing else about
+// it; a reason and what the program printed go to a visitor as they go on the page, through
+// error_detail and said_of, that is not at all
+function status_of(app, req, service)
+{
+    return {
+        phase: service_phase(service),
+        doing: service.state.doing,
+        progress: service.state.progress,
+        progress_text: service.state.progress_text,
+        error: (service.state.last_error === null) ? null : error_detail(app, req, service.state.last_error),
+        said: said_of(app, req, service),
+    };
+}
+
 // What the machine said while it was starting, for whoever is trusted with the reason itself
 function said_of(app, req, service)
 {
     return (error_detail(app, req, null) === null) ? service.state.said : [];
 }
 
-// A cold service: fast starts stay invisible, slow ones show the waiting page to a browser
-async function wake_or_answer(app, service, req, res, prefix)
+// A cold service: fast starts stay invisible, slow ones show the waiting page to a browser,
+// which asks `status` how the start stands
+async function wake_or_answer(app, service, req, res, status)
 {
     const ready = service_ensure_running(app, service);
     const outcome = await Promise.race([promise_outcome(ready), timers.setTimeout(QUICK_START_MS, 'slow', {ref: false})]);
@@ -313,7 +340,7 @@ async function wake_or_answer(app, service, req, res, prefix)
     }
     if (wants_html(req)) {
         log_event(app, 'request_wait', {service: service.name, after: format_seconds(QUICK_START_MS)});
-        render_waiting_page(app, service, res, prefix);
+        render_waiting_page(app, service, res, status);
         return false;
     }
     if (await promise_outcome(ready) === 'failed') {
