@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.122 — 2026-11-16
+
+- A folder a service keeps is opened to its container at every start, whatever user its image runs as, and the agent's `data/` around it is closed to everyone else: authwall, which runs as `node`, could not write its kept folder (agent 1.37.1).
+
 ## 1.0.121 — 2026-11-16
 
 - Tutorial 06: three walls for three teams (Google only, users named, an open demo), an app behind each, each wall built on its authwall recipe.

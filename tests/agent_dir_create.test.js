@@ -25,3 +25,30 @@ test('a folder is made with every folder above it; one written without a root is
     assert.deepStrictEqual(await agent_dir_create(path.join(home, 'a', 'b')), {created: true});
     assert.strictEqual(fs.existsSync(path.join(home, '~')), false, 'no folder named ~');
 });
+
+// A service's own storage is written by its container as whatever user its image runs as: the
+// folder is open to every user, the agent's data/ above it the agent's alone; a folder of the
+// File Manager stays as made, and so does one docker made before, as root
+test('a kept folder is opened to its container, and the agent\'s data/ closed around it', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-dir-'));
+    const before = process.env.SERVICEMAN_AGENT_DIR;
+    process.env.SERVICEMAN_AGENT_DIR = dir;
+    const umask = process.umask(0o022);
+    t.after(function () {
+        process.umask(umask);
+        process.env.SERVICEMAN_AGENT_DIR = before;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const kept = path.join(dir, 'data', 'authwall-team-a', 'app-data');
+    assert.deepStrictEqual(await agent_dir_create(kept, undefined, true), {created: true});
+    assert.strictEqual(fs.statSync(kept).mode & 0o777, 0o777);
+    assert.strictEqual(fs.statSync(path.join(dir, 'data')).mode & 0o777, 0o700);
+
+    fs.chmodSync(kept, 0o755);
+    assert.deepStrictEqual(await agent_dir_create(kept, undefined, true), {created: false});
+    assert.strictEqual(fs.statSync(kept).mode & 0o777, 0o777, 'one made before is opened at the next start');
+
+    const plain = path.join(dir, 'files', 'notes');
+    await agent_dir_create(plain);
+    assert.strictEqual(fs.statSync(plain).mode & 0o777, 0o755, 'a folder that is no service\'s storage stays as made');
+});
