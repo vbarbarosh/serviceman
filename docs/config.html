@@ -2169,6 +2169,17 @@ address. Whatever name a request on that port carries, it is that app&#39;s, beh
 stands behind, and nothing else is reached there: no other service, never the control page.</p>
 <pre><code class="language-json">&quot;apps&quot;: {&quot;ports&quot;: 3400}
 </code></pre>
+<p><strong>Over https, on the tailnet&#39;s certificate.</strong> Where tailscale runs beside serviceman, as in the
+image, serviceman asks it for the certificate of its tailnet name (<code>tailscale cert</code>) at the start
+and once a day after, keeps it in memory, and every app&#39;s own port answers https with it:
+<code>https://serviceman.tail1234.ts.net:3400/</code>, a websocket as <code>wss://</code>. A page there is a secure
+context, so the browser lets it use the microphone, the camera, screen recording and the
+clipboard. The same port answers plain http too: a program is answered where it asked, and a
+browser&#39;s page visit by serviceman&#39;s tailnet name, its first word or its tailnet address is sent
+on to https (<code>307</code>). <strong>Apps</strong>, <strong>Addresses</strong> and the page of apps link the https address. The
+tailnet gives certificates once HTTPS is turned on in its DNS settings, in Tailscale&#39;s admin;
+until then, or with no tailscale, the ports answer http as before, and the log says why
+(<code>tailnet_cert_error</code>, <a href="logs.html">Logs</a>).</p>
 <p><code>ports</code> is the first of them, <code>3400</code> unless said (3100 is Loki&#39;s); <code>null</code> gives none. A new app takes the lowest one
 free from it up, past serviceman&#39;s own ports, and keeps it: it is written in <code>app_ports.json</code> of the
 state folder, the same after a restart and after other apps come and go, it follows a rename, and an

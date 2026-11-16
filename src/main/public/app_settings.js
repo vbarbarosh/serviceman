@@ -86,7 +86,7 @@ const app_settings = {
         remotes: {type: Array, required: true},
         names: {type: Array, required: true},
         host: {type: String, required: true},
-        // Its own port on serviceman's tailnet name, http://serviceman.tail1234.ts.net:3101/, or ''
+        // Its own port on serviceman's tailnet name, https://serviceman.tail1234.ts.net:3400/, or ''
         tailnet: {type: String, default: ''},
         // The folder serviceman keeps its own things in, as its owner sees it: data
         folder: {type: String, required: true},

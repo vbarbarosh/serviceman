@@ -39,6 +39,7 @@ const service_probe = require('./src/helpers/service_probe');
 const service_waits_for_remote = require('./src/helpers/service_waits_for_remote');
 const serviceman_stop = require('./src/helpers/serviceman_stop');
 const shared_tell = require('./src/helpers/shared_tell');
+const tailnet_cert_read = require('./src/helpers/tailnet_cert_read');
 const tailnet_ip_read = require('./src/helpers/tailnet_ip_read');
 const tailnet_name_read = require('./src/helpers/tailnet_name_read');
 
@@ -149,6 +150,8 @@ async function main()
         // address, for the page of apps a device of the tailnet types it as
         tailnet_name_read();
         tailnet_ip_read();
+        // And the tailnet's certificate, for each app's own port to answer https with
+        tailnet_cert_read(app);
         setTimeout(function () {
             problems_tick(app);
         }, PROBLEMS_FIRST_MS);
@@ -168,6 +171,8 @@ function problems_tick(app)
     // apps: read until known, its address too
     tailnet_name_read();
     tailnet_ip_read();
+    // The tailnet's certificate, until tailscale gives one, and once a day after
+    tailnet_cert_read(app);
     // The Security page's looks keep their own hour; the minute only sees which are due
     security_check(app, false);
 }

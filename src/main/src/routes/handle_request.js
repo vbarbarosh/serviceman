@@ -1,3 +1,4 @@
+const app_port_https = require('../helpers/app_port_https');
 const app_port_route = require('../helpers/app_port_route');
 const apps_page_of = require('../helpers/apps_page_of');
 const client_address = require('../client_address');
@@ -150,6 +151,13 @@ async function request_answer(app, req, res, host, quiet, door)
             const by = (answered_by === null) ? '' : ` ${answered_by}`;
             log_event(app, 'request_end', `${outcome} ${format_seconds(Date.now() - time0)}${by}`);
         }));
+    }
+    // A browser's visit to an app's own port over http, where the port answers https too
+    const secure = app_port_https(app, req, host);
+    if (secure !== null) {
+        res.writeHead(307, {location: secure, 'cache-control': 'no-store'});
+        res.end();
+        return;
     }
     const mark = req.url.indexOf('?');
     const pathname = (mark === -1) ? req.url : req.url.slice(0, mark);

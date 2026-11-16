@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.131 — 2026-11-16
+
+- Every app's own port answers https too, with the tailnet's certificate from tailscale in the image, so a browser gives its page the microphone and the screen; a browser's plain http visit is sent on to https.
+
 ## 1.0.130 — 2026-11-16
 
 - A test of an app folder's new version between two restarts waits for its program's first line before reading it: under load it read the file too soon and failed.

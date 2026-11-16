@@ -192,8 +192,11 @@ function cells_of(app, page, name_asked, port)
             out.push({service, title, address: (own === undefined) ? 'no port' : `port ${own.port}`, href: null, why});
             continue;
         }
-        // The name is the same on every cell, and long: the port is what tells them apart
-        out.push({service, title, address: `port ${own.port}`, href: `//${name_asked}:${own.port}/`, why: ''});
+        // The name is the same on every cell, and long: the port is what tells them apart. A port
+        // that answers https is opened so, under the name on its certificate.
+        const held = app.tailnet_cert;
+        const href = (held.context === null) ? `//${name_asked}:${own.port}/` : `https://${held.domain}:${own.port}/`;
+        out.push({service, title, address: `port ${own.port}`, href, why: ''});
     }
     return out;
 }

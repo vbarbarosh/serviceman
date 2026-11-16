@@ -1,9 +1,15 @@
 const fs = require('fs');
 const log_event = require('./log_event');
+const net = require('net');
 const path = require('path');
 const service_is_app = require('./service_is_app');
+const tls = require('tls');
 
 const FILE = 'app_ports.json';
+// The first byte of a TLS handshake: a connection that opens with it asks for https
+const TLS_HANDSHAKE = 0x16;
+// A connection that says nothing at all is let go after this long
+const FIRST_BYTE_MS = 60000;
 
 // Every app has a port of its own on serviceman, beside its names: from the tailnet,
 // serviceman.tail1234.ts.net:3101 opens va with nothing to set up, no DNS, no name to add.
@@ -16,7 +22,9 @@ const FILE = 'app_ports.json';
 // Called at the start, after the config changes, and on the minute, when one that could not
 // listen (another program held it) is tried again. Nothing listens before serviceman's own
 // doors are open: app.app_ports_server, which server_start gives, makes the server of a port,
-// one that answers as the service port does.
+// one that answers as the service port does. Each port answers https too, with the tailnet's
+// certificate once tailscale gave one (tailnet_cert_read), and http as before: a connection that
+// opens with a TLS handshake is the https one.
 //
 // app.app_ports_here holds what each one is now: {app: {port, server, error}}, error null for
 // one that listens. One change at a time, as forwards_here.
@@ -131,12 +139,8 @@ function kept_read(file)
 
 async function listen(app, name, port, error_before)
 {
-    const out = {port, server: null, error: null};
-    const server = app.app_ports_server();
-    server.on('connection', function (socket) {
-        // What came in here is this app's, whatever name it carries
-        socket.app_port = name;
-    });
+    const out = {port, server: null, error: null, sockets: new Set()};
+    const server = server_of(app, name, out.sockets);
     try {
         await new Promise(function (resolve, reject) {
             server.once('error', reject);
@@ -165,6 +169,73 @@ async function listen(app, name, port, error_before)
     return out;
 }
 
+// What listens on an app's port: each connection goes by its first byte to the https side or
+// the http side, and both answer as the service port does. Every connection is kept in
+// `sockets` until it closes, for the port to be closed whole.
+function server_of(app, name, sockets)
+{
+    const http_server = app.app_ports_server();
+    http_server.on('connection', function (socket) {
+        // What came in here is this app's, whatever name it carries
+        socket.app_port = name;
+    });
+    // The certificate is asked for at each handshake, so a renewed one is used at once
+    const https_server = tls.createServer({ALPNProtocols: ['http/1.1'], SNICallback: function (servername, done) {
+        done(null, app.tailnet_cert.context);
+    }}, function (socket) {
+        http_server.emit('connection', socket);
+    });
+    // A handshake that failed is that connection's alone, as a bad request is
+    https_server.on('tlsClientError', function (error, socket) {
+        socket.destroy();
+    });
+    return net.createServer(function (socket) {
+        sockets.add(socket);
+        socket.on('close', function () {
+            sockets.delete(socket);
+        });
+        first_byte(socket, function (byte) {
+            if (byte !== TLS_HANDSHAKE) {
+                http_server.emit('connection', socket);
+            }
+            else if (app.tailnet_cert.context === null) {
+                // https with no certificate to answer it: refused, as a port that speaks only http refuses it
+                socket.destroy();
+            }
+            else {
+                https_server.emit('connection', socket);
+            }
+        });
+    });
+}
+
+// The first byte a connection sends, read and put back for whoever answers it; one that closes
+// or says nothing for a minute is let go
+function first_byte(socket, then)
+{
+    function on_error() {
+        socket.destroy();
+    }
+    function on_timeout() {
+        socket.destroy();
+    }
+    socket.on('error', on_error);
+    socket.setTimeout(FIRST_BYTE_MS);
+    socket.on('timeout', on_timeout);
+    socket.once('readable', function () {
+        const head = socket.read(1);
+        socket.removeListener('error', on_error);
+        socket.removeListener('timeout', on_timeout);
+        socket.setTimeout(0);
+        if (head === null) {
+            socket.destroy();
+            return;
+        }
+        socket.unshift(head);
+        then(head[0]);
+    });
+}
+
 // Closed whole before its port is listened on again, by the same app under a new name too
 function close(found)
 {
@@ -175,7 +246,9 @@ function close(found)
         found.server.close(function () {
             resolve();
         });
-        found.server.closeAllConnections();
+        for (const socket of found.sockets) {
+            socket.destroy();
+        }
     });
 }
 

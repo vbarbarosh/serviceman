@@ -3080,8 +3080,9 @@ function state_from_app(app)
         apps: app.config.apps,
         // Each app's own port, by app: {port, error}, error null for one that listens
         app_ports: app_ports_view(app),
-        // serviceman's own name on the tailnet, which a new agent is told to dial; null off one
-        tailnet: {name: tailnet_name_read.known()},
+        // serviceman's own name on the tailnet, which a new agent is told to dial; null off one.
+        // `https` while the apps' own ports answer https on the tailnet's certificate for it.
+        tailnet: {name: tailnet_name_read.known(), https: (app.tailnet_cert.context !== null) && (app.tailnet_cert.domain === tailnet_name_read.known())},
         // Whether a machine may add itself, and what it may claim — never the token itself
         join: (app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix},
         // Where Logline is, and whether its admin token is kept — never the token itself

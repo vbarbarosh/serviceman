@@ -75,6 +75,9 @@ function app_from_config(config)
         // Each app's own port, by app, and one change to them at a time (app_ports_here)
         app_ports_here: Object.create(null),
         app_ports_lock: Promise.resolve(),
+        // The tailnet's certificate those ports answer https with, once tailscale gave one
+        // (tailnet_cert_read): context null while there is none
+        tailnet_cert: {domain: null, context: null, until: null, at: 0, error: null, busy: false},
         // What this computer's DNS last said of each address's name, for Addresses: {at, said}
         address_lookups: new Map(),
         // The last upgrade of several machines at once, from the Remotes list (apt_all_run), and

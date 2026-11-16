@@ -240,14 +240,15 @@ const apps_pane = {
             return ((ports === undefined) || (ports === null) || (ports[name] === undefined)) ? null : ports[name];
         },
         // Its own port on serviceman's tailnet name: every device of the tailnet opens it there,
-        // with no name or DNS set up; '' while it does not listen or the name is not known
+        // with no name or DNS set up, over https once the port answers it on the tailnet's
+        // certificate; '' while it does not listen or the name is not known
         tailnet_of: function (name) {
             const found = this.port_of(name);
             const tailnet = ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
             if ((found === null) || (found.error !== null) || (tailnet === null)) {
                 return '';
             }
-            return `http://${tailnet}:${found.port}/`;
+            return `${(this.state.tailnet.https === true) ? 'https' : 'http'}://${tailnet}:${found.port}/`;
         },
         link_of: function (app) {
             const port = this.state.listen.port;

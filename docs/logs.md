@@ -246,6 +246,8 @@ folder.
 | `socket_end_error` | It never got that far.                                                      |
 | `app_port_listen`  | An app listens on a port of its own: the app and the address.               |
 | `app_port_listen_error` | It could not, and why; tried again every minute, said once per reason. |
+| `tailnet_cert`     | tailscale gave the tailnet's certificate the apps' ports answer https with: its `domain`, and `until` when it ends. Said when it is new or renewed. |
+| `tailnet_cert_error` | It gave none, and why (HTTPS off in the tailnet's DNS settings, tailscale away); then what serviceman does meanwhile. Said once per reason. |
 | `app_port_close`   | An app taken out of the config, renamed, or with the ports turned off stopped listening on its port. |
 | `app_port_apply_error` | Following the config for the apps' ports failed, and why; the next change is still applied. |
 

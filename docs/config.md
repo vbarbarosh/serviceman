@@ -1340,6 +1340,18 @@ stands behind, and nothing else is reached there: no other service, never the co
 "apps": {"ports": 3400}
 ```
 
+**Over https, on the tailnet's certificate.** Where tailscale runs beside serviceman, as in the
+image, serviceman asks it for the certificate of its tailnet name (`tailscale cert`) at the start
+and once a day after, keeps it in memory, and every app's own port answers https with it:
+`https://serviceman.tail1234.ts.net:3400/`, a websocket as `wss://`. A page there is a secure
+context, so the browser lets it use the microphone, the camera, screen recording and the
+clipboard. The same port answers plain http too: a program is answered where it asked, and a
+browser's page visit by serviceman's tailnet name, its first word or its tailnet address is sent
+on to https (`307`). **Apps**, **Addresses** and the page of apps link the https address. The
+tailnet gives certificates once HTTPS is turned on in its DNS settings, in Tailscale's admin;
+until then, or with no tailscale, the ports answer http as before, and the log says why
+(`tailnet_cert_error`, [Logs](logs.md)).
+
 `ports` is the first of them, `3400` unless said (3100 is Loki's); `null` gives none. A new app takes the lowest one
 free from it up, past serviceman's own ports, and keeps it: it is written in `app_ports.json` of the
 state folder, the same after a restart and after other apps come and go, it follows a rename, and an
