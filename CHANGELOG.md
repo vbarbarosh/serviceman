@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.136 — 2026-11-16
+
+- A forward hands its reader the whole answer when the far end closes right after sending it: the agent no longer drops what it had not written yet (agent 1.37.2).
+
 ## 1.0.135 — 2026-11-16
 
 - Apps and the page of apps show every service, a docker image, a program and something already running too, each card opening it at its address.

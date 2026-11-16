@@ -33,6 +33,7 @@ function agent_tunnel(state, kind, body)
         return;
     }
     if (kind === 'e') {
+        found.far_ended = true;
         found.socket.end();
         return;
     }
@@ -40,7 +41,25 @@ function agent_tunnel(state, kind, body)
         stream_credit(found, rest.readUInt32BE(0));
         return;
     }
+    // The far end is gone. Done, not broken, after it said it had sent all: what it sent is
+    // still on its way to the reader here, so the socket ends once that is written rather than
+    // going at once. Gone before it said so is a stream cut off, a copy cancelled: it goes now
+    if (found.far_ended && gone_done(rest)) {
+        stream_forget(state, found);
+        return;
+    }
     stream_drop(state, found, null);
+}
+
+// Whether the far end said it went with no error: an `x` with no code
+function gone_done(body)
+{
+    try {
+        return (JSON.parse(body.toString('utf8')).code === undefined);
+    }
+    catch {
+        return false;
+    }
 }
 
 // The far end is usually a socket; a target that says `shell` is a pty on this machine, and
@@ -70,10 +89,14 @@ function stream_open(state, id, target)
 // window unread (tunnel_window), and no more while the link has not taken what it sent.
 function stream_attach(state, id, socket, window_bytes)
 {
-    const found = {id, socket, credit: window_bytes, ended: false, gone: false};
+    const found = {id, socket, credit: window_bytes, ended: false, far_ended: false, gone: false};
     state.streams[id] = found;
     socket.setNoDelay(true);
     socket.on('data', function (chunk) {
+        // The far end is gone: nobody reads it there
+        if (found.gone) {
+            return;
+        }
         found.credit -= chunk.length;
         const room = link_send_stream(state.link, 'd', id, chunk);
         if ((found.credit <= 0) || (room === false)) {
@@ -158,6 +181,15 @@ function stream_resume(found)
     if ((found.gone === false) && (found.credit > 0)) {
         found.socket.resume();
     }
+}
+
+// The far end went done: nothing is said back, the socket ends once what it was sent is
+// written, and the stream is forgotten
+function stream_forget(state, found)
+{
+    found.gone = true;
+    delete state.streams[found.id];
+    found.socket.end();
 }
 
 // Says once that the stream is over, then forgets it
