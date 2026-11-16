@@ -23,11 +23,16 @@ async function apt_all_run(app, remotes, held)
 }
 
 // Its turn, unless it was started by hand from its own page meanwhile, cancelled, removed, or
-// went away
+// went away. One started by hand is still the batch's: the batch ends with that run, or the
+// list would stop following it while it installs.
 async function held_run(app, held)
 {
     const remote = app.remote_by_name[held.name];
-    if ((remote !== held) || (held.state.apt.phase !== 'waiting')) {
+    if (remote !== held) {
+        return;
+    }
+    if (held.state.apt.phase !== 'waiting') {
+        await apt_run.ended(held.state.apt);
         return;
     }
     if (held.state.phase !== 'online') {

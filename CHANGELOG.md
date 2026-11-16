@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.125 — 2026-11-16
+
+- An upgrade of several machines ends when every run in it ends: a machine started by hand from its own page meanwhile is one of them, and the list no longer stops at its "installing".
+
 ## 1.0.124 — 2026-11-16
 
 - A wall that is not up is woken as any service is: a slow start shows its waiting page, which asks how the wall stands at an address of its own until it is up; one that fails says so at once, never a 500 after the whole start.

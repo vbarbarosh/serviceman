@@ -800,7 +800,7 @@ test('the updates of several machines are installed at once, the one serviceman 
     }
 });
 
-test('a machine waiting its turn is not started once cancelled, and starts at once from its own page', async function () {
+test('a machine waiting its turn is not started once cancelled, and starts at once from its own page, the batch ending with it', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
     const docker = await fake_docker_engine(path.join(dir, 'docker.sock'));
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
@@ -823,10 +823,15 @@ test('a machine waiting its turn is not started once cancelled, and starts at on
         assert.strictEqual(vps2.state.apt.phase, 'cancelled');
         assert.strictEqual(vps2.state.apt.lines.length, 0);
 
-        // Install them on a waiting machine starts it now; its turn then finds it already run
+        // Install them on a waiting machine starts it now; its turn then finds it already run,
+        // and the batch ends with that run, not before: the list follows the batch until it ends
         await control(running, 'POST', '/api/v1/apt-upgrade', {remotes: ['vps1', 'vps2']});
         assert.strictEqual((await control(running, 'POST', '/api/v1/remotes/vps2/packages/upgrade', null)).status, 202);
         await wait_until(() => vps2.state.apt.lines.some(v => /Unpacking demo-package-1 /.test(v)), 10000);
+        await control(running, 'POST', '/api/v1/remotes/vps1/packages/cancel', null);
+        await wait_until(() => vps1.state.apt.phase === 'cancelled', 15000);
+        await timers.setTimeout(300);
+        assert.deepStrictEqual([running.app.apt_all.ended_at, vps2.state.apt.phase], [null, 'running'], 'the batch goes on while the run started by hand does');
         await control(running, 'POST', '/api/v1/apt-cancel', null);
         await wait_until(() => running.app.apt_all.ended_at !== null, 15000);
         assert.strictEqual(vps2.state.apt.phase, 'cancelled');

@@ -20,12 +20,22 @@ const STREAM_ENDS = {ok: 'done', error: 'failed', cancelled: 'cancelled'};
 // and those of them a Cancel came for meanwhile: such a run never asks
 const not_asked = new WeakSet();
 const cancelled_early = new WeakSet();
+// The end of each run, for one who waits on a run it did not start: a batch whose machine was
+// started by hand from its own page meanwhile (apt_all_run)
+const endings = new WeakMap();
 
 // Installs what is waiting on one machine: what Install them on its page does, and what the
 // Remotes list does for each machine it was asked for. The answer is the end of the run, once
 // the containers that ran before it run again; the run itself is on the remote's state, for
 // the page to read while it goes.
-async function apt_run(app, remote)
+function apt_run(app, remote)
+{
+    const promise = run_whole(app, remote);
+    endings.set(remote.state.apt, promise);
+    return promise;
+}
+
+async function run_whole(app, remote)
 {
     // Its lines are said in a stream as they come too, for the page to follow rather than ask
     const stream = stream_open(app, {title: 'Installing the updates', base: `/api/v1/remotes/${encodeURIComponent(remote.name)}/packages`, command: 'upgrade'});
@@ -127,5 +137,12 @@ function last_line_of(answer)
 }
 
 apt_run.cancel_early = apt_cancel_early;
+
+// When a run ends, however it ends; at once for a run that never began, a machine's turn that
+// was cancelled while it waited
+apt_run.ended = function (run) {
+    const promise = endings.get(run);
+    return (promise === undefined) ? Promise.resolve() : promise.catch(() => null);
+};
 
 module.exports = apt_run;
