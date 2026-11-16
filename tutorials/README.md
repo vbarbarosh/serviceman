@@ -4,6 +4,18 @@ Each file here is one tutorial: a way of using serviceman, told as the steps a p
 what each step shows. No video is kept here. A video is made from a file whenever it is needed,
 after the page or a feature changes too, by following this page.
 
+## The voice
+
+Every video is said in one voice, the same from one video to the next:
+
+- **Voice:** Microsoft's online `en-US-AndrewNeural`, the one Edge reads pages aloud with,
+  through `msedge-tts`. It needs no key, and only each line's text is sent to it.
+- **Rate:** `-5%`, a little slower than its default.
+- **Sound:** the silence around each line cut; the whole track evened out to -16 LUFS (two
+  passes of ffmpeg's `loudnorm`, `I=-16:TP=-1.5:LRA=7`), 48 kHz mono.
+
+## The tutorials
+
 | File | What it shows |
 |------|---------------|
 | [00-authwall.md](00-authwall.md) | authwall set up once, as a docker image: every tutorial after it starts there |
@@ -13,6 +25,20 @@ after the page or a feature changes too, by following this page.
 | [04-an-app-folder-on-a-machine.md](04-an-app-folder-on-a-machine.md) | An app folder with `bin/run` on a machine, asleep until a visit |
 | [05-a-public-name-through-a-door.md](05-a-public-name-through-a-door.md) | A public name answered through a machine's door, behind authwall |
 | [06-three-walls-each-with-its-app.md](06-three-walls-each-with-its-app.md) | Three walls for three teams (Google only, users named, an open demo), an app behind each |
+| [07-a-website-online-with-a-sign-in.md](07-a-website-online-with-a-sign-in.md) | A website online, with a sign-in: an article, a video with a voice, a recap |
+
+## An article and a video (07 on)
+
+From 07 on, a tutorial file holds five parts: the **Article** (with an "In this tutorial" list
+and a screenshot per section), the **Tutorial scenario** (goal, audience, prerequisites, the
+example, the steps, the result), the **Video recording scenario** (its scenes, a line each),
+the **Voiceover script** (`### Scene N — Title`, then one paragraph per beat; `[shown|said]`
+shows the first and says the second) and **Audit notes** (what was measured in the page).
+
+Its video is 1920×1080: a blue title card, each scene filmed on its own so no wait is filmed, a
+cross-fade between scenes, a blue recap card of five lines. Each beat is said first and done
+right after; the cursor reaches a control before its outline appears. One calm voice, evened out
+to -16 LUFS; its subtitles go beside the video as an `.srt`. 00 to 06 keep the shape below.
 
 ## A tutorial file
 
@@ -52,9 +78,8 @@ the cursor clicks the file, then **Open**, and the window goes as the page gets 
 
 **The voice says each step's Say line.** The lines are spoken before the run starts, one sound
 file each, so the run knows how long each takes; at each step the run waits as long as its line
-lasts, so what is said and what is shown keep together. One voice for all of it (Microsoft's
-online voices through `msedge-tts`, `en-US-AvaNeural`, were used so far: a line's text goes to
-that service, so it says nothing private).
+lasts, so what is said and what is shown keep together. One voice for all of it, the one under
+**The voice** above (00 to 06 were made in `en-US-AvaNeural`, at its default rate).
 
 **What the voice says is shown as text,** a caption at the foot of the browser part: the Say
 line, from the moment it starts until it ends, white on a dark band, large enough to read on a

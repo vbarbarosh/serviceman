@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.129 — 2026-11-16
+
+- Tutorial 07: a website online, with a sign-in, as an article with a screenshot per section, a recording scenario and a voiceover; the tutorials' README says the new shape and the voice every video is said in.
+
 ## 1.0.128 — 2026-11-16
 
 - The Apps page says a page goes in its card and an app folder is made with + Add service; an app folder dropped there is refused with where it goes.
