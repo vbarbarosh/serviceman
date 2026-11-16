@@ -54,8 +54,9 @@ function now_of(mount, from, to, said)
     if (said === undefined) {
         return {state: 'waiting', problem: (to.state.mounts_error === null) ? `told to ${mount.to.remote}, no answer yet` : `${mount.to.remote}: ${to.state.mounts_error}`};
     }
+    // In the machine's own words, which are about itself: the page names it
     if (said.state !== 'mounted') {
-        return {state: said.state, problem: (said.error === undefined) ? null : said.error};
+        return {state: said.state, problem: (said.error === undefined) ? null : `${mount.to.remote}: ${said.error}`};
     }
     if ((from !== null) && (from.state.phase !== 'online')) {
         return {state: 'mounted', problem: `${mount.from.remote} is offline: the folder answers nothing until it is back`};

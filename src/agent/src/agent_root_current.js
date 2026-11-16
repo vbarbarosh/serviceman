@@ -31,12 +31,8 @@ async function agent_root_current(options, group)
         return false;
     }
     agent_say(group, 'root_update_asked', {running: said.built, serving: agent_built});
-    // A root half that runs a copy of its own says whether it took the new file (agent_root_refresh)
-    const answer = await agent_root_ask(options, 'restart', {});
-    if ((answer !== null) && (typeof answer === 'object') && (answer.refreshed !== undefined)) {
-        agent_say(group, 'root_update_file', {refreshed: answer.refreshed, reason: answer.reason});
-    }
-    if (await back_again(options)) {
+    // Every other ask waits until the new one answers, or until this end stops waiting for it
+    if (await agent_root_ask.hold(restart(options, group))) {
         said_about = null;
         return true;
     }
@@ -44,19 +40,41 @@ async function agent_root_current(options, group)
     return false;
 }
 
-// Whether the new one is answering. It is a socket on the same machine, so this is a second
-// or two, not a wait worth making anybody sit through.
+// The root half asked to stop, and watched until the new one answers. Its own asks do not
+// wait: they are what the others wait for.
+async function restart(options, group)
+{
+    // A root half that runs a copy of its own says whether it took the new file (agent_root_refresh)
+    const answer = await agent_root_ask.now(options, 'restart', {});
+    if ((answer !== null) && (typeof answer === 'object') && (answer.refreshed !== undefined)) {
+        agent_say(group, 'root_update_file', {refreshed: answer.refreshed, reason: answer.reason});
+    }
+    return await back_again(options);
+}
+
+// Whether the new one is answering. It is a socket on the same machine, and systemd starts it
+// again within seconds (RestartSec in bin/install-root's unit).
 async function back_again(options)
 {
     const until = Date.now() + BACK_WITHIN_MS;
     while (Date.now() < until) {
         await timers.setTimeout(LOOK_EVERY_MS);
-        const said = await agent_root_ping(options);
-        if (said !== null) {
+        if (await answers(options)) {
             return true;
         }
     }
     return false;
+}
+
+async function answers(options)
+{
+    try {
+        await agent_root_ask.now(options, 'ping', {});
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 
 function say_once(said, group, sender, words)

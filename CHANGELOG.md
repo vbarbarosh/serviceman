@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.140 — 2026-11-17
+
+- A mount no longer says its machine has no root half while the agent restarts that half after an update: every ask of the root half waits for the new one; a machine that has none is named on the row with its whole install-root command (agent 1.38.1).
+
 ## 1.0.139 — 2026-11-16
 
 - A table's first column keeps its text off the row's edge, so a row lit by a hover or a pick no longer has its first word on its border.

@@ -1,14 +1,40 @@
 const agent_root_socket = require('./agent_root_socket');
 const net = require('net');
 
-// One job for the root half of this machine, over its socket: the question is a line of json,
-// the answer is lines of json — what the work printed as it printed it, then how it ended.
-// One connection is one job, because a socket on the same machine is cheap and a protocol
-// that carries two jobs at once is not.
+// The restart of the root half this agent asked for and has not seen end, or null
+let held = null;
+
+// One job for the root half of this machine. While this agent restarts it, the job waits for
+// the new one: for the seconds systemd takes to start it the socket answers nothing, and a
+// machine with a root half would be told it has none (agent_root_current).
+async function agent_root_ask(options, method, params, say)
+{
+    while (held !== null) {
+        await held;
+    }
+    return await agent_root_ask_now(options, method, params, say);
+}
+
+// Every ask waits until `promise` settles; what it settles with is its caller's alone
+function agent_root_ask_hold(promise)
+{
+    const settled = promise.then(nothing, nothing).then(function () {
+        if (held === settled) {
+            held = null;
+        }
+    });
+    held = settled;
+    return promise;
+}
+
+// The job over the socket, with no wait: the question is a line of json, the answer is lines
+// of json — what the work printed as it printed it, then how it ended. One connection is one
+// job, because a socket on the same machine is cheap and a protocol that carries two jobs at
+// once is not.
 //
 // A machine with no root agent says so as `NOROOT`, which is not a failure of the work: it is
 // the answer to "may this be done at all here".
-function agent_root_ask(options, method, params, say)
+function agent_root_ask_now(options, method, params, say)
 {
     const path = agent_root_socket(options);
     return new Promise(function (resolve, reject) {
@@ -92,5 +118,12 @@ function message_from_line(line)
         return null;
     }
 }
+
+function nothing()
+{
+}
+
+agent_root_ask.hold = agent_root_ask_hold;
+agent_root_ask.now = agent_root_ask_now;
 
 module.exports = agent_root_ask;

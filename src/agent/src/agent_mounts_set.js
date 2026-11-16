@@ -62,7 +62,7 @@ async function agent_mounts_set(options, mounts, group)
         if (error.code !== 'NOROOT') {
             throw error;
         }
-        const why = (error.root_old === true) ? 'the root half on this machine is from before mounts; it updates itself within half a minute' : 'mounts need the root agent on this machine: sudo bin/install-root in the agent\'s folder';
+        const why = (error.root_old === true) ? 'its root half is from before mounts; it updates itself within half a minute' : `no root half to mount with: sudo ${path.join(agent_dir(), 'bin', 'install-root')}`;
         return {root: false, items: mounts.map(v => item_refused(v, why)), leaving: []};
     }
     if (answer.ok === false) {

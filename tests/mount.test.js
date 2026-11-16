@@ -1,4 +1,5 @@
 const agent_mounts_set = require('../src/agent/src/agent_mounts_set');
+const agent_root_current = require('../src/agent/src/agent_root_current');
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
@@ -102,6 +103,41 @@ test('only the machine a mount is on may open it, and only while it is on', asyn
     assert.deepStrictEqual(frames.map(v => `${v.kind} ${v.id} ${v.said.code}`), ['x 1 EBADTARGET', 'x 3 EBADTARGET', 'x 5 EBADTARGET']);
 });
 
+// The row is shown on serviceman's page, where "this machine" reads as serviceman's own: it
+// names the machine, and the command that gives it a root half with its whole path
+test('a machine with no root half: its row names it and the command that gives it one', async function (t) {
+    const base = dir_make(t);
+    const running = await serviceman_start(t, [
+        {label: 'photos', from: {remote: 'laptop', path: base}, to: {remote: 'vps1', path: '/mnt/photos'}, mode: 'ro'},
+    ]);
+    agents_start(t, running, base, path.join(base, 'none.sock'));
+    await wait_until(() => online(running) && (running.app.remote_by_name.vps1.state.mounts_said !== null));
+    const view = (await state_read(running)).mounts[0];
+    assert.strictEqual(view.state, 'cannot');
+    assert.strictEqual(view.problem, `vps1: no root half to mount with: sudo ${path.join(base, 'agent-vps1', 'bin', 'install-root')}`);
+});
+
+// An update restarts the root half, and for the seconds systemd takes to start the new one its
+// socket answers nothing. A mount asked then waits for the new one and is mounted: the machine
+// has a root half, and is never told it has none.
+test('a mount asked while the agent restarts its root half waits for the new one', async function (t) {
+    const base = dir_make(t);
+    const options = {root_socket: path.join(base, 'root.sock')};
+    const was = process.env.SERVICEMAN_AGENT_DIR;
+    process.env.SERVICEMAN_AGENT_DIR = path.join(base, 'agent');
+    t.after(async function () {
+        await agent_mounts_set(options, [], null);
+        process.env.SERVICEMAN_AGENT_DIR = was;
+    });
+    const root = await root_restarting(t, options.root_socket);
+    const current = agent_root_current(options, null);
+    await wait_until(() => root.away);
+    const answer = await agent_mounts_set(options, [{name: 'logs', path: '/mnt/logs', mode: 'ro'}], null);
+    assert.strictEqual(answer.root, true);
+    assert.deepStrictEqual(answer.items.map(v => `${v.label} ${v.state}`), ['logs mounted']);
+    assert.strictEqual(await current, true);
+});
+
 function dir_make(t)
 {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-mount-'));
@@ -192,6 +228,55 @@ async function root_fake(t, base)
     return out;
 }
 
+// A root half of an older build under systemd: told to restart, it answers and goes, and the
+// new one answers a second and a half later
+async function root_restarting(t, file)
+{
+    const out = {away: false, server: null, done: false};
+    await root_restarting_listen(out, file);
+    t.after(function () {
+        out.done = true;
+        out.server.close();
+    });
+    return out;
+}
+
+async function root_restarting_listen(root, file)
+{
+    if (root.done) {
+        return;
+    }
+    root.server = net.createServer(function (socket) {
+        let rest = '';
+        socket.on('data', function (chunk) {
+            rest += chunk.toString();
+            if (rest.includes('\n') === false) {
+                return;
+            }
+            const job = JSON.parse(rest.slice(0, rest.indexOf('\n')));
+            socket.end(`${JSON.stringify({type: 'reply', ok: true, value: root_restarting_answer(root, job)})}\n`);
+            if (job.method === 'restart') {
+                root.server.close();
+                fs.rmSync(file, {force: true});
+                root.away = true;
+                setTimeout(root_restarting_listen, 1500, root, file);
+            }
+        });
+    });
+    await new Promise(v => root.server.listen(file, v));
+}
+
+function root_restarting_answer(root, job)
+{
+    if (job.method === 'ping') {
+        return {built: root.away ? null : 'older', supervised: true};
+    }
+    if (job.method === 'restart') {
+        return {stopping: true, refreshed: false, reason: 'one file for both halves'};
+    }
+    return {ok: true, items: job.params.table.mounts.map(v => ({label: v.label, path: v.path, mode: v.mode, state: 'mounted'})), leaving: []};
+}
+
 // What sshfs does: runs the agent's --pipe with ssh's own words after the socket, and speaks
 // SFTP on its stdin and stdout
 async function pipe_open(t, socket)
@@ -258,7 +343,7 @@ test('an agent folder too deep for a socket file puts the sockets in a temp fold
     });
     const answer = await agent_mounts_set({root_socket: path.join(base, 'none.sock')}, [{name: 'deep one', path: '/mnt/deep', mode: 'ro'}], null);
     assert.strictEqual(answer.root, false);
-    assert.match(answer.items[0].error, /root agent/);
+    assert.match(answer.items[0].error, /^no root half to mount with: sudo .*\/bin\/install-root$/);
     const dir = path.join(os.tmpdir(), `serviceman-mounts-${process.getuid()}`);
     const socket = path.join(dir, `${crypto.createHash('sha256').update('deep one').digest('hex').slice(0, 16)}.sock`);
     assert.strictEqual(fs.lstatSync(socket).isSocket(), true);

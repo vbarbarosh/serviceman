@@ -186,7 +186,9 @@ token was handed over. From then on the machine takes a new agent, over the link
 `remote_update_refused`. A machine's root half (`sudo bin/install-root`) runs a copy of the
 agent file and of node that are root's alone, in `/usr/local/lib/serviceman-agent`, with the
 host's key pinned beside them; when an update replaced the session's file, the root half takes
-it as its copy only when the host signed it, then starts afresh. A machine installed before
+it as its copy only when the host signed it, then starts afresh. For the seconds that takes,
+whatever the agent asks of its root half (a mount, a volume, the Security page) waits for the
+new one, rather than calling the machine one with no root half. A machine installed before
 this has no key yet: its next `bin/update` pins one, and `sudo bin/install-root` run once again
 moves its root half to the copy.
 
