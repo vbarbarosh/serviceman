@@ -2250,7 +2250,10 @@ on to https (<code>307</code>). <strong>Apps</strong>, <strong>Addresses</strong
 tailnet gives certificates once HTTPS is turned on in its DNS settings, in Tailscale&#39;s admin;
 until then, or with no tailscale, the ports answer http as before, and the log says why
 (<code>tailnet_cert_error</code>, <a href="logs.html">Logs</a>). Where tailscale refuses one, <strong>Health</strong> has a card with its
-reason and what mends it (<a href="remotes.html#when-something-is-wrong">When something is wrong</a>).</p>
+reason and what mends it (<a href="remotes.html#when-something-is-wrong">When something is wrong</a>), and the
+bar on every page says it too; HTTPS off for the tailnet comes with a link to Tailscale&#39;s DNS page,
+where it is turned on. Each app&#39;s tailnet link says it is http and why, wherever it is shown:
+<strong>Apps</strong>, an app&#39;s <strong>Settings</strong>, <strong>Addresses</strong> and the page of apps.</p>
 <p><strong>The Tailscale page,</strong> in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
 sign this machine in while tailscale waits for one; the certificate, for which name and until when,

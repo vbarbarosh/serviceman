@@ -51,7 +51,7 @@ const tailscale_pane = {
             <overview-card icon="lock" title="The certificate">
                 <template #note>
                     <span v-if="view.certificate.held">For {{ view.certificate.domain }}, until {{ day_of(view.certificate.until) }}: the apps' own ports answer https.</span>
-                    <span v-else-if="(view.certificate.error !== null)" class="bad">None: {{ view.certificate.error }}. {{ mend_said }}</span>
+                    <span v-else-if="(view.certificate.error !== null)" class="bad">None: {{ view.certificate.error }}. <template v-if="(https_off !== null)">{{ https_off.fix }} <a v-if="(https_off.link !== null)" :href="https_off.link.href" target="_blank" rel="noopener">{{ https_off.link.text }}</a></template></span>
                     <span v-else class="muted">Not asked yet: serviceman asks once it has a name on the tailnet.</span>
                 </template>
                 <dt>Given for</dt><dd>{{ (view.cert_domains.length > 0) ? view.cert_domains.join(', ') : ((view.state === 'Running') ? 'no name: HTTPS is off for the tailnet' : 'none yet: not on a tailnet') }}</dd>
@@ -100,12 +100,11 @@ const tailscale_pane = {
             }
             return STATES[this.view.state] || {text: this.view.state || 'not said', dot: 'stopped'};
         },
-        // What mends a certificate refused, as Health says it (problems_of_tailnet_cert)
-        mend_said: function () {
-            if (/does not support getting TLS certs/.test(this.view.certificate.error || '')) {
-                return 'Turn HTTPS on for the tailnet: Tailscale\'s admin, the DNS page, HTTPS Certificates, Enable HTTPS; serviceman asks again every 10 minutes, with no restart.';
-            }
-            return 'serviceman asks again every 10 minutes.';
+        // What mends a certificate refused, and the page that does, as Health says it
+        // (problems_of_tailnet_cert); null while there is nothing to mend
+        https_off: function () {
+            const tailnet = this.state.tailnet;
+            return ((tailnet === undefined) || (tailnet === null) || (tailnet.https_off === undefined)) ? null : tailnet.https_off;
         },
     },
     methods: {

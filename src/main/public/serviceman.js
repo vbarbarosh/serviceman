@@ -1914,6 +1914,7 @@ const app = {
         <span class="problems-first">{{ problems_unseen[0].subject }}<span v-if="(problems.length > 1)" class="muted"> and {{ problems.length - 1 }} more</span></span>
         <span class="problems-open">See them →</span>
     </button>
+    <a v-if="(problems_unseen[0].link !== null)" class="problems-link" :href="problems_unseen[0].link.href" target="_blank" rel="noopener" :title="problems_unseen[0].fix">{{ problems_unseen[0].link.text }} ↗</a>
     <button type="button" class="problems-close" title="Seen: hide the bar until a new problem" @click="problems_close">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>

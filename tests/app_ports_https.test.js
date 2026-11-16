@@ -57,6 +57,9 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     assert.strictEqual(problems.length, 1);
     assert.match(problems[0].cause, /does not support getting TLS certs/);
     assert.match(problems[0].fix, /DNS page, HTTPS Certificates, Enable HTTPS/);
+    // ...in words that say why, with the page that mends it, for the bar on every page
+    assert.strictEqual(problems[0].subject, 'No https for the apps: HTTPS is off for your tailnet');
+    assert.deepStrictEqual(problems[0].link, {text: 'Turn HTTPS on in Tailscale', href: 'https://login.tailscale.com/admin/dns'});
     const asked = app.tailnet_cert.at;
     await tailnet_cert_read(app);
     assert.strictEqual(app.tailnet_cert.at, asked, 'not asked again within ten minutes');
@@ -84,6 +87,8 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     assert.deepStrictEqual(problems_of_tailnet_cert(app), [], 'one held is no problem yet');
     const other = problems_of_tailnet_cert({tailnet_cert: {context: null, error: 'tailscale is down'}});
     assert.doesNotMatch(other[0].fix, /Enable HTTPS/);
+    assert.strictEqual(other[0].subject, 'No https for the apps: tailscale gives no certificate');
+    assert.strictEqual(other[0].link, null);
     assert.throws(() => tailnet_cert_read.pair_of('no pem here'), /tailscale cert printed no certificate and key/);
 });
 
@@ -134,8 +139,15 @@ test('an app\'s own port answers https and http, and sends a browser on to https
     assert.strictEqual((await fetch_host({port, host: NAME, path: '/', headers: browser})).body, 'the page GET /');
     await assert.rejects(https_get(port, NAME, '/'), /socket disconnected|ECONNRESET/);
 
+    // The page hears why at once, for each app's tailnet link, not after Health's two checks
+    app.tailnet_cert.error = '500 Internal Server Error: your Tailscale account does not support getting TLS certs';
+    const off = (await status_of(servers)).tailnet.https_off;
+    assert.strictEqual(off.why, 'HTTPS is off for your tailnet');
+    assert.deepStrictEqual(off.link, {text: 'Turn HTTPS on in Tailscale', href: 'https://login.tailscale.com/admin/dns'});
+
     app.tailnet_cert.domain = NAME;
     app.tailnet_cert.context = tls.createSecureContext(tailnet_cert_read.pair_of(PAIR));
+    assert.strictEqual((await status_of(servers)).tailnet.https_off, null, 'nothing to say once it is https');
 
     // https, the certificate the tailnet's name expects, and the app told it was https
     seen.length = 0;
@@ -187,3 +199,10 @@ test('an app\'s own port answers https and http, and sends a browser on to https
         });
     }
 });
+
+// What the control page is told, as the page asks it
+async function status_of(servers)
+{
+    const answer = await fetch_host({port: servers.control.address().port, host: '127.0.0.1', path: '/api/v1/status'});
+    return JSON.parse(answer.body);
+}

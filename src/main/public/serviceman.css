@@ -4029,6 +4029,40 @@ article.rf .actions {
     color: var(--bad);
 }
 
+/* The page that mends the first problem, where there is one: a square of its own beside the
+   close button, so the bar's own click still opens Health */
+#problems-bar .problems-link {
+    display: flex;
+    flex: none;
+    align-items: center;
+    padding: 0 1rem;
+    border-left: 1px solid color-mix(in srgb, var(--bad) 25%, transparent);
+    color: var(--link);
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color .15s ease-out;
+}
+
+#problems-bar .problems-link:hover {
+    background: color-mix(in srgb, var(--bad) 20%, var(--panel));
+    text-decoration: underline;
+}
+
+/* A phone has no room for it beside the problem: a row of its own under it, the whole width */
+@media (max-width: 40rem) {
+    #problems-bar {
+        flex-wrap: wrap;
+    }
+
+    #problems-bar .problems-link {
+        order: 1;
+        flex-basis: 100%;
+        padding: .45rem 1rem;
+        border-top: 1px solid color-mix(in srgb, var(--bad) 25%, transparent);
+        border-left: 0;
+    }
+}
+
 /* The Health page: what is wrong first, one card each, its red dot, the subject and where it
    is on one line, why and what mends it below; then a table per kind of thing */
 .health .problem {
@@ -4058,7 +4092,8 @@ article.rf .actions {
 }
 
 .health .problem-cause,
-.health .problem-fix {
+.health .problem-fix,
+.health .problem-link {
     margin: 0;
     overflow-wrap: anywhere;
 }
@@ -4745,6 +4780,13 @@ article.rf .actions {
 
 .apps-pane .app-tailnet.bad {
     color: var(--bad);
+}
+
+/* Over http while the tailnet gives no certificate: why is in its title, and on the bar */
+.apps-pane .app-tailnet.http,
+.apps-pane .app-http-why,
+.app-settings-says .app-http-why {
+    color: var(--busy-text);
 }
 
 .apps-pane .app-sent-tailnet a {

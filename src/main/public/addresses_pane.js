@@ -103,15 +103,16 @@ const addresses_pane = {
             }
             // Each app's own port, on serviceman's name on the tailnet
             const tailnet = ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
-            // https once they answer it on the tailnet's certificate
+            // https once they answer it on the tailnet's certificate; why not, as Health says it
             const scheme = ((tailnet !== null) && (this.state.tailnet.https === true)) ? 'https' : 'http';
+            const https_off = ((tailnet === null) || (this.state.tailnet.https_off === undefined) || (this.state.tailnet.https_off === null)) ? '' : `http only: ${this.state.tailnet.https_off.why}`;
             const ports = ((this.state.app_ports === undefined) || (this.state.app_ports === null)) ? {} : this.state.app_ports;
             for (const name of Object.keys(ports)) {
                 const service = service_by_name[name] || null;
                 const port = ports[name].port;
                 const address = (tailnet === null) ? `:${port}` : `${tailnet}:${port}`;
                 const url = (tailnet === null) ? '' : `${scheme}://${tailnet}:${port}/`;
-                const row = this.row_of('port', `port ${name}`, address, url, '', service, null, (service === null) ? undefined : service.auth, false);
+                const row = this.row_of('port', `port ${name}`, address, url, https_off, service, null, (service === null) ? undefined : service.auth, false);
                 row.through = `serviceman :${port}`;
                 out.push(row);
             }

@@ -133,10 +133,23 @@ if [ "$1" = "ip" ]; then echo ${TAILNET.ip}; else echo '{"Self": {"DNSName": "${
 
 // The words of an empty page, each way
 test('a page of apps with no app says where one comes from', function () {
-    const app = {services: [], app_ports_here: {}, config: config_from_json({control: {host: 'serviceman.localhost'}, services: []}, '/srv')};
+    const app = {services: [], app_ports_here: {}, tailnet_cert: {context: null, error: null}, config: config_from_json({control: {host: 'serviceman.localhost'}, services: []}, '/srv')};
     assert.match(render_apps_page(app, {way: 'domain', domain: 'apps.test'}, 'apps.test'), /0 apps under apps\.test.*No app here yet: one sent to serviceman under apps\.test lands here/s);
     assert.match(render_apps_page(app, {way: 'here', domain: null}, 'apps.localhost:3000'), /0 apps on this computer.*No app here yet: one dropped on serviceman's Apps page lands here/s);
     assert.match(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /0 apps on every device of your tailnet/);
+});
+
+// On the tailnet the apps open at their own ports, over http while tailscale gives no
+// certificate: the page says why, and where that is mended; on this computer it says nothing
+test('on the tailnet, a page of apps says why its apps open over http', function () {
+    const app = {services: [], app_ports_here: {}, tailnet_cert: {context: null, error: '500 Internal Server Error: your Tailscale account does not support getting TLS certs'}, config: config_from_json({control: {host: 'serviceman.localhost'}, services: []}, '/srv')};
+    const page = render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000');
+    assert.match(page, /<p class="http-why">They open over http: HTTPS is off for your tailnet\. <a href="https:\/\/login\.tailscale\.com\/admin\/dns" target="_blank" rel="noopener">Turn HTTPS on in Tailscale/);
+    assert.doesNotMatch(render_apps_page(app, {way: 'here', domain: null}, 'apps.localhost:3000'), /<p class="http-why">/);
+    app.tailnet_cert.error = 'tailscale is down';
+    assert.match(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /They open over http: tailscale gives no certificate\.<\/p>/);
+    app.tailnet_cert = {context: {}, error: null};
+    assert.doesNotMatch(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /<p class="http-why">/);
 });
 
 // A state folder of its own with an app of files for each name

@@ -68,6 +68,7 @@ const os = require('os');
 const package_json = require('../../../../package.json');
 const packages_serve = require('../../../../modules/packages/server/packages_serve');
 const path = require('path');
+const problems_of_tailnet_cert = require('../helpers/problems_of_tailnet_cert');
 const processes_serve = require('../../../../modules/processes/server/processes_serve');
 const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
@@ -3087,10 +3088,23 @@ function view_from_problem(problem)
         subject: problem.subject,
         cause: problem.cause,
         fix: problem.fix,
+        // The page that mends it, {text, href}, null where nothing does
+        link: (problem.link === undefined) ? null : problem.link,
         // warn: something to look at that holds nothing back yet; bad otherwise
         level: (problem.level === 'warn') ? 'warn' : 'bad',
         since: (problem.since === null) ? problem.first_seen : problem.since,
     };
+}
+
+// Why the apps' own ports answer http, {why, fix, link}, as Health says it, but from the
+// first ask on rather than after two checks; null while they answer https or nothing is known
+function https_off_of(app)
+{
+    const found = problems_of_tailnet_cert(app);
+    if (found.length === 0) {
+        return null;
+    }
+    return {why: found[0].why, fix: found[0].fix, link: found[0].link};
 }
 
 function state_from_app(app)
@@ -3129,8 +3143,9 @@ function state_from_app(app)
         // Each app's own port, by app: {port, error}, error null for one that listens
         app_ports: app_ports_view(app),
         // serviceman's own name on the tailnet, which a new agent is told to dial; null off one.
-        // `https` while the apps' own ports answer https on the tailnet's certificate for it.
-        tailnet: {name: tailnet_name_read.known(), https: (app.tailnet_cert.context !== null) && (app.tailnet_cert.domain === tailnet_name_read.known())},
+        // `https` while the apps' own ports answer https on the tailnet's certificate for it;
+        // `https_off` why they do not, as Health says it, at once, for each app's tailnet link
+        tailnet: {name: tailnet_name_read.known(), https: (app.tailnet_cert.context !== null) && (app.tailnet_cert.domain === tailnet_name_read.known()), https_off: https_off_of(app)},
         // Whether a machine may add itself, and what it may claim — never the token itself
         join: (app.config.join === null) ? null : {tags_allowed: app.config.join.tags_allowed, name_prefix: app.config.join.name_prefix},
         // Where Logline is, and whether its admin token is kept — never the token itself

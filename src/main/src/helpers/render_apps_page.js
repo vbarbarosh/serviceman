@@ -3,6 +3,7 @@ const fs = require('fs');
 const html_escape = require('./html_escape');
 const page_tokens = require('./page_tokens');
 const path = require('path');
+const problems_of_tailnet_cert = require('./problems_of_tailnet_cert');
 const service_app_folder = require('./service_app_folder');
 const service_is_app = require('./service_is_app');
 const service_phase = require('./service_phase');
@@ -27,6 +28,13 @@ h1 {
 header p, .none {
     margin: .25rem 0 1.25rem;
     color: var(--muted);
+}
+header p.http-why {
+    margin-top: -1rem;
+    color: var(--busy);
+}
+.http-why a {
+    color: var(--accent);
 }
 .cells {
     display: grid;
@@ -246,6 +254,10 @@ ${SEARCH_JS}</script>`;
     const apps = `${cells.length} ${(cells.length === 1) ? 'app' : 'apps'}`;
     const where = {domain: `under ${html_escape(page.domain)}`, here: 'on this computer', tailnet: 'on every device of your tailnet'}[page.way];
     const theme = theme_switch();
+    // On the tailnet the apps open at their own ports: over http while it gives no certificate,
+    // and the page says why, as Health does
+    const [https_off = null] = (page.way === 'tailnet') ? problems_of_tailnet_cert(app) : [];
+    const http_why = (https_off === null) ? '' : `<p class="http-why">They open over http: ${html_escape(https_off.why)}.${(https_off.link === null) ? '' : ` <a href="${html_escape(https_off.link.href)}" target="_blank" rel="noopener">${html_escape(https_off.link.text)} ↗</a>`}</p>`;
     return `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -253,7 +265,7 @@ ${SEARCH_JS}</script>`;
 <title>Apps</title>
 <style>${PAGE_CSS}</style>
 <script>${theme.stamp}</script>
-<header><h1>Apps</h1><p>${apps} ${where}</p></header>
+<header><h1>Apps</h1><p>${apps} ${where}</p>${http_why}</header>
 ${list}
 ${theme.button}
 <script>${theme.toggle}</script>

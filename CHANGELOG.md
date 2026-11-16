@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.141 — 2026-11-17
+
+- When the tailnet gives no certificate, the page says why where you look: the bar on every page, Health, each app's tailnet link and the page of apps; HTTPS off for the tailnet links Tailscale's DNS page, where it is turned on.
+
 ## 1.0.140 — 2026-11-17
 
 - A mount no longer says its machine has no root half while the agent restarts that half after an update: every ask of the root half waits for the new one; a machine that has none is named on the row with its whole install-root command (agent 1.38.1).

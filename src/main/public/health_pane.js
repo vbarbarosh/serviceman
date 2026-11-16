@@ -28,6 +28,7 @@ const health_pane = {
         </div>
         <p class="problem-cause">{{ item.cause }}</p>
         <p class="muted problem-fix">{{ item.fix }}</p>
+        <p v-if="(item.link !== null)" class="problem-link"><a :href="item.link.href" target="_blank" rel="noopener">{{ item.link.text }} ↗</a></p>
     </section>
     <section v-for="area of areas" :key="area.key" class="health-area">
         <h2>{{ area.title }}</h2>
@@ -64,7 +65,9 @@ const health_pane = {
             return (this.health === null) ? [] : this.health.areas;
         },
         // What is wrong, what to look at, or that nothing is. It counts things, not problems:
-        // a thing is red the moment a look finds it so, a problem once two looks have
+        // a thing is red the moment a look finds it so, a problem once two looks have. A problem
+        // no table has a row for (no https for the apps) is still said: never "Everything works"
+        // over a card of what does not
         summary: function () {
             if (this.health === null) {
                 return {state: 'muted', text: ''};
@@ -77,6 +80,9 @@ const health_pane = {
             }
             if (counts.warn > 0) {
                 items.push(`${counts.warn} to look at`);
+            }
+            if ((items.length === 0) && (this.problems.length > 0)) {
+                return {state: 'bad', text: `${this.problems.length} ${(this.problems.length === 1) ? 'problem' : 'problems'}`};
             }
             // Nothing set up: no machine, service or forward; Logline alone may say it is not
             if ((items.length === 0) && this.health.areas.every(v => (v.key === 'logline') || (v.rows.length === 0))) {
