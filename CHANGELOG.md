@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.130 — 2026-11-16
+
+- A test of an app folder's new version between two restarts waits for its program's first line before reading it: under load it read the file too soon and failed.
+
 ## 1.0.129 — 2026-11-16
 
 - Tutorial 07: a website online, with a sign-in, as an article with a screenshot per section, a recording scenario and a voiceover; the tutorials' README says the new shape and the voice every video is said in.

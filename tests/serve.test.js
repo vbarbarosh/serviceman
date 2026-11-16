@@ -2353,6 +2353,8 @@ test('an app folder with no port, between two restarts, takes a new version, and
         const replaced = await fetch_host({port: running.control_port, host: '127.0.0.1', path: '/api/v1/services/appdir/replace', method: 'POST'});
         assert.strictEqual(replaced.status, 200, replaced.body);
         assert.strictEqual(service_phase(service), 'running');
+        // Up as soon as it runs, as a program with no port is: its first line may come a moment later
+        await wait_until(() => fs.readFileSync(story, 'utf8').includes('run v2'), 5000);
 
         const lines = fs.readFileSync(story, 'utf8').trim().split('\n');
         const begin = lines.indexOf('configure begin');
