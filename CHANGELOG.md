@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.135 — 2026-11-16
+
+- Apps and the page of apps show every service, a docker image, a program and something already running too, each card opening it at its address.
+
 ## 1.0.134 — 2026-11-16
 
 - A search box over the cells on Apps and on the page of apps, finding as navplace's does: by name, kind or address, a word each, ↑ ↓ and Enter to open.

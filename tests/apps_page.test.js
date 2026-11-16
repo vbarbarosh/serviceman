@@ -39,8 +39,8 @@ test('a page of apps is asked by the apps domain, apps.localhost or serviceman\'
     assert.strictEqual(apps_page_of(plain, '100.64.0.21', TAILNET), null, 'another device\'s address');
 });
 
-// apps.localhost, on this computer: a cell for every app, at its name here on the port the page
-// was asked on; a service that is no app is not on it, and a service that has the name keeps it
+// apps.localhost, on this computer: a cell for every service, at its name here on the port the
+// page was asked on, and a service that has the name keeps it
 test('apps.localhost is a page of every app, each at its name on this computer', async function (t) {
     const state = state_make(t, ['notes', 'board']);
     const app = app_from_config(config_from_json({
@@ -57,7 +57,7 @@ test('apps.localhost is a page of every app, each at its name on this computer',
     const page = await fetch_host({port, host: `apps.localhost:${port}`, path: '/'});
     assert.strictEqual(page.status, 200);
     assert.match(page.headers['content-type'], /text\/html/);
-    assert.match(page.body, /2 apps on this computer/);
+    assert.match(page.body, /3 apps on this computer/);
     // A search box over the cells, each cell carrying what it is found by (apps_search.js)
     assert.match(page.body, /<input class="search" type="search"/);
     assert.ok(page.body.includes('data-words="[&quot;page&quot;,&quot;notes&quot;]"'), 'a cell is found by its kind and its name too');
@@ -65,7 +65,8 @@ test('apps.localhost is a page of every app, each at its name on this computer',
     assert.ok(page.body.includes(`href="//notes.localhost:${port}/"`), 'its name on this computer, not the one under the domain');
     assert.ok(page.body.includes(`href="//tools.example.com:${port}/board"`), 'one with no name here: the one it has, its path too');
     assert.ok(page.body.indexOf('board') < page.body.indexOf('Notes'), 'by name');
-    assert.strictEqual(page.body.includes('proxy'), false, 'a service that is no app is not on it');
+    assert.ok(page.body.includes(`href="//proxy.localhost:${port}/"`), 'a service of another kind too, at its own name here');
+    assert.ok(page.body.includes('data-words="[&quot;already running&quot;,&quot;proxy&quot;]"'), 'found by its kind');
     assert.strictEqual((await fetch_host({port, host: 'apps.localhost', path: '/more'})).status, 404, 'the page is / alone');
     assert.strictEqual((await fetch_host({port, host: 'apps.example.com', path: '/'})).status, 200, 'the domain\'s page stays');
 
@@ -113,10 +114,10 @@ if [ "$1" = "ip" ]; then echo ${TAILNET.ip}; else echo '{"Self": {"DNSName": "${
     for (const name of [TAILNET.name, 'serviceman', TAILNET.ip]) {
         const page = await fetch_host({port, host: `${name}:${port}`, path: '/'});
         assert.strictEqual(page.status, 200, name);
-        assert.match(page.body, /2 apps on every device of your tailnet/);
+        assert.match(page.body, /3 apps on every device of your tailnet/);
         assert.ok(page.body.includes(`href="//${name}:${notes}/"`), `${name}: notes at its own port`);
         assert.ok(page.body.includes(`href="//${name}:${board}/"`), `${name}: board at its own port`);
-        assert.strictEqual(page.body.includes('proxy'), false, 'a service that is no app is not on it');
+        assert.ok(page.body.includes('<b>proxy</b><span class="host">no port</span>'), 'a service with no port of its own: said, opening nothing');
     }
     assert.strictEqual((await fetch_host({port, host: `notes.localhost:${notes}`, path: '/'})).body, '<title>notes</title>', 'the cell\'s port opens its app');
     assert.strictEqual((await fetch_host({port: notes, host: `${TAILNET.name}:${notes}`, path: '/'})).body, '<title>notes</title>', 'an app\'s own port is the app\'s, the page\'s name too');

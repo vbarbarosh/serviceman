@@ -86,7 +86,7 @@ if [ "$1" = "ip" ]; then echo ${TAILNET.ip}; else echo '{"Self": {"DNSName": "${
         assert.deepStrictEqual([sign_in.status, sign_in.body], [200, 'the wall\'s own page /auth/sign-in?return=%2F'], `${host}: the wall's sign-in on the page's name`);
         const page = await fetch_host({port, host, path: '/', token: null, headers: {cookie: 'session=good'}});
         assert.strictEqual(page.status, 200, host);
-        assert.match(page.body, /1 app/, `${host}: signed in, the page`);
+        assert.match(page.body, /3 apps/, `${host}: signed in, the page, with every service on it`);
         assert.strictEqual((await fetch_host({port, host, path: '/more', token: null})).status, 302, `${host}: nothing of it before the wall`);
     }
     for (const [at, host] of [[port, 'notes.localhost'], [own_port, `${TAILNET.name}:${own_port}`]]) {

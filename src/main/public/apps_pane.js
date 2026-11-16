@@ -33,7 +33,7 @@ const apps_pane = {
     <div class="list-head">
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
-    <p class="muted">Small apps: a page serviceman serves, an app that runs from its own folder, or one that listens on a socket file. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once. An app folder is made with + Add service; dropped on an app's card, a zip or a folder is that app's new version.</p>
+    <p class="muted">Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once. An app folder is made with + Add service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
     <div v-if="(page_links.length > 0)" class="app-page">
         <b>Every app on one page:</b>
         <span v-for="link of page_links" :key="link.href" class="app-page-link">
@@ -81,7 +81,7 @@ const apps_pane = {
     </div>
     <p v-if="((apps.length > 0) && (shown.length === 0))" class="muted">No app has {{ query.trim() }} in its name, kind or address.</p>
     <ul v-if="(shown.length > 0)" class="app-cells">
-        <li v-for="(app, index) of shown" :key="app.name" :class="{over: (over === app.name), current: ((query.trim() !== '') && (index === current))}" @dragover.prevent="over = app.name" @dragleave="dragged_off($event, app)" @drop.prevent.stop="dropped_on($event, app)">
+        <li v-for="(app, index) of shown" :key="app.name" :class="{over: (over === app.name), current: ((query.trim() !== '') && (index === current))}" @dragover="dragged_over($event, app)" @dragleave="dragged_off($event, app)" @drop="dropped_on($event, app)">
             <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
                 <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
                 <b>{{ app.title || app.name }}</b>
@@ -93,7 +93,7 @@ const apps_pane = {
             <span v-else-if="((port_of(app.name) !== null) && (port_of(app.name).error !== null))" class="app-tailnet bad" :title="('Port ' + port_of(app.name).port + ' does not listen: ' + port_of(app.name).error + '. Tried again every minute.')">tailnet :{{ port_of(app.name).port }} {{ (/EADDRINUSE/.test(port_of(app.name).error) ? 'taken' : 'closed') }}</span>
             <div class="app-acts">
                 <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
-                <button v-else type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
+                <button v-else-if="takes_version(app)" type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
                 <button type="button" :title="('The name, the sign-in and the public address of ' + app.name)" @click="settings = app">Settings</button>
             </div>
         </li>
@@ -124,8 +124,9 @@ const apps_pane = {
         sending: function () {
             return (this.sent !== null) && this.sent.busy;
         },
+        // Every service: to whoever opens it, an app is an app whatever runs it
         apps: function () {
-            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+            return this.state.services.slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
         },
         // What the search box finds, as navplace's does (apps_search): `found` the cells shown,
         // `tops` the first app of every word, which Enter opens with the current one
@@ -190,6 +191,16 @@ const apps_pane = {
         },
     },
     methods: {
+        // A page and an app folder take a new version, a zip or a folder dropped on their card
+        takes_version: function (app) {
+            return (app.type === 'files') || (app.app_folder !== null);
+        },
+        dragged_over: function (event, app) {
+            if (this.takes_version(app)) {
+                event.preventDefault();
+                this.over = app.name;
+            }
+        },
         // The keys the search box takes as navplace's does: a letter typed with no field focused
         // goes to it, and while it finds something ↑ and ↓ move among the cells and Enter opens.
         // A window over the page, another field, a focused button or link keep their own keys
@@ -310,7 +321,10 @@ const apps_pane = {
         },
         link_of: function (app) {
             const port = this.state.listen.port;
-            return `http://${this.host_of(app)}${(port === 80) ? '' : ':' + port}/`;
+            const host = this.host_of(app);
+            const full = app.publish.hosts.find(v => v.split('/')[0] === host) || host;
+            const path = full.slice(host.length);
+            return `http://${host}${(port === 80) ? '' : ':' + port}${(path === '') ? '/' : path}`;
         },
         letter_of: function (app) {
             return Array.from(app.title || app.name)[0].toUpperCase();
@@ -328,6 +342,12 @@ const apps_pane = {
         },
         // A drop on an app's cell is its new version, whatever the file is called
         dropped_on: async function (event, app) {
+            // A card of a kind that takes no new version leaves the drop to the page around it
+            if (this.takes_version(app) === false) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
             this.over = null;
             if (this.sending) {
                 return;
@@ -443,8 +463,22 @@ const apps_pane = {
 // The words an app is found by besides its name: its kind, and the machine it is on
 function words_of(app)
 {
-    const kind = (app.type === 'files') ? 'page' : ((app.socket !== null) && (app.socket !== undefined)) ? 'socket' : 'app folder';
-    return [kind, app.name, ...app.remotes];
+    return [kind_of(app), app.name, ...app.remotes];
+}
+
+// What runs it, in the words of the New service form
+function kind_of(app)
+{
+    if (app.type === 'files') {
+        return 'page';
+    }
+    if ((app.socket !== null) && (app.socket !== undefined)) {
+        return 'socket';
+    }
+    if (app.app_folder !== null) {
+        return 'app folder';
+    }
+    return {docker: 'docker image', shell: 'program', external: 'already running'}[app.type] || app.type;
 }
 
 // What goes to serviceman: a folder zipped, a page zipped as the index.html of an app of its own,

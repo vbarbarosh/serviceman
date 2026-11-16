@@ -1946,7 +1946,7 @@ const app = {
                 <span class="name">{{ view.title || view.name }}</span>
             </button>
         </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'apps'), open: (kind_now === 'apps')}" title="Small apps: pages serviceman serves and apps run from a folder of their own; drop a zip, get a link" @click="apps_show">
+        <button type="button" class="row kind" :class="{on: (kind_now === 'apps'), open: (kind_now === 'apps')}" title="Every service as a card that opens it; drop a zip or a page, get a link" @click="apps_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>
             <span class="name">Apps</span>
             <span class="muted">{{ apps_count }}</span>
@@ -2402,7 +2402,7 @@ const app = {
         // The small apps: the folders of files serviceman serves, the apps run from a folder of
         // their own, and the ones on a socket file
         apps_count: function () {
-            return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).length;
+            return this.state.services.length;
         },
         forwards_count: function () {
             return (this.state.forwards === undefined) ? 0 : this.state.forwards.length;

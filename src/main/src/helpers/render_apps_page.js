@@ -216,9 +216,10 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 //     domain   at the apps domain itself: every service whose own address is under it, an app
 //              sent to serviceman or anything else published there, on the port the page was
 //              asked on, so the page works on serviceman's own door as behind a machine's
-//     here     at apps.localhost: every app, at its name on this computer, on the page's port
-//     tailnet  at serviceman's tailnet name: every app, at its own port on the name typed; one
-//              whose port does not listen is a cell that says so and opens nothing
+//     here     at apps.localhost: every service, at its name on this computer, on the page's port
+//     tailnet  at serviceman's tailnet name: every service, an app at its own port on the name
+//              typed; one with no port of its own, or one that does not listen, is a cell that
+//              says so and opens nothing
 //
 //     page     {way, domain}, as apps_page_of gives it
 //     asked    the Host the visitor asked with, its port too: apps.example.com:3000
@@ -259,6 +260,19 @@ ${theme.button}
 `;
 }
 
+// The address of a service on this computer: an app's own name there (app_files_put), any other
+// service's .localhost name, or the first it has
+function here_of(app, service, hosts)
+{
+    if (service_is_app(service)) {
+        const here = app_files_put.hosts(app, service.name);
+        const local = here[here.length - 1];
+        const suffix = local.slice(local.indexOf('.'));
+        return hosts.find(v => v.split('/')[0].endsWith(suffix)) || hosts[0];
+    }
+    return hosts.find(v => v.split('/')[0].endsWith('.localhost')) || hosts[0];
+}
+
 // The words a cell is found by besides its name, as Apps finds its cells: its kind, its own
 // name, the machines it is on
 function words_of(service)
@@ -266,7 +280,7 @@ function words_of(service)
     const kind = (service.type === 'files') ? 'page'
         : (service_app_folder(service) !== null) ? 'app folder'
             : ((service.upstream !== undefined) && (service.upstream !== null) && (service.upstream.socket !== undefined)) ? 'socket'
-                : (service.type === 'docker') ? 'docker image' : (service.type === 'shell') ? 'program' : 'service';
+                : (service.type === 'docker') ? 'docker image' : (service.type === 'shell') ? 'program' : 'already running';
     return [kind, service.name, ...(service.remotes || [])];
 }
 
@@ -285,14 +299,12 @@ function cells_of(app, page, name_asked, port)
             }
             continue;
         }
-        if ((service_is_app(service) === false) || (hosts.length === 0)) {
+        // Every service with an address: to whoever opens it, an app is an app whatever runs it
+        if (hosts.length === 0) {
             continue;
         }
         if (page.way === 'here') {
-            const here = app_files_put.hosts(app, service.name);
-            const local = here[here.length - 1];
-            const suffix = local.slice(local.indexOf('.'));
-            const host = hosts.find(v => v.split('/')[0].endsWith(suffix)) || hosts[0];
+            const host = here_of(app, service, hosts);
             out.push({service, title, address: host, href: `//${host.split('/')[0]}${port}${path_of(host)}`, why: ''});
             continue;
         }

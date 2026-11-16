@@ -2072,9 +2072,12 @@ the cells (<strong>Finding an app</strong>, below). A folder dropped is
 zipped in the page and sent the same way, and so is a page, as the <code>index.html</code> of an app of its
 own. What is none of them is said on the card at once, for what it is (<code>photo.png: it is a PNG picture, not a zip</code>, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.</p>
-<p><strong>Apps</strong> shows the apps that run from a folder of their own too, as the New service form makes
-them (<a href="#a-new-version-of-an-app-folder">a new version of an app folder</a>): a program run as <code>bin/run</code>
-in its folder, here or on a machine.</p>
+<p><strong>Apps</strong> shows every service as a card that opens it at its address, whatever runs it: the apps
+that run from a folder of their own, as the New service form makes them (<a href="#a-new-version-of-an-app-folder">a new version of an app
+folder</a>), a program run as <code>bin/run</code> in its folder, here or on a
+machine; a docker image, a program, something already running. <strong>New version…</strong> and a drop on the
+card are for a page and an app folder, the kinds that take one; the own port and the names under
+the apps domain stay theirs and an app on a socket&#39;s.</p>
 <p><strong>+ An app on a socket</strong> under the card adds one whose program listens on a socket file
 (<a href="#something-listening-on-a-socket-file">something listening on a socket file</a>): its name, where
 its socket is, serviceman&#39;s own <code>data/</code> folder (chosen as it opens) or a machine, and the file,
@@ -2137,10 +2140,11 @@ gives the bare name to <code>&quot;*&quot;</code> too, the pattern covering only
 <p><strong>Every app on one page,</strong> to type in a browser: <code>http://apps.localhost:3000/</code> on the computer
 serviceman runs on, and serviceman&#39;s own name on the tailnet, <code>http://serviceman.tail1234.ts.net:3000/</code>,
 on every device of it (its first word, <code>http://serviceman:3000/</code>, where MagicDNS is on, or its
-tailnet address). A cell for every app, by name, with its state, opens it the way that browser
+tailnet address). A cell for every service, by name, with its state, opens it the way that browser
 reaches it: at its name on this computer (<code>notes.localhost:3000</code>), at its own port on the tailnet
-(<code>serviceman.tail1234.ts.net:3400</code>, below); one whose port does not listen says so and opens
-nothing; the same search box stands over its cells. <code>apps</code> is <code>apps.</code> and the rest of
+(<code>serviceman.tail1234.ts.net:3400</code>, below); one with no port of its own there, a docker image
+say, or whose port does not listen, says so and opens nothing; the same search box stands over its
+cells. <code>apps</code> is <code>apps.</code> and the rest of
 serviceman&#39;s own name, as an app is named (<code>apps.example.org</code> beside <code>serviceman.example.org</code>). A name a service has is that service&#39;s,
 and the page answers only at <code>/</code>. Through a machine&#39;s door neither name is a page: there only
 the domain&#39;s is, where a rule gives it (above). <strong>Apps</strong> says both addresses on top, each with

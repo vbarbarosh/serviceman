@@ -1222,9 +1222,12 @@ own. What is none of them is said on the card at once, for what it is (`photo.pn
 picture, not a zip`, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.
 
-**Apps** shows the apps that run from a folder of their own too, as the New service form makes
-them ([a new version of an app folder](#a-new-version-of-an-app-folder)): a program run as `bin/run`
-in its folder, here or on a machine.
+**Apps** shows every service as a card that opens it at its address, whatever runs it: the apps
+that run from a folder of their own, as the New service form makes them ([a new version of an app
+folder](#a-new-version-of-an-app-folder)), a program run as `bin/run` in its folder, here or on a
+machine; a docker image, a program, something already running. **New version…** and a drop on the
+card are for a page and an app folder, the kinds that take one; the own port and the names under
+the apps domain stay theirs and an app on a socket's.
 
 **+ An app on a socket** under the card adds one whose program listens on a socket file
 ([something listening on a socket file](#something-listening-on-a-socket-file)): its name, where
@@ -1300,10 +1303,11 @@ gives the bare name to `"*"` too, the pattern covering only the names under it:
 **Every app on one page,** to type in a browser: `http://apps.localhost:3000/` on the computer
 serviceman runs on, and serviceman's own name on the tailnet, `http://serviceman.tail1234.ts.net:3000/`,
 on every device of it (its first word, `http://serviceman:3000/`, where MagicDNS is on, or its
-tailnet address). A cell for every app, by name, with its state, opens it the way that browser
+tailnet address). A cell for every service, by name, with its state, opens it the way that browser
 reaches it: at its name on this computer (`notes.localhost:3000`), at its own port on the tailnet
-(`serviceman.tail1234.ts.net:3400`, below); one whose port does not listen says so and opens
-nothing; the same search box stands over its cells. `apps` is `apps.` and the rest of
+(`serviceman.tail1234.ts.net:3400`, below); one with no port of its own there, a docker image
+say, or whose port does not listen, says so and opens nothing; the same search box stands over its
+cells. `apps` is `apps.` and the rest of
 serviceman's own name, as an app is named (`apps.example.org` beside `serviceman.example.org`). A name a service has is that service's,
 and the page answers only at `/`. Through a machine's door neither name is a page: there only
 the domain's is, where a rule gives it (above). **Apps** says both addresses on top, each with
