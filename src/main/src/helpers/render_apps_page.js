@@ -1,6 +1,9 @@
 const app_files_put = require('./app_files_put');
+const fs = require('fs');
 const html_escape = require('./html_escape');
 const page_tokens = require('./page_tokens');
+const path = require('path');
+const service_app_folder = require('./service_app_folder');
 const service_is_app = require('./service_is_app');
 const service_phase = require('./service_phase');
 const theme_switch = require('./theme_switch');
@@ -95,6 +98,25 @@ header p, .none {
 .cell.off .tile {
     background: hsl(var(--hue) 10% 36%);
 }
+.search {
+    width: min(26rem, 100%);
+    margin: 0 0 1rem;
+    padding: .4rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+.search:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+.cells > li.current {
+    border-radius: 12px;
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
 #theme {
     position: fixed;
     top: 1rem;
@@ -107,6 +129,79 @@ header p, .none {
     color: var(--muted);
     cursor: pointer;
 }
+`;
+
+// The search Apps finds its cells with (src/main/public/apps_search.js), put in the page as it is
+const APPS_SEARCH = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'apps_search.js'), 'utf8');
+
+// The search box at work as navplace's is: what is typed narrows the cells, a letter typed
+// anywhere goes to it, ↑ and ↓ move among the cells found, Enter opens the first app of every
+// word before the last in a tab of its own and the current cell here, as a click on it does
+const SEARCH_JS = `
+const input = document.querySelector('.search');
+const list = document.querySelector('.cells');
+const none = document.querySelector('.none');
+const items = Array.from(list.children).map(li => ({name: li.dataset.name, words: JSON.parse(li.dataset.words), address: li.dataset.address, li}));
+let found = items;
+let tops = [];
+let current = 0;
+function refresh() {
+    const answer = apps_search(items, input.value);
+    found = answer.found;
+    tops = answer.tops;
+    current = 0;
+    for (const item of items) {
+        item.li.hidden = true;
+    }
+    for (const item of found) {
+        item.li.hidden = false;
+        list.appendChild(item.li);
+    }
+    none.hidden = (found.length > 0);
+    mark();
+}
+function mark() {
+    for (const item of items) {
+        item.li.classList.toggle('current', (input.value.trim() !== '') && (item === found[current]));
+    }
+}
+function href_of(item) {
+    const a = item.li.querySelector('a.cell');
+    return (a === null) ? null : a.href;
+}
+input.addEventListener('input', refresh);
+document.addEventListener('keydown', function (event) {
+    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+    }
+    const focused = document.activeElement;
+    if ((focused !== input) && (focused !== null) && (focused !== document.body) && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(focused.tagName) || focused.isContentEditable)) {
+        return;
+    }
+    if ((input.value.trim() !== '') && (found.length > 0)) {
+        if ((event.key === 'ArrowDown') || (event.key === 'ArrowUp')) {
+            event.preventDefault();
+            current = Math.max(0, Math.min(found.length - 1, current + ((event.key === 'ArrowDown') ? 1 : -1)));
+            mark();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const here = href_of(found[current]);
+            const others = tops.slice(0, -1).map(href_of).filter(v => (v !== null) && (v !== here));
+            for (const href of new Set(others)) {
+                window.open(href, '_blank', 'noopener');
+            }
+            if (here !== null) {
+                location.href = here;
+            }
+            return;
+        }
+    }
+    if ((event.key.length === 1) && (focused !== input)) {
+        input.focus();
+    }
+});
 `;
 
 // A Host and its port: apps.example.com:3000, [fd7a:115c:a1e0::15]:3000
@@ -135,13 +230,18 @@ function render_apps_page(app, page, asked)
     const items = cells.map(function (cell) {
         const phase = service_phase(cell.service);
         const tile = `<span class="tile" style="--hue: ${hue_of(cell.service.name)}">${html_escape(Array.from(cell.title)[0].toUpperCase())}</span><b>${html_escape(cell.title)}</b>`;
+        const found_by = `data-name="${html_escape(cell.title)}" data-words="${html_escape(JSON.stringify(words_of(cell.service)))}" data-address="${html_escape(cell.address)}"`;
         if (cell.href === null) {
-            return `<li><div class="cell off" title="${html_escape(cell.title)} · ${html_escape(cell.why)}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot"></i>${html_escape(cell.why)}</span></div></li>`;
+            return `<li ${found_by}><div class="cell off" title="${html_escape(cell.title)} · ${html_escape(cell.why)}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot"></i>${html_escape(cell.why)}</span></div></li>`;
         }
-        return `<li><a class="cell" href="${html_escape(cell.href)}" title="${html_escape(cell.title)} · ${html_escape(cell.href.slice(2))}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot ${html_escape(phase)}"></i>${html_escape(STATE_WORDS[phase] || phase)}</span></a></li>`;
+        return `<li ${found_by}><a class="cell" href="${html_escape(cell.href)}" title="${html_escape(cell.title)} · ${html_escape(cell.href.slice(2))}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot ${html_escape(phase)}"></i>${html_escape(STATE_WORDS[phase] || phase)}</span></a></li>`;
     });
     const none = (page.way === 'domain') ? `No app here yet: one sent to serviceman under ${html_escape(page.domain)} lands here.` : 'No app here yet: one dropped on serviceman\'s Apps page lands here.';
-    const list = (items.length === 0) ? `<p class="none">${none}</p>` : `<ul class="cells">${items.join('')}</ul>`;
+    const list = (items.length === 0) ? `<p class="none">${none}</p>` : `<input class="search" type="search" placeholder="find an app by its name, kind or address; Enter opens it" spellcheck="false" aria-label="Find an app; Enter opens the first" autofocus>
+<p class="none" hidden>No app has that in its name, kind or address.</p>
+<ul class="cells">${items.join('')}</ul>
+<script type="module">${APPS_SEARCH}
+${SEARCH_JS}</script>`;
     const apps = `${cells.length} ${(cells.length === 1) ? 'app' : 'apps'}`;
     const where = {domain: `under ${html_escape(page.domain)}`, here: 'on this computer', tailnet: 'on every device of your tailnet'}[page.way];
     const theme = theme_switch();
@@ -157,6 +257,17 @@ ${list}
 ${theme.button}
 <script>${theme.toggle}</script>
 `;
+}
+
+// The words a cell is found by besides its name, as Apps finds its cells: its kind, its own
+// name, the machines it is on
+function words_of(service)
+{
+    const kind = (service.type === 'files') ? 'page'
+        : (service_app_folder(service) !== null) ? 'app folder'
+            : ((service.upstream !== undefined) && (service.upstream !== null) && (service.upstream.socket !== undefined)) ? 'socket'
+                : (service.type === 'docker') ? 'docker image' : (service.type === 'shell') ? 'program' : 'service';
+    return [kind, service.name, ...(service.remotes || [])];
 }
 
 // The cells of a page: {service, title, address, href, why}, href null for one that opens

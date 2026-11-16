@@ -4585,6 +4585,17 @@ article.rf .actions {
     background: var(--hover);
 }
 
+/* The search box over the cells, clear of the outline the current cell gets */
+.apps-pane .list-tools {
+    margin-bottom: .9rem;
+}
+
+/* The cell Enter opens, as navplace marks its current link */
+.apps-pane .app-cells > li.current {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
 .apps-pane .app-cell {
     display: flex;
     flex: 1 1 auto;

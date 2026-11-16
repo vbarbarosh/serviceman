@@ -1215,7 +1215,8 @@ control port, with the owner's token or one given the `apps` right
 **On serviceman's page** it is one drop: **Apps** has a card to drop the zip, the folder or one
 `.html` page on (or click and pick a zip or a page), named after the file, `My Notes.zip` as
 `my-notes`, `2.html` as `2`. The card answers with the link that opens the app here and Open, and
-the name it has outside; under it, every app as a cell, a click opening it. A folder dropped is
+the name it has outside; under it, every app as a cell, a click opening it, and a search box over
+the cells (**Finding an app**, below). A folder dropped is
 zipped in the page and sent the same way, and so is a page, as the `index.html` of an app of its
 own. What is none of them is said on the card at once, for what it is (`photo.png: it is a PNG
 picture, not a zip`, a zip cut short, several things dropped at once), and nothing is sent;
@@ -1302,11 +1303,21 @@ on every device of it (its first word, `http://serviceman:3000/`, where MagicDNS
 tailnet address). A cell for every app, by name, with its state, opens it the way that browser
 reaches it: at its name on this computer (`notes.localhost:3000`), at its own port on the tailnet
 (`serviceman.tail1234.ts.net:3400`, below); one whose port does not listen says so and opens
-nothing. `apps` is `apps.` and the rest of serviceman's own name, as an app is named
-(`apps.example.org` beside `serviceman.example.org`). A name a service has is that service's,
+nothing; the same search box stands over its cells. `apps` is `apps.` and the rest of
+serviceman's own name, as an app is named (`apps.example.org` beside `serviceman.example.org`). A name a service has is that service's,
 and the page answers only at `/`. Through a machine's door neither name is a page: there only
 the domain's is, where a rule gives it (above). **Apps** says both addresses on top, each with
 its **Copy**.
+
+**Finding an app.** The search box over the cells on **Apps** and on the page of apps finds as
+navplace's does. What is typed narrows the cells to the apps that have it in their name, their
+kind (`page`, `app folder`, `socket`) or their address, those found by name first; a letter typed
+anywhere on the page goes to the box. ↑ and ↓ move the outline among the cells found, and Enter
+opens the outlined one as a click on it does. Each word is a search of its own: the cells show
+the last word's, and Enter opens the first app of every word before it too, `notes mail` both.
+Inside a word `/` joins parts that must all hold (`app/laptop`), `^` and `$` hold a part to the
+start or the end of a name, and `!` turns a part around (`app/!laptop`). Upper and lower case are
+the same, and Cyrillic letters are found by Latin ones, `pochta` finding Почта.
 
 **The page and every app behind a wall:** one list on top of **Apps**, **This page and every
 app**, under those addresses, puts the page of apps and every app behind the wall picked, an app

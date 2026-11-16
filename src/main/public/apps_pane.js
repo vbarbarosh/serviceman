@@ -1,6 +1,7 @@
 import app_files_pick from './app_files_pick.js';
 import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
+import apps_search from './apps_search.js';
 import format_bytes from './format_bytes.js';
 import to_clipboard from './to_clipboard.js';
 import wall_select from './wall_select.js';
@@ -75,8 +76,12 @@ const apps_pane = {
             </template>
         </template>
     </div>
-    <ul v-if="(apps.length > 0)" class="app-cells">
-        <li v-for="app of apps" :key="app.name" :class="{over: (over === app.name)}" @dragover.prevent="over = app.name" @dragleave="dragged_off($event, app)" @drop.prevent.stop="dropped_on($event, app)">
+    <div v-if="(apps.length > 0)" class="list-tools">
+        <input ref="search" v-model="query" type="search" placeholder="find an app by its name, kind or address; Enter opens it" spellcheck="false" aria-label="Find an app; Enter opens the first" @input="current = 0">
+    </div>
+    <p v-if="((apps.length > 0) && (shown.length === 0))" class="muted">No app has {{ query.trim() }} in its name, kind or address.</p>
+    <ul v-if="(shown.length > 0)" class="app-cells">
+        <li v-for="(app, index) of shown" :key="app.name" :class="{over: (over === app.name), current: ((query.trim() !== '') && (index === current))}" @dragover.prevent="over = app.name" @dragleave="dragged_off($event, app)" @drop.prevent.stop="dropped_on($event, app)">
             <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
                 <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
                 <b>{{ app.title || app.name }}</b>
@@ -112,7 +117,8 @@ const apps_pane = {
         // socket_adding: the window for a new app on a socket is open; copied: the text the last
         // Copy put on the clipboard
         // wall_busy: the list on top is being saved; wall_error: why its last save was refused
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', STATE_WORDS};
+        // query: the search box's text; current: the cell among those shown that Enter opens
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', query: '', current: 0, STATE_WORDS};
     },
     computed: {
         sending: function () {
@@ -120,6 +126,16 @@ const apps_pane = {
         },
         apps: function () {
             return this.state.services.filter(v => (v.type === 'files') || (v.app_folder !== null) || ((v.socket !== null) && (v.socket !== undefined))).slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+        },
+        // What the search box finds, as navplace's does (apps_search): `found` the cells shown,
+        // `tops` the first app of every word, which Enter opens with the current one
+        searched: function () {
+            const items = this.apps.map(v => ({name: v.title || v.name, words: words_of(v), address: this.host_of(v), app: v}));
+            const answer = apps_search(items, this.query);
+            return {found: answer.found.map(v => v.app), tops: answer.tops.map(v => v.app)};
+        },
+        shown: function () {
+            return this.searched.found;
         },
         // What an app's own name has after it, beside serviceman's own name in its config, as
         // serviceman names a new app (app_files_hosts): localhost for serviceman.localhost,
@@ -174,6 +190,48 @@ const apps_pane = {
         },
     },
     methods: {
+        // The keys the search box takes as navplace's does: a letter typed with no field focused
+        // goes to it, and while it finds something ↑ and ↓ move among the cells and Enter opens.
+        // A window over the page, another field, a focused button or link keep their own keys
+        keydown_page: function (event) {
+            const search = this.$refs.search;
+            if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || (search === undefined) || (search === null)) {
+                return;
+            }
+            if ((this.settings !== null) || this.socket_adding) {
+                return;
+            }
+            const focused = document.activeElement;
+            const elsewhere = (focused !== search) && (focused !== null) && (focused !== document.body);
+            if (elsewhere && (/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(focused.tagName) || focused.isContentEditable)) {
+                return;
+            }
+            if ((this.query.trim() !== '') && (this.shown.length > 0)) {
+                if ((event.key === 'ArrowDown') || (event.key === 'ArrowUp')) {
+                    event.preventDefault();
+                    this.current = Math.max(0, Math.min(this.shown.length - 1, this.current + ((event.key === 'ArrowDown') ? 1 : -1)));
+                    return;
+                }
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    this.open_found();
+                    return;
+                }
+            }
+            // / is the page's own, for its find palette (serviceman.js)
+            if ((event.key.length === 1) && (event.key !== '/') && (focused !== search)) {
+                search.focus({preventScroll: true});
+            }
+        },
+        // What one Enter opens, each as a click on its cell does: the first app of every word
+        // before the last, then the current cell; an app found twice opens once
+        open_found: function () {
+            const picked = this.shown[Math.min(this.current, this.shown.length - 1)];
+            const apps = [...this.searched.tops.slice(0, -1), picked];
+            for (const app of new Map(apps.map(v => [v.name, v])).values()) {
+                window.open(this.link_of(app), '_blank', 'noopener');
+            }
+        },
         format_bytes: function (bytes) {
             return format_bytes(bytes);
         },
@@ -365,13 +423,29 @@ const apps_pane = {
             }
         },
     },
+    mounted: function () {
+        document.addEventListener('keydown', this.keydown_page);
+        if (this.$refs.search && (this.open === null)) {
+            this.$refs.search.focus({preventScroll: true});
+        }
+    },
     created: function () {
         if (this.open !== null) {
             const found = this.apps.find(v => v.name === this.open);
             this.settings = (found === undefined) ? null : found;
         }
     },
+    unmounted: function () {
+        document.removeEventListener('keydown', this.keydown_page);
+    },
 };
+
+// The words an app is found by besides its name: its kind, and the machine it is on
+function words_of(app)
+{
+    const kind = (app.type === 'files') ? 'page' : ((app.socket !== null) && (app.socket !== undefined)) ? 'socket' : 'app folder';
+    return [kind, app.name, ...app.remotes];
+}
 
 // What goes to serviceman: a folder zipped, a page zipped as the index.html of an app of its own,
 // and a zip as it is once its list of files reads; one that does not is said with its own name

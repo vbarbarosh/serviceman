@@ -58,6 +58,10 @@ test('apps.localhost is a page of every app, each at its name on this computer',
     assert.strictEqual(page.status, 200);
     assert.match(page.headers['content-type'], /text\/html/);
     assert.match(page.body, /2 apps on this computer/);
+    // A search box over the cells, each cell carrying what it is found by (apps_search.js)
+    assert.match(page.body, /<input class="search" type="search"/);
+    assert.ok(page.body.includes('data-words="[&quot;page&quot;,&quot;notes&quot;]"'), 'a cell is found by its kind and its name too');
+    assert.match(page.body, /<script type="module">[\s\S]*function apps_search/);
     assert.ok(page.body.includes(`href="//notes.localhost:${port}/"`), 'its name on this computer, not the one under the domain');
     assert.ok(page.body.includes(`href="//tools.example.com:${port}/board"`), 'one with no name here: the one it has, its path too');
     assert.ok(page.body.indexOf('board') < page.body.indexOf('Notes'), 'by name');

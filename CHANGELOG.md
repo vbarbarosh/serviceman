@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.134 — 2026-11-16
+
+- A search box over the cells on Apps and on the page of apps, finding as navplace's does: by name, kind or address, a word each, ↑ ↓ and Enter to open.
+
 ## 1.0.133 — 2026-11-16
 
 - Health shows a card when tailscale gives no certificate for the apps' own ports: its reason, and what mends it, such as turning HTTPS on in Tailscale's admin.

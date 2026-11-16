@@ -2067,7 +2067,8 @@ control port, with the owner&#39;s token or one given the <code>apps</code> righ
 <p><strong>On serviceman&#39;s page</strong> it is one drop: <strong>Apps</strong> has a card to drop the zip, the folder or one
 <code>.html</code> page on (or click and pick a zip or a page), named after the file, <code>My Notes.zip</code> as
 <code>my-notes</code>, <code>2.html</code> as <code>2</code>. The card answers with the link that opens the app here and Open, and
-the name it has outside; under it, every app as a cell, a click opening it. A folder dropped is
+the name it has outside; under it, every app as a cell, a click opening it, and a search box over
+the cells (<strong>Finding an app</strong>, below). A folder dropped is
 zipped in the page and sent the same way, and so is a page, as the <code>index.html</code> of an app of its
 own. What is none of them is said on the card at once, for what it is (<code>photo.png: it is a PNG picture, not a zip</code>, a zip cut short, several things dropped at once), and nothing is sent;
 serviceman says the same of a body that is no zip.</p>
@@ -2139,11 +2140,20 @@ on every device of it (its first word, <code>http://serviceman:3000/</code>, whe
 tailnet address). A cell for every app, by name, with its state, opens it the way that browser
 reaches it: at its name on this computer (<code>notes.localhost:3000</code>), at its own port on the tailnet
 (<code>serviceman.tail1234.ts.net:3400</code>, below); one whose port does not listen says so and opens
-nothing. <code>apps</code> is <code>apps.</code> and the rest of serviceman&#39;s own name, as an app is named
-(<code>apps.example.org</code> beside <code>serviceman.example.org</code>). A name a service has is that service&#39;s,
+nothing; the same search box stands over its cells. <code>apps</code> is <code>apps.</code> and the rest of
+serviceman&#39;s own name, as an app is named (<code>apps.example.org</code> beside <code>serviceman.example.org</code>). A name a service has is that service&#39;s,
 and the page answers only at <code>/</code>. Through a machine&#39;s door neither name is a page: there only
 the domain&#39;s is, where a rule gives it (above). <strong>Apps</strong> says both addresses on top, each with
 its <strong>Copy</strong>.</p>
+<p><strong>Finding an app.</strong> The search box over the cells on <strong>Apps</strong> and on the page of apps finds as
+navplace&#39;s does. What is typed narrows the cells to the apps that have it in their name, their
+kind (<code>page</code>, <code>app folder</code>, <code>socket</code>) or their address, those found by name first; a letter typed
+anywhere on the page goes to the box. ↑ and ↓ move the outline among the cells found, and Enter
+opens the outlined one as a click on it does. Each word is a search of its own: the cells show
+the last word&#39;s, and Enter opens the first app of every word before it too, <code>notes mail</code> both.
+Inside a word <code>/</code> joins parts that must all hold (<code>app/laptop</code>), <code>^</code> and <code>$</code> hold a part to the
+start or the end of a name, and <code>!</code> turns a part around (<code>app/!laptop</code>). Upper and lower case are
+the same, and Cyrillic letters are found by Latin ones, <code>pochta</code> finding Почта.</p>
 <p><strong>The page and every app behind a wall:</strong> one list on top of <strong>Apps</strong>, <strong>This page and every
 app</strong>, under those addresses, puts the page of apps and every app behind the wall picked, an app
 sent tomorrow too. The page asks it first on each of its names, and <code>/auth/…</code> there is the wall&#39;s
