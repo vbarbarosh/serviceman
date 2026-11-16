@@ -474,7 +474,8 @@ p.fm-foot {
     padding: .25rem 1rem 1rem;
 }
 
-.svc-body .line > input:not(.short):not(.tiny) {
+/* A name beside its value has a width of its own (.name-field, serviceman.css) */
+.svc-body .line > input:not(.short):not(.tiny):not(.name-field) {
     flex: 1;
 }
 

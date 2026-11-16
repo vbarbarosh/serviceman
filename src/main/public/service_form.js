@@ -312,8 +312,8 @@ const service_form = {
                 </div>
                 <label>Environment</label>
                 <div>
-                    <div v-for="row of m.env" :key="row.key" class="line">
-                        <input v-model.trim="row.name" placeholder="NAME" class="short" spellcheck="false">
+                    <div v-for="row of m.env" :key="row.key" class="line pair">
+                        <input v-model.trim="row.name" placeholder="NAME" class="name-field" spellcheck="false">
                         <input v-model.trim="row.value" placeholder="value" spellcheck="false">
                         <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
                     </div>
@@ -363,8 +363,8 @@ const service_form = {
                 <div><input v-model.trim="m.uninstall" placeholder="dropdb my_app — optional" spellcheck="false"></div>
                 <label>Environment</label>
                 <div>
-                    <div v-for="row of m.env" :key="row.key" class="line">
-                        <input v-model.trim="row.name" placeholder="NAME" class="short" spellcheck="false">
+                    <div v-for="row of m.env" :key="row.key" class="line pair">
+                        <input v-model.trim="row.name" placeholder="NAME" class="name-field" spellcheck="false">
                         <input v-model.trim="row.value" placeholder="value" spellcheck="false">
                         <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
                     </div>
@@ -473,8 +473,8 @@ const service_form = {
                 <template v-if="(m.type === 'shell')">
                     <label>Secrets</label>
                     <div>
-                        <div v-for="row of m.secrets" :key="row.key" class="line">
-                            <input v-model.trim="row.name" placeholder="credentials" class="short" :class="{wrong: (secret_said(row).name !== '')}" spellcheck="false">
+                        <div v-for="row of m.secrets" :key="row.key" class="line pair">
+                            <input v-model.trim="row.name" placeholder="credentials" class="name-field" :class="{wrong: (secret_said(row).name !== '')}" spellcheck="false">
                             <input v-model="row.value" :placeholder="(row.kept ? row.length + ' characters kept — type to replace' : 'the value the program reads')" :class="{wrong: (secret_said(row).value !== '')}" spellcheck="false">
                             <select v-if="(library.length > 0)" v-model="row.copy_from">
                                 <option value="">or copy from…</option>

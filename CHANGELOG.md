@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.123 — 2026-11-16
+
+- The name of a variable or a secret on a service's page is wide enough to read whole (`AUTHWALL_GOOGLE_CLIENT_SECRET`); on a phone it has a line of its own over its value.
+
 ## 1.0.122 — 2026-11-16
 
 - A folder a service keeps is opened to its container at every start, whatever user its image runs as, and the agent's `data/` around it is closed to everyone else: authwall, which runs as `node`, could not write its kept folder (agent 1.37.1).

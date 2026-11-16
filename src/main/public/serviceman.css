@@ -1331,6 +1331,27 @@ pre {
     width: 5.5rem;
 }
 
+/* The name of a variable or a secret, beside its value: wide enough for AUTHWALL_GOOGLE_CLIENT_SECRET */
+.form input.name-field {
+    flex: 0 1 17rem;
+    width: 17rem;
+    min-width: 7rem;
+}
+
+/* On a phone a name has a line of its own, read whole, and its value, with what goes with it,
+   the line under it */
+@media (max-width: 40rem) {
+    .form .line.pair {
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .form .line.pair > input.name-field {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}
+
 .form .line {
     display: flex;
     gap: .5rem;
