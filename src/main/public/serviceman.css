@@ -563,6 +563,11 @@ button:disabled:hover {
     white-space: nowrap;
 }
 
+/* A row lit by a hover or a pick keeps its first word off its edge */
+.fold-room > table > * > tr > :first-child {
+    padding-left: .6rem;
+}
+
 /* .bad lets its text wrap everywhere else */
 .fold-room > table > * > tr > :not(.wraps, [data-spread], .dt-note) .bad {
     white-space: nowrap;

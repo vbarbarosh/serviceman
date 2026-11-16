@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.139 — 2026-11-16
+
+- A table's first column keeps its text off the row's edge, so a row lit by a hover or a pick no longer has its first word on its border.
+
 ## 1.0.138 — 2026-11-16
 
 - Mounts: a folder of one machine, or serviceman's own data/, mounted on another, read-only or read-write, from a page of its own; sshfs over the agents' links, no ssh, nothing outside the folder seen (agent 1.38.0).
