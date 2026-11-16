@@ -16,13 +16,20 @@ test('a machine shell lives through a size no window has, and still answers what
         shell.resize(120, 40);
         shell.write('echo $((40+2))\n');
         // The answer stands at a line's start, after the shell's own echo of the line typed
-        await heard_until(() => /[\r\n]42\r?\n/.test(heard), 15000, 'the answer');
+        await heard_until(() => /[\r\n]42\r?\n/.test(shown(heard)), 15000, 'the answer');
         assert.match(heard, /42/);
     }
     finally {
         shell.destroy();
     }
 });
+
+// What a terminal shows of it: a shell may mark each command it runs with OSC sequences that
+// draw nothing (systemd's context marks, ESC ] 3008 ; … ESC \), one right before its answer
+function shown(text)
+{
+    return text.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
+}
 
 function heard_until(check, limit_ms, what)
 {

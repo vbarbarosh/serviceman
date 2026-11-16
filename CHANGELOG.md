@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.132 — 2026-11-16
+
+- The machine shell test reads the shell's answer as a terminal shows it: a shell that marks each command with a sequence that draws nothing no longer fails it.
+
 ## 1.0.131 — 2026-11-16
 
 - Every app's own port answers https too, with the tailnet's certificate from tailscale in the image, so a browser gives its page the microphone and the screen; a browser's plain http visit is sent on to https.
