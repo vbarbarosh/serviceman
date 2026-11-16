@@ -28,7 +28,9 @@ async function files_zip_items(label, source)
         throw new Error(`${label} is empty.`);
     }
     if (names.includes('index.html') === false) {
-        throw new Error(`${label} has no index.html, at its top or in its one folder: a page starts with it.`);
+        // An app folder given where a page goes: said where it goes instead
+        const app = names.includes('bin/run') ? ' With its bin/run it is an app folder, made with + Add service.' : '';
+        throw new Error(`${label} has no index.html, at its top or in its one folder: a page starts with it.${app}`);
     }
     const out = {items: [], files: names.length, bytes: 0};
     for (const entry of entries) {

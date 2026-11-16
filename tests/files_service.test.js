@@ -457,6 +457,20 @@ test('a folder zipped by the page is read by serviceman as a page\'s files', asy
     assert.strictEqual(Buffer.concat(chunks).toString(), 'console.log(1);');
 });
 
+// An app folder given to the Apps card is no page: what the card says names where one is made,
+// and a zip that is neither is told no more than that it has no page
+test('an app folder given to the Apps card is refused with where an app folder is made', async function () {
+    const files_zip_items = require('../src/main/src/helpers/files_zip_items');
+    const zip_bytes = require('./fixtures/zip_bytes');
+    const app = zip_bytes([
+        {name: 'notes-app/bin/run', bytes: Buffer.from('#!/bin/sh\n'), mode: 0o755},
+        {name: 'notes-app/server.js', bytes: Buffer.from('x')},
+    ]);
+    await assert.rejects(files_zip_items('notes-app.zip', app), /^Error: notes-app\.zip has no index\.html, at its top or in its one folder: a page starts with it\. With its bin\/run it is an app folder, made with \+ Add service\.$/);
+    const neither = zip_bytes([{name: 'site/server.js', bytes: Buffer.from('x')}]);
+    await assert.rejects(files_zip_items('site.zip', neither), /^Error: site\.zip has no index\.html, at its top or in its one folder: a page starts with it\.$/);
+});
+
 // What is given to the Apps card goes as serviceman takes it: a page, 2.html, as an app of its
 // own with the page as its index.html (1.0.94 sent it as it was, and serviceman called it a
 // broken zip), a zip as it is once it reads, and what is neither is said on the card with its own

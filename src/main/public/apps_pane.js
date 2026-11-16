@@ -32,7 +32,7 @@ const apps_pane = {
     <div class="list-head">
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
-    <p class="muted">Small apps: a page serviceman serves, an app that runs from its own folder, or one that listens on a socket file. Drop a zip, a folder or one .html page here and it answers at an address of its own at once; dropped on an app's card, it is that app's new version.</p>
+    <p class="muted">Small apps: a page serviceman serves, an app that runs from its own folder, or one that listens on a socket file. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once. An app folder is made with + Add service; dropped on an app's card, a zip or a folder is that app's new version.</p>
     <div v-if="(page_links.length > 0)" class="app-page">
         <b>Every app on one page:</b>
         <span v-for="link of page_links" :key="link.href" class="app-page-link">

@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.128 — 2026-11-16
+
+- The Apps page says a page goes in its card and an app folder is made with + Add service; an app folder dropped there is refused with where it goes.
+
 ## 1.0.127 — 2026-11-16
 
 - An app folder's `bin/run`, `bin/configure` and `bin/build` run whatever mode its zip gave them: a zip made where the run bits were lost no longer leaves the app unable to start.
