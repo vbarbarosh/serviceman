@@ -2179,7 +2179,8 @@ browser&#39;s page visit by serviceman&#39;s tailnet name, its first word or its
 on to https (<code>307</code>). <strong>Apps</strong>, <strong>Addresses</strong> and the page of apps link the https address. The
 tailnet gives certificates once HTTPS is turned on in its DNS settings, in Tailscale&#39;s admin;
 until then, or with no tailscale, the ports answer http as before, and the log says why
-(<code>tailnet_cert_error</code>, <a href="logs.html">Logs</a>).</p>
+(<code>tailnet_cert_error</code>, <a href="logs.html">Logs</a>). Where tailscale refuses one, <strong>Health</strong> has a card with its
+reason and what mends it (<a href="remotes.html#when-something-is-wrong">When something is wrong</a>).</p>
 <p><code>ports</code> is the first of them, <code>3400</code> unless said (3100 is Loki&#39;s); <code>null</code> gives none. A new app takes the lowest one
 free from it up, past serviceman&#39;s own ports, and keeps it: it is written in <code>app_ports.json</code> of the
 state folder, the same after a restart and after other apps come and go, it follows a rename, and an

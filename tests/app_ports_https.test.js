@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const os = require('os');
 const path = require('path');
+const problems_of_tailnet_cert = require('../src/main/src/helpers/problems_of_tailnet_cert');
 const server_start = require('../src/main/src/helpers/server_start');
 const tailnet_cert_read = require('../src/main/src/helpers/tailnet_cert_read');
 const test = require('node:test');
@@ -51,6 +52,11 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     assert.strictEqual(app.tailnet_cert.error, process.env.FAKE_CERT_REFUSED);
     assert.strictEqual(lines('tailnet_cert_error').length, 1);
     assert.match(lines('tailnet_cert_error')[0], /answer http; asked again in 10 minutes/);
+    // Health says it, and what mends it
+    const problems = problems_of_tailnet_cert(app);
+    assert.strictEqual(problems.length, 1);
+    assert.match(problems[0].cause, /does not support getting TLS certs/);
+    assert.match(problems[0].fix, /DNS page, HTTPS Certificates, Enable HTTPS/);
     const asked = app.tailnet_cert.at;
     await tailnet_cert_read(app);
     assert.strictEqual(app.tailnet_cert.at, asked, 'not asked again within ten minutes');
@@ -66,6 +72,7 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     assert.match(app.tailnet_cert.until, /^2126-/);
     assert.strictEqual(app.tailnet_cert.error, null);
     assert.strictEqual(lines('tailnet_cert').length, 1);
+    assert.deepStrictEqual(problems_of_tailnet_cert(app), []);
 
     // A renewal that fails keeps the one held: it is good until it ends
     process.env.FAKE_CERT_REFUSED = 'tailscale is down';
@@ -74,6 +81,9 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     await tailnet_cert_read(app);
     assert.strictEqual(app.tailnet_cert.context, context);
     assert.match(lines('tailnet_cert_error')[1], /the one held is used until 2126-.*asked again tomorrow/);
+    assert.deepStrictEqual(problems_of_tailnet_cert(app), [], 'one held is no problem yet');
+    const other = problems_of_tailnet_cert({tailnet_cert: {context: null, error: 'tailscale is down'}});
+    assert.doesNotMatch(other[0].fix, /Enable HTTPS/);
     assert.throws(() => tailnet_cert_read.pair_of('no pem here'), /tailscale cert printed no certificate and key/);
 });
 

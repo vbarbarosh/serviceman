@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.133 — 2026-11-16
+
+- Health shows a card when tailscale gives no certificate for the apps' own ports: its reason, and what mends it, such as turning HTTPS on in Tailscale's admin.
+
 ## 1.0.132 — 2026-11-16
 
 - The machine shell test reads the shell's answer as a terminal shows it: a shell that marks each command with a sequence that draws nothing no longer fails it.
