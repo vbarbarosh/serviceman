@@ -709,21 +709,22 @@ test('an app behind a wall that cannot start is answered: the wall did not start
         {name: 'echo', type: 'external', publish: {host: 'echo.test'}, upstream: '127.0.0.1:9', auth: 'gate'},
     ]);
     try {
+        // Its program ends on its way up, so the start fails at once, and a browser is told so
         const time0 = Date.now();
-        const page = await fetch_host({port: running.port, host: 'echo.test', path: '/', headers: {accept: 'text/html'}});
-        assert.strictEqual(page.status, 503, page.body);
-        assert.match(page.body, /<h1>Starting gate<\/h1>/, 'a browser sees the wall start, as it would any service');
-        assert.ok((Date.now() - time0) < 15000, `shown before the start's whole wait (${Date.now() - time0}ms)`);
-        // The page asks how the wall stands, on the name it was opened at, until it says
-        const asked = page_polls(page.body);
+        const page = await fetch_host({port: running.port, host: 'echo.test', path: '/', headers: {accept: 'text/html'}, token: null});
+        assert.strictEqual(page.status, 502, page.body);
+        assert.match(page.body, /gate did not start/, 'a browser sees the wall did not start, as it would of any service');
+        assert.ok((Date.now() - time0) < 5000, `said at once, not after the start's whole wait (${Date.now() - time0}ms)`);
+        // How the wall stands is still answered at its own address; this machine is told why
         let status = null;
         for (const deadline = Date.now() + 15000; Date.now() < deadline; await timers.setTimeout(200)) {
-            status = JSON.parse((await fetch_host({port: running.port, host: 'echo.test', path: asked})).body);
+            status = JSON.parse((await fetch_host({port: running.port, host: 'echo.test', path: '/__serviceman__/wall.json', token: null})).body);
             if (status.phase === 'failed') {
                 break;
             }
         }
-        assert.strictEqual(status.phase, 'failed', 'and the page says the wall failed, its reason kept from a stranger');
+        assert.strictEqual(status.phase, 'failed');
+        assert.match(status.error, /its program ended \(code 3\) before anything answered/);
         const api = await fetch_host({port: running.port, host: 'echo.test', path: '/api'});
         assert.strictEqual(api.status, 502, 'and a request that is no page is told the wall did not start');
         assert.match(api.body, /gate did not start/);
@@ -2784,6 +2785,32 @@ test('the restart policy decides what follows a program that stops by itself', a
         assert.ok(running.app.log_lines.every(v => /\[program_restart_wait\] service=quitter/.test(v) === false));
         await timers.setTimeout(900);
         assert.strictEqual(faller.state.instances[0].restarts >= 1, true);
+    }
+    finally {
+        await running.close();
+    }
+});
+
+// A program that fails on its way up fails its start at once, saying how it ended, and nothing
+// waits out start_timeout; the restart the log promises comes, a start like any other, until
+// start_tries of them have failed in a row
+test('a program that fails before it answers fails its start at once, says how it ended, and is restarted as promised', async function (t) {
+    const port = await free_port();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-unrunnable-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    // A run file without its executable bit, as a zip made on another system can leave it
+    fs.writeFileSync(path.join(dir, 'run'), '#!/bin/sh\nexec sleep 30\n', {mode: 0o644});
+    const running = await serviceman_start([
+        {name: 'broken', type: 'shell', publish: {host: 'broken.test', port}, command: path.join(dir, 'run'), policy: {start_timeout: '30s'}},
+    ]);
+    const broken = running.app.service_by_name.broken;
+    try {
+        const time0 = Date.now();
+        await assert.rejects(service_ensure_running(running.app, broken), /its program ended \(code 126\) before anything answered on .* is it executable\?/);
+        assert.ok((Date.now() - time0) < 10000, `failed at once, not after start_timeout (${Date.now() - time0}ms)`);
+        await wait_until(() => broken.state.gave_up_at !== null, 10000);
+        assert.ok(running.app.log_lines.some(v => /\[program_restart_wait\] service=broken in=1\.000s restart=1/.test(v)));
+        assert.strictEqual(running.app.log_lines.filter(v => /\[service_start_begin\] service=broken /.test(v)).length, 2, 'the restart came, and the second failure was the last');
     }
     finally {
         await running.close();

@@ -86,6 +86,8 @@ function instance_new(slot)
         stop_promise: null,
         pid: null,
         asked_to_stop: false,
+        // How its program ended while it was starting (program_ended): the start fails on it
+        ended_starting: null,
         restarts: 0,
         restart_timer: null,
         // The last line of its own output that was passed to whoever is waiting, so the same

@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.126 — 2026-11-16
+
+- A program that ends while it starts fails its start at once, saying how it ended (with a hint for codes 126 and 127), and its restart comes as promised; it was waited on until start_timeout, the waiting page never saying it had ended.
+
 ## 1.0.125 — 2026-11-16
 
 - An upgrade of several machines ends when every run in it ends: a machine started by hand from its own page meanwhile is one of them, and the list no longer stops at its "installing".

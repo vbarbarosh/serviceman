@@ -60,6 +60,7 @@ async function start_after_stop(app, service, instance)
     instance.restart_timer = null;
     // A stop from here on is a stop of this start: the start ends when it sees it
     instance.asked_to_stop = false;
+    instance.ended_starting = null;
     instance.last_error = null;
     service.state.last_error = null;
     // A machine is reserved before anything is started, and a machine that will not take it is

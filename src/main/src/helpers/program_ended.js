@@ -22,7 +22,13 @@ function program_ended(app, remote, message)
     const code = (message.code === undefined) ? null : message.code;
     const signal = (message.signal === undefined) ? null : message.signal;
     instance.pid = null;
-    if ((code === 0) || (signal !== null)) {
+    if (instance.start_under_way && (instance.phase === 'starting') && (instance.asked_to_stop === false) && (code !== 0)) {
+        // It failed on its way up: nothing is going to answer, so the start fails now, with
+        // this as its reason (wait_http_answer), as a start that failed; the restart policy
+        // follows as for any program that stopped by itself (restart_now)
+        instance.ended_starting = (signal === null) ? `code ${code}` : signal;
+    }
+    else if ((code === 0) || (signal !== null)) {
         instance_stopped(instance);
     }
     else {
@@ -63,7 +69,15 @@ function restart_now(app, service, instance)
     if (service.state.stop_promise !== null) {
         return;
     }
-    const promise = instance_start(app, service, instance);
+    // A start still under way is the one the program ended in: instance_start would give it
+    // back as it is, and no restart would come. The restart is the start after it.
+    const before = (instance.start_promise === null) ? Promise.resolve() : instance.start_promise.catch(() => null);
+    const promise = before.then(function () {
+        if (service.state.stop_promise !== null) {
+            return null;
+        }
+        return instance_start(app, service, instance);
+    });
     promise.catch(function () {
         // instance_start wrote why it failed; this catch only keeps the rejection quiet
     });

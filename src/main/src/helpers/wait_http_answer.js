@@ -61,6 +61,10 @@ async function wait_answer(app, service, instance, upstream, timeout_ms, doing)
         if (instance.asked_to_stop) {
             throw new Error(`${service.name}: it was stopped before it answered`);
         }
+        // Its program ended on its way up (program_ended): nothing is going to answer either
+        if (instance.ended_starting !== null) {
+            throw new Error(`${service.name}: its program ended (${instance.ended_starting}) before anything answered on ${upstream.host}:${upstream.port}${end_hint(instance.ended_starting)}`);
+        }
         // What is being waited for is the step the page shows, beside its own clock — not a
         // line of the story every few seconds, which would bury what the service itself says.
         // It becomes a line once, and again when the reason changes: a reset turning into a
@@ -132,6 +136,18 @@ function ask(instance, upstream)
         });
         request.end();
     });
+}
+
+// What the shell's own two codes mean, the ones a command line gets before its program runs
+function end_hint(how)
+{
+    if (how === 'code 126') {
+        return ' — the command is there but cannot be run: is it executable?';
+    }
+    if (how === 'code 127') {
+        return ' — the command was not found';
+    }
+    return '';
 }
 
 // The one mistake that looks exactly like a slow start
