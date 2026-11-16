@@ -4585,6 +4585,28 @@ article.rf .actions {
     background: var(--hover);
 }
 
+/* The Tailscale page: its state beside its name, a dot and the words; a notice when tailscale
+   is not there or waits for a sign-in; the cards, then the calls */
+.tailscale .list-head > span {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.tailscale .tailscale-say {
+    margin: .8rem 0;
+    padding: .8rem 1rem;
+}
+
+.tailscale .ov-cards {
+    margin-top: .8rem;
+}
+
+.tailscale h2 {
+    margin: 1.4rem 0 .5rem;
+    font-size: 1.05rem;
+}
+
 /* The search box over the cells, clear of the outline the current cell gets */
 .apps-pane .list-tools {
     margin-bottom: .9rem;

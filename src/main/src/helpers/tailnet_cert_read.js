@@ -1,7 +1,7 @@
-const child_process = require('child_process');
 const crypto = require('crypto');
 const log_event = require('./log_event');
 const tailnet_name_read = require('./tailnet_name_read');
+const tailscale_run = require('./tailscale_run');
 const tls = require('tls');
 
 // The first one takes a while: tailscale asks Let's Encrypt for it and waits for its DNS
@@ -66,11 +66,10 @@ async function tailnet_cert_read(app)
 function cert_ask(domain)
 {
     return new Promise(function (resolve, reject) {
-        child_process.execFile('tailscale', ['cert', '--cert-file', '-', '--key-file', '-', domain], {timeout: TIMEOUT_MS, maxBuffer: 1024*1024}, function (error, stdout, stderr) {
+        tailscale_run(['cert', '--cert-file', '-', '--key-file', '-', domain], {timeout: TIMEOUT_MS, maxBuffer: 1024*1024}, function (error, stdout, stderr) {
             if (error !== null) {
                 // tailscale's own last line says why: a tailnet with HTTPS off, a name it does not have
-                const said = String(stderr).trim().split('\n').pop();
-                reject(new Error((said === '') ? error.message : said));
+                reject(new Error(tailscale_run.reason_of(error, stderr)));
                 return;
             }
             resolve(String(stdout));

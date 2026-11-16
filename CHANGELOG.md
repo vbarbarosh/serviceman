@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.137 — 2026-11-16
+
+- A Tailscale page: serviceman's name and address on the tailnet, the certificate or why there is none, the apps' names, the way out, and every call it made to tailscale.
+
 ## 1.0.136 — 2026-11-16
 
 - A forward hands its reader the whole answer when the far end closes right after sending it: the agent no longer drops what it had not written yet (agent 1.37.2).

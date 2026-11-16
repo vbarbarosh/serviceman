@@ -1,4 +1,4 @@
-const child_process = require('child_process');
+const tailscale_run = require('./tailscale_run');
 
 const TIMEOUT_MS = 5000;
 // A host that is not on the tailnet yet may be in a minute; it is asked again after this long
@@ -15,7 +15,7 @@ function tailnet_ip_read()
         return Promise.resolve(known.ip);
     }
     return new Promise(function (resolve) {
-        child_process.execFile('tailscale', ['ip', '-4'], {timeout: TIMEOUT_MS}, function (error, stdout) {
+        tailscale_run(['ip', '-4'], {timeout: TIMEOUT_MS}, function (error, stdout) {
             known.at = Date.now();
             const ip = (error === null) ? stdout.trim().split('\n')[0] : '';
             known.ip = /^[0-9.]+$/.test(ip) ? ip : null;

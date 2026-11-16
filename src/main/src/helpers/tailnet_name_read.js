@@ -1,4 +1,4 @@
-const child_process = require('child_process');
+const tailscale_run = require('./tailscale_run');
 
 const TIMEOUT_MS = 5000;
 // A host that is not on the tailnet yet may be in a minute; it is asked again after this long
@@ -15,7 +15,7 @@ function tailnet_name_read()
         return Promise.resolve(known.name);
     }
     return new Promise(function (resolve) {
-        child_process.execFile('tailscale', ['status', '--json'], {timeout: TIMEOUT_MS, maxBuffer: 8*1024*1024}, function (error, stdout) {
+        tailscale_run(['status', '--json'], {timeout: TIMEOUT_MS, maxBuffer: 8*1024*1024}, function (error, stdout) {
             known.at = Date.now();
             known.name = (error === null) ? name_of(stdout) : null;
             resolve(known.name);

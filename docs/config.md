@@ -1368,6 +1368,14 @@ until then, or with no tailscale, the ports answer http as before, and the log s
 (`tailnet_cert_error`, [Logs](logs.md)). Where tailscale refuses one, **Health** has a card with its
 reason and what mends it ([When something is wrong](remotes.md#when-something-is-wrong)).
 
+**The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
+its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to
+sign this machine in while tailscale waits for one; the certificate, for which name and until when,
+or why there is none and what mends it; the names of the apps it answers on the tailnet
+(`apps.dns`); the way out to the tailnet, tailscale's proxy; and the last 50 calls serviceman made to
+tailscale, each with how long it took and what came back, never what it printed. It asks tailscale
+when it opens and on **Refresh**, and with no tailscale, outside the image, it says so.
+
 `ports` is the first of them, `3400` unless said (3100 is Loki's); `null` gives none. A new app takes the lowest one
 free from it up, past serviceman's own ports, and keeps it: it is written in `app_ports.json` of the
 state folder, the same after a restart and after other apps come and go, it follows a rename, and an

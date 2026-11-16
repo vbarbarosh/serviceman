@@ -60,6 +60,7 @@ import shared_folders_pane from './shared_folders_pane.js';
 import snippet from './snippet.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
+import tailscale_pane from './tailscale_pane.js';
 import tokens_form from './tokens_form.js';
 import updates_lists from './updates_lists.js';
 import volumes_pane from './volumes_pane.js';
@@ -1992,6 +1993,10 @@ const app = {
             <span class="name">Forwards</span>
             <span class="muted">{{ forwards_count }}</span>
         </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'tailscale'), open: (kind_now === 'tailscale')}" title="What serviceman does with tailscale: its name on the tailnet, the certificate, the apps' names, every call" @click="tailscale_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
+            <span class="name">Tailscale</span>
+        </button>
         <div class="rail-kind" :class="{on: (kind_now === 'storage')}">
             <button type="button" class="row kind" :class="{on: (kind_now === 'storage'), open: (kind_now === 'storage')}" @click="volumes_show">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
@@ -2065,6 +2070,7 @@ const app = {
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
         <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll" @walls="wall_new"/></article>
+        <tailscale-pane v-else-if="tailscale_open" :state="state"/>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
@@ -2084,7 +2090,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2132,6 +2138,7 @@ const app = {
             tokens_open: false,
             logline_open: false,
             health_open: false,
+            tailscale_open: false,
             security_open: false,
             authwall_open: false,
             // How many times a list of walls asked for a new one: the Authwall page opens with its form
@@ -2277,6 +2284,9 @@ const app = {
             if (this.health_open) {
                 return '/health';
             }
+            if (this.tailscale_open) {
+                return '/tailscale';
+            }
             if (this.security_open) {
                 return '/security';
             }
@@ -2352,6 +2362,9 @@ const app = {
             }
             if (this.health_open) {
                 return 'health';
+            }
+            if (this.tailscale_open) {
+                return 'tailscale';
             }
             if (this.security_open) {
                 return 'security';
@@ -2669,6 +2682,10 @@ const app = {
                 this.health_open = true;
                 return;
             }
+            if (route.kind === 'tailscale') {
+                this.tailscale_open = true;
+                return;
+            }
             if (route.kind === 'security') {
                 this.security_open = true;
                 return;
@@ -2800,6 +2817,10 @@ const app = {
         health_show: function () {
             this.panes_close();
             this.health_open = true;
+        },
+        tailscale_show: function () {
+            this.panes_close();
+            this.tailscale_open = true;
         },
         security_show: function () {
             this.panes_close();
@@ -2973,6 +2994,7 @@ const app = {
             this.apps_open = false;
             this.logline_open = false;
             this.health_open = false;
+            this.tailscale_open = false;
             this.security_open = false;
             this.authwall_open = false;
             this.load_tests_open = false;

@@ -1,6 +1,6 @@
-const child_process = require('child_process');
 const dgram = require('dgram');
 const log_event = require('./log_event');
+const tailscale_run = require('./tailscale_run');
 
 // How long a name it says is kept by whoever asked: short, so a new address is taken soon
 const TTL_S = 60;
@@ -61,7 +61,7 @@ function apps_dns_start(app)
 // This machine's tailnet address, as tailscale says it; asked again a while later until it does
 function address_ask(app, state)
 {
-    child_process.execFile('tailscale', ['ip', '-4'], {timeout: 5000}, function (error, stdout) {
+    tailscale_run(['ip', '-4'], {timeout: 5000}, function (error, stdout) {
         const found = String(stdout || '').split('\n').map(v => v.trim()).find(v => /^\d+\.\d+\.\d+\.\d+$/.test(v));
         if ((error === null) && (found !== undefined)) {
             state.address = found;
