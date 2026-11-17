@@ -1539,6 +1539,9 @@ peers on its tailnet addresses, port <code>7303</code> (<code>--peer-port</code>
 off), and answers only a caller holding the token serviceman gave it, and only for the services
 that run on it. The <strong>Doors</strong> page says, for each machine, whether it routes by itself and holds
 the latest table.</p>
+<p><strong>A board&#39;s port is a door of its own,</strong> on <code>127.0.0.1</code> alone, at each board published on the
+machine (<a href="config.html#app-boards">App boards</a>): it routes by the same table, the board&#39;s names in
+it, and is open whenever a board is there, door asked for or not.</p>
 <p><strong>There is no door until one is asked for.</strong> <code>--http-socket-mode 0660</code> (or
 <code>SERVICEMAN_HTTP_SOCKET_MODE</code> in the agent&#39;s <code>env</code>) is the whole of the asking: without it the
 agent opens nothing, and a machine carries requests in only because somebody said it should.</p>

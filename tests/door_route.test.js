@@ -204,6 +204,57 @@ test('a door rule of * answers each name with the app whose address it is, the w
     }
 });
 
+// A board published on the laptop: its agent answers it on 127.0.0.1 and nowhere else, the
+// board at its name under .localhost, each app on it at its own, and any other name with a 404.
+// The board's page and an app serviceman serves itself go to serviceman over the link, one trip.
+test('a board published on a machine is answered on its loopback alone, its apps at their names', async function () {
+    const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-board-state-'));
+    process.env.SERVICEMAN_STATE_DIR = state_dir;
+    for (const name of ['notes', 'mail']) {
+        fs.mkdirSync(path.join(state_dir, 'apps', name), {recursive: true});
+        fs.writeFileSync(path.join(state_dir, 'apps', name, 'index.html'), `<title>${name}</title>`);
+    }
+    const port = await port_free();
+    const running = await serviceman_start({
+        remotes: [{name: 'laptop', token: TOKEN_LAPTOP}],
+        services: [
+            {name: 'notes', type: 'files', publish: {host: 'notes.localhost'}},
+            {name: 'mail', type: 'files', publish: {host: 'mail.localhost'}},
+        ],
+        boards: [{name: 'home', machines: ['laptop'], apps: ['notes'], port}],
+    });
+    const dir_laptop = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-board-laptop-'));
+    const agent = agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_AGENT_DIR: dir_laptop, SERVICEMAN_PEER_PORT: '0'});
+    try {
+        const laptop = running.app.remote_by_name.laptop;
+        await wait_until(() => (laptop.state.doors_told !== null) && (laptop.state.doors_told === doors_table(running.app, laptop).version), 15000);
+        await wait_until_listening(port, 5000);
+
+        const notes = await fetch_port(port, {host: `notes.localhost:${port}`});
+        assert.strictEqual(notes.status, 200);
+        assert.strictEqual(notes.body, '<title>notes</title>');
+
+        const board = await fetch_port(port, {host: `home.localhost:${port}`});
+        assert.strictEqual(board.status, 200);
+        assert.ok(board.body.includes(`href="//notes.localhost:${port}/"`), 'the board opens its app at its name, on the board\'s port');
+        assert.strictEqual(board.body.includes('mail.localhost'), false, 'an app not on the board has no cell');
+        assert.match(board.body, /<h1>home<\/h1>/);
+
+        assert.strictEqual((await fetch_port(port, {host: `mail.localhost:${port}`})).status, 404, 'an app on no board here');
+        assert.strictEqual((await fetch_port(port, {host: `serviceman.localhost:${port}`})).status, 404, 'never the control page');
+
+        // Nowhere but the loopback: the machine's other addresses take no connection
+        for (const address of addresses_not_loopback()) {
+            assert.strictEqual(await connects(address, port), false, `${address}:${port} takes no connection`);
+        }
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        delete process.env.SERVICEMAN_STATE_DIR;
+    }
+});
+
 // A service that sleeps is woken by the door itself, and only answered once the program in it
 // answers: docker's port takes connections the moment the container starts and drops them
 // until then, which a door that trusted the open port would pass on as a 502. serviceman is told
@@ -725,6 +776,38 @@ function fetch_port(port, headers)
         });
         request.end();
     });
+}
+
+// Whether a port on 127.0.0.1 takes a connection yet
+async function wait_until_listening(port, timeout_ms)
+{
+    const deadline = Date.now() + timeout_ms;
+    while ((await connects('127.0.0.1', port)) === false) {
+        if (Date.now() >= deadline) {
+            throw new Error(`127.0.0.1:${port} never listened`);
+        }
+        await timers.setTimeout(25);
+    }
+}
+
+function connects(host, port)
+{
+    return new Promise(function (resolve) {
+        const socket = net.connect({host, port});
+        socket.on('connect', function () {
+            socket.destroy();
+            resolve(true);
+        });
+        socket.on('error', function () {
+            resolve(false);
+        });
+    });
+}
+
+// This machine's own addresses, the loopback left out
+function addresses_not_loopback()
+{
+    return Object.values(os.networkInterfaces()).flat().filter(v => (v.internal === false) && (v.family === 'IPv4')).map(v => v.address);
 }
 
 async function wait_until(ready, timeout_ms)

@@ -195,7 +195,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
+const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'boards', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -429,6 +429,14 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/forwards') && (req.method === 'GET')) {
         await forwards_send(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/boards') && (req.method === 'GET')) {
+        await boards_send(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/boards') && (req.method === 'PUT')) {
+        await boards_put(app, req, res);
         return;
     }
     if ((url.pathname === '/api/v1/mounts') && (req.method === 'GET')) {
@@ -2442,6 +2450,12 @@ async function service_delete(app, req, res, name)
             return `no service named ${name}`;
         }
         json.services.splice(at, 1);
+        // It leaves the boards it was on: a board is a page of apps, and this one is gone
+        for (const board of (Array.isArray(json.boards) ? json.boards : [])) {
+            if ((board !== null) && (typeof board === 'object') && Array.isArray(board.apps)) {
+                board.apps = board.apps.filter(v => v !== name);
+            }
+        }
         return null;
     }, 404);
 }
@@ -2764,6 +2778,41 @@ async function forwards_put(app, req, res)
             return null;
         }
         json.forwards = forwards;
+        return null;
+    });
+}
+
+// GET /api/v1/boards
+// The app boards as the config file writes them, for the list to be changed and written back
+// whole. The owner's alone: a board opens apps on a machine (control_route_right names no token
+// right for it).
+async function boards_send(app, req, res)
+{
+    if (app.config.path === undefined) {
+        send_json(res, 400, {error: 'serviceman runs without a config file'});
+        return;
+    }
+    const json = JSON.parse(await fs.promises.readFile(app.config.path, 'utf8'));
+    send_json(res, 200, {boards: Array.isArray(json.boards) ? json.boards : []});
+}
+
+// PUT /api/v1/boards {"boards": [...]}
+// The whole list, as the page edits it at each drop: the config is checked with it before it
+// is written (config_file_mutate), and each machine is told its door table (doors_tell), its
+// boards' names and ports in it
+async function boards_put(app, req, res)
+{
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    if (Array.isArray(body.boards) === false) {
+        send_json(res, 400, {error: 'boards: a list is required'});
+        return;
+    }
+    await config_file_mutate(app, res, function (json) {
+        if (body.boards.length === 0) {
+            delete json.boards;
+            return null;
+        }
+        json.boards = body.boards;
         return null;
     });
 }
@@ -3164,6 +3213,8 @@ function state_from_app(app)
         forwards,
         // Folders of one machine mounted on another, each where it stands (view_from_mount)
         mounts: app.config.mounts.map(v => view_from_mount(app, v)),
+        // The app boards, as the config has them: each published on its machines, by localhost
+        boards: app.config.boards,
         // Where a forward that shows up on serviceman itself puts its socket file
         state_dir: app.state_dir,
         // What k6 is sent at, each with the address it asks, and the runs so far, oldest first

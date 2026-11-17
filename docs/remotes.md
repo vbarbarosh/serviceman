@@ -803,6 +803,10 @@ off), and answers only a caller holding the token serviceman gave it, and only f
 that run on it. The **Doors** page says, for each machine, whether it routes by itself and holds
 the latest table.
 
+**A board's port is a door of its own,** on `127.0.0.1` alone, at each board published on the
+machine ([App boards](config.md#app-boards)): it routes by the same table, the board's names in
+it, and is open whenever a board is there, door asked for or not.
+
 **There is no door until one is asked for.** `--http-socket-mode 0660` (or
 `SERVICEMAN_HTTP_SOCKET_MODE` in the agent's `env`) is the whole of the asking: without it the
 agent opens nothing, and a machine carries requests in only because somebody said it should.

@@ -1,3 +1,4 @@
+const board_rules = require('./board_rules');
 const crypto = require('crypto');
 const docker_container_name = require('./docker_container_name');
 const door_peer_known = require('./door_peer_known');
@@ -12,7 +13,9 @@ const remote_candidates = require('./remote_candidates');
 // - services: where each of those runs, and where each service of this machine runs that
 //   another machine's door names — so its agent can answer its peers;
 // - peers: how to reach the other machines' agents, and the token each asks with;
-// - token: the one its own peers ask it with.
+// - token: the one its own peers ask it with;
+// - local: where a board published on it is answered, {ports}, on 127.0.0.1 and nowhere else;
+//   only on a machine a board is on.
 //
 // The version is the table's own fingerprint: the machine says which one it serves, and it is
 // sent again only when that differs.
@@ -20,8 +23,9 @@ function doors_table(app, remote)
 {
     const names = {};
     const wanted = new Set();
-    for (const host of Object.keys(remote.inbound || {})) {
-        const rule = rule_of(app, remote.inbound[host]);
+    const own = board_rules.with_inbound(app, remote);
+    for (const host of Object.keys(own)) {
+        const rule = rule_of(app, own[host]);
         names[host] = rule;
         wanted.add(rule.service);
         if (rule.wall !== null) {
@@ -34,8 +38,9 @@ function doors_table(app, remote)
         if (other === remote) {
             continue;
         }
-        for (const host of Object.keys(other.inbound || {})) {
-            const rule = rule_of(app, other.inbound[host]);
+        const theirs = board_rules.with_inbound(app, other);
+        for (const host of Object.keys(theirs)) {
+            const rule = rule_of(app, theirs[host]);
             for (const name of [rule.service, rule.wall]) {
                 const service = (name === null) ? undefined : app.service_by_name[name];
                 if ((service !== undefined) && (place_of(app, service).machine === remote.name)) {
@@ -64,6 +69,11 @@ function doors_table(app, remote)
         }
     }
     const table = {self: remote.name, token: asked ? door_token(app, remote.name) : null, names, services, peers};
+    // A board published here: the ports its agent answers its names on, on 127.0.0.1 alone
+    const local = board_rules(app, remote.name).ports;
+    if (local.length > 0) {
+        table.local = {ports: local};
+    }
     const version = crypto.createHash('sha256').update(JSON.stringify(table)).digest('hex').slice(0, 12);
     return Object.assign({version}, table);
 }

@@ -29,11 +29,12 @@ the same; serviceman writes it down and tells them, and what it set up goes on w
 is away.
 
 Where that stands now: the doors of a machine route by themselves
-([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)), and a forward
+([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)), a forward
 whose two ends are one machine is joined by its agent
-([Both ends on one machine](remotes.md#both-ends-on-one-machine)). Still through serviceman: a
-forward between two machines, a mount, and a request to serviceman's own door for a service on
-another machine.
+([Both ends on one machine](remotes.md#both-ends-on-one-machine)), and an app board is answered
+by the agent of each machine it is on, straight to its apps
+([App boards](config.md#app-boards)). Still through serviceman: a forward between two machines,
+a mount, and a request to serviceman's own door for a service on another machine.
 
 ## The page shows the command
 

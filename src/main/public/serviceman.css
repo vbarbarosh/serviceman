@@ -5170,3 +5170,267 @@ article.rf .actions {
         margin-left: 0;
     }
 }
+
+/* The app boards: the palette of every app on the left, the boards on the right; a cell is
+   dragged from one to the other, and where it would land shows before the drop: a line in front
+   of the cell it goes before, or the board's whole edge dashed for last */
+.boards-pane .boards-layout {
+    display: grid;
+    grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
+    gap: 1.2rem;
+    align-items: start;
+    margin-top: 1rem;
+}
+
+.boards-pane .boards-note {
+    margin: .6rem 0 0;
+}
+
+.boards-pane .boards-palette {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    padding: .8rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    transition: border-color .12s ease, background .12s ease;
+}
+
+.boards-pane .boards-palette.over {
+    border-style: dashed;
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.boards-pane .boards-palette h2 {
+    margin: 0 0 .6rem;
+    font-size: 1rem;
+}
+
+.boards-pane .boards-palette input {
+    width: 100%;
+    margin-bottom: .7rem;
+}
+
+.boards-pane .board-cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    gap: .6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.boards-pane .palette-cells {
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+}
+
+.boards-pane .board-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    min-width: 0;
+    padding: .5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    cursor: grab;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+
+.boards-pane .board-cell:hover {
+    border-color: var(--accent);
+}
+
+.boards-pane .board-cell {
+    user-select: none;
+    touch-action: none;
+}
+
+.boards-pane .board-cell:active {
+    cursor: grabbing;
+}
+
+/* The cell being dragged stays where it was, faint, while a copy of it follows the pointer */
+.boards-pane .board-cell.lifted {
+    opacity: .4;
+}
+
+.boards-pane .board-ghost {
+    position: fixed;
+    z-index: 50;
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    max-width: 14rem;
+    padding: .4rem .7rem .4rem .4rem;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 8px 24px rgb(0 0 0 / .35);
+    white-space: nowrap;
+    transform: translate(-50%, -50%) rotate(-2deg);
+    pointer-events: none;
+}
+
+.boards-pane .board-ghost .board-tile {
+    width: 2.2rem;
+    height: 2.2rem;
+    font-size: 1.1rem;
+}
+
+/* The cell a dragged one would go in front of */
+.boards-pane .board-cell.over {
+    box-shadow: -4px 0 0 0 var(--accent);
+}
+
+.boards-pane .board-tile {
+    display: grid;
+    place-items: center;
+    height: 3rem;
+    border-radius: 7px;
+    background: hsl(var(--hue) 40% 36%);
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.boards-pane .board-cell-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.boards-pane .board-cell-off {
+    position: absolute;
+    top: .25rem;
+    right: .25rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border-radius: 50%;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .12s ease;
+}
+
+.boards-pane .board-cell:hover .board-cell-off,
+.boards-pane .board-cell-off:focus-visible {
+    opacity: 1;
+}
+
+.boards-pane .board-card {
+    margin-bottom: 1rem;
+    padding: .9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+}
+
+.boards-pane .board-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    margin-bottom: .7rem;
+}
+
+.boards-pane .board-name {
+    overflow: hidden;
+    max-width: 100%;
+    padding: .2rem .4rem;
+    border-color: transparent;
+    background: none;
+    font-size: 1.1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.boards-pane .board-name:hover {
+    border-color: var(--line);
+}
+
+.boards-pane .board-name .muted {
+    font-weight: 400;
+}
+
+.boards-pane .board-name-box {
+    min-width: 12rem;
+    font-size: 1.05rem;
+}
+
+.boards-pane .board-remove {
+    margin-left: auto;
+}
+
+/* A board's apps; with none yet, a place to drop the first, dashed */
+.boards-pane .board-drop {
+    min-height: 4.5rem;
+    padding: .2rem;
+    border: 1px dashed transparent;
+    border-radius: 10px;
+    transition: border-color .12s ease, background .12s ease;
+}
+
+.boards-pane .board-drop.empty {
+    border-color: var(--line-strong);
+}
+
+.boards-pane .board-drop.over {
+    border-color: var(--accent);
+    background: var(--hover);
+}
+
+.boards-pane .board-drop-hint {
+    display: grid;
+    grid-column: 1 / -1;
+    place-items: center;
+    min-height: 4rem;
+    color: var(--muted);
+}
+
+.boards-pane .board-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    align-items: center;
+    margin-top: .8rem;
+}
+
+.boards-pane .board-machine {
+    display: inline-flex;
+    gap: .35rem;
+    align-items: center;
+    max-width: 14rem;
+    overflow: hidden;
+    padding: .25rem .7rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.boards-pane .board-machine.on {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+}
+
+.boards-pane .board-where {
+    margin: .6rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .boards-pane .boards-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .boards-pane .boards-palette {
+        position: static;
+        max-height: none;
+    }
+}

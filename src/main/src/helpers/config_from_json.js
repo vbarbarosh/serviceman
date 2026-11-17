@@ -1,4 +1,5 @@
 const assert_service_valid = require('./assert_service_valid');
+const boards_from_json = require('./boards_from_json');
 const duration_ms_from_text = require('./duration_ms_from_text');
 const forwards_from_json = require('./forwards_from_json');
 const join_from_json = require('./join_from_json');
@@ -84,6 +85,8 @@ function config_from_json(json, base_dir)
         forwards: forwards_from_json(json.forwards, 'forwards'),
         // A folder of one machine, mounted on another, through both links
         mounts: mounts_from_json(json.mounts, 'mounts'),
+        // A page of apps put together by hand, answered by localhost on the machines it is on
+        boards: boards_from_json(json.boards, 'boards'),
         services: [],
         // What k6 is sent at, and from where
         load_tests: load_tests_from_json(json.load_tests, 'load_tests'),
@@ -192,6 +195,32 @@ function config_from_json(json, base_dir)
             const name = out.mounts[i][side].remote;
             if (out.remotes.some(v => v.name === name) === false) {
                 throw new Error(`mounts[${i}].${side}.remote: no remote named ${JSON.stringify(name)} is in the config`);
+            }
+        }
+    }
+    // A board is on machines that are in the config and shows services that are; on one machine
+    // each name under .localhost is one thing, a board or an app, whichever board it comes from
+    const on_machine = {};
+    for (let i = 0; i < out.boards.length; i++) {
+        const board = out.boards[i];
+        for (const name of board.machines) {
+            if (out.remotes.some(v => v.name === name) === false) {
+                throw new Error(`boards[${i}].machines: no remote named ${JSON.stringify(name)} is in the config`);
+            }
+        }
+        for (const name of board.apps) {
+            if (names.includes(name) === false) {
+                throw new Error(`boards[${i}].apps: no service named ${JSON.stringify(name)} is in the config`);
+            }
+        }
+        for (const machine of board.machines) {
+            const taken = on_machine[machine] || (on_machine[machine] = {});
+            const mine = [[board.name, `the board ${board.name}`], ...board.apps.map(v => [v.replace(/_/g, '-'), `the app ${v}`])];
+            for (const [label, what] of mine) {
+                if ((taken[label] !== undefined) && (taken[label] !== what)) {
+                    throw new Error(`boards[${i}]: on ${machine}, ${label}.localhost is ${taken[label]} and ${what} at once`);
+                }
+                taken[label] = what;
             }
         }
     }

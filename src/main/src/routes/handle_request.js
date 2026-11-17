@@ -90,8 +90,10 @@ function handle_request(app, req, res)
         return handle_control_request(app, req, res);
     }
     // A name under .localhost is this computer's own: asked from anywhere else it was typed by
-    // hand, and it is no name here, said as any name serviceman does not know is
-    if (is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
+    // hand, and it is no name here, said as any name serviceman does not know is. Through a
+    // machine's door it is that machine's own, a board's on its loopback, and its rule has said
+    // what answers it.
+    if ((door === null) && is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
         return log_group_from(req.socket.log_group, async function () {
             log_event(app, 'localhost_refused', {host, ip: client_address(req)});
             render_error_page(res, 404, 'No service answers on this address', `${host}${pathname_of(req)}`);
@@ -175,7 +177,9 @@ async function request_answer(app, req, res, host, quiet, door)
     // domain is one: serviceman's own name or address on the tailnet is no name of that door's.
     // On an app's own port nothing but the app answers, an app gone since included.
     const page_name = ((found.route === null) && (req.socket.app_port === undefined)) ? apps_page_of(app, host, {name: tailnet_name_read.known(), ip: tailnet_ip_read.known()}) : null;
-    const page = ((page_name !== null) && ((door === null) || (page_name.way === 'domain'))) ? page_name : null;
+    // A board published on the machine it came through is one there, at the board's own name
+    const board_page = ((door !== null) && (door.board !== undefined)) ? {way: 'board', domain: null, board: door.board} : null;
+    const page = (board_page !== null) ? board_page : (((page_name !== null) && ((door === null) || (page_name.way === 'domain'))) ? page_name : null);
     // Behind the wall Apps names, its sign-in on the page's own names; a door has asked its own
     if ((page !== null) && (door === null)) {
         found = wall_route.apps_page(app, pathname);

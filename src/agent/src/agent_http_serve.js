@@ -1,18 +1,13 @@
 const agent_dir = require('./agent_dir');
 const agent_door_answer = require('./agent_door_answer');
-const agent_doors_state = require('./agent_doors_state');
 const agent_http_error = require('./agent_http_error');
+const agent_relay = require('./agent_relay');
 const agent_say = require('./agent_say');
-const agent_tunnel = require('./agent_tunnel');
 const fs = require('fs');
 const http = require('http');
-const net = require('net');
 const path = require('path');
 
 const SOCKET_NAME = 'http.sock';
-// Beside the door, for this agent alone: what it hands to serviceman goes in here and comes out
-// over the link, byte for byte, exactly as the door carried everything before it routed
-const RELAY_NAME = 'relay.sock';
 
 // The way in. Whatever connects to this file — the web server on this machine, and nothing else
 // can — is answered here: each request by this machine's door table, straight to the wall and
@@ -40,18 +35,7 @@ function agent_http_serve(options, group)
         }
         return null;
     }
-    const relay = path.join(agent_dir(), RELAY_NAME);
-    const relaying = net.createServer(function (socket) {
-        socket.on('error', function () {
-            socket.destroy();
-        });
-        if (agent_doors_state.link === null) {
-            socket.destroy();
-            return;
-        }
-        agent_tunnel.open(agent_doors_state.link, socket, {http: {}});
-    });
-    listen_file(relaying, relay, 0o600, group, null);
+    const relay = agent_relay(group);
     // What answering one visitor throws costs that visitor alone, a 500 or a closed socket, and
     // a line in the log: thrown out of here it would end the agent, and with it this machine's
     // link and every other name at this door.

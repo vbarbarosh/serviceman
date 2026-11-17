@@ -6,6 +6,7 @@ const agent_connect = require('./src/agent_connect');
 const agent_doors_read = require('./src/agent_doors_read');
 const agent_doors_state = require('./src/agent_doors_state');
 const agent_http_serve = require('./src/agent_http_serve');
+const agent_local_serve = require('./src/agent_local_serve');
 const agent_logline = require('./src/agent_logline');
 const agent_metrics = require('./src/agent_metrics');
 const agent_peer_serve = require('./src/agent_peer_serve');
@@ -208,6 +209,7 @@ async function main()
     // peers reach it stand for the life of the agent, not of a link
     agent_doors_state.table = agent_doors_read();
     agent_http_serve(options, boot);
+    agent_local_serve(options, boot);
     agent_peer_serve(options, boot);
     // The machine says when it is going, and why. Silence is the one thing a host cannot read:
     // a stop, a shutdown and a network that blinked all look the same from over there.

@@ -1444,6 +1444,44 @@ port, which the tailnet reaches in its container, and the page of cells at
 `http://apps.example.com:3000/`; nothing of it is reached from outside the tailnet. **Apps**
 leads with that link once `dns` is set. A change of `dns` or `address` waits for a restart.
 
+### App boards
+
+A board is a page of apps put together by hand and published on machines. On each, its agent
+answers it on `127.0.0.1` and nowhere else: the board at its name under `.localhost`, each app
+on it at its own, `http://apps.localhost:3000/` and `http://notes.localhost:3000/`. Nothing on
+the network that machine is on, its tailnet included, reaches the port. A page there is a
+secure context, so it has the microphone, the camera and the clipboard with no certificate.
+
+```json
+"boards": [
+    {"name": "apps", "machines": ["laptop"], "apps": ["notes", "mail"]}
+]
+```
+
+| Field      | What it is                                                                     |
+|------------|--------------------------------------------------------------------------------|
+| `name`     | Its name under `.localhost`: lowercase letters, digits and hyphens.            |
+| `machines` | The machines it is published on, by name; none yet is a board on no machine.   |
+| `apps`     | Services by name, in the order the board shows them.                           |
+| `port`     | Where its agent answers it, on `127.0.0.1`: `3000` unless said.                |
+
+**Boards**, in the rail, is where they are made: every app is a cell in a palette, dragged onto
+a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
+publishes it there. Each change is saved at once. A program reads the list with
+`GET /api/v1/boards` and writes it back whole with `PUT /api/v1/boards`, the owner's token alone.
+
+- **Straight to the app.** A request on a board's port is routed by the machine's door table, as
+  its door routes one ([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)):
+  a service on that machine is reached there, one on another machine through that machine's
+  agent over the tailnet, and an app serviceman serves itself, and the board's page, over the
+  machine's link to serviceman, one trip. An app's wall is asked as at any of its addresses.
+- **One name, one thing.** On one machine a name under `.localhost` is one board or one app; the
+  config refuses two boards or a board and an app that would share one. An app on two boards of
+  one machine is the same name.
+- **Renamed or deleted.** A renamed app keeps its place on every board it is on; a deleted one
+  comes off them.
+- **An agent older than 1.40** listens on no board's port: update it.
+
 ## Load tests
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address

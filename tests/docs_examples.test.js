@@ -7,7 +7,7 @@ const test = require('node:test');
 const DOCS = path.join(__dirname, '..', 'docs');
 // What a whole config may hold, and what a service may: a block that is a part of either is
 // read by its keys
-const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'mounts', 'join', 'logline', 'load_tests', 'apps'];
+const CONFIG_KEYS = ['listen', 'control', 'defaults', 'remotes', 'services', 'forwards', 'mounts', 'boards', 'join', 'logline', 'load_tests', 'apps'];
 const SERVICE_KEYS = ['policy', 'volumes', 'env', 'run_args', 'network', 'args', 'publish', 'image', 'command', 'argv', 'cwd', 'upstream', 'redirect', 'folder'];
 const REMOTE_KEYS = ['inbound', 'tags'];
 // The service a part of a service is tried in, and the token a shortened one (`0c0f…a91b`)
@@ -90,8 +90,8 @@ function values_of(text)
 }
 
 // The whole config a value is tried as, null for a value that is no part of one. What a part
-// names and leaves out is stood in for: the machines its services and forwards run on, the
-// services its doors and load tests name.
+// names and leaves out is stood in for: the machines its services, forwards and boards are on,
+// the services its doors, load tests and boards name.
 function config_of(value)
 {
     if ((value === null) || (typeof value !== 'object') || Array.isArray(value)) {
@@ -123,7 +123,7 @@ function config_of(value)
     config.services = (config.services || []).slice();
     const services = new Set(config.services.map(v => v.name));
     const rules = config.remotes.flatMap(v => Object.values(v.inbound || {}));
-    const served = [].concat(rules.map(v => (typeof v === 'string') ? v : v.service), rules.map(v => v.auth), (config.load_tests || []).map(v => v.service));
+    const served = [].concat(rules.map(v => (typeof v === 'string') ? v : v.service), rules.map(v => v.auth), (config.load_tests || []).map(v => v.service), (config.boards || []).flatMap(v => v.apps || []));
     for (const name of served) {
         // "*" is no service: it is the one whose own address the name is
         if ((typeof name === 'string') && (name !== '*') && (services.has(name) === false)) {
@@ -133,7 +133,7 @@ function config_of(value)
     }
     const remotes = new Set(config.remotes.map(v => v.name));
     const ends = [].concat(config.forwards || [], config.mounts || []).flatMap(v => [v.from, v.to]).filter(v => (v !== undefined) && (v !== null));
-    const machines = [].concat(config.services.flatMap(v => [].concat(v.remotes || [], v.remote)), ends.map(v => v.remote), (config.load_tests || []).map(v => v.remote));
+    const machines = [].concat(config.services.flatMap(v => [].concat(v.remotes || [], v.remote)), ends.map(v => v.remote), (config.load_tests || []).map(v => v.remote), (config.boards || []).flatMap(v => v.machines || []));
     for (const name of machines) {
         if ((typeof name === 'string') && (name.startsWith('#') === false) && (remotes.has(name) === false)) {
             remotes.add(name);

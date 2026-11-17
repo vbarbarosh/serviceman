@@ -2290,6 +2290,58 @@ Every device of the tailnet then opens <code>http://notes.apps.example.com:3000/
 port, which the tailnet reaches in its container, and the page of cells at
 <code>http://apps.example.com:3000/</code>; nothing of it is reached from outside the tailnet. <strong>Apps</strong>
 leads with that link once <code>dns</code> is set. A change of <code>dns</code> or <code>address</code> waits for a restart.</p>
+<h3 id="app-boards"><a class="anchor" href="#app-boards" aria-hidden="true" tabindex="-1">#</a>App boards</h3>
+<p>A board is a page of apps put together by hand and published on machines. On each, its agent
+answers it on <code>127.0.0.1</code> and nowhere else: the board at its name under <code>.localhost</code>, each app
+on it at its own, <code>http://apps.localhost:3000/</code> and <code>http://notes.localhost:3000/</code>. Nothing on
+the network that machine is on, its tailnet included, reaches the port. A page there is a
+secure context, so it has the microphone, the camera and the clipboard with no certificate.</p>
+<pre><code class="language-json">&quot;boards&quot;: [
+    {&quot;name&quot;: &quot;apps&quot;, &quot;machines&quot;: [&quot;laptop&quot;], &quot;apps&quot;: [&quot;notes&quot;, &quot;mail&quot;]}
+]
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>Its name under <code>.localhost</code>: lowercase letters, digits and hyphens.</td>
+</tr>
+<tr>
+<td><code>machines</code></td>
+<td>The machines it is published on, by name; none yet is a board on no machine.</td>
+</tr>
+<tr>
+<td><code>apps</code></td>
+<td>Services by name, in the order the board shows them.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>Where its agent answers it, on <code>127.0.0.1</code>: <code>3000</code> unless said.</td>
+</tr>
+</tbody></table>
+</div>
+<p><strong>Boards</strong>, in the rail, is where they are made: every app is a cell in a palette, dragged onto
+a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
+publishes it there. Each change is saved at once. A program reads the list with
+<code>GET /api/v1/boards</code> and writes it back whole with <code>PUT /api/v1/boards</code>, the owner&#39;s token alone.</p>
+<ul>
+<li><strong>Straight to the app.</strong> A request on a board&#39;s port is routed by the machine&#39;s door table, as
+its door routes one (<a href="remotes.html#a-machine-that-takes-the-traffic">A machine that takes the traffic</a>):
+a service on that machine is reached there, one on another machine through that machine&#39;s
+agent over the tailnet, and an app serviceman serves itself, and the board&#39;s page, over the
+machine&#39;s link to serviceman, one trip. An app&#39;s wall is asked as at any of its addresses.</li>
+<li><strong>One name, one thing.</strong> On one machine a name under <code>.localhost</code> is one board or one app; the
+config refuses two boards or a board and an app that would share one. An app on two boards of
+one machine is the same name.</li>
+<li><strong>Renamed or deleted.</strong> A renamed app keeps its place on every board it is on; a deleted one
+comes off them.</li>
+<li><strong>An agent older than 1.40</strong> listens on no board&#39;s port: update it.</li>
+</ul>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this

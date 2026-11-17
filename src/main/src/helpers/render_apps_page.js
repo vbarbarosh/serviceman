@@ -228,14 +228,20 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 //     tailnet  at serviceman's tailnet name: every service, an app at its own port on the name
 //              typed; one with no port of its own, or one that does not listen, is a cell that
 //              says so and opens nothing
+//     board    at a board's name, through the door of a machine it is published on: its apps,
+//              in its order, each at its name under .localhost on the page's port, which the
+//              agent there answers on its loopback (board_rules)
 //
-//     page     {way, domain}, as apps_page_of gives it
+//     page     {way, domain}, as apps_page_of gives it, or {way: 'board', board} by its name
 //     asked    the Host the visitor asked with, its port too: apps.example.com:3000
 function render_apps_page(app, page, asked)
 {
     const [, name_asked, port = ''] = RE_HOST_PORT.exec(String(asked || ''));
     const cells = cells_of(app, page, name_asked, port);
-    cells.sort((a, b) => a.title.localeCompare(b.title));
+    // A board shows its apps in the order they were put on it
+    if (page.way !== 'board') {
+        cells.sort((a, b) => a.title.localeCompare(b.title));
+    }
     const items = cells.map(function (cell) {
         const phase = service_phase(cell.service);
         const tile = `<span class="tile" style="--hue: ${hue_of(cell.service.name)}">${html_escape(Array.from(cell.title)[0].toUpperCase())}</span><b>${html_escape(cell.title)}</b>`;
@@ -245,14 +251,17 @@ function render_apps_page(app, page, asked)
         }
         return `<li ${found_by}><a class="cell" href="${html_escape(cell.href)}" title="${html_escape(cell.title)} · ${html_escape(cell.href.slice(2))}">${tile}<span class="host">${html_escape(cell.address)}</span><span class="state"><i class="dot ${html_escape(phase)}"></i>${html_escape(STATE_WORDS[phase] || phase)}</span></a></li>`;
     });
-    const none = (page.way === 'domain') ? `No app here yet: one sent to serviceman under ${html_escape(page.domain)} lands here.` : 'No app here yet: one dropped on serviceman\'s Apps page lands here.';
+    const none = (page.way === 'domain') ? `No app here yet: one sent to serviceman under ${html_escape(page.domain)} lands here.`
+        : (page.way === 'board') ? 'No app on this board yet: one dragged onto it on serviceman\'s Boards page lands here.'
+            : 'No app here yet: one dropped on serviceman\'s Apps page lands here.';
     const list = (items.length === 0) ? `<p class="none">${none}</p>` : `<input class="search" type="search" placeholder="find an app by its name, kind or address; Enter opens it" spellcheck="false" aria-label="Find an app; Enter opens the first" autofocus>
 <p class="none" hidden>No app has that in its name, kind or address.</p>
 <ul class="cells">${items.join('')}</ul>
 <script type="module">${APPS_SEARCH}
 ${SEARCH_JS}</script>`;
     const apps = `${cells.length} ${(cells.length === 1) ? 'app' : 'apps'}`;
-    const where = {domain: `under ${html_escape(page.domain)}`, here: 'on this computer', tailnet: 'on every device of your tailnet'}[page.way];
+    const where = {domain: `under ${html_escape(page.domain)}`, here: 'on this computer', tailnet: 'on every device of your tailnet', board: 'on this computer'}[page.way];
+    const heading = (page.way === 'board') ? page.board : 'Apps';
     const theme = theme_switch();
     // On the tailnet the apps open at their own ports: over http while it gives no certificate,
     // and the page says why, as Health does
@@ -262,10 +271,10 @@ ${SEARCH_JS}</script>`;
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apps</title>
+<title>${html_escape(heading)}</title>
 <style>${PAGE_CSS}</style>
 <script>${theme.stamp}</script>
-<header><h1>Apps</h1><p>${apps} ${where}</p>${http_why}</header>
+<header><h1>${html_escape(heading)}</h1><p>${apps} ${where}</p>${http_why}</header>
 ${list}
 ${theme.button}
 <script>${theme.toggle}</script>
@@ -300,6 +309,9 @@ function words_of(service)
 // nothing from here, why then saying so
 function cells_of(app, page, name_asked, port)
 {
+    if (page.way === 'board') {
+        return board_cells(app, page.board, port);
+    }
     const out = [];
     for (const service of app.services) {
         const hosts = service.hosts.filter(v => (v.startsWith('*') === false));
@@ -332,6 +344,25 @@ function cells_of(app, page, name_asked, port)
         const held = app.tailnet_cert;
         const href = (held.context === null) ? `//${name_asked}:${own.port}/` : `https://${held.domain}:${own.port}/`;
         out.push({service, title, address: `port ${own.port}`, href, why: ''});
+    }
+    return out;
+}
+
+// A board's cells, in its order: each app at its own label under .localhost on the port the
+// board was asked on; a board taken out since, or an app gone from the config, has none
+function board_cells(app, name, port)
+{
+    const board = app.config.boards.find(v => v.name === name);
+    if (board === undefined) {
+        return [];
+    }
+    const out = [];
+    for (const service_name of board.apps) {
+        const service = app.service_by_name[service_name];
+        if (service !== undefined) {
+            const host = `${service_name.replace(/_/g, '-')}.localhost`;
+            out.push({service, title: service.title || service.name, address: host, href: `//${host}${port}/`, why: ''});
+        }
     }
     return out;
 }

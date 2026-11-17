@@ -1,3 +1,4 @@
+const board_rules = require('./board_rules');
 const inbound_rule = require('./inbound_rule');
 const route_from_request = require('../routes/route_from_request');
 const wall_route = require('./wall_route');
@@ -26,6 +27,8 @@ const wall_route = require('./wall_route');
 //     home     a rule of "*" asked for the apps domain itself, which no service has: the page of
 //              its apps answers it (render_apps_page), behind the rule's wall or else the one
 //              Apps names
+//     board    a board published on that machine, by name, asked at its name under .localhost
+//              (board_rules): the page of its apps answers it, home too
 function door_inbound(app, req, host, pathname)
 {
     claim_drop(req);
@@ -33,9 +36,15 @@ function door_inbound(app, req, host, pathname)
         return null;
     }
     const from = app.remote_by_name[req.socket.tunnel_from];
-    const rule = (from === undefined) ? null : inbound_rule(from, host);
+    const rule = (from === undefined) ? null : inbound_rule(board_rules.with_inbound(app, from), host);
     if ((rule === null) || rule.off) {
         return {service: null, wall: null, off: (rule !== null) && rule.off, route: null};
+    }
+    // A board published on that machine: the page of its apps, behind the wall Apps names, as
+    // the page of every app is
+    if (rule.board !== undefined) {
+        const found = wall_route.apps_page(app, pathname);
+        return {service: (found.route === null) ? null : found.route.service, wall: found.wall, off: false, route: found.route, home: true, board: rule.board};
     }
     if (rule.service === '*') {
         let found = wall_route(app, host, pathname, route_from_request(app, host, pathname), rule.auth);

@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.144 — 2026-11-17
+
+- App boards: a page of apps put together by dragging on **Boards**, published on a machine, whose agent answers it and its apps on 127.0.0.1 alone, at their names under `.localhost` (agent 1.40.0).
+
 ## 1.0.143 — 2026-11-17
 
 - A forward whose two ends are one machine is joined by its agent, straight, and no longer goes through serviceman and back (agent 1.39.0): an app opens on the laptop by `localhost`, with its microphone and clipboard, and no certificate.
