@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.143 — 2026-11-17
+
+- A forward whose two ends are one machine is joined by its agent, straight, and no longer goes through serviceman and back (agent 1.39.0): an app opens on the laptop by `localhost`, with its microphone and clipboard, and no certificate.
+
 ## 1.0.142 — 2026-11-17
 
 - Apps and Addresses say at once, in a note over the tailnet links, that they open over http and why, with tailscale's own words and the link that turns HTTPS on.

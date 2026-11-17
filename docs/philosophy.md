@@ -20,6 +20,21 @@ terminal you can join over ssh with `socat`. Nothing is kept in a form only
 serviceman can read, and nothing it does needs serviceman to be undone. A feature that would
 break this does not belong in serviceman.
 
+## serviceman sets the machines up; they carry the traffic
+
+serviceman's part is to set the agents up: which one listens where, what each may reach, which
+address it dials and on what port. The traffic itself goes from machine to machine over the
+network they share, the tailnet, and not through serviceman. Two agents set up by hand would do
+the same; serviceman writes it down and tells them, and what it set up goes on working while it
+is away.
+
+Where that stands now: the doors of a machine route by themselves
+([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)), and a forward
+whose two ends are one machine is joined by its agent
+([Both ends on one machine](remotes.md#both-ends-on-one-machine)). Still through serviceman: a
+forward between two machines, a mount, and a request to serviceman's own door for a service on
+another machine.
+
 ## The page shows the command
 
 What follows from it: a part of the page that shows something from a machine, or does

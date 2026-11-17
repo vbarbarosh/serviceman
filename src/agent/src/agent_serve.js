@@ -178,7 +178,20 @@ async function agent_serve(options, socket, group, status)
             stats_at = now + STATS_EVERY_MS;
             stats_send(options, socket, group);
         }
+        // What went through the forwards this machine joins itself, for the page's counts and
+        // speeds: once a tick, and only when something moved
+        const forwards_counts = agent_forwards_set.counts_take();
+        if (forwards_counts !== null) {
+            try {
+                link_send_message(socket, {type: 'forwards_counts', counts: forwards_counts});
+            }
+            catch {
+                // The link is gone; the close is what says so
+            }
+        }
     }
+    // A new link hears how many connections are open now, whatever the last one heard
+    agent_forwards_set.counts_retell();
     const clock = setInterval(tick, TICK_MS);
     // The way in for whatever stands in front of this machine, open for as long as the link is
     // What the door cannot route itself goes over this link while it is up

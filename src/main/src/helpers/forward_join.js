@@ -121,5 +121,6 @@ function refuse(state, id, code, message)
 
 forward_join.carry = forward_carry;
 forward_join.counts = forward_counts;
+forward_join.failed = failed;
 
 module.exports = forward_join;

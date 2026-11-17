@@ -980,6 +980,38 @@ same thing written the other way round.
 Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.
 
+### Both ends on one machine
+
+`from` and `to` may be the same machine: an address it reaches, brought to its own loopback.
+Its agent then joins the two itself, and each connection goes straight to the address, over the
+network the machine is on, the tailnet; serviceman tells the agent where and carries none of it,
+and the forward goes on while serviceman is away. The Doors page counts it from what the agent
+tells it, once a second.
+
+It is made for an app of serviceman's opened on the laptop by `localhost`. A browser lets a page
+use the microphone, the camera, screen recording and the clipboard only in a secure context:
+over https, or on this computer. `http://notes.localhost:5460` is this computer, with no
+certificate:
+
+```json
+"forwards": [
+    {"label": "notes on the laptop", "from": {"remote": "laptop", "host": "serviceman.tail1234.ts.net", "port": 3400}, "to": {"remote": "laptop", "port": 5460}}
+]
+```
+
+- **serviceman's port for the app, not the app's machine.** `:3400` is the app's own port on
+  serviceman ([An app sent to serviceman](config.md#an-app-sent-to-serviceman)), so the app
+  starts on its first visit, stops when nobody comes and stands behind its wall. Straight to the
+  machine the app runs on, serviceman would see none of the visits.
+- **A name under `.localhost` for each app.** Chrome and Firefox send any name under
+  `.localhost` to this computer. `notes.localhost:5460` and `board.localhost:5461` keep their
+  cookies apart; `localhost:5460` and `localhost:5461` share them, since a cookie does not tell
+  ports apart.
+- **Never where it listens.** A far end that is the forward's own socket file, or its own port on
+  the loopback, would reach itself with each connection: the config refuses it.
+- **An agent older than 1.39** is not told the far end, and its connections ride the links
+  through serviceman as before, three trips for one; update it.
+
 ### A forward onto serviceman itself
 
 `to` may be serviceman itself instead of a machine: `"here": true` in place of `remote`.

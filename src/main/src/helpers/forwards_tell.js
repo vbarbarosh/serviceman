@@ -27,7 +27,7 @@ async function tell(app)
         if ((state.phase !== 'online') || (remote_can(remote, 'forwards') === false)) {
             continue;
         }
-        const forwards = forwards_of(app, remote.name);
+        const forwards = forwards_of(app, remote);
         const key = JSON.stringify(forwards);
         const failed = (state.forwards_said !== null) && Object.values(state.forwards_said).some(v => v.error !== null);
         if (((state.forwards_told === key) && (failed === false)) || (state.forwards_sending !== null)) {
@@ -64,17 +64,36 @@ function said_checked(said)
     return said;
 }
 
-// What one machine listens for: the `to` of each forward that is on and shows up there, and
-// nothing about where it comes from
-function forwards_of(app, name)
+// What one machine listens for: the `to` of each forward that is on and shows up there. Where a
+// forward comes from is said only when it is the same machine and its agent can dial it: the
+// agent then joins the two ends itself, in one trip, and serviceman carries none of it. An
+// older agent is told nothing more, and its connections go through serviceman as before.
+function forwards_of(app, remote)
 {
+    const dial_here = remote_can(remote, 'forwards_dial');
     const out = [];
     for (const item of app.config.forwards) {
-        if ((item.off === false) && (item.to.remote === name)) {
-            out.push((item.to.socket === null) ? {name: item.label, port: item.to.port} : {name: item.label, socket: item.to.socket});
+        if ((item.off === false) && (item.to.remote === remote.name)) {
+            const told = (item.to.socket === null) ? {name: item.label, port: item.to.port} : {name: item.label, socket: item.to.socket};
+            if (dial_here && (item.from.remote === remote.name)) {
+                told.dial = dial_of(item.from);
+            }
+            out.push(told);
         }
     }
     return out;
 }
+
+// A forward's `from`, as the agent dials it: a socket file, or a port on its loopback or at an
+// address it reaches
+function dial_of(from)
+{
+    if (from.socket !== null) {
+        return {path: from.socket};
+    }
+    return (from.host === null) ? {port: from.port} : {host: from.host, port: from.port};
+}
+
+forwards_tell.forwards_of = forwards_of;
 
 module.exports = forwards_tell;

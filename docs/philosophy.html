@@ -687,7 +687,7 @@ img {
 <h2>Docs</h2>
 <ul>
 <li><a href="overview.html">Overview</a></li>
-<li class="current"><a href="philosophy.html" aria-current="page">Philosophy</a><ul class="toc"><li><a href="#nothing-you-could-not-do-by-hand">Nothing you could not do by hand</a></li><li><a href="#the-page-shows-the-command">The page shows the command</a></li></ul></li>
+<li class="current"><a href="philosophy.html" aria-current="page">Philosophy</a><ul class="toc"><li><a href="#nothing-you-could-not-do-by-hand">Nothing you could not do by hand</a></li><li><a href="#serviceman-sets-the-machines-up-they-carry-the-traffic">serviceman sets the machines up; they carry the traffic</a></li><li><a href="#the-page-shows-the-command">The page shows the command</a></li></ul></li>
 <li><a href="usecases.html">Use cases</a></li>
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
@@ -758,6 +758,18 @@ right moment.</p>
 terminal you can join over ssh with <code>socat</code>. Nothing is kept in a form only
 serviceman can read, and nothing it does needs serviceman to be undone. A feature that would
 break this does not belong in serviceman.</p>
+<h2 id="serviceman-sets-the-machines-up-they-carry-the-traffic"><a class="anchor" href="#serviceman-sets-the-machines-up-they-carry-the-traffic" aria-hidden="true" tabindex="-1">#</a>serviceman sets the machines up; they carry the traffic</h2>
+<p>serviceman&#39;s part is to set the agents up: which one listens where, what each may reach, which
+address it dials and on what port. The traffic itself goes from machine to machine over the
+network they share, the tailnet, and not through serviceman. Two agents set up by hand would do
+the same; serviceman writes it down and tells them, and what it set up goes on working while it
+is away.</p>
+<p>Where that stands now: the doors of a machine route by themselves
+(<a href="remotes.html#a-machine-that-takes-the-traffic">A machine that takes the traffic</a>), and a forward
+whose two ends are one machine is joined by its agent
+(<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>). Still through serviceman: a
+forward between two machines, a mount, and a request to serviceman&#39;s own door for a service on
+another machine.</p>
 <h2 id="the-page-shows-the-command"><a class="anchor" href="#the-page-shows-the-command" aria-hidden="true" tabindex="-1">#</a>The page shows the command</h2>
 <p>What follows from it: a part of the page that shows something from a machine, or does
 something to it, carries the command that does the same by hand, one click from the

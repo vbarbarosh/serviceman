@@ -58,6 +58,11 @@ function forwards_from_json(json, label)
         if (to.host !== null) {
             throw new Error(`${at}.to.host: a forward shows up on its machine's loopback and nowhere else`);
         }
+        // Both ends on one machine is a forward its agent joins itself; one that would dial where
+        // it listens would open one more connection for each it takes, without end
+        if ((to.here === false) && (from.remote === to.remote) && end_loops(from, to)) {
+            throw new Error(`${at}.from: where the forward listens itself, on ${to.remote}; each connection would reach itself`);
+        }
         const taken = out.find(v => (v.to.remote === to.remote) && (v.to.port === to.port) && (v.to.socket === to.socket));
         if (taken !== undefined) {
             throw new Error(`${at}.to: ${JSON.stringify(taken.label)} already listens there`);
@@ -126,6 +131,17 @@ function end_from_json(json, label, here_allowed)
         socket: (json.socket === undefined) ? null : json.socket,
         host: (json.host === undefined) ? null : json.host,
     };
+}
+
+// Whether the far end of a forward on one machine is where it listens: the same socket file, or
+// the same port on its loopback
+function end_loops(from, to)
+{
+    if (from.socket !== null) {
+        return (from.socket === to.socket);
+    }
+    const loopback = (from.host === null) || (from.host === '127.0.0.1') || (from.host === 'localhost');
+    return loopback && (from.port === to.port);
 }
 
 // A socket of serviceman's own stays in its state dir: a relative path that names a file, and

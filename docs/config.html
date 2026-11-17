@@ -1040,7 +1040,9 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <p>Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on <code>from</code>. <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>
 says what happens while one of them is away, and <a href="remotes.html#a-forward-onto-serviceman-itself">onto serviceman itself</a>
-where its socket lands.</p>
+where its socket lands. Both ends may be one machine, an address it reaches brought to its own
+loopback: its agent joins them itself, and serviceman carries none of it
+(<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>).</p>
 <p>A program reads the list with <code>GET /api/v1/forwards</code>, <code>{&quot;forwards&quot;: [...]}</code> as this file writes
 them, and writes it back whole, changed, with <code>PUT /api/v1/forwards</code>. A token with the
 <code>forwards</code> right (<a href="deploy.html#a-token-for-every-caller">A token for every caller</a>) gets the
@@ -2256,6 +2258,11 @@ tailnet comes with a link to Tailscale&#39;s DNS page, where it is turned on. <s
 <strong>Addresses</strong> say it at once, in a note over their tailnet links, with tailscale&#39;s own words and
 that link; each app&#39;s tailnet link says it is http and why, wherever it is shown: <strong>Apps</strong>, an
 app&#39;s <strong>Settings</strong>, <strong>Addresses</strong> and the page of apps.</p>
+<p><strong>Or by <code>localhost</code>, with no certificate.</strong> A computer that runs the agent opens an app as a
+secure context through a forward on its own loopback, <code>http://notes.localhost:5460</code>, which its
+agent joins straight to the app&#39;s port here: nothing goes into the public log of certificates,
+and nothing passes through serviceman (<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>).
+A phone runs no agent, and is left with https.</p>
 <p><strong>The Tailscale page,</strong> in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
 sign this machine in while tailscale waits for one; the certificate, for which name and until when,

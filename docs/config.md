@@ -215,7 +215,9 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
 says what happens while one of them is away, and [onto serviceman itself](remotes.md#a-forward-onto-serviceman-itself)
-where its socket lands.
+where its socket lands. Both ends may be one machine, an address it reaches brought to its own
+loopback: its agent joins them itself, and serviceman carries none of it
+([Both ends on one machine](remotes.md#both-ends-on-one-machine)).
 
 A program reads the list with `GET /api/v1/forwards`, `{"forwards": [...]}` as this file writes
 them, and writes it back whole, changed, with `PUT /api/v1/forwards`. A token with the
@@ -1402,6 +1404,12 @@ tailnet comes with a link to Tailscale's DNS page, where it is turned on. **Apps
 **Addresses** say it at once, in a note over their tailnet links, with tailscale's own words and
 that link; each app's tailnet link says it is http and why, wherever it is shown: **Apps**, an
 app's **Settings**, **Addresses** and the page of apps.
+
+**Or by `localhost`, with no certificate.** A computer that runs the agent opens an app as a
+secure context through a forward on its own loopback, `http://notes.localhost:5460`, which its
+agent joins straight to the app's port here: nothing goes into the public log of certificates,
+and nothing passes through serviceman ([Both ends on one machine](remotes.md#both-ends-on-one-machine)).
+A phone runs no agent, and is left with https.
 
 **The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to

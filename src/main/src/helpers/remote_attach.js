@@ -6,6 +6,7 @@ const door_peer_known = require('./door_peer_known');
 const doors_tell = require('./doors_tell');
 const format_bytes = require('@vbarbarosh/node-helpers/src/format_bytes');
 const format_duration_ms = require('../../../helpers/format_duration_ms');
+const forwards_counts_apply = require('./forwards_counts_apply');
 const forwards_tell = require('./forwards_tell');
 const image_prepull_start = require('./image_prepull_start');
 const k6_lane = require('./k6_lane');
@@ -206,6 +207,10 @@ function message_read(app, remote, message)
         if (Array.isArray(message.stats.can) && (state.resources !== null)) {
             state.resources.can = message.stats.can;
         }
+        return;
+    }
+    if (message.type === 'forwards_counts') {
+        forwards_counts_apply(app, remote, message.counts);
         return;
     }
     if (message.type === 'reply') {

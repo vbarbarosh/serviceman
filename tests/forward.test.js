@@ -5,6 +5,7 @@ const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const fetch_host = require('./fetch_host');
 const forwards_here = require('../src/main/src/helpers/forwards_here');
+const forwards_tell = require('../src/main/src/helpers/forwards_tell');
 const fs = require('fs');
 const link_read = require('../src/helpers/link_read');
 const net = require('net');
@@ -111,6 +112,80 @@ test('a forward from a machine that is away closes each connection at once and s
         await running.close();
         echo.close();
     }
+});
+
+// An app on serviceman's own port, opened on the laptop by localhost: both ends are the
+// laptop's, so its agent joins them itself. The bytes go there in one trip and never through
+// serviceman, which may even be away; the page still counts them, from what the agent tells.
+test('a forward with both ends on one machine is joined by its agent, not through serviceman', async function () {
+    const echo = await echo_server({port: 0, host: '127.0.0.1'});
+    const port = await port_free();
+    const running = await serviceman_start([
+        {label: 'notes on the laptop', from: {remote: 'laptop', host: '127.0.0.1', port: echo.address().port}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = agents_start(running);
+    try {
+        await wait_listening(running, 'notes on the laptop');
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'hello'), 'echo: hello');
+        await wait_until(() => (counted(running, 'notes on the laptop').total === 1) && (counted(running, 'notes on the laptop').open === 0));
+        const view = (await state_read(running)).forwards[0];
+        assert.strictEqual(view.state, 'ready');
+        assert.strictEqual(view.bytes_sent, 5);
+        assert.strictEqual(view.bytes_back, 11);
+        assert.strictEqual(Object.keys(running.app.remote_by_name.laptop.state.streams).length, 0, 'serviceman opened no stream for it');
+
+        await running.close();
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'serviceman is away'), 'echo: serviceman is away');
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+        echo.close();
+    }
+});
+
+// The far end of a forward the agent joins itself refuses: the connection closes at once, and
+// the page says why, as for one serviceman carries
+test('a forward joined by its agent says why its far end refused', async function () {
+    const gone = await port_free();
+    const port = await port_free();
+    const running = await serviceman_start([
+        {label: 'nothing there', from: {remote: 'laptop', port: gone}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = agents_start(running);
+    try {
+        await wait_listening(running, 'nothing there');
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'hello'), '');
+        await wait_until(() => /^laptop: .*ECONNREFUSED/.test(counted(running, 'nothing there').error));
+        assert.strictEqual(running.app.log_lines.some(v => /\[forward_error\] forward="nothing there" reason="laptop: .*ECONNREFUSED/.test(v)), true);
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+    }
+});
+
+// What a machine is told: the far end only of its own forwards whose two ends are its, and only
+// when its agent says it can dial; an older agent hears what it heard before
+test('a machine is told the far end of a forward only when both ends are its own and it can dial', function () {
+    const app = app_from_config(config_of([
+        {label: 'here', from: {remote: 'laptop', host: '100.64.0.20', port: 3400}, to: {remote: 'laptop', port: 5460}},
+        {label: 'a socket here', from: {remote: 'laptop', socket: '~/app.sock'}, to: {remote: 'laptop', port: 5461}},
+        {label: 'from vps1', from: {remote: 'vps1', port: 3100}, to: {remote: 'laptop', socket: '~/loki.sock'}},
+    ]));
+    const laptop = app.remote_by_name.laptop;
+    laptop.state.resources = {can: ['forwards', 'forwards_dial']};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop), [
+        {name: 'here', port: 5460, dial: {host: '100.64.0.20', port: 3400}},
+        {name: 'a socket here', port: 5461, dial: {path: '~/app.sock'}},
+        {name: 'from vps1', socket: '~/loki.sock'},
+    ]);
+    laptop.state.resources = {can: ['forwards']};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop), [
+        {name: 'here', port: 5460},
+        {name: 'a socket here', port: 5461},
+        {name: 'from vps1', socket: '~/loki.sock'},
+    ]);
 });
 
 // The socket outlives the link: with serviceman gone the file is still there, and a connect is
@@ -553,6 +628,9 @@ test('the config says what is wrong with a forward, in its own words', function 
         [{label: 'a', from: {remote: 'vps1', socket: '/a.sock', host: '10.0.0.5'}, to: {remote: 'laptop', port: 1}}, 'forwards[0].from.host: a host goes with a port, not with a socket'],
         [{label: 'a', from: {remote: 'vps1', port: 2, user: 'root'}, to: {remote: 'laptop', port: 1}}, 'forwards[0].from.user: not a field of a forward\'s end — remote, here, port, socket, host'],
         [{label: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'nobody', port: 1}}, 'forwards[0].to.remote: no remote named "nobody" is in the config'],
+        [{label: 'a', from: {remote: 'laptop', port: 5460}, to: {remote: 'laptop', port: 5460}}, 'forwards[0].from: where the forward listens itself, on laptop; each connection would reach itself'],
+        [{label: 'a', from: {remote: 'laptop', host: '127.0.0.1', port: 5460}, to: {remote: 'laptop', port: 5460}}, 'forwards[0].from: where the forward listens itself, on laptop; each connection would reach itself'],
+        [{label: 'a', from: {remote: 'laptop', socket: '~/a.sock'}, to: {remote: 'laptop', socket: '~/a.sock'}}, 'forwards[0].from: where the forward listens itself, on laptop; each connection would reach itself'],
     ];
     for (const [forward, message] of cases) {
         assert.throws(() => config_of([forward]), {message});
@@ -571,6 +649,9 @@ test('the config says what is wrong with a forward, in its own words', function 
     const labels = ['Loki on prod', 'vps1.example.com/loki.sock', 'Логи · 3100', 'x'.repeat(100)];
     assert.deepStrictEqual(config_of(labels.map((v, index) => ({label: v, from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: index + 1}}))).forwards.map(v => v.label), labels);
     assert.strictEqual(config_of([{name: 'loki', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]).forwards[0].label, 'loki');
+    // Both ends on one machine, to anything but where it listens, is a forward its agent joins
+    assert.strictEqual(config_of([{label: 'a', from: {remote: 'laptop', host: '100.64.0.20', port: 5460}, to: {remote: 'laptop', port: 5460}}]).forwards.length, 1);
+    assert.strictEqual(config_of([{label: 'a', from: {remote: 'laptop', port: 3400}, to: {remote: 'laptop', port: 5460}}]).forwards.length, 1);
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
@@ -911,6 +992,13 @@ function port_free()
             });
         });
     });
+}
+
+// What the page counts for a forward, or nothing before its first connection
+function counted(running, label)
+{
+    const found = running.app.forward_counts[label];
+    return (found === undefined) ? {} : found;
 }
 
 async function state_read(running)

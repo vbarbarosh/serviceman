@@ -1693,6 +1693,34 @@ failure.</li>
 </ul>
 <p>Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.</p>
+<h3 id="both-ends-on-one-machine"><a class="anchor" href="#both-ends-on-one-machine" aria-hidden="true" tabindex="-1">#</a>Both ends on one machine</h3>
+<p><code>from</code> and <code>to</code> may be the same machine: an address it reaches, brought to its own loopback.
+Its agent then joins the two itself, and each connection goes straight to the address, over the
+network the machine is on, the tailnet; serviceman tells the agent where and carries none of it,
+and the forward goes on while serviceman is away. The Doors page counts it from what the agent
+tells it, once a second.</p>
+<p>It is made for an app of serviceman&#39;s opened on the laptop by <code>localhost</code>. A browser lets a page
+use the microphone, the camera, screen recording and the clipboard only in a secure context:
+over https, or on this computer. <code>http://notes.localhost:5460</code> is this computer, with no
+certificate:</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;label&quot;: &quot;notes on the laptop&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;host&quot;: &quot;serviceman.tail1234.ts.net&quot;, &quot;port&quot;: 3400}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;port&quot;: 5460}}
+]
+</code></pre>
+<ul>
+<li><strong>serviceman&#39;s port for the app, not the app&#39;s machine.</strong> <code>:3400</code> is the app&#39;s own port on
+serviceman (<a href="config.html#an-app-sent-to-serviceman">An app sent to serviceman</a>), so the app
+starts on its first visit, stops when nobody comes and stands behind its wall. Straight to the
+machine the app runs on, serviceman would see none of the visits.</li>
+<li><strong>A name under <code>.localhost</code> for each app.</strong> Chrome and Firefox send any name under
+<code>.localhost</code> to this computer. <code>notes.localhost:5460</code> and <code>board.localhost:5461</code> keep their
+cookies apart; <code>localhost:5460</code> and <code>localhost:5461</code> share them, since a cookie does not tell
+ports apart.</li>
+<li><strong>Never where it listens.</strong> A far end that is the forward&#39;s own socket file, or its own port on
+the loopback, would reach itself with each connection: the config refuses it.</li>
+<li><strong>An agent older than 1.39</strong> is not told the far end, and its connections ride the links
+through serviceman as before, three trips for one; update it.</li>
+</ul>
 <h3 id="a-forward-onto-serviceman-itself"><a class="anchor" href="#a-forward-onto-serviceman-itself" aria-hidden="true" tabindex="-1">#</a>A forward onto serviceman itself</h3>
 <p><code>to</code> may be serviceman itself instead of a machine: <code>&quot;here&quot;: true</code> in place of <code>remote</code>.
 serviceman then listens in place of an agent, and the machine with the service is the only one

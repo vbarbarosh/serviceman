@@ -21,7 +21,7 @@ const forwards_section = {
             <button type="button" class="primary" :disabled="making" @click="begin">+ Add forward</button>
         </div>
     </div>
-    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
+    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself, straight, and serviceman carries none of it. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
     <div v-if="making" class="dt-window" @click.self="clear">
     <div ref="make" class="fwd-make" :class="{editing: (editing !== null)}" role="dialog" aria-modal="true">
         <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.label) }}</h2>
@@ -38,7 +38,7 @@ const forwards_section = {
             <div class="fwd-arrow" aria-hidden="true">
                 <svg class="across" viewBox="0 0 120 24" preserveAspectRatio="none"><path d="M2 12 H110" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M106 5 L117 12 L106 19" fill="none" stroke="currentColor" stroke-width="2"/></svg>
                 <svg class="down" viewBox="0 0 24 48" width="24" height="48"><path d="M12 2 V38" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M5 34 L12 45 L19 34" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                <span>over the agents' links</span>
+                <span>{{ way_words }}</span>
             </div>
             <div class="fwd-end">
                 <div class="fwd-end-title">It shows up on</div>
@@ -139,8 +139,8 @@ const forwards_section = {
                 return here_says(this.fresh.to, this.state_folder);
             }
             const says = end_says(this.fresh.to_remote, this.fresh.to, this.title_of(this.fresh.to_remote), true);
-            if ((says.bad === false) && (this.fresh.to_remote !== '') && (this.fresh.to_remote === this.fresh.from_remote)) {
-                return {text: 'the same machine as the service: pick another', bad: true};
+            if ((says.bad === false) && this.one_machine && end_loops(forward_end_parse(this.fresh.from_remote, this.fresh.from), forward_end_parse(this.fresh.to_remote, this.fresh.to))) {
+                return {text: 'where the service is: each connection would reach itself; pick another', bad: true};
             }
             return says;
         },
@@ -155,7 +155,15 @@ const forwards_section = {
             }
             const fresh = this.fresh;
             const to = (fresh.to_remote === HERE) ? this.landed_text(forward_here_parse(fresh.to)) : fresh.to;
-            return `A connection to ${end_words(to)} on ${this.place_title(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}.`;
+            const said = `A connection to ${end_words(to)} on ${this.place_title(fresh.to_remote)} reaches ${end_words(fresh.from)} on ${this.title_of(fresh.from_remote)}`;
+            return this.one_machine ? `${said}: its agent joins the two itself, and serviceman carries none of it.` : `${said}.`;
+        },
+        // Both ends on one machine: its agent joins them, and nothing goes through serviceman
+        one_machine: function () {
+            return (this.fresh.from_remote !== '') && (this.fresh.from_remote === this.fresh.to_remote);
+        },
+        way_words: function () {
+            return this.one_machine ? 'straight, on that machine' : 'over the agents\' links';
         },
         // The label a forward gets when none is typed: the socket's name, or the machine and port
         label_auto: function () {
@@ -427,6 +435,20 @@ function here_says(text, folder)
         return {text: `the socket file ${folder}/${forward_end.socket}, 0600, for the owner of ${folder}/`, bad: false};
     }
     return {text: `port ${forward_end.port} on serviceman's own loopback — under docker, inside its container`, bad: false};
+}
+
+// Whether a forward on one machine would dial where it listens itself, each connection opening
+// one more: the same socket file, or the same port on its loopback
+function end_loops(from, to)
+{
+    if ((typeof from === 'string') || (typeof to === 'string')) {
+        return false;
+    }
+    if (from.socket !== undefined) {
+        return (from.socket === to.socket);
+    }
+    const loopback = (from.host === undefined) || (from.host === '127.0.0.1') || (from.host === 'localhost');
+    return loopback && (to.port !== undefined) && (from.port === to.port);
 }
 
 // An end as typed, in words: a bare number is a port, the rest reads as it is
