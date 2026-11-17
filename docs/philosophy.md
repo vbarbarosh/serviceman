@@ -31,10 +31,13 @@ is away.
 Where that stands now: the doors of a machine route by themselves
 ([A machine that takes the traffic](remotes.md#a-machine-that-takes-the-traffic)), a forward
 whose two ends are one machine is joined by its agent
-([Both ends on one machine](remotes.md#both-ends-on-one-machine)), and an app board is answered
-by the agent of each machine it is on, straight to its apps
-([App boards](config.md#app-boards)). Still through serviceman: a forward between two machines,
-a mount, and a request to serviceman's own door for a service on another machine.
+([Both ends on one machine](remotes.md#both-ends-on-one-machine)), a forward and a mount between
+two machines go straight from agent to agent
+([A port or a socket from one machine to another](remotes.md#a-port-or-a-socket-from-one-machine-to-another),
+[Mounts](mounts.md#how-it-works)), and an app board is answered by the agent of each machine it
+is on, straight to its apps ([App boards](config.md#app-boards)). Still through serviceman: a
+forward or a mount whose agents cannot reach each other, and a request to serviceman's own door
+for a service on another machine.
 
 ## The page shows the command
 

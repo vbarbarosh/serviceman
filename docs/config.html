@@ -1064,8 +1064,9 @@ them as they are, whatever it is sent. One whose <code>from</code> has a <code>h
 may not carry it: its forward would reach an address beyond the machine, and is the owner&#39;s.</p>
 <h3 id="mounts"><a class="anchor" href="#mounts" aria-hidden="true" tabindex="-1">#</a>Mounts</h3>
 <p>A folder of one machine, mounted on another, read-only or read-write: <code>from</code> is where the folder
-is, <code>to</code> where it shows up. sshfs on <code>to</code> speaks SFTP over both machines&#39; links, through
-serviceman, to the folder, which shows it and nothing outside it. No ssh and no key.
+is, <code>to</code> where it shows up. sshfs on <code>to</code> speaks SFTP straight to the agent of <code>from</code>, over the
+tailnet (through serviceman when the two agents cannot reach each other), to the folder, which
+shows it and nothing outside it. No ssh and no key.
 <strong>Mounts</strong> in the rail writes this list for you; <a href="mounts.html">Mounts</a> says how it works.</p>
 <pre><code class="language-json">&quot;mounts&quot;: [
     {&quot;label&quot;: &quot;photos&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;path&quot;: &quot;~/Pictures&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;path&quot;: &quot;/mnt/photos&quot;}, &quot;mode&quot;: &quot;ro&quot;},

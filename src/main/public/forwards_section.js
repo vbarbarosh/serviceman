@@ -21,7 +21,7 @@ const forwards_section = {
             <button type="button" class="primary" :disabled="making" @click="begin">+ Add forward</button>
         </div>
     </div>
-    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection rides both machines' links through serviceman to the service on the left. No ssh and no key: the links are already up. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself, straight, and serviceman carries none of it. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
+    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection goes straight to the agent of the machine on the left, over the tailnet, and on to the service there; serviceman carries none of it. An agent too old for that, or a machine whose agent cannot be reached that way, rides both machines' links through serviceman instead. No ssh and no key: the agents are already there. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
     <div v-if="making" class="dt-window" @click.self="clear">
     <div ref="make" class="fwd-make" :class="{editing: (editing !== null)}" role="dialog" aria-modal="true">
         <h2>{{ (editing === null ? 'Bring a port or a socket over' : 'Change ' + editing.label) }}</h2>
@@ -65,7 +65,7 @@ const forwards_section = {
             <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span></template>
             <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
             <template v-else-if="(column.key === 'to')"><span class="muted">{{ place_of(row.to) }} · </span><code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
-            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}</span>
+            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}<span v-if="((row.state === 'ready') && (row.way === 'straight'))" class="muted" title="Joined by the agents alone: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'ready') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
             <span v-else-if="(column.key === 'problem')" :class="(problem_of(row) === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
             <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
@@ -163,7 +163,7 @@ const forwards_section = {
             return (this.fresh.from_remote !== '') && (this.fresh.from_remote === this.fresh.to_remote);
         },
         way_words: function () {
-            return this.one_machine ? 'straight, on that machine' : 'over the agents\' links';
+            return this.one_machine ? 'straight, on that machine' : 'agent to agent, over the tailnet';
         },
         // The label a forward gets when none is typed: the socket's name, or the machine and port
         label_auto: function () {

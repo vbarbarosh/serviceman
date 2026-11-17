@@ -728,8 +728,8 @@ A row&#39;s actions (a click on a row opens them where the table has no room) se
 without retyping it, <strong>edit</strong> it, or <strong>forget it</strong>, which takes it out of the config and
 unmounts it.</p>
 <h2 id="how-it-works"><a class="anchor" href="#how-it-works" aria-hidden="true" tabindex="-1">#</a>How it works</h2>
-<p>No ssh and no key: the machines&#39; links to serviceman are already up, and a mount rides them as a
-forward does (<a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>).</p>
+<p>No ssh and no key: the machines&#39; agents are already there, and a mount goes from one to the
+other as a forward does (<a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">Remotes</a>).</p>
 <ol>
 <li>serviceman tells the machine at <code>to</code> its mounts, at its hello, after the config changes and on
 the minute.</li>
@@ -737,9 +737,15 @@ the minute.</li>
 <code>mounts/</code>, and hands the table to its root half.</li>
 <li>The root half mounts each with sshfs. In place of ssh, sshfs runs the agent&#39;s own file,
 <code>--pipe &lt;the socket&gt;</code>, which joins sshfs to that socket.</li>
-<li>The agent carries what comes in on the socket over its link, as a stream named for the mount;
-serviceman joins it to the folder: a stream over the link of the machine at <code>from</code>, whose
-agent serves the folder over SFTP, or serviceman&#39;s own server for a folder of its state dir.</li>
+<li>The agent takes what comes in on the socket straight to the agent of the machine at <code>from</code>,
+over the tailnet, on its peer port, asked with the token serviceman gave that machine; that
+agent serves the folder over SFTP. serviceman tells the one where the other listens, and the
+other which mounts it may be asked for, and carries none of the bytes.</li>
+<li>Through serviceman when it has to: a folder of serviceman&#39;s own state dir, an agent from before
+the straight way at either end, or a peer that does not answer within 3 seconds (asked again 30
+seconds later). The agent then carries it over its link, as a stream named for the mount, and
+serviceman joins it to the folder: a stream over the link of the machine at <code>from</code>, or its own
+server for its state dir. The row says which way it goes, and why when it is not straight.</li>
 </ol>
 <p>When a link blinks, sshfs dials its pipe again by itself (<code>reconnect</code>). A restart of either
 agent leaves the mount where it is: sshfs runs on its own, and the socket is there again at the
@@ -818,8 +824,9 @@ and none of the system&#39;s own folders.</li>
 <h2 id="what-it-cannot-do"><a class="anchor" href="#what-it-cannot-do" aria-hidden="true" tabindex="-1">#</a>What it cannot do</h2>
 <ul>
 <li><strong>A machine away is a folder that answers nothing.</strong> The files are on the other machine.</li>
-<li><strong>Every byte goes through serviceman.</strong> A mount between two VPSes is as fast as their links to
-serviceman, not as the link between them.</li>
+<li><strong>Two agents that cannot reach each other go through serviceman.</strong> Then a mount between two
+VPSes is as fast as their links to serviceman, not as the link between them; the row says so,
+and why.</li>
 <li><strong>A database does not go in it.</strong> SQLite and its like want a local disk.</li>
 </ul>
 <h2 id="for-the-operator"><a class="anchor" href="#for-the-operator" aria-hidden="true" tabindex="-1">#</a>For the operator</h2>

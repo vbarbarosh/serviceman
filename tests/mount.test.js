@@ -5,10 +5,12 @@ const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const crypto = require('crypto');
+const doors_table = require('../src/main/src/helpers/doors_table');
 const fetch_host = require('./fetch_host');
 const fs = require('fs');
 const link_read = require('../src/helpers/link_read');
 const mount_join = require('../src/main/src/helpers/mount_join');
+const mounts_tell = require('../src/main/src/helpers/mounts_tell');
 const net = require('net');
 const os = require('os');
 const path = require('path');
@@ -59,6 +61,75 @@ test('a folder of the laptop is read on vps1 through the mount\'s pipe, read-onl
     assert.strictEqual(view.problem, null);
     assert.ok(view.total >= 1);
     assert.ok(view.bytes_back > 0);
+});
+
+// The same, straight: vps1's sshfs pipe goes to the laptop's agent on its peer port, which
+// serves the folder itself; serviceman carries none of it, and counts it from what vps1's agent
+// tells
+test('a folder of the laptop is mounted on vps1 straight between their agents, not through serviceman', async function (t) {
+    const base = dir_make(t);
+    const folder = path.join(base, 'photos');
+    fs.mkdirSync(folder);
+    fs.writeFileSync(path.join(folder, 'cat.txt'), 'meow\n');
+    fs.writeFileSync(path.join(base, 'secret.txt'), 'outside\n');
+    const running = await serviceman_start(t, [
+        {label: 'photos', from: {remote: 'laptop', path: folder}, to: {remote: 'vps1', path: '/mnt/photos'}, mode: 'ro'},
+    ]);
+    const root = await root_fake(t, base);
+    const peers = {SERVICEMAN_PEER_HOST: '127.0.0.1'};
+    agents_start(t, running, base, root.file, [Object.assign({SERVICEMAN_PEER_PORT: String(await port_free())}, peers), Object.assign({SERVICEMAN_PEER_PORT: String(await port_free())}, peers)]);
+    const laptop = running.app.remote_by_name.laptop;
+    const vps1 = running.app.remote_by_name.vps1;
+    await wait_until(() => (root.tables.length > 0) && online(running) && (mounts_tell.mounts_of(running.app, vps1)[0].peer !== undefined) && (laptop.state.doors_told === doors_table(running.app, laptop).version) && (vps1.state.mounts_sending === null));
+    assert.deepStrictEqual(doors_table(running.app, laptop).streams.mounts, {photos: {path: folder, mode: 'ro'}});
+    await mounts_tell(running.app);
+
+    const told = root.tables[root.tables.length - 1].mounts;
+    const client = await pipe_open(t, told[0].socket);
+    assert.deepStrictEqual((await client.names('/')).filter(v => (v !== '.') && (v !== '..')), ['cat.txt']);
+    assert.strictEqual(await client.read_file('/cat.txt'), 'meow\n');
+    assert.strictEqual((await client.write_file('/new.txt', 'x')).code, FX_PERMISSION_DENIED);
+    assert.strictEqual((await client.open('/../secret.txt', 1)).code, 2);
+    assert.strictEqual(fs.existsSync(path.join(folder, 'new.txt')), false);
+    // Open while it is read: no stream of serviceman's carries it
+    assert.strictEqual(Object.keys(laptop.state.streams).length, 0, 'serviceman opened no stream for it on the laptop');
+    assert.strictEqual(Object.keys(vps1.state.streams).length, 0, 'nor on vps1');
+
+    await wait_until(() => (mount_join.counts(running.app, 'photos').open === 1) && (mount_join.counts(running.app, 'photos').bytes_back > 0));
+    const view = (await state_read(running)).mounts[0];
+    assert.strictEqual(view.state, 'mounted');
+    assert.strictEqual(view.way, 'straight');
+    assert.strictEqual(view.way_why, null);
+    assert.strictEqual(view.total, 1);
+});
+
+// The laptop's agent was said to listen for its peers where nothing answers now — its peer port
+// off, or vps1 off the tailnet: the pipe goes through serviceman as before, and the page says
+// why it is not straight
+test('a mount whose peer does not answer goes through serviceman, and the page says why', async function (t) {
+    const base = dir_make(t);
+    const folder = path.join(base, 'photos');
+    fs.mkdirSync(folder);
+    fs.writeFileSync(path.join(folder, 'cat.txt'), 'meow\n');
+    const running = await serviceman_start(t, [
+        {label: 'photos', from: {remote: 'laptop', path: folder}, to: {remote: 'vps1', path: '/mnt/photos'}, mode: 'ro'},
+    ]);
+    const root = await root_fake(t, base);
+    const peers = {SERVICEMAN_PEER_HOST: '127.0.0.1'};
+    agents_start(t, running, base, root.file, [Object.assign({SERVICEMAN_PEER_PORT: String(await port_free())}, peers), Object.assign({SERVICEMAN_PEER_PORT: String(await port_free())}, peers)]);
+    const laptop = running.app.remote_by_name.laptop;
+    const vps1 = running.app.remote_by_name.vps1;
+    await wait_until(() => (root.tables.length > 0) && online(running) && (mounts_tell.mounts_of(running.app, vps1)[0].peer !== undefined) && (vps1.state.mounts_sending === null));
+    laptop.state.doors_peer = {addresses: ['127.0.0.1'], port: await port_free()};
+    await mounts_tell(running.app);
+
+    const client = await pipe_open(t, root.tables[root.tables.length - 1].mounts[0].socket);
+    assert.strictEqual(await client.read_file('/cat.txt'), 'meow\n');
+    assert.strictEqual(Object.keys(vps1.state.streams).length, 1, 'serviceman carries it');
+    await wait_until(() => mount_join.counts(running.app, 'photos').peer_away !== null);
+    const view = (await state_read(running)).mounts[0];
+    assert.strictEqual(view.way, 'serviceman');
+    assert.match(view.way_why, /ECONNREFUSED/);
 });
 
 // serviceman's own data/, mounted read-write on a machine: serviceman serves its state dir itself
@@ -174,12 +245,13 @@ async function serviceman_start(t, mounts, state_dir)
     return {app, control_port: servers.control.address().port};
 }
 
-// Two machines, each an agent with a folder of its own; vps1's root half is `root_file`
-function agents_start(t, running, base, root_file)
+// Two machines, each an agent with a folder of its own; vps1's root half is `root_file`, and
+// `envs` what each agent is started with besides, the laptop's first
+function agents_start(t, running, base, root_file, envs)
 {
     const children = [
-        agent_start(running.control_port, TOKEN_LAPTOP, path.join(base, 'agent-laptop'), path.join(base, 'no-root.sock')),
-        agent_start(running.control_port, TOKEN_VPS, path.join(base, 'agent-vps1'), root_file),
+        agent_start(running.control_port, TOKEN_LAPTOP, path.join(base, 'agent-laptop'), path.join(base, 'no-root.sock'), (envs === undefined) ? {} : envs[0]),
+        agent_start(running.control_port, TOKEN_VPS, path.join(base, 'agent-vps1'), root_file, (envs === undefined) ? {} : envs[1]),
     ];
     t.after(function () {
         for (const child of children) {
@@ -188,11 +260,11 @@ function agents_start(t, running, base, root_file)
     });
 }
 
-function agent_start(control_port, token, dir, root_file)
+function agent_start(control_port, token, dir, root_file, env)
 {
     fs.mkdirSync(dir, {recursive: true});
     const argv = [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', token, '--root-socket', root_file];
-    const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir})});
+    const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir}, env)});
     out.stdout.resume();
     out.stderr.resume();
     return out;
@@ -301,6 +373,19 @@ async function pipe_open(t, socket)
 function socket_of(base, machine, label)
 {
     return path.join(base, `agent-${machine}`, 'mounts', `${crypto.createHash('sha256').update(label).digest('hex').slice(0, 16)}.sock`);
+}
+
+function port_free()
+{
+    return new Promise(function (resolve) {
+        const server = net.createServer();
+        server.listen(0, '127.0.0.1', function () {
+            const port = server.address().port;
+            server.close(function () {
+                resolve(port);
+            });
+        });
+    });
 }
 
 function online(running)

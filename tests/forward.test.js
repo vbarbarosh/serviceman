@@ -3,10 +3,13 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const door_token = require('../src/main/src/helpers/door_token');
+const doors_table = require('../src/main/src/helpers/doors_table');
 const fetch_host = require('./fetch_host');
 const forwards_here = require('../src/main/src/helpers/forwards_here');
 const forwards_tell = require('../src/main/src/helpers/forwards_tell');
 const fs = require('fs');
+const http = require('http');
 const link_read = require('../src/helpers/link_read');
 const net = require('net');
 const os = require('os');
@@ -186,6 +189,143 @@ test('a machine is told the far end of a forward only when both ends are its own
         {name: 'a socket here', port: 5461},
         {name: 'from vps1', socket: '~/loki.sock'},
     ]);
+    // Another machine's: where its agent listens and its token, once both agents speak to their
+    // peers and it said where it listens
+    const vps1 = app.remote_by_name.vps1;
+    laptop.state.resources = {can: ['forwards', 'forwards_dial', 'peer_streams']};
+    vps1.state.resources = {can: ['forwards', 'peer_streams']};
+    vps1.state.doors_peer = {addresses: ['100.64.0.20'], port: 7303};
+    const peer = {addresses: ['100.64.0.20'], port: 7303, token: door_token(app, 'vps1')};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop)[2], {name: 'from vps1', socket: '~/loki.sock', peer});
+    vps1.state.resources = {can: ['forwards']};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop)[2], {name: 'from vps1', socket: '~/loki.sock'}, 'an older agent on vps1');
+    vps1.state.resources = {can: ['forwards', 'peer_streams']};
+    laptop.state.resources = {can: ['forwards', 'forwards_dial']};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop)[2], {name: 'from vps1', socket: '~/loki.sock'}, 'an older agent on the laptop');
+});
+
+// The author's case, straight: a port on vps1 shows up on the laptop, and each connection goes
+// from the laptop's agent to vps1's on its peer port, never through serviceman, which may even
+// be away; the page counts it from what the laptop's agent tells
+test('a forward between two machines goes straight between their agents, not through serviceman', async function () {
+    const echo = await echo_server({port: 0, host: '127.0.0.1'});
+    const port = await port_free();
+    const running = await serviceman_start([
+        {label: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = await agents_start_peers(running);
+    try {
+        await wait_straight(running, 'loki');
+        assert.deepStrictEqual(Object.keys(doors_table(running.app, running.app.remote_by_name.vps1).streams.forwards), ['loki']);
+        assert.strictEqual(doors_table(running.app, running.app.remote_by_name.laptop).streams, undefined, 'nothing is opened on the laptop for it');
+
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'hello'), 'echo: hello');
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'x'.repeat(600000)), `echo: ${'x'.repeat(600000)}`, 'more than a window each way');
+        await wait_until(() => (counted(running, 'loki').total === 2) && (counted(running, 'loki').open === 0));
+        const view = (await state_read(running)).forwards[0];
+        assert.strictEqual(view.state, 'ready');
+        assert.strictEqual(view.way, 'straight');
+        assert.strictEqual(view.way_why, null);
+        assert.strictEqual(view.bytes_sent, 5 + 600000);
+        assert.strictEqual(view.bytes_back, 11 + 600006);
+
+        // Open while it is asked: no stream of serviceman's carries it
+        const open = net.connect({host: '127.0.0.1', port});
+        await new Promise(v => open.once('connect', v));
+        open.write('held');
+        await wait_until(() => counted(running, 'loki').open === 1);
+        assert.strictEqual(Object.keys(running.app.remote_by_name.laptop.state.streams).length, 0, 'serviceman opened no stream for it on the laptop');
+        assert.strictEqual(Object.keys(running.app.remote_by_name.vps1.state.streams).length, 0, 'nor on vps1');
+        open.destroy();
+
+        await running.close();
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'serviceman is away'), 'echo: serviceman is away');
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+        echo.close();
+    }
+});
+
+// The service over there refuses: the connection closes at once, and the page says why, in the
+// words of the machine the service is on, as for one serviceman carries
+test('a forward between two machines says why the service over there refused', async function () {
+    const gone = await port_free();
+    const port = await port_free();
+    const running = await serviceman_start([
+        {label: 'nothing there', from: {remote: 'vps1', port: gone}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = await agents_start_peers(running);
+    try {
+        await wait_straight(running, 'nothing there');
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'hello'), '');
+        await wait_until(() => /^vps1: .*ECONNREFUSED/.test(counted(running, 'nothing there').error));
+        assert.strictEqual(Object.keys(running.app.remote_by_name.laptop.state.streams).length, 0, 'not tried again through serviceman');
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+    }
+});
+
+// vps1's agent was told it listens for its peers where nothing answers now — its peer port
+// off, or the laptop off the tailnet: each connection goes through serviceman as before, and
+// the page says why it is not straight
+test('a forward whose peer does not answer goes through serviceman, and the page says why', async function () {
+    const echo = await echo_server({port: 0, host: '127.0.0.1'});
+    const port = await port_free();
+    const nobody = await port_free();
+    const running = await serviceman_start([
+        {label: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = await agents_start_peers(running);
+    try {
+        await wait_straight(running, 'loki');
+        running.app.remote_by_name.vps1.state.doors_peer = {addresses: ['127.0.0.1'], port: nobody};
+        running.app.remote_by_name.laptop.state.forwards_told = null;
+        await forwards_tell(running.app);
+        await wait_until(() => running.app.remote_by_name.laptop.state.forwards_told.includes(`"port":${nobody}`));
+
+        assert.strictEqual(await say_through({host: '127.0.0.1', port}, 'hello'), 'echo: hello');
+        await wait_until(() => (counted(running, 'loki').total === 1) && (counted(running, 'loki').peer_away !== null));
+        const view = (await state_read(running)).forwards[0];
+        assert.strictEqual(view.way, 'serviceman');
+        assert.match(view.way_why, /ECONNREFUSED/);
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+        echo.close();
+    }
+});
+
+// A peer's port is reached by every device of the tailnet: only a caller with the token gets a
+// stream, and only of a forward serviceman wrote into that machine's table
+test('the peer port opens a stream only with the token, and only one serviceman wrote', async function () {
+    const echo = await echo_server({port: 0, host: '127.0.0.1'});
+    const port = await port_free();
+    const running = await serviceman_start([
+        {label: 'loki', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', port}},
+    ]);
+    const agents = await agents_start_peers(running);
+    try {
+        await wait_straight(running, 'loki');
+        const peer = running.app.remote_by_name.vps1.state.doors_peer;
+        const token = doors_table(running.app, running.app.remote_by_name.vps1).token;
+        assert.strictEqual((await stream_ask(peer, '/forward/loki', 'not the token')).status, 403);
+        assert.strictEqual((await stream_ask(peer, '/forward/loki', 'null')).status, 403);
+        assert.strictEqual((await stream_ask(peer, '/forward/loki', '')).status, 403);
+        assert.strictEqual((await stream_ask(peer, '/forward/ssh', token)).status, 404);
+        assert.strictEqual((await stream_ask(peer, '/forward/loki/../ssh', token)).status, 400);
+        assert.strictEqual((await stream_ask(peer, '/mount/loki', token)).status, 404, 'a forward is no mount');
+        assert.strictEqual((await stream_ask(peer, '/forward/loki', token)).status, 101);
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+        echo.close();
+    }
 });
 
 // The socket outlives the link: with serviceman gone the file is still there, and a connect is
@@ -882,6 +1022,44 @@ function agents_start(running)
     };
 }
 
+// The two machines, each agent listening for its peers on 127.0.0.1 at a port of its own, as
+// on the tailnet each listens at its own address
+async function agents_start_peers(running)
+{
+    const ports = [await port_free(), await port_free()];
+    return {
+        laptop: agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_PEER_HOST: '127.0.0.1', SERVICEMAN_PEER_PORT: String(ports[0])}),
+        vps1: agent_start(running.control_port, TOKEN_VPS, {SERVICEMAN_PEER_HOST: '127.0.0.1', SERVICEMAN_PEER_PORT: String(ports[1])}),
+    };
+}
+
+// Until the laptop was told where vps1's agent listens, and vps1 was told what it may open for it
+async function wait_straight(running, label)
+{
+    await wait_listening(running, label);
+    const laptop = running.app.remote_by_name.laptop;
+    const vps1 = running.app.remote_by_name.vps1;
+    await wait_until(() => (laptop.state.forwards_told !== null) && laptop.state.forwards_told.includes('"peer"') && (vps1.state.doors_told === doors_table(running.app, vps1).version) && (doors_table(running.app, vps1).streams !== undefined));
+}
+
+// A stream asked of a peer's agent by hand: the status it answered
+function stream_ask(peer, target, token)
+{
+    return new Promise(function (resolve, reject) {
+        const req = http.request({host: peer.addresses[0], port: peer.port, path: target, headers: {'connection': 'Upgrade', 'upgrade': 'serviceman-stream', 'x-serviceman-peer': token}});
+        req.on('upgrade', function (res, socket) {
+            socket.destroy();
+            resolve({status: 101});
+        });
+        req.on('response', function (res) {
+            res.resume();
+            resolve({status: res.statusCode});
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
 function agents_stop(agents)
 {
     for (const name of Object.keys(agents)) {
@@ -889,11 +1067,11 @@ function agents_stop(agents)
     }
 }
 
-function agent_start(control_port, token)
+function agent_start(control_port, token, env)
 {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-agent-'));
     const argv = [AGENT, '--url', `http://127.0.0.1:${control_port}`, '--token', token];
-    const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir})});
+    const out = child_process.spawn(process.execPath, argv, {stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: dir}, env)});
     out.stdout.resume();
     out.stderr.resume();
     return out;

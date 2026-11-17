@@ -14,8 +14,8 @@ unmounts it.
 
 ## How it works
 
-No ssh and no key: the machines' links to serviceman are already up, and a mount rides them as a
-forward does ([Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)).
+No ssh and no key: the machines' agents are already there, and a mount goes from one to the
+other as a forward does ([Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)).
 
 1. serviceman tells the machine at `to` its mounts, at its hello, after the config changes and on
    the minute.
@@ -23,9 +23,15 @@ forward does ([Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-anothe
    `mounts/`, and hands the table to its root half.
 3. The root half mounts each with sshfs. In place of ssh, sshfs runs the agent's own file,
    `--pipe <the socket>`, which joins sshfs to that socket.
-4. The agent carries what comes in on the socket over its link, as a stream named for the mount;
-   serviceman joins it to the folder: a stream over the link of the machine at `from`, whose
-   agent serves the folder over SFTP, or serviceman's own server for a folder of its state dir.
+4. The agent takes what comes in on the socket straight to the agent of the machine at `from`,
+   over the tailnet, on its peer port, asked with the token serviceman gave that machine; that
+   agent serves the folder over SFTP. serviceman tells the one where the other listens, and the
+   other which mounts it may be asked for, and carries none of the bytes.
+5. Through serviceman when it has to: a folder of serviceman's own state dir, an agent from before
+   the straight way at either end, or a peer that does not answer within 3 seconds (asked again 30
+   seconds later). The agent then carries it over its link, as a stream named for the mount, and
+   serviceman joins it to the folder: a stream over the link of the machine at `from`, or its own
+   server for its state dir. The row says which way it goes, and why when it is not straight.
 
 When a link blinks, sshfs dials its pipe again by itself (`reconnect`). A restart of either
 agent leaves the mount where it is: sshfs runs on its own, and the socket is there again at the
@@ -74,8 +80,9 @@ back.
 ## What it cannot do
 
 - **A machine away is a folder that answers nothing.** The files are on the other machine.
-- **Every byte goes through serviceman.** A mount between two VPSes is as fast as their links to
-  serviceman, not as the link between them.
+- **Two agents that cannot reach each other go through serviceman.** Then a mount between two
+  VPSes is as fast as their links to serviceman, not as the link between them; the row says so,
+  and why.
 - **A database does not go in it.** SQLite and its like want a local disk.
 
 ## For the operator

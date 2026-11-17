@@ -953,8 +953,8 @@ client reads any 502, 503, 504 or 52x as "not reachable now".
 ## A port or a socket from one machine to another
 
 A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
-the machines' links to serviceman carry it. `from` is where the service is, `to` where it shows
-up. A Loki on vps1's loopback, as a socket file on the laptop:
+the machines' agents carry it. `from` is where the service is, `to` where it shows up. A Loki on
+vps1's loopback, as a socket file on the laptop:
 
 ```json
 "forwards": [
@@ -962,24 +962,34 @@ up. A Loki on vps1's loopback, as a socket file on the laptop:
 ]
 ```
 
-The laptop's agent listens on `~/repos/loki.sock`. Each connection opens a stream over its link
-to serviceman, serviceman opens one over vps1's link to `127.0.0.1:3100`, and joins the two. A
-port works as well as a socket at either end, and a service at home brought to a server is the
-same thing written the other way round.
+The laptop's agent listens on `~/repos/loki.sock`. Each connection goes straight to vps1's
+agent, over the tailnet, on the port its door's peers use (`7303`), asked with the token
+serviceman gave vps1; vps1's agent opens `127.0.0.1:3100` and joins the two. serviceman tells
+the laptop where vps1's agent listens, and vps1 which forwards it may be asked for, and carries
+none of the bytes. A port works as well as a socket at either end, and a service at home
+brought to a server is the same thing written the other way round.
 
 - **The socket stays.** The agent keeps listening while its link is down: a connection then is
   closed at once, and the first one after the redial goes through. A dead ssh holds a socket
   for as long as its keep-alives take to notice; a forward has none to wait for.
+- **Through serviceman when it has to.** When vps1's agent does not answer within 3 seconds
+  (the laptop off the tailnet, vps1's peer port off), the connection opens a stream over the
+  laptop's link to serviceman instead, serviceman opens one over vps1's link and joins the two,
+  as before peers; vps1 is asked again 30 seconds later. An agent from before the straight way
+  at either end goes that way every time; update it.
 - **Nobody else's.** A socket file is `0600`, for the agent's user alone; a port is bound to
-  `127.0.0.1`. A machine may open only the forwards whose `to` is itself: one that names
-  another machine's forward is refused, and nothing is dialled for it.
+  `127.0.0.1`. vps1's agent opens only the forwards serviceman wrote into its table, for a
+  caller with its token, and nothing else of the machine; through serviceman, a machine may
+  open only the forwards whose `to` is itself: one that names another machine's forward is
+  refused, and nothing is dialled for it.
 - **A socket someone else answers on is theirs.** An `ssh -L` already on that path keeps it; the
   page says the forward cannot listen, and it is tried again every minute. A file left by a
   process that is gone is taken over.
 - **What it says.** The Doors page lists every forward: where it listens, whether a connection
   would go through now and if not why (`vps2 is offline`, `the agent on laptop is older than
-  forwards — update it`), the connections open and in all, the bytes each way, and the last
-  failure.
+  forwards — update it`), whether it goes straight or through serviceman and why, the
+  connections open and in all, the bytes each way, and the last failure. What goes straight is
+  counted from what the laptop's agent tells, every second.
 
 Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.

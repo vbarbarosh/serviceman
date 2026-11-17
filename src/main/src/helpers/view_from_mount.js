@@ -1,5 +1,6 @@
 const mount_join = require('./mount_join');
 const remote_can = require('./remote_can');
+const stream_peer = require('./stream_peer');
 
 // One mount as the page shows it: the two ends, where it stands on the machine it is mounted on,
 // as that machine last said, what stands in its way now, and what went through it
@@ -10,10 +11,16 @@ function view_from_mount(app, mount)
     const said = said_of(mount, to);
     const counts = mount_join.counts(app, mount.label);
     const now = now_of(mount, from, to, said);
+    const straight = (from !== null) && (to !== undefined) && (stream_peer(app, to, mount.from.remote) !== null);
     return Object.assign({}, mount, {
         // A word the page shows on the mount's line, and in full what keeps it from working
         state: now.state,
         problem: now.problem,
+        // How sshfs reaches the folder: 'straight', to the agent of the folder's machine, or
+        // 'serviceman', through serviceman's links (mounts_tell); and why, when it could go
+        // straight and its agent's last connection did not, the peer not answering
+        way: ((counts.peer_away === null) && straight) ? 'straight' : 'serviceman',
+        way_why: straight ? counts.peer_away : null,
         // Who holds it open, for a mount that waits for them to let go before it changes
         users: ((said === undefined) || (Array.isArray(said.users) === false)) ? [] : said.users,
         said_at: (to === undefined) ? null : to.state.mounts_said_at,

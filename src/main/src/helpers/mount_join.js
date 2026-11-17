@@ -90,7 +90,10 @@ function from_words(mount, reason)
 function mount_counts(app, label)
 {
     if (app.mount_counts[label] === undefined) {
-        app.mount_counts[label] = {open: 0, total: 0, bytes_sent: 0, bytes_back: 0, error: null, error_at: null};
+        // open_joined: of the open ones, those its agent joins itself and last said; peer_away:
+        // why its agent's last connection went through serviceman, its peer not answering, or
+        // null (mounts_counts_apply)
+        app.mount_counts[label] = {open: 0, open_joined: 0, peer_away: null, total: 0, bytes_sent: 0, bytes_back: 0, error: null, error_at: null};
     }
     return app.mount_counts[label];
 }
@@ -111,5 +114,6 @@ function refuse(state, id, code, message)
 }
 
 mount_join.counts = mount_counts;
+mount_join.failed = failed;
 
 module.exports = mount_join;

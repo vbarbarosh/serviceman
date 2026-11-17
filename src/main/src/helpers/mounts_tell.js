@@ -1,6 +1,7 @@
 const log_event = require('./log_event');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
+const stream_peer = require('./stream_peer');
 
 // Each connected machine is told the mounts it makes, and answers where each one stands: at its
 // hello, after the config changes, and on the minute, when a mount whose sshfs died or whose path
@@ -22,16 +23,26 @@ async function mounts_tell(app)
 async function tell(app)
 {
     for (const remote of app.remotes) {
-        const state = remote.state;
-        if ((state.phase !== 'online') || (remote_can(remote, 'mounts') === false) || (state.mounts_sending !== null)) {
-            continue;
-        }
-        const mounts = mounts_of(app, remote.name);
+        await tell_one(app, remote);
+    }
+}
+
+// One machine, told again at once when what it is to be told changed while it was being told —
+// the folder's machine dialled in meanwhile, and says where its agent listens — rather than a
+// minute later
+async function tell_one(app, remote)
+{
+    const state = remote.state;
+    let sent = null;
+    while ((state.phase === 'online') && remote_can(remote, 'mounts') && (state.mounts_sending === null)) {
+        const mounts = mounts_of(app, remote);
+        const key = JSON.stringify(mounts);
         // A machine that never had a mount, and has none now, is not asked about it every minute
-        if ((mounts.length === 0) && (state.mounts_said === null)) {
-            continue;
+        if (((mounts.length === 0) && (state.mounts_said === null)) || (sent === key)) {
+            return;
         }
-        state.mounts_sending = JSON.stringify(mounts);
+        sent = key;
+        state.mounts_sending = key;
         try {
             const said = said_checked(await remote_call(app, remote, 'mounts_set', {mounts}));
             const before = state.mounts_said;
@@ -48,6 +59,7 @@ async function tell(app)
                 log_event(app, 'mounts_tell_error', {remote: remote.name, reason: error.message});
             }
             state.mounts_error = error.message;
+            return;
         }
         finally {
             state.mounts_sending = null;
@@ -66,17 +78,26 @@ function said_checked(said)
     return {root: said.root === true, items: said.items, leaving: Array.isArray(said.leaving) ? said.leaving : []};
 }
 
-// What one machine mounts: the `to` of each mount that is on and is there, and nothing about
-// where the folder comes from
-function mounts_of(app, name)
+// What one machine mounts: the `to` of each mount that is on and is there. Where the folder
+// comes from is said only as `peer`, the agent of the folder's machine, when both agents speak
+// to their peers (stream_peer): sshfs's pipe goes straight there, and serviceman carries none of
+// it. Otherwise nothing more is said, and the mount goes through serviceman as before.
+function mounts_of(app, remote)
 {
     const out = [];
     for (const item of app.config.mounts) {
-        if ((item.off === false) && (item.to.remote === name)) {
-            out.push({name: item.label, path: item.to.path, mode: item.mode});
+        if ((item.off === false) && (item.to.remote === remote.name)) {
+            const told = {name: item.label, path: item.to.path, mode: item.mode};
+            const peer = item.from.here ? null : stream_peer(app, remote, item.from.remote);
+            if (peer !== null) {
+                told.peer = peer;
+            }
+            out.push(told);
         }
     }
     return out;
 }
+
+mounts_tell.mounts_of = mounts_of;
 
 module.exports = mounts_tell;

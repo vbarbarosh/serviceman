@@ -374,6 +374,8 @@ minute, and they would bury the rest.
 | `mount_socket_listen`     | A mount's socket listens here, for its sshfs to dial, and where. |
 | `mount_socket_error`      | It could not listen, and why; tried again at the next telling. |
 | `mount_socket_close`      | A mount taken out of the config stopped listening.          |
+| `peer_stream`             | Another machine's agent asked this one for a forward or a mount, straight, by its name; `refused` and why when it is not one serviceman wrote here, or the token is not this machine's. |
+| `peer_stream_error`       | The service it leads to refused, or broke off, and why.     |
 
 What an agent says about sending its machine's lines to Logline:
 

@@ -245,8 +245,9 @@ may not carry it: its forward would reach an address beyond the machine, and is 
 ### Mounts
 
 A folder of one machine, mounted on another, read-only or read-write: `from` is where the folder
-is, `to` where it shows up. sshfs on `to` speaks SFTP over both machines' links, through
-serviceman, to the folder, which shows it and nothing outside it. No ssh and no key.
+is, `to` where it shows up. sshfs on `to` speaks SFTP straight to the agent of `from`, over the
+tailnet (through serviceman when the two agents cannot reach each other), to the folder, which
+shows it and nothing outside it. No ssh and no key.
 **Mounts** in the rail writes this list for you; [Mounts](mounts.md) says how it works.
 
 ```json

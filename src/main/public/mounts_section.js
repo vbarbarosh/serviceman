@@ -17,7 +17,7 @@ const mounts_section = {
             <button type="button" class="primary" :disabled="making" @click="begin">+ Mount…</button>
         </div>
     </div>
-    <p class="muted">A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder over both machines' links through serviceman: no ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
+    <p class="muted">A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder straight through the agent of the machine on the left, over the tailnet; an agent too old for that, or one that cannot be reached that way, goes over both machines' links through serviceman instead. No ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
     <div v-if="making" class="dt-window" @click.self="clear">
     <div class="fwd-make" :class="{editing: (editing !== null)}" role="dialog" aria-modal="true">
         <h2>{{ (editing === null ? 'Mount a folder on another machine' : 'Change ' + editing.label) }}</h2>
@@ -66,7 +66,7 @@ const mounts_section = {
             <template v-else-if="(column.key === 'from')"><span class="muted">{{ from_place(row.from) }} · </span><code>{{ from_text(row.from) }}</code></template>
             <template v-else-if="(column.key === 'to')"><span class="muted">{{ title_of(row.to.remote) }} · </span><code>{{ row.to.path }}</code></template>
             <span v-else-if="(column.key === 'mode')" :class="(row.mode === 'rw' ? 'mount-rw' : 'muted')">{{ (row.mode === 'rw' ? 'read-write' : 'read-only') }}</span>
-            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}</span>
+            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}<span v-if="((row.state === 'mounted') && (row.way === 'straight'))" class="muted" title="Straight to the agent of the folder's machine: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'mounted') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
             <span v-else-if="(column.key === 'problem')" :class="(row.problem === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
         </template>

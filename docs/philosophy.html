@@ -767,10 +767,13 @@ is away.</p>
 <p>Where that stands now: the doors of a machine route by themselves
 (<a href="remotes.html#a-machine-that-takes-the-traffic">A machine that takes the traffic</a>), a forward
 whose two ends are one machine is joined by its agent
-(<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>), and an app board is answered
-by the agent of each machine it is on, straight to its apps
-(<a href="config.html#app-boards">App boards</a>). Still through serviceman: a forward between two machines,
-a mount, and a request to serviceman&#39;s own door for a service on another machine.</p>
+(<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>), a forward and a mount between
+two machines go straight from agent to agent
+(<a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a>,
+<a href="mounts.html#how-it-works">Mounts</a>), and an app board is answered by the agent of each machine it
+is on, straight to its apps (<a href="config.html#app-boards">App boards</a>). Still through serviceman: a
+forward or a mount whose agents cannot reach each other, and a request to serviceman&#39;s own door
+for a service on another machine.</p>
 <h2 id="the-page-shows-the-command"><a class="anchor" href="#the-page-shows-the-command" aria-hidden="true" tabindex="-1">#</a>The page shows the command</h2>
 <p>What follows from it: a part of the page that shows something from a machine, or does
 something to it, carries the command that does the same by hand, one click from the

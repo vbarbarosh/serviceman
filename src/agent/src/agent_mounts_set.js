@@ -1,7 +1,9 @@
 const agent_dir = require('./agent_dir');
 const agent_doors_state = require('./agent_doors_state');
+const agent_peer_stream = require('./agent_peer_stream');
 const agent_root_ask = require('./agent_root_ask');
 const agent_say = require('./agent_say');
+const agent_stream_counts = require('./agent_stream_counts');
 const agent_tunnel = require('./agent_tunnel');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -14,17 +16,25 @@ const SOCKET_PATH_MAX = 107;
 // A socket's name in its folder: a sum of the label, of this many hex digits, and .sock
 const SOCKET_NAME_LENGTH = 16 + '.sock'.length;
 
-// The sockets this machine listens on for its mounts, by label: {label: {file, server, error}}.
-// They stand for the life of the agent, as a forward's do: sshfs dials one again after a
-// blink of the link, and finds it there.
+// The sockets this machine listens on for its mounts, by label: {label: {file, server, error,
+// peer}}. They stand for the life of the agent, as a forward's do: sshfs dials one again after
+// a blink of the link, and finds it there.
 const listening = {};
+
+// What went through the mounts this agent joins itself, since serviceman was last told
+const counts = agent_stream_counts();
 
 // The folders of other machines serviceman says to mount here. Each gets a socket file of the
 // agent's user, which the mount's sshfs dials through `--pipe` in place of ssh; whatever
 // connects there is carried over the link as a stream named for the mount, and serviceman
 // joins it to the folder's own machine. The root half mounts them (agent_mounts).
 //
-// mounts: [{name, path, mode}]. Answers {root, items: [{label, path, mode, state, error}], leaving}.
+// A mount that comes with `peer`, where the folder's machine's agent listens, goes straight
+// there instead, over the tailnet, and that agent serves the folder (agent_peer_stream); a peer
+// that does not answer leaves it to the link, as before.
+//
+// mounts: [{name, path, mode, peer}], peer {addresses, port, token} or left out. Answers
+// {root, items: [{label, path, mode, state, error}], leaving}.
 async function agent_mounts_set(options, mounts, group)
 {
     const wanted = {};
@@ -52,7 +62,9 @@ async function agent_mounts_set(options, mounts, group)
             }
             listening[label] = await listen(dir, label, group);
         }
+        listening[label].peer = (wanted[label].peer === undefined) ? null : wanted[label].peer;
     }
+    counts.keep(Object.keys(listening).filter(v => listening[v].peer !== null));
     const table = {mounts: Object.values(wanted).map(v => ({label: v.name, path: v.path, mode: v.mode, socket: listening[v.name].file}))};
     let answer;
     try {
@@ -109,17 +121,16 @@ function sockets_dir()
 async function listen(dir, label, group)
 {
     const file = path.join(dir, `${crypto.createHash('sha256').update(label).digest('hex').slice(0, 16)}.sock`);
-    const out = {file, server: null, error: null};
+    const out = {file, server: null, error: null, peer: null};
     const server = net.createServer({allowHalfOpen: true}, function (socket) {
         socket.on('error', function () {
             socket.destroy();
         });
-        // No link: refused at once, and sshfs tries again
-        if (agent_doors_state.link === null) {
-            socket.destroy();
+        if (out.peer !== null) {
+            through_peer(label, socket, out.peer);
             return;
         }
-        agent_tunnel.open(agent_doors_state.link, socket, {mount: label});
+        through_link(label, socket);
     });
     try {
         fs.rmSync(file, {force: true});
@@ -144,6 +155,53 @@ async function listen(dir, label, group)
     agent_say(group, 'mount_socket_listen', {mount: label, at: file});
     return out;
 }
+
+// sshfs's pipe, straight to the agent of the folder's machine. What it sends meanwhile waits in
+// the socket. That agent refused: closed, serviceman hears why, and sshfs tries again; the peer
+// did not answer: through the link, as before.
+function through_peer(label, near, peer)
+{
+    agent_peer_stream(peer, 'mount', label).then(function (far) {
+        if (near.destroyed) {
+            far.destroy();
+            return;
+        }
+        counts.join(label, near, far);
+    }, function (error) {
+        if (near.destroyed) {
+            return;
+        }
+        if (error.code === 'EPEERREFUSED') {
+            counts.failed(label, error.message);
+            near.destroy();
+            return;
+        }
+        counts.away(label, error.message);
+        through_link(label, near);
+    });
+}
+
+// Over the link, for serviceman to join to the folder's machine. No link: refused at once, and
+// sshfs tries again.
+function through_link(label, near)
+{
+    if (agent_doors_state.link === null) {
+        near.destroy();
+        return;
+    }
+    agent_tunnel.open(agent_doors_state.link, near, {mount: label});
+}
+
+// What went through the mounts this agent joins itself since the last time, for serviceman's
+// page: {label: {open, total, bytes_sent, bytes_back, failed}}, or null when nothing moved
+agent_mounts_set.counts_take = function () {
+    return counts.take();
+};
+
+// A new link is told the connections open now at its first telling, whatever the last one heard
+agent_mounts_set.counts_retell = function () {
+    counts.retell();
+};
 
 function close(found)
 {

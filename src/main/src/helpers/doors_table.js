@@ -3,7 +3,9 @@ const crypto = require('crypto');
 const docker_container_name = require('./docker_container_name');
 const door_peer_known = require('./door_peer_known');
 const door_token = require('./door_token');
+const forward_dial = require('./forward_dial');
 const remote_candidates = require('./remote_candidates');
+const stream_peer = require('./stream_peer');
 
 // What one machine's door routes by, written here and kept on that machine, so it goes on
 // routing when serviceman is away:
@@ -14,6 +16,9 @@ const remote_candidates = require('./remote_candidates');
 //   another machine's door names — so its agent can answer its peers;
 // - peers: how to reach the other machines' agents, and the token each asks with;
 // - token: the one its own peers ask it with;
+// - streams: the forwards and the mounts its peers may open on it, straight, and where each
+//   leads, {forwards: {label: dial}, mounts: {label: {path, mode}}}; only on a machine one
+//   such is from;
 // - local: where a board published on it is answered, {ports}, on 127.0.0.1 and nowhere else;
 //   only on a machine a board is on.
 //
@@ -68,7 +73,11 @@ function doors_table(app, remote)
             peers[other.name] = {addresses: peer.addresses, port: peer.port, token: door_token(app, other.name)};
         }
     }
-    const table = {self: remote.name, token: asked ? door_token(app, remote.name) : null, names, services, peers};
+    const streams = streams_of(app, remote);
+    const table = {self: remote.name, token: (asked || (streams !== null)) ? door_token(app, remote.name) : null, names, services, peers};
+    if (streams !== null) {
+        table.streams = streams;
+    }
     // A board published here: the ports its agent answers its names on, on 127.0.0.1 alone
     const local = board_rules(app, remote.name).ports;
     if (local.length > 0) {
@@ -76,6 +85,29 @@ function doors_table(app, remote)
     }
     const version = crypto.createHash('sha256').update(JSON.stringify(table)).digest('hex').slice(0, 12);
     return Object.assign({version}, table);
+}
+
+// The forwards whose service is on this machine and the mounts of its folders, each shown up on
+// another machine whose agent comes here for it straight (stream_peer): what it may be asked to
+// open, by name, and nothing else. null for none.
+function streams_of(app, remote)
+{
+    const forwards = {};
+    for (const item of app.config.forwards) {
+        if ((item.off === false) && (item.to.here === false) && (item.from.remote === remote.name) && (item.to.remote !== remote.name) && (stream_peer(app, app.remote_by_name[item.to.remote], remote.name) !== null)) {
+            forwards[item.label] = forward_dial(item.from);
+        }
+    }
+    const mounts = {};
+    for (const item of app.config.mounts) {
+        if ((item.off === false) && (item.from.here === false) && (item.from.remote === remote.name) && (item.to.remote !== remote.name) && (stream_peer(app, app.remote_by_name[item.to.remote], remote.name) !== null)) {
+            mounts[item.label] = {path: item.from.path, mode: item.mode};
+        }
+    }
+    if ((Object.keys(forwards).length === 0) && (Object.keys(mounts).length === 0)) {
+        return null;
+    }
+    return {forwards, mounts};
 }
 
 // A rule as the config holds it — a service's name alone, or {service, off, auth} — in the one

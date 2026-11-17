@@ -88,6 +88,11 @@ function forward_counts(app, label)
     if (app.forward_counts[label] === undefined) {
         app.forward_counts[label] = {
             open: 0,
+            // Of the open ones, those its agent joins itself and last said (forwards_counts_apply)
+            open_joined: 0,
+            // Why its agent's last connection went through serviceman, its peer not answering,
+            // or null
+            peer_away: null,
             total: 0,
             bytes_sent: 0,
             bytes_back: 0,

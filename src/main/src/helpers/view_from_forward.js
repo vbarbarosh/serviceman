@@ -1,5 +1,7 @@
 const control_tokens_read = require('./control_tokens_read');
 const forward_join = require('./forward_join');
+const remote_can = require('./remote_can');
+const stream_peer = require('./stream_peer');
 
 // One forward as the page shows it: the two ends, whether the near one listens and where, what
 // stands in its way now, and what went through it and how fast
@@ -12,6 +14,7 @@ function view_from_forward(app, forward)
     const said = said_of(app, forward, to);
     const counts = forward_join.counts(app, forward.label);
     const now = now_of(forward, from, to, said);
+    const straight = (way_of(app, forward, to) === 'straight');
     return Object.assign({}, forward, {
         // The token that asked for it, by its label now, or the one it had when it was revoked;
         // null for one the owner wrote
@@ -22,6 +25,11 @@ function view_from_forward(app, forward)
         // Where it stands, as a word the page shows on the forward's one line, and in full
         state: now.state,
         problem: now.problem,
+        // How its connections go: 'straight', joined by the agents of its machines alone, or
+        // 'serviceman', through serviceman's links; and why, when it could go straight and its
+        // agent's last connection did not, the peer not answering
+        way: ((counts.peer_away === null) && straight) ? 'straight' : 'serviceman',
+        way_why: straight ? counts.peer_away : null,
         open: counts.open,
         total: counts.total,
         bytes_sent: counts.bytes_sent,
@@ -35,6 +43,19 @@ function view_from_forward(app, forward)
         error: counts.error,
         error_at: counts.error_at,
     });
+}
+
+// Straight when the machine it shows up on was told where the service is (forwards_tell): on
+// that machine itself, or behind the agent of the service's machine
+function way_of(app, forward, to)
+{
+    if (to === null) {
+        return 'serviceman';
+    }
+    if (forward.from.remote === to.name) {
+        return remote_can(to, 'forwards_dial') ? 'straight' : 'serviceman';
+    }
+    return (stream_peer(app, to, forward.from.remote) === null) ? 'serviceman' : 'straight';
 }
 
 function by_of(app, forward)

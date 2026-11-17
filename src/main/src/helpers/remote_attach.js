@@ -20,6 +20,7 @@ const log_ids_valid = require('../../../helpers/log_ids_valid');
 const log_line = require('./log_line');
 const log_scope = require('./log_scope');
 const logline_tell = require('./logline_tell');
+const mounts_counts_apply = require('./mounts_counts_apply');
 const mounts_tell = require('./mounts_tell');
 const program_ended = require('./program_ended');
 const remote_call = require('./remote_call');
@@ -211,6 +212,10 @@ function message_read(app, remote, message)
     }
     if (message.type === 'forwards_counts') {
         forwards_counts_apply(app, remote, message.counts);
+        return;
+    }
+    if (message.type === 'mounts_counts') {
+        mounts_counts_apply(app, remote, message.counts);
         return;
     }
     if (message.type === 'reply') {

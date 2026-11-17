@@ -178,20 +178,14 @@ async function agent_serve(options, socket, group, status)
             stats_at = now + STATS_EVERY_MS;
             stats_send(options, socket, group);
         }
-        // What went through the forwards this machine joins itself, for the page's counts and
-        // speeds: once a tick, and only when something moved
-        const forwards_counts = agent_forwards_set.counts_take();
-        if (forwards_counts !== null) {
-            try {
-                link_send_message(socket, {type: 'forwards_counts', counts: forwards_counts});
-            }
-            catch {
-                // The link is gone; the close is what says so
-            }
-        }
+        // What went through the forwards and the mounts this machine joins itself, for the
+        // page's counts and speeds: once a tick, and only when something moved
+        counts_send(socket, 'forwards_counts', agent_forwards_set.counts_take());
+        counts_send(socket, 'mounts_counts', agent_mounts_set.counts_take());
     }
     // A new link hears how many connections are open now, whatever the last one heard
     agent_forwards_set.counts_retell();
+    agent_mounts_set.counts_retell();
     const clock = setInterval(tick, TICK_MS);
     // The way in for whatever stands in front of this machine, open for as long as the link is
     // What the door cannot route itself goes over this link while it is up
@@ -651,6 +645,21 @@ async function method_run(options, state, method, params, say, group)
         return agent_program_probe(state, params);
     }
     throw new Error(`this agent knows nothing called ${JSON.stringify(String(method))}`);
+}
+
+// What one kind of stream this machine joins itself carried since the last tick, said only when
+// something moved
+function counts_send(socket, type, counts)
+{
+    if (counts === null) {
+        return;
+    }
+    try {
+        link_send_message(socket, {type, counts});
+    }
+    catch {
+        // The link is gone; the close is what says so
+    }
 }
 
 function stats_send(options, socket, group)
