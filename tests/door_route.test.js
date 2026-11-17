@@ -433,6 +433,49 @@ test('a service whose address cannot be asked is a 500 at the peer port and at t
     }
 });
 
+// A machine nobody is told to ask keeps no token of its own, and its peer port opens to no one:
+// a caller that sends the word null, or nothing, is not a machine of the fleet, and never reaches
+// a service that runs here past the wall in front of it
+test('a machine nobody asks lets no caller through its peer port, whatever token it sends', async function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-door-server-'));
+    const peer_port = await port_free();
+    let reached = 0;
+    const echo = http.createServer(function (req, res) {
+        reached++;
+        res.end('echo answered');
+    });
+    echo.on('upgrade', function (req, socket) {
+        reached++;
+        socket.destroy();
+    });
+    await new Promise(v => echo.listen(0, '127.0.0.1', v));
+    fs.mkdirSync(path.join(dir, 'doors'));
+    fs.writeFileSync(path.join(dir, 'doors', 'table.json'), JSON.stringify({
+        version: 'test',
+        self: 'server',
+        token: null,
+        names: {'echo.example.com': {service: 'echo', wall: 'authwall', off: false}},
+        services: {echo: {service: 'echo', machine: 'server', kind: 'external', upstream: `127.0.0.1:${echo.address().port}`}},
+        peers: {},
+    }));
+    const agent = agent_start(NOBODY_PORT, TOKEN_SERVER, {SERVICEMAN_AGENT_DIR: dir, SERVICEMAN_PEER_HOST: '127.0.0.1', SERVICEMAN_PEER_PORT: String(peer_port)});
+    const lines = lines_of(agent);
+    try {
+        await wait_until(() => lines.join('').includes('[peer_serve_begin]'), 5000);
+        for (const token of ['null', 'undefined', '', TOKEN_SERVER]) {
+            const answer = await fetch_port(peer_port, {'x-serviceman-peer': token, 'x-serviceman-service': 'echo'});
+            assert.deepStrictEqual([token, answer.status], [token, 403]);
+        }
+        assert.strictEqual(await handshake_raw({port: peer_port, host: '127.0.0.1', target: '/', headers: {'x-serviceman-peer': 'null', 'x-serviceman-service': 'echo'}}), 'HTTP/1.1 502 Bad Gateway');
+        assert.strictEqual(reached, 0);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        echo.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // The door is a file, so who the visitor is comes from the front alone, and the front writes it
 // after whatever the visitor wrote: the docs' nginx block sends `X-Real-IP $remote_addr` and
 // `X-Forwarded-For $proxy_add_x_forwarded_for`, the visitor's own list with the address the

@@ -123,11 +123,15 @@ function peer_service(req)
     return {service};
 }
 
-// Whether two tokens are one, in the same time whatever they are
+// Whether two tokens are one, in the same time whatever they are; a machine that keeps no token
+// (null: nobody is told to ask it) matches no caller, whatever word it sends
 function same(given, wanted)
 {
+    if (typeof wanted !== 'string') {
+        return false;
+    }
     const a = Buffer.from(given);
-    const b = Buffer.from(String(wanted));
+    const b = Buffer.from(wanted);
     return (a.length === b.length) && (a.length > 0) && crypto.timingSafeEqual(a, b);
 }
 

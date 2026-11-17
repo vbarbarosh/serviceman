@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.147 — 2026-11-17
+
+- A machine nobody is told to ask lets no caller through its peer port: the token `null` reached its services past their wall (agent 1.40.1).
+
 ## 1.0.146 — 2026-11-17
 
 - **On the tailnet** on Apps: off, the apps have no port of their own and no page on the tailnet, no certificate is asked for nor said missing, and they open by localhost through a machine's board.
