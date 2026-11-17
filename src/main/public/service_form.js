@@ -184,7 +184,7 @@ const service_form = {
                 <template v-if="(m.type === 'docker')">
                     <label>Image</label>
                     <div>
-                        <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @paste="image_paste" @change="image_change">
+                        <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @input="image_input" @change="image_change">
                     </div>
                 </template>
                 <template v-else-if="(m.type === 'shell')">
@@ -297,7 +297,7 @@ const service_form = {
             <template v-if="(section.id === 'runs' && m.type === 'docker')">
                 <label>Image</label>
                 <div>
-                    <input v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @paste="image_paste" @change="image_change">
+                    <input v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @input="image_input" @change="image_change">
                     <label class="check wide"><input type="checkbox" v-model="m.prepull"> fetch it before the first visit, on every machine it may run on</label>
                 </div>
                 <label>Port inside</label>
@@ -1221,12 +1221,13 @@ const service_form = {
             }
             this.report(`read from the line: ${said.join(', ')}`, false);
         },
-        image_paste: function () {
-            // The value is not in the box until the paste has landed
-            const self = this;
-            this.$nextTick(function () {
-                self.image_change();
-            });
+        // A line pasted or dropped into the box is read at once, from the input event that put it
+        // there, as the box holds it
+        image_input: function (event) {
+            if ((event.inputType === 'insertFromPaste') || (event.inputType === 'insertFromDrop')) {
+                this.m.image = event.target.value.trim();
+                this.image_change();
+            }
         },
         // The short form's two kinds: what the other one needs is asked of its machine now
         short_kind: function (type) {
