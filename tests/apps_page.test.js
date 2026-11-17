@@ -37,6 +37,12 @@ test('a page of apps is asked by the apps domain, apps.localhost or serviceman\'
     }
     assert.strictEqual(apps_page_of(plain, 'laptop.tail1234.ts.net', TAILNET), null, 'another device\'s name');
     assert.strictEqual(apps_page_of(plain, '100.64.0.21', TAILNET), null, 'another device\'s address');
+    // The apps off the tailnet: no page of them there, the one on this computer as it was
+    const off = {config: config_from_json({control: {host: 'serviceman.localhost'}, apps: {ports: null}, services: []}, '/srv')};
+    for (const host of ['serviceman.tail1234.ts.net', 'serviceman', '100.64.0.20']) {
+        assert.strictEqual(apps_page_of(off, host, TAILNET), null, `${host}, with the apps off the tailnet`);
+    }
+    assert.deepStrictEqual(apps_page_of(off, 'apps.localhost', TAILNET), {way: 'here', domain: null});
 });
 
 // apps.localhost, on this computer: a cell for every service, at its name here on the port the

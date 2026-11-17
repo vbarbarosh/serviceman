@@ -2263,6 +2263,14 @@ secure context through a forward on its own loopback, <code>http://notes.localho
 agent joins straight to the app&#39;s port here: nothing goes into the public log of certificates,
 and nothing passes through serviceman (<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>).
 A phone runs no agent, and is left with https.</p>
+<p><strong>Or off the tailnet, by localhost alone.</strong> <strong>On the tailnet</strong> on Apps, set off, gives the apps
+no port of their own (<code>&quot;apps&quot;: {&quot;ports&quot;: null}</code>; <code>PUT /api/v1/apps</code> with <code>{&quot;tailnet&quot;: false}</code>):
+no device of the tailnet opens one by serviceman&#39;s name, the page of apps is not answered there,
+no certificate is asked of tailscale, so serviceman&#39;s name goes into no public log, Health warns
+of none missing and the Tailscale page says none is wanted, and Apps and Addresses show no
+tailnet link. A machine with an agent opens them by localhost through a board
+published on it (<a href="#app-boards">App boards</a>); a device with no agent, a phone, opens none. Set on,
+they have their ports again.</p>
 <p><strong>The Tailscale page,</strong> in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
 sign this machine in while tailscale waits for one; the certificate, for which name and until when,

@@ -50,6 +50,15 @@ const apps_pane = {
         <span class="muted">{{ ((wall === '') ? 'an app picks its own wall in its Settings' : 'every visitor signs in first, a new app too; a wall an app picks itself stays its own') }}</span>
     </div>
     <p v-if="(wall_error !== '')" class="bad apps-wall-says">{{ wall_error }}</p>
+    <div class="apps-wall">
+        <label class="apps-wall-label" for="apps-tailnet-pick">{{ (tailnet_name === null ? 'Each app at its own port:' : 'On the tailnet:') }}</label>
+        <select id="apps-tailnet-pick" :value="(tailnet_on ? 'on' : 'off')" :disabled="tailnet_busy" aria-label="Whether every app has a port of its own on the tailnet" @change="change_tailnet($event.target.value === 'on')">
+            <option value="on">on: each app at a port of its own</option>
+            <option value="off">off: by localhost, through a machine's board</option>
+        </select>
+        <span class="muted">{{ (tailnet_on ? 'every device of the tailnet opens each app by serviceman’s name and its port' : 'no app answers on the tailnet; a machine opens the apps of a board published on it, on Boards') }}</span>
+    </div>
+    <p v-if="(tailnet_error !== '')" class="bad apps-wall-says">{{ tailnet_error }}</p>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
         <b>Drop a .zip, a folder or an .html page here</b>
@@ -118,9 +127,10 @@ const apps_pane = {
         // app whose settings window is open, as it was when it opened
         // socket_adding: the window for a new app on a socket is open; copied: the text the last
         // Copy put on the clipboard
-        // wall_busy: the list on top is being saved; wall_error: why its last save was refused
+        // wall_busy: the list on top is being saved; wall_error: why its last save was refused;
+        // tailnet_busy and tailnet_error the same for the switch under it
         // query: the search box's text; current: the cell among those shown that Enter opens
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', query: '', current: 0, STATE_WORDS};
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
     },
     computed: {
         sending: function () {
@@ -179,11 +189,19 @@ const apps_pane = {
         // of the tailnet, the apps domain where the tailnet answers its names. A name a service
         // has is that service's, and gives no link here.
         // [{href, text, where}]
+        // Whether each app has a port of its own on the tailnet: off with "apps": {"ports": null}
+        tailnet_on: function () {
+            return (this.state.apps.ports !== null);
+        },
+        tailnet_name: function () {
+            return ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
+        },
         page_links: function () {
             const port = this.state.listen.port;
             const at = (port === 80) ? '' : `:${port}`;
             const taken = new Set(this.state.services.flatMap(v => v.publish.hosts.map(vv => vv.split('/')[0].toLowerCase())));
-            const tailnet = ((this.state.tailnet === undefined) || (this.state.tailnet === null)) ? null : this.state.tailnet.name;
+            // Off the tailnet, the apps have no page there either (apps_page_of)
+            const tailnet = this.tailnet_on ? this.tailnet_name : null;
             const out = [];
             const names = [[`apps.${this.suffix}`, 'on this computer'], [tailnet, 'on every device of your tailnet']];
             if (this.names_on) {
@@ -276,6 +294,25 @@ const apps_pane = {
         },
         // The list on top, saved as it is picked: the page of apps and every app behind a wall, or
         // each app back to its own pick
+        // The apps on the tailnet or off it: off, none has a port of its own there, and a machine
+        // opens them by localhost through a board published on it
+        change_tailnet: async function (on) {
+            this.tailnet_busy = true;
+            this.tailnet_error = '';
+            try {
+                const answer = await fetch('/api/v1/apps', {method: 'PUT', body: JSON.stringify({tailnet: on})});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
+                }
+                this.$emit('saved');
+            }
+            catch (error) {
+                this.tailnet_error = error.message;
+            }
+            finally {
+                this.tailnet_busy = false;
+            }
+        },
         change_wall_all: async function (wall) {
             this.wall_busy = true;
             this.wall_error = '';

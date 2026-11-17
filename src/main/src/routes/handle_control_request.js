@@ -2296,14 +2296,27 @@ async function config_write(app, req, res)
     send_json(res, 200, Object.assign({ok: true, restart_needed: applied.restart_needed, notes, hash: text_hash(text)}, renamed ? {text} : {}));
 }
 
-// PUT /api/v1/apps   {auth}: the wall in front of the page of apps and of every app with none
-// of its own, a new one too, or null for none; an app's own wall stays its own either way
+// PUT /api/v1/apps   {auth}, {tailnet} or both. `auth` is the wall in front of the page of apps
+// and of every app with none of its own, a new one too, or null for none; an app's own wall
+// stays its own either way. `tailnet` false takes the apps off the tailnet, no port of their own
+// there ("ports": null), to be reached by localhost through a machine's board; true gives them
+// their ports back
 async function apps_settings_update(app, req, res)
 {
     const body = await body_fields(req, BODY_LIMIT_BYTES);
-    const auth = (body === null) ? undefined : body.auth;
-    if ((auth !== null) && ((typeof auth !== 'string') || (auth.trim() === ''))) {
+    const fields = ((body === null) || (typeof body !== 'object')) ? {} : body;
+    const auth = fields.auth;
+    const tailnet = fields.tailnet;
+    if ((auth === undefined) && (tailnet === undefined)) {
+        send_json(res, 400, {error: 'the body says auth, tailnet or both: {"auth": "authwall"}, {"tailnet": false}'});
+        return;
+    }
+    if ((auth !== undefined) && (auth !== null) && ((typeof auth !== 'string') || (auth.trim() === ''))) {
         send_json(res, 400, {error: 'auth: the name of the service every app stands behind, or null for none'});
+        return;
+    }
+    if ((tailnet !== undefined) && (typeof tailnet !== 'boolean')) {
+        send_json(res, 400, {error: 'tailnet: true, each app at a port of its own on the tailnet, or false, none, the apps reached by localhost through a machine\'s board'});
         return;
     }
     await config_file_mutate(app, res, function (json) {
@@ -2311,8 +2324,15 @@ async function apps_settings_update(app, req, res)
         if (auth === null) {
             delete apps.auth;
         }
-        else {
+        else if (auth !== undefined) {
             apps.auth = auth.trim();
+        }
+        // Off is no ports; back on is the first port as it was, or 3400 when none was said
+        if (tailnet === false) {
+            apps.ports = null;
+        }
+        else if ((tailnet === true) && (apps.ports === null)) {
+            delete apps.ports;
         }
         if (Object.keys(apps).length === 0) {
             delete json.apps;

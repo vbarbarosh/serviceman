@@ -27,6 +27,11 @@ const RE_PEM = /-----BEGIN ([A-Z ]+)-----[\s\S]+?-----END \1-----/g;
 async function tailnet_cert_read(app)
 {
     const held = app.tailnet_cert;
+    // The apps off the tailnet ("apps": {"ports": null}): no port answers https, so none is asked
+    // for, and serviceman's name goes into no public log of certificates
+    if (app.config.apps.ports === null) {
+        return;
+    }
     const wait = (held.context === null) ? RETRY_MS : RENEW_MS;
     if (held.busy || ((held.at !== 0) && (Date.now() - held.at < wait))) {
         return;

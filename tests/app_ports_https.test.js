@@ -85,7 +85,7 @@ test('the tailnet\'s certificate: asked of tailscale, kept in memory, its failur
     assert.strictEqual(app.tailnet_cert.context, context);
     assert.match(lines('tailnet_cert_error')[1], /the one held is used until 2126-.*asked again tomorrow/);
     assert.deepStrictEqual(problems_of_tailnet_cert(app), [], 'one held is no problem yet');
-    const other = problems_of_tailnet_cert({tailnet_cert: {context: null, error: 'tailscale is down'}});
+    const other = problems_of_tailnet_cert({config: {apps: {ports: 3400}}, tailnet_cert: {context: null, error: 'tailscale is down'}});
     assert.doesNotMatch(other[0].fix, /Enable HTTPS/);
     assert.strictEqual(other[0].subject, 'No https for the apps: tailscale gives no certificate');
     assert.strictEqual(other[0].link, null);
@@ -207,3 +207,21 @@ async function status_of(servers)
     const answer = await fetch_host({port: servers.control.address().port, host: '127.0.0.1', path: '/api/v1/status'});
     return JSON.parse(answer.body);
 }
+
+// The apps off the tailnet ("apps": {"ports": null}): no port answers https, so no certificate is
+// asked of tailscale, serviceman's name goes into no public log, and nothing is said missing
+test('with the apps off the tailnet no certificate is asked, and none is said missing', async function () {
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-tailnet-off-'));
+    try {
+        const app = app_from_config(config_from_json({apps: {ports: null}, services: []}, state));
+        await tailnet_cert_read(app);
+        assert.strictEqual(app.tailnet_cert.at, 0, 'tailscale was not asked');
+        assert.strictEqual(app.log_lines.some(v => /\[tailnet_cert(_error)?\]/.test(v)), false);
+        // A refusal from before the switch says nothing now
+        app.tailnet_cert.error = '500 Internal Server Error: your Tailscale account does not support getting TLS certs';
+        assert.deepStrictEqual(problems_of_tailnet_cert(app), []);
+    }
+    finally {
+        fs.rmSync(state, {recursive: true, force: true});
+    }
+});

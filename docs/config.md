@@ -1411,6 +1411,15 @@ agent joins straight to the app's port here: nothing goes into the public log of
 and nothing passes through serviceman ([Both ends on one machine](remotes.md#both-ends-on-one-machine)).
 A phone runs no agent, and is left with https.
 
+**Or off the tailnet, by localhost alone.** **On the tailnet** on Apps, set off, gives the apps
+no port of their own (`"apps": {"ports": null}`; `PUT /api/v1/apps` with `{"tailnet": false}`):
+no device of the tailnet opens one by serviceman's name, the page of apps is not answered there,
+no certificate is asked of tailscale, so serviceman's name goes into no public log, Health warns
+of none missing and the Tailscale page says none is wanted, and Apps and Addresses show no
+tailnet link. A machine with an agent opens them by localhost through a board
+published on it ([App boards](#app-boards)); a device with no agent, a phone, opens none. Set on,
+they have their ports again.
+
 **The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to
 sign this machine in while tailscale waits for one; the certificate, for which name and until when,

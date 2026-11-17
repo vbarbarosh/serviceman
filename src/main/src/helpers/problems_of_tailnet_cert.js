@@ -11,7 +11,8 @@ const TAILSCALE_DNS_URL = 'https://login.tailscale.com/admin/dns';
 function problems_of_tailnet_cert(app)
 {
     const cert = app.tailnet_cert;
-    if ((cert.context !== null) || (cert.error === null)) {
+    // With the apps off the tailnet there is no port to answer https on, and nothing missing
+    if ((app.config.apps.ports === null) || (cert.context !== null) || (cert.error === null)) {
         return [];
     }
     const off = RE_HTTPS_OFF.test(cert.error);

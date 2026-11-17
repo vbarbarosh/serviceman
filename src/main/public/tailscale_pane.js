@@ -50,16 +50,17 @@ const tailscale_pane = {
             </overview-card>
             <overview-card icon="lock" title="The certificate">
                 <template #note>
-                    <span v-if="view.certificate.held">For {{ view.certificate.domain }}, until {{ day_of(view.certificate.until) }}: the apps' own ports answer https.</span>
+                    <span v-if="(view.certificate.wanted === false)" class="muted">Not asked: the apps are off the tailnet (Apps, On the tailnet), so no port answers https and none is wanted.</span>
+                    <span v-else-if="view.certificate.held">For {{ view.certificate.domain }}, until {{ day_of(view.certificate.until) }}: the apps' own ports answer https.</span>
                     <span v-else-if="(view.certificate.error !== null)" class="bad">None: {{ view.certificate.error }}. <template v-if="(https_off !== null)">{{ https_off.fix }} <a v-if="(https_off.link !== null)" :href="https_off.link.href" target="_blank" rel="noopener">{{ https_off.link.text }}</a></template></span>
                     <span v-else class="muted">Not asked yet: serviceman asks once it has a name on the tailnet.</span>
                 </template>
-                <dt>Given for</dt><dd>{{ (view.cert_domains.length > 0) ? view.cert_domains.join(', ') : ((view.state === 'Running') ? 'no name: HTTPS is off for the tailnet' : 'none yet: not on a tailnet') }}</dd>
+                <dt>Given for</dt><dd>{{ (view.certificate.wanted === false) ? 'none wanted' : ((view.cert_domains.length > 0) ? view.cert_domains.join(', ') : ((view.state === 'Running') ? 'no name: HTTPS is off for the tailnet' : 'none yet: not on a tailnet')) }}</dd>
                 <dt>Last asked</dt><dd>{{ (view.certificate.asked_at === null) ? 'not yet' : time_of(view.certificate.asked_at) }}</dd>
             </overview-card>
             <overview-card icon="globe" title="The apps' names">
                 <template #note>
-                    <span v-if="(view.apps_dns === null)" class="muted">Not answered: the config sets no <code>apps.dns</code>, so names under the apps domain are not answered on the tailnet. Each app still has its own port on serviceman's name.</span>
+                    <span v-if="(view.apps_dns === null)" class="muted">Not answered: the config sets no <code>apps.dns</code>, so names under the apps domain are not answered on the tailnet. {{ ((view.certificate.wanted === false) ? 'Nor has an app a port of its own on serviceman’s name: the apps are off the tailnet.' : 'Each app still has its own port on serviceman’s name.') }}</span>
                     <span v-else>Names under {{ view.apps_dns.domain }} answered on port {{ view.apps_dns.port }}, each as {{ view.apps_dns.address || 'this machine, once tailscale says its address' }}.</span>
                 </template>
             </overview-card>

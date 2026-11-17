@@ -7,7 +7,8 @@ const app_files_put = require('./app_files_put');
 //     domain   the apps domain itself, apps.example.com: each app's name under it
 //     here     apps.localhost, beside serviceman.localhost: each app's name on this computer
 //     tailnet  serviceman's own name on the tailnet, serviceman.tail1234.ts.net, its first word
-//              (serviceman, as MagicDNS takes it) or its tailnet address: each app's own port
+//              (serviceman, as MagicDNS takes it) or its tailnet address: each app's own port; none
+//              while the apps are off the tailnet ("apps": {"ports": null})
 //
 //     host     the name asked, lowercase, without its port
 //     tailnet  serviceman's own on the tailnet, as tailscale last said: {name, ip}, null each
@@ -24,6 +25,10 @@ function apps_page_of(app, host, tailnet)
     const here = app_files_put.hosts(app, 'apps');
     if (host === here[here.length - 1]) {
         return {way: 'here', domain: null};
+    }
+    // The apps off the tailnet, with no port of their own there: no page of them there either
+    if (app.config.apps.ports === null) {
+        return null;
     }
     if ((tailnet.name !== null) && ((host === tailnet.name.toLowerCase()) || (host === tailnet.name.toLowerCase().split('.')[0]))) {
         return {way: 'tailnet', domain: null};

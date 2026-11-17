@@ -31,7 +31,8 @@ async function tailscale_view(app)
         magic_dns: (tailnet.MagicDNSEnabled === undefined) ? null : (tailnet.MagicDNSEnabled === true),
         cert_domains: Array.isArray(status.json.CertDomains) ? status.json.CertDomains : [],
         login_link: status.json.AuthURL || null,
-        certificate: {domain: cert.domain, until: cert.until, error: cert.error, held: (cert.context !== null), asked_at: (cert.at === 0) ? null : cert.at},
+        // `wanted` false while the apps are off the tailnet: no port answers https, none is asked for
+        certificate: {domain: cert.domain, until: cert.until, error: cert.error, held: (cert.context !== null), asked_at: (cert.at === 0) ? null : cert.at, wanted: (app.config.apps.ports !== null)},
         apps_dns: ((dns === null) || (dns === undefined)) ? null : {domain: app.config.apps.domain, port: app.config.apps.dns, address: dns.address()},
         proxy: process.env.TAILNET_PROXY || null,
         calls: tailscale_run.calls(),

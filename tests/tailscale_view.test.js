@@ -36,6 +36,11 @@ test('the Tailscale page says what tailscale says, and keeps each call but not i
     const running = await tailscale_view(app);
     assert.deepStrictEqual([running.here, running.state, running.name, running.addresses, running.magic_dns, running.cert_domains, running.login_link], [true, 'Running', 'serviceman.tail1234.ts.net', ['100.64.0.20'], true, ['serviceman.tail1234.ts.net'], null]);
     assert.strictEqual(running.certificate.held, false, 'none held before it is asked');
+    assert.strictEqual(running.certificate.wanted, true);
+    // The apps off the tailnet: the page says none is wanted, rather than what is missing
+    app.config.apps.ports = null;
+    assert.strictEqual((await tailscale_view(app)).certificate.wanted, false);
+    app.config.apps.ports = 3400;
 
     fs.writeFileSync(status_file, JSON.stringify({BackendState: 'NeedsLogin', AuthURL: 'https://login.tailscale.com/a/1a2b3c', Self: {DNSName: ''}, CertDomains: null}));
     const login = await tailscale_view(app);

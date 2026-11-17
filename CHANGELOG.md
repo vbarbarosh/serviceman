@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.146 — 2026-11-17
+
+- **On the tailnet** on Apps: off, the apps have no port of their own and no page on the tailnet, no certificate is asked for nor said missing, and they open by localhost through a machine's board.
+
 ## 1.0.145 — 2026-11-17
 
 - An app's websocket through a machine's board is answered: serviceman refused a `.localhost` name that came through a door, as if typed by hand (Visual Agency on a board).
