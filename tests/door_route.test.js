@@ -215,13 +215,21 @@ test('a board published on a machine is answered on its loopback alone, its apps
         fs.writeFileSync(path.join(state_dir, 'apps', name, 'index.html'), `<title>${name}</title>`);
     }
     const port = await port_free();
+    // An app that takes a websocket, as Visual Agency does
+    const chat = await server_of(function (req, res) {
+        res.end('chat');
+    });
+    chat.on('upgrade', function (req, socket) {
+        socket.end('HTTP/1.1 101 Switching Protocols\r\nupgrade: websocket\r\nconnection: Upgrade\r\n\r\n');
+    });
     const running = await serviceman_start({
         remotes: [{name: 'laptop', token: TOKEN_LAPTOP}],
         services: [
             {name: 'notes', type: 'files', publish: {host: 'notes.localhost'}},
             {name: 'mail', type: 'files', publish: {host: 'mail.localhost'}},
+            {name: 'chat', type: 'external', publish: {host: 'chat.localhost'}, upstream: `127.0.0.1:${chat.address().port}`},
         ],
-        boards: [{name: 'home', machines: ['laptop'], apps: ['notes'], port}],
+        boards: [{name: 'home', machines: ['laptop'], apps: ['notes', 'chat'], port}],
     });
     const dir_laptop = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-board-laptop-'));
     const agent = agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_AGENT_DIR: dir_laptop, SERVICEMAN_PEER_PORT: '0'});
@@ -240,6 +248,7 @@ test('a board published on a machine is answered on its loopback alone, its apps
         assert.strictEqual(board.body.includes('mail.localhost'), false, 'an app not on the board has no cell');
         assert.match(board.body, /<h1>home<\/h1>/);
 
+        assert.strictEqual(await handshake_raw({port, host: `chat.localhost:${port}`, target: '/ws'}), 'HTTP/1.1 101 Switching Protocols', 'a websocket of an app on it');
         assert.strictEqual((await fetch_port(port, {host: `mail.localhost:${port}`})).status, 404, 'an app on no board here');
         assert.strictEqual((await fetch_port(port, {host: `serviceman.localhost:${port}`})).status, 404, 'never the control page');
 
@@ -251,6 +260,7 @@ test('a board published on a machine is answered on its loopback alone, its apps
     finally {
         agent.kill('SIGKILL');
         await running.close();
+        await close_server(chat);
         delete process.env.SERVICEMAN_STATE_DIR;
     }
 });

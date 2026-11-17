@@ -50,8 +50,10 @@ async function socket_answer(app, req, socket, head)
         return;
     }
     // A name under .localhost is this computer's own: asked from anywhere else it was typed by
-    // hand, and it is no name here
-    if ((own === null) && is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
+    // hand, and it is no name here. Through a machine's door it is that machine's own, a
+    // board's on its loopback, and its rule has said what answers it, as for a request
+    // (handle_request).
+    if ((own === null) && (door === null) && is_localhost_name(host) && (localhost_name_allowed(app, req) === false)) {
         log_event(app, 'localhost_refused', {host, ip: (req.socket.remoteAddress === undefined) ? '' : req.socket.remoteAddress, upgrade: String(req.headers.upgrade || '')});
         socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
         return;

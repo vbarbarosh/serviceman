@@ -2,6 +2,10 @@
 
 Every change raises the patch version and is said here in short, the newest first.
 
+## 1.0.145 — 2026-11-17
+
+- An app's websocket through a machine's board is answered: serviceman refused a `.localhost` name that came through a door, as if typed by hand (Visual Agency on a board).
+
 ## 1.0.144 — 2026-11-17
 
 - App boards: a page of apps put together by dragging on **Boards**, published on a machine, whose agent answers it and its apps on 127.0.0.1 alone, at their names under `.localhost` (agent 1.40.0).
