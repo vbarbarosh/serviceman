@@ -87,7 +87,7 @@ edited it in parallel. Load it again and repeat the edit.
 | `remotes`    | `[]`                | The machines that carry services. See below.                   |
 | `logline`    | none                | Where the remotes send their logs. See **Logline** below.      |
 | `load_tests` | `[]`                | What k6 is sent at. See **Load tests** at the end.             |
-| `apps`       | none                | The domain an app sent to serviceman is named under, the apps' own ports, and the wall in front of the page of apps and every app (`auth`). See **An app sent to serviceman**. |
+| `apps`       | none                | The domain an app sent to serviceman is named under, the apps' own ports, the wall in front of the page of apps and every app (`auth`), and where their tailnet links are said to be http (`http_said`). See **An app sent to serviceman**. |
 | `services`   | required            | The list below.                                                |
 
 ### A socket file instead of a port
@@ -1406,6 +1406,14 @@ tailnet comes with a link to Tailscale's DNS page, where it is turned on. **Apps
 that link; each app's tailnet link says it is http and why, wherever it is shown: **Apps**, an
 app's **Settings**, **Addresses** and the page of apps.
 
+**Or said on the Tailscale page alone.** **Say that the apps' tailnet links are http** on the
+Tailscale page, set off (`"apps": {"http_said": false}`; `PUT /api/v1/apps` with
+`{"http_said": false}`), says it there alone, in a line beside the switch with the link to
+Tailscale's DNS page: Apps and Addresses show no note, no tailnet link says http, the page of apps
+says nothing of it, and neither Health nor the bar lists or counts it. The links stay as they are,
+over http; the log says why as before. Set on, every page says it again at its next look, with no
+restart.
+
 **Or by `localhost`, with no certificate.** A computer that runs the agent opens an app as a
 secure context through a forward on its own loopback, `http://notes.localhost:5460`, which its
 agent joins straight to the app's port here: nothing goes into the public log of certificates,
@@ -1423,9 +1431,10 @@ they have their ports again.
 
 **The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to
-sign this machine in while tailscale waits for one; the certificate, for which name and until when,
-or why there is none and what mends it; the names of the apps it answers on the tailnet
-(`apps.dns`); the way out to the tailnet, tailscale's proxy; and the last 50 calls serviceman made to
+sign this machine in while tailscale waits for one; the switch above, while the apps are on the
+tailnet; the certificate, for which name and until when, or why there is none and what mends it;
+the names of the apps it answers on the tailnet (`apps.dns`); the way out to the tailnet,
+tailscale's proxy; and the last 50 calls serviceman made to
 tailscale, each with how long it took and what came back, never what it printed. It asks tailscale
 when it opens and on **Refresh**, and with no tailscale, outside the image, it says so.
 

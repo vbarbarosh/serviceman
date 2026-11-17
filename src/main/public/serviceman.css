@@ -4690,6 +4690,46 @@ article.rf .actions {
     font-size: 1.05rem;
 }
 
+/* The switch that says the apps' tailnet links are http everywhere or here alone: its label,
+   the list and the line on why they are http wrap as the width asks */
+.tailscale .tailscale-http {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .6rem;
+}
+
+.tailscale .tailscale-http-label {
+    font-weight: 600;
+}
+
+.tailscale .tailscale-http select {
+    min-width: 0;
+    max-width: 100%;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+    transition: border-color .12s ease;
+}
+
+.tailscale .tailscale-http select:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.tailscale .tailscale-http-why,
+.tailscale .tailscale-http-says {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tailscale .tailscale-http-why {
+    color: var(--busy-text);
+}
+
 /* The search box over the cells, clear of the outline the current cell gets */
 .apps-pane .list-tools {
     margin-bottom: .9rem;

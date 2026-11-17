@@ -828,7 +828,7 @@ edited it in parallel. Load it again and repeat the edit.</p>
 <tr>
 <td><code>apps</code></td>
 <td>none</td>
-<td>The domain an app sent to serviceman is named under, the apps&#39; own ports, and the wall in front of the page of apps and every app (<code>auth</code>). See <strong>An app sent to serviceman</strong>.</td>
+<td>The domain an app sent to serviceman is named under, the apps&#39; own ports, the wall in front of the page of apps and every app (<code>auth</code>), and where their tailnet links are said to be http (<code>http_said</code>). See <strong>An app sent to serviceman</strong>.</td>
 </tr>
 <tr>
 <td><code>services</code></td>
@@ -2259,6 +2259,13 @@ tailnet comes with a link to Tailscale&#39;s DNS page, where it is turned on. <s
 <strong>Addresses</strong> say it at once, in a note over their tailnet links, with tailscale&#39;s own words and
 that link; each app&#39;s tailnet link says it is http and why, wherever it is shown: <strong>Apps</strong>, an
 app&#39;s <strong>Settings</strong>, <strong>Addresses</strong> and the page of apps.</p>
+<p><strong>Or said on the Tailscale page alone.</strong> <strong>Say that the apps&#39; tailnet links are http</strong> on the
+Tailscale page, set off (<code>&quot;apps&quot;: {&quot;http_said&quot;: false}</code>; <code>PUT /api/v1/apps</code> with
+<code>{&quot;http_said&quot;: false}</code>), says it there alone, in a line beside the switch with the link to
+Tailscale&#39;s DNS page: Apps and Addresses show no note, no tailnet link says http, the page of apps
+says nothing of it, and neither Health nor the bar lists or counts it. The links stay as they are,
+over http; the log says why as before. Set on, every page says it again at its next look, with no
+restart.</p>
 <p><strong>Or by <code>localhost</code>, with no certificate.</strong> A computer that runs the agent opens an app as a
 secure context through a forward on its own loopback, <code>http://notes.localhost:5460</code>, which its
 agent joins straight to the app&#39;s port here: nothing goes into the public log of certificates,
@@ -2274,9 +2281,10 @@ published on it (<a href="#app-boards">App boards</a>); a device with no agent, 
 they have their ports again.</p>
 <p><strong>The Tailscale page,</strong> in the rail, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
-sign this machine in while tailscale waits for one; the certificate, for which name and until when,
-or why there is none and what mends it; the names of the apps it answers on the tailnet
-(<code>apps.dns</code>); the way out to the tailnet, tailscale&#39;s proxy; and the last 50 calls serviceman made to
+sign this machine in while tailscale waits for one; the switch above, while the apps are on the
+tailnet; the certificate, for which name and until when, or why there is none and what mends it;
+the names of the apps it answers on the tailnet (<code>apps.dns</code>); the way out to the tailnet,
+tailscale&#39;s proxy; and the last 50 calls serviceman made to
 tailscale, each with how long it took and what came back, never what it printed. It asks tailscale
 when it opens and on <strong>Refresh</strong>, and with no tailscale, outside the image, it says so.</p>
 <p><code>ports</code> is the first of them, <code>3400</code> unless said (3100 is Loki&#39;s); <code>null</code> gives none. A new app takes the lowest one

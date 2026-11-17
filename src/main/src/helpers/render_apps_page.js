@@ -264,8 +264,9 @@ ${SEARCH_JS}</script>`;
     const heading = (page.way === 'board') ? page.board : 'Apps';
     const theme = theme_switch();
     // On the tailnet the apps open at their own ports: over http while it gives no certificate,
-    // and the page says why, as Health does
-    const [https_off = null] = (page.way === 'tailnet') ? problems_of_tailnet_cert(app) : [];
+    // and the page says why, as Health does; nothing while the owner has that said on the
+    // Tailscale page alone ("apps": {"http_said": false})
+    const [https_off = null] = ((page.way === 'tailnet') && (app.config.apps.http_said !== false)) ? problems_of_tailnet_cert(app) : [];
     const http_why = (https_off === null) ? '' : `<p class="http-why">They open over http: ${html_escape(https_off.why)}.${(https_off.link === null) ? '' : ` <a href="${html_escape(https_off.link.href)}" target="_blank" rel="noopener">${html_escape(https_off.link.text)} ↗</a>`}</p>`;
     return `<!doctype html>
 <html lang="en">

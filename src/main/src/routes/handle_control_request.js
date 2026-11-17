@@ -2296,19 +2296,22 @@ async function config_write(app, req, res)
     send_json(res, 200, Object.assign({ok: true, restart_needed: applied.restart_needed, notes, hash: text_hash(text)}, renamed ? {text} : {}));
 }
 
-// PUT /api/v1/apps   {auth}, {tailnet} or both. `auth` is the wall in front of the page of apps
-// and of every app with none of its own, a new one too, or null for none; an app's own wall
-// stays its own either way. `tailnet` false takes the apps off the tailnet, no port of their own
-// there ("ports": null), to be reached by localhost through a machine's board; true gives them
-// their ports back
+// PUT /api/v1/apps   {auth}, {tailnet}, {http_said}, or more than one. `auth` is the wall in
+// front of the page of apps and of every app with none of its own, a new one too, or null for
+// none; an app's own wall stays its own either way. `tailnet` false takes the apps off the
+// tailnet, no port of their own there ("ports": null), to be reached by localhost through a
+// machine's board; true gives them their ports back. `http_said` false says that the apps'
+// tailnet links are http on the Tailscale page alone, not on Apps, Addresses, Health or the page
+// of apps; true says it everywhere again
 async function apps_settings_update(app, req, res)
 {
     const body = await body_fields(req, BODY_LIMIT_BYTES);
     const fields = ((body === null) || (typeof body !== 'object')) ? {} : body;
     const auth = fields.auth;
     const tailnet = fields.tailnet;
-    if ((auth === undefined) && (tailnet === undefined)) {
-        send_json(res, 400, {error: 'the body says auth, tailnet or both: {"auth": "authwall"}, {"tailnet": false}'});
+    const http_said = fields.http_said;
+    if ((auth === undefined) && (tailnet === undefined) && (http_said === undefined)) {
+        send_json(res, 400, {error: 'the body says auth, tailnet, http_said, or more than one: {"auth": "authwall"}, {"tailnet": false}, {"http_said": false}'});
         return;
     }
     if ((auth !== undefined) && (auth !== null) && ((typeof auth !== 'string') || (auth.trim() === ''))) {
@@ -2317,6 +2320,10 @@ async function apps_settings_update(app, req, res)
     }
     if ((tailnet !== undefined) && (typeof tailnet !== 'boolean')) {
         send_json(res, 400, {error: 'tailnet: true, each app at a port of its own on the tailnet, or false, none, the apps reached by localhost through a machine\'s board'});
+        return;
+    }
+    if ((http_said !== undefined) && (typeof http_said !== 'boolean')) {
+        send_json(res, 400, {error: 'http_said: true, the apps\' tailnet links said to be http wherever they are shown, or false, on the Tailscale page alone'});
         return;
     }
     await config_file_mutate(app, res, function (json) {
@@ -2333,6 +2340,13 @@ async function apps_settings_update(app, req, res)
         }
         else if ((tailnet === true) && (apps.ports === null)) {
             delete apps.ports;
+        }
+        // Said everywhere is the default, and leaves no key behind
+        if (http_said === false) {
+            apps.http_said = false;
+        }
+        else if (http_said === true) {
+            delete apps.http_said;
         }
         if (Object.keys(apps).length === 0) {
             delete json.apps;
@@ -3167,14 +3181,28 @@ function view_from_problem(problem)
 
 // Why the apps' own ports answer http, {why, said, fix, link}, as Health says it, but from the
 // first ask on rather than after two checks; said is tailscale's own refusal; null while they
-// answer https or nothing is known
+// answer https or nothing is known, and while the owner has it said on the Tailscale page alone
+// ("apps": {"http_said": false}; tailscale_view says it there)
 function https_off_of(app)
 {
+    if (app.config.apps.http_said === false) {
+        return null;
+    }
     const found = problems_of_tailnet_cert(app);
     if (found.length === 0) {
         return null;
     }
     return {why: found[0].why, said: app.tailnet_cert.error, fix: found[0].fix, link: found[0].link};
+}
+
+// Whether the page says a problem found: every one, but the apps' tailnet links over http while
+// the owner has that said on the Tailscale page alone ("apps": {"http_said": false}), or has the
+// apps off the tailnet ("ports": null), both from the moment the switch is saved rather than at
+// the next check. Unsaid, it is still found and logged, so switched back on it shows again at
+// once, since when it began
+function is_problem_said(app, problem)
+{
+    return (problem.kind !== 'tailnet') || ((app.config.apps.http_said !== false) && (app.config.apps.ports !== null));
 }
 
 function state_from_app(app)
@@ -3194,7 +3222,7 @@ function state_from_app(app)
         admin: app.config.logline.admin,
         admin_kept: secrets_read(app).global[app.config.logline.admin] !== undefined,
     };
-    const problems = Array.from(app.problems.values()).filter(v => v.shown).map(view_from_problem).sort((a, b) => (a.since - b.since));
+    const problems = Array.from(app.problems.values()).filter(v => v.shown && is_problem_said(app, v)).map(view_from_problem).sort((a, b) => (a.since - b.since));
     const forwards = app.config.forwards.map(v => view_from_forward(app, v));
     const agent_built = agent_bundle.built_at();
     const security = security_view(app, remotes, now);

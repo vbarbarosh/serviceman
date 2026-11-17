@@ -152,6 +152,11 @@ test('on the tailnet, a page of apps says why its apps open over http', function
     const page = render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000');
     assert.match(page, /<p class="http-why">They open over http: HTTPS is off for your tailnet\. <a href="https:\/\/login\.tailscale\.com\/admin\/dns" target="_blank" rel="noopener">Turn HTTPS on in Tailscale/);
     assert.doesNotMatch(render_apps_page(app, {way: 'here', domain: null}, 'apps.localhost:3000'), /<p class="http-why">/);
+    // Said on the Tailscale page alone ("apps": {"http_said": false}): nothing here, and back at once
+    app.config.apps.http_said = false;
+    assert.doesNotMatch(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /<p class="http-why">|over http/);
+    app.config.apps.http_said = true;
+    assert.match(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /<p class="http-why">They open over http: HTTPS is off/);
     app.tailnet_cert.error = 'tailscale is down';
     assert.match(render_apps_page(app, {way: 'tailnet', domain: null}, '100.64.0.20:3000'), /They open over http: tailscale gives no certificate\.<\/p>/);
     app.tailnet_cert = {context: {}, error: null};

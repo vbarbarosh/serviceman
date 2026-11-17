@@ -200,6 +200,51 @@ test('PUT /api/v1/apps takes the apps off the tailnet and puts them back', async
     assert.notStrictEqual(app.config.apps.ports, null, 'and writes nothing');
 });
 
+// The switch on the Tailscale page: the apps' tailnet links said to be http there alone, kept in
+// the config, at once, and back to said everywhere with no key left behind
+test('PUT /api/v1/apps says the apps\' tailnet links are http on the Tailscale page alone, and everywhere again', async function (t) {
+    const state = state_make(t, ['notes']);
+    const file = path.join(state, 'serviceman.json');
+    const first = {
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {ports: 0},
+        services: [{name: 'notes', type: 'files', publish: {host: 'notes.localhost'}}],
+    };
+    fs.writeFileSync(file, `${JSON.stringify(first, null, 4)}\n`);
+    const config = config_from_json(first, state);
+    config.path = file;
+    const app = app_from_config(config);
+    const port = await boot(t, app);
+    function put(body) {
+        return fetch_host({port, host: 'serviceman.localhost', method: 'PUT', path: '/api/v1/apps', body: JSON.stringify(body)});
+    }
+    async function status() {
+        return JSON.parse((await fetch_host({port, host: 'serviceman.localhost', path: '/api/v1/status'})).body);
+    }
+    assert.strictEqual((await status()).apps.http_said, true, 'said everywhere unless set');
+
+    const off = await put({http_said: false});
+    assert.strictEqual(off.status, 200, off.body);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).apps, {ports: 0, http_said: false});
+    assert.strictEqual(app.config.apps.http_said, false, 'at once');
+    assert.strictEqual((await status()).apps.http_said, false, 'and the page hears it on its next look');
+    assert.strictEqual(config_from_json(JSON.parse(fs.readFileSync(file, 'utf8')), state).apps.http_said, false, 'kept for the next start');
+
+    const on = await put({http_said: true});
+    assert.strictEqual(on.status, 200, on.body);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).apps, {ports: 0}, 'the default leaves no key');
+    assert.strictEqual(app.config.apps.http_said, true);
+
+    const refused = await put({http_said: 'no'});
+    assert.strictEqual(refused.status, 400);
+    assert.match(JSON.parse(refused.body).error, /^http_said: true, .* or false, on the Tailscale page alone$/);
+    assert.strictEqual((await put({http_said: false, tailnet: 'no'})).status, 400, 'one wrong word refuses both');
+    assert.match(JSON.parse((await put({})).body).error, /auth, tailnet, http_said/);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).apps, {ports: 0}, 'and writes nothing');
+    assert.strictEqual(app.config.apps.http_said, true);
+});
+
 // A wall for another team, made on the Authwall page: a copy of authwall in the config, its own
 // address and first user, the first wall as it was; what cannot be a copy is refused, unwritten
 test('POST /api/v1/walls makes a wall for another team, and refuses what cannot be one', async function (t) {

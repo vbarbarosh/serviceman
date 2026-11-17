@@ -1,3 +1,4 @@
+const problems_of_tailnet_cert = require('./problems_of_tailnet_cert');
 const tailscale_run = require('./tailscale_run');
 
 const TIMEOUT_MS = 5000;
@@ -13,12 +14,16 @@ const TIMEOUT_MS = 5000;
 //     state          tailscale's BackendState: Running, NeedsLogin, Stopped, ...
 //     login_link     where to sign this machine in, while tailscale waits for it
 //     cert_domains   the names the tailnet gives a certificate for; none while HTTPS is off
+//     certificate    the one held or why there is none; its https_off, {why, fix, link} as
+//                    Health says it, null while nothing is missing, is said here even while the
+//                    owner has it said nowhere else ("apps": {"http_said": false})
 async function tailscale_view(app)
 {
     const status = await status_read();
     const self = status.json.Self || {};
     const tailnet = status.json.CurrentTailnet || {};
     const cert = app.tailnet_cert;
+    const [missing = null] = problems_of_tailnet_cert(app);
     const dns = ((app.servers === undefined) || (app.servers === null)) ? null : app.servers.dns;
     return {
         here: status.here,
@@ -32,7 +37,7 @@ async function tailscale_view(app)
         cert_domains: Array.isArray(status.json.CertDomains) ? status.json.CertDomains : [],
         login_link: status.json.AuthURL || null,
         // `wanted` false while the apps are off the tailnet: no port answers https, none is asked for
-        certificate: {domain: cert.domain, until: cert.until, error: cert.error, held: (cert.context !== null), asked_at: (cert.at === 0) ? null : cert.at, wanted: (app.config.apps.ports !== null)},
+        certificate: {domain: cert.domain, until: cert.until, error: cert.error, held: (cert.context !== null), asked_at: (cert.at === 0) ? null : cert.at, wanted: (app.config.apps.ports !== null), https_off: (missing === null) ? null : {why: missing.why, fix: missing.fix, link: missing.link}},
         apps_dns: ((dns === null) || (dns === undefined)) ? null : {domain: app.config.apps.domain, port: app.config.apps.dns, address: dns.address()},
         proxy: process.env.TAILNET_PROXY || null,
         calls: tailscale_run.calls(),

@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const os = require('os');
 const path = require('path');
+const problems_check = require('../src/main/src/helpers/problems_check');
 const problems_of_tailnet_cert = require('../src/main/src/helpers/problems_of_tailnet_cert');
 const server_start = require('../src/main/src/helpers/server_start');
 const tailnet_cert_read = require('../src/main/src/helpers/tailnet_cert_read');
@@ -224,4 +225,58 @@ test('with the apps off the tailnet no certificate is asked, and none is said mi
     finally {
         fs.rmSync(state, {recursive: true, force: true});
     }
+});
+
+// "apps": {"http_said": false}, the switch on the Tailscale page: the apps' tailnet links over
+// http are said there alone. The page's state carries no https_off and no problem for it, so
+// Apps, Addresses, Health and the bar say nothing; it is still found and logged as it was, and
+// set back on it is said again at the page's next look, since when it began
+test('with http said on the Tailscale page alone, the page\'s state and Health say nothing of it', async function (t) {
+    assert.strictEqual(config_from_json({services: []}, '/srv/serviceman').apps.http_said, true, 'said everywhere unless set');
+    assert.strictEqual(config_from_json({apps: {http_said: true}, services: []}, '/srv/serviceman').apps.http_said, true);
+    assert.throws(() => config_from_json({apps: {http_said: 'no'}, services: []}, '/srv/serviceman'), /apps\.http_said: true, .* or false, on the Tailscale page alone \(got "no"\)/);
+
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-http-said-'));
+    const app = app_from_config(config_from_json({
+        listen: {host: '127.0.0.1', port: 0},
+        control: {host: 'serviceman.localhost', port: 0},
+        apps: {ports: 0, http_said: false},
+        services: [],
+    }, state));
+    assert.strictEqual(app.config.apps.http_said, false);
+    const servers = await server_start(app);
+    t.after(function () {
+        servers.server.close();
+        servers.control.close();
+        servers.server.closeAllConnections();
+        servers.control.closeAllConnections();
+        fs.rmSync(state, {recursive: true, force: true});
+    });
+    app.tailnet_cert.error = '500 Internal Server Error: your Tailscale account does not support getting TLS certs';
+    // Seen twice, a check apart, as Health shows a problem
+    await problems_check(app);
+    app.problems.get('tailnet_cert').first_seen -= 60*1000;
+    await problems_check(app);
+    assert.strictEqual(app.problems.get('tailnet_cert').shown, true, 'still found');
+    assert.strictEqual(app.log_lines.filter(v => v.includes('[problem_begin]')).length, 1, 'and logged');
+
+    const off = await status_of(servers);
+    assert.strictEqual(off.apps.http_said, false);
+    assert.strictEqual(off.tailnet.https_off, null, 'no note on Apps or Addresses, no http on a link');
+    assert.deepStrictEqual(off.problems, [], 'Health neither lists nor counts it, nor does the bar');
+
+    app.config.apps.http_said = true;
+    const on = await status_of(servers);
+    assert.strictEqual(on.tailnet.https_off.why, 'HTTPS is off for your tailnet');
+    assert.deepStrictEqual(on.problems.map(v => [v.subject, v.since]), [['No https for the apps: HTTPS is off for your tailnet', app.problems.get('tailnet_cert').first_seen]]);
+
+    // The apps taken off the tailnet: nothing missing, from the moment it is saved, not at the
+    // next check
+    app.config.apps.ports = null;
+    assert.deepStrictEqual((await status_of(servers)).problems, []);
+    app.config.apps.ports = 0;
+
+    app.config.apps.http_said = false;
+    await problems_check(app);
+    assert.strictEqual(app.log_lines.some(v => v.includes('[problem_end]')), false, 'unsaid is not mended');
 });

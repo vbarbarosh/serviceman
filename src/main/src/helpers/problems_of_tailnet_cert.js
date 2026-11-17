@@ -7,7 +7,8 @@ const TAILSCALE_DNS_URL = 'https://login.tailscale.com/admin/dns';
 // The apps' own ports answering http alone, because tailscale gives no certificate for
 // serviceman's tailnet name (tailnet_cert_read): said with tailscale's own reason, what mends
 // it, and the page that mends it where there is one. A certificate held whose renewal fails is
-// no problem yet: it is used until it ends.
+// no problem yet: it is used until it ends. It is found and logged however "apps": {"http_said"}
+// is set; that decides only where it is said (the page's state, the page of apps).
 function problems_of_tailnet_cert(app)
 {
     const cert = app.tailnet_cert;

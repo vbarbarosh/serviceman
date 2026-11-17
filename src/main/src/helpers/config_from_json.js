@@ -247,22 +247,32 @@ function config_from_json(json, base_dir)
 // none; 0 gives each one whichever port is free, as a listen.port of 0 does, and is the default
 // beside one.
 //
-//     {domain, dns, address, ports, auth}   null for each one not given
+// While tailscale gives no certificate those ports answer http, and serviceman says so on Apps,
+// Addresses, Health and the page of apps. http_said false says it on the Tailscale page alone.
+//
+//     {domain, dns, address, ports, auth, http_said}   null for each one not given; http_said
+//                                                      true unless false is given
 function apps_from_json(json, label, listen_port)
 {
     const ports = (listen_port === 0) ? 0 : DEFAULT_APP_PORTS;
     if ((json === undefined) || (json === null)) {
-        return {domain: null, dns: null, address: null, ports, auth: null};
+        return {domain: null, dns: null, address: null, ports, auth: null, http_said: true};
     }
     if ((typeof json !== 'object') || Array.isArray(json)) {
         throw new Error(`${label}: an object is required — {"domain": "apps.example.com"}`);
     }
-    const out = {domain: null, dns: null, address: null, ports, auth: auth_from_json(json.auth, `${label}.auth`)};
+    const out = {domain: null, dns: null, address: null, ports, auth: auth_from_json(json.auth, `${label}.auth`), http_said: true};
     if (json.ports !== undefined) {
         if ((json.ports !== null) && ((Number.isInteger(json.ports) === false) || (json.ports < 0) || (json.ports > 65535))) {
             throw new Error(`${label}.ports: the first of the apps' own ports is required, 3400, or null for none (got ${JSON.stringify(json.ports)})`);
         }
         out.ports = json.ports;
+    }
+    if (json.http_said !== undefined) {
+        if (typeof json.http_said !== 'boolean') {
+            throw new Error(`${label}.http_said: true, the apps' tailnet links said to be http wherever they are shown, or false, on the Tailscale page alone (got ${JSON.stringify(json.http_said)})`);
+        }
+        out.http_said = json.http_said;
     }
     if ((json.domain !== undefined) && (json.domain !== null)) {
         if ((typeof json.domain !== 'string') || (json.domain !== json.domain.toLowerCase()) || (/^[a-z0-9.-]+$/.test(json.domain) === false) || json.domain.startsWith('.') || json.domain.endsWith('.')) {

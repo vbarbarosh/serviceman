@@ -37,10 +37,23 @@ test('the Tailscale page says what tailscale says, and keeps each call but not i
     assert.deepStrictEqual([running.here, running.state, running.name, running.addresses, running.magic_dns, running.cert_domains, running.login_link], [true, 'Running', 'serviceman.tail1234.ts.net', ['100.64.0.20'], true, ['serviceman.tail1234.ts.net'], null]);
     assert.strictEqual(running.certificate.held, false, 'none held before it is asked');
     assert.strictEqual(running.certificate.wanted, true);
+    assert.strictEqual(running.certificate.https_off, null, 'nothing missing before it is asked');
     // The apps off the tailnet: the page says none is wanted, rather than what is missing
     app.config.apps.ports = null;
     assert.strictEqual((await tailscale_view(app)).certificate.wanted, false);
     app.config.apps.ports = 3400;
+    // Refused: why, what mends it and where, said here even while every other page keeps it
+    // unsaid ("apps": {"http_said": false}), beside the switch that brings it back
+    app.tailnet_cert.error = '500 Internal Server Error: your Tailscale account does not support getting TLS certs';
+    for (const said of [true, false]) {
+        app.config.apps.http_said = said;
+        const refused = (await tailscale_view(app)).certificate.https_off;
+        assert.strictEqual(refused.why, 'HTTPS is off for your tailnet', `http_said ${said}`);
+        assert.match(refused.fix, /Enable HTTPS/);
+        assert.deepStrictEqual(refused.link, {text: 'Turn HTTPS on in Tailscale', href: 'https://login.tailscale.com/admin/dns'});
+    }
+    app.config.apps.http_said = true;
+    app.tailnet_cert.error = null;
 
     fs.writeFileSync(status_file, JSON.stringify({BackendState: 'NeedsLogin', AuthURL: 'https://login.tailscale.com/a/1a2b3c', Self: {DNSName: ''}, CertDomains: null}));
     const login = await tailscale_view(app);

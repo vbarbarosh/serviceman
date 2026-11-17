@@ -2121,7 +2121,7 @@ const app = {
         <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state"/></article>
         <article v-else-if="boards_open" id="detail" class="form"><boards-pane :state="state" @saved="poll"/></article>
         <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll" @walls="wall_new"/></article>
-        <tailscale-pane v-else-if="tailscale_open" :state="state"/>
+        <tailscale-pane v-else-if="tailscale_open" :state="state" @saved="poll"/>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
