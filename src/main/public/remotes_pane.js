@@ -47,7 +47,7 @@ const remotes_pane = {
             </span>
         </span>
     </div>
-    <apt-all-section v-if="apt_open" :remotes="shown" @close="apt_open = false" @configure="$emit('configure', $event)"/>
+    <apt-all-section v-if="apt_open" :remotes="shown" :answering="answering" @close="apt_open = false" @configure="$emit('configure', $event)"/>
     <div v-if="(view === 'cards')" class="machines">
         <div v-for="card of cards" :key="card.name" class="card machine pick" :class="{away: (card.online === false)}" @click="$emit('select', card.name)">
             <div class="row-of">
@@ -141,7 +141,7 @@ const remotes_pane = {
 </article>
 `,
     components: {'agent-pill': agent_pill, 'agent-pill-short': agent_pill_short, 'apt-all-section': apt_all_section, 'data-table': data_table, 'logs-link': logs_link, 'remote-uptime': remote_uptime},
-    props: ['state'],
+    props: ['state', 'answering'],
     emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {
         return {filter: '', show: 'all', volumes: [], view: remotes_view_read(), views: REMOTES_VIEWS, apt_open: false};

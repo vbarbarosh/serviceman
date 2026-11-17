@@ -468,6 +468,14 @@ serviceman in the middle of it. serviceman finds that machine by its own contain
 machine's `docker ps`. **Cancel all** stops what runs and what waits. The runs are serviceman's,
 not the page's: a closed page stops nothing, and the list shows them again when opened.
 
+While serviceman is not answering, a restart most often, **Install** waits for it, and the list
+says so. A press it never answered is looked into once it is back: the install is shown if it
+began, and **Not started** is said, with **Install** to press again, if it did not. serviceman
+keeps no install over a restart of its own, as the upgrade of Docker on its machine makes: the
+rows it was following stay as last seen, **not followed**, and each machine's Configure tab says
+what it has now. A machine's own **Install them**, on its Configure tab, waits and looks the same
+way.
+
 After an upgrade, every container that ran before it runs again: the ones Docker does not bring
 back, serviceman starts. A machine that wants a restart says so; nothing restarts it.
 

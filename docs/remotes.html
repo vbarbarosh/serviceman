@@ -1119,6 +1119,13 @@ runs on waits until the others end, then runs alone: an upgrade of Docker there 
 serviceman in the middle of it. serviceman finds that machine by its own container in the
 machine&#39;s <code>docker ps</code>. <strong>Cancel all</strong> stops what runs and what waits. The runs are serviceman&#39;s,
 not the page&#39;s: a closed page stops nothing, and the list shows them again when opened.</p>
+<p>While serviceman is not answering, a restart most often, <strong>Install</strong> waits for it, and the list
+says so. A press it never answered is looked into once it is back: the install is shown if it
+began, and <strong>Not started</strong> is said, with <strong>Install</strong> to press again, if it did not. serviceman
+keeps no install over a restart of its own, as the upgrade of Docker on its machine makes: the
+rows it was following stay as last seen, <strong>not followed</strong>, and each machine&#39;s Configure tab says
+what it has now. A machine&#39;s own <strong>Install them</strong>, on its Configure tab, waits and looks the same
+way.</p>
 <p>After an upgrade, every container that ran before it runs again: the ones Docker does not bring
 back, serviceman starts. A machine that wants a restart says so; nothing restarts it.</p>
 <p>The calls, for a script: <code>POST /api/v1/apt-upgrade</code> with <code>{&quot;remotes&quot;: [&quot;vps1&quot;, &quot;vps2&quot;]}</code>

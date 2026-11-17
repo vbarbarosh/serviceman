@@ -2,6 +2,7 @@ import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
 import agent_url_of from './agent_url_of.js';
+import answered_again from './answered_again.js';
 import app_data_apart from './app_data_apart.js';
 import app_files_pick from './app_files_pick.js';
 import app_files_send from './app_files_send.js';
@@ -603,7 +604,7 @@ const remote_configure = {
             <b>Updates</b>
             <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
             <template v-if="(known && apt_able)">
-                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
+                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || answering === false || apt.phase === 'looking' || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
                 <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop"><span v-if="cancelling" class="spin"/>{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
             </template>
         </div>
@@ -614,6 +615,8 @@ const remote_configure = {
             <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
             <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping every config file you changed.</p>
             <p v-if="(updates !== null && updates.reboot)" class="muted">An installed update wants the machine restarted.</p>
+            <p v-if="(apt.phase === 'looking')" class="muted"><span class="spin"/>No answer from serviceman: looking whether the install began…</p>
+            <p v-else-if="(answering === false && apt.phase !== 'running')" class="muted">serviceman is not answering: Install them waits until it is back.</p>
             <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
             <p v-if="(apt.phase === 'running')" class="muted"><span class="spin"/>installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
             <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
@@ -660,7 +663,7 @@ const remote_configure = {
 </article>
 `,
     components: {snip: snippet},
-    props: ['view', 'served'],
+    props: ['view', 'served', 'answering'],
     data: function () {
         return {
             shot: null,
@@ -879,6 +882,8 @@ const remote_configure = {
             }
         },
         apt_start: async function () {
+            // The run known before the press: one begun since is the press's own
+            const before = this.apt;
             this.apt = {phase: 'running', lines: [], error: null};
             let started;
             try {
@@ -889,11 +894,42 @@ const remote_configure = {
                     return;
                 }
             }
-            catch {
-                this.apt = {phase: 'error', lines: [], error: 'the answer never came back'};
+            catch (error) {
+                if (error instanceof TypeError) {
+                    await this.apt_lost(before);
+                    return;
+                }
+                this.apt = {phase: 'error', lines: [], error: 'serviceman failed to answer Install them: its log says why'};
                 return;
             }
             this.apt_follow(started.url);
+        },
+        // Install them got no answer: serviceman was away when it was pressed, or went away under
+        // it. Whether the install began is known once serviceman answers again.
+        apt_lost: async function (before) {
+            this.apt = {phase: 'looking', lines: [], error: null};
+            const run = await answered_again(() => this.apt_run_read(), () => this.apt_abort.signal.aborted);
+            if (this.apt_abort.signal.aborted) {
+                return;
+            }
+            if (run === null) {
+                this.apt = {phase: 'error', lines: [], error: 'serviceman has not answered for three minutes, so whether the install began is not known: this tab says it once opened again with serviceman back.'};
+                return;
+            }
+            if (apt_begun(run, before)) {
+                this.apt = run;
+                this.apt_read();
+                return;
+            }
+            this.apt = Object.assign(run, {phase: 'error', lines: [], containers: null, error: 'Not started: serviceman was away when Install them was pressed, a restart most often. It is back now: Install them again.'});
+        },
+        // The machine's run as serviceman has it now; throws while serviceman is away
+        apt_run_read: async function () {
+            const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/packages/upgrade`, {cache: 'no-store'});
+            if (answer.ok === false) {
+                throw new Error(`serviceman answered ${answer.status}`);
+            }
+            return answer.json();
         },
         apt_stop: async function () {
             this.cancelling = true;
@@ -1413,7 +1449,7 @@ const remote_page = {
          panes start fresh. -->
     <keep-alive :max="10">
     <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" :rail="rail" @rail="$emit('rail', $event)" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
-    <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served"/>
+    <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
     <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
     <article v-else-if="(tab_now === 'settings')" id="detail"><p class="muted">reading the config…</p></article>
     <remote-logline v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" @logline="$emit('logline')"/>
@@ -1435,7 +1471,7 @@ const remote_page = {
 </div>
 `,
     components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
-    props: ['view', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
+    props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
     emits: ['create', 'files_path', 'list', 'logline', 'rail', 'saved', 'select', 'service', 'tab'],
     data: function () {
         return {original: null, edit_key: 0};
@@ -2094,11 +2130,11 @@ const app = {
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
-        <remotes-pane v-else-if="remotes_open" :state="state" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
+        <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
@@ -3341,6 +3377,20 @@ function rail_compare(a, b)
 function plural(count, one, many)
 {
     return (count === 1) ? one : many;
+}
+
+// Whether a press of Install them began `run`: a run other than the one known before it. Where
+// none had been read yet (the tab opened while serviceman was away), only one still going is
+// taken for it; one already over is an earlier one.
+function apt_begun(run, before)
+{
+    if (run.phase === 'idle') {
+        return false;
+    }
+    if (before.started_at === undefined) {
+        return (run.phase === 'running') || (run.phase === 'waiting');
+    }
+    return (run.started_at !== before.started_at);
 }
 
 // The dark theme is the page's own: it names a class, and serviceman.css draws that class from
