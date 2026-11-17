@@ -14,6 +14,17 @@ fs.appendFileSync(process.env.RELEASE_TEST_RAN, process.argv[2] + '\\n');
 process.exit((process.env.RELEASE_TEST_FAIL === process.argv[2]) ? 1 : 0);
 `;
 
+// A stand-in for src/agent/bin/version: raises version.json's version as the real one does,
+// and records the fingerprint the stand-in bundler gives
+const AGENT_VERSION = `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const file = path.join(__dirname, '..', 'version.json');
+const [major, minor, patch] = JSON.parse(fs.readFileSync(file, 'utf8')).version.split('.').map(Number);
+const version = (process.argv[2] === 'minor') ? \`\${major}.\${minor + 1}.0\` : \`\${major}.\${minor}.\${patch + 1}\`;
+fs.writeFileSync(file, JSON.stringify({version, sources: 'now'}, null, 4) + '\\n');
+`;
+
 // git and npm as the release finds them, without this machine's own git settings, and without
 // the mark that tells a `node --test` it is the child of another
 const ENV = Object.assign(Object.fromEntries(Object.entries(process.env).filter(v => v[0] !== 'NODE_TEST_CONTEXT')), {
@@ -68,13 +79,30 @@ test('a release pushes the branch it is made on and its own tag, and nothing els
     assert.deepStrictEqual(refs_of(scratch.origin), ['refs/heads/main', 'refs/tags/v0.0.2']);
     assert.strictEqual(git(scratch.origin, ['log', '-1', '--format=%s', 'main']), 'release: v0.0.2');
     assert.strictEqual(git(scratch.origin, ['rev-parse', 'main']), git(scratch.origin, ['rev-parse', 'v0.0.2']));
-    assert.match(fs.readFileSync(path.join(scratch.work, 'CHANGELOG.md'), 'utf8'), /^# Changelog\n\n## 0\.0\.2 — \d{4}-\d{2}-\d{2}\n\n- Released\.\n\n## 0\.0\.1 /);
+    assert.strictEqual(git(scratch.origin, ['show', '--format=', '--name-only', 'main']), 'package.json');
     assert.strictEqual(git(scratch.work, ['status', '-s']), '');
+});
+
+// A commit raises no version: the release raises serviceman's, and the agent's only when the
+// agent changed since its last one, a patch for a patch release and a minor for the others
+test('a release raises the agent\'s version only when the agent changed since it was given one', function (t) {
+    for (const [kind, sources, wanted] of [['patch', 'old', '1.4.3'], ['minor', 'old', '1.5.0'], ['major', 'old', '1.5.0'], ['patch', 'now', '1.4.2']]) {
+        const scratch = scratch_make(t, {
+            'src/agent/version.json': `${JSON.stringify({version: '1.4.2', sources}, null, 4)}\n`,
+            'src/agent/bundler/agent_bundle.js': 'module.exports = {sources_hash: () => \'now\'};\n',
+            'src/agent/bin/version': AGENT_VERSION,
+        });
+        const ran = release(scratch, [kind], {});
+        assert.strictEqual(ran.status, 0, ran.stderr);
+        const agent = JSON.parse(git(scratch.origin, ['show', 'main:src/agent/version.json']));
+        assert.deepStrictEqual([kind, sources, agent.version], [kind, sources, wanted]);
+        assert.strictEqual(git(scratch.work, ['status', '-s']), '');
+    }
 });
 
 // A repository with the real bin/release in it, the stand-ins it runs, and what a machine holds
 // beside a release: a branch of work in progress and a tag of its own. Its origin has `main`.
-function scratch_make(t)
+function scratch_make(t, more)
 {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-release-'));
     t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
@@ -82,12 +110,12 @@ function scratch_make(t)
     const work = path.join(dir, 'work');
     const files = {
         'package.json': `${JSON.stringify({name: 'scratch', version: '0.0.1', private: true, scripts: {lint: 'node check.js lint'}}, null, 4)}\n`,
-        'CHANGELOG.md': '# Changelog\n\n## 0.0.1 — 2026-01-01\n\n- The first.\n',
         'check.js': CHECK,
         'bin/release': fs.readFileSync(path.join(ROOT, 'bin', 'release'), 'utf8'),
         'bin/test': '#!/bin/bash\nexec node check.js suite\n',
         'modules/one/tests/one.test.js': 'process.argv[2] = \'modules\';\nrequire(\'../../../check\');\n',
         'logline/lines/bin/test': '#!/bin/bash\nexec node ../../check.js logline\n',
+        ...more,
     };
     for (const name of Object.keys(files)) {
         fs.mkdirSync(path.dirname(path.join(work, name)), {recursive: true});

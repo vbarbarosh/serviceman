@@ -45,18 +45,18 @@ node --test modules/*/tests/*.test.js
 # Increase a version without commiting it and making a tag
 npm version $1 --no-git-tag-version
 
-# The release says itself on top of the changelog, above the changes it gathers
 version=`node -e 'console.log(require("./package.json").version)'`
-node -e '
-const fs = require("fs");
-const text = fs.readFileSync("CHANGELOG.md", "utf8");
-const at = text.indexOf("\n## ") + 1;
-fs.writeFileSync("CHANGELOG.md", `${text.slice(0, at)}## ${process.argv[1]} — ${process.argv[2]}\n\n- Released.\n\n${text.slice(at)}`);
-' "$version" "`date +%F`"
+
+# The agent's version goes up with a release that changes it: a patch for a patch release, a
+# minor for the others; a major one is the author's, by hand
+if test -e src/agent/bin/version && node -e 'process.exit((require("./src/agent/bundler/agent_bundle").sources_hash() === require("./src/agent/version.json").sources) ? 1 : 0)'; then
+    src/agent/bin/version `test $1 = patch && echo patch || echo minor`
+    git add src/agent/version.json
+fi
 
 # The agent file is not kept in the repository: a machine takes it from the host it dials,
 # /api/v1/agent.js, built from source there
-git add package.json CHANGELOG.md
+git add package.json
 if test -e package-lock.json; then
     git add package-lock.json
 fi

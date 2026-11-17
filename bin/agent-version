@@ -10,5 +10,5 @@ scriptname=`basename $script`
 
 cd $scriptdir/..
 
-# Raises the agent's version after a change to it: patch for a fix, minor for something new
+# The agent's version, and whether it changed since; bin/release raises it
 exec src/agent/bin/version "$@"

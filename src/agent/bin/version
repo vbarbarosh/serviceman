@@ -9,8 +9,8 @@ const VERSION_PATH = path.resolve(__dirname, '..', 'version.json');
 
 const USAGE = `version [patch|minor|record]
 
-Every change to the agent raises its version, kept in src/agent/version.json with the
-fingerprint of the sources it was given for; tests/agent_version.test.js fails while they differ.
+The agent's version, kept in src/agent/version.json with the fingerprint of the sources it was
+given for. bin/release raises it when the agent changed since: patch or minor as the release.
 
   (none)    says the version, and whether the agent changed since it was given
   patch     a fix: 1.4.2 → 1.4.3
@@ -31,7 +31,7 @@ function main()
     const sources = agent_bundle.sources_hash();
     if (part === undefined) {
         const changed = (current.sources !== sources);
-        console.log(`serviceman-agent ${current.version}${changed ? ' — the agent changed since: bin/agent-version patch or minor' : ''}`);
+        console.log(`serviceman-agent ${current.version}${changed ? ' — the agent changed since: the next release raises it' : ''}`);
         return;
     }
     if (part === 'record') {

@@ -143,7 +143,7 @@ agent_bundle.built_at = function () {
 
 // A fingerprint of every module the agent is built from, its version file aside: it changes
 // with any change to the agent, and src/agent/version.json keeps the one its version was given
-// for, so a change that was not given a new version is found (tests/agent_version.test.js)
+// for, so a release finds an agent changed since (bin/release)
 agent_bundle.sources_hash = function () {
     const sources = {};
     module_read(ENTRY, sources);

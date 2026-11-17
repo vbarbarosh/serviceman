@@ -32,22 +32,18 @@ nobody visits. What it is and how it works: [README.md](README.md) and [docs/](d
     npm run lint                        # the rulebook's linter, see below
     bin/build                           # the docker image the author runs
     bin/build-pages                     # the site in docs/, after a change to a doc or README's Docs list
-    bin/agent-version patch|minor       # after any change to the agent
+    bin/agent-version                   # the agent's version, and whether it changed since
     bin/release major|minor|patch
 
 `bin/watch` starts `src/main.js`, which does not exist (SM-71): run `bin/run` instead.
 
 ## Local rules
 
-- **A version per commit.** Every commit raises serviceman's patch version
-  (`npm version patch --no-git-tag-version`, which changes `package.json` and
-  `package-lock.json`) and says what changed under that version on top of `CHANGELOG.md`, in a
-  line or two: short. A minor or major version is the author's (`bin/release`).
-  `tests/changelog.test.js` fails until both are done.
-- **The agent's version.** Every change to `src/agent/**`, or to a `src/helpers` file the
-  agent bundles, raises `src/agent/version.json` in the same change: `bin/agent-version patch`
-  for a fix, `minor` for something new. A major version is the author's alone.
-  `tests/agent_version.test.js` fails until it is done.
+- **Versions at release, none per commit.** A commit changes no version and keeps no
+  changelog: the history is `git log`. `bin/release major|minor|patch`, the author's, raises
+  serviceman's version, and the agent's (`src/agent/version.json`) when the agent changed since
+  its last one: a patch for a patch release, a minor for the others. A major agent version is
+  the author's alone, by hand.
 - **A restart of the agent touches nothing it started:** containers, programs and kept
   terminals go on running.
 - **The running serviceman is the docker image.** A change shows only after `bin/build` and a

@@ -128,14 +128,9 @@ them:
 
     npm run lint
 
-serviceman's version, in `package.json`, goes up a patch with every commit, and
-[CHANGELOG.md](CHANGELOG.md) says each change in a line, the newest first;
-`tests/changelog.test.js` fails while the newest there is not the version `package.json` gives.
-
-The agent has a version of its own, in `src/agent/version.json`, and every change to it raises
-that version: `bin/agent-version patch` for a fix, `bin/agent-version minor` for something new.
-A major version is the author's alone. `tests/agent_version.test.js` fails while the agent has
-changed since its version was given, and says which command to run.
+Versions are raised at release, never by a commit: `bin/release major|minor|patch` raises
+serviceman's, in `package.json`, and the agent's, in `src/agent/version.json`, when the agent
+changed since its last one. The history of changes is `git log`.
 
 `serviceman.css` is plain css served as it is, with no preprocessor for `@include
 app-transition`, so its transitions are written out by hand.
