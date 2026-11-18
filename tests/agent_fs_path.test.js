@@ -1,6 +1,8 @@
 const agent_file_part_finish = require('../src/agent/src/agent_file_part_finish');
+const agent_fs_delete = require('../src/agent/src/agent_fs_delete');
 const agent_fs_list = require('../src/agent/src/agent_fs_list');
 const agent_fs_path = require('../src/agent/src/agent_fs_path');
+const agent_fs_rename = require('../src/agent/src/agent_fs_rename');
 const agent_tar_get = require('../src/agent/src/agent_tar_get');
 const agent_tar_put = require('../src/agent/src/agent_tar_put');
 const assert = require('assert');
@@ -82,6 +84,41 @@ test('a file finished over a link that leads out, a tar entry through one, and a
 });
 
 // A home of the test's own, gone after it
+// A link inside the folders that leads out of them is renamed and deleted as itself, what it
+// leads to untouched, and nothing goes through it; a name outside them that leads in is not the
+// token's to rename or delete
+test('a link that leads out is renamed and deleted as itself, and nothing goes through it', async function (t) {
+    const home = place(t);
+    const notes = path.join(home, 'notes');
+    const away = path.join(home, 'away');
+    fs.mkdirSync(notes);
+    fs.mkdirSync(path.join(away, 'deep'), {recursive: true});
+    fs.writeFileSync(path.join(away, 'deep', 'kept.txt'), 'kept');
+    fs.symlinkSync(away, path.join(notes, 'photos'));
+    fs.symlinkSync(path.join(away, 'deep', 'kept.txt'), path.join(notes, 'kept-link.txt'));
+    fs.symlinkSync(notes, path.join(home, 'into-notes'));
+    const root = notes;
+
+    assert.strictEqual(agent_fs_path('photos', root, {itself: true}), path.join(notes, 'photos'));
+    assert.strictEqual(agent_fs_path('', root, {itself: true}), notes, 'its folder is its own');
+    for (const asked of ['photos/deep', 'photos/deep/kept.txt', '..', '../away', path.join(home, 'into-notes'), home, '/']) {
+        assert.throws(() => agent_fs_path(asked, root, {itself: true}), /EACCES/, asked);
+    }
+    assert.throws(() => agent_fs_path('photos', root), /EACCES/, 'read through it, still refused');
+    await assert.rejects(agent_fs_list('photos', root), /EACCES/);
+
+    await agent_fs_rename({from: 'photos', to: 'pictures', root});
+    assert.strictEqual(fs.readlinkSync(path.join(notes, 'pictures')), away);
+    await assert.rejects(agent_fs_rename({from: 'pictures', to: 'pictures/deep/moved', root}), /EACCES/, 'never into it');
+    await agent_fs_delete({path: 'pictures', root});
+    await agent_fs_delete({path: 'kept-link.txt', root});
+    assert.deepStrictEqual(fs.readdirSync(notes), []);
+    assert.strictEqual(fs.readFileSync(path.join(away, 'deep', 'kept.txt'), 'utf8'), 'kept', 'what the links led to is untouched');
+    await assert.rejects(agent_fs_delete({path: path.join(home, 'into-notes'), root}), /EACCES/);
+    await assert.rejects(agent_fs_rename({from: path.join(home, 'into-notes'), to: 'here', root}), /EACCES/);
+    assert.ok(fs.lstatSync(path.join(home, 'into-notes')).isSymbolicLink(), 'a name outside the folders stays');
+});
+
 function place(t)
 {
     const out = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-root-')));

@@ -11,7 +11,12 @@ const path = require('path');
 // whatever it names, through links too, must lie inside one of them, or it is refused as
 // EACCES. A folder need not be there yet: what is written into it makes it. The answer is the
 // path as asked, never the one its links lead to, so a link is renamed or deleted as itself.
-function agent_fs_path(text, root)
+//
+// With {itself: true}, for what acts on a name and never through it (delete, rename), the path
+// is judged by the folder it is in, and its own last name is not followed: a link inside the
+// folders that leads out of them is deleted or renamed as itself, what it leads to untouched,
+// while a name outside them that leads in is refused. A token's folder itself is its own.
+function agent_fs_path(text, root, options)
 {
     const asked = String(((text === undefined) || (text === null)) ? '' : text);
     const roots = (Array.isArray(root) ? root : [root]).filter(v => (typeof v === 'string') && (v !== ''));
@@ -29,8 +34,12 @@ function agent_fs_path(text, root)
     else {
         full = path.resolve(first, asked);
     }
-    const seen = real_of_nearest(full);
-    const inside = roots.map(v => real_of_nearest(plain(v))).some(v => (seen === v) || seen.startsWith(`${v}${path.sep}`));
+    const itself = (options !== undefined) && (options !== null) && (options.itself === true);
+    const seen = itself ? path.join(real_of_nearest(path.dirname(full)), path.basename(full)) : real_of_nearest(full);
+    const inside = roots.some(function (v) {
+        const real = real_of_nearest(plain(v));
+        return (seen === real) || seen.startsWith(`${real}${path.sep}`) || (itself && (full === plain(v)));
+    });
     if (inside === false) {
         throw Object.assign(new Error(`EACCES: ${JSON.stringify(asked)} is outside the folders this token may use`), {code: 'EACCES'});
     }

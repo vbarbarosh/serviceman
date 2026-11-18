@@ -17,8 +17,8 @@ const path = require('path');
 // a file on such a disk, a file made in between.
 async function agent_fs_rename(params)
 {
-    const from = agent_fs_path(params.from, params.root);
-    const to = agent_fs_path(params.to, params.root);
+    const from = agent_fs_path(params.from, params.root, {itself: true});
+    const to = agent_fs_path(params.to, params.root, {itself: true});
     const source = fs.lstatSync(from, {bigint: true});
     // Onto itself: it is where it was asked to be
     if (from === to) {
