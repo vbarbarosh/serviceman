@@ -1,5 +1,6 @@
 const app_apply_config = require('./app_apply_config');
 const app_files_put = require('./app_files_put');
+const app_socket_token_refusal = require('./app_socket_token_refusal');
 const config_file_save = require('./config_file_save');
 const config_from_file = require('./config_from_file');
 const config_locked = require('./config_locked');
@@ -18,9 +19,12 @@ const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 //     given   {socket, remote}: the path, from / or ~/, and the machine it is on; '' or null
 //             for serviceman's own side, where a path may be inside its state folder too
 //             (socket_place)
+//     token   the control token the call came with, undefined for the owner: a token puts an
+//             app on a machine it sees alone, at the socket named after the app
+//             (app_socket_token_refusal)
 //
 //     {service, made, local, public}, as app_files_put says it
-async function app_socket_put(app, name, given)
+async function app_socket_put(app, name, given, token)
 {
     if (RE_NAME.test(name) === false) {
         throw failure(400, `${name}: an app's name is lowercase letters, digits, - and _`);
@@ -37,6 +41,10 @@ async function app_socket_put(app, name, given)
     }
     if ((remote !== null) && (app.remote_by_name[remote] === undefined)) {
         throw failure(400, `no machine named ${remote} is in the config`);
+    }
+    const kept = app_socket_token_refusal(app, token, name, socket, remote);
+    if (kept !== null) {
+        throw failure(403, `the token ${JSON.stringify(token.label)} ${kept}`);
     }
     const before = app.service_by_name[name];
     if ((before !== undefined) && ((before.type !== 'external') || (before.upstream.socket === undefined))) {

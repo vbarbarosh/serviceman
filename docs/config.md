@@ -1270,6 +1270,9 @@ the names an app gets, the card saying the file to set the program to, with **Co
 waits for the program: the program makes that file when it starts listening (serviceman makes only
 its folder), and until then the address answers 502. Its cell says the file the same way and has **Copy socket** in place of
 **New version…**; its **Settings** change the socket too. The same through the control door, with a token given the `apps` right:
+a token puts an app on a machine it sees alone, and at the socket named after the app, `~/agency.sock` there or
+`data/sockets/agency.sock` on serviceman's side, since a visitor of the app's names is passed into whatever listens on that
+file; any other file, `/var/run/docker.sock` say, is the owner's to name, and refused to a token (`403`).
 
     curl -X PUT -d '{"socket": "~/agency.sock", "remote": "laptop"}' -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
 

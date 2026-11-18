@@ -2145,7 +2145,10 @@ its socket is, serviceman&#39;s own <code>data/</code> folder (chosen as it open
 the names an app gets, the card saying the file to set the program to, with <strong>Copy</strong>, and that it
 waits for the program: the program makes that file when it starts listening (serviceman makes only
 its folder), and until then the address answers 502. Its cell says the file the same way and has <strong>Copy socket</strong> in place of
-<strong>New version…</strong>; its <strong>Settings</strong> change the socket too. The same through the control door, with a token given the <code>apps</code> right:</p>
+<strong>New version…</strong>; its <strong>Settings</strong> change the socket too. The same through the control door, with a token given the <code>apps</code> right:
+a token puts an app on a machine it sees alone, and at the socket named after the app, <code>~/agency.sock</code> there or
+<code>data/sockets/agency.sock</code> on serviceman&#39;s side, since a visitor of the app&#39;s names is passed into whatever listens on that
+file; any other file, <code>/var/run/docker.sock</code> say, is the owner&#39;s to name, and refused to a token (<code>403</code>).</p>
 <pre><code>curl -X PUT -d &#39;{&quot;socket&quot;: &quot;~/agency.sock&quot;, &quot;remote&quot;: &quot;laptop&quot;}&#39; -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/agency/socket
 </code></pre>
 <p>A cell is its app&#39;s: <strong>New version…</strong> picks a zip or a page for it, and a zip, a folder or a page

@@ -1928,7 +1928,7 @@ async function handle_app_socket(app, req, res, name)
         return;
     }
     try {
-        const done = await app_socket_put(app, name, await body_fields(req, BODY_LIMIT_BYTES));
+        const done = await app_socket_put(app, name, await body_fields(req, BODY_LIMIT_BYTES), req.control_token);
         const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
         send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.local}${port}/`, public: done.public, service: view_from_service(done.service)});
     }
