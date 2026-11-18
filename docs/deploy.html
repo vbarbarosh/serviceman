@@ -697,6 +697,7 @@ img {
 <li><a href="mounts.html">Mounts</a></li>
 <li class="current"><a href="deploy.html" aria-current="page">Deploy</a><ul class="toc"><li><a href="#files">Files</a></li><li><a href="#hostnames">Hostnames</a></li><li><a href="#port-80">Port 80</a></li><li><a href="#tls">TLS</a></li><li><a href="#docker">Docker</a></li><li><a href="#systemd">systemd</a></li><li><a href="#what-is-reachable-and-by-whom">What is reachable, and by whom</a></li><li><a href="#the-control-api">The control API</a></li><li><a href="#what-a-visitor-learns">What a visitor learns</a></li></ul></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
+<li><a href="mcp.html">Apps from a coding agent</a></li>
 </ul>
 <h2>Tutorials</h2>
 <ul>
@@ -925,6 +926,11 @@ the agents that dial in again.</p>
 <td>with <code>listen</code></td>
 <td>Anyone. It is public code and holds no secret.</td>
 </tr>
+<tr>
+<td>serviceman-mcp, <code>/api/v1/serviceman-mcp.js</code></td>
+<td>with <code>listen</code></td>
+<td>Anyone. It is public code and holds no secret.</td>
+</tr>
 </tbody></table>
 </div>
 <p>To serve the public, widen the service port and put TLS in front:</p>
@@ -979,8 +985,9 @@ terminals go on running on their machines, out of its reach.</li>
 </code></pre>
 <p>An agent&#39;s status is its own: its machines and what runs on them, nothing of the config. Every
 route says which right it needs in one table (<code>control_route_right.js</code>); a route that says
-none, one added later included, is the owner&#39;s alone. The agent file, the installer and an agent
-dialling in with its remote token need no token of the control door.</p>
+none, one added later included, is the owner&#39;s alone. The agent file, serviceman-mcp&#39;s file
+(<a href="mcp.html">Apps from a coding agent</a>), the installer and an agent dialling in with its remote
+token need no token of the control door.</p>
 <p>Reach it from your laptop with an SSH tunnel:</p>
 <pre><code>ssh -L 8081:127.0.0.1:8081 you@the-host
 </code></pre>
@@ -1086,8 +1093,9 @@ the control hostname over the service port.</p>
 </tr>
 </tbody></table>
 </div>
-<p>Two doors under the same prefix are not part of it: <code>GET /api/v1/agent.js</code> hands the agent to
-anyone who asks, and <code>GET /api/v1/remote</code> is where an agent dials in with its token.</p>
+<p>Three doors under the same prefix are not part of it: <code>GET /api/v1/agent.js</code> hands the agent to
+anyone who asks, <code>GET /api/v1/serviceman-mcp.js</code> hands out serviceman-mcp the same way, and
+<code>GET /api/v1/remote</code> is where an agent dials in with its token.</p>
 <h2 id="what-a-visitor-learns"><a class="anchor" href="#what-a-visitor-learns" aria-hidden="true" tabindex="-1">#</a>What a visitor learns</h2>
 <p>A visitor whose service is down gets a page that says it did not answer, and nothing else —
 no ports, no container names, no docker output, no remote names. The reason goes to the log

@@ -170,14 +170,15 @@ the agents that dial in again.
 
 Nothing is open until the config opens it.
 
-| Door                               | Bound to      | Who is answered                                |
-|------------------------------------|---------------|------------------------------------------------|
-| The services, `listen`             | `127.0.0.1`   | Anyone who reaches the address; a name under `.localhost`, this computer only. |
-| The services, `listen.socket`      | a file        | Anyone who may open the file.                  |
-| The control page, `control.socket` | a file        | Anyone who may open the file, mode `0600`.     |
-| The control page, `control`        | `127.0.0.1`   | This machine only, over either port.           |
-| The remote link, `/api/v1/remote`  | with `listen` | Anyone holding that remote's token.            |
-| The agent file, `/api/v1/agent.js` | with `listen` | Anyone. It is public code and holds no secret. |
+| Door                                        | Bound to      | Who is answered                                |
+|---------------------------------------------|---------------|------------------------------------------------|
+| The services, `listen`                      | `127.0.0.1`   | Anyone who reaches the address; a name under `.localhost`, this computer only. |
+| The services, `listen.socket`               | a file        | Anyone who may open the file.                  |
+| The control page, `control.socket`          | a file        | Anyone who may open the file, mode `0600`.     |
+| The control page, `control`                 | `127.0.0.1`   | This machine only, over either port.           |
+| The remote link, `/api/v1/remote`           | with `listen` | Anyone holding that remote's token.            |
+| The agent file, `/api/v1/agent.js`          | with `listen` | Anyone. It is public code and holds no secret. |
+| serviceman-mcp, `/api/v1/serviceman-mcp.js` | with `listen` | Anyone. It is public code and holds no secret. |
 
 To serve the public, widen the service port and put TLS in front:
 
@@ -237,8 +238,9 @@ A caller sends its token with every request:
 
 An agent's status is its own: its machines and what runs on them, nothing of the config. Every
 route says which right it needs in one table (`control_route_right.js`); a route that says
-none, one added later included, is the owner's alone. The agent file, the installer and an agent
-dialling in with its remote token need no token of the control door.
+none, one added later included, is the owner's alone. The agent file, serviceman-mcp's file
+([Apps from a coding agent](mcp.md)), the installer and an agent dialling in with its remote
+token need no token of the control door.
 
 Reach it from your laptop with an SSH tunnel:
 
@@ -287,8 +289,9 @@ the control hostname over the service port.
 | `DELETE /api/v1/remotes/<name>`          | Take one away, unless a service names it.       |
 | `GET /api/v1/shell?service=&slot=`       | A websocket into a container.                   |
 
-Two doors under the same prefix are not part of it: `GET /api/v1/agent.js` hands the agent to
-anyone who asks, and `GET /api/v1/remote` is where an agent dials in with its token.
+Three doors under the same prefix are not part of it: `GET /api/v1/agent.js` hands the agent to
+anyone who asks, `GET /api/v1/serviceman-mcp.js` hands out serviceman-mcp the same way, and
+`GET /api/v1/remote` is where an agent dials in with its token.
 
 ## What a visitor learns
 

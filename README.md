@@ -53,6 +53,7 @@ modules' by `bin/build-pages`.
 - [Mounts](docs/mounts.md) — a folder of one machine, or serviceman's own data/, mounted on another, read-only or read-write, over the agents' links
 - [Deploy](docs/deploy.md) — DNS, port 80, TLS, systemd, who may reach the control page
 - [Terminals from another program](docs/terminals.md) — list, join and type into a machine's kept terminals, from Visual Notes or a script
+- [Apps from a coding agent](docs/mcp.md) — serviceman-mcp, an MCP server: an agent in a box sends the app it made and gets its link, a new version at the same link
 
 ## Tutorials
 

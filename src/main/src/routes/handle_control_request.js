@@ -62,6 +62,7 @@ const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
+const mcp_bundle = require('../../../mcp/bundler/mcp_bundle');
 const module_mount_of = require('../helpers/module_mount_of');
 const module_route = require('../helpers/module_route');
 const os = require('os');
@@ -267,7 +268,7 @@ async function control_answer(app, req, res)
     // Beside it, the host's signature of it and the public key to check it with: a machine
     // installed from this host takes an update from this host alone.
     if ((url.pathname === '/api/v1/agent.js') && (req.method === 'GET')) {
-        send_agent(res);
+        send_script(res, agent_bundle(), 'serviceman-agent.js');
         return;
     }
     if ((url.pathname === '/api/v1/agent.js.sig') && (req.method === 'GET')) {
@@ -276,6 +277,13 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/agent.pub') && (req.method === 'GET')) {
         send_text(res, agent_sign_key(app).public_line);
+        return;
+    }
+    // serviceman-mcp is public code too, the same as in the repository, and holds no secret: a
+    // box takes it before it has anything, and the token it sends with every call is given to
+    // it where it runs, never written into it. What that token may do is decided at each call.
+    if ((url.pathname === '/api/v1/serviceman-mcp.js') && (req.method === 'GET')) {
+        send_script(res, mcp_bundle(), 'serviceman-mcp.js');
         return;
     }
     // The installer carries no secret either, and it has to be readable by a machine that has
@@ -2139,14 +2147,16 @@ function where_from(app, req)
 // GET /api/v1/agent.js
 // The agent as one file, for a machine that has node and nothing else:
 // curl -fsSL https://serviceman.example.com/api/v1/agent.js -o serviceman-agent.js
-function send_agent(res)
+// GET /api/v1/serviceman-mcp.js
+// serviceman-mcp as one file, for a coding agent's box with node and the control socket:
+// curl --unix-socket /sockets/serviceman.sock http://localhost/api/v1/serviceman-mcp.js -o serviceman-mcp.js
+function send_script(res, text, name)
 {
-    const text = agent_bundle();
     res.writeHead(200, {
         'content-type': 'text/javascript; charset=utf-8',
         'content-length': Buffer.byteLength(text),
         'cache-control': 'no-store',
-        'content-disposition': 'attachment; filename="serviceman-agent.js"',
+        'content-disposition': `attachment; filename="${name}"`,
     });
     res.end(text);
 }

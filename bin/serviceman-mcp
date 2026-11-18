@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+# An MCP server on stdin and stdout, for a coding agent; it needs node and nothing from npm.
+# No cd: a folder the agent names by a relative path is read from where the agent started it.
+exec node "$scriptdir/../src/mcp" "$@"
