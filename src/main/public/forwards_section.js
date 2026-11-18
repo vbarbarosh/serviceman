@@ -4,6 +4,8 @@ import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import forward_end_parse from './forward_end_parse.js';
 import forward_here_parse from './forward_here_parse.js';
+import forward_now_said from './forward_now_said.js';
+import forward_state from './forward_state.js';
 import forwards_write from './forwards_write.js';
 
 // A port or a socket of one machine, brought to another: `from` is where the service is, `to`
@@ -62,10 +64,10 @@ const forwards_section = {
     </div>
     <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
-            <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span></template>
+            <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span><span v-if="(row.service !== null)" class="muted" title="It brings the port of this program over, and goes with it: renamed and removed with it, changed on its page"> · part of {{ row.service }}</span></template>
             <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
             <template v-else-if="(column.key === 'to')"><span class="muted">{{ place_of(row.to) }} · </span><code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
-            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}<span v-if="((row.state === 'ready') && (row.way === 'straight'))" class="muted" title="Joined by the agents alone: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'ready') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
+            <span v-else-if="(column.key === 'now')"><forward-state :forward="row" :remotes="machines"/><span v-if="((row.state === 'ready') && (row.way === 'straight'))" class="muted" title="Joined by the agents alone: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'ready') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
             <span v-else-if="(column.key === 'problem')" :class="(problem_of(row) === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
             <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
@@ -79,7 +81,7 @@ const forwards_section = {
     </data-table>
 </div>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'forward-state': forward_state},
     props: ['state'],
     emits: [],
     data: function () {
@@ -193,39 +195,10 @@ const forwards_section = {
         document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
-        // Where it stands, in a word or two; the whole of it is under What is wrong
-        word_of: function (item) {
-            const words = {
-                ready: 'ready',
-                aside: 'set aside',
-                old_agent: 'agent too old',
-                telling: 'starting',
-                from_offline: `${this.title_of(item.from.remote)} offline`,
-                cannot_listen: 'cannot listen',
-                link_down: `${this.title_of(item.to.remote)} link down`,
-                to_offline: `${this.title_of(item.to.remote)} offline`,
-            };
-            return (words[item.state] === undefined) ? item.state : words[item.state];
-        },
-        dot_of: function (item) {
-            if (item.state === 'ready') {
-                return 'running';
-            }
-            if (item.state === 'telling') {
-                return 'starting';
-            }
-            return (item.state === 'aside') ? '' : 'failed';
-        },
-        bad_of: function (item) {
-            return ['ready', 'aside', 'telling'].includes(item.state) === false;
-        },
-        // What stands in its way now, in full, where its word on the line does not say it all;
-        // null when nothing does
+        // What stands in its way now, in full, where its word on the line (forward-state) does
+        // not say it all; null when nothing does
         problem_of: function (item) {
-            if ((item.problem === null) || item.off || ['from_offline', 'to_offline'].includes(item.state)) {
-                return null;
-            }
-            return item.problem;
+            return forward_now_said(item, this.machines).problem;
         },
         // What stands in its way now, else the last failure, else nothing
         wrong_text: function (item) {
@@ -317,7 +290,9 @@ const forwards_section = {
             const written = await this.forwards_write(function (forwards) {
                 const at = forwards.findIndex(v => label_of(v) === ((editing === null) ? fresh.label : editing.label));
                 const kept = ((at === -1) || (editing === null)) ? false : (forwards[at].off === true);
-                const forward = Object.assign({label: fresh.label, from, to}, kept ? {off: true} : {});
+                // One that is part of a program stays its part, changed here or on its page
+                const service = ((at === -1) || (editing === null)) ? undefined : forwards[at].service;
+                const forward = Object.assign({label: fresh.label}, (service === undefined) ? {} : {service}, {from, to}, kept ? {off: true} : {});
                 if ((editing === null) || (at === -1)) {
                     forwards.push(forward);
                     return;

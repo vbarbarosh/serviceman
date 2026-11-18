@@ -1714,6 +1714,9 @@ counted from what the laptop&#39;s agent tells, every second.</li>
 </ul>
 <p>Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.</p>
+<p>A program serviceman runs on a machine brings its port to another in its own form: <strong>Its port on
+another machine</strong> writes the forward beside the program, which then goes with it, renamed and
+removed with it (<a href="config.html#its-port-on-another-machine">Its port on another machine</a>).</p>
 <h3 id="both-ends-on-one-machine"><a class="anchor" href="#both-ends-on-one-machine" aria-hidden="true" tabindex="-1">#</a>Both ends on one machine</h3>
 <p><code>from</code> and <code>to</code> may be the same machine: an address it reaches, brought to its own loopback.
 Its agent then joins the two itself, and each connection goes straight to the address, over the

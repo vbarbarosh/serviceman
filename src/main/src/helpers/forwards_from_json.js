@@ -4,6 +4,7 @@ const RE_HOST = /^[A-Za-z0-9.:_-]+$/;
 const END_FIELDS = ['remote', 'here', 'port', 'socket', 'host'];
 const SOCKET_MAX = 100;
 const RE_TOKEN_ID = /^[0-9a-f]{1,64}$/;
+const RE_SERVICE = /^[a-z0-9][a-z0-9_-]*$/;
 
 // A port or a socket of one machine, brought to another, the way `ssh -L` brings one: `from` is
 // where the service is, `to` is where it shows up. Whatever connects at `to` is carried over
@@ -28,6 +29,12 @@ const RE_TOKEN_ID = /^[0-9a-f]{1,64}$/;
 // `by` is the token that asked for it, when one did: serviceman writes it, from the token, on a
 // forward a token's PUT adds or changes, `{"token": "<its id>", "label": "<its label then>"}`,
 // and sets the forward aside when that token is revoked or may no longer hold it.
+//
+// `service` is the service it is part of, when it is one: the program whose port it brings over,
+// written by the program's form. It goes with that service: renamed with it, taken out with it,
+// and its `from` moves with the machine the program runs on (service_rename_ties, the service
+// routes). A forward with no `service` is one of its own. Only the owner writes one (a token's
+// list is refused it, forward_token_refusal), and config_from_json checks the service is there.
 function forwards_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
@@ -67,7 +74,7 @@ function forwards_from_json(json, label)
         if (taken !== undefined) {
             throw new Error(`${at}.to: ${JSON.stringify(taken.label)} already listens there`);
         }
-        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`)});
+        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`), service: service_from_json(item.service, `${at}.service`)});
     }
     return out;
 }
@@ -82,6 +89,18 @@ function by_from_json(json, label)
         throw new Error(`${label}: {"token": "<a token's id>", "label": "<its label>"}, written by serviceman for a forward a token asked for (got ${JSON.stringify(json)})`);
     }
     return {token: json.token, label: json.label};
+}
+
+// The service a forward is part of, or null for one of its own
+function service_from_json(json, label)
+{
+    if (json === undefined) {
+        return null;
+    }
+    if ((typeof json !== 'string') || (RE_SERVICE.test(json) === false)) {
+        throw new Error(`${label}: the name of the service it is part of, or left out (got ${JSON.stringify(json)})`);
+    }
+    return json;
 }
 
 // `here_allowed` is for `to`: a service is on a machine with an agent, and only where it shows

@@ -6,6 +6,7 @@ const agent_stream_counts = require('./agent_stream_counts');
 const agent_tunnel = require('./agent_tunnel');
 const fs = require('fs');
 const net = require('net');
+const path = require('path');
 
 // The forwards this machine listens for, by name: {name: {key, where, server, error, dial,
 // peer}}. They stand for the life of the agent, not of a link: a socket file that came and went
@@ -85,6 +86,9 @@ async function listen(item, group)
             await server_listen(server, {host: '127.0.0.1', port: item.port});
         }
         else {
+            // A folder of its own for the sockets, ~/.sockets/, is made the first time, for the
+            // agent's user alone
+            fs.mkdirSync(path.dirname(where), {recursive: true, mode: 0o700});
             await socket_take(where);
             await server_listen(server, {path: where});
             fs.chmodSync(where, 0o600);

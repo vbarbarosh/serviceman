@@ -185,6 +185,11 @@ function config_from_json(json, base_dir)
                 throw new Error(`forwards[${i}].${side}.remote: no remote named ${JSON.stringify(name)} is in the config`);
             }
         }
+        // A forward part of a service nobody has would go with nothing, and be shown nowhere
+        const service = out.forwards[i].service;
+        if ((service !== null) && (names.includes(service) === false)) {
+            throw new Error(`forwards[${i}].service: no service named ${JSON.stringify(service)} is in the config`);
+        }
     }
     for (let i = 0; i < out.mounts.length; i++) {
         for (const side of ['from', 'to']) {

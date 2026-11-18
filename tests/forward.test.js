@@ -82,6 +82,30 @@ test('a forward brings a socket file over there to a loopback port', async funct
     }
 });
 
+// A socket in a folder kept for sockets, ~/.sockets/, that is not there yet: the agent makes
+// it the first time, for its user alone, as the program's card offers it
+test('a forward\'s socket in a folder not made yet gets its folder, the agent\'s user\'s alone', async function () {
+    const echo = await echo_server({port: 0, host: '127.0.0.1'});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-forward-'));
+    const sock = path.join(dir, 'not-made', '.sockets', 'llm.sock');
+    const running = await serviceman_start([
+        {label: 'llm → laptop', from: {remote: 'vps1', port: echo.address().port}, to: {remote: 'laptop', socket: sock}},
+    ]);
+    const agents = agents_start(running);
+    try {
+        await wait_listening(running, 'llm → laptop');
+        assert.strictEqual(fs.statSync(path.dirname(sock)).mode & 0o777, 0o700);
+        assert.strictEqual(fs.statSync(sock).mode & 0o777, 0o600);
+        assert.strictEqual(await say_through({path: sock}, 'hello'), 'echo: hello');
+    }
+    finally {
+        agents_stop(agents);
+        await running.close();
+        echo.close();
+        fs.rmSync(dir, {recursive: true, force: true});
+    }
+});
+
 // What breaks says so at once, where it broke: nothing hangs, and the page names the reason
 test('a forward from a machine that is away closes each connection at once and says why', async function () {
     const echo = await echo_server({port: 0, host: '127.0.0.1'});
@@ -795,7 +819,7 @@ test('the config says what is wrong with a forward, in its own words', function 
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
-        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null},
+        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null, service: null},
     ]);
     // The token that asked for it is serviceman's to write, and read back as it was
     const by = {token: '4c6b2ea73dc33d08', label: 'visual-agency'};

@@ -506,6 +506,48 @@ p.fm-foot {
     margin: .5rem 0 0;
 }
 
+/* A machine a program's port is brought to: its row of controls, then what it is in words. The
+   path keeps a width worth typing in, on a line of its own when the row has no room */
+.svc-fwd + .svc-fwd {
+    margin-top: .7rem;
+}
+
+.svc-fwd + button {
+    margin-top: .7rem;
+}
+
+.svc-fwd .line {
+    flex-wrap: wrap;
+    margin-bottom: 0;
+}
+
+.svc-body .svc-fwd .line > input:not(.short):not(.tiny):not(.name-field) {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.svc-fwd-kind {
+    display: inline-flex;
+    flex: none;
+    gap: .3rem;
+}
+
+.svc-fwd p {
+    overflow-wrap: anywhere;
+}
+
+/* Where a service's port is brought, a line for each machine */
+.svc-fwd-now {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+/* Its state wraps whole, its dot never apart from its word, a step away from the path */
+.svc-fwd-now .dt-state {
+    margin-left: .4rem;
+    white-space: nowrap;
+}
+
 .svc-status {
     display: flex;
     flex-direction: column;

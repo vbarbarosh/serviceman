@@ -1036,6 +1036,10 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <td><code>by</code></td>
 <td>Written by serviceman, never by hand: <code>{&quot;token&quot;: &quot;&lt;id&gt;&quot;, &quot;label&quot;: &quot;visual-agency&quot;}</code>, the token that asked for it, on a forward a token&#39;s <code>PUT</code> added or changed. The page shows it beside the label.</td>
 </tr>
+<tr>
+<td><code>service</code></td>
+<td>The service it is part of, a program whose port it brings over (<a href="#its-port-on-another-machine">Its port on another machine</a>). It goes with that service: renamed with it, taken out with it, its <code>from</code> moved with the machine the program runs on. The owner&#39;s alone: a token neither sees it nor writes one. Left out, the forward is one of its own.</td>
+</tr>
 </tbody></table>
 </div>
 <p>Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
@@ -1485,6 +1489,31 @@ the next visitor through the door starts it again.</p>
 </tr>
 </tbody></table>
 </div>
+<h3 id="its-port-on-another-machine"><a class="anchor" href="#its-port-on-another-machine" aria-hidden="true" tabindex="-1">#</a>Its port on another machine</h3>
+<p>A program that listens on a port of its machine&#39;s loopback, a language model&#39;s server say, is
+used from another machine: the laptop. <strong>Its port on another machine</strong>, a card of the program&#39;s
+form, says which port and where it shows up, and the program&#39;s <strong>Create</strong> or <strong>Save</strong> writes the
+program and its forwards together. Each machine picked gets the port as a socket file,
+<code>~/.sockets/&lt;name&gt;.sock</code> unless another is typed (an agent after 1.40.1 makes the folder,
+<code>0700</code>; an older one wants it there), or as a port on its loopback; the program&#39;s own machine
+may be picked too, for another port there. <strong>This host</strong>, where serviceman runs, needs no agent:
+serviceman listens itself, on <code>sockets/&lt;name&gt;.sock</code> in its state dir (<code>data/sockets/llm.sock</code>) or
+on a port of its loopback, <code>&quot;to&quot;: {&quot;here&quot;: true, &quot;socket&quot;: &quot;sockets/llm.sock&quot;}</code>. Each is a
+forward (<a href="#forwards">Forwards</a>) with <code>service</code> naming the program:</p>
+<pre><code class="language-json">&quot;services&quot;: [
+    {&quot;name&quot;: &quot;llm&quot;, &quot;type&quot;: &quot;shell&quot;, &quot;remote&quot;: &quot;server&quot;, &quot;cwd&quot;: &quot;/home/user/llm&quot;, &quot;command&quot;: &quot;sg render -c &#39;./llama-server -m model.gguf --host 127.0.0.1 --port 8080&#39;&quot;, &quot;policy&quot;: {&quot;start&quot;: &quot;always&quot;, &quot;restart&quot;: &quot;always&quot;}}
+],
+&quot;forwards&quot;: [
+    {&quot;label&quot;: &quot;llm → laptop&quot;, &quot;service&quot;: &quot;llm&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;server&quot;, &quot;port&quot;: 8080}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/.sockets/llm.sock&quot;}}
+]
+</code></pre>
+<p>They stay with the program: a new name carries them, a move to another machine brings the port
+from there, and <strong>Remove…</strong> takes them out with it (<code>DELETE /api/v1/services/&lt;name&gt;</code> answers
+<code>&quot;forwards_removed&quot;: [...]</code>, their labels). Its page says where its port is, with each forward&#39;s
+state as Forwards shows it. A forward does not wake a program that sleeps: one with an address
+starts with serviceman for its port to be there. Programs send the same as the page,
+<code>{&quot;service&quot;: {...}, &quot;forwards&quot;: [...]}</code> to <code>POST /api/v1/services</code> or <code>PUT /api/v1/services/&lt;name&gt;</code>: the list takes the place of the forwards that are part of it, and left
+out leaves them as they are.</p>
 <h3 id="the-lifecycle-of-a-program"><a class="anchor" href="#the-lifecycle-of-a-program" aria-hidden="true" tabindex="-1">#</a>The lifecycle of a program</h3>
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;google-docs-writer&quot;,

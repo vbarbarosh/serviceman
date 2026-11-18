@@ -5,9 +5,12 @@ import app_folder_read from './app_folder_read.js';
 import app_setup_line from './app_setup_line.js';
 import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
+import brought_from_forwards from './brought_from_forwards.js';
+import brought_said from './brought_said.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
+import forwards_from_brought from './forwards_from_brought.js';
 import secret_name_said from './secret_name_said.js';
 import secret_rows_write from './secret_rows_write.js';
 import service_from_form from './service_from_form.js';
@@ -65,6 +68,7 @@ const SECTIONS = [
     {id: 'runs', title: 'What runs', kinds: ['docker', 'shell', 'external', 'files'], must: true},
     {id: 'where', title: 'Where it runs', kinds: ['docker', 'shell', 'external'], must: true},
     {id: 'address', title: 'Addresses', kinds: ['docker', 'shell', 'external', 'files'], must: true},
+    {id: 'ports', title: 'Its port on another machine', kinds: ['shell'], must: false},
     {id: 'keep', title: 'Storage and secrets', kinds: ['docker', 'shell'], must: false},
     {id: 'policy', title: 'When it runs', kinds: ['docker', 'shell'], must: false},
     {id: 'scale', title: 'Copies', kinds: ['docker'], must: false},
@@ -76,6 +80,7 @@ const SECTION_PROBLEMS = {
     runs: ['port', 'command', 'upstream', 'socket'],
     where: ['places'],
     address: ['hosts'],
+    ports: ['brought'],
     keep: ['secrets'],
 };
 
@@ -459,6 +464,37 @@ const service_form = {
                     </div>
                 </template>
             </template>
+            <template v-if="(section.id === 'ports')">
+                <label>Its port</label>
+                <div>
+                    <input v-model.trim="m.brought.port" :placeholder="brought_says.port.placeholder" class="short" :class="{wrong: brought_says.port.bad}" spellcheck="false" aria-label="The port it listens on">
+                    <p :class="(brought_says.port.bad ? 'bad' : 'muted')">{{ brought_says.port.text }}</p>
+                </div>
+                <label>Brought to</label>
+                <div>
+                    <div v-for="(row, i) of m.brought.targets" :key="row.key" class="svc-fwd">
+                        <div class="line">
+                            <select v-model="row.remote" :class="{wrong: (brought_says.targets[i].bad && row.remote === '')}" aria-label="The machine it is brought to">
+                                <option value="">a machine…</option>
+                                <option v-for="item of target_options" :key="(item.value === null ? 'here' : ('remote-' + item.value))" :value="item.value">{{ item.label }}</option>
+                            </select>
+                            <span class="svc-fwd-kind">
+                                <button type="button" class="tab" :class="{on: (row.kind === 'socket')}" @click="row.kind = 'socket'">a socket file</button>
+                                <button type="button" class="tab" :class="{on: (row.kind === 'port')}" @click="row.kind = 'port'">a port</button>
+                            </span>
+                            <input v-if="(row.kind === 'socket')" v-model.trim="row.socket" :placeholder="brought_says.targets[i].socket" :class="{wrong: (brought_says.targets[i].bad && row.remote !== '')}" spellcheck="false" aria-label="The socket file there">
+                            <input v-else v-model.trim="row.port" :placeholder="brought_says.targets[i].port" class="short" :class="{wrong: (brought_says.targets[i].bad && row.remote !== '')}" spellcheck="false" aria-label="The port there">
+                            <button type="button" title="Bring it to this machine no more" aria-label="Bring it to this machine no more" @click="row_drop(m.brought.targets, row)">×</button>
+                        </div>
+                        <p :class="(brought_says.targets[i].bad ? 'bad' : 'muted')">{{ brought_says.targets[i].text }}</p>
+                        <p v-if="(brought_says.targets[i].away !== '')" class="svc-warn">{{ brought_says.targets[i].away }}</p>
+                    </div>
+                    <button type="button" @click="click_another_machine">{{ (m.brought.targets.length === 0 ? '+ a machine' : '+ another machine') }}</button>
+                    <p v-for="item of m.brought.kept" :key="item.label" class="muted">Also <code>{{ item.label }}</code>, written by hand: it stays as it is, and is changed on Forwards.</p>
+                    <p v-if="(m.brought.targets.length === 0 && m.brought.kept.length === 0)" class="muted">It is reached on its machine alone. On a machine picked here its port shows up as a socket file, or a port on that machine's loopback, the way <code>ssh -L</code> brings one, with no ssh: the agents carry it. This host, where serviceman runs, needs no agent.</p>
+                    <p v-if="brought_sleeps" class="svc-warn">It starts at the first request to its address and sleeps when idle, and a connection to its port over there does not wake it: under When it runs, start it with serviceman.</p>
+                </div>
+            </template>
             <template v-if="(section.id === 'keep')">
                 <label>Kept paths</label>
                 <div>
@@ -580,8 +616,8 @@ const service_form = {
     <div v-if="(creating === false)" class="card svc-sec">
         <div class="svc-head">
             <b>Remove</b>
-            <span v-if="(removing === false)" class="svc-sum"><span>Takes {{ model.name }} out of the config. Anything running keeps running.</span></span>
-            <span v-else class="svc-sum"><span class="svc-warn">Forget {{ model.name }}? Anything running keeps running; nothing will start it again.</span></span>
+            <span v-if="(removing === false)" class="svc-sum"><span>Takes {{ model.name }} out of the config{{ forwards_gone }}. Anything running keeps running.</span></span>
+            <span v-else class="svc-sum"><span class="svc-warn">Forget {{ model.name }}{{ forwards_gone }}? Anything running keeps running; nothing will start it again.</span></span>
             <span class="list-right">
                 <button v-if="(removing === false)" type="button" class="danger" :disabled="(editing !== '')" @click="removing = true">Remove…</button>
                 <template v-else>
@@ -608,11 +644,15 @@ const service_form = {
     components: {'copy-progress': copy_progress, duration, snip: snippet, 'wall-select': wall_select},
     // folder: the one serviceman keeps its own things in, as its owner sees it (data); walls:
     // walls_of(state), for the Sign-in list
-    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder'],
+    // tied: the config file's forwards that are part of the service, as the file has them;
+    // forward_labels: the label of every forward of the config, for a new one's to be its own
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels'],
     emits: ['close', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
         const model = form_from_service((this.original === null) ? source : this.original);
+        // A clone brings no forward over: its own would listen where the original's do
+        model.brought = brought_from_forwards(((this.original === null) || (this.tied === undefined)) ? [] : this.tied);
         // A clone is a new service with the settings carried over; the name and the address must be its own
         if ((this.original === null) && (source !== null)) {
             model.name = name_free(source.name, this.names || []);
@@ -677,6 +717,33 @@ const service_form = {
         },
         remote_options: function () {
             return this.remotes.map(v => ({value: v.name, label: this.remote_text(v)}));
+        },
+        // The machines a program's port may be brought to: this host, where serviceman runs (null,
+        // `to.here`), and any machine, its own too, to its own loopback
+        target_options: function () {
+            const machine = machine_of(this.m);
+            const machines = this.remotes.map(v => ({value: v.name, label: (v.name === machine) ? `${this.remote_text(v)} — where it runs` : this.remote_text(v)}));
+            return [{value: null, label: 'this host — where serviceman runs'}].concat(machines);
+        },
+        // Whether the card that brings a program's port over is open, and its Save or Create
+        // writes the forwards that are part of it
+        brought_open: function () {
+            return (this.m.type === 'shell') && (this.creating ? (this.opened.ports === true) : (this.editing === 'ports'));
+        },
+        brought_says: function () {
+            return brought_said(this.m.brought, this.program_of(this.m));
+        },
+        // A program that sleeps when idle, its port brought over: a connection there wakes nothing
+        brought_sleeps: function () {
+            return (this.m.brought.targets.length > 0) && (this.m.port !== '') && (this.m.start !== 'always');
+        },
+        // The forwards a removal takes along, said before it, as a clause
+        forwards_gone: function () {
+            const count = this.model.brought.targets.length + this.model.brought.kept.length;
+            if (count === 0) {
+                return '';
+            }
+            return (count === 1) ? ', with the forward that brings its port over' : `, with the ${count} forwards that bring its port over`;
         },
         library_options: function () {
             return this.library.map(v => ({value: v, label: v}));
@@ -812,8 +879,12 @@ const service_form = {
             }
             return out;
         },
+        // The entry, and the forwards that are part of it when this save writes them
         config_text: function () {
-            return JSON.stringify(this.entry_of(this.model_now()), null, 4);
+            const model = this.model_now();
+            const entry = JSON.stringify(this.entry_of(model), null, 4);
+            const forwards = this.forwards_written(model);
+            return (forwards === null) ? entry : `${entry}\n\n"forwards", the ones that are part of it:\n${JSON.stringify(forwards, null, 4)}`;
         },
         // A folder of files is served from its path down whatever this says: its files are at
         // the root of its folder
@@ -920,6 +991,9 @@ const service_form = {
             const secret = (model.type === 'shell') ? model.secrets.map(v => this.secret_said(v)).find(v => (v.name !== '') || (v.value !== '')) : undefined;
             if (secret !== undefined) {
                 out.secrets = secret.name || secret.value;
+            }
+            if (this.brought_open && (this.brought_says.problem !== null)) {
+                out.brought = this.brought_says.problem;
             }
             return out;
         },
@@ -1074,6 +1148,24 @@ const service_form = {
                     lines.push(`hands over to ${model.redirect}`);
                 }
             }
+            if (id === 'ports') {
+                const said = brought_said(model.brought, this.program_of(model));
+                if ((model.brought.targets.length === 0) && (model.brought.kept.length === 0)) {
+                    lines.push('none — it is reached on its machine alone');
+                }
+                for (let i = 0, end = model.brought.targets.length; i < end; ++i) {
+                    const target = model.brought.targets[i];
+                    const there = (target.kind === 'socket') ? said.targets[i].value : `port ${said.targets[i].value}`;
+                    lines.push(`${said.port.value} → ${(target.remote === null) ? 'this host' : this.place_text(target.remote)} · ${there}`);
+                }
+                for (const item of model.brought.kept) {
+                    lines.push(`${item.label}, written by hand`);
+                }
+                if ((model.brought.targets.length > 0) && (model.port !== '') && (model.start !== 'always')) {
+                    warn = 'it sleeps when idle, and a connection to its port over there does not wake it';
+                    fix = {label: 'Keep it up', section: 'policy', field: 'start', value: 'always'};
+                }
+            }
             if (id === 'keep') {
                 const kept = model.volumes.filter(v => v.target !== '').map(v => v.target);
                 // An app folder is its own storage: it stays, its data/ outlives a new version, and
@@ -1142,14 +1234,19 @@ const service_form = {
             this.bad = false;
             if (this.creating) {
                 this.opened[id] = true;
-                return;
             }
-            this.tried = false;
-            this.draft = model_copy(this.model);
-            this.secrets_gone = [];
-            this.editing = id;
-            this.strip_touched = false;
-            this.image_change();
+            else {
+                this.tried = false;
+                this.draft = model_copy(this.model);
+                this.secrets_gone = [];
+                this.editing = id;
+                this.strip_touched = false;
+                this.image_change();
+            }
+            // Opened to bring its port over, it offers the first machine at once
+            if ((id === 'ports') && (this.m.brought.targets.length === 0) && (this.m.brought.kept.length === 0)) {
+                this.target_add();
+            }
         },
         // A closed optional card goes back to serviceman's defaults, so what it says is true
         section_close: function (id) {
@@ -1158,6 +1255,7 @@ const service_form = {
                 keep: ['volumes', 'secrets'],
                 policy: ['start', 'restart', 'stop_after_idle', 'never_stop', 'start_timeout', 'stop_timeout', 'request_timeout', 'never_request_timeout', 'start_tries'],
                 scale: ['min', 'max', 'concurrency', 'warmup_queue', 'warmup_wait', 'scale_down_after', 'autoscale', 'busy_up', 'up_for', 'busy_down', 'down_for', 'cool_down'],
+                ports: ['brought'],
             }[id] || [];
             for (const name of fields) {
                 this.model[name] = blank[name];
@@ -1352,6 +1450,40 @@ const service_form = {
             }
             rows.splice(rows.indexOf(row), 1);
         },
+        // One more machine its port is brought to, as a socket file named after it: the first
+        // machine online it is on nowhere yet, not the one it runs on; else this host, where
+        // serviceman runs (null); else a machine whose agent is away now
+        target_add: function () {
+            const machine = machine_of(this.m);
+            const taken = this.m.brought.targets.map(v => v.remote);
+            const free = this.remotes.filter(v => (v.name !== machine) && (taken.includes(v.name) === false));
+            const online = free.find(v => v.phase === 'online');
+            let remote = null;
+            if (online !== undefined) {
+                remote = online.name;
+            }
+            else if (taken.includes(null) && (free.length > 0)) {
+                remote = free[0].name;
+            }
+            this.row_add(this.m.brought.targets, {remote, kind: 'socket', socket: '', port: '', original: null});
+        },
+        click_another_machine: function () {
+            this.target_add();
+        },
+        // The program as its card that brings its port over sees it (brought_said)
+        program_of: function (model) {
+            const tied = (this.tied === undefined) ? [] : this.tied.map(v => v.label);
+            const labels = (this.forward_labels === undefined) ? [] : this.forward_labels.filter(v => tied.includes(v) === false);
+            return {name: model.name, machine: machine_of(model), port: model.port, remotes: this.remotes, tried: this.tried, labels};
+        },
+        // The forwards that are part of the service, as this save writes them, or null when it
+        // leaves them as they are
+        forwards_written: function (model) {
+            if ((model.type !== 'shell') || (this.brought_open !== true)) {
+                return null;
+            }
+            return forwards_from_brought(model.brought, this.program_of(model));
+        },
         // What is wrong in one row of secrets, by the box it is wrong in. A name the door would
         // refuse is said at once; a row half filled in waits for Save, which then sends nothing:
         // a value with no name would be dropped unsaid, and a name with no value keeps nothing.
@@ -1395,7 +1527,7 @@ const service_form = {
                     return;
                 }
             }
-            const ok = await this.write('POST', '/api/v1/services', model);
+            const ok = await this.write('POST', '/api/v1/services', model, this.forwards_written(model));
             if (ok) {
                 this.$emit('saved', model.name);
                 this.$emit('close');
@@ -1416,7 +1548,7 @@ const service_form = {
                 return;
             }
             const model = this.model_now();
-            const ok = await this.write('PUT', `/api/v1/services/${encodeURIComponent(this.original.name)}`, model);
+            const ok = await this.write('PUT', `/api/v1/services/${encodeURIComponent(this.original.name)}`, model, this.forwards_written(model));
             if (ok) {
                 this.model = model;
                 this.draft = null;
@@ -1424,13 +1556,15 @@ const service_form = {
                 this.$emit('saved', model.name);
             }
         },
-        // Sends the service and its secrets. A save whose answer never came back is looked for
-        // in what serviceman knows, since it may have landed anyway.
-        write: async function (method, url, model) {
+        // Sends the service and its secrets, and the forwards that are part of it when the save
+        // writes them (null leaves them as they are). A save whose answer never came back is
+        // looked for in what serviceman knows, since it may have landed anyway.
+        write: async function (method, url, model, forwards) {
             this.busy = true;
             this.report('', false);
             try {
-                const answer = await fetch(url, {method, body: JSON.stringify({service: this.entry_of(model)})});
+                const body = (forwards === null) ? {service: this.entry_of(model)} : {service: this.entry_of(model), forwards};
+                const answer = await fetch(url, {method, body: JSON.stringify(body)});
                 const outcome = await answer.json();
                 if (answer.ok === false) {
                     this.report(outcome.error, true);
@@ -1572,6 +1706,14 @@ function remotes_of(service)
     return (service.remote === undefined) ? [] : [service.remote];
 }
 
+// The one machine a program of the form runs on, or null for none, a list or a tag: its port
+// is brought over from there
+function machine_of(model)
+{
+    const places = model.places.map(v => v.text).filter(v => v !== '');
+    return ((places.length === 1) && (places[0].startsWith('#') === false)) ? places[0] : null;
+}
+
 function form_from_service(service)
 {
     const out = {
@@ -1623,6 +1765,8 @@ function form_from_service(service)
         busy_down: '',
         down_for: '',
         cool_down: '',
+        // The forwards that are part of it, as its card holds them (brought_from_forwards)
+        brought: {port: '', targets: [], kept: []},
     };
     if (service === null) {
         out.hosts.push({key: Math.random(), text: ''});

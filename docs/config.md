@@ -211,6 +211,7 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 | `to.port`     | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
 | `by`          | Written by serviceman, never by hand: `{"token": "<id>", "label": "visual-agency"}`, the token that asked for it, on a forward a token's `PUT` added or changed. The page shows it beside the label. |
+| `service`     | The service it is part of, a program whose port it brings over ([Its port on another machine](#its-port-on-another-machine)). It goes with that service: renamed with it, taken out with it, its `from` moved with the machine the program runs on. The owner's alone: a token neither sees it nor writes one. Left out, the forward is one of its own. |
 
 Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
@@ -620,6 +621,37 @@ The agent runs the command on its machine and keeps it alive:
 | `lifecycle` | A line for each moment of its life. See below.                             |
 | `cwd`     | Where it runs. The config's folder — or one of serviceman's own when it installs itself. |
 | `env`     | Added to the environment serviceman itself has, after `PORT` (below).        |
+
+### Its port on another machine
+
+A program that listens on a port of its machine's loopback, a language model's server say, is
+used from another machine: the laptop. **Its port on another machine**, a card of the program's
+form, says which port and where it shows up, and the program's **Create** or **Save** writes the
+program and its forwards together. Each machine picked gets the port as a socket file,
+`~/.sockets/<name>.sock` unless another is typed (an agent after 1.40.1 makes the folder,
+`0700`; an older one wants it there), or as a port on its loopback; the program's own machine
+may be picked too, for another port there. **This host**, where serviceman runs, needs no agent:
+serviceman listens itself, on `sockets/<name>.sock` in its state dir (`data/sockets/llm.sock`) or
+on a port of its loopback, `"to": {"here": true, "socket": "sockets/llm.sock"}`. Each is a
+forward ([Forwards](#forwards)) with `service` naming the program:
+
+```json
+"services": [
+    {"name": "llm", "type": "shell", "remote": "server", "cwd": "/home/user/llm", "command": "sg render -c './llama-server -m model.gguf --host 127.0.0.1 --port 8080'", "policy": {"start": "always", "restart": "always"}}
+],
+"forwards": [
+    {"label": "llm → laptop", "service": "llm", "from": {"remote": "server", "port": 8080}, "to": {"remote": "laptop", "socket": "~/.sockets/llm.sock"}}
+]
+```
+
+They stay with the program: a new name carries them, a move to another machine brings the port
+from there, and **Remove…** takes them out with it (`DELETE /api/v1/services/<name>` answers
+`"forwards_removed": [...]`, their labels). Its page says where its port is, with each forward's
+state as Forwards shows it. A forward does not wake a program that sleeps: one with an address
+starts with serviceman for its port to be there. Programs send the same as the page,
+`{"service": {...}, "forwards": [...]}` to `POST /api/v1/services` or `PUT
+/api/v1/services/<name>`: the list takes the place of the forwards that are part of it, and left
+out leaves them as they are.
 
 ### The lifecycle of a program
 

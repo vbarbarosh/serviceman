@@ -2369,11 +2369,18 @@ async function apps_settings_update(app, req, res)
 }
 
 // POST /api/v1/services (body)
+// {service, forwards}: `forwards`, when given, are the forwards that are part of it, written in
+// the same save and checked with it (forwards_tied_put)
 async function service_create(app, req, res)
 {
-    const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    const service = service_from_body(body);
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
+        return;
+    }
+    if ((body.forwards !== undefined) && (Array.isArray(body.forwards) === false)) {
+        send_json(res, 400, {error: 'forwards: the forwards that are part of it, a list'});
         return;
     }
     socket_typed(app, service);
@@ -2382,6 +2389,9 @@ async function service_create(app, req, res)
             return `a service named ${JSON.stringify(service.name)} already exists`;
         }
         json.services.push(service);
+        if (body.forwards !== undefined) {
+            forwards_tied_put(json, service.name, service.name, body.forwards);
+        }
         return null;
     });
 }
@@ -2390,12 +2400,19 @@ async function service_create(app, req, res)
 // A new name is refused when another service has it; an app takes the names made of its name
 // with it, and one of files serviceman keeps its folder too (app_files_rename); the door rules
 // that name it, its secrets and its tokens follow it (service_rename_ties); and what ran under
-// the old name is stopped, not uninstalled (app_apply_config)
+// the old name is stopped, not uninstalled (app_apply_config). {service, forwards}: `forwards`,
+// when given, take the place of the forwards that are part of it (forwards_tied_put); left out,
+// those stay, and come from the machine it runs on now (forwards_tied_follow).
 async function service_update(app, req, res, name)
 {
-    const service = service_from_body(await body_fields(req, BODY_LIMIT_BYTES));
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    const service = service_from_body(body);
     if (service === null) {
         send_json(res, 400, {error: 'the body carries no service object'});
+        return;
+    }
+    if ((body.forwards !== undefined) && (Array.isArray(body.forwards) === false)) {
+        send_json(res, 400, {error: 'forwards: the forwards that are part of it, a list'});
         return;
     }
     socket_typed(app, service);
@@ -2415,6 +2432,12 @@ async function service_update(app, req, res, name)
         }
         catch (error) {
             return {error: error.message, status: error.status};
+        }
+        if (body.forwards === undefined) {
+            forwards_tied_follow(json, name, json.services[at], service);
+        }
+        else {
+            forwards_tied_put(json, name, service.name, body.forwards);
         }
         json.services[at] = service;
         ties = renamed ? service_rename_ties(app, json, name, service.name) : null;
@@ -2486,8 +2509,10 @@ function wall_from_body(body)
 }
 
 // DELETE /api/v1/services/<name>
+// The forwards that are part of it go with it, and the answer names them: forwards_removed
 async function service_delete(app, req, res, name)
 {
+    let forwards_removed = [];
     await config_file_mutate(app, res, function (json) {
         const at = json.services.findIndex(v => v.name === name);
         if (at === -1) {
@@ -2500,8 +2525,73 @@ async function service_delete(app, req, res, name)
                 board.apps = board.apps.filter(v => v !== name);
             }
         }
+        forwards_removed = forwards_tied_put(json, name, name, []);
         return null;
-    }, 404);
+    }, 404, async function () {
+        return {said: {forwards_removed}};
+    });
+}
+
+// The forwards that are part of a service, `before` its name in the file, replaced by `forwards`
+// under its name now, `after`: where the first of them was, or at the end. Every other forward
+// stays as it was, where it was. Answers the labels of those taken out.
+function forwards_tied_put(json, before, after, forwards)
+{
+    const kept = [];
+    const out = [];
+    let at = null;
+    for (const item of (Array.isArray(json.forwards) ? json.forwards : [])) {
+        if ((item === null) || (typeof item !== 'object') || (item.service !== before)) {
+            kept.push(item);
+            continue;
+        }
+        out.push(item.label);
+        if (at === null) {
+            at = kept.length;
+        }
+    }
+    if ((out.length === 0) && (forwards.length === 0)) {
+        return out;
+    }
+    if (at === null) {
+        at = kept.length;
+    }
+    const tied = forwards.map(v => (((v === null) || (typeof v !== 'object') || Array.isArray(v)) ? v : Object.assign({}, v, {service: after})));
+    const forwards_now = kept.slice(0, at).concat(tied, kept.slice(at));
+    if (forwards_now.length === 0) {
+        delete json.forwards;
+    }
+    else {
+        json.forwards = forwards_now;
+    }
+    return out;
+}
+
+// A program moved to another machine brings its port over from there: each forward that is part
+// of it and came from the one machine it ran on comes from the one it runs on now. A list of
+// machines or a tag, before or after, is no one machine, and its forwards stay as they are.
+function forwards_tied_follow(json, name, before, after)
+{
+    const machine_before = service_machine(before);
+    const machine_after = service_machine(after);
+    if ((machine_before === null) || (machine_after === null) || (machine_before === machine_after)) {
+        return;
+    }
+    for (const item of (Array.isArray(json.forwards) ? json.forwards : [])) {
+        if ((item !== null) && (typeof item === 'object') && (item.service === name) && (item.from !== null) && (typeof item.from === 'object') && (item.from.remote === machine_before)) {
+            item.from = Object.assign({}, item.from, {remote: machine_after});
+        }
+    }
+}
+
+// The one machine a service of the config file names, or null for none, a list or a tag
+function service_machine(service)
+{
+    const remotes = Array.isArray(service.remotes) ? service.remotes : [service.remote];
+    if ((remotes.length !== 1) || (typeof remotes[0] !== 'string') || remotes[0].startsWith('#')) {
+        return null;
+    }
+    return remotes[0];
 }
 
 // POST /api/v1/load-tests (body)
@@ -3009,7 +3099,8 @@ async function config_file_write(app, res, change, miss_status, prepare)
     }
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     const applied = await app_apply_config(app, config, prepared);
-    send_json(res, 200, {ok: true, restart_needed: applied.restart_needed, notes: applied.notes});
+    // What prepare has to say beside what was applied: the forwards a removed service took along
+    send_json(res, 200, Object.assign({ok: true, restart_needed: applied.restart_needed, notes: applied.notes}, prepared.said));
 }
 
 // A socket of serviceman's own side, as the page says it, data/sockets/va.sock, is the file

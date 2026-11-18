@@ -23,6 +23,7 @@ import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
+import forward_state from './forward_state.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
 import is_name_in_title from './is_name_in_title.js';
@@ -122,6 +123,13 @@ const service_status = {
             <dt>{{ ((view.socket === null) || (view.socket === undefined)) ? 'Answers at' : 'Its socket' }}</dt>
             <dd><code>{{ view.upstream }}</code><template v-if="(view.remotes.length > 0)"><span class="muted"> on </span><button type="button" class="link" @click="$emit('remote', view.remotes[0])">{{ remote_text(view.remotes[0]) }}</button><span class="muted">, through its link</span></template></dd>
         </template>
+        <template v-if="(forwards.length > 0)">
+            <dt>Its port on</dt>
+            <dd>
+                <span v-for="item of forwards" :key="item.label" class="svc-fwd-now"><span>{{ end_text(item.from) }} → <template v-if="item.to.here">this host</template><button v-else type="button" class="link" @click="$emit('remote', item.to.remote)">{{ remote_text(item.to.remote) }}</button> · <code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></span> <forward-state :forward="item" :remotes="remotes" :reason="true"/></span>
+                <a href="/forwards" class="muted" @click.prevent="$emit('forwards')">every forward, on Forwards</a>
+            </dd>
+        </template>
         <dt>Requests</dt>
         <dd>{{ view.requests }} served · {{ view.inflight }} in flight<span v-if="(view.queue > 0)"> · {{ view.queue }} waiting</span><span v-if="(view.cold_start_ms !== null)" class="muted"> · last start took {{ format_ms(view.cold_start_ms) }}</span></dd>
         <template v-if="(view.instances.length > 1)">
@@ -133,9 +141,10 @@ const service_status = {
     </dl>
 </div>
 `,
-    components: {'copy-progress': copy_progress},
-    props: ['view', 'busy', 'port', 'remotes'],
-    emits: ['remote'],
+    components: {'copy-progress': copy_progress, 'forward-state': forward_state},
+    // forwards: those of the status that are part of this service, its port brought over
+    props: ['view', 'busy', 'port', 'remotes', 'forwards'],
+    emits: ['forwards', 'remote'],
     computed: {
         // The names machines' doors answer for this service, beside its own
         // Its own addresses, but those a door also answers: a door's rule of "*" answers an app
@@ -238,6 +247,13 @@ const service_status = {
         remote_text: function (name) {
             const found = ((this.remotes === undefined) ? [] : this.remotes).find(v => v.name === name) || null;
             return (found === null) ? name : (found.title || found.name);
+        },
+        // One end of a forward as the config writes it: a socket file, or a port on the loopback
+        end_text: function (forward_end) {
+            if (forward_end.socket !== null) {
+                return forward_end.socket;
+            }
+            return (forward_end.host === null) ? String(forward_end.port) : `${forward_end.host}:${forward_end.port}`;
         },
         address_of: function (host) {
             const mark = host.indexOf('/');
@@ -1730,13 +1746,13 @@ const service_page = {
     <!-- The overview is how it stands, then what it is made of: one card per part, each
          edited in place -->
     <keep-alive :max="10">
-    <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" @saved="saved" @walls="$emit('walls')">
-        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" @remote="$emit('remote', $event)"/>
+    <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" @saved="saved" @walls="$emit('walls')">
+        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" :forwards="brought" @forwards="$emit('forwards')" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
         <service-script v-if="(view.app_folder !== null)" :view="view"/>
     </service-form>
     <article v-else-if="(tab_now === 'overview')" id="detail" class="list svc">
-        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" @remote="$emit('remote', $event)"/>
+        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" :forwards="brought" @forwards="$emit('forwards')" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
         <service-script v-if="(view.app_folder !== null)" :view="view"/>
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
@@ -1749,14 +1765,17 @@ const service_page = {
 </div>
 `,
     components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
-    props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control'],
-    emits: ['clone', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
+    // forwards: every forward of the status, for those that are part of this service
+    props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
+    emits: ['clone', 'forwards', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
+        // tied: the config's forwards that are part of it, as the file has them; forward_labels:
+        // the label of every forward of the config
         // version_new: a new version of an app folder, a folder or a zip read and on its way
         // (app_entries_read without its own data/, with how many files that held, the service
         // it is for, done and error); version_copy: its files on their way, as every copy is shown
-        return {original: null, original_state: 'reading', edit_key: 0, version_new: null, version_busy: false, version_note: '', version_copy: null};
+        return {original: null, original_state: 'reading', tied: [], forward_labels: [], edit_key: 0, version_new: null, version_busy: false, version_note: '', version_copy: null};
     },
     computed: {
         // The name beside the title, unless it only repeats it
@@ -1788,6 +1807,10 @@ const service_page = {
         version_shown: function () {
             return (this.version_new !== null) && (this.version_new.service === this.view.name);
         },
+        // Its forwards as they stand now: where its port is brought, and whether it is there
+        brought: function () {
+            return ((this.forwards === undefined) || (this.forwards === null)) ? [] : this.forwards.filter(v => v.service === this.view.name);
+        },
     },
     watch: {
         // The cards edit the config entry, which the status does not carry: read for every
@@ -1805,11 +1828,15 @@ const service_page = {
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             // A serviceman with no config file has no entry to edit; the page says so
-            const found = (typeof loaded.text === 'string') ? JSON.parse(loaded.text).services.find(v => v.name === name) || null : null;
+            const json = (typeof loaded.text === 'string') ? JSON.parse(loaded.text) : null;
+            const found = (json === null) ? null : json.services.find(v => v.name === name) || null;
+            const forwards = ((json === null) || (Array.isArray(json.forwards) === false)) ? [] : json.forwards;
             // The page may have moved on while the config was coming; a late answer is nobody's
             if (name === this.view.name) {
                 this.original = found;
                 this.original_state = (found === null) ? 'none' : 'found';
+                this.tied = forwards.filter(v => v.service === name);
+                this.forward_labels = forwards.map(v => ((v.label === undefined) ? v.name : v.label));
                 this.edit_key++;
             }
         },
@@ -2133,9 +2160,9 @@ const app = {
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" @list="home_show" @tab="tab_pick" @clone="clone" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @list="home_show" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>

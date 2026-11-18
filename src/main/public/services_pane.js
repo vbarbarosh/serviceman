@@ -51,6 +51,7 @@ const services_pane = {
             </span>
             <template v-else-if="(column.key === 'address')">
                 <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
+                <span v-else-if="(row.brought !== '')" class="muted" title="Its port, brought to these machines">→ {{ row.brought }}</span>
                 <span v-else class="muted">no address</span>
                 <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
             </template>
@@ -189,6 +190,8 @@ const services_pane = {
                 host,
                 url: this.url_of(host),
                 more: Math.max(0, service.publish.hosts.length - 1),
+                // Where its port is brought, for a program with no address of its own
+                brought: this.brought_text(service),
                 type: service.type,
                 state: (service.doing === null) ? service.phase : service.doing,
                 detail: this.detail_of(service),
@@ -216,6 +219,12 @@ const services_pane = {
                 return 'starts on the first request';
             }
             return '';
+        },
+        // The machines a program's port is brought to by the forwards that are part of it
+        brought_text: function (service) {
+            const forwards = (this.state.forwards === undefined) ? [] : this.state.forwards.filter(v => v.service === service.name);
+            const titles = forwards.map(v => (v.to.here ? 'this host' : this.remote_title(v.to.remote)));
+            return titles.filter((title, index) => titles.indexOf(title) === index).join(', ');
         },
         remote_title: function (name) {
             const found = this.remotes.find(v => v.name === name);

@@ -33,6 +33,12 @@ function service_rename_ties(app, json, before, after)
             board.apps = board.apps.map(v => (v === before) ? after : v);
         }
     }
+    // The forwards that bring its port over: still its own, their labels as they were
+    for (const forward of (Array.isArray(json.forwards) ? json.forwards : [])) {
+        if ((forward !== null) && (typeof forward === 'object') && (forward.service === before)) {
+            forward.service = after;
+        }
+    }
     for (const remote of (Array.isArray(json.remotes) ? json.remotes : [])) {
         const inbound = remote.inbound;
         if ((inbound === null) || (typeof inbound !== 'object')) {

@@ -1002,6 +1002,10 @@ brought to a server is the same thing written the other way round.
 Both ends run the agent, so a host that runs none (a box you only ssh into) still needs ssh.
 A forward carries bytes and nothing else: what is spoken over it is between the two programs.
 
+A program serviceman runs on a machine brings its port to another in its own form: **Its port on
+another machine** writes the forward beside the program, which then goes with it, renamed and
+removed with it ([Its port on another machine](config.md#its-port-on-another-machine)).
+
 ### Both ends on one machine
 
 `from` and `to` may be the same machine: an address it reaches, brought to its own loopback.
