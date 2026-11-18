@@ -221,7 +221,7 @@ test('an app sent as a zip is made, served, and replaced whole by the next one',
 
 // Who may send an app: the owner, and a token given the right to; and the domain an app is named under
 test('an app is sent with the apps right, and named under the apps domain', function () {
-    assert.deepStrictEqual(control_route_right('PUT', '/api/v1/apps/notes'), {right: 'apps', said: 'send an app of files', remote: null});
+    assert.deepStrictEqual(control_route_right('PUT', '/api/v1/apps/notes'), {right: 'apps', said: 'send an app of files', under: null, remote: null});
     assert.strictEqual(control_route_right('PUT', '/api/v1/apps/notes/more'), null);
     const named = config_from_json({apps: {domain: 'apps.example.com'}, services: []}, '/srv/serviceman');
     assert.deepStrictEqual(app_files_put.hosts({config: named}, 'my_notes'), ['my-notes.apps.example.com', 'my-notes.localhost'], 'both names: outside, and here with no DNS');

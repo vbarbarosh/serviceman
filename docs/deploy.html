@@ -950,40 +950,89 @@ asks for it once and keeps it in a cookie only its own requests carry: never sen
 service, and marked <code>Secure</code> when the page came over https; <strong>Sign out</strong> is
 <code>DELETE /api/v1/session</code>.</li>
 <li><strong>An agent&#39;s token</strong> is made on the page&#39;s <strong>Tokens</strong> tab, for an agent or a program: a
-label, the machines it sees, and its rights on them. The reads are <code>status</code>, <code>metrics</code>,
-<code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code> and <code>containers</code>. <code>files</code> is the file manager of
-its machines within <strong>its folders</strong> (<code>~/visual-agency</code>, <code>~/notes</code>, the same on each, <code>~</code> that
-machine&#39;s home; the first is where it starts): the machine&#39;s agent resolves every path, links
-included, and refuses whatever lies outside them, so neither <code>../</code> nor a link that leads out
-gets past it. A folder not there yet lists empty and is made by the first write into it.
-Copies between machines stay the owner&#39;s. <code>terminals</code> lists, makes, joins, signals and ends the kept terminals of its
+label, the machines it sees, and its rights on them, given by section (the table below):
+each section none, read or write at once, <strong>All: read only</strong> every section to read and
+Terminals to none, and <strong>fine ▸</strong> a section&#39;s rights one by one, a section given some of
+them saying so. The reads of its machines are <code>status</code>, <code>metrics</code>, <code>processes</code>, <code>ports</code>,
+<code>disks</code>, <code>packages</code>, <code>containers</code> and <code>vulnerabilities</code>. <code>files_read</code> lists, reads, downloads
+and watches the files of its machines within <strong>its folders</strong> (<code>~/visual-agency</code>, <code>~/notes</code>,
+the same on each, <code>~</code> that machine&#39;s home; the first is where it starts), and <code>files</code> writes
+them too, the file manager whole: the machine&#39;s agent resolves every path, links included,
+and refuses whatever lies outside them, so neither <code>../</code> nor a link that leads out gets past
+it. A folder not there yet lists empty and is made by the first write into it. Copies
+between machines stay the owner&#39;s. <code>terminals</code> lists, makes, joins, signals and ends the kept terminals of its
 machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
 to them. <code>versions</code> sends a new version of an app folder on its machines, as a zip
 (<code>PUT /api/v1/services/&lt;name&gt;/zip</code>,
 <a href="config.html#a-new-version-of-an-app-folder">A new version of an app folder</a>): what it sends
-runs there as the app, so it is a key to those apps; <strong>Apps</strong> keeps it to the app folders
-ticked, and a service&#39;s page makes one for that service alone, <strong>Make a token for …</strong>, with
-the curl line beside it. <code>apps</code> sends an app of files, a new one or a new version
+runs there as the app, so it is a key to those apps; the app folders ticked under <strong>Apps</strong>
+keep it to them, and a service&#39;s page makes one for that service alone, <strong>Make a token for
+…</strong>, with the curl line beside it. <code>apps</code> sends an app of files, a new one or a new version
 (<code>PUT /api/v1/apps/&lt;name&gt;</code>, <a href="config.html#an-app-sent-to-serviceman">An app sent to serviceman</a>):
 a page served at an address of its own, which serviceman writes into the config for a name it
 has not seen; it touches no machine and no other kind of service. It adds an app on a socket
 too, on a machine it sees alone and at the socket named after the app, and lists the apps it
-may send to (<code>GET /api/v1/apps</code>). Its tick <strong>only the apps it makes</strong>, ticked for a new
-token, keeps it to the names it made: another&#39;s is refused, the owner&#39;s or another token&#39;s
-(<a href="mcp.html#the-token">Apps from a coding agent</a>). <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
+may send to (<code>GET /api/v1/apps</code>); <code>apps_read</code> lists them and sends none. Its tick <strong>only the
+apps it makes</strong>, ticked for a new token, keeps it to the names it made: another&#39;s is refused,
+the owner&#39;s or another token&#39;s (<a href="mcp.html#the-token">Apps from a coding agent</a>).
+<code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
 between its machines, both ends on them (<code>GET</code> and <code>PUT /api/v1/forwards</code>), and leaves every
 other forward as it was: a way to whatever listens on their loopback and in their sockets, as
-<code>ssh -L</code> is, so it is a key to those. It can be copied once, drawn as dots even then, and only
-its hash is kept, in <code>data/control_tokens.json</code>. It never touches a secret, another machine,
-the config but the forwards between its machines, or a service but the one it sends a new
-version to, and opens no other shell. <strong>Edit…</strong> changes its label, machines (<strong>every
-machine</strong>, those added later too, is one tick), rights, folders and apps in place, the token
-staying the same; <strong>Rotate…</strong> gives it a new value, copied once, the old one refused at once;
-<strong>Revoke…</strong> ends it. What a revoked or rotated token holds open is cut at once (an open shell, a
-folder watch, an upload half sent), and so is what an edit takes from it; the forwards it asked
-for are set aside when it is revoked or may no longer hold them, saying whose they were. Its kept
-terminals go on running on their machines, out of its reach.</li>
+<code>ssh -L</code> is, so it is a key to those; <code>forwards_read</code> reads them and writes none. It can be
+copied once, drawn as dots even then, and only its hash is kept, in
+<code>data/control_tokens.json</code>. It never touches a secret, another machine, the config but the
+forwards between its machines, or a service but the one it sends a new version to, and opens
+no other shell. <strong>Edit…</strong> changes its label, machines (<strong>every machine</strong>, those added later
+too, is one tick), rights, folders and apps in place, the token staying the same;
+<strong>Rotate…</strong> gives it a new value, copied once, the old one refused at once; <strong>Revoke…</strong> ends
+it. What a revoked or rotated token holds open is cut at once (an open shell, a folder watch,
+an upload half sent), and so is what an edit takes from it, an upload when <code>files</code> becomes
+<code>files_read</code> among them; the forwards it asked for are set aside when it is revoked or may no
+longer hold them, <code>forwards</code> made <code>forwards_read</code> among them, saying whose they were. Its
+kept terminals go on running on their machines, out of its reach.</li>
 </ul>
+<p>The sections of the <strong>Tokens</strong> tab and the rights each one gives, as <code>POST /api/v1/tokens</code> and
+<code>PUT /api/v1/tokens/&lt;id&gt;</code> take them in <code>rights</code>; a script names the rights it wants, any of
+them, and the tab shows a section given some of them as <strong>fine</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Read</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Machines</td>
+<td><code>status</code>, <code>metrics</code>, <code>processes</code>, <code>ports</code>, <code>disks</code>, <code>packages</code>, <code>containers</code>, <code>vulnerabilities</code></td>
+<td>none: what changes a machine stays the owner&#39;s</td>
+</tr>
+<tr>
+<td>Files</td>
+<td><code>files_read</code>, within its folders</td>
+<td><code>files</code>, within its folders</td>
+</tr>
+<tr>
+<td>Terminals</td>
+<td>none: a shell writes</td>
+<td><code>terminals</code></td>
+</tr>
+<tr>
+<td>Apps</td>
+<td><code>apps_read</code></td>
+<td><code>apps</code> and <code>versions</code></td>
+</tr>
+<tr>
+<td>Forwards</td>
+<td><code>forwards_read</code></td>
+<td><code>forwards</code></td>
+</tr>
+</tbody></table>
+</div>
+<p>A read alone is under the right that writes the same things, and that right holds it too: a
+token with <code>files</code>, <code>apps</code> or <code>forwards</code>, as every token made before the reads alone were,
+reads and writes as it did. A route says the right it needs, and the right it is under, in
+<code>control_route_right.js</code> and the modules&#39; manifests.</p>
 <p>A caller sends its token with every request:</p>
 <pre><code>curl --unix-socket data/serviceman.sock -H &quot;Authorization: Bearer $TOKEN&quot; http://localhost/api/v1/status
 </code></pre>

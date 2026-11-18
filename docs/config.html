@@ -1052,7 +1052,8 @@ loopback: its agent joins them itself, and serviceman carries none of it
 them, and writes it back whole, changed, with <code>PUT /api/v1/forwards</code>. A token with the
 <code>forwards</code> right (<a href="deploy.html#a-token-for-every-caller">A token for every caller</a>) gets the
 forwards between its machines alone, both ends on them, and the list it writes takes their
-place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
+place: every other forward stays as it was, where it was. One with <code>forwards_read</code> gets the
+same list and writes none, a <code>403</code>. Its forwards carry ports and sockets of
 its machines: one onto serviceman itself (<code>to.here</code>) or to an address beyond the machine
 (<code>from.host</code>) is the owner&#39;s, and a <code>403</code> says which forward named it.</p>
 <p>What a token&#39;s list adds or changes says that token asked for it, in <code>by</code>; what it sends back
@@ -2155,7 +2156,8 @@ control port, with the owner&#39;s token or one given the <code>apps</code> righ
 </code></pre>
 <p>A token kept to the apps it makes sends a new name and the names it made, and is refused any
 other with a <code>403</code> that says so; <code>GET /api/v1/apps</code> answers the apps it may send to, each
-<code>{name, kind, address, public}</code> (<a href="mcp.html#the-token">Apps from a coding agent</a>).</p>
+<code>{name, kind, address, public}</code> (<a href="mcp.html#the-token">Apps from a coding agent</a>). A token given
+<code>apps_read</code> alone lists every app and sends none.</p>
 <p><strong>On serviceman&#39;s page</strong> it is one drop: <strong>Apps</strong> has a card to drop the zip, the folder or one
 <code>.html</code> page on (or click and pick a zip or a page), named after the file, <code>My Notes.zip</code> as
 <code>my-notes</code>, <code>2.html</code> as <code>2</code>. The card answers with the link that opens the app here and Open, and

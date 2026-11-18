@@ -2244,7 +2244,7 @@ test('an agent\'s token with the files right is kept within its folder by the ma
         fs.writeFileSync(path.join(home, 'secret.txt'), 'not yours');
         fs.symlinkSync(home, path.join(notes, 'out'));
         const missing = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files']});
-        assert.deepStrictEqual([missing.status, missing.body.error], [400, 'the files right is of 1 to 20 folders, such as ~/notes or /srv/data, each one line of up to 500 characters']);
+        assert.deepStrictEqual([missing.status, missing.body.error], [400, 'the files right, or files_read, is of 1 to 20 folders, such as ~/notes or /srv/data, each one line of up to 500 characters']);
         const made = await control(running, 'POST', '/api/v1/tokens', {label: 'notes', remotes: ['ui1'], rights: ['files'], folders: ['~/notes', '~/visual-agency']});
         assert.strictEqual(made.status, 200);
         // The file manager of ui1, asked with that token
@@ -2300,6 +2300,55 @@ test('an agent\'s token with the files right is kept within its folder by the ma
         // The owner's token goes anywhere, as before
         const owner = await fetch_host({port: running.control_port, host: '127.0.0.1', path: `/api/v1/remotes/ui1/fs?path=${encodeURIComponent(home)}`});
         assert.strictEqual(owner.status, 200);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
+test('an agent\'s token with files_read reads the files of its folder and writes none; one with the files right does both, as before', async function () {
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-token-read-')));
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, [], {HOME: home});
+    try {
+        await wait_until(() => running.app.remote_by_name.ui1.state.phase === 'online');
+        await wait_until(() => running.app.remote_by_name.ui1.state.resources.can.includes('fs_root'));
+        const notes = path.join(home, 'notes');
+        fs.mkdirSync(path.join(notes, 'inner'), {recursive: true});
+        fs.writeFileSync(path.join(notes, 'a.txt'), 'mine');
+        fs.writeFileSync(path.join(home, 'secret.txt'), 'not yours');
+        const looker = await control(running, 'POST', '/api/v1/tokens', {label: 'a looker', remotes: ['ui1'], rights: ['files_read'], folders: ['~/notes']});
+        const writer = await control(running, 'POST', '/api/v1/tokens', {label: 'a writer', remotes: ['ui1'], rights: ['files'], folders: ['~/notes']});
+        assert.deepStrictEqual([looker.status, writer.status], [200, 200]);
+        function as_token(token, method, asked, body) {
+            return fetch_host({port: running.control_port, host: '127.0.0.1', method, path: `/api/v1/remotes/ui1/fs${asked}`, token, body}).then(v => ({status: v.status, body: v.body}));
+        }
+
+        // It reads its folder, kept within it as the files right is
+        const start = await as_token(looker.body.token, 'GET', '');
+        assert.strictEqual(start.status, 200, start.body);
+        assert.deepStrictEqual([JSON.parse(start.body).path, JSON.parse(start.body).items.map(v => v.name).sort()], [notes, ['a.txt', 'inner']]);
+        assert.strictEqual((await as_token(looker.body.token, 'GET', `/file${notes}/a.txt`)).body, 'mine');
+        assert.match((await as_token(looker.body.token, 'GET', `/file${home}/secret.txt`)).body, /outside the folders this token may use/);
+
+        // Every write is refused before the machine is asked, and nothing is written
+        for (const [method, asked, body] of [
+            ['POST', `/upload?dir=${encodeURIComponent('inner')}&name=new.txt`, 'new'],
+            ['POST', '/rename', JSON.stringify({from: 'a.txt', to: 'inner/a.txt'})],
+            ['POST', '/delete', JSON.stringify({path: 'a.txt'})],
+            ['POST', '/mkdir', JSON.stringify({path: 'made'})],
+        ]) {
+            const answer = await as_token(looker.body.token, method, asked, body);
+            assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "a looker" may not write the files'], `${method} ${asked}`);
+        }
+        assert.deepStrictEqual(fs.readdirSync(notes).sort(), ['a.txt', 'inner']);
+        assert.deepStrictEqual(fs.readdirSync(path.join(notes, 'inner')), []);
+
+        // The files right, as a token made before files_read was has it, reads and writes
+        assert.strictEqual((await as_token(writer.body.token, 'GET', `/file${notes}/a.txt`)).body, 'mine');
+        assert.strictEqual((await as_token(writer.body.token, 'POST', `/upload?dir=${encodeURIComponent('inner')}&name=new.txt`, 'new')).status, 200);
+        assert.strictEqual(fs.readFileSync(path.join(notes, 'inner', 'new.txt'), 'utf8'), 'new');
     }
     finally {
         agent.kill('SIGKILL');

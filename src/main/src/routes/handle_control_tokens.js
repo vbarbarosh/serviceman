@@ -185,10 +185,12 @@ async function fields_read(app, req, res)
         send_json(res, 400, {error: `a token has some of the rights ${control_route_right.RIGHTS.join(', ')}`});
         return null;
     }
-    // The files right is of some folders, the same paths on each of its machines, ~ their homes
-    const folders = (Array.isArray(asked.folders) && rights.includes('files')) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : [];
-    if (rights.includes('files') && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => (v.length > FOLDER_MAX) || /[\r\n\0]/.test(v)))) {
-        send_json(res, 400, {error: `the files right is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
+    // The files right, or files_read, is of some folders, the same paths on each of its
+    // machines, ~ their homes
+    const files = rights.includes('files') || rights.includes('files_read');
+    const folders = (Array.isArray(asked.folders) && files) ? Array.from(new Set(asked.folders.map(v => String(v).trim()).filter(v => (v !== '')))) : [];
+    if (files && ((folders.length === 0) || (folders.length > FOLDERS_MAX) || folders.some(v => (v.length > FOLDER_MAX) || /[\r\n\0]/.test(v)))) {
+        send_json(res, 400, {error: `the files right, or files_read, is of 1 to ${FOLDERS_MAX} folders, such as ~/notes or /srv/data, each one line of up to ${FOLDER_MAX} characters`});
         return null;
     }
     // The versions right is of every app folder on its machines, or kept to the apps named

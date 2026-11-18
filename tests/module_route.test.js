@@ -118,10 +118,14 @@ test('a token\'s right to a module is to the doors its manifest gives it, and th
     assert.strictEqual(right('POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/stop'), null, 'reading the containers is not stopping them');
     assert.strictEqual(right('GET', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/fs'), null, 'nor reading their files');
     assert.strictEqual(right('POST', '/api/v1/remotes/vps1/terminals/work/signal'), 'terminals');
-    assert.strictEqual(right('PUT', '/api/v1/remotes/vps1/fs/anything/at/all'), 'files');
+    assert.strictEqual(right('GET', '/api/v1/remotes/vps1/fs/watch'), 'files_read', 'the files are read with a right of their own');
+    assert.strictEqual(right('POST', '/api/v1/remotes/vps1/fs/upload'), 'files');
+    assert.strictEqual(right('PUT', '/api/v1/remotes/vps1/fs/anything/at/all'), null, 'and what the File Manager does not name is no one\'s but the owner\'s');
+    const whole = {right: {right: 'files', said: 'use the files'}, kinds: [{kind: '', read: {}, commands: [{command: 'mkdir', on: 'kind'}]}], doors: []};
+    assert.deepStrictEqual([module_route(whole, 'GET', '').right, module_route(whole, 'POST', '/mkdir').right], [whole.right, whole.right], 'a right given to a whole module is to each of its doors');
     assert.strictEqual(right('GET', '/api/v1/remotes/vps1/firewall'), null);
     assert.strictEqual(right('GET', '/api/v1/transfers'), null);
-    assert.deepStrictEqual(control_route_right('GET', '/api/v1/remotes/a%20b/disks'), {right: 'disks', said: 'read the disks', remote: 'a b'});
+    assert.deepStrictEqual(control_route_right('GET', '/api/v1/remotes/a%20b/disks'), {right: 'disks', said: 'read the disks', under: null, remote: 'a b'});
 });
 
 test('every kind with columns says them so a page can draw them: a label and a way it knows for each, and its search, tree, group and sort as a page reads them', async function () {

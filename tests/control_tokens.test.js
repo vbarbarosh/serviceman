@@ -103,7 +103,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     const terminals = await call(running, 'GET', '/api/v1/remotes/vps1/terminals', null, made.token);
     assert.deepStrictEqual([terminals.status, JSON.parse(terminals.body).error], [403, 'the token "the notes agent" may not use the terminals']);
     const files = await call(running, 'GET', '/api/v1/remotes/vps1/fs?path=/', null, made.token);
-    assert.deepStrictEqual([files.status, JSON.parse(files.body).error], [403, 'the token "the notes agent" may not use the files']);
+    assert.deepStrictEqual([files.status, JSON.parse(files.body).error], [403, 'the token "the notes agent" may not read the files']);
     const version = await call(running, 'PUT', '/api/v1/services/x/zip', null, made.token);
     assert.deepStrictEqual([version.status, JSON.parse(version.body).error], [403, 'the token "the notes agent" may not send a new version of an app']);
     for (const [method, asked] of [['GET', '/api/v1/config'], ['GET', '/api/v1/secrets'], ['GET', '/api/v1/tokens'], ['POST', '/api/v1/services/x/start'], ['POST', '/api/v1/tokens'], ['GET', '/api/v1/remotes/vps1/docker/containers/abc/fs?path=/'], ['POST', '/api/v1/transfers'], ['POST', '/api/v1/remotes/vps1/metrics'], ['GET', '/']]) {
@@ -116,7 +116,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
 
     // The list says when it was used; revoked, it stops at once
     const listed = JSON.parse((await call(running, 'GET', '/api/v1/tokens', null, running.owner)).body);
-    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'apps', 'forwards', 'processes', 'disks', 'packages', 'containers', 'vulnerabilities', 'files', 'terminals']);
+    assert.deepStrictEqual(listed.rights, ['status', 'metrics', 'ports', 'versions', 'apps', 'apps_read', 'forwards_read', 'forwards', 'processes', 'disks', 'packages', 'containers', 'vulnerabilities', 'files_read', 'files', 'terminals']);
     assert.deepStrictEqual(listed.services, [], 'no app folder in this config');
     assert.strictEqual(listed.tokens[0].sha256, undefined);
     assert.notStrictEqual(listed.tokens[0].used_at, null);

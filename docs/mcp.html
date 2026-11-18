@@ -789,10 +789,11 @@ the folder, one zip at a time for one app (<code>409</code> for a second), and a
 of another kind is a <code>409</code> too; to a token kept to the apps it makes, a <code>403</code>, as any name not
 its own.</p>
 <h2 id="the-token"><a class="anchor" href="#the-token" aria-hidden="true" tabindex="-1">#</a>The token</h2>
-<p>On serviceman&#39;s page, <strong>Tokens</strong>: a label that says whose it is (<code>the box of the notes project</code>), no machines, the right <strong>apps</strong> and nothing else, with <strong>only the apps it makes</strong>
-ticked under it, as it is for a new token, then <strong>Make the token</strong>. It is shown once, so copy
-it then: only its hash is kept. <strong>Rotate…</strong> gives it a new value and <strong>Revoke…</strong> ends it at
-once, as for any token (<a href="deploy.html#a-token-for-every-caller">A token for every caller</a>).</p>
+<p>On serviceman&#39;s page, <strong>Tokens</strong>: a label that says whose it is (<code>the box of the notes project</code>), no machines, <strong>Machines</strong> set to none, and under <strong>Apps</strong> its <strong>fine ▸</strong> with the
+right <strong>apps</strong> alone ticked and <strong>only the apps it makes</strong> under it, as it is for a new token,
+then <strong>Make the token</strong>. <strong>Apps</strong> set to write would give it <code>versions</code> too, of no use to a box
+with no machine. It is shown once, so copy it then: only its hash is kept. <strong>Rotate…</strong> gives it a new value and <strong>Revoke…</strong> ends it at once,
+as for any token (<a href="deploy.html#a-token-for-every-caller">A token for every caller</a>).</p>
 <p>An <code>apps</code> token sends an app of files, a new one or a new version, adds an app on a socket
 (<code>PUT /api/v1/apps/&lt;name&gt;/socket</code>) on a machine it sees alone and at the socket named after the
 app, and lists the apps it may send to (<code>GET /api/v1/apps</code>). An app of files touches no machine,

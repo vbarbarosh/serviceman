@@ -119,8 +119,8 @@ test('a token without the keep sends as before; its list follows a rename and lo
     assert.strictEqual(await page_of(running, 'pad'), '<title>Pad of the owner</title>');
 });
 
-test('the list of apps is the apps right\'s', function () {
-    assert.deepStrictEqual(control_route_right('GET', '/api/v1/apps'), {right: 'apps', said: 'list the apps', remote: null});
+test('the list of apps is apps_read\'s, which the apps right holds too', function () {
+    assert.deepStrictEqual(control_route_right('GET', '/api/v1/apps'), {right: 'apps_read', said: 'list the apps', under: 'apps', remote: null});
     assert.strictEqual(control_route_right('PUT', '/api/v1/apps'), null, 'the apps\' settings stay the owner\'s');
 });
 

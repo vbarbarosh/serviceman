@@ -224,7 +224,8 @@ A program reads the list with `GET /api/v1/forwards`, `{"forwards": [...]}` as t
 them, and writes it back whole, changed, with `PUT /api/v1/forwards`. A token with the
 `forwards` right ([A token for every caller](deploy.md#a-token-for-every-caller)) gets the
 forwards between its machines alone, both ends on them, and the list it writes takes their
-place: every other forward stays as it was, where it was. Its forwards carry ports and sockets of
+place: every other forward stays as it was, where it was. One with `forwards_read` gets the
+same list and writes none, a `403`. Its forwards carry ports and sockets of
 its machines: one onto serviceman itself (`to.here`) or to an address beyond the machine
 (`from.host`) is the owner's, and a `403` says which forward named it.
 
@@ -1279,7 +1280,8 @@ control port, with the owner's token or one given the `apps` right
 
 A token kept to the apps it makes sends a new name and the names it made, and is refused any
 other with a `403` that says so; `GET /api/v1/apps` answers the apps it may send to, each
-`{name, kind, address, public}` ([Apps from a coding agent](mcp.md#the-token)).
+`{name, kind, address, public}` ([Apps from a coding agent](mcp.md#the-token)). A token given
+`apps_read` alone lists every app and sends none.
 
 **On serviceman's page** it is one drop: **Apps** has a card to drop the zip, the folder or one
 `.html` page on (or click and pick a zip or a page), named after the file, `My Notes.zip` as

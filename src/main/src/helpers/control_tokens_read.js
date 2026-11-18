@@ -7,8 +7,11 @@ const fs = require('fs');
 //
 // remotes   the machines it sees, by name; ['*'] for every machine, those added later too
 // rights    what it may do with them: the reads, status and metrics among them, terminals,
-//           versions and forwards (control_route_right)
-// folders   the folders its files right is kept within, the first its start; none without it
+//           versions and forwards (control_route_right); a read alone, files_read,
+//           forwards_read or apps_read, is held by the right it is under too, so a token made
+//           before it was reads with files, forwards or apps as it did
+// folders   the folders its files or files_read right is kept within, the first its start;
+//           none without one
 // services  the app folders its versions right is kept to, by name; none for every app folder
 //           on its machines
 // apps_own  true when its apps right is kept to the apps it makes: a new name, and those on

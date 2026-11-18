@@ -1589,6 +1589,74 @@ pre {
     opacity: .55;
 }
 
+/* A token's rights by section: its name, none, read or write, the way to its rights one by
+   one, and what it holds; what a section asks more, its ticks or its folders, under its row */
+.tk-rights {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    min-width: 0;
+}
+
+.tk-sections {
+    display: grid;
+    grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+    gap: .5rem .75rem;
+    align-items: baseline;
+}
+
+.tk-sections .tk-said {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tk-sections .tk-under {
+    grid-column: 2 / -1;
+    margin-bottom: .35rem;
+}
+
+.tk-sections .tk-under > label {
+    display: block;
+    margin-bottom: .25rem;
+}
+
+/* The way to a section's rights one by one; lit when they are a choice of its own */
+.tk-sections .tk-fine {
+    padding: .2rem .55rem;
+    font-size: .9rem;
+}
+
+.tk-sections .tk-fine.on {
+    background: var(--sel);
+    color: var(--link);
+    font-weight: 600;
+}
+
+/* On a phone the rights take the form's width, and what a section holds a line of its own */
+@media (max-width: 40rem) {
+    .form .grid > .tk-rights {
+        grid-column: 1 / -1;
+    }
+
+    .tk-sections {
+        grid-template-columns: max-content max-content minmax(0, 1fr);
+        gap: .4rem .6rem;
+    }
+
+    .tk-sections .tk-fine {
+        justify-self: start;
+    }
+
+    .tk-sections .tk-said,
+    .tk-sections .tk-under {
+        grid-column: 1 / -1;
+    }
+
+    .tk-sections .tk-said {
+        margin-bottom: .4rem;
+    }
+}
+
 /* What a right asks more, ticked under it: the apps right kept to the apps it makes */
 .tk-checks .check.tk-under {
     margin-left: 1.6rem;

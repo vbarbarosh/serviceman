@@ -797,7 +797,7 @@ on, and then the socket closes from the far end.</li>
 <p>The control page answers only the machine it runs on: a program there connects; one on another
 machine is refused (<code>control.exposed</code> opens it, behind a wall of your own). It wants the
 owner&#39;s token, as <code>Authorization: Bearer &lt;token&gt;</code> (<code>bin/owner-token</code> prints it), or an agent&#39;s
-token with the <code>terminals</code> right on that machine, made on the <strong>Tokens</strong> tab: such a token joins
+token with the <code>terminals</code> right on that machine, made on the <strong>Tokens</strong> tab with <strong>Terminals</strong> set to write: such a token joins
 and makes kept terminals of its machines and opens no other shell. It also refuses a websocket a browser page opens from another
 site, so a page on the internet cannot reach your terminals through your browser.</p>
 <p>For an Electron app such as Visual Notes this means: <strong>connect from the main process</strong>, not

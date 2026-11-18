@@ -202,39 +202,63 @@ Even on this machine, and through the control socket, nothing gets in without a 
   service, and marked `Secure` when the page came over https; **Sign out** is
   `DELETE /api/v1/session`.
 - **An agent's token** is made on the page's **Tokens** tab, for an agent or a program: a
-  label, the machines it sees, and its rights on them. The reads are `status`, `metrics`,
-  `processes`, `ports`, `disks`, `packages` and `containers`. `files` is the file manager of
-  its machines within **its folders** (`~/visual-agency`, `~/notes`, the same on each, `~` that
-  machine's home; the first is where it starts): the machine's agent resolves every path, links
-  included, and refuses whatever lies outside them, so neither `../` nor a link that leads out
-  gets past it. A folder not there yet lists empty and is made by the first write into it.
-  Copies between machines stay the owner's. `terminals` lists, makes, joins, signals and ends the kept terminals of its
+  label, the machines it sees, and its rights on them, given by section (the table below):
+  each section none, read or write at once, **All: read only** every section to read and
+  Terminals to none, and **fine ▸** a section's rights one by one, a section given some of
+  them saying so. The reads of its machines are `status`, `metrics`, `processes`, `ports`,
+  `disks`, `packages`, `containers` and `vulnerabilities`. `files_read` lists, reads, downloads
+  and watches the files of its machines within **its folders** (`~/visual-agency`, `~/notes`,
+  the same on each, `~` that machine's home; the first is where it starts), and `files` writes
+  them too, the file manager whole: the machine's agent resolves every path, links included,
+  and refuses whatever lies outside them, so neither `../` nor a link that leads out gets past
+  it. A folder not there yet lists empty and is made by the first write into it. Copies
+  between machines stay the owner's. `terminals` lists, makes, joins, signals and ends the kept terminals of its
   machines, a shell on each of them that goes anywhere, so treat such a token like an ssh key
   to them. `versions` sends a new version of an app folder on its machines, as a zip
   (`PUT /api/v1/services/<name>/zip`,
   [A new version of an app folder](config.md#a-new-version-of-an-app-folder)): what it sends
-  runs there as the app, so it is a key to those apps; **Apps** keeps it to the app folders
-  ticked, and a service's page makes one for that service alone, **Make a token for …**, with
-  the curl line beside it. `apps` sends an app of files, a new one or a new version
+  runs there as the app, so it is a key to those apps; the app folders ticked under **Apps**
+  keep it to them, and a service's page makes one for that service alone, **Make a token for
+  …**, with the curl line beside it. `apps` sends an app of files, a new one or a new version
   (`PUT /api/v1/apps/<name>`, [An app sent to serviceman](config.md#an-app-sent-to-serviceman)):
   a page served at an address of its own, which serviceman writes into the config for a name it
   has not seen; it touches no machine and no other kind of service. It adds an app on a socket
   too, on a machine it sees alone and at the socket named after the app, and lists the apps it
-  may send to (`GET /api/v1/apps`). Its tick **only the apps it makes**, ticked for a new
-  token, keeps it to the names it made: another's is refused, the owner's or another token's
-  ([Apps from a coding agent](mcp.md#the-token)). `forwards` reads and writes the [forwards](config.md#forwards)
+  may send to (`GET /api/v1/apps`); `apps_read` lists them and sends none. Its tick **only the
+  apps it makes**, ticked for a new token, keeps it to the names it made: another's is refused,
+  the owner's or another token's ([Apps from a coding agent](mcp.md#the-token)).
+  `forwards` reads and writes the [forwards](config.md#forwards)
   between its machines, both ends on them (`GET` and `PUT /api/v1/forwards`), and leaves every
   other forward as it was: a way to whatever listens on their loopback and in their sockets, as
-  `ssh -L` is, so it is a key to those. It can be copied once, drawn as dots even then, and only
-  its hash is kept, in `data/control_tokens.json`. It never touches a secret, another machine,
-  the config but the forwards between its machines, or a service but the one it sends a new
-  version to, and opens no other shell. **Edit…** changes its label, machines (**every
-  machine**, those added later too, is one tick), rights, folders and apps in place, the token
-  staying the same; **Rotate…** gives it a new value, copied once, the old one refused at once;
-  **Revoke…** ends it. What a revoked or rotated token holds open is cut at once (an open shell, a
-  folder watch, an upload half sent), and so is what an edit takes from it; the forwards it asked
-  for are set aside when it is revoked or may no longer hold them, saying whose they were. Its kept
-  terminals go on running on their machines, out of its reach.
+  `ssh -L` is, so it is a key to those; `forwards_read` reads them and writes none. It can be
+  copied once, drawn as dots even then, and only its hash is kept, in
+  `data/control_tokens.json`. It never touches a secret, another machine, the config but the
+  forwards between its machines, or a service but the one it sends a new version to, and opens
+  no other shell. **Edit…** changes its label, machines (**every machine**, those added later
+  too, is one tick), rights, folders and apps in place, the token staying the same;
+  **Rotate…** gives it a new value, copied once, the old one refused at once; **Revoke…** ends
+  it. What a revoked or rotated token holds open is cut at once (an open shell, a folder watch,
+  an upload half sent), and so is what an edit takes from it, an upload when `files` becomes
+  `files_read` among them; the forwards it asked for are set aside when it is revoked or may no
+  longer hold them, `forwards` made `forwards_read` among them, saying whose they were. Its
+  kept terminals go on running on their machines, out of its reach.
+
+The sections of the **Tokens** tab and the rights each one gives, as `POST /api/v1/tokens` and
+`PUT /api/v1/tokens/<id>` take them in `rights`; a script names the rights it wants, any of
+them, and the tab shows a section given some of them as **fine**:
+
+| Section   | Read                                                                                            | Write                                          |
+|-----------|-------------------------------------------------------------------------------------------------|------------------------------------------------|
+| Machines  | `status`, `metrics`, `processes`, `ports`, `disks`, `packages`, `containers`, `vulnerabilities` | none: what changes a machine stays the owner's |
+| Files     | `files_read`, within its folders                                                                | `files`, within its folders                    |
+| Terminals | none: a shell writes                                                                            | `terminals`                                    |
+| Apps      | `apps_read`                                                                                     | `apps` and `versions`                          |
+| Forwards  | `forwards_read`                                                                                 | `forwards`                                     |
+
+A read alone is under the right that writes the same things, and that right holds it too: a
+token with `files`, `apps` or `forwards`, as every token made before the reads alone were,
+reads and writes as it did. A route says the right it needs, and the right it is under, in
+`control_route_right.js` and the modules' manifests.
 
 A caller sends its token with every request:
 

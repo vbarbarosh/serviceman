@@ -9,6 +9,9 @@ const route_param = require('./route_param');
 //
 //     right    its name, as a token holds it
 //     said     what a refusal says the token may not do
+//     under    the right that holds it too, when one does: a read alone, such as forwards_read,
+//              is under the right that reads and writes the same, so a token given the wider
+//              one, a token made before the read alone was among them, reads as it did
 //     methods  the methods it allows
 //     re       the route, the machine's name its first group; a route of a service or of the
 //              forwards names no machine here, and the route itself keeps the token to the
@@ -21,19 +24,19 @@ const RIGHTS = [
     {right: 'versions', said: 'send a new version of an app', methods: ['PUT'], re: /^\/api\/v1\/services\/[^/]+\/zip$/},
     {right: 'apps', said: 'send an app of files', methods: ['PUT'], re: /^\/api\/v1\/apps\/[^/]+$/},
     {right: 'apps', said: 'add an app on a socket', methods: ['PUT'], re: /^\/api\/v1\/apps\/[^/]+\/socket$/},
-    {right: 'apps', said: 'list the apps', methods: ['GET'], re: /^\/api\/v1\/apps$/},
-    {right: 'forwards', said: 'read the forwards', methods: ['GET'], re: /^\/api\/v1\/forwards$/},
+    {right: 'apps_read', said: 'list the apps', under: 'apps', methods: ['GET'], re: /^\/api\/v1\/apps$/},
+    {right: 'forwards_read', said: 'read the forwards', under: 'forwards', methods: ['GET'], re: /^\/api\/v1\/forwards$/},
     {right: 'forwards', said: 'write the forwards', methods: ['PUT'], re: /^\/api\/v1\/forwards$/},
 ];
 
-// The right a request needs, {right, said, remote}, remote null for one of no machine; null
-// when it needs one no token but the owner's has
+// The right a request needs, {right, said, under, remote}: under null for a right no other
+// holds, remote null for one of no machine; null when it needs one no token but the owner's has
 function control_route_right(method, pathname)
 {
     for (const item of RIGHTS) {
         const found = item.re.exec(pathname);
         if ((found !== null) && item.methods.includes(method)) {
-            return {right: item.right, said: item.said, remote: (found[1] === undefined) ? null : route_param(found[1])};
+            return {right: item.right, said: item.said, under: (item.under === undefined) ? null : item.under, remote: (found[1] === undefined) ? null : route_param(found[1])};
         }
     }
     const mounted = module_mount_of(pathname);
@@ -46,7 +49,7 @@ function control_route_right(method, pathname)
     if ((given === null) || (given.right === null)) {
         return null;
     }
-    return {right: given.right.right, said: given.right.said, remote: mounted.remote};
+    return {right: given.right.right, said: given.right.said, under: (given.right.under === undefined) ? null : given.right.under, remote: mounted.remote};
 }
 
 control_route_right.RIGHTS = Array.from(new Set(RIGHTS.map(v => v.right).concat(module_mount_of.MODULE_MOUNTS.flatMap(v => manifest_rights(v.manifest)))));
