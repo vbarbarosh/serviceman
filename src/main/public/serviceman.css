@@ -5094,6 +5094,115 @@ article.rf .actions {
     display: none;
 }
 
+/* The window's two tabs, under its title; on Data it is wider, for a variable and its value */
+.apps-pane .app-settings-tabs {
+    margin: .75rem 0 0;
+}
+
+.apps-pane .app-settings.wide {
+    width: min(42rem, 100%);
+}
+
+/* An app's Data tab: the buttons that add a row, then a card a row: what it is, the variable
+   and its value, its buttons and what becomes of it; a long value wraps in its own place */
+.apps-pane .app-data-sketch {
+    margin: .75rem 0 0;
+}
+
+.apps-pane .app-data-adds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .75rem;
+}
+
+.apps-pane .app-data-removed,
+.apps-pane .app-data-none {
+    margin: .75rem 0 0;
+}
+
+.apps-pane .app-data-list {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin: .75rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.apps-pane .app-data-item {
+    display: grid;
+    gap: .5rem;
+    min-width: 0;
+    padding: .6rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.apps-pane .app-data-what,
+.apps-pane .app-data-var,
+.apps-pane .app-data-acts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem;
+    min-width: 0;
+}
+
+.apps-pane .app-data-kind {
+    font-weight: 600;
+}
+
+.apps-pane .app-data-what select {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+}
+
+.apps-pane .app-data-path {
+    flex: 1 1 10rem;
+    width: auto;
+    min-width: 0;
+}
+
+.apps-pane .app-data-remove {
+    margin-left: auto;
+    padding: .1rem .55rem;
+    color: var(--bad);
+}
+
+.apps-pane .app-data-env {
+    flex: 0 1 13rem;
+    width: auto;
+    min-width: 8rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.apps-pane .app-data-env.bad {
+    border-color: var(--bad);
+}
+
+/* Beside its variable while it fits, else on a line of its own, broken only when longer than that */
+.apps-pane .app-data-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-data-acts button {
+    padding: .1rem .55rem;
+}
+
+.apps-pane .app-data-says {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.apps-pane .app-data-says:empty {
+    display: none;
+}
+
 /* A list of walls: as wide as its longest wall, never wider than its column */
 .wall-select {
     width: auto;

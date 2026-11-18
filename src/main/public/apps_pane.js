@@ -1,4 +1,5 @@
 import app_files_pick from './app_files_pick.js';
+import app_kind_of from './app_kind_of.js';
 import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
 import apps_search from './apps_search.js';
@@ -105,7 +106,7 @@ const apps_pane = {
             <div class="app-acts">
                 <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
                 <button v-else-if="takes_version(app)" type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
-                <button type="button" :title="('The name, the sign-in and the public address of ' + app.name)" @click="settings = app">Settings</button>
+                <button type="button" :title="('The name, the sign-in, the public address and the data of ' + app.name)" @click="settings = app">Settings</button>
             </div>
         </li>
     </ul>
@@ -517,22 +518,7 @@ const apps_pane = {
 // The words an app is found by besides its name: its kind, and the machine it is on
 function words_of(app)
 {
-    return [kind_of(app), app.name, ...app.remotes];
-}
-
-// What runs it, in the words of the New service form
-function kind_of(app)
-{
-    if (app.type === 'files') {
-        return 'page';
-    }
-    if ((app.socket !== null) && (app.socket !== undefined)) {
-        return 'socket';
-    }
-    if (app.app_folder !== null) {
-        return 'app folder';
-    }
-    return {docker: 'docker image', shell: 'program', external: 'already running'}[app.type] || app.type;
+    return [app_kind_of(app), app.name, ...app.remotes];
 }
 
 // What goes to serviceman: a folder zipped, a page zipped as the index.html of an app of its own,

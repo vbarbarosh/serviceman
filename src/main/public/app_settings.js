@@ -1,3 +1,4 @@
+import app_data_tab from './app_data_tab.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
 import wall_select from './wall_select.js';
@@ -5,11 +6,12 @@ import wall_select from './wall_select.js';
 // The service a new public address is protected with unless another is picked: one called this
 const WALL_NAME = 'authwall';
 
-// An app's settings, in a small window over the Apps page: its name, its socket for an app on
-// one, the wall it is behind, and its public addresses, and nothing more. One Save
-// writes them: the name and the wall first, in one change of its service, so the addresses are
-// written for the name it has now (serviceman moves the ones it had with it); Cancel, Esc or a
-// click beside the window puts it away with nothing written. The rest of the service is on its
+// An app's settings, in a small window over the Apps page, on two tabs. Settings: its name, its
+// socket for an app on one, the wall it is behind, and its public addresses, and nothing more. One
+// Save writes them: the name and the wall first, in one change of its service, so the addresses
+// are written for the name it has now (serviceman moves the ones it had with it); Cancel, Esc or a
+// click beside the window puts it away with nothing written. Data: what the app is given, each row
+// one variable of its env, kept as it changes (app_data_tab.js). The rest of the service is on its
 // own page, linked at the foot.
 //
 // Behind a wall, every visitor signs in before anything of the app answers, at every address it
@@ -18,67 +20,80 @@ const WALL_NAME = 'authwall';
 const app_settings = {
     template: `
 <div class="dt-window" @click.self="close">
-<div class="app-settings" role="dialog" aria-modal="true" :aria-label="('Settings of ' + app.name)">
+<div class="app-settings" :class="{wide: (tab === 'data')}" role="dialog" aria-modal="true" :aria-label="('Settings of ' + app.name)">
     <div class="app-settings-head">
         <h2>{{ app.title || app.name }}</h2>
-        <button type="button" class="app-settings-x" title="Close: nothing is written (Esc)" aria-label="Close" @click="close">×</button>
+        <button type="button" class="app-settings-x" :title="((tab === 'settings') ? 'Close: nothing is written (Esc)' : 'Close (Esc)')" aria-label="Close" @click="close">×</button>
     </div>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Name</span>
-        <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
-    </label>
-    <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
-    <p v-if="(tailnet !== '')" class="muted app-settings-says">on every device of your tailnet at <a :href="tailnet" target="_blank" rel="noopener"><code>{{ tailnet }}</code></a><span v-if="(https_off !== null)" class="app-http-why"> · http only: {{ https_off.why }}</span></p>
-    <div v-if="(app.socket !== null)" class="app-settings-row">
-        <span class="app-settings-label">Socket</span>
-        <div class="app-socket-how">
-            <select v-model="where" aria-label="Where its socket is" :disabled="busy">
-                <option value="">in serviceman's own {{ folder }}/ folder</option>
-                <option v-for="item of machines" :key="item.value" :value="item.value">on {{ item.label }}</option>
-            </select>
-            <input v-model.trim="socket" class="app-socket-path" :placeholder="socket_default" spellcheck="false" autocomplete="off" aria-label="The file its app listens on" :disabled="busy" @keyup.enter="save">
-        </div>
+    <div class="tabs app-settings-tabs">
+        <button type="button" class="tab" :class="{on: (tab === 'settings')}" @click="click_settings">Settings</button>
+        <button type="button" class="tab" :class="{on: (tab === 'data')}" @click="click_data">Data</button>
     </div>
-    <div class="app-settings-row">
-        <span class="app-settings-label">Sign-in</span>
-        <div class="app-wall-pick">
-            <wall-select v-model="pick" :walls="walls" :none="(from_apps ? ('as every app: behind ' + app.auth) : 'open: no sign-in')" :self="app.name" :disabled="busy" @create="$emit('walls')"/>
-            <p class="muted app-settings-says">{{ ((wall === null) ? 'anyone may open it' : 'every visitor signs in first, at every address') }}</p>
-        </div>
-    </div>
-    <div class="app-settings-row">
-        <span class="app-settings-label">Public address</span>
-        <div class="app-pub">
-            <ul v-if="(kept.length > 0)" class="app-pub-list">
-                <li v-for="row of kept" :key="(row.machine + ' ' + row.host)">
-                    <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (behind_of(row) === null ? '' : ' · behind ' + behind_of(row)) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
-                    <button type="button" class="app-pub-drop" :disabled="busy" :title="('Take ' + row.host + ' away when you save')" @click="drop(row)">remove</button>
-                </li>
-            </ul>
-            <p v-for="row of by_domain" :key="(row.machine + ' ' + row.host)" class="muted app-pub-also">also <code>{{ row.host }}</code> through {{ row.title }}, as every app under <code>{{ row.pattern }}</code></p>
-            <input v-model.trim="fresh.host" class="app-pub-host" placeholder="name.example.com" spellcheck="false" autocomplete="off" aria-label="A new public address" :disabled="busy" @keyup.enter="save">
-            <div v-if="(fresh.host !== '')" class="app-pub-how">
-                <select v-model="fresh.machine" aria-label="Through the door of" :disabled="busy">
-                    <option value="">through the door of…</option>
-                    <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
+    <template v-if="(tab === 'settings')">
+        <label class="app-settings-row">
+            <span class="app-settings-label">Name</span>
+            <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
+        </label>
+        <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
+        <p v-if="(tailnet !== '')" class="muted app-settings-says">on every device of your tailnet at <a :href="tailnet" target="_blank" rel="noopener"><code>{{ tailnet }}</code></a><span v-if="(https_off !== null)" class="app-http-why"> · http only: {{ https_off.why }}</span></p>
+        <div v-if="(app.socket !== null)" class="app-settings-row">
+            <span class="app-settings-label">Socket</span>
+            <div class="app-socket-how">
+                <select v-model="where" aria-label="Where its socket is" :disabled="busy">
+                    <option value="">in serviceman's own {{ folder }}/ folder</option>
+                    <option v-for="item of machines" :key="item.value" :value="item.value">on {{ item.label }}</option>
                 </select>
-                <select v-if="(wall === null)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
-                    <option value="">protected by nothing</option>
-                    <option v-for="item of guards" :key="item" :value="item">protected by {{ item }}</option>
-                </select>
+                <input v-model.trim="socket" class="app-socket-path" :placeholder="socket_default" spellcheck="false" autocomplete="off" aria-label="The file its app listens on" :disabled="busy" @keyup.enter="save">
             </div>
         </div>
-    </div>
+        <div class="app-settings-row">
+            <span class="app-settings-label">Sign-in</span>
+            <div class="app-wall-pick">
+                <wall-select v-model="pick" :walls="walls" :none="(from_apps ? ('as every app: behind ' + app.auth) : 'open: no sign-in')" :self="app.name" :disabled="busy" @create="$emit('walls')"/>
+                <p class="muted app-settings-says">{{ ((wall === null) ? 'anyone may open it' : 'every visitor signs in first, at every address') }}</p>
+            </div>
+        </div>
+        <div class="app-settings-row">
+            <span class="app-settings-label">Public address</span>
+            <div class="app-pub">
+                <ul v-if="(kept.length > 0)" class="app-pub-list">
+                    <li v-for="row of kept" :key="(row.machine + ' ' + row.host)">
+                        <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (behind_of(row) === null ? '' : ' · behind ' + behind_of(row)) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
+                        <button type="button" class="app-pub-drop" :disabled="busy" :title="('Take ' + row.host + ' away when you save')" @click="drop(row)">remove</button>
+                    </li>
+                </ul>
+                <p v-for="row of by_domain" :key="(row.machine + ' ' + row.host)" class="muted app-pub-also">also <code>{{ row.host }}</code> through {{ row.title }}, as every app under <code>{{ row.pattern }}</code></p>
+                <input v-model.trim="fresh.host" class="app-pub-host" placeholder="name.example.com" spellcheck="false" autocomplete="off" aria-label="A new public address" :disabled="busy" @keyup.enter="save">
+                <div v-if="(fresh.host !== '')" class="app-pub-how">
+                    <select v-model="fresh.machine" aria-label="Through the door of" :disabled="busy">
+                        <option value="">through the door of…</option>
+                        <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
+                    </select>
+                    <select v-if="(wall === null)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
+                        <option value="">protected by nothing</option>
+                        <option v-for="item of guards" :key="item" :value="item">protected by {{ item }}</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </template>
+    <app-data-tab v-else :app="app" :host="host"/>
     <div class="app-settings-foot">
-        <button type="button" class="primary" :disabled="(busy || (changed === false))" @click="save">{{ (busy ? 'Saving…' : 'Save') }}</button>
-        <button type="button" :disabled="busy" @click="close">Cancel</button>
-        <span class="app-settings-note" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        <template v-if="(tab === 'settings')">
+            <button type="button" class="primary" :disabled="(busy || (changed === false))" @click="save">{{ (busy ? 'Saving…' : 'Save') }}</button>
+            <button type="button" :disabled="busy" @click="close">Cancel</button>
+            <span class="app-settings-note" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+        <template v-else>
+            <button type="button" @click="close">Close</button>
+            <span class="muted">each change kept as it is made</span>
+        </template>
         <a class="app-settings-more" :href="('/services/' + encodeURIComponent(current))" @click.prevent="$emit('more', current)">its service page</a>
     </div>
 </div>
 </div>
 `,
-    components: {'wall-select': wall_select},
+    components: {'app-data-tab': app_data_tab, 'wall-select': wall_select},
     emits: ['close', 'saved', 'more', 'walls'],
     props: {
         app: {type: Object, required: true},
@@ -104,7 +119,7 @@ const app_settings = {
         // pick: the wall of its own, as the list says it now, '' for none; one Apps puts in front
         // of every app is not its own, and is not written into it
         const pick = ((this.app.auth === null) || (this.app.auth === undefined) || (this.app.auth_from === 'apps')) ? '' : this.app.auth;
-        return {name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, pick, pick_was: pick, busy: false, note: '', bad: false};
+        return {tab: 'settings', name: this.app.name, current: this.app.name, gone: [], fresh: {host: '', machine: '', auth: ''}, where, socket, where_was: where, socket_was: socket, pick, pick_was: pick, busy: false, note: '', bad: false};
     },
     computed: {
         // Every name a machine's door answers for this app, by a rule of its own
@@ -208,6 +223,12 @@ const app_settings = {
         document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
+        click_settings: function () {
+            this.tab = 'settings';
+        },
+        click_data: function () {
+            this.tab = 'data';
+        },
         close: function () {
             if (this.busy === false) {
                 this.$emit('close');

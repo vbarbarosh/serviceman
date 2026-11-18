@@ -1283,6 +1283,15 @@ the names a machine's door answers for it, and nothing more; one Save writes the
 the rest of the service is on its page, linked at the window's foot. A new address goes through
 the door that answers most names already, behind `authwall` where there is one.
 
+Its **Data** tab, beside **Settings**, is a sketch for now: what the app would be given, a row
+each, every row one variable of its env. **+ Database** is PostgreSQL, MySQL, MariaDB or MongoDB
+at a version, `DATABASE_URL` or `MONGO_URL`; **+ Folder** is a folder kept for it or one of its
+machine, `FILES_DIR`, mounted at `/data/files` in a docker image; **+ REST** is `REST_URL`, its
+documents kept by serviceman or in its MongoDB. A name can be changed (`DB_URL`), and two rows never
+take one unasked (`DATABASE_URL_2`). A page takes REST alone, at its own `/_data/`; an app
+serviceman does not start gets each value to copy into it. Nothing is made behind the rows yet: they
+are kept in the browser that set them, and **Remove** goes at once, with **Undo** in its place.
+
 A new name takes the addresses made of its name with it (`notes.localhost` is `wiki.localhost`,
 `notes.apps.example.com` is `wiki.apps.example.com`), and an app of files its folder in `apps/`;
 an address added by hand stays, and so does a folder the config names. The door rules that answer
