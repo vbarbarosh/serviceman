@@ -8,9 +8,9 @@ const SOCKET_DEFAULT = '/sockets/serviceman.sock';
 // that is not there or that nobody answers on is thrown, with its path and the variable that
 // names another. The token is sent and never said.
 //
-//     method    PUT
+//     method    PUT, GET
 //     pathname  /api/v1/apps/notes
-//     body      a Buffer
+//     body      a Buffer; an empty one for a GET
 //
 //     {status, json, text}   json null when the answer is no JSON
 function control_request(method, pathname, body)
@@ -39,6 +39,13 @@ function control_request(method, pathname, body)
         request.end(body);
     });
 }
+
+// What serviceman said when it did not do what was asked, as the error a tool fails with: its
+// own sentence, for the agent to act on, or the start of what it answered when it said none
+control_request.refusal_of = function (answer) {
+    const said = ((answer.json !== null) && (typeof answer.json.error === 'string')) ? answer.json.error : answer.text.trim().slice(0, 300);
+    return new Error(`serviceman answered ${answer.status}: ${said}`);
+};
 
 function json_or_null(text)
 {

@@ -1589,6 +1589,11 @@ pre {
     opacity: .55;
 }
 
+/* What a right asks more, ticked under it: the apps right kept to the apps it makes */
+.tk-checks .check.tk-under {
+    margin-left: 1.6rem;
+}
+
 .tk-made > p:not(:first-child) {
     margin: .75rem 0 .35rem;
     color: var(--muted);

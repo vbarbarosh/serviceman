@@ -21,6 +21,7 @@ const RIGHTS = [
     {right: 'versions', said: 'send a new version of an app', methods: ['PUT'], re: /^\/api\/v1\/services\/[^/]+\/zip$/},
     {right: 'apps', said: 'send an app of files', methods: ['PUT'], re: /^\/api\/v1\/apps\/[^/]+$/},
     {right: 'apps', said: 'add an app on a socket', methods: ['PUT'], re: /^\/api\/v1\/apps\/[^/]+\/socket$/},
+    {right: 'apps', said: 'list the apps', methods: ['GET'], re: /^\/api\/v1\/apps$/},
     {right: 'forwards', said: 'read the forwards', methods: ['GET'], re: /^\/api\/v1\/forwards$/},
     {right: 'forwards', said: 'write the forwards', methods: ['PUT'], re: /^\/api\/v1\/forwards$/},
 ];

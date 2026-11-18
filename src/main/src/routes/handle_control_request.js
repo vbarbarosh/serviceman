@@ -3,11 +3,13 @@ const agent_bundle = require('../../../agent/bundler/agent_bundle');
 const agent_install_sh = require('../helpers/agent_install_sh');
 const agent_sign_key = require('../helpers/agent_sign_key');
 const agent_signature = require('../helpers/agent_signature');
+const app_address_of = require('../helpers/app_address_of');
 const app_apply_config = require('../helpers/app_apply_config');
 const app_domain_names = require('../helpers/app_domain_names');
 const app_files_put = require('../helpers/app_files_put');
 const app_files_rename = require('../helpers/app_files_rename');
 const app_socket_put = require('../helpers/app_socket_put');
+const app_token_refusal = require('../helpers/app_token_refusal');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
 const body_fields = require('../body_fields');
@@ -373,6 +375,10 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/services') && (req.method === 'POST')) {
         await service_create(app, req, res);
+        return;
+    }
+    if ((url.pathname === '/api/v1/apps') && (req.method === 'GET')) {
+        apps_list_send(app, res, req.control_token);
         return;
     }
     if ((url.pathname === '/api/v1/apps') && (req.method === 'PUT')) {
@@ -1873,11 +1879,15 @@ function handle_action(app, req, res, name, action)
 // PUT /api/v1/apps/<name>   an app of files, the zip of its folder as the body
 // A name serviceman has not seen yet becomes a folder of files at an address of its own; a known
 // one gets the new version. `curl -T notes.zip`, through the control socket too, with a token
-// that may send apps. The answer says where it answers.
+// that may send apps; one kept to the apps it makes is refused another's before its zip is read.
+// The answer says where it answers.
 async function handle_app_put(app, req, res, name)
 {
     if (req.method !== 'PUT') {
         send_json(res, 405, {error: 'an app is a PUT with the zip of its folder as the body: curl -T notes.zip'});
+        return;
+    }
+    if (app_token_refused(app, req, res, name)) {
         return;
     }
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-zip-'));
@@ -1902,11 +1912,10 @@ async function handle_app_put(app, req, res, name)
             }
         });
         try {
-            const done = await app_files_put(app, name, zip, hang_up.signal);
-            const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
+            const done = await app_files_put(app, name, zip, req.control_token, hang_up.signal);
             // Where it answers here, on serviceman's own door, and the name it has outside, which a
             // machine's door answers on its own port
-            send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.local}${port}/`, public: done.public, files: done.files, bytes: done.bytes, service: view_from_service(done.service)});
+            send_json(res, done.made ? 201 : 200, {name, made: done.made, address: done.address, public: done.public, files: done.files, bytes: done.bytes, service: view_from_service(done.service)});
         }
         catch (error) {
             log_event(app, 'control_error', {service: name, reason: error.message});
@@ -1927,15 +1936,68 @@ async function handle_app_socket(app, req, res, name)
         send_json(res, 405, {error: 'an app on a socket is a PUT of {"socket": "~/app.sock", "remote": "laptop"}'});
         return;
     }
+    if (app_token_refused(app, req, res, name)) {
+        return;
+    }
     try {
         const done = await app_socket_put(app, name, await body_fields(req, BODY_LIMIT_BYTES), req.control_token);
-        const port = ((app.listen_port === 80) || (app.listen_port === null)) ? '' : `:${app.listen_port}`;
-        send_json(res, done.made ? 201 : 200, {name, made: done.made, address: `http://${done.local}${port}/`, public: done.public, service: view_from_service(done.service)});
+        send_json(res, done.made ? 201 : 200, {name, made: done.made, address: done.address, public: done.public, service: view_from_service(done.service)});
     }
     catch (error) {
         log_event(app, 'control_error', {service: name, reason: error.message});
         send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
     }
+}
+
+// A token kept to the apps it makes, asking for an app it did not make, is refused here, as a
+// right it lacks is (token_allowed): before its body is read, with a 403 that says why. The put
+// asks again as it takes the name, for what another made while this one was on its way.
+//
+//     true when the 403 is sent
+function app_token_refused(app, req, res, name)
+{
+    const refused = app_token_refusal(app, req.control_token, name);
+    if (refused === null) {
+        return false;
+    }
+    const token = req.control_token;
+    log_event(app, 'control_token_refused', {client: req.socket.remoteAddress, token: token.label, method: req.method, path: url_logged(req.url), reason: refused});
+    send_json(res, 403, {error: `the token ${JSON.stringify(token.label)} ${refused}`});
+    return true;
+}
+
+// GET /api/v1/apps   the apps a sender may send to, {apps_own, apps}: for a token kept to the
+// apps it makes (apps_own true), those it made; for any other, and for the owner, every app of
+// files and every app on a socket, the two kinds its PUTs send. App folders take a new version
+// another way, with the versions right (/api/v1/services/<name>/zip), and are not here.
+//
+//     apps  [{name, kind, address, public}], in the config's order
+//     kind  files or socket; address and public as the PUT answers them (app_address_of)
+function apps_list_send(app, res, token)
+{
+    const own = (token !== undefined) && (token.apps_own === true);
+    const made = ((token !== undefined) && Array.isArray(token.apps)) ? token.apps : [];
+    const apps = [];
+    for (const service of app.services) {
+        const kind = app_kind_sent(service);
+        if ((kind === null) || (own && (made.includes(service.name) === false))) {
+            continue;
+        }
+        apps.push(Object.assign({name: service.name, kind}, app_address_of(app, service)));
+    }
+    send_json(res, 200, {apps_own: own, apps});
+}
+
+// The kind of app the apps right sends a service as: files, socket, or null for none
+function app_kind_sent(service)
+{
+    if (service.type === 'files') {
+        return 'files';
+    }
+    if ((service.type === 'external') && (service.upstream !== undefined) && (service.upstream !== null) && (service.upstream.socket !== undefined)) {
+        return 'socket';
+    }
+    return null;
 }
 
 // PUT /api/v1/services/<name>/zip   a new version of an app folder, the zip as the body

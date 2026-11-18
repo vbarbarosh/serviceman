@@ -1277,6 +1277,10 @@ control port, with the owner's token or one given the `apps` right
 
     curl -T notes.zip -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 
+A token kept to the apps it makes sends a new name and the names it made, and is refused any
+other with a `403` that says so; `GET /api/v1/apps` answers the apps it may send to, each
+`{name, kind, address, public}` ([Apps from a coding agent](mcp.md#the-token)).
+
 **On serviceman's page** it is one drop: **Apps** has a card to drop the zip, the folder or one
 `.html` page on (or click and pick a zip or a page), named after the file, `My Notes.zip` as
 `my-notes`, `2.html` as `2`. The card answers with the link that opens the app here and Open, and

@@ -14,7 +14,7 @@ const RIGHTS_SAID = {
     files: 'the file manager, within the folders below and nothing above them',
     terminals: 'list, make, join and end its kept terminals: a shell on the machine',
     versions: 'send a new version of an app folder on it, as a zip: curl -T app.zip',
-    apps: 'send an app of files, new or a new version, as a zip: serviceman serves it at an address of its own',
+    apps: 'send an app of files, new or a new version, as a zip, and list them: serviceman serves each at an address of its own',
     forwards: 'read and write the forwards between its machines: a way to what listens there, as ssh -L',
 };
 
@@ -46,7 +46,7 @@ const tokens_form = {
         <template v-for="item of tokens" :key="item.id">
             <dt>{{ item.label }}</dt>
             <dd class="tk-row">
-                <span class="muted">{{ machines_text(item) }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template><template v-if="(item.services.length > 0)"> of <code>{{ item.services.join(', ') }}</code></template> · {{ used_text(item) }}</span>
+                <span class="muted">{{ machines_text(item) }} · {{ item.rights.join(', ') }}<template v-if="(item.folders.length > 0)"> in <code>{{ item.folders.join(', ') }}</code></template><template v-if="(item.services.length > 0)"> of <code>{{ item.services.join(', ') }}</code></template><template v-if="(item.rights.includes('apps') && item.apps_own)"> · only the apps it makes<template v-if="(item.apps.length > 0)">: <code>{{ item.apps.join(', ') }}</code></template><template v-else>, none yet</template></template> · {{ used_text(item) }}</span>
                 <template v-if="(asking.id !== item.id)">
                     <button type="button" :disabled="busy" @click="edit_open(item)">Edit…</button>
                     <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'rotate'}">Rotate…</button>
@@ -80,7 +80,10 @@ const tokens_form = {
         </div>
         <label>Rights</label>
         <div class="tk-checks">
-            <label v-for="right of rights" :key="right" class="check"><input type="checkbox" :value="right" v-model="rights_chosen"> <span><b>{{ right }}</b> {{ said_of(right) }}</span></label>
+            <template v-for="right of rights" :key="right">
+                <label class="check"><input type="checkbox" :value="right" v-model="rights_chosen"> <span><b>{{ right }}</b> {{ said_of(right) }}</span></label>
+                <label v-if="((right === 'apps') && rights_chosen.includes('apps'))" class="check tk-under"><input type="checkbox" v-model="apps_own"> <span><b>only the apps it makes</b> a new name, then that app's new versions; an app someone else has, yours or another token's, is refused</span></label>
+            </template>
         </div>
         <template v-if="rights_chosen.includes('files')">
             <label for="tk-folders">Folders</label>
@@ -140,6 +143,8 @@ const tokens_form = {
             rights_chosen: ['status'],
             folders: '',
             services_chosen: [],
+            // Its apps right kept to the apps it makes: a new token starts kept
+            apps_own: true,
             // The token just made or rotated, the one time it can be copied: {label, token}
             made: null,
             copied: '',
@@ -206,6 +211,8 @@ const tokens_form = {
             this.rights_chosen = item.rights.slice();
             this.folders = item.folders.join('\n');
             this.services_chosen = item.services.slice();
+            // One given the apps right now starts kept, as a new token does
+            this.apps_own = item.rights.includes('apps') ? item.apps_own : true;
             this.made = null;
             this.note = '';
             this.bad = false;
@@ -219,9 +226,10 @@ const tokens_form = {
             this.rights_chosen = ['status'];
             this.folders = '';
             this.services_chosen = [];
+            this.apps_own = true;
         },
         save: async function () {
-            const body = {label: this.label, remotes: this.every ? ['*'] : this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list, services: this.services_chosen};
+            const body = {label: this.label, remotes: this.every ? ['*'] : this.remotes_chosen, rights: this.rights_chosen, folders: this.folders_list, services: this.services_chosen, apps_own: this.apps_own};
             const editing = this.editing;
             const loaded = await this.call((editing === null) ? '/api/v1/tokens' : `/api/v1/tokens/${editing.id}`, (editing === null) ? 'POST' : 'PUT', body);
             if (loaded === null) {

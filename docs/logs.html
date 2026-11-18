@@ -1916,7 +1916,7 @@ list, in a bar under its header and first on its Health page.</p>
 </tr>
 <tr>
 <td><code>control_token_refused</code></td>
-<td>A request with no token, one nobody holds, or one asking past its rights.</td>
+<td>A request with no token, one nobody holds, or one asking past its rights, an app it did not make among them.</td>
 </tr>
 <tr>
 <td><code>control_token_used</code></td>
@@ -1924,11 +1924,11 @@ list, in a bar under its header and first on its Health page.</p>
 </tr>
 <tr>
 <td><code>control_token_made</code></td>
-<td>An agent&#39;s token was made: its label, machines, rights, folders and apps.</td>
+<td>An agent&#39;s token was made: its label, machines, rights, folders and apps, and whether it is kept to the apps it makes (<code>apps_own</code>).</td>
 </tr>
 <tr>
 <td><code>control_token_changed</code></td>
-<td>Its label, machines, rights, folders or apps were changed; the token stayed.</td>
+<td>Its label, machines, rights, folders, apps or <code>apps_own</code> were changed; the token stayed.</td>
 </tr>
 <tr>
 <td><code>control_token_rotated</code></td>

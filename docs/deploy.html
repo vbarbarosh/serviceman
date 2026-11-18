@@ -966,7 +966,11 @@ ticked, and a service&#39;s page makes one for that service alone, <strong>Make 
 the curl line beside it. <code>apps</code> sends an app of files, a new one or a new version
 (<code>PUT /api/v1/apps/&lt;name&gt;</code>, <a href="config.html#an-app-sent-to-serviceman">An app sent to serviceman</a>):
 a page served at an address of its own, which serviceman writes into the config for a name it
-has not seen; it touches no machine and no other kind of service. <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
+has not seen; it touches no machine and no other kind of service. It adds an app on a socket
+too, on a machine it sees alone and at the socket named after the app, and lists the apps it
+may send to (<code>GET /api/v1/apps</code>). Its tick <strong>only the apps it makes</strong>, ticked for a new
+token, keeps it to the names it made: another&#39;s is refused, the owner&#39;s or another token&#39;s
+(<a href="mcp.html#the-token">Apps from a coding agent</a>). <code>forwards</code> reads and writes the <a href="config.html#forwards">forwards</a>
 between its machines, both ends on them (<code>GET</code> and <code>PUT /api/v1/forwards</code>), and leaves every
 other forward as it was: a way to whatever listens on their loopback and in their sockets, as
 <code>ssh -L</code> is, so it is a key to those. It can be copied once, drawn as dots even then, and only

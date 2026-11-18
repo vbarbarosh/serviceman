@@ -25,7 +25,7 @@ const RE_TOKEN_ROTATE = /^\/api\/v1\/tokens\/([0-9a-f]+)\/rotate$/;
 // POST /api/v1/session (body)        the owner signs the page in: {token}
 // DELETE /api/v1/session             and out
 // GET /api/v1/tokens                 the tokens made; the rights there are, the machines and the app folders
-// POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders, services}, said once
+// POST /api/v1/tokens (body)         one more: {label, remotes, rights, folders, services, apps_own}, said once
 // PUT /api/v1/tokens/<id> (body)     the same fields, changed; the token itself stays
 // POST /api/v1/tokens/<id>/rotate    a new value, said once; the old one is refused at once
 // DELETE /api/v1/tokens/<id>         revoked, at once
@@ -154,7 +154,8 @@ async function token_rotate(app, res, id)
 
 // The label, machines, rights, folders and apps a request asks a token to have, checked, or
 // null with the 400 that says what is wrong already sent. A machine of `*` is every machine,
-// those added later too.
+// those added later too. The apps a token made are never asked: it makes them
+// (control_token_app_made).
 async function fields_read(app, req, res)
 {
     let body;
@@ -201,12 +202,15 @@ async function fields_read(app, req, res)
         send_json(res, 400, {error: `the versions right is kept to at most ${SERVICES_MAX} apps`});
         return null;
     }
-    return {label, remotes, rights, folders, services};
+    // The apps right is of every app of files, or kept to the apps the token makes; without the
+    // field, as a token made before it was, of every one
+    const apps_own = rights.includes('apps') && (asked.apps_own === true);
+    return {label, remotes, rights, folders, services, apps_own};
 }
 
 function fields_logged(item)
 {
-    return {id: item.id, label: item.label, remotes: item.remotes.join(','), rights: item.rights.join(','), folders: item.folders.join(','), services: item.services.join(',')};
+    return {id: item.id, label: item.label, remotes: item.remotes.join(','), rights: item.rights.join(','), folders: item.folders.join(','), services: item.services.join(','), apps_own: item.apps_own};
 }
 
 // The services a versions right can be kept to: the app folders, by name
@@ -240,7 +244,7 @@ function control_port(app)
 // A token as the page sees it: everything but its hash
 function token_view(token)
 {
-    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: Array.isArray(token.folders) ? token.folders : [], services: Array.isArray(token.services) ? token.services : [], made_at: token.made_at, rotated_at: (token.rotated_at === undefined) ? null : token.rotated_at, used_at: (token.used_at === undefined) ? null : token.used_at};
+    return {id: token.id, label: token.label, remotes: token.remotes, rights: token.rights, folders: Array.isArray(token.folders) ? token.folders : [], services: Array.isArray(token.services) ? token.services : [], apps_own: (token.apps_own === true), apps: Array.isArray(token.apps) ? token.apps : [], made_at: token.made_at, rotated_at: (token.rotated_at === undefined) ? null : token.rotated_at, used_at: (token.used_at === undefined) ? null : token.used_at};
 }
 
 // The page's cookie: for this page alone and its machine-files addresses under the same name,

@@ -1,7 +1,10 @@
+const app_address_of = require('./app_address_of');
 const app_apply_config = require('./app_apply_config');
+const app_token_refusal = require('./app_token_refusal');
 const config_file_save = require('./config_file_save');
 const config_from_file = require('./config_from_file');
 const config_locked = require('./config_locked');
+const control_token_app_made = require('./control_token_app_made');
 const files_zip_items = require('./files_zip_items');
 const fs = require('fs');
 const log_event = require('./log_event');
@@ -22,15 +25,25 @@ const KIND_WORDS = {docker: 'a docker image', shell: 'a program', external: 'som
 // outside. A zip that is broken or no page changes nothing; one app takes one zip at a time.
 //
 //     zip     the path of the zip on this host's disk
+//     token   the control token the call came with, undefined for the owner: one kept to the
+//             apps it makes sends a new name, which goes on its list, and its own names alone
+//             (app_token_refusal)
 //     signal  aborts the writing when the sender hangs up
 //
-//     {service, made, files, bytes, local, public}
-//     made    true when the name was new
-//     local   its name here, notes.localhost; public its name under the apps domain, or null
-async function app_files_put(app, name, zip, signal)
+//     {service, made, files, bytes, address, public}
+//     made     true when the name was new
+//     address  where it answers here, http://notes.localhost:8080/; public its name under the
+//              apps domain, or null (app_address_of)
+async function app_files_put(app, name, zip, token, signal)
 {
     if (RE_NAME.test(name) === false) {
         throw failure(400, `${name}: an app's name is lowercase letters, digits, - and _`);
+    }
+    // Asked at the moment the name is taken, with nothing awaited before files_sending holds it:
+    // what another made while this zip was on its way is theirs
+    const refused = app_token_refusal(app, token, name);
+    if (refused !== null) {
+        throw failure(403, `the token ${JSON.stringify(token.label)} ${refused}`);
     }
     const before = app.service_by_name[name];
     if ((before !== undefined) && (before.type !== 'files')) {
@@ -55,15 +68,16 @@ async function app_files_put(app, name, zip, signal)
         const folder = (before === undefined) ? path.resolve(app.state_dir, 'apps', name) : service_files_folder(app, before);
         await folder_write(`${folder}.new`, items.items, signal);
         await folder_swap(folder);
+        // A new app is the token's that made it, from now on
         if (before === undefined) {
-            await config_locked(app, () => config_add(app, name));
+            const added = await config_locked(app, () => config_add(app, name));
+            if (added) {
+                control_token_app_made(app, token, name);
+            }
         }
         log_event(app, 'app_files_put', {service: name, made: (before === undefined), files: items.files, bytes: items.bytes});
         const service = app.service_by_name[name];
-        const domain = app.config.apps.domain;
-        const hosts = service.hosts.map(v => v.split('/')[0]);
-        const under = hosts.find(v => (domain !== null) && v.endsWith(`.${domain}`));
-        return {service, made: (before === undefined), files: items.files, bytes: items.bytes, local: hosts.find(v => v !== under) || hosts[0], public: (under === undefined) ? null : under};
+        return Object.assign({service, made: (before === undefined), files: items.files, bytes: items.bytes}, app_address_of(app, service));
     }
     finally {
         app.files_sending.delete(name);
@@ -106,12 +120,13 @@ async function folder_swap(folder)
     await fs.promises.rm(old, {recursive: true, force: true});
 }
 
-// The new app in the config file, as one more service, applied the way a Save applies one
+// The new app in the config file, as one more service, applied the way a Save applies one.
+// False when a service of that name got there first, written by another hand meanwhile.
 async function config_add(app, name)
 {
     const json = JSON.parse(await fs.promises.readFile(app.config.path, 'utf8'));
     if ((json.services || []).some(v => v.name === name)) {
-        return;
+        return false;
     }
     const hosts = app_files_hosts(app, name);
     const publish = (hosts.length === 1) ? {host: hosts[0]} : {hosts};
@@ -119,6 +134,7 @@ async function config_add(app, name)
     const config = config_from_file(app, json);
     await config_file_save(app.config.path, `${JSON.stringify(json, null, 4)}\n`);
     await app_apply_config(app, config);
+    return true;
 }
 
 // An app's names: notes.apps.example.com under the config's apps domain, for outside, and

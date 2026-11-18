@@ -218,7 +218,11 @@ Even on this machine, and through the control socket, nothing gets in without a 
   the curl line beside it. `apps` sends an app of files, a new one or a new version
   (`PUT /api/v1/apps/<name>`, [An app sent to serviceman](config.md#an-app-sent-to-serviceman)):
   a page served at an address of its own, which serviceman writes into the config for a name it
-  has not seen; it touches no machine and no other kind of service. `forwards` reads and writes the [forwards](config.md#forwards)
+  has not seen; it touches no machine and no other kind of service. It adds an app on a socket
+  too, on a machine it sees alone and at the socket named after the app, and lists the apps it
+  may send to (`GET /api/v1/apps`). Its tick **only the apps it makes**, ticked for a new
+  token, keeps it to the names it made: another's is refused, the owner's or another token's
+  ([Apps from a coding agent](mcp.md#the-token)). `forwards` reads and writes the [forwards](config.md#forwards)
   between its machines, both ends on them (`GET` and `PUT /api/v1/forwards`), and leaves every
   other forward as it was: a way to whatever listens on their loopback and in their sockets, as
   `ssh -L` is, so it is a key to those. It can be copied once, drawn as dots even then, and only

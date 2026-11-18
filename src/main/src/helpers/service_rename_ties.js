@@ -3,11 +3,15 @@ const control_tokens_write = require('./control_tokens_write');
 const secrets_read = require('./secrets_read');
 const secrets_write = require('./secrets_write');
 
+// The lists of a token that name a service: the apps its versions right is kept to, and the
+// apps it made
+const TOKEN_LISTS = ['services', 'apps'];
+
 // What else carries a service's name, moved to its new one. In the config about to be written:
 // the machines' door rules that answer for it, or put it in front of another as its wall, the
 // services it stands in front of as their own wall, Apps' wall for every app, and the boards it
-// is on. Once
-// that config is found good: its secrets, and the tokens whose new versions are kept to it.
+// is on. Once that config is found good: its secrets, the tokens whose new versions are kept to
+// it, and the token that made it, which goes on sending its new versions under the new name.
 // Before, a rename of a service a door answered for was refused (the rule named a service nobody
 // had), and its secrets and tokens stayed under a name nobody had, read by no program.
 //
@@ -69,10 +73,26 @@ function service_rename_ties(app, json, before, after)
             secrets_write(app, secrets);
         }
         const tokens = control_tokens_read(app);
-        if (tokens.some(v => Array.isArray(v.services) && v.services.includes(before))) {
-            control_tokens_write(app, tokens.map(v => (Array.isArray(v.services) && v.services.includes(before)) ? Object.assign({}, v, {services: v.services.map(vv => (vv === before) ? after : vv)}) : v));
+        if (tokens.some(v => token_tied(v, before))) {
+            control_tokens_write(app, tokens.map(v => token_tied(v, before) ? token_renamed(v, before, after) : v));
         }
     };
+}
+
+function token_tied(token, name)
+{
+    return TOKEN_LISTS.some(v => Array.isArray(token[v]) && token[v].includes(name));
+}
+
+function token_renamed(token, before, after)
+{
+    const out = Object.assign({}, token);
+    for (const key of TOKEN_LISTS) {
+        if (Array.isArray(token[key])) {
+            out[key] = token[key].map(v => (v === before) ? after : v);
+        }
+    }
+    return out;
 }
 
 module.exports = service_rename_ties;

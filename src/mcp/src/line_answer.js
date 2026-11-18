@@ -1,3 +1,4 @@
+const app_list = require('./app_list');
 const app_send = require('./app_send');
 const mcp_version = require('./mcp_version');
 
@@ -5,9 +6,9 @@ const mcp_version = require('./mcp_version');
 // the newest otherwise. Its tools are the same in each.
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = {name: 'serviceman', title: 'serviceman', version: mcp_version};
-const INSTRUCTIONS = 'serviceman serves apps at links of their own. app_send puts a folder of files (a page with its index.html, a built site) on serviceman and answers its link; the same name sent again is a new version at the same link.';
-// The tools, by the name an agent calls each by
-const TOOL_BY_NAME = new Map([[app_send.TOOL.name, app_send]]);
+const INSTRUCTIONS = 'serviceman serves apps at links of their own. app_send puts a folder of files (a page with its index.html, a built site) on serviceman and answers its link; the same name sent again is a new version at the same link. app_list lists the apps you may send to, with their links.';
+// The tools, by the name an agent calls each by, in the order tools/list says them
+const TOOL_BY_NAME = new Map([[app_send.TOOL.name, app_send], [app_list.TOOL.name, app_list]]);
 // JSON-RPC's own codes
 const PARSE_ERROR = -32700;
 const INVALID_REQUEST = -32600;

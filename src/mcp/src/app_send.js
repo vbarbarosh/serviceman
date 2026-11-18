@@ -22,8 +22,7 @@ async function app_send(args)
     const {zip, left} = await zip_from_folder(path.resolve(dir));
     const answer = await control_request('PUT', `/api/v1/apps/${encodeURIComponent(name)}`, zip);
     if ((answer.status !== 200) && (answer.status !== 201)) {
-        const said = ((answer.json !== null) && (typeof answer.json.error === 'string')) ? answer.json.error : answer.text.trim().slice(0, 300);
-        throw new Error(`serviceman answered ${answer.status}: ${said}`);
+        throw control_request.refusal_of(answer);
     }
     return format_app_sent(answer.json, left);
 }
@@ -37,7 +36,7 @@ app_send.TOOL = {
         'Use it when you have made a page or a small app that is files a browser opens as they are: an index.html at the top of the folder (or in its one subfolder) and what it loads, scripts, styles, pictures; a built site (dist/) is one. Nothing runs on a server for it.',
         'The first send under a name makes the app and answers its link. Send again under the same name for a new version: the link stays, and the new files take the place of the old ones whole.',
         'The whole folder goes, every file at every depth, hidden ones too, but a .git folder and .env files, which are left out and named in the answer; whoever opens the link can fetch every file sent: send the folder that is the app, not a project folder with sources, secrets or node_modules. Links in it are refused; up to 65535 files and 256 MiB.',
-        'A name serviceman already has for an app of files is that app: sending under it replaces it, so pick a name of your own and keep it for the next versions.',
+        'A name serviceman already has is an app someone made: sending under it replaces that app, or is refused when your token is kept to the apps it makes. Pick a name of your own and keep it for the next versions; app_list shows the apps you may send to.',
     ].join(' '),
     inputSchema: {
         type: 'object',

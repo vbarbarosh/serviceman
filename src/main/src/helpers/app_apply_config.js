@@ -1,6 +1,7 @@
 const agent_reset = require('./agent_reset');
 const app_ports_here = require('./app_ports_here');
 const app_routes_rebuild = require('./app_routes_rebuild');
+const control_tokens_apps_sweep = require('./control_tokens_apps_sweep');
 const counters_apply = require('./counters_apply');
 const counters_from_service = require('./counters_from_service');
 const doors_tell = require('./doors_tell');
@@ -54,6 +55,8 @@ async function app_apply_config(app, config, given)
     }
     const fresh = [];
     const next_services = [];
+    // The names that are new services, a rename's new name aside: no token made them yet
+    const made = [];
     for (const item of config.services) {
         const old = app.service_by_name[item.name];
         const old_item = running.services.find(v => v.name === item.name);
@@ -65,6 +68,9 @@ async function app_apply_config(app, config, given)
         // A changed definition is the same service: what it served so far stays counted
         if (old !== undefined) {
             counters_apply(service, counters_from_service(old));
+        }
+        else if (Object.values(renamed).includes(item.name) === false) {
+            made.push(item.name);
         }
         next_services.push(service);
         fresh.push(service);
@@ -102,6 +108,7 @@ async function app_apply_config(app, config, given)
         path: running.path,
     });
     app.services = next_services;
+    control_tokens_apps_sweep(app, made);
     // A machine whose definition changed is a new object with a new link; an instance on it
     // held a pool dialling the old one, which is offline for good
     for (const service of app.services) {

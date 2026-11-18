@@ -2153,6 +2153,9 @@ control port, with the owner&#39;s token or one given the <code>apps</code> righ
 (<a href="deploy.html#a-token-for-every-caller">a token for every caller</a>):</p>
 <pre><code>curl -T notes.zip -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/notes
 </code></pre>
+<p>A token kept to the apps it makes sends a new name and the names it made, and is refused any
+other with a <code>403</code> that says so; <code>GET /api/v1/apps</code> answers the apps it may send to, each
+<code>{name, kind, address, public}</code> (<a href="mcp.html#the-token">Apps from a coding agent</a>).</p>
 <p><strong>On serviceman&#39;s page</strong> it is one drop: <strong>Apps</strong> has a card to drop the zip, the folder or one
 <code>.html</code> page on (or click and pick a zip or a page), named after the file, <code>My Notes.zip</code> as
 <code>my-notes</code>, <code>2.html</code> as <code>2</code>. The card answers with the link that opens the app here and Open, and

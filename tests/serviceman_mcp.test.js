@@ -36,7 +36,7 @@ test('app_send puts a folder on serviceman at a link, and a new version at the s
     mcp.notify('notifications/initialized');
     assert.deepStrictEqual((await mcp.call('ping', {})).result, {});
     const listed = await mcp.call('tools/list', {});
-    assert.deepStrictEqual(listed.result.tools.map(v => v.name), ['app_send']);
+    assert.deepStrictEqual(listed.result.tools.map(v => v.name), ['app_send', 'app_list']);
     assert.deepStrictEqual(listed.result.tools[0].inputSchema.required, ['name', 'dir']);
     assert.match(listed.result.tools[0].description, /The whole folder goes/, 'the agent is told what is sent');
 
@@ -94,8 +94,8 @@ test('app_send says why an app was not taken, in serviceman\'s words', async fun
     assert.deepStrictEqual(link.result, {content: [{type: 'text', text: 'config.json is a link, and links are not sent: put the file it points at in its place'}], isError: true});
     const nowhere = await mcp.call('tools/call', {name: 'app_send', arguments: {name: 'notes', dir: path.join(running.dir, 'nowhere')}});
     assert.deepStrictEqual([nowhere.result.isError, nowhere.result.content[0].text], [true, `${path.join(running.dir, 'nowhere')}: there is no such folder`]);
-    const unknown = await mcp.call('tools/call', {name: 'app_list', arguments: {}});
-    assert.strictEqual(unknown.error.code, -32602, 'a tool that is not here is an error of the call');
+    const unknown = await mcp.call('tools/call', {name: 'app_remove', arguments: {}});
+    assert.deepStrictEqual(unknown.error, {code: -32602, message: 'no tool app_remove here: there is app_send, app_list'}, 'a tool that is not here is an error of the call');
 
     const reader = mcp_start(t, running, await token_make(running, 'a reader', ['status']));
     const refused = await reader.call('tools/call', {name: 'app_send', arguments: {name: 'notes', dir: path.join(running.dir, 'readme')}});
@@ -131,12 +131,59 @@ test('serviceman-mcp is served as one file to anyone, and that file alone sends 
     const hello = await mcp.call('initialize', HELLO);
     assert.deepStrictEqual(hello.result.serverInfo, {name: 'serviceman', title: 'serviceman', version: package_json.version});
     mcp.notify('notifications/initialized');
-    assert.deepStrictEqual((await mcp.call('tools/list', {})).result.tools.map(v => v.name), ['app_send']);
+    assert.deepStrictEqual((await mcp.call('tools/list', {})).result.tools.map(v => v.name), ['app_send', 'app_list']);
     const sent = await mcp.call('tools/call', {name: 'app_send', arguments: {name: 'site', dir: 'site'}});
     assert.strictEqual(sent.result.isError, false, sent.result.content[0].text);
     assert.ok(sent.result.content[0].text.includes(`\nLink: http://site.localhost:${running.port}/ `), sent.result.content[0].text);
     assert.strictEqual((await fetch_host({port: running.port, host: 'site.localhost', path: '/'})).body, '<title>Site</title>');
+    const listed = await mcp.call('tools/call', {name: 'app_list', arguments: {}});
+    assert.ok(listed.result.content[0].text.includes(`\nsite: http://site.localhost:${running.port}/\n`), listed.result.content[0].text);
     assert.strictEqual(await mcp.end(), 0);
+});
+
+// Two boxes, each with a token kept to the apps it makes, as the Tokens page makes one by
+// default. app_list says what a box may send to; app_send under another box's name is refused
+// in serviceman's words, and that app stays as it was.
+test('app_list says the apps a box may send to, and app_send is refused another\'s', async function (t) {
+    const running = await serviceman_start(t);
+    const box = mcp_start(t, running, await token_make(running, 'a box', ['apps'], true));
+    const other = mcp_start(t, running, await token_make(running, 'another box', ['apps'], true));
+    await box.call('initialize', HELLO);
+    await other.call('initialize', HELLO);
+    const list_tool = (await box.call('tools/list', {})).result.tools[1];
+    assert.deepStrictEqual([list_tool.name, list_tool.inputSchema, list_tool.annotations.readOnlyHint], ['app_list', {type: 'object', properties: {}, additionalProperties: false}, true]);
+
+    const none = await box.call('tools/call', {name: 'app_list', arguments: {}});
+    assert.deepStrictEqual(none.result, {content: [{type: 'text', text: 'This token has made no app yet, and it sends only the apps it makes: app_send under a name of your own makes one.'}], isError: false});
+    const notes = path.join(running.dir, 'notes');
+    fs.mkdirSync(notes);
+    fs.writeFileSync(path.join(notes, 'index.html'), '<title>Notes</title>');
+    assert.strictEqual((await box.call('tools/call', {name: 'app_send', arguments: {name: 'notes', dir: notes}})).result.isError, false);
+    const listed = await box.call('tools/call', {name: 'app_list', arguments: {}});
+    assert.strictEqual(listed.result.content[0].text, [
+        'The apps this token made, 1, the only ones it may send to:',
+        `notes: http://notes.localhost:${running.port}/`,
+        'app_send under one of these names sends its new version, at the same link; a name of your own makes a new app.',
+        'A link opens in a browser on the computer serviceman runs on.',
+    ].join('\n'));
+
+    const mine = path.join(running.dir, 'mine');
+    fs.mkdirSync(mine);
+    fs.writeFileSync(path.join(mine, 'index.html'), '<title>Not the notes</title>');
+    const refused = await other.call('tools/call', {name: 'app_send', arguments: {name: 'notes', dir: mine}});
+    assert.deepStrictEqual(refused.result, {content: [{type: 'text', text: 'serviceman answered 403: the token "another box" may not send a new version of notes: it sends only the apps it made, and it has made none'}], isError: true});
+    assert.strictEqual((await fetch_host({port: running.port, host: 'notes.localhost', path: '/'})).body, '<title>Notes</title>', 'the app is as its box sent it');
+    assert.strictEqual((await other.call('tools/call', {name: 'app_list', arguments: {}})).result.content[0].text.startsWith('This token has made no app yet'), true);
+
+    // A token without the keep is told that every app is someone's
+    const plain = mcp_start(t, running, await token_make(running, 'a plain box', ['apps']));
+    await plain.call('initialize', HELLO);
+    const every = await plain.call('tools/call', {name: 'app_list', arguments: {}});
+    assert.match(every.result.content[0].text, /^The apps on serviceman, 1; this token may send under any name, so each is someone's:\nnotes: http:\/\/notes\.localhost:\d+\/\napp_send under one of these names replaces that app, whoever made it: send under your own app's name, or a new one\.\n/);
+    const reader = mcp_start(t, running, await token_make(running, 'a reader', ['status']));
+    await reader.call('initialize', HELLO);
+    const not_listed = await reader.call('tools/call', {name: 'app_list', arguments: {}});
+    assert.deepStrictEqual(not_listed.result, {content: [{type: 'text', text: 'serviceman answered 403: the token "a reader" may not list the apps'}], isError: true});
 });
 
 // A serviceman of its own in a temp folder: its config file, which a new app is written into,
@@ -165,10 +212,11 @@ async function serviceman_start(t)
     return {app, dir, socket, port: servers.server.address().port, control: servers.control.address().port};
 }
 
-// A token for an agent, made by the owner as the Tokens page makes one: its value, said once
-async function token_make(running, label, rights)
+// A token for an agent, made by the owner as the Tokens page makes one: its value, said once.
+// apps_own true keeps its apps right to the apps it makes.
+async function token_make(running, label, rights, apps_own)
 {
-    const body = JSON.stringify({label, remotes: [], rights});
+    const body = JSON.stringify({label, remotes: [], rights, apps_own: (apps_own === true)});
     const answer = await fetch_host({port: running.control, method: 'POST', path: '/api/v1/tokens', body});
     assert.strictEqual(answer.status, 200, answer.body);
     return JSON.parse(answer.body).token;

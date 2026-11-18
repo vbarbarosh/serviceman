@@ -548,10 +548,10 @@ list, in a bar under its header and first on its Health page.
 | `control_refused`            | A caller that is not this machine was turned away.                        |
 | `control_cross_site_refused` | A change sent from a page on another site was turned away.                |
 | `control_error`              | An action asked from the page failed.                                     |
-| `control_token_refused`      | A request with no token, one nobody holds, or one asking past its rights. |
+| `control_token_refused`      | A request with no token, one nobody holds, or one asking past its rights, an app it did not make among them. |
 | `control_token_used`         | An agent's token was used, by its label, and for what.                    |
-| `control_token_made`         | An agent's token was made: its label, machines, rights, folders and apps. |
-| `control_token_changed`      | Its label, machines, rights, folders or apps were changed; the token stayed. |
+| `control_token_made`         | An agent's token was made: its label, machines, rights, folders and apps, and whether it is kept to the apps it makes (`apps_own`). |
+| `control_token_changed`      | Its label, machines, rights, folders, apps or `apps_own` were changed; the token stayed. |
 | `control_token_rotated`      | It was given a new value; the old one is refused from then on.            |
 | `control_token_revoked`      | One was revoked.                                                          |
 | `control_token_cut`          | A connection a token held open was cut, as it was revoked, rotated or changed: the right it was let in with, the machine, and why. |

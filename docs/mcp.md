@@ -2,8 +2,9 @@
 
 A coding agent in a box, a container with node in it and little else, makes a page or a small
 app, and someone wants to open it. serviceman-mcp is how the agent puts it on serviceman: an MCP
-server the agent starts, with one tool, `app_send`, that sends a folder as an app and answers its
-link. The same name sent again is a new version, at the same link.
+server the agent starts, with two tools. `app_send` sends a folder as an app and answers its
+link; the same name sent again is a new version, at the same link. `app_list` lists the apps the
+agent may send to, with their links.
 
 The box needs node, serviceman's control socket and a token, and nothing of serviceman's
 repository: serviceman hands the server out as one file, with no dependencies. The call it makes
@@ -11,7 +12,7 @@ is the one the page's **Apps** makes,
 [An app sent to serviceman](config.md#an-app-sent-to-serviceman), with a token that may send
 apps and nothing more.
 
-## The tool
+## The tools
 
 `app_send` takes two arguments:
 
@@ -40,6 +41,27 @@ stack. When serviceman refused the app, the sentence is serviceman's own:
     serviceman answered 400: notes.zip has no index.html, at its top or in its one folder: a page starts with it.
     serviceman answered 403: the token "a box" may not send an app of files
 
+A token kept to the apps it makes ([The token](#the-token), below) sends under its own names and
+new ones alone. Another's name is refused, and that app stays as it was:
+
+    serviceman answered 403: the token "a box" may not send a new version of wiki: it sends only the apps it made, notes
+
+`app_list` takes no arguments. It asks serviceman for the apps the token may send to
+(`GET /api/v1/apps`) and answers a line each, with its link:
+
+    The apps this token made, 2, the only ones it may send to:
+    notes: http://notes.localhost:8080/, outside notes.apps.example.com
+    board: http://board.localhost:8080/, outside board.apps.example.com
+    app_send under one of these names sends its new version, at the same link; a name of your own makes a new app.
+    A link opens in a browser on the computer serviceman runs on.
+
+The agent reads it to find the name of an app it sent before, and to see which names are taken.
+For a token that is not kept, the apps are every app of files on serviceman, and the answer says
+that each is someone's: a send under one of their names replaces that app. An app on a socket
+is listed too, marked as one `app_send` does not send to. With none, it says how one is made:
+`This token has made no app yet, and it sends only the apps it makes: app_send under a name of
+your own makes one.`
+
 ## What is sent
 
 The whole folder goes, every file at every depth, hidden ones too. Whoever opens the link can
@@ -59,21 +81,37 @@ sources, its secrets and its `node_modules`; the tool's description tells the ag
 
 serviceman checks the rest as it checks any zip: an `index.html`, nothing that leads outside
 the folder, one zip at a time for one app (`409` for a second), and a name that is a service
-of another kind is a `409` too.
+of another kind is a `409` too; to a token kept to the apps it makes, a `403`, as any name not
+its own.
 
 ## The token
 
 On serviceman's page, **Tokens**: a label that says whose it is (`the box of the notes
-project`), no machines, the right **apps** and nothing else, then **Make the token**. It is
-shown once, so copy it then: only its hash is kept. **Rotate…** gives it a new value and
-**Revoke…** ends it at once, as for any token
-([A token for every caller](deploy.md#a-token-for-every-caller)).
+project`), no machines, the right **apps** and nothing else, with **only the apps it makes**
+ticked under it, as it is for a new token, then **Make the token**. It is shown once, so copy
+it then: only its hash is kept. **Rotate…** gives it a new value and **Revoke…** ends it at
+once, as for any token ([A token for every caller](deploy.md#a-token-for-every-caller)).
 
-An `apps` token sends an app of files, a new one or a new version, and adds an app on a socket
-(`PUT /api/v1/apps/<name>/socket`). It touches no machine, no secret and no other kind of
-service. Give each box a token of its own: the log names the token of every send
-(`control_token_used token="the box of the notes project"`), and one box is stopped without the
-others.
+An `apps` token sends an app of files, a new one or a new version, adds an app on a socket
+(`PUT /api/v1/apps/<name>/socket`) on a machine it sees alone and at the socket named after the
+app, and lists the apps it may send to (`GET /api/v1/apps`). An app of files touches no machine,
+and the token no secret and no other kind of service. Give each box a token of its own:
+the log names the token of every send (`control_token_used token="the box of the notes
+project"`), and one box is stopped without the others.
+
+**Only the apps it makes** keeps the token to its own. A name serviceman has not seen makes the
+app, an app of files or one on a socket, and goes on the token's list; a name on that list takes
+the new version. Every other name is an app someone else has, the owner's or another token's,
+or a service of another kind, and is refused with a `403` before its zip is read, the app left
+as it was. The list is kept with the token in `data/control_tokens.json`, so a restart keeps it.
+A rename of the app on its **Settings** carries the name on the list; an app removed leaves it,
+and the same name made again later is its new maker's. The token's row says it:
+`apps · only the apps it makes: notes, board`, or `none yet`.
+
+Without the tick, as a token made before it was there, an `apps` token sends under any name: a
+name serviceman has for an app of files is that app, and the send replaces it, whoever made it.
+What it makes goes on its list all the same, so the tick given later on **Edit…** keeps it to
+the apps it made.
 
 ## In a box
 
@@ -119,11 +157,9 @@ requires node's own modules and its own files alone: a package from npm would no
 
 ## Not there yet
 
-- **A token kept to the apps it made.** Today an `apps` token sends under any name, and a name
-  serviceman already has for an app of files is that app: the send replaces it, whoever made it,
-  another box or the owner. The tool's description asks the agent to pick a name of its own and
-  keep it for the next versions; nothing holds it to that.
-- No tool lists the apps or takes one away: that is the owner's, on serviceman's page.
+- No tool takes an app away: that is the owner's, on serviceman's page.
+- A token's list holds the apps it made and nothing else: the owner cannot hand a box an app
+  made by someone else, other than by a token without the tick.
 - The link opens on the computer serviceman runs on. From anywhere else, the name outside is the
   one, once the config has an apps domain.
 
@@ -132,6 +168,16 @@ requires node's own modules and its own files alone: a package from npm would no
 `tests/serviceman_mcp.test.js`: an agent sends a folder and gets its link, then sends it again
 and the same link answers the new version, `.git` and `.env` files left out and named. A folder
 with no `index.html`, a link, a folder that is not there and a token without the right are
-refused in words, and nothing is made. The one file, taken through the socket with no token and
-run by node from an empty folder with nothing in its environment but the token and the socket,
-answers `initialize` and `tools/list` with serviceman's version, and sends an app.
+refused in words, and nothing is made. `app_list` answers a box's own apps, none at first, and
+every app for a token without the tick; `app_send` under another box's name is refused in
+serviceman's words, and that app serves its own files. The one file, taken through the socket
+with no token and run by node from an empty folder with nothing in its environment but the token
+and the socket, answers `initialize` and `tools/list` with serviceman's version, sends an app and
+lists it.
+
+`tests/apps_own.test.js`: a token kept to the apps it makes sends its own, of files and on a
+socket, and is refused the owner's app, another box's and a service of another kind, each left
+as it was; `GET /api/v1/apps` answers each token its own and the owner every app; the list
+survives a restart, follows a rename and loses an app removed, and a name kept in the file for
+an app removed by hand is the owner's once the owner makes it. A token without the tick sends
+under any name, as before.

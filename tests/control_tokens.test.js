@@ -86,7 +86,7 @@ test('an agent\'s token sees its machines alone, does only what it was given, an
     const status = JSON.parse((await call(running, 'GET', '/api/v1/status', null, made.token)).body);
     assert.deepStrictEqual(Object.keys(status).sort(), ['now', 'remotes', 'services', 'started_at', 'token']);
     assert.deepStrictEqual(status.remotes.map(v => v.name), ['vps1']);
-    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics'], folders: [], services: []});
+    assert.deepStrictEqual(status.token, {label: 'the notes agent', remotes: ['vps1'], rights: ['status', 'metrics'], folders: [], services: [], apps_own: false, apps: []});
     assert.strictEqual(JSON.stringify(status).includes(TOKEN), false);
 
     // A read of its machine goes on to the route; another machine, another read, any write is refused
