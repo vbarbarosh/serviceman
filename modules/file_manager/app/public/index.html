@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Files</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232f6fed' stroke-width='2'><path d='M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z'/></svg>">
+<link rel="stylesheet" href="_/serviceman.css">
+<link rel="stylesheet" href="_/file_manager/file_manager.css">
+<link rel="stylesheet" href="_/app/files_app.css">
+<script>
+// The theme picked here before, or the system's the first time; storage that throws, in a
+// private window, is a choice not kept
+try {
+    document.documentElement.dataset.theme = (localStorage.getItem('files-app.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+}
+catch {
+    document.documentElement.dataset.theme = 'light';
+}
+</script>
+<!-- Every address is relative to the page, so the app answers the same under a path of a shared name -->
+<script type="importmap">
+{
+    "imports": {
+        "codemirror": "./_/vendor/codemirror.mjs",
+        "vue": "./_/vendor/vue.esm-browser.prod.js"
+    }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="_/app/files_app.js"></script>
+</body>
+</html>

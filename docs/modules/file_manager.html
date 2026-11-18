@@ -706,7 +706,7 @@ img {
 <ul>
 <li><a href="disks.html">Disks</a></li>
 <li><a href="docker.html">Docker</a></li>
-<li class="current"><a href="file_manager.html" aria-current="page">Files</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#the-api">The API</a></li><li><a href="#the-disk">The disk</a></li><li><a href="#copies-between-disks">Copies between disks</a></li><li><a href="#plugging-it-into-a-host">Plugging it into a host</a></li><li><a href="#in-serviceman">In serviceman</a></li><li><a href="#tests">Tests</a></li></ul></li>
+<li class="current"><a href="file_manager.html" aria-current="page">Files</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#the-api">The API</a></li><li><a href="#the-disk">The disk</a></li><li><a href="#copies-between-disks">Copies between disks</a></li><li><a href="#plugging-it-into-a-host">Plugging it into a host</a></li><li><a href="#in-serviceman">In serviceman</a></li><li><a href="#as-an-app">As an app</a></li><li><a href="#tests">Tests</a></li></ul></li>
 <li><a href="firewall.html">Firewall</a></li>
 <li><a href="packages.html">Packages</a></li>
 <li><a href="processes.html">Processes</a></li>
@@ -745,6 +745,7 @@ ui/data_transfer_read.js       what a drop or a paste carries, a folder read fil
 ui/file_manager.css            the component&#39;s rules
 vendor_src/codemirror.js       what the editor takes from CodeMirror, for the host to bundle
 tests/                         the API over a disk held in memory
+app/                           the File Manager as an app of its own (As an app)
 </code></pre>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
 <p>What it holds and does is written down in <code>server/file_manager_manifest.js</code>, for a host to route,
@@ -1231,6 +1232,40 @@ agent from before it no folder is copied, and the copy says how the agent update
 serves <code>ui/</code> at <code>/modules/file_manager/</code></li>
 <li><code>bin/vendor</code> bundles <code>vendor_src/codemirror.js</code></li>
 </ul>
+<h2 id="as-an-app"><a class="anchor" href="#as-an-app" aria-hidden="true" tabindex="-1">#</a>As an app</h2>
+<p><code>app/</code> is the File Manager as an app folder serviceman runs: one page,
+the whole window, over one folder of the machine it runs on,
+which it shows as <code>/</code> and never leaves. No database: the files are
+the folder&#39;s own, and what is done is done to them.</p>
+<pre><code>bin/file-manager-zip [out]      data/file-manager.zip by default
+</code></pre>
+<p>The zip holds one folder, <code>file-manager/</code>: <code>bin/run</code>, and every file
+that <code>app/index.js --files</code> names, each where it sits in this
+repository. Nothing is installed: node, and nothing else.
+On serviceman, <strong>New service</strong>, <strong>An app folder</strong>, <strong>A .zip…</strong> takes
+it; <strong>New zip…</strong> on its page takes a new version, its <code>data/</code> kept.</p>
+<ul>
+<li><code>PORT</code>: where it listens, on 127.0.0.1 alone; serviceman gives it,
+and its wall says who may open the page.</li>
+<li><code>FILES_DIR</code>: the folder it shows: absolute, <code>~/…</code>,
+or from the app folder; <code>data/files</code> by default, made when missing.</li>
+</ul>
+<p>The disk is the machine&#39;s own, through the ServiceMan agent&#39;s code
+in the app&#39;s process (module-host&#39;s <code>machine_link</code>, <code>remote_disk</code>
+with <code>root</code>), so a rename, a tar, a file in parts and a watch go as
+they go on a machine. <code>folder_disk</code> makes the folder <code>/</code>: a path
+whose <code>..</code> climbs out of it is refused there, and the agent refuses
+a link that leads out (EACCES). The folder itself is never deleted
+or moved. A file opened in a tab is served sandboxed, and a change
+asked from another site&#39;s page is a 403.</p>
+<pre><code>app/index.js                     the server: PORT, FILES_DIR, --files
+app/src/folder_disk.js           a disk whose / is one folder of another
+app/src/files_app_answer.js      the page, /api/root, /api/files…
+app/src/page_file_by_address.js  every file of the page, by its address
+app/public/                      the page: the component in the whole window
+</code></pre>
+<p><code>tests/file_manager_app.test.js</code> makes the zip, runs it as serviceman
+does and asks it over HTTP.</p>
 <h2 id="tests"><a class="anchor" href="#tests" aria-hidden="true" tabindex="-1">#</a>Tests</h2>
 <pre><code>node --test modules/file_manager/tests/*.test.js
 </code></pre>

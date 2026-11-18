@@ -1,0 +1,38 @@
+/* The app's page: a head with its name, where its files are and the theme switch, and the File
+   Manager in the rest of the window (#app is two rows, serviceman.css) */
+.fa-head {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    min-width: 0;
+    padding: .6rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.fa-head b {
+    flex: none;
+}
+
+/* A long path is cut at its end, the whole of it in its tooltip */
+.fa-head .muted {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fa-theme {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin-left: auto;
+    padding: 0;
+}
+
+/* The list scrolls within the window's second row, under the head */
+.fa-files {
+    min-height: 0;
+}

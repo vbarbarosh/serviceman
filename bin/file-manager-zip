@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+RED="\e[31m"
+GREEN="\e[32m"
+RESET="\e[0m"
+
+EXIT_MESSAGE="${RED}$scriptname failed${RESET}"
+
+# The File Manager as an app folder serviceman runs, in one zip: New service, An app folder,
+# A .zip… takes it (or New zip… on the app's page, for a new version). Inside is one folder,
+# file-manager/, with bin/run and every file the app runs and serves, each where it sits in
+# this repository, as modules/file_manager/app/index.js --files names them; no data/, which the
+# app makes for itself. Nothing is installed there: node, and nothing else.
+#
+#     bin/file-manager-zip [out]
+#
+# out is where the zip goes, from the folder this is run in: data/file-manager.zip of this
+# checkout by default, which git leaves alone
+case "${1-}" in
+-h|--help)
+    echo "usage: $scriptname [out], data/file-manager.zip by default"
+    EXIT_MESSAGE=""
+    exit 0
+    ;;
+esac
+out=`realpath -m "${1-$scriptdir/../data/file-manager.zip}"`
+
+if ! command -v zip > /dev/null; then
+    echo "$scriptname: zip is not installed here (sudo apt install zip)" >&2
+    exit 1
+fi
+
+# http://redsymbol.net/articles/bash-exit-traps/
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/#essential-cleanup
+tempdir=`mktemp -d -t tmp.XXXXXXXXXX`
+trap 'rm -rf $tempdir; echo -e "$EXIT_MESSAGE"' EXIT
+
+cd $scriptdir/..
+
+app=$tempdir/file-manager
+node modules/file_manager/app/index.js --files > $tempdir/files
+while read -r file; do
+    mkdir -p "$app/`dirname "$file"`"
+    cp -p "$file" "$app/$file"
+done < $tempdir/files
+# The licences of what it carries: serviceman's, and that of the helpers it takes from
+# node_modules
+cp -p LICENSE $app/LICENSE
+cp -p node_modules/@vbarbarosh/node-helpers/LICENSE $app/node_modules/@vbarbarosh/node-helpers/LICENSE
+
+# What serviceman starts, with PORT, in the app folder
+mkdir -p $app/bin
+cat > $app/bin/run <<'EOF'
+#!/bin/bash
+
+# http://www.gnu.org/software/bash/manual/bash.html#The-Set-Builtin
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -o nounset -o errexit -o pipefail
+
+script=`realpath $0`
+scriptdir=`dirname $script`
+scriptname=`basename $script`
+
+cd $scriptdir/..
+
+# The File Manager over FILES_DIR, data/files by default, on 127.0.0.1:$PORT; written by
+# bin/file-manager-zip of the serviceman repository. The ServiceMan agent's code in it keeps to
+# this app: what it keeps goes to data/agent, its lines are the app's output, and it is asked
+# for files alone, so docker, tailscale and apt are not asked (the hello comes at once). The
+# folder, the log and the token of the agent that started the app are not the app's.
+export SERVICEMAN_AGENT_DIR=$PWD/data/agent
+export SERVICEMAN_LOG_DIR=none
+export SERVICEMAN_DOCKER=false SERVICEMAN_TAILSCALE=false SERVICEMAN_APT=false
+unset SERVICEMAN_TOKEN SERVICEMAN_HOST_KEY
+# systemd gives the agent a short PATH; node is looked for where the agent's installer looks too
+export PATH=$PATH:${HOME-}/bin:${HOME-}/.local/bin:/usr/local/bin:/opt/node/bin
+exec node modules/file_manager/app/index.js
+EOF
+chmod 755 $app/bin/run
+
+mkdir -p `dirname "$out"`
+rm -f "$out"
+(cd $tempdir && zip -qrX "$out" file-manager)
+echo "$out: `du -h "$out" | cut -f1`, `find $app -type f | wc -l` files"
+
+EXIT_MESSAGE="${GREEN}$scriptname succeeded${RESET}"

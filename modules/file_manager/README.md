@@ -32,6 +32,7 @@ reached over the link that machine's agent dialled.
     ui/file_manager.css            the component's rules
     vendor_src/codemirror.js       what the editor takes from CodeMirror, for the host to bundle
     tests/                         the API over a disk held in memory
+    app/                           the File Manager as an app of its own (As an app)
 
 ## The API
 
@@ -445,6 +446,44 @@ and `--accent`, and the classes the component shares with the rest of the page: 
 - `src/main/public/index.html` loads the css and maps `file_manager/`; the control server
   serves `ui/` at `/modules/file_manager/`
 - `bin/vendor` bundles `vendor_src/codemirror.js`
+
+## As an app
+
+`app/` is the File Manager as an app folder serviceman runs: one page,
+the whole window, over one folder of the machine it runs on,
+which it shows as `/` and never leaves. No database: the files are
+the folder's own, and what is done is done to them.
+
+    bin/file-manager-zip [out]      data/file-manager.zip by default
+
+The zip holds one folder, `file-manager/`: `bin/run`, and every file
+that `app/index.js --files` names, each where it sits in this
+repository. Nothing is installed: node, and nothing else.
+On serviceman, **New service**, **An app folder**, **A .zip…** takes
+it; **New zip…** on its page takes a new version, its `data/` kept.
+
+- `PORT`: where it listens, on 127.0.0.1 alone; serviceman gives it,
+  and its wall says who may open the page.
+- `FILES_DIR`: the folder it shows: absolute, `~/…`,
+  or from the app folder; `data/files` by default, made when missing.
+
+The disk is the machine's own, through the ServiceMan agent's code
+in the app's process (module-host's `machine_link`, `remote_disk`
+with `root`), so a rename, a tar, a file in parts and a watch go as
+they go on a machine. `folder_disk` makes the folder `/`: a path
+whose `..` climbs out of it is refused there, and the agent refuses
+a link that leads out (EACCES). The folder itself is never deleted
+or moved. A file opened in a tab is served sandboxed, and a change
+asked from another site's page is a 403.
+
+    app/index.js                     the server: PORT, FILES_DIR, --files
+    app/src/folder_disk.js           a disk whose / is one folder of another
+    app/src/files_app_answer.js      the page, /api/root, /api/files…
+    app/src/page_file_by_address.js  every file of the page, by its address
+    app/public/                      the page: the component in the whole window
+
+`tests/file_manager_app.test.js` makes the zip, runs it as serviceman
+does and asks it over HTTP.
 
 ## Tests
 
