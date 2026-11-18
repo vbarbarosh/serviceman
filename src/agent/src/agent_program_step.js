@@ -1,3 +1,4 @@
+const agent_child_env = require('./agent_child_env');
 const agent_services_dir = require('./agent_services_dir');
 const path = require('path');
 const program_line_argv = require('../../helpers/program_line_argv');
@@ -11,7 +12,7 @@ function agent_program_step(options, params, say)
     const cwd = path.resolve(agent_services_dir(), ((params.cwd === null) || (params.cwd === undefined)) ? '.' : params.cwd);
     return shell_stream(program_line_argv(params.line, cwd, params.image, params.env, options.docker, params.user, params.secrets), {
         cwd,
-        env: Object.assign({}, process.env, secrets_env(params.secrets), params.env || {}),
+        env: agent_child_env(secrets_env(params.secrets), params.env || {}),
     }, say);
 }
 

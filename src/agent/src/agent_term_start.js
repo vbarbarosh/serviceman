@@ -1,3 +1,4 @@
+const agent_child_env = require('./agent_child_env');
 const agent_term_holder_py = require('./agent_term_holder_py');
 const agent_term_read = require('./agent_term_read');
 const agent_terms_dir = require('./agent_terms_dir');
@@ -37,7 +38,7 @@ async function agent_term_start(name, cols, rows, env, cwd)
     const shell = process.env.SHELL || '/bin/bash';
     const child = child_process.spawn('python3', ['-c', agent_term_holder_py, base, String(cols), String(rows), shell, '-l'], {
         cwd: dir,
-        env: Object.assign({}, process.env, {TERM: 'xterm-256color'}, env),
+        env: agent_child_env({TERM: 'xterm-256color'}, env),
         detached: true,
         stdio: 'ignore',
     });

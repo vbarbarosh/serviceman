@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const agent_child_env = require('./agent_child_env');
 const agent_term_join = require('./agent_term_join');
 const child_process = require('child_process');
 const os = require('os');
@@ -87,7 +88,7 @@ function agent_machine_shell(target)
     const argv = [shell, '-l'];
     const child = child_process.spawn('python3', ['-c', PTY_PY, String(target.cols || 80), String(target.rows || 24), ...argv], {
         cwd: os.homedir(),
-        env: Object.assign({}, process.env, {TERM: 'xterm-256color'}),
+        env: agent_child_env({TERM: 'xterm-256color'}),
         stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
     });
     const out = new EventEmitter();

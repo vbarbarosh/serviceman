@@ -1,3 +1,4 @@
+const agent_child_env = require('./agent_child_env');
 const agent_program_follow = require('./agent_program_follow');
 const agent_programs_dir = require('./agent_programs_dir');
 const agent_say = require('./agent_say');
@@ -43,7 +44,7 @@ function agent_program_start(state, params, group)
     try {
         child = child_process.spawn(params.argv[0], params.argv.slice(1), {
             cwd,
-            env: Object.assign({}, process.env, params.env || {}),
+            env: agent_child_env(params.env || {}),
             detached: true,
             stdio: ['ignore', out_fd, err_fd],
         });
