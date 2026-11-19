@@ -33,6 +33,7 @@ const control_token_live = require('../helpers/control_token_live');
 const control_token_refusal = require('../helpers/control_token_refusal');
 const control_token_status = require('../helpers/control_token_status');
 const crypto = require('crypto');
+const databases_read = require('../helpers/databases_read');
 const disks_serve = require('../../../../modules/disks/server/disks_serve');
 const docker_exec_connect = require('../helpers/docker_exec_connect');
 const docker_serve = require('../../../../modules/docker/server/docker_serve');
@@ -146,6 +147,8 @@ const RE_APP_FILE_BROWSER = /^\/api\/v1\/apps\/([^/]+)\/file-browser$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
+// A database's name on its page's address, as its server says it: MySQL's samples are capitalised
+const RE_DATABASE_SHOWN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 // The File Manager module's API, one machine's disk under each
 const RE_REMOTE_FS = /^\/api\/v1\/remotes\/([^/]+)\/fs(\/.*)?$/;
 const RE_REMOTE_FS_OPEN = /^\/api\/v1\/remotes\/([^/]+)\/fs\/open(\/.*)$/;
@@ -756,6 +759,15 @@ function page_known(app, pathname)
     if (parts[0] === 'remotes') {
         const named = (parts[1] === 'new') || (app.remote_by_name[parts[1]] !== undefined);
         return named && ((parts[2] === undefined) || REMOTE_TABS.includes(parts[2]));
+    }
+    // New database, a database server, one database in it: /databases/<server>/<database>, a
+    // name as its server says it, which serviceman does not keep
+    if (parts[0] === 'databases') {
+        if ((parts[1] === 'new') && (parts[2] === undefined)) {
+            return true;
+        }
+        const named = databases_read(app).servers.some(v => v.name === parts[1]);
+        return named && ((parts[2] === undefined) || RE_DATABASE_SHOWN.test(parts[2]));
     }
     return false;
 }

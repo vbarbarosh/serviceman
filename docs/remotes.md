@@ -313,9 +313,10 @@ Nothing is placed for you, and nothing moves on its own: a service runs where yo
 **Its page** opens from its row under **Remotes**: a header with its name and how it stands
 (`online · agent 1.0.147`), its tags, **Shell** and **+ Service here**; then its tabs,
 **Overview**, **Services** (what it carries, a row each that opens the service), **Databases**
-(the servers Databases brought up on it), **Files**, **Logs**, **Settings**, and the rest of what
-can be done on it: **Configure**, **Docker**, **Firewall**, **Processes**, **Disks**, **Packages**,
-**Vulnerabilities**, and **Install** while it is away.
+(the databases on it, a row each that opens its page, and **+ New database here**), **Files**,
+**Logs**, **Settings**, and the rest of what can be done on it: **Configure**, **Docker**,
+**Firewall**, **Processes**, **Disks**, **Packages**, **Vulnerabilities**, and **Install** while
+it is away.
 
 The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
 docker version, node version — and repeats the numbers that move every 5 seconds: among them

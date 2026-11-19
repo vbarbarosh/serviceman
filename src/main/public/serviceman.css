@@ -4859,7 +4859,7 @@ article.rf .actions {
     flex: none;
 }
 
-/* Databases: + MySQL's form, then each server with a row per database in it */
+/* Databases: one table of every database; a database's page, its Remove asking in a card */
 .databases .db-card {
     display: flex;
     flex-direction: column;
@@ -4870,6 +4870,7 @@ article.rf .actions {
 
 .databases .db-card p {
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .databases .db-card .row-of {
@@ -4877,25 +4878,6 @@ article.rf .actions {
     gap: .6rem;
 }
 
-/* The form's fields as label and field in two columns; one column on a phone */
-.databases .db-form-grid {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 22rem);
-    gap: .5rem .8rem;
-    align-items: center;
-}
-
-@media (max-width: 560px) {
-    .databases .db-form-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-.databases .db-form-grid label {
-    color: var(--muted);
-}
-
-.databases .db-card select,
 .databases .db-card input {
     min-width: 0;
     max-width: 100%;
@@ -4907,50 +4889,24 @@ article.rf .actions {
     font: inherit;
 }
 
-.databases .db-card select:focus,
 .databases .db-card input:focus {
     border-color: var(--accent);
     outline: 0;
 }
 
-.databases .db-card input.wrong {
-    border-color: var(--bad);
+.databases .db-sub {
+    margin: 1.4rem 0 .5rem;
+    font-size: 1rem;
 }
 
-.databases .db-server {
-    margin-top: 1.4rem;
+.databases .ov-tiles {
+    margin-top: 1rem;
 }
 
-.databases .db-head {
-    flex-wrap: wrap;
-    gap: .3rem .8rem;
-}
-
-.databases .db-head h2 {
-    display: flex;
-    gap: .45rem;
-    align-items: center;
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
-.databases .db-head h2 .db-icon {
-    flex: none;
-}
-
-.databases .db-where {
-    overflow-wrap: anywhere;
-}
-
-.databases .db-phase {
-    display: inline-flex;
-    gap: .4rem;
-    align-items: center;
-}
-
-.databases .db-why {
-    margin: .2rem 0 .6rem;
-    overflow-wrap: anywhere;
+.databases .ov-tile b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* The apps of a row wrap in their cell, each a link to its service */
@@ -4969,9 +4925,70 @@ article.rf .actions {
     color: var(--muted);
 }
 
-/* + MySQL stays one button on a phone */
+/* + New database stays one button on a phone */
 .databases .list-acts button {
     white-space: nowrap;
+}
+
+/* New database: the line under the machines, an app's variable on its card, and the URL the
+   first one ticked finds, its password hidden */
+.db-says {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-start;
+    margin: .8rem 0 0;
+}
+
+.sf-label {
+    margin-bottom: -.4rem;
+    color: var(--muted);
+}
+
+.db-says svg {
+    flex: none;
+    margin-top: .15rem;
+}
+
+/* An app's card is a label round its tick box, drawn as the machines' buttons are */
+.machine-card.db-app {
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--fg);
+    cursor: pointer;
+}
+
+.machine-card.db-app.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.machine-card.db-app.away {
+    cursor: default;
+}
+
+/* A tick box, not a field: a form's fields fill their row */
+.machine-card.db-app input[type=checkbox] {
+    flex: none;
+    width: auto;
+    margin: 0;
+}
+
+.db-env {
+    align-self: flex-start;
+    padding: .05rem .4rem;
+    border-radius: 4px;
+    background: var(--run-soft);
+    color: var(--run);
+    font-size: .8rem;
+}
+
+.db-url {
+    display: block;
+    padding: .55rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
 /* The Canvas: every machine drawn as what it is, one light each, on a board that pans and zooms */

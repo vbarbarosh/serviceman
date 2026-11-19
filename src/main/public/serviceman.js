@@ -1509,7 +1509,7 @@ const remote_page = {
     <keep-alive :max="10">
     <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" :port="port" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
     <article v-else-if="(tab_now === 'services')" id="detail" class="list"><item-services :services="services" :port="port" :title="('Services on ' + (view.title || view.name))" @select="$emit('select', $event)"/></article>
-    <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases')"/>
+    <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases', $event)" @select="$emit('select', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
     <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
     <article v-else-if="(tab_now === 'settings')" id="detail"><p class="muted">reading the config…</p></article>
@@ -1590,13 +1590,14 @@ const remote_page = {
                 }
             },
         },
-        // How many database servers it holds, for its tab, read as kept: the machine is not asked
+        // How many databases it holds, for its tab, read as kept: the machine is asked only for
+        // a server never read
         'view.name': {
             immediate: true,
             handler: async function (name) {
                 try {
                     const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
-                    this.databases_count = (await answer.json()).servers.filter(v => v.remote === name).length;
+                    this.databases_count = (await answer.json()).servers.filter(v => v.remote === name).reduce((sum, v) => sum + v.databases.length, 0);
                 }
                 catch {
                     this.databases_count = null;
@@ -1992,6 +1993,20 @@ const service_page = {
     },
 };
 
+// The address of what Databases shows: its table, New database, or a database's page, a server
+// with none at its name alone
+function database_path(place)
+{
+    if (place === null) {
+        return '/databases';
+    }
+    if (place.page === 'new') {
+        return '/databases/new';
+    }
+    const database = (place.database === '') ? '' : `/${encodeURIComponent(place.database)}`;
+    return `/databases/${encodeURIComponent(place.server)}${database}`;
+}
+
 // What the address says you are looking at. Service and remote names are [a-z0-9_-], so the
 // only thing between the parts is the separator itself. ?remote= narrows a list to one machine.
 function route_from_path(pathname, search)
@@ -2006,7 +2021,7 @@ function route_from_path(pathname, search)
     if (parts.length === 0) {
         return {kind: 'home', name: '', tab: '', item: '', remote};
     }
-    if (((parts[0] === 'services') || (parts[0] === 'remotes')) && (parts.length > 1)) {
+    if (((parts[0] === 'services') || (parts[0] === 'remotes') || (parts[0] === 'databases')) && (parts.length > 1)) {
         return {kind: parts[0], name: parts[1], tab: (parts[2] === undefined) ? '' : parts[2], item: (parts[3] === undefined) ? '' : parts[3], remote: null, path: new URLSearchParams(search).get('path')};
     }
     return {kind: parts[0], name: '', tab: '', item: '', remote};
@@ -2066,7 +2081,7 @@ const app = {
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
-        <databases-pane v-else-if="databases_open" @changed="databases_count_read" @select="select_named"/>
+        <databases-pane v-else-if="databases_open" :place="database_place" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add" @service="create()"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
         <tokens-form v-else-if="tokens_open"/>
@@ -2074,7 +2089,7 @@ const app = {
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
         <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state"/></article>
         <article v-else-if="boards_open" id="detail" class="form"><boards-pane :state="state" @saved="poll"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @select="select_named" @saved="poll" @walls="wall_new"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @new_database="databases_show(Object.assign({page: 'new'}, $event))" @select="select_named" @saved="poll" @walls="wall_new"/></article>
         <tailscale-pane v-else-if="tailscale_open" :state="state" @saved="poll"/>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
@@ -2087,7 +2102,7 @@ const app = {
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" @close="form_open = false" @databases="databases_show" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :port="state.listen.port" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
@@ -2155,6 +2170,9 @@ const app = {
             shared_open: false,
             shared_count: '',
             databases_open: false,
+            // What Databases shows: null for its table, {page: 'new', ...} for New database,
+            // {page: 'database', server, database} for a database's page
+            database_place: null,
             databases_count: '',
             networking_open: false,
             forwards_open: false,
@@ -2277,7 +2295,7 @@ const app = {
                 return '/shared-folders';
             }
             if (this.databases_open) {
-                return '/databases';
+                return database_path(this.database_place);
             }
             if (this.secrets_open) {
                 return '/secrets';
@@ -2442,6 +2460,10 @@ const app = {
             }
             if (this.join_form_open) {
                 return page_crumbs({page: 'join', name: '', title: '', tab: ''});
+            }
+            if (this.databases_open && (this.database_place !== null)) {
+                const place = this.database_place;
+                return (place.page === 'new') ? page_crumbs({page: 'new-database', name: '', title: '', tab: ''}) : page_crumbs({page: 'database', name: place.server, title: (place.database === '') ? '' : place.database, tab: ''});
             }
             if ((this.kind_now === 'remotes') && (this.selected_remote !== null)) {
                 return page_crumbs({page: 'remote', name: this.selected_remote.name, title: this.selected_remote.title || '', tab: this.remote_tab_now});
@@ -2676,6 +2698,12 @@ const app = {
             }
             if (route.kind === 'databases') {
                 this.databases_open = true;
+                if (route.name === 'new') {
+                    this.database_place = {page: 'new'};
+                }
+                else if (route.name !== '') {
+                    this.database_place = {page: 'database', server: route.name, database: route.tab};
+                }
                 return;
             }
             if (route.kind === 'secrets') {
@@ -2808,16 +2836,18 @@ const app = {
             this.panes_close();
             this.shared_open = true;
         },
-        databases_show: function () {
+        // Databases, at its table or at the place given: New database, a database's page
+        databases_show: function (place) {
             this.panes_close();
             this.databases_open = true;
+            this.database_place = ((place === undefined) || (place === null)) ? null : place;
         },
-        // The servers as kept: the machines are not asked for a count
+        // The databases as kept: the machines are asked only for a server never read
         databases_count_read: async function () {
             try {
                 const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
                 const body = await answer.json();
-                this.databases_count = String(body.servers.length);
+                this.databases_count = String(body.servers.reduce((sum, v) => sum + v.databases.length, 0));
             }
             catch {
                 this.databases_count = '';
@@ -3055,6 +3085,7 @@ const app = {
             this.volumes_open = false;
             this.shared_open = false;
             this.databases_open = false;
+            this.database_place = null;
             this.form_open = false;
             this.remote_form_open = false;
             this.networking_open = false;
@@ -3137,8 +3168,8 @@ const app = {
             this.remote_form_open = true;
         },
         remote_saved: async function (name) {
-            // A new service's form waits for it: back to it at once, before the form's Close
-            // that follows takes it back without the machine
+            // A new service's or database's form waits for it: back to it at once, before the
+            // form's Close that follows takes it back without the machine
             if ((name !== null) && (this.form_stash !== null)) {
                 this.form_back(name);
                 await this.poll();
@@ -3160,22 +3191,29 @@ const app = {
             }
             this.create(name);
         },
-        // New remote put away: a new service's form that sent there comes back as it was
+        // New remote put away: the form that sent there comes back as it was
         remote_form_close: function () {
             this.remote_form_open = false;
             if (this.form_stash !== null) {
                 this.form_back(null);
             }
         },
-        // Add a machine, from a new service's Machine step
+        // Add a machine, from the Machine step of New service or New database
         machine_add: function (stash) {
             this.form_stash = stash;
             this.remote_new();
         },
-        // The new service's form again, every answer as it was, the machine just made picked
+        // The form that sent there again, every answer as it was, the machine just made picked
         form_back: function (name) {
             const stash = this.form_stash;
             this.form_stash = null;
+            if (stash.kind === 'database') {
+                if (name !== null) {
+                    stash.model.remote = name;
+                }
+                this.databases_show({page: 'new', restore: stash});
+                return;
+            }
             if (name !== null) {
                 stash.model.places[0].text = name;
             }

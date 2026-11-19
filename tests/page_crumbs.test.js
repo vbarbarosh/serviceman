@@ -50,6 +50,14 @@ test('a form is one crumb after its category', async function () {
     const page_crumbs = await page_crumbs_of();
     assert.deepStrictEqual(page_crumbs({page: 'new-service', name: '', title: '', tab: ''}), [{label: 'New service', to: null}]);
     assert.deepStrictEqual(page_crumbs({page: 'new-remote', name: '', title: '', tab: ''}), [{label: 'New remote', to: null}]);
+    assert.deepStrictEqual(page_crumbs({page: 'new-database', name: '', title: '', tab: ''}), [{label: 'New database', to: null}]);
+});
+
+// Databases ▾ › orders: a database is its name; a server with none in it is the server's name
+test('a database is one crumb, its name, or its server\'s when it has none', async function () {
+    const page_crumbs = await page_crumbs_of();
+    assert.deepStrictEqual(page_crumbs({page: 'database', name: 'postgresql-1', title: 'orders', tab: ''}), [{label: 'orders', to: null}]);
+    assert.deepStrictEqual(page_crumbs({page: 'database', name: 'postgresql-1', title: '', tab: ''}), [{label: 'postgresql-1', to: null}]);
 });
 
 // The first crumb's menu lists the seven the designer drew, in that order; every category has

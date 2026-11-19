@@ -1,186 +1,228 @@
 import data_table from './data_table.js';
+import database_cell from './database_cell.js';
+import database_new from './database_new.js';
+import database_rows from './database_rows.js';
+import database_state from './database_state.js';
 
 // How often an open pane asks how the servers stand: one coming up says each step within seconds
 const REFRESH_MS = 3000;
-// What each phase of a server is called, and its dot
-const PHASES = {
-    up: {label: 'up', dot: 'running'},
-    starting: {label: 'coming up', dot: 'starting'},
-    failed: {label: 'failed', dot: 'failed'},
-    removing: {label: 'being removed', dot: 'stopping'},
-};
-// A server's name: what its container and its folder are called after
-const RE_NAME = /^[a-z][a-z0-9-]{0,39}$/;
 
-// Databases: the database servers serviceman runs on the machines, a container each, always up,
-// its data in a folder kept for it there. + MySQL brings one up on a machine, empty or filled
-// with a sample; + Database makes an empty one inside a server. An app picks one of them in its
-// Data tab on Apps and finds it in DATABASE_URL at every start. The passwords stay with
-// serviceman: the page sees names, sizes and who uses what.
+// Databases: every database on the machines, a row each, in one table: its engine, its machine,
+// its size, the apps given it, how it stands. Each lives in a database server serviceman runs
+// there, a container always up, its data in a folder kept for it there; a server with no
+// database yet, coming up or failed is a row of its own. + New database opens New database; a row
+// opens the database's page. An app finds one given it in DATABASE_URL at every start, and the
+// passwords stay with serviceman: the page sees names, sizes and who uses what.
 const databases_pane = {
     template: `
-<article id="detail" class="list databases">
-    <div class="list-head">
-        <h1>Databases</h1>
-        <span class="muted">{{ count_text }}</span>
-        <div class="list-acts">
-            <button v-for="engine of engines" :key="engine.value" type="button" class="primary" :disabled="(form !== null)" @click="form_begin(engine)">+ {{ engine.label }}</button>
-        </div>
-    </div>
-    <p class="muted">A database server on one of your machines, always up, its data kept there. An app picks one of its databases in its Data tab, on Apps, and finds it in <code>DATABASE_URL</code> at every start; the passwords stay with serviceman. A CouchDB is picked as its admin, with the secret it trusts a signed user name by, for a wall that gives each user a database of their own.</p>
-    <div v-if="(form !== null)" class="card db-card db-form">
-        <div class="db-form-grid">
-            <label for="db-form-remote">Machine</label>
-            <select id="db-form-remote" v-model="form.remote">
-                <option v-for="item of machine_options" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option>
-            </select>
-            <label for="db-form-version">{{ form.engine.label }}</label>
-            <select id="db-form-version" v-model="form.version">
-                <option v-for="version of form.engine.versions" :key="version" :value="version">{{ version }}</option>
-            </select>
-            <template v-if="(form.engine.samples.length > 0)">
-                <label for="db-form-sample">Filled with</label>
-                <select id="db-form-sample" v-model="form.sample">
-                    <option value="">nothing: an empty server</option>
-                    <option v-for="sample of form.engine.samples" :key="sample.value" :value="sample.value">{{ sample.label }}</option>
-                </select>
-            </template>
-            <label for="db-form-name">Name</label>
-            <input id="db-form-name" v-model.trim="form.name" :class="{wrong: (name_problem !== '')}" spellcheck="false" autocomplete="off" @keydown.enter="form_save">
-        </div>
-        <p class="muted db-form-says">{{ form_says }}</p>
-        <p v-if="(name_problem !== '')" class="bad">{{ name_problem }}</p>
-        <div class="row-of">
-            <button type="button" class="primary" :disabled="((form.remote === '') || (name_problem !== '') || busy)" @click="form_save">Bring it up</button>
-            <button type="button" :disabled="busy" @click="form = null">Cancel</button>
-        </div>
-    </div>
-    <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
+<article id="detail" class="list databases" :class="{form: (place_now.page === 'new')}">
     <p v-if="(view === null)" class="muted"><span v-if="(load_error === '')" class="spin"/>{{ (load_error === '') ? 'reading…' : load_error }}</p>
-    <p v-else-if="((servers.length === 0) && (form === null))" class="muted">No database yet: <button type="button" class="link" @click="form_begin(engines[0])">+ {{ engines[0].label }}</button> brings one up on a machine of yours, empty or filled with a sample.</p>
-    <section v-for="server of servers" :key="server.name" class="db-server">
-        <div class="list-head db-head">
-            <h2>
-                <svg class="db-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></svg>
-                {{ server.name }}
-            </h2>
-            <span class="muted db-where">{{ where_text(server) }}</span>
-            <span class="db-phase"><span class="dot" :class="phase_of(server).dot"/><span :class="{bad: (server.phase === 'failed')}"><span v-if="(server.phase === 'starting')" class="spin"/>{{ phase_text(server) }}</span></span>
-            <div class="list-acts">
-                <button v-if="(server.engine !== 'couchdb')" type="button" :disabled="((server.phase !== 'up') || (server.online === false) || (adding !== null))" :title="add_title(server)" @click="add_begin(server)">+ Database</button>
-                <button type="button" :disabled="(server.phase === 'removing')" @click="remove_begin(server)">Remove…</button>
+    <database-new v-else-if="(place_now.page === 'new')" :view="view" :restore="(place_now.restore || null)" :given="(place_now.given || [])" :remote="(place_now.remote || '')" @close="$emit('place', null)" @made="made" @machine="$emit('machine', $event)" @service="$emit('service')"/>
+    <template v-else-if="(place_now.page === 'database')">
+        <div class="item-head">
+            <svg class="item-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" :stroke="colour_of(open_server)" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/>
+            <h1>{{ open_title }}</h1>
+            <span class="pill" :class="state_of(open_server).pill"><span class="dot" :class="state_of(open_server).dot"/>{{ state_of(open_server).word }}</span>
+            <span class="tag">{{ engine_text(open_server) }}</span>
+            <span class="muted">on {{ open_server.title }}</span>
+            <div class="acts crumb-acts">
+                <button v-if="(open_server.phase === 'failed')" type="button" :disabled="(busy || (open_server.online === false))" :title="(open_server.online ? 'Again where it was, with the password its data was made with' : (open_server.title + ' is offline'))" @click="again(open_server)">Bring it up again</button>
+                <button type="button" :disabled="((removing !== null) || (open_server.phase === 'removing'))" @click="remove_begin(open_server)">Remove…</button>
             </div>
         </div>
-        <p v-if="(server.phase === 'failed')" class="bad db-why">{{ server.error }}</p>
-        <div v-if="((removing !== null) && (removing.server === server.name))" class="card db-card">
-            <p>Removing <b>{{ server.name }}</b> stops its container on {{ server.title }} and takes away every database in it, its folder there too. {{ used_text(server) }}Type its name to go on:</p>
+        <p v-if="(state_of(open_server).detail !== '')" :class="(state_of(open_server).bad ? 'bad' : 'muted')"><span v-if="(open_server.phase === 'starting')" class="spin"/>{{ state_of(open_server).detail }}</p>
+        <div v-if="(removing !== null)" class="card db-card">
+            <p>Removing <b>{{ open_title }}</b> removes its server, <b>{{ open_server.name }}</b>: its container on {{ open_server.title }} stops, and every database in it goes, its folder there too{{ (others.length === 0) ? '' : (': ' + others.map(v => v.name).join(', ') + ' as well') }}. {{ used_text(open_server) }}Type its server's name to go on:</p>
             <div class="row-of">
-                <input ref="remove_name" v-model.trim="removing.typed" :placeholder="server.name" spellcheck="false" autocomplete="off" aria-label="The server's name, typed again" @keydown.enter="remove_save">
-                <button type="button" class="danger" :disabled="((removing.typed !== server.name) || busy)" @click="remove_save">Remove {{ server.name }}</button>
+                <input ref="remove_name" v-model.trim="removing.typed" :placeholder="open_server.name" spellcheck="false" autocomplete="off" aria-label="The server's name, typed again" @keydown.enter="remove_save">
+                <button type="button" class="danger" :disabled="((removing.typed !== open_server.name) || busy)" @click="remove_save">Remove {{ open_server.name }}</button>
                 <button type="button" :disabled="busy" @click="removing = null">Cancel</button>
             </div>
         </div>
-        <div v-if="((adding !== null) && (adding.server === server.name))" class="card db-card">
-            <div class="row-of">
-                <input ref="add_name" v-model.trim="adding.name" placeholder="shop" spellcheck="false" autocomplete="off" aria-label="The new database's name" @keydown.enter="add_save">
-                <button type="button" class="primary" :disabled="((add_problem !== '') || busy)" @click="add_save">Make it</button>
-                <button type="button" :disabled="busy" @click="adding = null">Cancel</button>
-                <span :class="((add_problem === '') ? 'muted' : 'bad')">{{ (add_problem === '') ? 'empty, with a user of its own named after it' : add_problem }}</span>
+        <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
+        <div class="ov-tiles">
+            <div v-for="tile of open_tiles" :key="tile.label" class="card ov-tile">
+                <span class="ov-label">{{ tile.label }}</span>
+                <b>{{ tile.value }}</b>
+                <small class="muted" :title="tile.note">{{ tile.note }}</small>
             </div>
         </div>
-        <data-table :columns="columns" :rows="server.databases" :row_key="v => v.name" :more="cell_more" actions_label="" :empty="empty_text(server)">
+        <h2 class="db-sub">Given to</h2>
+        <data-table :columns="app_columns" :rows="open_apps" row_key="name" :on_row="(row => $emit('select', row.name))" :marks="false" :empty="open_apps_empty">
             <template #cell="{row, column}">
-                <span v-if="(column.key === 'name')"><code>{{ row.name }}</code><span v-if="(server.engine === 'couchdb')" class="muted"> · every database, made by the app</span></span>
-                <span v-else-if="(column.key === 'tables')">{{ (server.engine === 'couchdb') ? (row.tables + ((row.tables === 1) ? ' database' : ' databases')) : row.tables }}</span>
-                <span v-else-if="(column.key === 'size')">{{ size_text(row.bytes) }}</span>
-                <span v-else-if="(column.key === 'apps')" class="db-apps">
-                    <span v-if="(row.apps.length === 0)" class="muted">no app yet</span>
-                    <template v-for="(name, index) of row.apps" v-else :key="name"><button type="button" class="link" @click="$emit('select', name)">{{ name }}<span v-if="(index < (row.apps.length - 1))" class="db-comma">,</span></button></template>
-                </span>
+                <button v-if="(column.key === 'name')" type="button" class="link" @click="$emit('select', row.name)"><b>{{ row.name }}</b></button>
+                <code v-else-if="(column.key === 'env')">{{ row.env }}</code>
             </template>
         </data-table>
-    </section>
+        <template v-if="(others.length > 0)">
+            <h2 class="db-sub">Beside it in {{ open_server.name }}</h2>
+            <data-table :columns="columns" :rows="other_rows" row_key="key" :on_row="row_open" :marks="false" empty="">
+                <template #cell="{row, column}"><table-cell :row="row" :column="column" @select="$emit('select', $event)"/></template>
+            </data-table>
+        </template>
+    </template>
+    <template v-else>
+        <div class="list-head">
+            <h1>Databases</h1>
+            <span class="muted">{{ databases_count }}</span>
+            <div class="list-acts">
+                <button type="button" class="primary" @click="$emit('place', {page: 'new'})">+ New database</button>
+            </div>
+        </div>
+        <div class="list-tools">
+            <input v-model.trim="filter" type="search" placeholder="find a database" aria-label="Find a database by its name, engine, machine or app" spellcheck="false">
+            <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
+                {{ chip.label }}
+                <span class="muted">{{ chip.count }}</span>
+            </button>
+        </div>
+        <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
+        <data-table :columns="columns" :rows="rows_shown" row_key="key" :on_row="row_open" :marks="false" :empty="((rows.length === 0) ? 'No database yet. + New database brings one up on a machine of yours, empty or filled with a sample, and gives it to your apps.' : 'Nothing matches.')">
+            <template #cell="{row, column}"><table-cell :row="row" :column="column" @select="$emit('select', $event)"/></template>
+        </data-table>
+    </template>
 </article>
 `,
-    components: {'data-table': data_table},
-    emits: ['select', 'changed'],
+    components: {
+        'data-table': data_table,
+        'database-new': database_new,
+        'table-cell': database_cell,
+    },
+    // place: what is open, null for the table; {page: 'new', restore, given, remote} for New
+    // database; {page: 'database', server, database} for a database's page, database '' for a
+    // server with none
+    props: {
+        place: {type: Object, default: null},
+    },
+    emits: ['changed', 'machine', 'place', 'select', 'service'],
     data: function () {
-        // form: + MySQL's form; adding: + Database's form in a server; removing: Remove's
-        return {view: null, load_error: '', form: null, adding: null, removing: null, busy: false, note: '', bad: false, timer: null};
+        // removing: Remove's typed confirmation on a database's page
+        return {DATABASE_ICON: database_rows.DATABASE_ICON, view: null, load_error: '', filter: '', show: 'all', removing: null, busy: false, note: '', bad: false, timer: null};
     },
     computed: {
+        // The page open: a database that is not there any more shows the table
+        place_now: function () {
+            if ((this.place === null) || (this.view === null)) {
+                return {page: 'list'};
+            }
+            if ((this.place.page === 'database') && (this.open_server === null)) {
+                return {page: 'list'};
+            }
+            return this.place;
+        },
         servers: function () {
             return (this.view === null) ? [] : this.view.servers;
         },
-        engines: function () {
-            return (this.view === null) ? [{value: 'mysql', label: 'MySQL', versions: [], samples: []}] : this.view.engines;
+        // A row per database, and one for each server with none to show
+        rows: function () {
+            return database_rows(this.servers, this.view.engines);
         },
-        count_text: function () {
-            if (this.view === null) {
-                return '';
-            }
-            const databases = this.servers.reduce((sum, v) => sum + v.databases.length, 0);
-            return `${this.servers.length} ${(this.servers.length === 1) ? 'server' : 'servers'} · ${databases} ${(databases === 1) ? 'database' : 'databases'}`;
+        rows_shown: function () {
+            const words = this.filter.toLowerCase().split(/\s+/).filter(v => v !== '');
+            const show = this.show;
+            return this.rows.filter(function (row) {
+                if ((show === 'running') && (row.dot !== 'running')) {
+                    return false;
+                }
+                if ((show === 'needs') && (row.bad === false)) {
+                    return false;
+                }
+                const text = [row.name, row.server, row.engine, row.machine].concat(row.apps).join(' ').toLowerCase();
+                return words.every(v => text.includes(v));
+            });
+        },
+        chips: function () {
+            return [
+                {value: 'all', label: 'All', dot: null, count: this.rows.length},
+                {value: 'running', label: 'Running', dot: 'running', count: this.rows.filter(v => v.dot === 'running').length},
+                {value: 'needs', label: 'Needs you', dot: 'failed', count: this.rows.filter(v => v.bad).length},
+            ];
+        },
+        databases_count: function () {
+            return (this.view === null) ? '' : String(this.rows.filter(v => v.database !== '').length);
         },
         columns: function () {
             return [
-                {key: 'name', label: 'Database', wraps: true},
-                {key: 'tables', label: 'Tables', align: 'right', fold: 1},
+                {key: 'name', label: 'Name', wraps: true},
+                {key: 'engine', label: 'Engine', fold: 4},
+                {key: 'machine', label: 'Machine', fold: 3},
                 {key: 'size', label: 'Size', align: 'right', fold: 2},
-                {key: 'apps', label: 'Used by', wraps: true},
+                {key: 'apps', label: 'Given to', wraps: true, fold: 5},
+                {key: 'state', label: 'State'},
+                {key: 'detail', label: 'Detail', fold: 1, hide: v => (v.detail === '')},
             ];
         },
-        // A machine can hold one when it is online with docker; the others are said, not hidden
-        machine_options: function () {
-            const out = [{value: '', label: 'Pick a machine…', disabled: true}];
-            for (const item of this.view.machines) {
-                let why = '';
-                if (item.online === false) {
-                    why = ' · offline';
-                }
-                else if (item.docker === false) {
-                    why = ' · no docker';
-                }
-                out.push({value: item.remote, label: item.title + why, disabled: (why !== '')});
+        open_server: function () {
+            if ((this.place === null) || (this.place.page !== 'database')) {
+                return null;
             }
+            return this.servers.find(v => v.name === this.place.server) || null;
+        },
+        open_database: function () {
+            if (this.open_server === null) {
+                return null;
+            }
+            return this.open_server.databases.find(v => v.name === this.place.database) || null;
+        },
+        open_title: function () {
+            return (this.open_database === null) ? this.open_server.name : this.open_database.name;
+        },
+        // The databases beside it in its server, which its Remove takes too
+        others: function () {
+            return this.open_server.databases.filter(v => v !== this.open_database);
+        },
+        other_rows: function () {
+            return this.rows.filter(v => (v.server === this.open_server.name) && (v.database !== '') && (v.database !== this.place.database));
+        },
+        open_tiles: function () {
+            const server = this.open_server;
+            const database = this.open_database;
+            const couch = (server.engine === 'couchdb');
+            const out = [];
+            out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), note: (database === null) ? 'no database in it' : 'its data, on its machine'});
+            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), note: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
+            out.push({label: 'Server', value: server.name, note: `${this.engine_text(server)}, on ${server.title}`});
+            out.push({label: 'Reached from', value: 'its machine', note: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} there`});
             return out;
         },
-        form_says: function () {
-            const sample = this.form.engine.samples.find(v => v.value === this.form.sample);
-            const machine = this.view.machines.find(v => v.remote === this.form.remote);
-            const where = (machine === undefined) ? 'the machine you pick' : machine.title;
-            if (this.form.engine.value === 'couchdb') {
-                return `CouchDB ${this.form.version} on ${where}, always up, its data in a folder kept for it there, never reached from outside it. An app given it in its Data tab is its admin and makes a database for each user its wall signs in.`;
+        open_apps: function () {
+            if (this.open_database === null) {
+                return [];
             }
-            if (sample === undefined) {
-                return `${this.form.engine.label} ${this.form.version} on ${where}, always up, its data in a folder kept for it there; + Database makes the databases in it.`;
-            }
-            return `${sample.label}: ${sample.about}. Fetched once from where it is published and loaded only when its sha256 is the one pinned here.`;
+            const env = (this.open_server.engine === 'couchdb') ? 'COUCHDB_URL' : 'DATABASE_URL';
+            return this.open_database.apps.map(v => ({name: v, env}));
         },
-        name_problem: function () {
-            if (this.form === null) {
-                return '';
+        open_apps_empty: function () {
+            const server = this.open_server;
+            if ((this.open_database === null) && (server.phase === 'failed')) {
+                return 'No database: it did not come up. Bring it up again once what it says is fixed.';
             }
-            if (RE_NAME.test(this.form.name) === false) {
-                return 'A name is up to 40 small letters, digits and hyphens, a letter first.';
+            if ((this.open_database === null) && (server.phase === 'starting')) {
+                return 'Its databases show once it is up.';
             }
-            if (this.servers.some(v => v.name === this.form.name)) {
-                return `${this.form.name} is taken.`;
+            if ((this.open_database === null) && (server.online === false)) {
+                return `Its databases show once ${server.title} is back.`;
             }
-            return '';
+            if (this.open_database === null) {
+                return 'No database in it yet: New database makes one in it.';
+            }
+            if (this.open_database.user === null) {
+                return 'No app can be given it: it was made outside serviceman, with no user of its own.';
+            }
+            return 'No app yet: an app is given it in its Data tab, on Apps.';
         },
-        add_problem: function () {
-            if (this.adding === null) {
-                return '';
-            }
-            if (/^[a-z][a-z0-9_]{0,31}$/.test(this.adding.name) === false) {
-                return 'up to 32 small letters, digits and _, a letter first';
-            }
-            const server = this.servers.find(v => v.name === this.adding.server);
-            if ((server !== undefined) && server.databases.some(v => v.name === this.adding.name)) {
-                return `${this.adding.name} is there already`;
-            }
-            return '';
+        app_columns: function () {
+            return [
+                {key: 'name', label: 'App'},
+                {key: 'env', label: 'Finds it in'},
+            ];
+        },
+    },
+    watch: {
+        place: function () {
+            this.removing = null;
+            this.note = '';
         },
     },
     mounted: function () {
@@ -204,138 +246,85 @@ const databases_pane = {
                 this.load_error = error.message;
             }
         },
-        // The name is the engine's and the first number free: mysql-1, then mysql-2
-        form_begin: function (engine) {
-            const taken = new Set(this.servers.map(v => v.name));
-            let number = 1;
-            while (taken.has(`${engine.value}-${number}`)) {
-                number++;
-            }
-            const free = this.view.machines.find(v => v.online && v.docker);
-            const sample = (engine.samples.length > 0) ? engine.samples[0].value : '';
-            this.form = {engine, version: engine.versions[0], sample, remote: (free === undefined) ? '' : free.remote, name: `${engine.value}-${number}`};
-            this.note = '';
+        row_open: function (row) {
+            this.$emit('place', {page: 'database', server: row.server, database: row.database});
         },
-        form_save: async function () {
-            if ((this.form.remote === '') || (this.name_problem !== '') || this.busy) {
-                return;
-            }
-            const body = {name: this.form.name, engine: this.form.engine.value, version: this.form.version, remote: this.form.remote, sample: this.form.sample};
-            if (await this.send('POST', '/api/v1/databases', body, `${body.name} is coming up`)) {
-                this.form = null;
-            }
+        // Made: its page, and what was made said on it
+        made: async function (made) {
+            await this.read();
+            this.$emit('changed');
+            this.$emit('place', {page: 'database', server: made.server, database: made.database});
+            await this.$nextTick();
+            this.note = `${made.database} is made in ${made.server}${(made.given.length === 0) ? '' : `, given to ${made.given.join(', ')} from its next start`}.`;
+            this.bad = false;
         },
-        add_begin: function (server) {
-            this.adding = {server: server.name, name: ''};
-            this.$nextTick(() => this.$refs.add_name[0].focus());
-        },
-        add_save: async function () {
-            if ((this.add_problem !== '') || this.busy) {
-                return;
-            }
-            const url = `/api/v1/databases/${encodeURIComponent(this.adding.server)}/databases`;
-            if (await this.send('POST', url, {name: this.adding.name}, `${this.adding.name} is made`)) {
-                this.adding = null;
-            }
-        },
-        remove_begin: function (server) {
-            this.removing = {server: server.name, typed: ''};
-            this.$nextTick(() => this.$refs.remove_name[0].focus());
-        },
-        remove_save: async function () {
-            if ((this.removing.typed !== this.removing.server) || this.busy) {
-                return;
-            }
-            const url = `/api/v1/databases/${encodeURIComponent(this.removing.server)}`;
-            if (await this.send('DELETE', url, null, `${this.removing.server} is being removed`)) {
-                this.removing = null;
-            }
-        },
-        // One request, its answer said under the head; true when it went through
-        send: async function (method, url, body, done) {
+        // A server that failed, brought up again where it was: its volume keeps the data it
+        // had, and serviceman the password that data was made with
+        again: async function (server) {
             this.busy = true;
             this.note = '';
             try {
-                const init = {method, headers: {'content-type': 'application/json'}};
-                if (body !== null) {
-                    init.body = JSON.stringify(body);
-                }
-                const answer = await fetch(url, init);
-                const said = await answer.json().catch(() => ({}));
+                const answer = await fetch('/api/v1/databases', {method: 'POST', body: JSON.stringify({name: server.name, engine: server.engine, version: server.version, remote: server.remote, sample: server.sample})});
                 if (answer.ok === false) {
-                    throw new Error(said.error || `${answer.status}`);
+                    throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
                 }
-                this.note = done;
-                this.bad = false;
                 await this.read();
-                this.$emit('changed');
-                return true;
             }
             catch (error) {
                 this.note = error.message;
                 this.bad = true;
-                return false;
             }
             finally {
                 this.busy = false;
             }
         },
-        phase_of: function (server) {
-            if ((server.online === false) && (server.phase === 'up')) {
-                return {label: 'machine offline', dot: 'failed'};
-            }
-            return PHASES[server.phase] || {label: server.phase, dot: ''};
+        remove_begin: function (server) {
+            this.removing = {server: server.name, typed: ''};
+            this.$nextTick(() => this.$refs.remove_name.focus());
         },
-        // What a server coming up is doing now: pulling, starting, loading its sample
-        phase_text: function (server) {
-            if ((server.phase === 'starting') && server.said) {
-                return server.said;
+        remove_save: async function () {
+            if ((this.removing.typed !== this.removing.server) || this.busy) {
+                return;
             }
-            return this.phase_of(server).label;
+            const name = this.removing.server;
+            this.busy = true;
+            this.note = '';
+            try {
+                const answer = await fetch(`/api/v1/databases/${encodeURIComponent(name)}`, {method: 'DELETE'});
+                if (answer.ok === false) {
+                    throw new Error((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`);
+                }
+                this.removing = null;
+                await this.read();
+                this.$emit('changed');
+                this.$emit('place', null);
+                await this.$nextTick();
+                this.note = `${name} is removed.`;
+                this.bad = false;
+            }
+            catch (error) {
+                this.note = error.message;
+                this.bad = true;
+            }
+            finally {
+                this.busy = false;
+            }
         },
-        where_text: function (server) {
-            const engine = this.engines.find(v => v.value === server.engine);
-            return `${(engine === undefined) ? server.engine : engine.label} ${server.version} · on ${server.title}`;
+        colour_of: function (server) {
+            return database_rows.ENGINE_COLOURS[server.engine] || 'currentColor';
         },
-        add_title: function (server) {
-            if (server.online === false) {
-                return `${server.title} is offline`;
-            }
-            if (server.phase !== 'up') {
-                return 'once it is up';
-            }
-            return 'An empty database in it, with a user of its own';
+        engine_text: function (server) {
+            return database_rows.engine_text(server, this.view.engines);
+        },
+        state_of: function (server) {
+            return database_state(server);
         },
         used_text: function (server) {
             const apps = [...new Set(server.databases.flatMap(v => v.apps))];
             if (apps.length === 0) {
                 return '';
             }
-            return `${apps.join(', ')} ${(apps.length === 1) ? 'uses' : 'use'} it and will find no database at the next start. `;
-        },
-        empty_text: function (server) {
-            if (server.online === false) {
-                return `Its databases show once ${server.title} is back.`;
-            }
-            if (server.phase === 'starting') {
-                return 'Its databases show once it is up.';
-            }
-            if (server.phase === 'failed') {
-                return 'No database: it did not come up.';
-            }
-            return 'No database in it yet: + Database makes one.';
-        },
-        size_text: function (bytes) {
-            if (bytes < 1024*1024) {
-                return `${Math.max(1, Math.round(bytes/1024))} KB`;
-            }
-            if (bytes < 1024*1024*1024) {
-                return `${(bytes/1024/1024).toFixed(1)} MB`;
-            }
-            return `${(bytes/1024/1024/1024).toFixed(1)} GB`;
-        },
-        cell_more: function () {
-            return false;
+            return `${apps.join(', ')} ${(apps.length === 1) ? 'is given it, and finds' : 'are given it, and find'} no database at the next start. `;
         },
     },
 };

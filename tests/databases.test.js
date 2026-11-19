@@ -185,6 +185,26 @@ test('a sample that is not the one pinned fails the server, and it can be brough
     assert.strictEqual(JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0].root, root);
 });
 
+// A server serviceman was bringing up when it restarted is failed, and its page's Bring it up
+// again brings it up where it was: its file still says starting, and nothing is on its way
+test('a server left coming up by a restart is failed, and it can be brought up again', async function (t) {
+    const world = await world_start(t);
+    const kept = {servers: [{name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop', sample: 'tiny', root: 'a'.repeat(32), users: {}, phase: 'starting', said: 'making its container', error: null, port: null, made: '2026-11-19T00:00:00.000Z'}]};
+    fs.writeFileSync(path.join(world.state_dir, 'databases.json'), JSON.stringify(kept), {mode: 0o600});
+    const failed = await view_until(world, v => (v.servers.length === 1));
+    assert.strictEqual(failed.servers[0].phase, 'failed');
+    assert.strictEqual(failed.servers[0].error, 'serviceman restarted while it came up; bring it up again');
+    assert.strictEqual(failed.servers[0].sample, 'tiny', 'what bringing it up again asks for');
+    world.sample_bytes = Buffer.from(SAMPLE_SQL);
+    const again = await control(world, 'POST', '/api/v1/databases', {name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop', sample: 'tiny'});
+    assert.strictEqual(again.status, 202);
+    const up = await view_until(world, v => (v.servers[0].phase === 'up'));
+    assert.deepStrictEqual(up.servers[0].databases.map(v => v.name), ['tiny']);
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0].root, 'a'.repeat(32), 'the password its data was made with');
+    const twice = await control(world, 'POST', '/api/v1/databases', {name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop', sample: 'tiny'});
+    assert.strictEqual(twice.status, 409, 'one that is up is not brought up over');
+});
+
 // A PHP file dropped on Apps: an app folder on the machine, run in serviceman's PHP image, an
 // Adminer's with its login beside it; the image made once through the machine's docker
 test('a PHP file becomes an app folder on the machine, an Adminer with its login; its image is made once', async function (t) {

@@ -4,6 +4,7 @@ const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const crypto = require('crypto');
+const databases_write = require('../src/main/src/helpers/databases_write');
 const docker_api_start = require('./fixtures/docker_api_start');
 const docker_spec_hash = require('../src/main/src/helpers/docker_spec_hash');
 const fetch_host = require('./fetch_host');
@@ -307,7 +308,7 @@ test('the control page lists the services and starts and stops them', async func
 
         // The page answers on the addresses it has, and a mistyped one is a 404 — not the
         // front page opening whatever it opens first
-        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/secrets', '/storage', '/logline', '/authwall', '/load-tests', '/categories']) {
+        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/secrets', '/storage', '/logline', '/authwall', '/load-tests', '/categories', '/databases/new']) {
             const opened = await fetch_host({port: running.control_port, host: '127.0.0.1', path: known});
             assert.strictEqual(opened.status, 200, known);
             assert.match(opened.body, /<title>serviceman<\/title>/, known);
@@ -338,6 +339,18 @@ test('the control page lists the services and starts and stops them', async func
             assert.strictEqual(missing.status, 404, wrong);
             assert.match(missing.body, /No such page/, wrong);
         }
+        // A database's page answers once its server is kept, a database by any name its server
+        // could say: serviceman does not keep them
+        databases_write(running.app, {servers: [{name: 'postgresql-1', engine: 'postgresql', version: '17', remote: 'vps1', sample: '', root: 'x', users: {}, phase: 'up', said: '', error: null, port: null, made: '2026-11-19T00:00:00.000Z'}]});
+        for (const known of ['/databases/postgresql-1', '/databases/postgresql-1/orders', '/databases/postgresql-1/Chinook']) {
+            const opened = await fetch_host({port: running.control_port, host: '127.0.0.1', path: known});
+            assert.strictEqual(opened.status, 200, known);
+        }
+        for (const wrong of ['/databases/ghost', '/databases/ghost/orders', '/databases/new/more', '/databases/postgresql-1/a.b', '/databases/postgresql-1/orders/more']) {
+            const missing = await fetch_host({port: running.control_port, host: '127.0.0.1', path: wrong});
+            assert.strictEqual(missing.status, 404, wrong);
+        }
+        databases_write(running.app, {servers: []});
 
         const before = await state_read(running);
         assert.deepStrictEqual(before.services.map(v => v.name), ['one', 'site']);

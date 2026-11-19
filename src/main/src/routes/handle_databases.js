@@ -26,7 +26,7 @@ const RE_SERVER_DATABASES = /^\/api\/v1\/databases\/([^/]+)\/databases$/;
 // How long a server's list of databases is shown as last read before it is read again
 const LIST_FRESH_MS = 10000;
 
-// GET /api/v1/databases (query)                    the servers, each one's databases as it says them; live=0 as last read
+// GET /api/v1/databases (query)                    the servers, each one's databases as it says them; live=0 as last read, asked once when never
 // POST /api/v1/databases (body)                    {name, engine, version, remote, sample}: a server brought up there, filled with the sample
 // POST /api/v1/databases/<server>/databases (body) {name}: an empty database in it, with a user of its own
 // DELETE /api/v1/databases/<server>                the server, its container and its volume, every database in it
@@ -92,12 +92,13 @@ async function server_create(app, req, res)
     }
     const databases = databases_read(app);
     const found = databases.servers.find(v => v.name === name);
-    if ((found !== undefined) && (found.phase !== 'failed')) {
-        send_json(res, 409, {error: `there is a database server called ${name} already`});
-        return;
-    }
     if (app.database_jobs.has(name)) {
         send_json(res, 409, {error: `${name} is on its way already`});
+        return;
+    }
+    // One left starting by a serviceman that restarted failed, as the page says it did
+    if ((found !== undefined) && (found.phase !== 'failed') && (found.phase !== 'starting')) {
+        send_json(res, 409, {error: `there is a database server called ${name} already`});
         return;
     }
     // Tried again where it was, it keeps its root password: its volume holds data made with it
@@ -222,6 +223,8 @@ async function view_of(app, live)
             name: server.name,
             engine: server.engine,
             version: server.version,
+            // The sample it was filled with, '' for none: what bringing it up again asks for
+            sample: server.sample || '',
             remote: server.remote,
             title: title_of(app, server.remote),
             online,
@@ -237,20 +240,20 @@ async function view_of(app, live)
         rows.push(row);
     }
     return {
-        engines: database_engines.map(v => ({value: v.value, label: v.label, versions: Object.keys(v.versions), samples: Object.entries(database_samples[v.value]).map(vv => ({value: vv[0], label: vv[1].label, about: vv[1].about}))})),
+        engines: database_engines.map(v => ({value: v.value, label: v.label, versions: Object.keys(v.versions), samples: Object.entries(database_samples[v.value]).map(vv => ({value: vv[0], label: vv[1].label, about: vv[1].about, database: vv[1].database}))})),
         machines: app.remotes.map(v => ({remote: v.name, title: title_of(app, v.name), online: (v.state.phase === 'online'), docker: (machine_refusal(v) === null) || (v.state.phase !== 'online')})),
         servers: rows,
     };
 }
 
-// As the server said them last, read again when that is older than a few seconds; a server that
-// does not answer shows the last it said. Each with the apps that picked it in their Data tab,
+// As the server said them last, read again when that is older than a few seconds, and once
+// when it never was, even for a count; a server that does not answer shows the last it said. Each with the apps that picked it in their Data tab,
 // and the name of the user serviceman made for it, which an app's pick needs; null for none.
 async function databases_of(app, remote, server, live)
 {
     let kept = app.database_lists.get(server.name);
     const fresh = (kept !== undefined) && (Date.now() - kept.at < LIST_FRESH_MS);
-    if (live && (fresh === false)) {
+    if ((live || (kept === undefined)) && (fresh === false)) {
         try {
             kept = {at: Date.now(), rows: await database_list(docker_exec_connect(app, remote), server)};
             app.database_lists.set(server.name, kept);

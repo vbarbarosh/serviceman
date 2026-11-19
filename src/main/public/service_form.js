@@ -16,6 +16,7 @@ import secret_rows_write from './secret_rows_write.js';
 import service_from_form from './service_from_form.js';
 import service_kind from './service_kind.js';
 import settled from './settled.js';
+import size_words from './size_words.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
 import step_frame from './step_frame.js';
@@ -2065,12 +2066,6 @@ function change_text(was, now)
 }
 
 // A size in the unit it reads best in, for a machine's free memory: 3 GB, 512 MB
-function size_words(bytes)
-{
-    const gb = bytes/(1024*1024*1024);
-    return (gb >= 1) ? `${(gb >= 10) ? Math.round(gb) : gb.toFixed(1)} GB` : `${Math.round(bytes/(1024*1024))} MB`;
-}
-
 // A model as a copy of its own, rows and all, for a card to change without touching the page
 function model_copy(model)
 {

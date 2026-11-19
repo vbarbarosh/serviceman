@@ -77,7 +77,7 @@ const app_settings = {
             </div>
         </div>
     </template>
-    <app-data-tab v-else :app="app" :host="host"/>
+    <app-data-tab v-else :app="app" :host="host" @new_database="$emit('new_database', $event)"/>
     <div class="app-settings-foot">
         <template v-if="(tab === 'settings')">
             <button type="button" class="primary" :disabled="(busy || (changed === false))" @click="save">{{ (busy ? 'Saving…' : 'Save') }}</button>
@@ -94,7 +94,7 @@ const app_settings = {
 </div>
 `,
     components: {'app-data-tab': app_data_tab, 'wall-select': wall_select},
-    emits: ['close', 'saved', 'more', 'walls'],
+    emits: ['close', 'saved', 'more', 'new_database', 'walls'],
     props: {
         app: {type: Object, required: true},
         // Every machine, with the door rules of each (inbound); the names of every service

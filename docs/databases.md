@@ -1,28 +1,48 @@
 # Databases
 
-A database server on one of your machines, brought up by serviceman in docker, always up, its
-data kept there. An app picks one of its databases in its **Data** tab and finds it in
-`DATABASE_URL` at every start, as a user of its own; an Adminer given one opens on it, logged in.
+A database on one of your machines, in a server serviceman brings up there in docker, always
+up, its data kept there. An app given it finds it in `DATABASE_URL` at every start, as a user of
+its own; an Adminer given one opens on it, logged in.
 
-The page is **Databases**, in the first crumb's menu: each server, its machine and how it stands, and a row per
-database in it, with its tables, its size and the apps that picked it.
+The page is **Databases**, in the first crumb's menu: one table, a row a database, with its
+engine and version, its machine, its size, the apps given it and how it stands. A server with no
+database to show (empty, coming up, failed, its machine away) is a row of its own. A find box
+and the chips **All**, **Running** and **Needs you** narrow it; a click on a row opens the
+database's page, at `/databases/<server>/<database>`.
 
-## A server
+## New database
 
-**+ MySQL** and **+ PostgreSQL** ask four things:
+**+ New database** opens a form of five steps, step by step or on one page, as New service
+does; it opens at `/databases/new`, from **Database** in New service's first step, from **+ New
+database here** on a machine's Databases tab (that machine picked), and from **New database…**
+in an app's Data tab (that app ticked).
 
-- **Machine:** one that is online, with docker its agent reaches; the others are listed, greyed,
-  saying why.
-- **Version:** MySQL 8.4 or 8.0, PostgreSQL 17 or 16, the official image,
-  `docker.io/library/mysql:<version>` or `docker.io/library/postgres:<version>`.
-- **Filled with:** nothing, or a sample (below).
-- **Name:** `mysql-1` or `postgresql-1`, the first number free; up to 40 small letters, digits
-  and hyphens.
+1. **What:** a database; **Another kind** goes back to New service.
+2. **Engine:** PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
+   (`docker.io/library/postgres:<version>`, `mysql:<version>`, `couchdb:3`); an empty database
+   or a sample (below); its name, up to 32 small letters, digits and `_`, a letter first.
+3. **Machine:** a card each, its system, its free memory and how many services it runs; one that
+   is offline or has no docker its agent reaches is shown, and says why. **Add a machine** opens
+   New remote and comes back with every answer kept and the new machine picked.
+4. **Given to:** every app, those on that machine that serviceman starts (a docker image, an app
+   folder, a program) ticked or not; one on another machine, a page or an address already running
+   is shown, and says why it cannot be. The first one ticked shows what it finds at every start,
+   its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`.
+5. **Check:** a row per answer, each with **Change**; the rest as it is today: no backups, reached
+   from its machine only, Adminer as an app.
 
-**Bring it up**, and the server says each step as it takes it: pulling the image, making its
-container, waiting for the server to answer, fetching the sample, loading it. Then it is **up**, its
-databases listed. A step that fails leaves it **failed**, with the reason; its **+** with the
-same name on the same machine brings it up again, with the password its data was made with.
+**Create database** puts it in a server of that engine and version already up on that machine;
+with none, it brings one up first, named after its engine and the first number free
+(`postgresql-1`), and says each step as it takes it: pulling the image, making its container,
+waiting for the server to answer, fetching the sample, loading it. Then it makes the database,
+with a user of its own named after it, whose rights are on that database alone (in PostgreSQL the
+user owns it, and nobody else may connect to it: PostgreSQL lets every user connect to every
+database unless told otherwise), and gives it to each app ticked, as its Data tab does. A sample
+comes in a server of its own, under its own name. What fails is said in the form, and what was
+made stays made.
+
+A server that fails is **failed**, with the reason, on its row and its page; **Bring it up again**
+there brings it up where it was, with the password its data was made with.
 
 What serviceman makes on that machine, through its docker's Engine API, reached over the agent's
 link:
@@ -34,12 +54,11 @@ link:
 | network   | `serviceman-databases` | where an app in a container reaches it, by its container's name  |
 | port      | `127.0.0.1:<port>`     | where a program on that machine reaches it; docker picks the port, and nothing outside the machine reaches it |
 
-## A database in it
+## A database's page
 
-**+ Database** makes an empty one, its name up to 32 small letters, digits and `_`, with a user of
-its own named after it, whose rights are on that database alone. In PostgreSQL the user owns it,
-and nobody else may connect to it: PostgreSQL lets every user connect to every database unless
-told otherwise.
+Its name, how it stands, its engine and its machine; its size, its tables, its server and where
+it is reached from; the apps given it and the variable each finds it in, each a link to its
+service; the databases beside it in its server. **Remove…** is there (below).
 
 ## The passwords
 
@@ -68,13 +87,13 @@ Each file is fetched once by serviceman from that address, pinned to that commit
 kept in `data/samples/` under its sha256, and loaded only when its sha256 is the one written in
 `database_samples.js`. A file that changed there is refused: the server fails, saying the sha256
 it found, and nothing of it is run. The sample's database gets a user of its own, as one made
-with **+ Database** does.
+in New database does.
 
 ## An app picks one
 
 In an app's **Settings** on Apps, its **Data** tab: **+ Database** lists the databases of every
 server, those on the app's own machine with a user serviceman made to pick, the others greyed,
-saying why. The pick is written into the app's config as `databases`, each one variable of its
+saying why; **New database…** opens New database with the app ticked. The pick is written into the app's config as `databases`, each one variable of its
 env:
 
 ```json
@@ -116,7 +135,7 @@ the `adminer-plugins.php` that Adminer loads beside itself. Its container is mad
 
 ## CouchDB, for a wall's users
 
-**+ CouchDB** brings up CouchDB 3, `docker.io/library/couchdb:3`, the same way: its data in a
+**New database** with **CouchDB** brings up CouchDB 3, `docker.io/library/couchdb:3`, the same way: its data in a
 volume at `/opt/couchdb/data`, port 5984 on `127.0.0.1` of its machine and on the databases'
 network, never outside it. It is for a wall that gives each user it signs in a database of their
 own: CouchDB trusts the user name the wall sends in `X-Forwarded-User` when
@@ -142,12 +161,12 @@ single_node = true
 ```
 
 It is one row, **admin**: every database in it, counted with their size, made by the app given
-it, one for each user; **+ Database** is not offered. An app picks it in its Data tab as
-**admin · couch-1** and finds, at every start:
+it, one for each user; New database makes none in it. An app picks it in its Data tab as
+**admin · couchdb-1** and finds, at every start:
 
 | Variable         | What it holds                                                                    |
 |------------------|----------------------------------------------------------------------------------|
-| `COUCHDB_URL`    | `http://admin:<password>@serviceman-db-couch-1:5984`; on the machine, `127.0.0.1:<port>` |
+| `COUCHDB_URL`    | `http://admin:<password>@serviceman-db-couchdb-1:5984`; on the machine, `127.0.0.1:<port>` |
 | `COUCHDB_SECRET` | the secret, to sign a user name with                                             |
 
 A variable named otherwise has its secret beside it the same way: `STORE_URL` and
@@ -155,7 +174,7 @@ A variable named otherwise has its secret beside it the same way: `STORE_URL` an
 
 ```sh
 T=$(printf alice | openssl dgst -sha256 -hmac "$COUCHDB_SECRET" | sed 's/.* //')
-curl -s -H 'X-Forwarded-User: alice' -H "X-Forwarded-User-Token: $T" http://serviceman-db-couch-1:5984/_session
+curl -s -H 'X-Forwarded-User: alice' -H "X-Forwarded-User-Token: $T" http://serviceman-db-couchdb-1:5984/_session
 ```
 
 says `"name":"alice"` in `userCtx`; signed by another secret, `"name":null`. CouchDB 3.5 answers
@@ -164,8 +183,9 @@ the wall takes `X-Forwarded-User` out of what a visitor sends before it adds its
 
 ## Remove
 
-**Remove…** asks for the server's name typed again, then takes its container and its volume
-away, with every database in it. An app that picked one of them stops at its next start, saying
+**Remove…**, on a database's page, removes its server: it names the databases beside it that go
+too and the apps given them, asks for the server's name typed again, then takes its container and
+its volume away, with every database in it. An app that picked one of them stops at its next start, saying
 so. A machine that is offline keeps them: Remove is refused until it is back.
 
 ## For whoever runs it

@@ -122,11 +122,11 @@ const apps_pane = {
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
     <app-file-browser-add v-if="browser_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="browser_adding = false" @made="browser_made"/>
     <app-php-add v-if="(php_adding !== null)" :file="php_adding.file" :named="php_adding.name" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="php_adding = null" @made="php_made"/>
-    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @walls="$emit('walls')"/>
+    <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @new_database="$emit('new_database', $event)" @walls="$emit('walls')"/>
 </section>
 `,
     components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
-    emits: ['select', 'saved', 'walls'],
+    emits: ['new_database', 'select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
         // The app whose Settings window opens at once (Addresses' "set in"), null for none

@@ -37,6 +37,7 @@ const app_data_tab = {
 <div class="app-data">
     <div class="app-data-adds">
         <button type="button" :disabled="((pick_free === null) || saving)" :title="pick_title" @click="click_database">+ Database</button>
+        <button type="button" :disabled="((started === false) || (machine === null) || saving)" :title="(started ? ('New database, on ' + (machine || 'its machine') + ', given to ' + app.name) : 'serviceman does not start it, so it hands it no database')" @click="$emit('new_database', {given: [app.name], remote: machine})">New database…</button>
         <button type="button" :disabled="((started === false) || saving)" :title="(started ? 'A folder kept for it, or one of its machine, at every start' : 'serviceman does not start it, so it hands it no folder')" @click="click_folder">+ Folder</button>
         <button type="button" :disabled="has_rest" :title="(has_rest ? 'It has REST already' : '')" @click="click_rest">+ REST</button>
     </div>
@@ -108,7 +109,7 @@ const app_data_tab = {
         // Where it opens, crm.localhost: what REST_URL is made of
         host: {type: String, required: true},
     },
-    emits: ['saved'],
+    emits: ['new_database', 'saved'],
     data: function () {
         // picks and folders: its databases and its folders as its config has them; servers: the
         // Databases page's, read when the tab opens; removed: the row Remove took and where it
@@ -172,7 +173,7 @@ const app_data_tab = {
                 return 'reading the databases…';
             }
             if (this.pick_free === null) {
-                return `No database on ${this.machine || 'its machine'} to pick: Databases brings one up`;
+                return `No database on ${this.machine || 'its machine'} to pick: New database brings one up`;
             }
             return 'A database of the Databases page, handed to it at every start';
         },
