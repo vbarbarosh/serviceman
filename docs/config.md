@@ -1539,13 +1539,13 @@ tailnet link. A machine with an agent opens them by localhost through a board
 published on it ([App boards](#app-boards)); a device with no agent, a phone, opens none. Set on,
 they have their ports again.
 
-**The Tailscale page,** on All categories, shows everything serviceman does with tailscale in its image:
-its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to
-sign this machine in while tailscale waits for one; the switch above, while the apps are on the
-tailnet; the certificate, for which name and until when, or why there is none and what mends it;
-the names of the apps it answers on the tailnet (`apps.dns`); the way out to the tailnet,
-tailscale's proxy; and the last 50 calls serviceman made to
-tailscale, each with how long it took and what came back, never what it printed. It asks tailscale
+**The Tailscale page,** on All categories, shows everything serviceman does with tailscale in its image,
+in three cards: on the tailnet and by what name, with its address, tailscale's version and the
+way out to the tailnet (tailscale's proxy, or straight), or the link to sign this machine in while
+tailscale waits for one; the certificate, until when and for which name, or why there is none and
+what mends it; the names of the apps it answers on the tailnet (`apps.dns`). Above them, the
+switch above, while the apps are on the tailnet. Under them, the last 50 calls serviceman made to
+tailscale as a table card, each with how long it took and what came back, never what it printed. It asks tailscale
 when it opens and on **Refresh**, and with no tailscale, outside the image, it says so.
 
 `ports` is the first of them, `3400` unless said (3100 is Loki's); `null` gives none. A new app takes the lowest one

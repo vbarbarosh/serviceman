@@ -1,7 +1,10 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
-import overview_card from './overview_card.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
+
+// tailscale's mark, nine dots, for its tiles
+const TS_ICON = '<circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>';
 
 // What tailscale's BackendState means for serviceman, in a visitor's words, and its dot
 const STATES = {
@@ -42,8 +45,15 @@ const tailscale_pane = {
     </page-head>
     <p v-if="(error !== '')" class="bad">{{ error }}</p>
     <template v-if="(view !== null)">
-        <p v-if="(view.here === false)" class="card tailscale-say">No tailscale here: serviceman runs outside its image, so it has no name on a tailnet, no certificate and no apps' names there. In its image tailscale comes with it.</p>
-        <p v-else-if="(view.login_link !== null)" class="card tailscale-say">This machine is not signed in to a tailnet yet: open <a :href="view.login_link" target="_blank" rel="noopener">{{ view.login_link }}</a> and sign in, or start serviceman with <code>TS_AUTHKEY</code>.</p>
+        <!-- Not on a tailnet, or not signed in yet: one card that says so, as drawn -->
+        <div v-if="(view.here === false)" class="card ts-state">
+            <span class="ts-tile"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true" v-html="TS_ICON"/></span>
+            <div><b>No tailscale here</b><p class="muted">serviceman runs outside its image, so it has no name on a tailnet, no certificate and no apps' names there. In its image tailscale comes with it.</p></div>
+        </div>
+        <div v-else-if="(view.login_link !== null)" class="card ts-state">
+            <span class="ts-tile warn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true" v-html="TS_ICON"/></span>
+            <div><b>Not signed in to a tailnet yet</b><p class="muted">Open <a :href="view.login_link" target="_blank" rel="noopener">{{ view.login_link }}</a> and sign in, or start serviceman with <code>TS_AUTHKEY</code>.</p></div>
+        </div>
         <div v-if="http_switch_shown" class="tailscale-http">
             <label class="tailscale-http-label" for="tailscale-http-pick">Say that the apps' tailnet links are http:</label>
             <select id="tailscale-http-pick" :value="(http_said ? 'on' : 'off')" :disabled="http_busy" @change="change_http_said($event.target.value === 'on')">
@@ -54,50 +64,30 @@ const tailscale_pane = {
             <span v-else class="muted">{{ (view.certificate.held ? 'they open over https: nothing to say' : 'nothing to say yet') }}</span>
         </div>
         <p v-if="(http_error !== '')" class="bad tailscale-http-says">{{ http_error }}</p>
-        <div v-if="view.here" class="ov-cards">
-            <overview-card icon="monitor" title="This serviceman">
-                <dt>Name</dt><dd>{{ view.name || 'none yet' }}</dd>
-                <dt>Address</dt><dd>{{ (view.addresses.length > 0) ? view.addresses.join(', ') : 'none yet' }}</dd>
-                <dt>Tailnet</dt><dd>{{ view.tailnet || 'none yet' }}</dd>
-                <dt>MagicDNS</dt><dd>{{ (view.magic_dns === null) ? 'not said' : (view.magic_dns ? 'on' : 'off: names on the tailnet do not resolve') }}</dd>
-                <dt>tailscale</dt><dd>{{ view.version || 'not said' }}</dd>
-            </overview-card>
-            <overview-card icon="lock" title="The certificate">
-                <template #note>
-                    <span v-if="(view.certificate.wanted === false)" class="muted">Not asked: the apps are off the tailnet (Apps, On the tailnet), so no port answers https and none is wanted.</span>
-                    <span v-else-if="view.certificate.held">For {{ view.certificate.domain }}, until {{ day_of(view.certificate.until) }}: the apps' own ports answer https.</span>
-                    <span v-else-if="(view.certificate.error !== null)" class="bad">None: {{ view.certificate.error }}. <template v-if="(https_off !== null)">{{ https_off.fix }} <a v-if="(https_off.link !== null)" :href="https_off.link.href" target="_blank" rel="noopener">{{ https_off.link.text }}</a></template></span>
-                    <span v-else class="muted">Not asked yet: serviceman asks once it has a name on the tailnet.</span>
-                </template>
-                <dt>Given for</dt><dd>{{ (view.certificate.wanted === false) ? 'none wanted' : ((view.cert_domains.length > 0) ? view.cert_domains.join(', ') : ((view.state === 'Running') ? 'no name: HTTPS is off for the tailnet' : 'none yet: not on a tailnet')) }}</dd>
-                <dt>Last asked</dt><dd>{{ (view.certificate.asked_at === null) ? 'not yet' : time_of(view.certificate.asked_at) }}</dd>
-            </overview-card>
-            <overview-card icon="globe" title="The apps' names">
-                <template #note>
-                    <span v-if="(view.apps_dns === null)" class="muted">Not answered: the config sets no <code>apps.dns</code>, so names under the apps domain are not answered on the tailnet. {{ ((view.certificate.wanted === false) ? 'Nor has an app a port of its own on serviceman’s name: the apps are off the tailnet.' : 'Each app still has its own port on serviceman’s name.') }}</span>
-                    <span v-else>Names under {{ view.apps_dns.domain }} answered on port {{ view.apps_dns.port }}, each as {{ view.apps_dns.address || 'this machine, once tailscale says its address' }}.</span>
-                </template>
-            </overview-card>
-            <overview-card icon="arrow" title="The way out">
-                <template #note>
-                    <span v-if="(view.proxy !== null)">Through tailscale's proxy at <code>{{ view.proxy }}</code>: what serviceman dials on the tailnet, Logline first, goes through it.</span>
-                    <span v-else class="muted">Straight: no proxy is set, so serviceman dials the tailnet as this machine's own tailscale routes it.</span>
-                </template>
-            </overview-card>
+        <!-- How it stands on the tailnet, as drawn: a card each, its tile, what it is and one line;
+             the rest of what is known under it, small -->
+        <div v-if="view.here" class="ts-cards">
+            <div v-for="card of cards" :key="card.key" class="card ts-card">
+                <span class="ts-tile" :class="card.tone"><svg viewBox="0 0 24 24" width="22" height="22" :fill="((card.key === 'tailnet') ? 'currentColor' : 'none')" stroke="currentColor" :stroke-width="((card.key === 'tailnet') ? 0 : 2)" aria-hidden="true" v-html="card.icon"/></span>
+                <div class="ts-card-body">
+                    <b>{{ card.title }}</b>
+                    <span :class="{mono: card.mono, bad: (card.tone === 'bad')}">{{ card.line }}<template v-if="(card.link !== null)"> <a :href="card.link.href" target="_blank" rel="noopener">{{ card.link.text }} ↗</a></template></span>
+                    <small v-if="(card.more !== '')" class="muted">{{ card.more }}</small>
+                </div>
+            </div>
         </div>
-        <h2>Calls to tailscale</h2>
-        <data-table :columns="COLUMNS" :rows="view.calls" :row_key="key_of" empty="None yet: serviceman has not asked tailscale anything.">
+        <data-table framed title="Calls to tailscale" :columns="COLUMNS" :rows="view.calls" :row_key="key_of" :row_class="(row => ((row.error === null) ? '' : 'dt-bad'))" :foot="((view.calls.length === 0) ? null : [{text: (view.calls.length + ' ' + ((view.calls.length === 1) ? 'call' : 'calls') + ', the newest first'), tone: ''}])" empty="None yet: serviceman has not asked tailscale anything.">
             <template #cell="{row, column}">
                 <template v-if="(column.key === 'at')">{{ time_of(row.at) }}</template>
                 <code v-else-if="(column.key === 'command')">{{ row.command }}</code>
                 <template v-else-if="(column.key === 'ms')">{{ format_ms(row.ms) }}</template>
-                <span v-else :class="((row.error === null) ? 'ok' : 'bad')">{{ (row.error === null) ? 'ok' : row.error }}</span>
+                <state-pill v-else :tone="((row.error === null) ? 'run' : 'bad')" :text="((row.error === null) ? 'ok' : row.error)"/>
             </template>
         </data-table>
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'overview-card': overview_card, 'page-head': page_head},
+    components: {'data-table': data_table, 'page-head': page_head, 'state-pill': state_pill},
     props: {
         state: {type: Object, required: true},
     },
@@ -106,9 +96,38 @@ const tailscale_pane = {
         // view: what GET /api/v1/tailscale said last, null before; error: why the last ask failed
         // http_picked: the switch's pick while it is saved and until the page's state has it,
         // null otherwise; http_busy: it is being saved; http_error: why its last save was refused
-        return {view: null, loading: false, error: '', http_picked: null, http_busy: false, http_error: '', COLUMNS};
+        return {view: null, loading: false, error: '', http_picked: null, http_busy: false, http_error: '', COLUMNS, TS_ICON};
     },
     computed: {
+        // The three cards, as drawn: on the tailnet and by what name, the certificate, the apps'
+        // names; each {key, icon, tone, title, line, mono, link, more}
+        cards: function () {
+            const view = this.view;
+            const certificate = view.certificate;
+            const on = (view.state === 'Running') && (view.error === null);
+            const facts = [(view.addresses.length > 0) ? view.addresses.join(', ') : '', (view.magic_dns === false) ? 'MagicDNS off' : '', (view.version === null) ? '' : `tailscale ${view.version}`, (view.proxy === null) ? 'the way out straight' : `the way out through ${view.proxy}`].filter(v => v !== '');
+            const tailnet = {key: 'tailnet', icon: TS_ICON, tone: on ? 'ok' : 'warn', title: capital(this.said.text), line: view.name || 'no name yet', mono: (view.name !== null), link: null, more: facts.join(' · ')};
+            const cert = {key: 'certificate', icon: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', tone: '', title: 'Certificate', line: '', mono: false, link: null, more: ''};
+            if (certificate.wanted === false) {
+                cert.line = 'not wanted: the apps are off the tailnet';
+            }
+            else if (certificate.held) {
+                cert.line = `valid until ${this.day_of(certificate.until)}`;
+                cert.more = `for ${certificate.domain}${(certificate.asked_at === null) ? '' : ` · asked ${this.time_of(certificate.asked_at)}`}`;
+            }
+            else if (certificate.error !== null) {
+                cert.tone = 'bad';
+                cert.line = `none: ${certificate.error}`;
+                cert.link = ((this.https_off === null) || (this.https_off.link === null)) ? null : this.https_off.link;
+                cert.more = (this.https_off === null) ? '' : this.https_off.fix;
+            }
+            else {
+                cert.line = 'not asked yet: once it has a name on the tailnet';
+            }
+            const dns = view.apps_dns;
+            const apps = {key: 'apps', icon: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13v7M13 16.5h7"/>', tone: '', title: (dns === null) ? 'Apps at their own ports' : `Names under ${dns.domain}`, line: (dns === null) ? ((certificate.wanted === false) ? 'the apps are off the tailnet' : 'each at its own port on the tailnet') : `answered on port ${dns.port}`, mono: false, link: null, more: (dns === null) ? 'no apps.dns in the config: names under the apps domain are not answered there' : `each as ${dns.address || 'this machine, once tailscale says its address'}`};
+            return [tailnet, cert, apps];
+        },
         said: function () {
             if (this.view.here === false) {
                 return {text: 'no tailscale here', dot: 'stopped'};
@@ -200,5 +219,11 @@ const tailscale_pane = {
         this.load();
     },
 };
+
+// A sentence's first letter up: "on the tailnet" heads its card as "On the tailnet"
+function capital(text)
+{
+    return text.slice(0, 1).toUpperCase() + text.slice(1);
+}
 
 export default tailscale_pane;

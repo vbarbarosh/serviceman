@@ -2391,13 +2391,13 @@ of none missing and the Tailscale page says none is wanted, and Apps and Address
 tailnet link. A machine with an agent opens them by localhost through a board
 published on it (<a href="#app-boards">App boards</a>); a device with no agent, a phone, opens none. Set on,
 they have their ports again.</p>
-<p><strong>The Tailscale page,</strong> on All categories, shows everything serviceman does with tailscale in its image:
-its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
-sign this machine in while tailscale waits for one; the switch above, while the apps are on the
-tailnet; the certificate, for which name and until when, or why there is none and what mends it;
-the names of the apps it answers on the tailnet (<code>apps.dns</code>); the way out to the tailnet,
-tailscale&#39;s proxy; and the last 50 calls serviceman made to
-tailscale, each with how long it took and what came back, never what it printed. It asks tailscale
+<p><strong>The Tailscale page,</strong> on All categories, shows everything serviceman does with tailscale in its image,
+in three cards: on the tailnet and by what name, with its address, tailscale&#39;s version and the
+way out to the tailnet (tailscale&#39;s proxy, or straight), or the link to sign this machine in while
+tailscale waits for one; the certificate, until when and for which name, or why there is none and
+what mends it; the names of the apps it answers on the tailnet (<code>apps.dns</code>). Above them, the
+switch above, while the apps are on the tailnet. Under them, the last 50 calls serviceman made to
+tailscale as a table card, each with how long it took and what came back, never what it printed. It asks tailscale
 when it opens and on <strong>Refresh</strong>, and with no tailscale, outside the image, it says so.</p>
 <p><code>ports</code> is the first of them, <code>3400</code> unless said (3100 is Loki&#39;s); <code>null</code> gives none. A new app takes the lowest one
 free from it up, past serviceman&#39;s own ports, and keeps it: it is written in <code>app_ports.json</code> of the
