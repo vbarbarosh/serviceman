@@ -2,14 +2,20 @@
 
 <img src="img/serviceman.svg" alt="serviceman" width="455">
 
-serviceman answers on the hostnames you give it. When a request arrives for a service that is
-asleep, serviceman starts it — a docker image or a program — waits until it answers, and
-passes the request on. When nobody visits for a while, serviceman stops it again. You write
-one config file; the hostnames do the rest.
+serviceman sets up the machines you give it, and their agents do the serving. Each machine runs
+an agent, which dials serviceman and is told what to run there and which names its door
+answers; from then on that agent answers them itself. It asks the wall in front of a service,
+wakes the service when it is asleep (a docker image or a program), and carries the request
+straight to it, or straight to the agent of the machine it runs on. When nobody visits for a
+while, serviceman stops it again. You write one config file; serviceman lays it out on the
+machines, and the hostnames do the rest.
 
-A service runs on a machine with an agent: put the agent on a VPS, or on the machine beside
-serviceman, name it in the config, and serviceman starts containers there and carries the
-requests over the link the agent dialled. serviceman itself runs nothing but the doors.
+Nothing has to pass through one place: each machine answers its own visitors, the machines'
+agents reach each other directly, and a machine's door goes on serving with serviceman away. So
+the machines can be as many as you like, and none waits on serviceman. A few things still come
+through serviceman's own door today: a name that comes in at serviceman's own address, a folder
+of files, an app on a socket file, and a door rule of `*`, whose app serviceman looks up
+([What a request meets](docs/overview.md#what-a-request-meets)).
 
 ## Philosophy
 

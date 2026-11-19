@@ -1,17 +1,20 @@
 # What serviceman is
 
-serviceman is one Node process in front of your services. It answers on the addresses you
-give it, starts the service behind the address at the first request, and stops it again
-when nobody visits. A box that would run twenty idle containers runs the two people
-actually use.
+serviceman sets up the machines you give it, and their agents serve. Each machine, the box
+beside serviceman or a VPS across the world, runs an agent that dials serviceman and is told
+what to run there and which names its door answers. The agent answers those names itself: it
+starts the service behind a name at its first request, asks the wall in front of it, and has it
+stopped again when nobody visits. A box that would run twenty idle containers runs the two
+people actually use.
 
-The starting and stopping happens on a machine with an agent — the box beside serviceman,
-or a VPS across the world — and serviceman only talks to agents. It runs no docker and no
-program of its own: it holds the doors, the config and the control page.
+serviceman runs no docker and no program of its own: it holds the config, the control page and
+the tables it writes for the machines' doors. The machines' agents reach each other directly,
+so no request waits on one place, and there can be as many machines as you like. A few things
+still come through serviceman's own door ([What a request meets](#what-a-request-meets)).
 
 Nothing else changes for the visitor. The address works, the page opens. Whether the
 service was already up, or was started three seconds ago for this very request, is
-serviceman's business.
+the agent's business.
 
 ## What it serves
 
@@ -33,6 +36,17 @@ that changes replaces its container at the next start. Containers that already r
 twice.
 
 ## What a request meets
+
+serviceman sets up; the machines serve. A name that comes in at a machine's door is answered by
+that machine's agent, by the table serviceman wrote for it and the agent keeps on its disk:
+serviceman is in no step of it, and the door goes on with serviceman away. The agent asks the
+wall in front of the service, wakes it when it is asleep, waits for it to answer (up to a
+minute), and carries the request straight to it, or straight to the agent of the machine it
+runs on; it tells serviceman afterwards that the service ran.
+
+serviceman's own door answers what still comes through it: a name at serviceman's own address,
+a folder of files, an app on a socket file, a name a machine's table does not have, and a door
+rule of `*`, whose app serviceman looks up. There:
 
 1. serviceman reads the `Host` header and the path, and finds the service. The exact
    hostname wins over `*.example.com`; the longest path prefix wins over a shorter one.
