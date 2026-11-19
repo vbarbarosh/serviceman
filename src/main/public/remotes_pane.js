@@ -4,18 +4,12 @@ import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
+import machine_icons from './machine_icons.js';
 import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import share_level from './share_level.js';
 import tailnet_name_of from './tailnet_name_of.js';
-
-// Each machine's icon, as the Canvas draws it: the inside of a 24x24 stroked svg
-const ICONS = {
-    server: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>',
-    laptop: '<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 19h19l-2-4h-15z"/>',
-    home: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
-};
 
 // Every machine, a row each, in one table: its tags, what it is, how full its memory and disks
 // are, what it carries, and how it stands, with an update tag when its agent is behind. A click
@@ -168,7 +162,7 @@ const remotes_pane = {
             return {
                 name: remote.name,
                 remote,
-                icon: ICONS[this.kind_by_name[remote.name]] || ICONS.server,
+                icon: machine_icons[this.kind_by_name[remote.name]] || machine_icons.server,
                 tags: remote.tags,
                 title: remote.title || remote.name,
                 name_shown: is_name_in_title(remote.title, remote.name) === false,

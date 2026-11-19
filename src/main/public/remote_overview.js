@@ -4,6 +4,7 @@ import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import format_ms_ago from './format_ms_ago.js';
+import item_services from './item_services.js';
 import link_test_panel from './link_test_panel.js';
 import logline_link from './logline_link.js';
 import machine_shares from './machine_shares.js';
@@ -19,22 +20,14 @@ import updates_lists from './updates_lists.js';
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
 
-// A remote's Overview tab: its state beside the title, its uptime by day in one row under it,
-// the numbers that move as tiles, its history, what it is as cards, and the raw state folded away
-// at the end. It is drawn again with every beat of the machine.
+// A remote's Overview tab: its names, its uptime by day in one row, the numbers that move as
+// tiles, the services it carries as a table, its history, what it is as cards, and the raw state
+// folded away at the end; its name and state are the page's header. It is drawn again with every
+// beat of the machine.
 const remote_overview = {
     template: `
 <article id="detail" class="ov-pane">
     <div class="ov">
-        <div class="ov-head">
-            <h1><span class="dot" :class="dot_phase"></span>{{ (view.title || view.name) }}</h1>
-            <div class="ov-aside">
-                <span v-if="(unanswered_said !== '')" class="pill waiting" :title="unanswered_said">not answering · {{ format_ms(view.unanswered.ms) }}</span>
-                <span v-else-if="(view.phase === 'online')" class="pill running">online</span>
-                <span v-else-if="(view.phase === 'greeting')" class="pill starting">connecting</span>
-                <span v-else class="pill failed">offline</span>
-            </div>
-        </div>
         <div class="ov-summary">
             <span>remote <code>{{ view.name }}</code><template v-if="(tailnet_name !== '')"> · tailnet <code class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + tailnet_name)">{{ tailnet_name }}</code></template><template v-for="part in summary" :key="part.text"> · <span :class="{tag: part.tag}">{{ part.text }}</span></template></span>
         </div>
@@ -48,6 +41,7 @@ const remote_overview = {
             <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="tile_go">{{ tile.text }}</overview-tile>
         </div>
         <link-test-panel v-if="((view.machine !== null) && link_test_open)" :view="view" @close="link_test_open = false"/>
+        <item-services :services="services" :port="port" :title="('Services on ' + (view.title || view.name))" @select="$emit('select', $event)"/>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
@@ -105,14 +99,6 @@ const remote_overview = {
                     <dd><span class="bad">refused: {{ view.update_refused }}</span></dd>
                 </template>
             </overview-card>
-            <overview-card icon="layers" title="Services" class="ov-list">
-                <template #aside>{{ ((services.length === 0) ? 'none' : services.length) }}</template>
-                <template v-if="(services.length === 0)" #note><span class="muted">No service uses this machine.</span></template>
-                <template v-for="item in services" :key="item.name">
-                    <dt><button type="button" class="link" @click="$emit('select', item)">{{ (item.title || item.name) }}</button></dt>
-                    <dd><span class="pill" :class="item.phase">{{ item.phase }}</span></dd>
-                </template>
-            </overview-card>
             <overview-card v-if="(updates !== null)" icon="download" title="Updates" tab="configure" go="Configure" @tab="$emit('tab', $event)">
                 <template #aside>
                     <span v-if="((updates.pending === 0) && (lists !== null) && lists.old)" class="pill">lists {{ lists.days }} days old</span>
@@ -160,8 +146,9 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'agent-pill-short': agent_pill_short, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
-    props: ['view', 'services', 'served', 'logline'],
+    components: {'agent-pill-short': agent_pill_short, 'item-services': item_services, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
+    // port: the one serviceman answers on, for the links of its services
+    props: ['view', 'services', 'served', 'logline', 'port'],
     emits: ['select', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine
@@ -172,14 +159,8 @@ const remote_overview = {
         unanswered_said: function () {
             return remote_unanswered_said(this.view);
         },
-        dot_phase: function () {
-            if (this.view.phase === 'online') {
-                return (this.unanswered_said === '') ? 'running' : 'starting';
-            }
-            return (this.view.phase === 'greeting') ? 'starting' : 'stopped';
-        },
-        // What follows "remote <name>" under the title: since when and how fast it is linked, or
-        // when it was last seen, then its tags; a tag the machine declared itself is starred
+        // What follows "remote <name>": since when and how fast it is linked, or when it was last
+        // seen; its tags are in the page's header
         summary: function () {
             const view = this.view;
             const out = [];
@@ -191,9 +172,6 @@ const remote_overview = {
             }
             if ((view.phase !== 'online') && view.left_at) {
                 out.push({text: `last seen ${format_ms_ago(Date.now() - view.left_at)}`, tag: false});
-            }
-            for (const tag of view.tags) {
-                out.push({text: `#${tag}${view.tags_declared.includes(tag) ? '*' : ''}`, tag: true});
             }
             return out;
         },

@@ -108,7 +108,7 @@ service, its state, its addresses, its policy and its instances, and it does the
   opens it in place; its **Save** writes that change and nothing else.
 - **Start**, **Stop** — by hand, whatever the policy says.
 - **Logs** — a place kept for what the service itself writes. Not implemented yet.
-- **File Manager**, **Shell** — where the service lives. A program's are its folder on the
+- **Files**, **Shell** — where the service lives. A program's are its folder on the
   machine that runs it: that machine's file manager opened there, and a terminal opened there,
   named after the service and kept running on the machine as its other terminals are. A docker
   service's are inside its running container, `docker exec` in a pane, one container at a time.

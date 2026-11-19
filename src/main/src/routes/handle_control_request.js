@@ -208,7 +208,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
 const PAGE_PANES = ['canvas', 'categories', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'databases', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'boards', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
-const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
+const REMOTE_TABS = ['overview', 'services', 'databases', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
 const SKINS_SITE = {name: 'serviceman-skins', type: 'static', root: SKINS_ROOT, fresh: true};
 // The page halves of the modules, each served from the ui folder of its own module

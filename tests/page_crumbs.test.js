@@ -35,7 +35,7 @@ test('a tab of an item is a crumb after its name, the name a way back to its Ove
     ]);
     assert.deepStrictEqual(page_crumbs({page: 'service', name: 'grafana', title: '', tab: 'files'}), [
         {label: 'grafana', to: {page: 'service', name: 'grafana', tab: 'overview'}},
-        {label: 'File Manager', to: null},
+        {label: 'Files', to: null},
     ]);
     assert.deepStrictEqual(page_crumbs({page: 'remote', name: 'laptop', title: '', tab: 'shell'}).map(v => v.label), ['laptop', 'Shell']);
 });

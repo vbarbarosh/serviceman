@@ -1116,24 +1116,43 @@ ul.tried {
     min-height: 0;
 }
 
-/* A new version on its way is a row of its own between the crumbs and the tabs: without one
+/* A new version on its way is a row of its own between the header and the tabs: without one
    of its own the tabs take the stretched row, and the pane is pushed under the page's foot */
 #page:has(> .version-wrap) {
     grid-template-rows: auto auto auto 1fr;
 }
 
-/* Where a page sits: its kind, the machine it runs on, then its own name */
-.crumbs {
+/* An item's header: its icon and name, how it stands, its tags, then what is done to it */
+.item-head {
     display: flex;
     flex-wrap: wrap;
-    gap: .5rem;
+    gap: .45rem .6rem;
     align-items: center;
-    padding: .7rem 1.25rem 0;
+    padding: .9rem 1.25rem .2rem;
     background: var(--bar);
 }
 
-.crumbs b {
-    font-size: 1.05rem;
+.item-head h1 {
+    min-width: 0;
+    margin: 0;
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+}
+
+.item-icon {
+    flex: none;
+    color: var(--link);
+}
+
+.item-head .pill .dot {
+    display: inline-block;
+    margin-right: .35rem;
+    vertical-align: .02em;
+}
+
+.item-head .acts button.on {
+    border-color: var(--accent);
+    color: var(--link);
 }
 
 /* What is done to the whole page (Add service, Start, Clone) and the way out to Logline, at the

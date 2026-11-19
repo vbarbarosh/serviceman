@@ -1,6 +1,6 @@
 // The tabs' names as their tab bars say them
-const SERVICE_TABS = {overview: 'Overview', settings: 'Settings', logs: 'Logs', files: 'File Manager', shell: 'Shell'};
-const REMOTE_TABS = {overview: 'Overview', configure: 'Configure', settings: 'Settings', logs: 'Logs', files: 'File Manager', docker: 'Docker', firewall: 'Firewall', processes: 'Processes', disks: 'Disks', packages: 'Packages', vulnerabilities: 'Vulnerabilities', shell: 'Shell', install: 'Install'};
+const SERVICE_TABS = {overview: 'Overview', settings: 'Settings', logs: 'Logs', files: 'Files', shell: 'Shell'};
+const REMOTE_TABS = {overview: 'Overview', services: 'Services', databases: 'Databases', configure: 'Configure', settings: 'Settings', logs: 'Logs', files: 'Files', docker: 'Docker', firewall: 'Firewall', processes: 'Processes', disks: 'Disks', packages: 'Packages', vulnerabilities: 'Vulnerabilities', shell: 'Shell', install: 'Install'};
 // A form that opens over a category, by the page it is
 const FORMS = {'new-service': 'New service', 'new-remote': 'New remote', join: 'Machines that join by themselves'};
 
