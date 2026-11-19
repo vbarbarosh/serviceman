@@ -22,6 +22,7 @@ function program_ended(app, remote, message)
     const code = (message.code === undefined) ? null : message.code;
     const signal = (message.signal === undefined) ? null : message.signal;
     instance.pid = null;
+    instance.exit = (signal === null) ? `code ${code}` : signal;
     if (instance.start_under_way && (instance.phase === 'starting') && (instance.asked_to_stop === false) && (code !== 0)) {
         // It failed on its way up: nothing is going to answer, so the start fails now, with
         // this as its reason (wait_http_answer), as a start that failed; the restart policy
@@ -32,6 +33,7 @@ function program_ended(app, remote, message)
         instance_stopped(instance);
     }
     else {
+        instance.ran_ms = (instance.started_at === null) ? null : (Date.now() - instance.started_at);
         instance.phase = 'failed';
         instance.upstream = null;
         instance.stopped_at = Date.now();
@@ -43,12 +45,17 @@ function program_ended(app, remote, message)
         instance.restarts = 0;
     }
     const wait_ms = Math.min(FIRST_RESTART_MS*Math.pow(2, instance.restarts), LONGEST_RESTART_MS);
+    if (instance.restarts === 0) {
+        instance.restarts_since = Date.now();
+    }
     instance.restarts++;
+    instance.restart_at = Date.now() + wait_ms;
     log_event(app, 'program_restart_wait', {service: service.name, in: format_seconds(wait_ms), restart: instance.restarts});
     instance.restart_timer = setTimeout(function () {
         // A timer that is not null is one still waiting: that is how a service is seen to be
         // meant to be up while it pauses between restarts
         instance.restart_timer = null;
+        instance.restart_at = null;
         restart_now(app, service, instance);
     }, wait_ms);
     instance.restart_timer.unref();

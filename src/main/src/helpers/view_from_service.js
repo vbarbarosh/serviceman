@@ -148,6 +148,15 @@ function view_from_instance(service, instance, at)
         inflight: instance.inflight,
         requests: instance.requests,
         error: instance.last_error,
+        // How it stands, for the page's note: how long its start has run so far, how long its
+        // last run lasted and how it ended, its restarts in a row since when, and the next try
+        starting_ms: ((instance.phase === 'starting') && (instance.began_at !== null)) ? (at - instance.began_at) : null,
+        ran_ms: instance.ran_ms,
+        exit: instance.exit,
+        stopped_at: instance.stopped_at,
+        restarts: instance.restarts,
+        restarts_since: instance.restarts_since,
+        next_try_ms: (instance.restart_at === null) ? null : Math.max(0, instance.restart_at - at),
     };
 }
 

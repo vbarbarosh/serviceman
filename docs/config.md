@@ -52,6 +52,14 @@ address made of its name unless one is typed; what runs on a machine, the first 
 the one it was added from. **Change** under the rest, on Check, opens the whole form, every card,
 with what the steps filled in, as does a problem no step shows; an address with a path strips
 its prefix. A service's own
+page says how it stands once, in its head: a pill with its time (`running · up 58s`,
+`starting · 12s`, `restarting · 3rd time`), and the buttons that fit (Stop and Restart while it
+runs, Start when it is stopped). When that wants a word, a note under the head says why, with
+**All logs** or the way to its machine: starting (how long so far, when it is up, its last
+lines), stopped by you (when, how long it ran, that only Start starts it), failed (how it ended
+and when, the starts in a row, whether serviceman stopped trying), stopping badly over and over
+(how many times since when, the next try, how it ended the last time) and its machine offline
+(since when). A new version or an image on its way is shown there too, with its bar. The
 page reads how it runs on its **Overview**: how long it is up, its last start (or its requests,
 once it has an address), how many starts failed in a row, its machine's CPU, memory and disk,
 what runs with each option as a chip (**Copy** takes the whole line, **Edit** opens its card),

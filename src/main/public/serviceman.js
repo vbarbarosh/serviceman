@@ -62,6 +62,7 @@ import security_pane from './security_pane.js';
 import service_doors from './service_doors.js';
 import service_form from './service_form.js';
 import service_kind from './service_kind.js';
+import service_note from './service_note.js';
 import service_overview from './service_overview.js';
 import service_script from './service_script.js';
 import service_shell from './service_shell.js';
@@ -1674,6 +1675,8 @@ const service_page = {
             </nav>
         </div>
     </div>
+    <!-- How it stands, when that wants a word: why, and the way to its logs or its machine -->
+    <service-note :view="view" :machine="machine_now" @logs="$emit('tab', 'logs')" @machine="$emit('remote', $event)"/>
     <!-- A new version of an app folder goes in as soon as it is picked: the browser's pick is
          the ask. The bar says what it is, what happens to the folder, and how far it got; it
          stays with its own service when the page walks to another -->
@@ -1716,7 +1719,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
+    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
@@ -1761,10 +1764,28 @@ const service_page = {
             const found = this.remotes.find(v => v.name === this.place.name);
             return (found !== undefined) && (found.phase !== 'online');
         },
-        // How it stands, once, with its time: running · up 58s, stopped, failed, waits for its machine
+        // The machine it runs on as the status has it, for the note under the head; null for none
+        machine_now: function () {
+            return (this.place === null) ? null : (this.remotes.find(v => v.name === this.place.name) || null);
+        },
+        // Stopping badly over and over: it waits for its next try, or is on its way up after one
+        restarting: function () {
+            const first = (this.view.instances.length === 0) ? null : this.view.instances[0];
+            return (first !== null) && (first.restarts > 0) && ((first.next_try_ms !== null) || (this.view.phase === 'starting'));
+        },
+        // How it stands, once, with its time: running · up 58s, stopped, failed, restarting ·
+        // 3rd time, waits for its machine
         state_pill: function () {
             if (this.machine_away) {
                 return {tone: 'busy', text: 'waits for its machine'};
+            }
+            if (this.restarting) {
+                return {tone: 'busy', text: `restarting · ${ordinal_of(this.view.instances[0].restarts)} time`};
+            }
+            // On its way up: how long so far, never the raw words of what it waits for
+            const first = (this.view.instances.length === 0) ? null : this.view.instances[0];
+            if ((this.view.phase === 'starting') && (first !== null) && (first.starting_ms !== null)) {
+                return {tone: 'busy', text: `starting · ${format_ms(first.starting_ms)}`};
             }
             const word = service_state_word(this.view);
             const up = ((this.view.phase === 'running') && (this.view.uptime_ms !== null) && (this.view.uptime_ms !== undefined)) ? ` · up ${format_ms(this.view.uptime_ms)}` : '';
@@ -1780,7 +1801,7 @@ const service_page = {
             if (this.view.phase === 'running') {
                 return 'running';
             }
-            if ((this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping')) {
+            if ((this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping') || this.restarting) {
                 return 'going';
             }
             return 'stopped';
@@ -1966,6 +1987,14 @@ const service_page = {
         },
     },
 };
+
+// A count as its place in a row: 1st, 2nd, 3rd, 4th, 11th, 21st
+function ordinal_of(n)
+{
+    const teen = ((n % 100) >= 11) && ((n % 100) <= 13);
+    const ending = teen ? 'th' : ({1: 'st', 2: 'nd', 3: 'rd'}[n % 10] || 'th');
+    return `${n}${ending}`;
+}
 
 // The address of what Databases shows: its table, New database, or a database's page, a server
 // with none at its name alone

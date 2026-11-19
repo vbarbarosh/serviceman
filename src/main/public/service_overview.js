@@ -1,5 +1,4 @@
 import clock_of from './clock_of.js';
-import copy_progress from 'file_manager/copy_progress.js';
 import format_ms from './format_ms.js';
 import machine_shares from './machine_shares.js';
 import overview_icons from './overview_icons.js';
@@ -17,12 +16,6 @@ const LINES_SHOWN = 6;
 const service_overview = {
     template: `
 <article id="detail" class="list svc-ov">
-    <!-- What it is doing now that takes a while: a new version or an image on its way -->
-    <div v-if="((view.copy !== null) && (view.copy !== undefined))" class="card svc-now"><copy-progress :copy="view.copy"/></div>
-    <div v-else-if="(view.doing !== null)" class="card svc-now">
-        <div class="meter"><i :style="{width: ((view.progress === null) ? '100%' : (Math.round(view.progress*100) + '%'))}"/></div>
-        <p class="muted"><span class="spin"/>{{ view.doing }}{{ (view.progress_text === null) ? '' : (' · ' + view.progress_text) }}</p>
-    </div>
     <div class="ov-tiles">
         <div v-for="tile of tiles" :key="tile.label" class="card ov-tile" :class="(tile.tone === '') ? '' : ('ov-' + tile.tone)">
             <span class="ov-label"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icons[tile.icon]"/>{{ tile.label }}</span>
@@ -89,7 +82,6 @@ const service_overview = {
     </div>
 </article>
 `,
-    components: {'copy-progress': copy_progress},
     // original: its entry in the config, for what runs as it is written; forwards: the
     // forwards of the status that bring its port over
     props: ['view', 'original', 'remotes', 'port', 'forwards'],

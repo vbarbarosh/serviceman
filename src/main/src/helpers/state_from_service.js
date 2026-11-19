@@ -88,7 +88,15 @@ function instance_new(slot)
         asked_to_stop: false,
         // How its program ended while it was starting (program_ended): the start fails on it
         ended_starting: null,
+        // When its start began, while it starts; how long its last run lasted and how it ended
+        // ('code 1', 'SIGKILL'), for the page's note on how it stands
+        began_at: null,
+        ran_ms: null,
+        exit: null,
+        // Restarts in a row after it stopped badly, since when, and when the next one comes
         restarts: 0,
+        restarts_since: null,
+        restart_at: null,
         restart_timer: null,
         // The last line of its own output that was passed to whoever is waiting, so the same
         // lines are not said twice while it comes up

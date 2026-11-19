@@ -3,6 +3,7 @@
 // stopped service whose page says `Up for 27s` is the kind of thing that comes of forgetting.
 function instance_stopped(instance)
 {
+    instance.ran_ms = (instance.started_at === null) ? instance.ran_ms : (Date.now() - instance.started_at);
     instance.phase = 'stopped';
     instance.remote = null;
     instance.upstream = null;

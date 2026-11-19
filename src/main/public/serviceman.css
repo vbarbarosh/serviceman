@@ -1926,8 +1926,108 @@ ul.tried {
     margin: 0;
 }
 
-.svc-now {
-    padding: 14px 18px;
+/* The note under a service's head, when how it stands wants a word: its icon, why, the lines it
+   said in a box of their own, and the one way on at the right; edged and tinted by its tone */
+.card.svc-note {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    min-width: 0;
+    margin: 16px 32px 0;
+    padding: 16px 18px;
+    border-left: 4px solid var(--idle);
+}
+
+.card.svc-note-acc {
+    border-color: var(--accent-edge);
+    border-left-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+}
+
+.card.svc-note-bad {
+    border-color: var(--bad-edge);
+    border-left-color: var(--bad);
+    background: var(--bad-soft);
+}
+
+.card.svc-note-busy {
+    border-color: var(--busy-edge);
+    border-left-color: var(--busy);
+    background: var(--busy-soft);
+}
+
+.svc-note-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--muted);
+}
+
+.svc-note-acc .svc-note-icon {
+    color: var(--accent);
+}
+
+.svc-note-bad .svc-note-icon {
+    color: var(--bad);
+}
+
+.svc-note-busy .svc-note-icon {
+    color: var(--busy-text);
+}
+
+.svc-note-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.svc-note-body > b {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.svc-note-body > p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.svc-note-body .meter {
+    max-width: 30rem;
+    margin-top: 10px;
+}
+
+.svc-note-lines {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    overflow-x: auto;
+    border-radius: 4px;
+    background: var(--code);
+    font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.svc-note > button {
+    flex: none;
+}
+
+#page:has(> .svc-note) {
+    grid-template-rows: auto auto auto 1fr;
+}
+
+#page:has(> .svc-note):has(> .version-wrap) {
+    grid-template-rows: auto auto auto auto 1fr;
+}
+
+@media (max-width: 600px) {
+    .card.svc-note {
+        flex-wrap: wrap;
+        margin: 12px 12px 0;
+        padding: 14px;
+    }
+
+    .svc-note > button {
+        margin-left: 32px;
+    }
 }
 
 .svc-ov .ov-tile small {

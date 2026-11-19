@@ -2791,7 +2791,18 @@ test('the restart policy decides what follows a program that stops by itself', a
         await timers.setTimeout(400);
         assert.ok(running.app.log_lines.some(v => /\[program_end\] remote=vps1 service=faller slot=1 how="code 3"/.test(v)), 'the agent said so, and the line is here as it said it');
         assert.ok(running.app.log_lines.some(v => /\[program_restart_wait\] service=faller in=1\.000s restart=1/.test(v)));
+        // The page's note reads how it went: how it ended, after how long, its restarts in a
+        // row since when, and when the next one comes
+        const fell = view_from_service(faller).instances[0];
+        assert.strictEqual(fell.exit, 'code 3');
+        assert.ok((fell.ran_ms >= 100) && (fell.ran_ms < 1000), `it ran ${fell.ran_ms}ms`);
+        assert.strictEqual(fell.restarts, 1);
+        assert.ok(Number.isFinite(fell.restarts_since));
+        assert.ok((fell.next_try_ms > 0) && (fell.next_try_ms <= 1000), `the next try in ${fell.next_try_ms}ms`);
         assert.ok(running.app.log_lines.some(v => /\[program_end\] remote=vps1 service=quitter slot=1 how="code 0"/.test(v)));
+        const quit = view_from_service(quitter).instances[0];
+        assert.strictEqual(quit.exit, 'code 0');
+        assert.strictEqual(quit.next_try_ms, null, 'nothing comes after a clean exit');
         assert.strictEqual(service_phase(quitter), 'stopped', 'a clean exit is a stopped service, not a running one nobody can reach');
         assert.ok(running.app.log_lines.every(v => /\[program_restart_wait\] service=quitter/.test(v) === false));
         await timers.setTimeout(900);
