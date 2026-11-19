@@ -2469,9 +2469,12 @@ secure context, so it has the microphone, the camera and the clipboard with no c
 </tr>
 </tbody></table>
 </div>
-<p><strong>Boards</strong>, on All categories, is where they are made: every app is a cell in a palette, dragged onto
-a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
-publishes it there. Each change is saved at once. A program reads the list with
+<p><strong>Boards</strong>, on All categories, is where they are made: a table of boards, a row each with its apps,
+the machines it is published on, its address and whether it is published, a draft or on a machine
+that is away, and a palette of every app beside it. An app dragged onto a board&#39;s row is put on it,
+last. A click on the row, or its <strong>⋯</strong>, opens the board&#39;s window: its apps there are moved by
+dragging and taken off with ×, a machine clicked publishes it there, its name changes, and
+<strong>Remove…</strong> takes it away. Each change is saved at once. A program reads the list with
 <code>GET /api/v1/boards</code> and writes it back whole with <code>PUT /api/v1/boards</code>, the owner&#39;s token alone.</p>
 <ul>
 <li><strong>Straight to the app.</strong> A request on a board&#39;s port is routed by the machine&#39;s door table, as

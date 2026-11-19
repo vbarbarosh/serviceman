@@ -1,9 +1,15 @@
 import CATEGORIES from './categories.js';
+import clock_of from './clock_of.js';
+import data_table from './data_table.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
+import state_pill from './state_pill.js';
 
 const RE_NAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const PORT_DEFAULT = 3000;
+// How many app names a board's row gives before "and N more"
+const NAMED_MAX = 3;
 
 // The app boards: a page of apps put together by dragging, published on machines. Every app is
 // a cell in the palette; dragged onto a board it is on it, dragged within it moves, dragged back
@@ -22,7 +28,7 @@ export default {
             <button type="button" class="primary" :disabled="busy" @click="board_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New board</button>
         </template>
         <template #how>
-            <p>A page of apps you put together, published on a machine: there its agent answers it on 127.0.0.1 and nowhere else, at the board's name under .localhost, and each app on it at its own, straight to where the app runs. Drag an app from the palette onto a board; drag it within the board to move it, back to the palette to take it off.</p>
+            <p>A page of apps you put together, published on a machine: there its agent answers it on 127.0.0.1 and nowhere else, at the board's name under .localhost, and each app on it at its own, straight to where the app runs. Drag an app from the palette onto a board's row; a click on the row opens the board's window, where its apps are moved and taken off, its machines picked and its name changed.</p>
         </template>
     </page-head>
     <p v-if="(note !== '')" class="boards-note" :class="{bad: bad}" role="status">{{ note }}</p>
@@ -37,49 +43,72 @@ export default {
                 </li>
             </ul>
             <p v-if="(palette.length === 0)" class="muted">{{ (apps.length === 0 ? 'No app yet: one dropped on Apps lands here.' : 'No app has that in its name.') }}</p>
+            <p v-else class="muted boards-palette-says">Drag an app onto a board's row; its window arranges them.</p>
         </aside>
-        <div class="boards-list">
-            <div v-if="(boards.length === 0)" class="card dt-empty-big">
-                <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="BOARDS_ICON"/></span>
-                <h3>No boards yet</h3>
-                <p>A board is a page of apps you put together: make one, drag apps onto it from Every app, and pick the machine it is published on.</p>
-                <button type="button" class="primary" :disabled="busy" @click="board_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New board</button>
-            </div>
-            <article v-for="board of boards" :key="board.name" class="board-card">
-                <div class="board-head">
-                    <input v-if="(naming === board.name)" ref="name_box" v-model.trim="name_typed" class="board-name-box" spellcheck="false" aria-label="The board's name under .localhost" @keyup.enter="rename_end(board)" @keyup.esc="naming = null" @blur="rename_end(board)">
-                    <button v-else type="button" class="board-name" :title="('Rename ' + board.name + ': its name under .localhost')" @click="rename_start(board)">{{ board.name }}<span class="muted">.localhost:{{ board.port }}</span></button>
-                    <span v-if="(naming === board.name) && (name_problem !== null)" class="bad board-name-why">{{ name_problem }}</span>
-                    <button type="button" class="board-remove" :disabled="busy" :title="('Take the board ' + board.name + ' away, from every machine it is on')" @click="board_remove(board)">Remove</button>
-                </div>
-                <ul class="board-cells board-drop" :class="{over: (over !== null) && (over.board === board.name) && (over.index === board.apps.length), empty: (board.apps.length === 0)}" :aria-label="('The apps on ' + board.name)" :data-board="board.name" :data-index="board.apps.length">
-                    <li v-for="(name, index) of board.apps" :key="name" class="board-cell" :class="{over: (over !== null) && (over.board === board.name) && (over.index === index), lifted: (dragged !== null) && (dragged.board === board.name) && (dragged.name === name)}" :title="(title_of(name) + ' · ' + label_of(name) + '.localhost')" :data-board="board.name" :data-index="index" @pointerdown="press($event, board, name)">
-                        <span class="board-tile" :style="{'--hue': hue_of(name)}">{{ letter_of(app_of(name)) }}</span>
-                        <span class="board-cell-name">{{ title_of(name) }}</span>
-                        <button type="button" class="board-cell-off" :title="('Take ' + title_of(name) + ' off ' + board.name)" :aria-label="('Take ' + title_of(name) + ' off ' + board.name)" @click="app_off(board, name)">×</button>
-                    </li>
-                    <li v-if="(board.apps.length === 0)" class="board-drop-hint">Drag an app here</li>
-                </ul>
-                <div class="board-foot">
-                    <span class="muted">Published on</span>
-                    <button v-for="machine of machines" :key="machine.name" type="button" class="board-machine" :class="{on: board.machines.includes(machine.name)}" :aria-pressed="board.machines.includes(machine.name)" :title="machine_title(board, machine)" @click="machine_toggle(board, machine.name)"><span class="dot" :class="machine.phase"></span>{{ machine.title || machine.name }}</button>
-                    <span v-if="(machines.length === 0)" class="muted">no machine yet: one joins on Remotes</span>
-                </div>
-                <p v-if="(board.machines.length > 0)" class="board-where muted">On {{ board.machines.join(', ') }}, open <code>http://{{ board.name }}.localhost:{{ board.port }}/</code> there; nowhere else answers it.</p>
-                <p v-else class="board-where muted">On no machine yet: click one above.</p>
-            </article>
-        </div>
+        <data-table class="boards-table" :columns="columns" :rows="rows" row_key="name" :row_class="row_class_of" :marks="true" framed :total="boards.length" :foot="foot" :empty_icon="BOARDS_ICON" empty_title="No boards yet" empty="A board is a page of apps you put together: make one, drag apps onto its row from Every app, and pick the machine it is published on.">
+            <template #tools>
+                <input v-model.trim="filter" type="search" placeholder="Find a board" aria-label="Find a board by its name or an app on it" spellcheck="false">
+                <span class="dt-chips">
+                    <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                        <span v-if="(chip.dot !== '')" class="dot" :class="chip.dot"/>
+                        {{ chip.label }}
+                        <span class="muted">{{ chip.count }}</span>
+                    </button>
+                </span>
+            </template>
+            <template #empty_act><button type="button" class="primary" :disabled="busy" @click="board_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New board</button></template>
+            <template #cell="{row, column, more}">
+                <span v-if="(column.key === 'name')" class="board-row-mark" :data-board="row.name" :data-index="row.board.apps.length"><name-cell :icon="BOARDS_ICON" :name="row.name" :line="row.line" :tone="row.tone"/></span>
+                <template v-else-if="(column.key === 'apps')">{{ row.apps_said }}</template>
+                <span v-else-if="(column.key === 'machines')" :class="{muted: (row.board.machines.length === 0)}">{{ (row.board.machines.length === 0) ? '—' : row.board.machines.join(', ') }}</span>
+                <span v-else-if="(column.key === 'address')" :class="(row.board.machines.length === 0) ? 'muted' : 'dt-address'" :title="row.address_title">{{ (row.board.machines.length === 0) ? '—' : (row.name + '.localhost') }}</span>
+                <state-pill v-else-if="(column.key === 'state')" :tone="row.pill.tone" :text="row.pill.text"/>
+            </template>
+            <!-- A board's own window: its apps arranged, its machines, its name -->
+            <template #details="{row}">
+                <dt>Its apps</dt>
+                <dd>
+                    <ul class="board-cells board-drop" :class="{over: (over !== null) && (over.board === row.name) && (over.index === row.board.apps.length), empty: (row.board.apps.length === 0)}" :aria-label="('The apps on ' + row.name)" :data-board="row.name" :data-index="row.board.apps.length">
+                        <li v-for="(name, index) of row.board.apps" :key="name" class="board-cell" :class="{over: (over !== null) && (over.board === row.name) && (over.index === index), lifted: (dragged !== null) && (dragged.board === row.name) && (dragged.name === name)}" :title="(title_of(name) + ' · ' + label_of(name) + '.localhost')" :data-board="row.name" :data-index="index" @pointerdown="press($event, row.board, name)">
+                            <span class="board-tile" :style="{'--hue': hue_of(name)}">{{ letter_of(app_of(name)) }}</span>
+                            <span class="board-cell-name">{{ title_of(name) }}</span>
+                            <button type="button" class="board-cell-off" :title="('Take ' + title_of(name) + ' off ' + row.name)" :aria-label="('Take ' + title_of(name) + ' off ' + row.name)" @click="app_off(row.board, name)">×</button>
+                        </li>
+                        <li v-if="(row.board.apps.length === 0)" class="board-drop-hint">Drag an app onto its row in the table</li>
+                    </ul>
+                    <p class="muted board-window-says">Drag one to move it; × takes it off.</p>
+                </dd>
+                <dt>Published on</dt>
+                <dd>
+                    <span class="board-machines">
+                        <button v-for="machine of machines" :key="machine.name" type="button" class="board-machine" :class="{on: row.board.machines.includes(machine.name)}" :aria-pressed="row.board.machines.includes(machine.name)" :title="machine_title(row.board, machine)" @click="machine_toggle(row.board, machine.name)"><span class="dot" :class="machine.phase"></span>{{ machine.name }}</button>
+                        <span v-if="(machines.length === 0)" class="muted">no machine yet: one joins on Remotes</span>
+                    </span>
+                    <p class="muted board-window-says">{{ (row.board.machines.length === 0) ? 'On no machine yet: click one.' : ('On ' + row.board.machines.join(', ') + ', open http://' + row.name + '.localhost:' + row.board.port + '/ there; nowhere else answers it.') }}</p>
+                </dd>
+                <dt>Name</dt>
+                <dd>
+                    <input v-if="(naming === row.name)" ref="name_box" v-model.trim="name_typed" class="board-name-box" spellcheck="false" aria-label="The board's name under .localhost" @keyup.enter="rename_end(row.board)" @keyup.esc="naming = null" @blur="rename_end(row.board)">
+                    <button v-else type="button" class="board-name" :title="('Rename ' + row.name + ': its name under .localhost')" @click="rename_start(row.board)">{{ row.name }}<span class="muted">.localhost:{{ row.board.port }}</span></button>
+                    <span v-if="(naming === row.name) && (name_problem !== null)" class="bad board-name-why">{{ name_problem }}</span>
+                </dd>
+            </template>
+            <template #actions="{row, ask}">
+                <button type="button" class="danger" :disabled="busy" @click="ask(('Take ' + row.name + ' away, from every machine it is on?'), 'Remove it', () => board_remove(row.board))">Remove…</button>
+            </template>
+        </data-table>
     </div>
     <div v-if="(dragged !== null)" class="board-ghost" :style="{left: (ghost.x + 'px'), top: (ghost.y + 'px'), '--hue': hue_of(dragged.name)}" aria-hidden="true"><span class="board-tile">{{ letter_of(app_of(dragged.name)) }}</span><span>{{ title_of(dragged.name) }}</span></div>
 </section>
 `,
-    components: {'page-head': page_head},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
     emits: ['saved'],
     props: {
         state: {type: Object, required: true},
     },
     data: function () {
-        return {BOARDS_ICON: CATEGORIES.find(v => v.key === 'boards').icon, boards: copy_of(this.state.boards), busy: false, note: '', bad: false, query: '', pressed: null, dragged: null, ghost: {x: 0, y: 0}, over: null, naming: null, name_typed: ''};
+        // filter, show: the find box over the table and the chip picked
+        return {BOARDS_ICON: CATEGORIES.find(v => v.key === 'boards').icon, boards: copy_of(this.state.boards), busy: false, note: '', bad: false, query: '', pressed: null, dragged: null, ghost: {x: 0, y: 0}, over: null, naming: null, name_typed: '', filter: '', show: 'all'};
     },
     computed: {
         apps: function () {
@@ -91,6 +120,45 @@ export default {
         },
         machines: function () {
             return this.state.remotes.map(v => ({name: v.name, title: v.title, phase: remote_dot(v)}));
+        },
+        // The table's columns, as drawn: the board, how many apps, where, its address, its state
+        columns: function () {
+            return [
+                {key: 'name', label: 'Board', wraps: true},
+                {key: 'apps', label: 'Apps', fold: 2},
+                {key: 'machines', label: 'Published on', fold: 3},
+                {key: 'address', label: 'Address', fold: 1, phone: 'row'},
+                {key: 'state', label: 'State', phone: 'state'},
+            ];
+        },
+        // Every board as its row says it
+        rows_all: function () {
+            return this.boards.map(v => this.row_of(v));
+        },
+        // The rows the chip and the find box leave
+        rows: function () {
+            const words = this.filter.toLowerCase();
+            return this.rows_all.filter(v => ((this.show === 'all') || (v.kind === this.show)) && ((words === '') || [v.name].concat(v.board.apps).join(' ').toLowerCase().includes(words)));
+        },
+        chips: function () {
+            const rows = this.rows_all;
+            return [
+                {value: 'all', label: 'All', dot: '', count: rows.length},
+                {value: 'published', label: 'Published', dot: 'running', count: rows.filter(v => v.kind === 'published').length},
+                {value: 'draft', label: 'Drafts', dot: 'stopped', count: rows.filter(v => v.kind === 'draft').length},
+                {value: 'needs', label: 'Needs you', dot: 'failed', count: rows.filter(v => v.kind === 'needs').length},
+            ];
+        },
+        // The footer: how many boards, apps on them, and on a machine that is away
+        foot: function () {
+            const rows = this.rows_all;
+            const apps = rows.reduce((sum, v) => sum + v.board.apps.length, 0);
+            const out = [{text: `${rows.length} ${(rows.length === 1) ? 'board' : 'boards'}`, tone: ''}, {text: `${apps} ${(apps === 1) ? 'app' : 'apps'} on them`, tone: ''}];
+            const away = rows.filter(v => v.kind === 'needs').length;
+            if (away > 0) {
+                out.push({text: `${away} on a machine offline`, tone: 'bad'});
+            }
+            return out;
         },
         // What is wrong with the name being typed, or null
         name_problem: function () {
@@ -117,6 +185,38 @@ export default {
         },
     },
     methods: {
+        // A board as its row says it: its apps by name, or why it is not answered, its state
+        row_of: function (board) {
+            const away = board.machines.map(v => this.state.remotes.find(vv => vv.name === v)).filter(v => (v !== undefined) && (v.phase !== 'online'));
+            const names = board.apps.map(v => this.title_of(v));
+            let line = (names.length === 0) ? 'no app yet' : `${names.slice(0, NAMED_MAX).join(', ')}${(names.length > NAMED_MAX) ? ` and ${names.length - NAMED_MAX} more` : ''}`;
+            let tone = '';
+            let kind = 'published';
+            let pill = {tone: 'run', text: 'published'};
+            if (board.machines.length === 0) {
+                line = 'not published yet';
+                kind = 'draft';
+                pill = {tone: 'idle', text: 'draft'};
+            }
+            else if (away.length > 0) {
+                const left = away.map(v => v.left_at).filter(v => typeof v === 'number').sort((a, b) => b - a);
+                line = (left.length === 0) ? `${away[0].name} not linked` : `not linked since ${clock_of(left[0])}`;
+                tone = 'bad';
+                kind = 'needs';
+                pill = {tone: 'bad', text: 'machine offline'};
+            }
+            const apps_said = `${board.apps.length} ${(board.apps.length === 1) ? 'app' : 'apps'}`;
+            const address_title = `On ${board.machines.join(', ')}, http://${board.name}.localhost:${board.port}/ answers it there, and nowhere else`;
+            return {name: board.name, board, line, tone, kind, pill, apps_said, address_title};
+        },
+        // A row an app is dragged over is lit, as the cell a dragged app would go before is
+        row_class_of: function (row) {
+            const out = (row.tone === 'bad') ? ['dt-bad'] : [];
+            if ((this.over !== null) && (this.over.board === row.name) && (this.dragged !== null) && (this.dragged.board === null)) {
+                out.push('board-row-over');
+            }
+            return out;
+        },
         app_of: function (name) {
             return this.apps.find(v => v.name === name) || {name, title: name};
         },
@@ -312,6 +412,12 @@ function target_at(x, y)
     const place = under.closest('[data-index]');
     if (place !== null) {
         return {board: place.dataset.board, index: Number(place.dataset.index)};
+    }
+    // Anywhere on a board's row in the table: its mark is in its first cell, last on the board
+    const row = under.closest('tr');
+    const mark = (row === null) ? null : row.querySelector('.board-row-mark[data-index]');
+    if (mark !== null) {
+        return {board: mark.dataset.board, index: Number(mark.dataset.index)};
     }
     if (under.closest('[data-palette]') !== null) {
         return {board: null, index: 0};

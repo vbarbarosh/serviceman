@@ -8227,7 +8227,7 @@ section.apps-pane {
 
 /* In the palette an app is a small chip: its letter in a tile, its name beside it */
 .boards-pane .palette-cells {
-    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -8342,22 +8342,6 @@ section.apps-pane {
     opacity: 1;
 }
 
-.boards-pane .board-card {
-    margin-bottom: 1rem;
-    padding: .9rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--panel);
-}
-
-.boards-pane .board-head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-    margin-bottom: .7rem;
-}
-
 .boards-pane .board-name {
     overflow: hidden;
     max-width: 100%;
@@ -8381,10 +8365,6 @@ section.apps-pane {
 .boards-pane .board-name-box {
     min-width: 12rem;
     font-size: 1.05rem;
-}
-
-.boards-pane .board-remove {
-    margin-left: auto;
 }
 
 /* A board's apps; with none yet, a place to drop the first, dashed */
@@ -8413,12 +8393,38 @@ section.apps-pane {
     color: var(--muted);
 }
 
-.boards-pane .board-foot {
+.boards-pane .board-machines {
     display: flex;
     flex-wrap: wrap;
     gap: .4rem;
     align-items: center;
-    margin-top: .8rem;
+}
+
+/* A board's window: what it says under its apps and its machines */
+.boards-pane .board-window-says {
+    margin: .5rem 0 0;
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+}
+
+/* The table of boards: a row an app is dragged over is lit, its address mono in the link's colour */
+.boards-pane .boards-table tr.board-row-over > td {
+    background: var(--sel);
+}
+
+.boards-pane .boards-table tr.board-row-over > td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.boards-pane .boards-table .dt-address {
+    color: var(--link);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+}
+
+.boards-pane .boards-palette-says {
+    margin: 10px 0 0;
+    font-size: 13px;
 }
 
 .boards-pane .board-machine {
@@ -8439,10 +8445,6 @@ section.apps-pane {
     color: var(--on-accent);
 }
 
-.boards-pane .board-where {
-    margin: .6rem 0 0;
-    overflow-wrap: anywhere;
-}
 
 @media (max-width: 760px) {
     .boards-pane .boards-layout {
@@ -8451,6 +8453,7 @@ section.apps-pane {
 
     .boards-pane .boards-palette {
         position: static;
+        order: 2;
         max-height: none;
     }
 }

@@ -1616,9 +1616,12 @@ secure context, so it has the microphone, the camera and the clipboard with no c
 | `apps`     | Services by name, in the order the board shows them.                           |
 | `port`     | Where its agent answers it, on `127.0.0.1`: `3000` unless said.                |
 
-**Boards**, on All categories, is where they are made: every app is a cell in a palette, dragged onto
-a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
-publishes it there. Each change is saved at once. A program reads the list with
+**Boards**, on All categories, is where they are made: a table of boards, a row each with its apps,
+the machines it is published on, its address and whether it is published, a draft or on a machine
+that is away, and a palette of every app beside it. An app dragged onto a board's row is put on it,
+last. A click on the row, or its **⋯**, opens the board's window: its apps there are moved by
+dragging and taken off with ×, a machine clicked publishes it there, its name changes, and
+**Remove…** takes it away. Each change is saved at once. A program reads the list with
 `GET /api/v1/boards` and writes it back whole with `PUT /api/v1/boards`, the owner's token alone.
 
 - **Straight to the app.** A request on a board's port is routed by the machine's door table, as
