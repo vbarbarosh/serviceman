@@ -46,7 +46,7 @@ every address the site has.
 2. Under **Sign-in**, choose **behind authwall**. The line under it says "every visitor signs in
    first, at every address".
 3. Click **Save**. A lock appears before the site's address on its card, and the
-   **Authwall** tile on All categories counts one more app.
+   **Authwall** row on All categories counts one more app.
 
 authwall is already set up here: setting it up is [its own tutorial](00-authwall.md).
 

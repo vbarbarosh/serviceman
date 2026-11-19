@@ -2083,7 +2083,7 @@ const app = {
     <section>
         <crumbs-bar :category="kind_now" :trail="crumbs_trail" :tallies="tallies" @go="crumb_go" @open="counts_read" @pick="category_show"/>
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
-        <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" @pick="category_show"/>
+        <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" :state="state" :problems="problems" :counts="{addresses: addresses_count, guarded: guarded_count, apps: apps_count, boards: boards_count}" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
         <databases-pane v-else-if="databases_open" :place="database_place" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add" @service="create()"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>

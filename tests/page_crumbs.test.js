@@ -74,3 +74,14 @@ test('the categories: seven in the menu, each with its name, words, icon and gro
     }
     assert.strictEqual(categories.every(v => v.group !== ''), true);
 });
+
+// All categories draws four big tiles, as the designer did, and each has its own way to count
+test('All categories: four big tiles, Services, Remotes, Addresses and Apps, each drawn', async function () {
+    const {default: categories} = await categories_of();
+    const pane = (await import(path.join(PUBLIC, 'categories_pane.js'))).default;
+    const bigs = categories.filter(v => v.big > 0).sort((a, b) => a.big - b.big);
+    assert.deepStrictEqual(bigs.map(v => v.name), ['Services', 'Remotes', 'Addresses', 'Apps']);
+    for (const item of bigs) {
+        assert.strictEqual(typeof pane.methods[`${item.key}_tile`], 'function', `${item.key} has its tile`);
+    }
+});

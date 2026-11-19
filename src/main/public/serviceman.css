@@ -2581,71 +2581,321 @@ input.sf-big {
     font-weight: 600;
 }
 
-/* All categories: a group a block, its tiles side by side, each standing alone, 6 px */
-.cat-group {
-    margin-top: 1.4rem;
-}
-
-.cat-group h2 {
-    margin: 0 0 .6rem;
+/* All categories: what needs you as cards on top, what you have as four tiles, everything else as
+   short lists by group. Cards and tiles stand alone, 6 px; the lists' rows touch, square */
+.cat-label {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    margin: 1.2rem 0 0;
     color: var(--muted);
     font-size: .8rem;
-    font-weight: 600;
-    letter-spacing: .04em;
+    font-weight: 700;
+    letter-spacing: .05em;
     text-transform: uppercase;
 }
 
-.cat-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-    gap: .75rem;
+/* Right under the title, nearer: the page's own gap is most of the way */
+.list-head + .cat-label {
+    margin-top: .5rem;
 }
 
-.cat-tile {
+.cat-label.bad {
+    color: var(--bad);
+}
+
+.cat-label.warn {
+    color: var(--busy-text);
+}
+
+.cat-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .9rem;
+}
+
+.cat-card {
     display: flex;
-    flex-direction: column;
-    gap: .4rem;
+    gap: 1.1rem;
+    align-items: flex-start;
     min-width: 0;
-    padding: .8rem .9rem;
-    border: 1px solid var(--line);
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--bad-edge);
+    border-left: 4px solid var(--bad);
     border-radius: 6px;
-    background: var(--panel);
+    background: var(--bad-soft);
+    color: var(--fg);
     text-align: left;
 }
 
-.cat-tile.on {
-    border-color: var(--accent);
+.cat-card.warn {
+    border-color: var(--busy-edge);
+    border-left-color: var(--busy);
+    background: var(--busy-soft);
 }
 
-.cat-head {
+.cat-card.on {
+    outline: 2px solid var(--accent);
+}
+
+.cat-card-count {
+    flex: none;
+    min-width: 2.2rem;
+    color: var(--bad);
+    font-size: 54px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.cat-card.warn .cat-card-count,
+.cat-card.warn .cat-card-go {
+    color: var(--busy-text);
+}
+
+.cat-card-body {
     display: flex;
-    gap: .55rem;
-    align-items: center;
+    flex-direction: column;
+    gap: .45rem;
     min-width: 0;
 }
 
-.cat-head svg {
+.cat-card-what {
+    font-size: 1.15rem;
+}
+
+.cat-card-line {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.cat-card-go {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    color: var(--bad);
+    font-weight: 600;
+}
+
+.cat-well {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-top: .5rem;
+    padding: .7rem 1rem;
+    border: 1px solid var(--run-edge);
+    border-left: 4px solid var(--run);
+    border-radius: 6px;
+    background: var(--run-soft);
+    color: var(--run);
+}
+
+.cat-bigs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .9rem;
+}
+
+.cat-big {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    min-width: 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--fg);
+    text-align: left;
+}
+
+.cat-big.on {
+    border-color: var(--accent);
+}
+
+.cat-big-head {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    font-weight: 600;
+}
+
+.cat-big-head svg,
+.cat-row svg {
     flex: none;
     color: var(--link);
 }
 
-.cat-name {
+.cat-big-count {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.cat-marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.cat-mark {
+    width: 14px;
+    height: 14px;
+    background: var(--line-strong);
+}
+
+.cat-mark.dot {
+    border-radius: 50%;
+}
+
+.cat-mark.run,
+.cat-bar .run {
+    background: var(--run);
+}
+
+.cat-mark.bad,
+.cat-bar .bad {
+    background: var(--bad);
+}
+
+.cat-mark.busy,
+.cat-bar .busy {
+    background: var(--busy);
+}
+
+.cat-mark.accent,
+.cat-bar .accent {
+    background: var(--accent);
+}
+
+.cat-bar {
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 3px;
+}
+
+.cat-bar i {
+    flex-basis: 0;
+    background: var(--line-strong);
+}
+
+.cat-big-line {
+    color: var(--muted);
+    font-size: .92rem;
+}
+
+.cat-big-line .run {
+    color: var(--run);
+}
+
+.cat-big-line .bad {
+    color: var(--bad);
+}
+
+.cat-big-line .busy {
+    color: var(--busy-text);
+}
+
+.cat-lists {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1.2rem .9rem;
+    align-items: start;
+}
+
+.cat-list-group h3 {
+    margin: 0 0 .5rem;
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.cat-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.cat-row {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    min-width: 0;
+    height: 46px;
+    padding: 0 .8rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+}
+
+.cat-row:last-child {
+    border-bottom: 0;
+}
+
+.cat-row.on {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.cat-row.bad {
+    border-left-color: var(--bad);
+}
+
+.cat-row.warn {
+    border-left-color: var(--busy);
+}
+
+.cat-row-name {
     flex: 1;
     min-width: 0;
     overflow: hidden;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.cat-count {
+.cat-row-tally {
     flex: none;
-    font-size: .85rem;
-    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    font: .82rem ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.cat-says {
-    font-size: .88rem;
-    line-height: 1.35;
+.cat-row.bad .cat-row-tally {
+    color: var(--bad);
+}
+
+.cat-row.warn .cat-row-tally {
+    color: var(--busy-text);
+}
+
+@media (max-width: 1100px) {
+    .cat-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cat-bigs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cat-lists {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .cat-bigs,
+    .cat-lists {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .list-acts {
