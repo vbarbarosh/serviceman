@@ -13,15 +13,18 @@ import state_pill from './state_pill.js';
 // chips narrow it; a click on a row opens the service.
 const services_pane = {
     template: `
-<article id="detail" class="list">
+<component :is="(embedded ? 'div' : 'article')" :id="(embedded ? null : 'detail')" :class="(embedded ? 'item-list' : 'list')">
+    <template v-if="(embedded === false)">
     <page-head category="services" :count="services.length">
         <template #acts><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
     </page-head>
-    <data-table :columns="columns" :rows="rows" row_key="name" :row_class="(row => ((row.tone === '') ? [] : ('dt-' + row.tone)))" :on_row="(row => $emit('select', row.name))" :marks="false" framed :total="services_here.length" :foot="foot" :empty_icon="SERVICES_ICON" empty_title="No services yet" empty="A service is something serviceman runs and answers for: a docker image, an app folder, a program, a folder of files, or an address that already runs.">
+    </template>
+    <data-table :columns="columns" :rows="rows" row_key="name" :row_class="(row => ((row.tone === '') ? [] : ('dt-' + row.tone)))" :on_row="(row => $emit('select', row.name))" :marks="false" framed :title="(embedded ? ('Services on ' + remote) : '')" :total="services_here.length" :foot="foot" :empty_icon="SERVICES_ICON" :empty_title="(embedded ? 'No service runs here yet' : 'No services yet')" :empty="(embedded ? 'Service here puts one on this machine: a docker image, an app folder or a program.' : 'A service is something serviceman runs and answers for: a docker image, an app folder, a program, a folder of files, or an address that already runs.')">
+        <template v-if="embedded" #head_acts><button type="button" class="link dt-head-act" @click="$emit('create')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Service here</button></template>
         <template #tools>
             <input v-model.trim="filter" type="search" placeholder="Find a service" aria-label="Find a service by its name, address, image or machine" spellcheck="false">
             <span class="dt-chips">
-                <button v-if="(place !== null)" type="button" class="chip on" title="Show the services of every machine again" @click="$emit('only', null)">on {{ place.title }} ×</button>
+                <button v-if="((place !== null) && (embedded === false))" type="button" class="chip on" title="Show the services of every machine again" @click="$emit('only', null)">on {{ place.title }} ×</button>
                 <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
                     <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
                     {{ chip.label }}
@@ -29,7 +32,7 @@ const services_pane = {
                 </button>
             </span>
         </template>
-        <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
+        <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ embedded ? 'Service here' : 'New service' }}</button></template>
         <template #cell="{row, column}">
             <name-cell v-if="(column.key === 'name')" :icon="row.icon" :name="row.name" :line="row.line" :tone="row.tone"/>
             <template v-else-if="(column.key === 'what')">{{ row.what }}</template>
@@ -43,11 +46,16 @@ const services_pane = {
             <state-pill v-else-if="(column.key === 'state')" :tone="row.pill" :text="row.state"/>
         </template>
     </data-table>
-</article>
+</component>
 `,
     components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
-    // remote: the one machine the list is narrowed to, or null for all of them
-    props: ['state', 'remote'],
+    // remote: the one machine the list is narrowed to, or null for all of them; embedded: the
+    // table card alone, on that machine's page, titled with it and with Service here in its band
+    props: {
+        state: {type: Object, default: null},
+        remote: {type: String, default: null},
+        embedded: {type: Boolean, default: false},
+    },
     emits: ['create', 'only', 'select'],
     data: function () {
         return {filter: '', show: 'all', SERVICES_ICON: CATEGORIES.find(v => v.key === 'services').icon};
@@ -83,13 +91,14 @@ const services_pane = {
         // The table's columns, each that may fold with when, the address last; on a phone the
         // kind and the machine share a line, the address one of its own
         columns: function () {
+            // On a machine's own page, every row is on it: no Machine column
             return [
                 {key: 'name', label: 'Name'},
                 {key: 'what', label: 'What', fold: 1},
                 {key: 'machine', label: 'Machine', fold: 2},
                 {key: 'address', label: 'Address', fold: 3, phone: 'row'},
                 {key: 'state', label: 'State', phone: 'state'},
-            ];
+            ].filter(v => (this.embedded === false) || (v.key !== 'machine'));
         },
         // The footer: how many, how many run, sleep, and need a look, of the machine's or all
         foot: function () {

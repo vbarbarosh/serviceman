@@ -72,13 +72,14 @@ import {Comment} from 'vue';
 //     group_head  {group, rows}: the row that begins a group
 //     empty       the line shown when there is no row
 //     tools       the find box and the chips, inside a framed card's top
+//     head_acts   what the band of a framed card's title holds at its end: Service here
 //     empty_act   the primary action of a framed card's empty state
 //
 // Emits: sort(key), selected(keys), branch(row)
 const data_table = {
     template: `
 <div class="data-table-room" :class="{'card dt-card': framed}">
-    <div v-if="(framed && (title !== ''))" class="card-head"><h2>{{ title }} <span class="muted">{{ ((total === null) ? rows.length : total) }}</span></h2></div>
+    <div v-if="(framed && (title !== ''))" class="card-head"><h2>{{ title }} <span class="muted">{{ ((total === null) ? rows.length : total) }}</span></h2><slot name="head_acts"/></div>
     <div v-if="(framed && ($slots.tools !== undefined) && (empty_big === false))" class="dt-tools"><slot name="tools"/></div>
     <div v-if="empty_big" class="dt-empty-big">
         <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="empty_icon"/></span>

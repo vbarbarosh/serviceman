@@ -981,13 +981,17 @@ opens a stream to the docker socket over there and runs the exec through it.</p>
 <p>A <code>shell</code> service names a remote the same way, and the agent runs the program as its own child.
 Nothing is placed for you, and nothing moves on its own: a service runs where you write it.</p>
 <h2 id="what-the-host-knows-about-a-remote"><a class="anchor" href="#what-the-host-knows-about-a-remote" aria-hidden="true" tabindex="-1">#</a>What the host knows about a remote</h2>
-<p><strong>Its page</strong> opens from its row under <strong>Remotes</strong>: a header with its name and how it stands
-(<code>online · agent 1.0.147</code>), its tags, <strong>Shell</strong> and <strong>+ Service here</strong>; then its tabs,
-<strong>Overview</strong>, <strong>Services</strong> (what it carries, a row each that opens the service), <strong>Databases</strong>
-(the databases on it, a row each that opens its page, and <strong>+ New database here</strong>), <strong>Files</strong>,
-<strong>Logs</strong>, <strong>Settings</strong>, and the rest of what can be done on it: <strong>Configure</strong>, <strong>Docker</strong>,
-<strong>Firewall</strong>, <strong>Processes</strong>, <strong>Disks</strong>, <strong>Packages</strong>, <strong>Vulnerabilities</strong>, and <strong>Install</strong> while
-it is away.</p>
+<p><strong>Its page</strong> opens from its row under <strong>Remotes</strong>, with its head in a card: its icon, its name
+and how it stands (<code>online</code>), a line of what it is (its title, its system, its cores, its tags,
+its agent or when it was last seen), <strong>Shell</strong> and <strong>+ Service here</strong>, or <strong>Install the agent</strong>
+while it is away, and <strong>⋯</strong> for Logs in Logline ↗ and its Settings. Its tabs are in the card&#39;s
+foot, six of them: <strong>Overview</strong>, <strong>Services</strong> (what it carries, the table of the Services page,
+a row each that opens the service), <strong>Databases</strong> (the databases on it, a row each that opens its
+page, and <strong>+ New database here</strong>), <strong>Files</strong>, <strong>Logs</strong>, <strong>Settings</strong>; the rest of what can be
+done on it is under <strong>More ▾</strong>: <strong>Configure</strong>, <strong>Docker</strong>, <strong>Firewall</strong>, <strong>Processes</strong>, <strong>Disks</strong>,
+<strong>Packages</strong>, <strong>Vulnerabilities</strong>, and <strong>Install</strong> while it is away. While it is away, a red note
+under the head says since when, which services wait for it, and the line to run there to see
+why (<code>systemctl status serviceman-agent</code>).</p>
 <p>The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
 docker version, node version — and repeats the numbers that move every 5 seconds: among them
 how busy its cores were, which is cpu use as top counts it, beside the load average, which
@@ -1008,11 +1012,12 @@ is closed, nothing of it is kept, and the machine stays as it was, away. Numbers
 shape are left out and the link stays: the page shows none, where the last good ones would pass
 for now. The log names the machine and the part, in <code>remote_link_error</code>, once a link each:
 <code>reason=hello_shape part=resources.mem.total</code>, <code>reason=stats_shape part=stats.load</code>.</p>
-<p>The <strong>Overview</strong> tab shows a machine at a glance: its state beside its name, its uptime in one
-row under it, then tiles for CPU, memory, disk and temperature, each with a bar under it (amber
-from 80%, red from 92%), and for its battery and the link; its history, then cards for the
-machine, its agent, its services, its updates and its logs, each with a link to the tab that
-does more with it, and its raw state folded away at the end.
+<p>The <strong>Overview</strong> tab shows a machine at a glance: tiles for CPU, memory, disk and how long it is
+up, each share with a bar under it (amber from 80%, red from 92%), then its temperature, its
+battery and the link; while it is away, what each last said and how long it is down, in red.
+Then the services on it, as the Services page&#39;s table; its uptime in one row, its history, then
+cards for the machine, its agent, its updates and its logs, each with a link to the tab that does
+more with it, and its raw state folded away at the end.
 It is <code>src/main/public/remote_overview.js</code>.</p>
 <p><strong>History</strong> is the machine&#39;s charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one <code>/</code> is on), disk I/O, network, open tcp
 connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on

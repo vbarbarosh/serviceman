@@ -1,10 +1,9 @@
 import agent_current from './agent_current.js';
 import agent_pill_short from './agent_pill_short.js';
+import clock_of from './clock_of.js';
 import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
-import format_ms_ago from './format_ms_ago.js';
-import item_services from './item_services.js';
 import link_test_panel from './link_test_panel.js';
 import logline_link from './logline_link.js';
 import machine_shares from './machine_shares.js';
@@ -13,12 +12,15 @@ import overview_tile from './overview_tile.js';
 import remote_charts from './remote_charts.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_uptime from './remote_uptime.js';
-import tailnet_name_of from './tailnet_name_of.js';
+import services_pane from './services_pane.js';
+import size_words from './size_words.js';
 import to_clipboard from './to_clipboard.js';
 import updates_lists from './updates_lists.js';
 
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
+const DAY_MS = 24*3600*1000;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // A remote's Overview tab: its names, its uptime by day in one row, the numbers that move as
 // tiles, the services it carries as a table, its history, what it is as cards, and the raw state
@@ -28,20 +30,17 @@ const remote_overview = {
     template: `
 <article id="detail" class="ov-pane">
     <div class="ov">
-        <div class="ov-summary">
-            <span>remote <code>{{ view.name }}</code><template v-if="(tailnet_name !== '')"> · tailnet <code class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + tailnet_name)">{{ tailnet_name }}</code></template><template v-for="part in summary" :key="part.text"> · <span :class="{tag: part.tag}">{{ part.text }}</span></template></span>
-        </div>
-        <p v-if="(view.machine === null)" class="alert">This machine has not connected since serviceman last started, so nothing is known about it yet. A running agent dials in by itself; a machine without one needs it: <button type="button" class="link" @click="$emit('tab', 'install')">Install the agent →</button></p>
-        <p v-else-if="(view.phase !== 'online')" class="alert">The agent on this machine is not connected. What is below is what it last said.</p>
         <p v-if="(unanswered_said !== '')" class="alert">{{ unanswered_said }}. What is below waits for it.</p>
         <p v-if="view.error" class="alert"><strong>Last error</strong> · {{ view.error }}</p>
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
-        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
+        <!-- Its numbers at a glance, as drawn: CPU, memory, disk and how long it is up, or down;
+             what else it measures (its heat, its battery, its link) after them -->
         <div v-if="(view.machine !== null)" class="ov-tiles">
-            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" @tab="tile_go">{{ tile.text }}</overview-tile>
+            <overview-tile v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="tile.value" :note="tile.note" :go="tile.go" :tab="tile.tab" :tone="tile.tone" @tab="tile_go">{{ tile.text }}<small v-if="(tile.unit !== undefined)">{{ tile.unit }}</small></overview-tile>
         </div>
         <link-test-panel v-if="((view.machine !== null) && link_test_open)" :view="view" @close="link_test_open = false"/>
-        <item-services :services="services" :port="port" :title="('Services on ' + (view.title || view.name))" @select="$emit('select', $event)"/>
+        <services-pane :state="state" :remote="view.name" embedded @create="$emit('create')" @select="$emit('select_named', $event)"/>
+        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
@@ -146,10 +145,10 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'agent-pill-short': agent_pill_short, 'item-services': item_services, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
-    // port: the one serviceman answers on, for the links of its services
-    props: ['view', 'services', 'served', 'logline', 'port'],
-    emits: ['select', 'tab'],
+    components: {'agent-pill-short': agent_pill_short, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'overview-tile': overview_tile, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime, 'services-pane': services_pane},
+    // state: the whole status, for the table of the services on it
+    props: ['view', 'state', 'served', 'logline'],
+    emits: ['create', 'select_named', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine
         return {raw_open: false, copied: false, copied_timer: null, link_test_open: false};
@@ -158,22 +157,6 @@ const remote_overview = {
         // Its calls waiting for answers while its link stays up, in words; '' while it answers
         unanswered_said: function () {
             return remote_unanswered_said(this.view);
-        },
-        // What follows "remote <name>": since when and how fast it is linked, or when it was last
-        // seen; its tags are in the page's header
-        summary: function () {
-            const view = this.view;
-            const out = [];
-            if ((view.phase === 'online') && (view.uptime_ms !== null)) {
-                out.push({text: `connected ${format_ms(view.uptime_ms)} ago${view.address ? ` from ${view.address}` : ''}`, tag: false});
-            }
-            if ((view.phase === 'online') && (view.latency_ms !== null)) {
-                out.push({text: `delay ${format_ms(view.latency_ms)} · ${format_bps(view.throughput_bps)}`, tag: false});
-            }
-            if ((view.phase !== 'online') && view.left_at) {
-                out.push({text: `last seen ${format_ms_ago(Date.now() - view.left_at)}`, tag: false});
-            }
-            return out;
         },
         // The numbers come from servermon on that machine: when they cannot, it says why, above them
         servermon_text: function () {
@@ -190,33 +173,43 @@ const remote_overview = {
             }
             return null;
         },
+        // CPU, memory, disk and how long it is up; while it is not linked, what each last said
+        // and how long it is down, red
         tiles: function () {
             const view = this.view;
             const machine = view.machine;
-            const out = [];
             const shares = machine_shares(machine);
+            const online = (view.phase === 'online');
+            const at = online ? '' : ` at ${clock_of(view.left_at)}`;
+            const out = [];
             const cpu = shares.cpu;
-            out.push({icon: 'cpu', label: 'CPU', text: (cpu === null) ? '—' : `${Math.round(cpu*100)}%`, value: (cpu === null) ? 0 : cpu, note: `${(machine.load === null) ? '' : `load ${machine.load.toFixed(2)} · `}${machine.cpu.count} × ${machine.cpu.model}`});
+            const load = (machine.load === null) ? '' : ` · load ${machine.load.toFixed(1)}`;
+            out.push(Object.assign({icon: 'cpu', label: 'CPU'}, online ? {text: (cpu === null) ? '—' : share_words(cpu), unit: (cpu === null) ? undefined : '%', value: (cpu === null) ? 0 : cpu, note: `of ${machine.cpu.count} ${(machine.cpu.count === 1) ? 'core' : 'cores'}${load}`} : {text: '—', value: null, note: (cpu === null) ? 'nothing said' : `last: ${share_words(cpu)}%${at}`, tone: 'off'}));
             const mem = machine.mem;
             const mem_used = shares.memory;
-            out.push({icon: 'memory', label: 'Memory', text: (mem_used === null) ? '—' : `${Math.round(mem_used*100)}%`, value: (mem_used === null) ? 0 : mem_used, note: `${(mem.free === null) ? '' : `${format_bytes(mem.free)} free of `}${format_bytes(mem.total)}`});
+            const mem_note = ((mem.free === null) || (mem.total === null)) ? format_bytes(mem.total) : `${size_words(mem.total - mem.free)} of ${size_words(mem.total)} · ${size_words(mem.free)} free`;
+            out.push(Object.assign({icon: 'memory', label: 'Memory'}, online ? {text: (mem_used === null) ? '—' : share_words(mem_used), unit: (mem_used === null) ? undefined : '%', value: (mem_used === null) ? 0 : mem_used, note: mem_note} : {text: '—', value: null, note: (mem.free === null) ? 'nothing said' : `last: ${size_words(mem.total - mem.free)} of ${size_words(mem.total)}`, tone: 'off'}));
             const disk = machine.disk;
             const disk_used = shares.disk;
-            out.push({icon: 'database', label: 'Disk', text: (disk_used === null) ? '—' : `${Math.round(disk_used*100)}%`, value: (disk_used === null) ? 0 : disk_used, note: `${(disk.free === null) ? '' : `${format_bytes(disk.free)} free of `}${format_bytes(disk.total)} on ${disk.path}`, go: 'What takes it', tab: 'disks'});
-            if (machine.temperature !== null) {
+            const disk_note = (disk.free === null) ? `${size_words(disk.total)} on ${disk.path}` : `${size_words(disk.total - disk.free)} of ${size_words(disk.total)}`;
+            out.push(Object.assign({icon: 'database', label: 'Disk'}, online ? {text: (disk_used === null) ? '—' : share_words(disk_used), unit: (disk_used === null) ? undefined : '%', value: (disk_used === null) ? 0 : disk_used, note: disk_note, go: 'What takes it', tab: 'disks'} : {text: '—', value: null, note: (disk_used === null) ? 'nothing said' : `last: ${share_words(disk_used)}% of ${size_words(disk.total)}`, tone: 'off'}));
+            if (online) {
+                const up = machine.uptime_ms;
+                out.push({icon: 'clock', label: 'Up', text: (up === null) ? '—' : uptime_words(up).n, unit: (up === null) ? undefined : uptime_words(up).unit, value: null, note: (up === null) ? 'not said' : `since ${day_of(Date.now() - up)}`});
+            }
+            else if (view.left_at !== null) {
+                out.push({icon: 'clock', label: 'Down for', text: format_ms(Date.now() - view.left_at), value: null, note: `since ${clock_of(view.left_at)}`, tone: 'bad'});
+            }
+            if (online && (machine.temperature !== null)) {
                 out.push({icon: 'thermometer', label: 'Temperature', text: `${machine.temperature.c}°C`, value: machine.temperature.c/100, note: machine.temperature.of});
             }
-            if (machine.battery !== null) {
+            if (online && (machine.battery !== null)) {
                 out.push({icon: 'battery', label: 'Battery', text: `${machine.battery.percent}%`, value: null, note: machine.battery.status});
             }
-            if (view.phase === 'online') {
+            if (online) {
                 out.push({icon: 'link', label: 'Link', text: (view.latency_ms === null) ? '—' : format_ms(view.latency_ms), value: null, note: (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps), go: 'Test the link', tab: 'link-test'});
             }
             return out;
-        },
-        // Its name on the tailnet, beside the one serviceman gives it; '' for none
-        tailnet_name: function () {
-            return tailnet_name_of(this.view.machine);
         },
         addresses: function () {
             const found = this.view.machine.addresses;
@@ -281,5 +274,30 @@ const remote_overview = {
         clearTimeout(this.copied_timer);
     },
 };
+
+// How long a machine is up, in its one biggest unit: {n: '41', unit: 'd'}, '5', 'h', '12', 'm'
+function uptime_words(ms)
+{
+    if (ms >= DAY_MS) {
+        return {n: String(Math.floor(ms/DAY_MS)), unit: 'd'};
+    }
+    if (ms >= 3600*1000) {
+        return {n: String(Math.floor(ms/(3600*1000))), unit: 'h'};
+    }
+    return {n: String(Math.max(1, Math.floor(ms/60000))), unit: 'm'};
+}
+
+// A day as the tile says it: 8 October
+function day_of(ms)
+{
+    const at = new Date(ms);
+    return `${at.getDate()} ${MONTHS[at.getMonth()]}`;
+}
+
+// A share as the tiles say it, its number alone: 0.23 is "23"
+function share_words(share)
+{
+    return String(Math.round(share*100));
+}
 
 export default remote_overview;

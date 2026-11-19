@@ -1477,6 +1477,285 @@ ul.tried {
     grid-template-rows: auto auto auto 1fr;
 }
 
+/* The kit's item head: a card with a 56 px icon tile, the name at 26 px and its state pill, a
+   line of what it is, the actions on the right, and the tabs in the card's foot, at most six,
+   the rest under More ▾ */
+.item-card {
+    min-width: 0;
+    margin: 28px 32px 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+.item-top {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 20px 24px;
+}
+
+.item-tile {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--accent-edge);
+    border-radius: 6px;
+    background: var(--sel);
+    color: var(--link);
+}
+
+.item-what {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-name {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+}
+
+.item-name h1 {
+    min-width: 0;
+    margin: 0;
+    font-size: 26px;
+    overflow-wrap: anywhere;
+}
+
+.item-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: center;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 15px;
+}
+
+.item-line .tag {
+    font-size: 13px;
+}
+
+.item-acts {
+    display: flex;
+    flex: none;
+    gap: 8px;
+    align-items: center;
+}
+
+.item-acts > button,
+.item-dots {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    height: 36px;
+    padding: 0 14px;
+    font-weight: 600;
+}
+
+.item-acts > button.on {
+    border-color: var(--accent);
+    color: var(--link);
+}
+
+.item-dots {
+    justify-content: center;
+    width: 36px;
+    padding: 0;
+    font-size: 18px;
+    letter-spacing: 1px;
+}
+
+/* A menu that opens under its button: the ⋯ of the head, More ▾ of the tabs */
+.item-menu-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.item-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 13rem;
+    padding: 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: var(--shadow-pop);
+}
+
+.tabs .item-menu {
+    right: auto;
+    left: 0;
+}
+
+.item-menu > button,
+.item-menu > a {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--fg);
+    font-weight: 400;
+    text-align: left;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.item-menu > button:hover,
+.item-menu > a:hover {
+    background: var(--hover);
+}
+
+.item-menu > button.on {
+    color: var(--link);
+    font-weight: 600;
+}
+
+.item-menu svg {
+    flex: none;
+    color: var(--link);
+}
+
+.item-card .tabbar {
+    padding: 0 16px;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 0 0 6px 6px;
+    background: none;
+}
+
+.item-card .tabbar button.tab {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    padding: 12px 8px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.tab-count {
+    padding: 0 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Something wrong with the item, said under its head: a red note card, its action at its end */
+.item-note {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin: 18px 32px 0;
+    padding: 14px 18px;
+    border: 1px solid var(--bad-edge);
+    border-left: 4px solid var(--bad);
+    border-radius: 6px;
+    background: var(--bad-soft);
+}
+
+.item-note > svg {
+    flex: none;
+    align-self: flex-start;
+    margin-top: 2px;
+    color: var(--bad);
+}
+
+.item-note > span {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.item-note > span > span {
+    color: var(--muted);
+}
+
+.item-note > button {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+}
+
+@media (max-width: 600px) {
+    .item-card {
+        margin: 16px 12px 0;
+    }
+
+    .item-top {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    .item-tile {
+        width: 44px;
+        height: 44px;
+    }
+
+    .item-what {
+        flex-basis: 100%;
+    }
+
+    .item-name h1 {
+        font-size: 22px;
+    }
+
+    .item-acts {
+        width: 100%;
+    }
+
+    .item-acts > button.primary {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .item-acts > button.sec {
+        display: none;
+    }
+
+    .item-card .tabbar {
+        overflow: hidden;
+        padding: 0 6px;
+        -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+        mask-image: linear-gradient(90deg, #000 85%, transparent);
+    }
+
+    .item-card .tabbar .tabs {
+        flex-wrap: nowrap;
+    }
+
+    .item-card .tabbar button.tab {
+        white-space: nowrap;
+    }
+
+    .item-note {
+        flex-wrap: wrap;
+        margin: 12px 12px 0;
+    }
+
+    .item-note > button {
+        flex-basis: 100%;
+        justify-content: center;
+    }
+}
+
 /* An item's header: its icon and name, how it stands, its tags, then what is done to it */
 .item-head {
     display: flex;
@@ -2133,6 +2412,14 @@ pre {
     .sf-rights .sf-li.tk-under {
         padding-left: 14px;
     }
+}
+
+/* A table card's own action, at the end of its title's band */
+.dt-head-act {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-weight: 600;
 }
 
 /* What a right asks more, ticked under it: the apps right kept to the apps it makes */
@@ -5028,37 +5315,77 @@ article.ov-pane {
     margin: 0;
 }
 
+/* The kit's tiles: a 14 px label with its icon, a 32 px value, an 8 px meter, a 13.5 px line;
+   four a row, two on a phone */
 .ov-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
-    gap: .75rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
 }
 
 .ov-tile {
     display: flex;
     flex-direction: column;
-    gap: .25rem;
+    gap: 8px;
     min-width: 0;
-    padding: .8rem 1rem;
+    padding: 16px 18px;
 }
 
 .ov-label {
     display: flex;
-    gap: .4rem;
+    gap: 8px;
     align-items: center;
     color: var(--muted);
-    font-size: .85rem;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.ov-label svg {
+    color: var(--link);
 }
 
 .ov-tile b {
-    font-size: 1.5rem;
-    line-height: 1.2;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.01em;
     font-variant-numeric: tabular-nums;
+}
+
+.ov-tile b small {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.ov-tile.ov-off b {
+    color: var(--muted);
+}
+
+.ov-tile.ov-off small.muted {
+    opacity: .75;
+}
+
+.ov-tile.ov-bad b {
+    color: var(--bad);
 }
 
 .ov-tile .meter {
     max-width: none;
-    margin: .15rem 0;
+    height: 8px;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .ov-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+}
+
+.ov-tile > small {
+    font-size: 13.5px;
 }
 
 .ov-tile small {

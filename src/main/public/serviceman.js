@@ -14,6 +14,7 @@ import authwall_pane from './authwall_pane.js';
 import boards_pane from './boards_pane.js';
 import canvas_pane from './canvas_pane.js';
 import categories_pane from './categories_pane.js';
+import clock_of from './clock_of.js';
 import config_read from './config_read.js';
 import config_tokens_back from './config_tokens_back.js';
 import config_tokens_hidden from './config_tokens_hidden.js';
@@ -30,7 +31,6 @@ import forward_state from './forward_state.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
 import is_name_in_title from './is_name_in_title.js';
-import item_services from './item_services.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -55,7 +55,6 @@ import remote_overview from './remote_overview.js';
 import remote_packages from './remote_packages.js';
 import remote_processes from './remote_processes.js';
 import remote_shell from './remote_shell.js';
-import remote_state_text from './remote_state_text.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_vulnerabilities from './remote_vulnerabilities.js';
 import remotes_pane from './remotes_pane.js';
@@ -71,9 +70,11 @@ import services_pane from './services_pane.js';
 import settled from './settled.js';
 import shared_folders_pane from './shared_folders_pane.js';
 import snippet from './snippet.js';
+import state_pill from './state_pill.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
 import tailscale_pane from './tailscale_pane.js';
+import to_clipboard from './to_clipboard.js';
 import tokens_form from './tokens_form.js';
 import updates_lists from './updates_lists.js';
 import volumes_pane from './volumes_pane.js';
@@ -1425,97 +1426,88 @@ function remote_tab_allowed(view, tab)
 
 // One remote as one page, the way a service is one: tabs above, the pick kept by the app so
 // it follows from machine to machine
+// A machine's tabs: the six its card shows (main), and the rest under More ▾; online true for
+// those its agent must answer, false for Install, which is for a machine not linked
+const REMOTE_TABS = [
+    {key: 'overview', label: 'Overview', main: true, icon: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>'},
+    {key: 'services', label: 'Services', main: true, icon: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/>'},
+    {key: 'databases', label: 'Databases', main: true, icon: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>'},
+    {key: 'files', label: 'Files', main: true, online: true, icon: '<path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'},
+    {key: 'logs', label: 'Logs', main: true, icon: '<path d="M4 6h16M4 11h11M4 16h16M4 21h8"/>'},
+    {key: 'settings', label: 'Settings', main: true, icon: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/>'},
+    {key: 'configure', label: 'Configure', main: false, icon: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>'},
+    {key: 'docker', label: 'Docker', main: false, online: true, icon: '<path d="M3 12h18v2a7 7 0 0 1-7 7H9a6 6 0 0 1-6-6z"/><path d="M6 9h3v3H6zM10 9h3v3h-3zM14 9h3v3h-3zM10 5h3v3h-3z"/>'},
+    {key: 'firewall', label: 'Firewall', main: false, online: true, icon: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>'},
+    {key: 'processes', label: 'Processes', main: false, online: true, icon: '<path d="M4 6h16M9 12h11M14 18h6"/><path d="M5 6v12h4"/>'},
+    {key: 'disks', label: 'Disks', main: false, online: true, icon: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'},
+    {key: 'packages', label: 'Packages', main: false, online: true, icon: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>'},
+    {key: 'vulnerabilities', label: 'Vulnerabilities', main: false, online: true, icon: '<path d="M12 3l8 3v6c0 4.5-3.4 7.7-8 9-4.6-1.3-8-4.5-8-9V6z"/><path d="M12 8v5M12 16v.5"/>'},
+    {key: 'install', label: 'Install', main: false, online: false, icon: '<path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/>'},
+];
+
 const remote_page = {
     template: `
 <div id="page">
-    <!-- What it is and how it stands, then what is done to the whole machine; the way back up is
-         in the crumbs above -->
-    <div class="item-head">
-        <svg class="item-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icon"/>
-        <h1>{{ view.title || view.name }}</h1>
-        <code v-if="name_shown" class="muted">{{ view.name }}</code>
-        <span class="pill" :class="state_pill.kind" :title="unanswered_said"><span class="dot" :class="remote_dot(view)"/>{{ state_pill.text }}</span>
-        <agent-pill v-if="(agent_now === false)" :current="agent_now"/>
-        <span v-for="tag of view.tags" :key="tag" class="tag" :title="(view.tags_declared.includes(tag) ? 'The machine declared it itself, with --tag' : 'Given in the config')">#{{ tag }}{{ view.tags_declared.includes(tag) ? '*' : '' }}</span>
-        <div class="acts crumb-acts">
-            <button v-if="(view.phase === 'online')" type="button" :class="{on: (tab_now === 'shell')}" title="A terminal on this machine" @click="$emit('tab', 'shell')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg>
-                Shell
-            </button>
-            <button type="button" title="A new service, run on this machine" @click="$emit('create', view.name)">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                Service here
-            </button>
+    <!-- The kit's item head: what it is and how it stands, what is done to the whole machine,
+         and its tabs in the card's foot; the way back up is in the crumbs above -->
+    <div class="item-card">
+        <div class="item-top">
+            <span class="item-tile"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icon"/></span>
+            <div class="item-what">
+                <div class="item-name">
+                    <h1>{{ view.name }}</h1>
+                    <state-pill :tone="state_pill.tone" :text="state_pill.text" :title="unanswered_said"/>
+                    <agent-pill v-if="(agent_now === false)" :current="agent_now"/>
+                </div>
+                <div class="item-line">
+                    <span v-for="part of line_parts" :key="part">{{ part }}</span>
+                    <span v-for="tag of view.tags" :key="tag" class="tag" :title="(view.tags_declared.includes(tag) ? 'The machine declared it itself, with --tag' : 'Given in the config')">#{{ tag }}{{ view.tags_declared.includes(tag) ? '*' : '' }}</span>
+                    <span v-if="(seen_said !== '')">{{ seen_said }}</span>
+                </div>
+            </div>
+            <div class="item-acts">
+                <button v-if="(view.phase === 'online')" type="button" class="sec" :class="{on: (tab_now === 'shell')}" title="A terminal on this machine" @click="$emit('tab', 'shell')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Shell</button>
+                <button v-if="(view.phase === 'online')" type="button" class="primary" title="A new service, run on this machine" @click="$emit('create', view.name)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Service here</button>
+                <button v-else type="button" :class="{on: (tab_now === 'install')}" @click="$emit('tab', 'install')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Install the agent</button>
+                <span class="item-menu-wrap">
+                    <button type="button" class="item-dots" aria-label="More for this machine" :aria-expanded="menu_open" @click="menu_open = (menu_open === false)">⋯</button>
+                    <span v-if="menu_open" class="item-menu" role="menu">
+                        <button v-if="(view.phase !== 'online')" type="button" role="menuitem" @click="menu_pick(() => $emit('create', view.name))">Service here</button>
+                        <a v-if="(logline_url !== null)" role="menuitem" :href="logline_url" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours" @click="menu_open = false">Logs in Logline ↗</a>
+                        <button type="button" role="menuitem" @click="menu_pick(() => $emit('tab', 'settings'))">Settings</button>
+                        <button v-if="(view.phase === 'online')" type="button" role="menuitem" @click="menu_pick(() => $emit('tab', 'configure'))">Configure its agent</button>
+                    </span>
+                </span>
+            </div>
         </div>
-        <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This machine's lines in Logline, the last 24 hours">Logs in Logline ↗</a>
+        <div class="tabbar">
+            <nav class="tabs">
+                <button v-for="item of tabs_shown" :key="item.key" type="button" class="tab" :class="{on: (tab_now === item.key)}" @click="$emit('tab', item.key)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/>
+                    {{ item.label }}<span v-if="((item.count !== null) && (item.count !== undefined))" class="tab-count">{{ item.count }}</span>
+                </button>
+                <span v-if="(tabs_more.length > 0)" class="item-menu-wrap">
+                    <button type="button" class="tab" :class="{on: (more_now !== null)}" :aria-expanded="more_open" @click="more_open = (more_open === false)">{{ (more_now === null) ? 'More' : more_now.label }} ▾</button>
+                    <span v-if="more_open" class="item-menu" role="menu">
+                        <button v-for="item of tabs_more" :key="item.key" type="button" role="menuitem" :class="{on: (tab_now === item.key)}" @click="more_pick(item.key)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/>{{ item.label }}</button>
+                    </span>
+                </span>
+                <ink :mark="(view.name + ':' + tab_now)"/>
+            </nav>
+        </div>
     </div>
-    <div class="tabbar">
-        <nav class="tabs">
-            <button type="button" class="tab" :class="{on: (tab_now === 'overview')}" @click="$emit('tab', 'overview')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
-                Overview
-            </button>
-            <button type="button" class="tab" :class="{on: (tab_now === 'services')}" @click="$emit('tab', 'services')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
-                Services <span class="muted">{{ services.length }}</span>
-            </button>
-            <button type="button" class="tab" :class="{on: (tab_now === 'databases')}" @click="$emit('tab', 'databases')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></svg>
-                Databases <span v-if="(databases_count !== null)" class="muted">{{ databases_count }}</span>
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'files')}" @click="$emit('tab', 'files')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
-                Files
-            </button>
-            <button type="button" class="tab" :class="{on: (tab_now === 'logs')}" @click="$emit('tab', 'logs')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 11h11M4 16h16M4 21h8"/></svg>
-                Logs
-            </button>
-            <button type="button" class="tab" :class="{on: (tab_now === 'settings')}" @click="$emit('tab', 'settings')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/></svg>
-                Settings
-            </button>
-            <button type="button" class="tab" :class="{on: (tab_now === 'configure')}" @click="$emit('tab', 'configure')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg>
-                Configure
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'docker')}" @click="$emit('tab', 'docker')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18v2a7 7 0 0 1-7 7H9a6 6 0 0 1-6-6z"/><path d="M6 9h3v3H6zM10 9h3v3h-3zM14 9h3v3h-3zM10 5h3v3h-3z"/></svg>
-                Docker
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'firewall')}" @click="$emit('tab', 'firewall')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
-                Firewall
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'processes')}" @click="$emit('tab', 'processes')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M9 12h11M14 18h6"/><path d="M5 6v12h4"/></svg>
-                Processes
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'disks')}" @click="$emit('tab', 'disks')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-                Disks
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'packages')}" @click="$emit('tab', 'packages')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>
-                Packages
-            </button>
-            <button v-if="(view.phase === 'online')" type="button" class="tab" :class="{on: (tab_now === 'vulnerabilities')}" @click="$emit('tab', 'vulnerabilities')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.5-3.4 7.7-8 9-4.6-1.3-8-4.5-8-9V6z"/><path d="M12 8v5M12 16v.5"/></svg>
-                Vulnerabilities
-            </button>
-            <button v-if="(view.phase !== 'online')" type="button" class="tab" :class="{on: (tab_now === 'install')}" @click="$emit('tab', 'install')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
-                Install
-            </button>
-            <ink :mark="(view.name + ':' + tab_now)"/>
-        </nav>
+    <!-- Not linked: a red note under the head, what waits for it and how to look -->
+    <div v-if="(down !== null)" class="item-note" role="status">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
+        <span><b>{{ down }}</b><span>See that the machine is up and its agent runs: <code>systemctl status serviceman-agent</code></span></span>
+        <button type="button" @click="check_copy"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M4 16V5.5A1.5 1.5 0 0 1 5.5 4H16"/></svg>{{ copied ? 'Copied' : 'Copy' }}</button>
     </div>
     <!-- Walking between tabs keeps each pane as it stands: the folder a file manager is in,
          a form half filled, a shell mid-session. Another machine is another page, so its
          panes start fresh. -->
     <keep-alive :max="10">
-    <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" :port="port" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
-    <article v-else-if="(tab_now === 'services')" id="detail" class="list"><item-services :services="services" :port="port" :title="('Services on ' + (view.title || view.name))" @select="$emit('select', $event)"/></article>
+    <remote-overview v-if="(tab_now === 'overview')" :view="view" :state="state" :served="served" :logline="logline" @create="$emit('create', view.name)" @select_named="$emit('select_named', $event)" @tab="$emit('tab', $event)"/>
+    <article v-else-if="(tab_now === 'services')" id="detail" class="list"><services-pane :state="state" :remote="view.name" embedded @create="$emit('create', view.name)" @select="$emit('select_named', $event)"/></article>
     <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases', $event)" @select="$emit('select', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
     <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
@@ -1538,31 +1530,75 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, ink: tabink, 'item-services': item_services, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
-    // kind: how the Canvas draws it, server, laptop or home; port: the one serviceman answers on
-    props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'port'],
-    emits: ['create', 'databases', 'files_path', 'logline', 'saved', 'select', 'service', 'tab'],
+    components: {'agent-pill': agent_pill, ink: tabink, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
+    // table of its services
+    props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
+    emits: ['create', 'databases', 'files_path', 'logline', 'saved', 'select', 'select_named', 'service', 'tab'],
     data: function () {
-        return {original: null, edit_key: 0, databases_count: null};
+        // menu_open: its ⋯; more_open: the tabs under More ▾; copied: the note's Copy, said a moment
+        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false};
     },
     computed: {
         icon: function () {
             return machine_icons[this.kind] || machine_icons.server;
         },
-        // How it stands, with its agent's version while it is linked: online · agent 1.0.147
+        // How it stands, as a pill: online, not answering, offline
         state_pill: function () {
             if (this.unanswered_said !== '') {
-                return {kind: 'waiting', text: `not answering · ${format_ms(this.view.unanswered.ms)}`};
+                return {tone: 'busy', text: `not answering · ${format_ms(this.view.unanswered.ms)}`};
             }
             if (this.view.phase === 'online') {
-                return {kind: 'running', text: (this.view.agent_version === null) || (this.view.agent_version === undefined) ? 'online' : `online · agent ${this.view.agent_version}`};
+                return {tone: 'run', text: 'online'};
             }
-            return {kind: 'failed', text: remote_state_text(this.view)};
+            return {tone: 'bad', text: (this.view.left_at === null) ? 'not connected' : 'offline'};
         },
-        // The name beside the title, unless it only repeats it
-        name_shown: function () {
-            return is_name_in_title(this.view.title, this.view.name) === false;
+        // The line under its name: its title, its system and its cores
+        line_parts: function () {
+            const machine = this.view.machine;
+            const what = (machine === null) ? '' : [machine.os || machine.platform || '', ((machine.cpu === undefined) || (machine.cpu === null)) ? '' : `${machine.cpu.count} CPU`].filter(v => v !== '').join(' · ');
+            return [(this.view.title && (this.view.title !== this.view.name)) ? this.view.title : '', what].filter(v => v !== '');
         },
+        // Its agent while it is linked, or when it was last seen
+        seen_said: function () {
+            if (this.view.phase === 'online') {
+                return ((this.view.agent_version === null) || (this.view.agent_version === undefined)) ? '' : `agent ${this.view.agent_version}`;
+            }
+            return (this.view.left_at === null) ? 'not connected since serviceman started' : `last seen ${clock_of(this.view.left_at)}`;
+        },
+        // Every tab of a machine this one has: those its agent must answer only while it is linked,
+        // Install only while it is not; each with its count where it has one
+        tabs_all: function () {
+            const online = (this.view.phase === 'online');
+            const counts = {services: this.services.length, databases: this.databases_count};
+            return REMOTE_TABS.filter(v => (v.online === undefined) || (v.online === online)).map(v => Object.assign({}, v, {count: (counts[v.key] === undefined) ? null : counts[v.key]}));
+        },
+        // The six in the card's foot, as drawn
+        tabs_shown: function () {
+            return this.tabs_all.filter(v => v.main);
+        },
+        // The rest, under More ▾
+        tabs_more: function () {
+            return this.tabs_all.filter(v => (v.main === false));
+        },
+        // The tab open under More ▾, which names the button while it is; null for one of the six
+        more_now: function () {
+            return this.tabs_more.find(v => v.key === this.tab_now) || null;
+        },
+        // Not linked: since when, and the services that wait for it; null while it is
+        down: function () {
+            if (this.view.phase === 'online') {
+                return null;
+            }
+            const since = (this.view.left_at === null) ? 'Not linked since serviceman started' : `Not linked since ${clock_of(this.view.left_at)}`;
+            const names = this.services.map(v => v.name);
+            if (names.length === 0) {
+                return since;
+            }
+            const who = (names.length === 1) ? `${names[0]} waits` : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} wait`;
+            return `${since} · ${who} for it`;
+        },
+
         tab_now: function () {
             return remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview';
         },
@@ -1612,9 +1648,43 @@ const remote_page = {
             },
         },
     },
+    // A click outside its ⋯ or More ▾, or Esc, puts the open one away
+    mounted: function () {
+        const self = this;
+        this.menus_away = function (event) {
+            if ((event.type === 'keydown') && (event.key !== 'Escape')) {
+                return;
+            }
+            if ((event.type === 'click') && (event.target.closest('.item-menu-wrap') !== null)) {
+                return;
+            }
+            self.menu_open = false;
+            self.more_open = false;
+        };
+        document.addEventListener('click', this.menus_away);
+        document.addEventListener('keydown', this.menus_away);
+    },
+    unmounted: function () {
+        document.removeEventListener('click', this.menus_away);
+        document.removeEventListener('keydown', this.menus_away);
+    },
     methods: {
         format_ms,
         remote_dot,
+        menu_pick: function (then) {
+            this.menu_open = false;
+            then();
+        },
+        more_pick: function (key) {
+            this.more_open = false;
+            this.$emit('tab', key);
+        },
+        check_copy: async function () {
+            if (await to_clipboard('systemctl status serviceman-agent')) {
+                this.copied = true;
+                setTimeout(() => (this.copied = false), 1500);
+            }
+        },
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             const found = (JSON.parse(loaded.text).remotes || []).find(v => v.name === name) || null;
@@ -2110,7 +2180,7 @@ const app = {
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" :kinds="kind_by_remote" :counts="service_counts" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :port="state.listen.port" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :state="state" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @select_named="select_named" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
@@ -2485,7 +2555,8 @@ const app = {
                 return (place.page === 'new') ? page_crumbs({page: 'new-database', name: '', title: '', tab: ''}) : page_crumbs({page: 'database', name: place.server, title: (place.database === '') ? '' : place.database, tab: ''});
             }
             if ((this.kind_now === 'remotes') && (this.selected_remote !== null)) {
-                return page_crumbs({page: 'remote', name: this.selected_remote.name, title: this.selected_remote.title || '', tab: this.remote_tab_now});
+                // Named as its head names it, by its name; its title is on the line under it
+                return page_crumbs({page: 'remote', name: this.selected_remote.name, title: '', tab: this.remote_tab_now});
             }
             if ((this.kind_now === 'services') && (this.selected !== null)) {
                 return page_crumbs({page: 'service', name: this.selected.name, title: this.selected.title || '', tab: this.service_tab_now});

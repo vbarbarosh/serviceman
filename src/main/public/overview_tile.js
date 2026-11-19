@@ -6,7 +6,7 @@ import share_level from './share_level.js';
 // a disk that fills does.
 const overview_tile = {
     template: `
-<div class="card ov-tile">
+<div class="card ov-tile" :class="((tone === undefined) || (tone === null)) ? '' : ('ov-' + tone)">
     <span class="ov-label"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" v-html="icons[icon]"/>{{ label }}</span>
     <b><slot/></b>
     <div v-if="(share !== null)" class="meter" :class="level"><i :style="{width: (Math.max(2, Math.round(share*100)) + '%')}"></i></div>
@@ -14,8 +14,9 @@ const overview_tile = {
     <button v-if="(go !== undefined && go !== null)" type="button" class="link ov-go" @click="$emit('tab', tab)">{{ go }}</button>
 </div>
 `,
-    // go: a link under the note to the tab that says more, tab its name
-    props: ['icon', 'label', 'value', 'note', 'go', 'tab'],
+    // go: a link under the note to the tab that says more, tab its name; tone 'off' for a value
+    // that is not now (its machine away), 'bad' for one that is wrong (how long it is down)
+    props: ['icon', 'label', 'value', 'note', 'go', 'tab', 'tone'],
     emits: ['tab'],
     computed: {
         icons: function () {

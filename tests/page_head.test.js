@@ -45,3 +45,13 @@ test('every category\'s table is the kit\'s table card', async function () {
         assert.match(framed[0], /empty_title="[^"]+"/, `${name} says what would be here`);
     }
 });
+
+// A machine's page shows six tabs in its head's foot, as drawn; the rest are under More ▾
+test('a machine\'s page shows six tabs, the rest under More', function () {
+    const text = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
+    const found = /const REMOTE_TABS = \[([\s\S]*?)\n\];/.exec(text);
+    assert.notStrictEqual(found, null, 'the machine\'s tabs are listed');
+    const main = found[1].split('\n').filter(v => v.includes('main: true')).map(v => /key: '([a-z]+)'/.exec(v)[1]);
+    assert.deepStrictEqual(main, ['overview', 'services', 'databases', 'files', 'logs', 'settings']);
+    assert.match(text, /class="item-card"/, 'its head is the kit\'s card');
+});

@@ -311,13 +311,17 @@ Nothing is placed for you, and nothing moves on its own: a service runs where yo
 
 ## What the host knows about a remote
 
-**Its page** opens from its row under **Remotes**: a header with its name and how it stands
-(`online · agent 1.0.147`), its tags, **Shell** and **+ Service here**; then its tabs,
-**Overview**, **Services** (what it carries, a row each that opens the service), **Databases**
-(the databases on it, a row each that opens its page, and **+ New database here**), **Files**,
-**Logs**, **Settings**, and the rest of what can be done on it: **Configure**, **Docker**,
-**Firewall**, **Processes**, **Disks**, **Packages**, **Vulnerabilities**, and **Install** while
-it is away.
+**Its page** opens from its row under **Remotes**, with its head in a card: its icon, its name
+and how it stands (`online`), a line of what it is (its title, its system, its cores, its tags,
+its agent or when it was last seen), **Shell** and **+ Service here**, or **Install the agent**
+while it is away, and **⋯** for Logs in Logline ↗ and its Settings. Its tabs are in the card's
+foot, six of them: **Overview**, **Services** (what it carries, the table of the Services page,
+a row each that opens the service), **Databases** (the databases on it, a row each that opens its
+page, and **+ New database here**), **Files**, **Logs**, **Settings**; the rest of what can be
+done on it is under **More ▾**: **Configure**, **Docker**, **Firewall**, **Processes**, **Disks**,
+**Packages**, **Vulnerabilities**, and **Install** while it is away. While it is away, a red note
+under the head says since when, which services wait for it, and the line to run there to see
+why (`systemctl status serviceman-agent`).
 
 The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
 docker version, node version — and repeats the numbers that move every 5 seconds: among them
@@ -342,11 +346,12 @@ shape are left out and the link stays: the page shows none, where the last good 
 for now. The log names the machine and the part, in `remote_link_error`, once a link each:
 `reason=hello_shape part=resources.mem.total`, `reason=stats_shape part=stats.load`.
 
-The **Overview** tab shows a machine at a glance: its state beside its name, its uptime in one
-row under it, then tiles for CPU, memory, disk and temperature, each with a bar under it (amber
-from 80%, red from 92%), and for its battery and the link; its history, then cards for the
-machine, its agent, its services, its updates and its logs, each with a link to the tab that
-does more with it, and its raw state folded away at the end.
+The **Overview** tab shows a machine at a glance: tiles for CPU, memory, disk and how long it is
+up, each share with a bar under it (amber from 80%, red from 92%), then its temperature, its
+battery and the link; while it is away, what each last said and how long it is down, in red.
+Then the services on it, as the Services page's table; its uptime in one row, its history, then
+cards for the machine, its agent, its updates and its logs, each with a link to the tab that does
+more with it, and its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
