@@ -260,6 +260,10 @@ const service_status = {
                 return said.join(' · ');
             }
             if (view.phase === 'stopped') {
+                // Stopped by hand: serviceman starts it no more by itself (services_held)
+                if ((view.held === true) && (view.policy.start === 'always')) {
+                    return 'stopped by hand: only Start starts it again';
+                }
                 return (view.policy.start === 'always') ? 'it starts with serviceman' : 'the first request starts it';
             }
             return '';

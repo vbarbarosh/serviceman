@@ -1827,6 +1827,13 @@ answered from what is already known — no work, the same reason, at once.</p>
 <p>Three things are a change, and each one lets it try again: <strong>you asking</strong> (the Start button, or
 <code>POST /api/v1/services/&lt;name&gt;/start</code>), <strong>its machine coming back</strong>, and <strong>its definition being
 edited</strong>. The log says so with <code>service_try_again</code>.</p>
+<p><strong>A Stop by hand holds.</strong> A service you stop (its Stop button, or
+<code>POST /api/v1/services/&lt;name&gt;/stop</code>) is started again by nobody but you: not when its definition
+is saved, not when its machine dials in, not when serviceman starts, until you press Start,
+Restart or Update. serviceman keeps those names in <code>data/held.json</code>, and the page says
+&quot;stopped by hand: only Start starts it again&quot;. A save never starts a service that was stopped:
+a changed definition takes the old one&#39;s place as it was, running or stopped. A service that
+starts at the first request still wakes on a visit, as its policy says.</p>
 <p><code>restart</code> is <code>on_failure</code> (a bad exit code brings it back), <code>always</code> (any exit brings it
 back) or <code>never</code>. serviceman waits a second before the first restart and doubles the wait
 up to thirty seconds; a program that ran half a minute starts that count again. It applies

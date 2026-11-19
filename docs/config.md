@@ -951,6 +951,14 @@ Three things are a change, and each one lets it try again: **you asking** (the S
 `POST /api/v1/services/<name>/start`), **its machine coming back**, and **its definition being
 edited**. The log says so with `service_try_again`.
 
+**A Stop by hand holds.** A service you stop (its Stop button, or
+`POST /api/v1/services/<name>/stop`) is started again by nobody but you: not when its definition
+is saved, not when its machine dials in, not when serviceman starts, until you press Start,
+Restart or Update. serviceman keeps those names in `data/held.json`, and the page says
+"stopped by hand: only Start starts it again". A save never starts a service that was stopped:
+a changed definition takes the old one's place as it was, running or stopped. A service that
+starts at the first request still wakes on a visit, as its policy says.
+
 `restart` is `on_failure` (a bad exit code brings it back), `always` (any exit brings it
 back) or `never`. serviceman waits a second before the first restart and doubles the wait
 up to thirty seconds; a program that ran half a minute starts that count again. It applies

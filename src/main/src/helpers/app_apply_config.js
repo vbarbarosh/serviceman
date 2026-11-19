@@ -20,6 +20,7 @@ const service_probe = require('./service_probe');
 const service_stop = require('./service_stop');
 const service_uninstall = require('./service_uninstall');
 const service_waits_for_remote = require('./service_waits_for_remote');
+const services_held = require('./services_held');
 const state_from_service = require('./state_from_service');
 
 // Long enough for the word to leave, and no longer: an agent that heard it is already gone
@@ -53,6 +54,15 @@ async function app_apply_config(app, config, given)
         out.restart_needed = true;
         note('apps.dns, apps.address or the domain they answer changed — that part waits for a serviceman restart');
     }
+    // Which services run now, or are on their way to: a changed definition takes the old one's
+    // place as it was, running or stopped, and a save never starts one that was stopped
+    const up = new Set(app.services.filter(v => service_up(v)).map(v => v.name));
+    for (const [from, to] of Object.entries(renamed)) {
+        if (up.has(from)) {
+            up.add(to);
+        }
+    }
+    const was = new Set(app.services.map(v => v.name).concat(Object.values(renamed)));
     const fresh = [];
     const next_services = [];
     // The names that are new services, a rename's new name aside: no token made them yet
@@ -88,9 +98,11 @@ async function app_apply_config(app, config, given)
             if ((service_phase(service) !== 'stopped') || service.state.instances.some(v => v.restart_timer !== null)) {
                 await service_stop(app, service, `the service was renamed to ${renamed_to}`);
             }
+            services_held.rename(app, service.name, renamed_to);
             note(`${service.name}: renamed to ${renamed_to}`);
         }
         else if (config.services.some(v => v.name === service.name) === false) {
+            services_held.set(app, service.name, false);
             const done = await service_uninstall(app, service);
             note(`${service.name}: removed from the config — ${((done === null) || (done === '')) ? 'anything running keeps running' : done}`);
         }
@@ -134,8 +146,13 @@ async function app_apply_config(app, config, given)
     for (const service of fresh) {
         await service_probe(app, service);
     }
+    const held = services_held(app);
     for (const service of fresh) {
         if ((service.policy.start !== 'always') || (service_phase(service) === 'running')) {
+            continue;
+        }
+        // Stopped by hand, or stopped before its definition changed: it waits for Start
+        if (held.has(service.name) || (was.has(service.name) && (up.has(service.name) === false))) {
             continue;
         }
         if (service_waits_for_remote(app, service)) {
@@ -148,6 +165,13 @@ async function app_apply_config(app, config, given)
         });
     }
     return out;
+}
+
+// Running, or on its way to: starting, out of reach on a machine that is away, or waiting to
+// be started again after it stopped by itself
+function service_up(service)
+{
+    return ['running', 'starting', 'lost'].includes(service_phase(service)) || service.state.instances.some(v => (v.restart_timer !== null) && (v.restart_timer !== undefined));
 }
 
 // A remote that is untouched keeps the link its agent already dialled in on; a token or a

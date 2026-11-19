@@ -104,6 +104,7 @@ const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
 const service_zip_replace = require('../helpers/service_zip_replace');
+const services_held = require('../helpers/services_held');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
 const socket_place = require('../helpers/socket_place');
@@ -2227,8 +2228,17 @@ async function secrets_save(app, req, res)
     secrets_list(app, res);
 }
 
+// Stop by hand holds the service stopped until it is started by hand (services_held); a start of
+// any kind from here lets it go. A pull starts nothing and leaves it as it is.
 function action_promise(app, service, action)
 {
+    if (action === 'stop') {
+        services_held.set(app, service.name, true);
+        return service_stop(app, service, 'asked from the control page');
+    }
+    if (action !== 'pull') {
+        services_held.set(app, service.name, false);
+    }
     if (action === 'update') {
         return service_reinstall(app, service);
     }
@@ -2241,7 +2251,7 @@ function action_promise(app, service, action)
     if (action === 'restart') {
         return service_restart(app, service);
     }
-    return service_stop(app, service, 'asked from the control page');
+    return Promise.reject(new Error(`no action ${action}`));
 }
 
 
@@ -3443,9 +3453,11 @@ function is_problem_said(app, problem)
 function state_from_app(app)
 {
     const now = Date.now();
+    // Stopped by hand: nothing but a start by hand starts it again (services_held)
+    const held = services_held(app);
     const services = [];
     for (const service of app.services) {
-        services.push(view_from_service(service, now));
+        services.push(Object.assign(view_from_service(service, now), {held: held.has(service.name)}));
     }
     const remotes = [];
     for (const remote of app.remotes) {

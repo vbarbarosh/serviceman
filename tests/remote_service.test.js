@@ -17,6 +17,7 @@ const service_phase = require('../src/main/src/helpers/service_phase');
 const service_probe = require('../src/main/src/helpers/service_probe');
 const service_stop = require('../src/main/src/helpers/service_stop');
 const service_waits_for_remote = require('../src/main/src/helpers/service_waits_for_remote');
+const services_held = require('../src/main/src/helpers/services_held');
 const test = require('node:test');
 const timers = require('timers/promises');
 const ws = require('ws');
@@ -266,6 +267,66 @@ test('a service that is found running again is not left wearing its last error',
     }
     finally {
         await running.close();
+    }
+});
+
+// A Stop by hand holds: a service that must always run is started again by nobody but its owner,
+// not by a save of its definition, not by its machine dialling in; Start lets it go. A save of
+// one that runs carries it on with the new definition.
+test('a service stopped by hand stays stopped through a save of its definition and its machine dialling in, until Start', async function () {
+    process.env.SERVICEMAN_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-held-'));
+    const definition = {name: 'kept', type: 'docker', remote: 'vps1', publish: {host: 'kept.test', port: 8080}, image: 'demo/kept', policy: {start: 'always'}};
+    const running = await serviceman_start([definition]);
+    function kept() {
+        return running.app.service_by_name.kept;
+    }
+    const control = {port: running.control_port, host: `serviceman.localhost:${running.control_port}`, headers: {origin: `http://serviceman.localhost:${running.control_port}`}};
+    function press(action) {
+        return fetch_host(Object.assign({method: 'POST', path: `/api/v1/services/kept/${action}`}, control));
+    }
+    function save(image) {
+        return app_apply_config(running.app, config_from_json({
+            listen: {host: '127.0.0.1', port: 0},
+            control: {host: 'serviceman.localhost', port: 0},
+            remotes: [{name: 'vps1', token: TOKEN}],
+            services: [Object.assign({}, definition, {image})],
+        }, __dirname));
+    }
+    try {
+        await running.agent_start();
+        await wait_until(() => service_phase(kept()) === 'running');
+        assert.strictEqual((await press('stop')).status, 202);
+        await wait_until(() => service_phase(kept()) === 'stopped');
+
+        // Its command changed: a new definition, and still stopped
+        await save('demo/kept:2');
+        await timers.setTimeout(300);
+        assert.strictEqual(service_phase(kept()), 'stopped', 'a save starts nothing that was stopped');
+        assert.strictEqual(kept().image, 'demo/kept:2');
+
+        // Its machine dials in again: still stopped, and the page says why
+        const remote = running.app.remote_by_name.vps1;
+        remote.state.socket.destroy();
+        await wait_until(() => remote.state.phase === 'offline');
+        await wait_until(() => running.app.remote_by_name.vps1.state.phase === 'online', 15000);
+        await timers.setTimeout(300);
+        assert.strictEqual(service_phase(kept()), 'stopped', 'a machine that comes back starts nothing stopped by hand');
+        const status = JSON.parse((await fetch_host(Object.assign({path: '/api/v1/status'}, control))).body);
+        assert.strictEqual(status.services.find(v => v.name === 'kept').held, true);
+
+        // Start by hand: it runs, and the hold is gone
+        assert.strictEqual((await press('start')).status, 202);
+        await wait_until(() => service_phase(kept()) === 'running');
+        assert.strictEqual(services_held(running.app).has('kept'), false);
+
+        // A save of one that runs: it goes on, with its new definition
+        await save('demo/kept:3');
+        await wait_until(() => service_phase(kept()) === 'running');
+        assert.strictEqual(kept().image, 'demo/kept:3');
+    }
+    finally {
+        await running.close();
+        delete process.env.SERVICEMAN_STATE_DIR;
     }
 });
 
