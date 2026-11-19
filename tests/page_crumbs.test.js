@@ -85,3 +85,25 @@ test('All categories: four big tiles, Services, Remotes, Addresses and Apps, eac
         assert.strictEqual(typeof pane.methods[`${item.key}_tile`], 'function', `${item.key} has its tile`);
     }
 });
+
+// Failed services get a red card of their own on All categories, named, three then a count;
+// one whose machine is away is the Remotes card's, and the Services tile says it apart
+test('All categories: a red card for failed services, the tile saying failed and waiting apart', async function () {
+    const pane = (await import(path.join(PUBLIC, 'categories_pane.js'))).default;
+    const state = {
+        services: [service('app-5', 'failed', ['vps1']), service('app-6', 'failed', ['vps1']), service('app-7', 'failed', ['vps1']), service('app-8', 'failed', ['vps1']), service('web', 'running', ['vps1']), service('cache', 'stopped', ['desktop'])],
+        remotes: [{name: 'vps1', phase: 'online'}, {name: 'desktop', phase: 'offline'}],
+    };
+    const self = Object.assign({state}, pane.methods);
+    const card = pane.methods.services_card.call(self);
+    assert.deepStrictEqual(card, {count: 4, what: 'services failed', line: 'app-5, app-6, app-7', more: 1});
+    const one = pane.methods.services_card.call(Object.assign({}, self, {state: Object.assign({}, state, {services: state.services.slice(3)})}));
+    assert.deepStrictEqual(one, {count: 1, what: 'service failed', line: 'app-8', more: 0});
+    const tile = pane.methods.services_tile.call(self);
+    assert.deepStrictEqual(tile.line.map(v => v.text), ['1 up', '0 asleep', '4 failed', '1 wait for their machine']);
+});
+
+function service(name, phase, remotes)
+{
+    return {name, phase, doing: null, remotes};
+}

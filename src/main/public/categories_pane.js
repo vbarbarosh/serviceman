@@ -150,6 +150,9 @@ const categories_pane = {
             if (key === 'remotes') {
                 return this.remotes_card();
             }
+            if (key === 'services') {
+                return this.services_card();
+            }
             if (key === 'security') {
                 return this.security_card(kind);
             }
@@ -173,6 +176,16 @@ const categories_pane = {
                 line: away.slice(0, NAMED_MAX).map(v => v.title || v.name).join(', '),
                 more: Math.max(0, away.length - NAMED_MAX),
                 since: (left.length === 0) ? '' : `not linked since ${clock_of(left[0])}`,
+            };
+        },
+        // The services that failed, by name: those whose machine is away are the Remotes card's
+        services_card: function () {
+            const failed = this.state.services.filter(v => v.phase === 'failed');
+            return {
+                count: failed.length,
+                what: (failed.length === 1) ? 'service failed' : 'services failed',
+                line: failed.slice(0, NAMED_MAX).map(v => v.name).join(', '),
+                more: Math.max(0, failed.length - NAMED_MAX),
             };
         },
         security_card: function (kind) {
@@ -212,10 +225,16 @@ const categories_pane = {
         services_tile: function () {
             const marks = this.state.services.map(v => this.service_mark(v));
             const up = marks.filter(v => v === 'run').length;
-            const failed = marks.filter(v => v === 'bad').length;
-            const line = [{text: `${up} up`, kind: 'run'}, {text: `${marks.length - up - failed} asleep`, kind: ''}];
+            const red = marks.filter(v => v === 'bad').length;
+            // Red is a service that failed, or one whose machine is away: said apart, as the Services
+            // card counts the first and the Remotes card the second
+            const failed = this.state.services.filter(v => v.phase === 'failed').length;
+            const line = [{text: `${up} up`, kind: 'run'}, {text: `${marks.length - up - red} asleep`, kind: ''}];
             if (failed > 0) {
                 line.push({text: `${failed} failed`, kind: 'bad'});
+            }
+            if (red > failed) {
+                line.push({text: `${red - failed} wait for their machine`, kind: 'bad'});
             }
             return {count: marks.length, marks, shape: 'square', line};
         },

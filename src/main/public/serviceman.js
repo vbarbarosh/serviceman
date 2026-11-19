@@ -2455,7 +2455,7 @@ const app = {
             return {
                 health: this.health_tally,
                 security: this.security_tally,
-                services: tally(this.state.services.length),
+                services: this.services_tally,
                 apps: tally(this.apps_count),
                 databases: tally(this.databases_count),
                 boards: tally(this.boards_count),
@@ -2472,6 +2472,15 @@ const app = {
                 logline: {text: ((this.state.logline === null) || (this.state.logline === undefined)) ? 'not set' : `${this.logline_count} sending`, state: 'muted', title: `${this.logline_count} of ${this.state.remotes.length} remotes send their logs`},
                 'load-tests': tally(load_tests),
             };
+        },
+        // The services: how many, or how many failed, red, when any did
+        services_tally: function () {
+            const total = this.state.services.length;
+            const failed = this.state.services.filter(v => v.phase === 'failed').length;
+            if (failed === 0) {
+                return tally(total);
+            }
+            return {text: `${failed} failed`, state: 'bad', title: `${failed} of ${total} failed`};
         },
         // Machines whose lines go to Logline
         logline_count: function () {

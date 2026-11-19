@@ -140,7 +140,8 @@ service, its state, its addresses, its policy and its instances, and it does the
 - **The crumbs** — on top of every page, where you are: `Remotes ▾ › vps1 › Settings`. The
   first is a menu of the categories, Services, Databases, Remotes, Addresses, Shared folders,
   Secrets and Tokens, each with its count, then **All categories**: what needs you first, a
-  card for each category in trouble with its count big and what it is about; then Services,
+  card for each category in trouble with its count big and what it is about (services that
+  failed, by name, among them; one whose machine is away is the Remotes card's); then Services,
   Remotes, Addresses and Apps as four big tiles, a mark for each in the colour of its state;
   then the other categories as short lists in their groups. Every other crumb goes back up to
   it; the address follows them, so a reload or a link lands on the same place.
