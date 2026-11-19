@@ -64,6 +64,8 @@ function view_from_service(service, now)
         databases: (service.databases === undefined) ? [] : service.databases,
         // The folders it picked there, [{path, env}], path null for the one kept for it
         folders: (service.folders === undefined) ? [] : service.folders,
+        // The store for each user it picked there, {server}, a CouchDB at /_couch; null for none
+        store: (service.store === undefined) ? null : service.store,
         // Where it runs, which is how it reaches a database: in a container (a docker image, a
         // program in an image) or on the machine itself; null for what serviceman does not start
         runs_in: runs_in_of(service),

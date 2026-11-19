@@ -1,5 +1,6 @@
 const board_rules = require('./board_rules');
 const crypto = require('crypto');
+const databases_read = require('./databases_read');
 const docker_container_name = require('./docker_container_name');
 const door_peer_known = require('./door_peer_known');
 const door_token = require('./door_token');
@@ -11,7 +12,8 @@ const stream_peer = require('./stream_peer');
 // routing when serviceman is away:
 //
 // - names: the names its door answers, each with the service behind it, the wall in front of
-//   it (the service's own, or the rule's) and whether it is on;
+//   it (the service's own, or the rule's) and whether it is on; and, for an app that picked a
+//   store for each user on a CouchDB of this machine, that CouchDB (couch_of);
 // - services: where each of those runs, and where each service of this machine runs that
 //   another machine's door names — so its agent can answer its peers;
 // - peers: how to reach the other machines' agents, and the token each asks with;
@@ -29,8 +31,13 @@ function doors_table(app, remote)
     const names = {};
     const wanted = new Set();
     const own = board_rules.with_inbound(app, remote);
+    const servers = databases_read(app).servers;
     for (const host of Object.keys(own)) {
         const rule = rule_of(app, own[host]);
+        const couch = couch_of(servers, remote, app.service_by_name[rule.service], rule);
+        if (couch !== null) {
+            rule.couch = couch;
+        }
         names[host] = rule;
         wanted.add(rule.service);
         if (rule.wall !== null) {
@@ -108,6 +115,23 @@ function streams_of(app, remote)
         return null;
     }
     return {forwards, mounts};
+}
+
+// The store for each user a name's app picked, as this machine's agent answers it at /_couch:
+// {port, secret, admin}, the CouchDB's port on 127.0.0.1 here, the secret it trusts a signed name
+// by and its admin, who makes each user's database. Only for a CouchDB that is up on this very
+// machine, and a name with a wall to say who the user is; null otherwise, and /_couch goes to
+// the app as any other path.
+function couch_of(servers, remote, service, rule)
+{
+    if ((service === undefined) || (service.store === null) || (service.store === undefined) || (rule.wall === null)) {
+        return null;
+    }
+    const server = servers.find(v => v.name === service.store.server);
+    if ((server === undefined) || (server.engine !== 'couchdb') || (server.remote !== remote.name) || (server.phase !== 'up') || (server.users.admin === undefined)) {
+        return null;
+    }
+    return {port: server.port, secret: server.secret, admin: server.users.admin};
 }
 
 // A rule as the config holds it — a service's name alone, or {service, off, auth} — in the one

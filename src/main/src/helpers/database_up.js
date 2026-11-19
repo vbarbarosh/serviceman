@@ -8,6 +8,7 @@ const database_user_sql = require('./database_user_sql');
 const databases_read = require('./databases_read');
 const databases_write = require('./databases_write');
 const docker_exec_connect = require('./docker_exec_connect');
+const doors_tell = require('./doors_tell');
 const engine_call = require('./engine_call');
 const engine_exec = require('./engine_exec');
 const engine_files_put = require('./engine_files_put');
@@ -69,6 +70,9 @@ async function database_up(app, name)
         server_set(app, name, {phase: 'failed', said: '', error: error.message});
         log_event(app, 'database_up_end_error', {database: name, remote: server.remote, reason: error.message, ms: Date.now() - begun});
     }
+    // A CouchDB up or down changes the door of its machine: an app's store for each user is
+    // answered there only while it is up (doors_table)
+    doors_tell(app);
 }
 
 function server_of(app, name)

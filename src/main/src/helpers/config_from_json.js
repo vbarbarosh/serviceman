@@ -416,6 +416,9 @@ function service_from_json(json, service_defaults, base_dir, label)
         // machine's, through a websocket. A door's rule may name a wall too; this one holds
         // whichever way a visitor comes.
         auth: auth_from_json(json.auth, `${label}.auth`),
+        // A store for each user its wall signs in, a CouchDB of the Databases page, at /_couch
+        // on the app's own address: the agent at the door of that CouchDB's machine answers it
+        store: store_from_json(json.store, `${label}.store`),
     };
     out.routes = routes_from_hosts(out.hosts);
     if (out.type === 'docker') {
@@ -496,6 +499,20 @@ function service_from_json(json, service_defaults, base_dir, label)
     }
     assert_service_valid(out, label);
     return out;
+}
+
+// The store for each user an app picked in its Data tab: {server}, a CouchDB of the Databases
+// page, or null for none. Whether it is there and up is said by the door: the servers are
+// serviceman's state, not the config's.
+function store_from_json(json, label)
+{
+    if ((json === undefined) || (json === null)) {
+        return null;
+    }
+    if ((typeof json !== 'object') || (typeof json.server !== 'string') || (RE_DATABASE_SERVER.test(json.server) === false)) {
+        throw new Error(`${label}: a CouchDB of the Databases page, like {"server": "couchdb-1"} (got ${JSON.stringify(json)})`);
+    }
+    return {server: json.server};
 }
 
 // The databases an app picked in its Data tab, each one variable of its env at every start:

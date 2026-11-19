@@ -137,9 +137,11 @@ the `adminer-plugins.php` that Adminer loads beside itself. Its container is mad
 
 **New database** with **CouchDB** brings up CouchDB 3, `docker.io/library/couchdb:3`, the same way: its data in a
 volume at `/opt/couchdb/data`, port 5984 on `127.0.0.1` of its machine and on the databases'
-network, never outside it. It is for a wall that gives each user it signs in a database of their
-own: CouchDB trusts the user name the wall sends in `X-Forwarded-User` when
-`X-Forwarded-User-Token` is that name's HMAC-SHA256 by a secret the two share.
+network, never outside it. It gives each user an app's wall signs in a database of their own:
+CouchDB trusts the user name sent in `X-Forwarded-User` when `X-Forwarded-User-Token` is that
+name's HMAC-SHA256 by a secret only serviceman, the machine's agent and CouchDB hold. The agent at
+the machine's door signs it ([A store for each user](#a-store-for-each-user)); an app given the
+CouchDB as its admin may sign it itself.
 
 serviceman makes its admin's password and that secret, 64 hex digits, keeps them in
 `data/databases.json` with the other passwords, and before it starts lays `authwall.ini` into
@@ -179,7 +181,36 @@ curl -s -H 'X-Forwarded-User: alice' -H "X-Forwarded-User-Token: $T" http://serv
 
 says `"name":"alice"` in `userCtx`; signed by another secret, `"name":null`. CouchDB 3.5 answers
 a user name sent with no token at all with an error, 500 `badarg`, and lets nobody in either way:
-the wall takes `X-Forwarded-User` out of what a visitor sends before it adds its own.
+whatever signs the name takes `X-Forwarded-User` out of what a visitor sends before it adds its own.
+
+### A store for each user
+
+An app behind a wall picks a CouchDB in its Data tab with **+ Store for each user**, kept in its
+config as `"store": {"server": "couchdb-1"}`. It needs no variable and no code of its own on a
+server: a page, one HTML file, uses it as it is. At `/_couch` on the app's own name, each user its
+wall signs in has a database of their own:
+
+```js
+await fetch('/_couch/note-1', {method: 'PUT', body: JSON.stringify({text: 'hello'})});
+const note = await fetch('/_couch/note-1').then(v => v.json());
+```
+
+The agent at the door of the machine the CouchDB runs on answers it, and serviceman is in no step:
+serviceman writes the CouchDB's port, its secret and its admin into that door's table, and the
+agent, once the wall has said who the visitor is,
+
+- drops whatever the visitor sent as a name for CouchDB: `Authorization`, `Cookie`,
+  `X-Forwarded-User`, its token and `X-Forwarded-Roles`;
+- makes that user's database the first time, `userdb-` and the name's bytes in hex, as CouchDB's
+  own `couch_peruser` names it, with that user alone as its member;
+- carries the request to it on `127.0.0.1`, `/_couch/note-1` as `/userdb-<hex>/note-1`, with the
+  name signed.
+
+A path out of the user's own database (`..`, `%2e%2e`) is refused with 400, a visitor not signed
+in is sent to sign in, and everything else on the name is the app's. It is answered for a name that
+comes in at that machine's door, behind a wall; a name with no wall, or a CouchDB on another
+machine, leaves `/_couch` to the app. The door tables are sent again when the CouchDB comes up or
+fails. `tests/door_route.test.js` holds it.
 
 ## Remove
 

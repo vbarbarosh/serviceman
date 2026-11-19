@@ -6,6 +6,7 @@ const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const containers_kill = require('./containers_kill');
+const crypto = require('crypto');
 const doors_table = require('../src/main/src/helpers/doors_table');
 const fs = require('fs');
 const handshake_raw = require('./handshake_raw');
@@ -131,6 +132,140 @@ test('a door routes through the wall to the service itself, and goes on with ser
         await running.close();
         echo.close();
         wall.close();
+        delete process.env.SERVICEMAN_STATE_DIR;
+    }
+});
+
+// A store for each user: /_couch on the app's own name is answered by the agent at the door of
+// the machine its CouchDB runs on. The wall says who the visitor is; the agent makes that user's
+// database the first time, with that user alone as its member, and carries the request on to it
+// with the name signed by the CouchDB's secret. A name the visitor wrote is dropped, a path out
+// of the user's database is refused, and serviceman is in none of it.
+test('a door answers /_couch with the signed-in user\'s own CouchDB database, made the first time', async function () {
+    const state_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-couch-state-'));
+    process.env.SERVICEMAN_STATE_DIR = state_dir;
+    const SECRET = 'c'.repeat(64);
+    const wall = await server_of(function (req, res) {
+        if (req.url === '/auth/sidecar') {
+            const user = {'session=alice': 'alice@example.com', 'session=bob': 'bob'}[req.headers.cookie];
+            res.writeHead((user === undefined) ? 401 : 200, (user === undefined) ? {} : {'x-auth-user': user});
+            res.end();
+            return;
+        }
+        res.end('the wall\'s own page');
+    });
+    const app_asked = [];
+    const notes = await server_of(function (req, res) {
+        app_asked.push(req.url);
+        res.end(`the app ${req.url}`);
+    });
+    // CouchDB as far as the door meets it: its admin makes a database and gives it to a user; a
+    // name counts only with its token, signed by the secret, and only at a database it is a member of
+    const couch_asked = [];
+    const members = {};
+    const couch = await server_of(function (req, res) {
+        const admin = (req.headers.authorization === `Basic ${Buffer.from('admin:pw').toString('base64')}`);
+        const user = req.headers['x-forwarded-user'];
+        const signed = (user !== undefined) && (req.headers['x-forwarded-user-token'] === crypto.createHmac('sha256', SECRET).update(user).digest('hex'));
+        const database = req.url.split('/')[1].split('?')[0];
+        couch_asked.push({method: req.method, url: req.url, admin, user: signed ? user : null, cookie: req.headers.cookie || null});
+        if (admin && (req.method === 'PUT') && (req.url === `/${database}`)) {
+            res.writeHead((members[database] === undefined) ? 201 : 412);
+            members[database] = members[database] || [];
+            res.end();
+            return;
+        }
+        if (admin && (req.method === 'PUT') && req.url.endsWith('/_security')) {
+            const body = [];
+            req.on('data', v => body.push(v));
+            req.on('end', function () {
+                members[database] = JSON.parse(Buffer.concat(body).toString('utf8')).members.names;
+                res.writeHead(200);
+                res.end();
+            });
+            return;
+        }
+        if (signed && (members[database] || []).includes(user)) {
+            res.end(JSON.stringify({user, url: req.url}));
+            return;
+        }
+        res.writeHead(signed ? 403 : 401);
+        res.end();
+    });
+    fs.writeFileSync(path.join(state_dir, 'databases.json'), JSON.stringify({servers: [
+        {name: 'couchdb-1', engine: 'couchdb', version: '3', remote: 'laptop', phase: 'up', port: couch.address().port, secret: SECRET, users: {admin: {user: 'admin', password: 'pw'}}},
+        {name: 'couchdb-9', engine: 'couchdb', version: '3', remote: 'server', phase: 'up', port: 1, secret: SECRET, users: {admin: {user: 'admin', password: 'pw'}}},
+    ]}));
+    const running = await serviceman_start({
+        remotes: [
+            {name: 'laptop', token: TOKEN_LAPTOP, inbound: {
+                'notes.example.com': {service: 'notes', auth: 'authwall'},
+                'open.example.com': 'open',
+                'far.example.com': {service: 'far', auth: 'authwall'},
+            }},
+            {name: 'server', token: TOKEN_SERVER},
+        ],
+        services: [
+            {name: 'authwall', type: 'external', remote: 'laptop', publish: {host: 'authwall.internal'}, upstream: `127.0.0.1:${wall.address().port}`},
+            {name: 'notes', type: 'external', remote: 'laptop', publish: {host: 'notes.internal'}, upstream: `127.0.0.1:${notes.address().port}`, store: {server: 'couchdb-1'}},
+            {name: 'open', type: 'external', remote: 'laptop', publish: {host: 'open.internal'}, upstream: `127.0.0.1:${notes.address().port}`, store: {server: 'couchdb-1'}},
+            {name: 'far', type: 'external', remote: 'laptop', publish: {host: 'far.internal'}, upstream: `127.0.0.1:${notes.address().port}`, store: {server: 'couchdb-9'}},
+        ],
+    });
+    const dir_laptop = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-couch-laptop-'));
+    const agent = agent_start(running.control_port, TOKEN_LAPTOP, {SERVICEMAN_AGENT_DIR: dir_laptop, SERVICEMAN_HTTP_SOCKET_MODE: '0600', SERVICEMAN_PEER_PORT: '0'});
+    const door = path.join(dir_laptop, 'http.sock');
+    const alice_db = `userdb-${Buffer.from('alice@example.com').toString('hex')}`;
+    try {
+        const laptop = running.app.remote_by_name.laptop;
+        await wait_until(() => (laptop.state.doors_told !== null) && (laptop.state.doors_told === doors_table(running.app, laptop).version) && fs.existsSync(door), 15000);
+        // serviceman names the CouchDB only where the agent can answer for it: behind a wall,
+        // and on the machine it runs on
+        const names = doors_table(running.app, laptop).names;
+        assert.deepStrictEqual(names['notes.example.com'].couch, {port: couch.address().port, secret: SECRET, admin: {user: 'admin', password: 'pw'}});
+        assert.strictEqual(names['open.example.com'].couch, undefined, 'no wall, nobody to make a store for');
+        assert.strictEqual(names['far.example.com'].couch, undefined, 'its CouchDB is on another machine');
+
+        // Not signed in: sent to sign in, and CouchDB never asked
+        const refused = await fetch_socket(door, 'notes.example.com', '/_couch/note-1');
+        assert.strictEqual(refused.status, 302);
+        assert.deepStrictEqual(couch_asked, []);
+
+        // Signed in: alice's database made and given to her alone, then her request carried
+        // there with her name signed; her own claims and cookie stay at the door
+        const first = await fetch_socket(door, 'notes.example.com', '/_couch/note-1?rev=2', {'cookie': 'session=alice', 'x-forwarded-user': 'bob', 'x_forwarded_user_token': 'forged'});
+        assert.strictEqual(first.status, 200);
+        assert.deepStrictEqual(JSON.parse(first.body), {user: 'alice@example.com', url: `/${alice_db}/note-1?rev=2`});
+        assert.deepStrictEqual(couch_asked.map(v => `${v.method} ${v.url} ${v.admin ? 'admin' : v.user}`), [`PUT /${alice_db} admin`, `PUT /${alice_db}/_security admin`, `GET /${alice_db}/note-1?rev=2 alice@example.com`]);
+        assert.strictEqual(couch_asked[2].cookie, null);
+        assert.deepStrictEqual(members[alice_db], ['alice@example.com']);
+
+        // The second time it is there already: straight to it
+        const again = await fetch_socket(door, 'notes.example.com', '/_couch', {cookie: 'session=alice'});
+        assert.strictEqual(again.status, 200);
+        assert.strictEqual(JSON.parse(again.body).url, `/${alice_db}`);
+        assert.strictEqual(couch_asked.length, 4);
+
+        // bob has his own, and no way to name alice's: a path out of his is refused at the door
+        const bob = await fetch_socket(door, 'notes.example.com', '/_couch/', {cookie: 'session=bob'});
+        assert.strictEqual(JSON.parse(bob.body).url, `/userdb-${Buffer.from('bob').toString('hex')}/`);
+        for (const step_out of [`/_couch/../${alice_db}`, `/_couch/%2e%2e/${alice_db}`, '/_couch/./x/..']) {
+            const stepped = await fetch_socket(door, 'notes.example.com', step_out, {cookie: 'session=bob'});
+            assert.strictEqual(stepped.status, 400, step_out);
+        }
+
+        // Everything else on the name is the app's, as before
+        const app_page = await fetch_socket(door, 'notes.example.com', '/_couchdb', {cookie: 'session=alice'});
+        assert.strictEqual(app_page.body, 'the app /_couchdb');
+        const open = await fetch_socket(door, 'open.example.com', '/_couch');
+        assert.strictEqual(open.body, 'the app /_couch');
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+        for (const server of [wall, notes, couch]) {
+            server.close();
+        }
         delete process.env.SERVICEMAN_STATE_DIR;
     }
 });

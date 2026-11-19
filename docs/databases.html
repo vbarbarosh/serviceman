@@ -873,9 +873,11 @@ the <code>adminer-plugins.php</code> that Adminer loads beside itself. Its conta
 <h2 id="couchdb-for-a-walls-users"><a class="anchor" href="#couchdb-for-a-walls-users" aria-hidden="true" tabindex="-1">#</a>CouchDB, for a wall&#39;s users</h2>
 <p><strong>New database</strong> with <strong>CouchDB</strong> brings up CouchDB 3, <code>docker.io/library/couchdb:3</code>, the same way: its data in a
 volume at <code>/opt/couchdb/data</code>, port 5984 on <code>127.0.0.1</code> of its machine and on the databases&#39;
-network, never outside it. It is for a wall that gives each user it signs in a database of their
-own: CouchDB trusts the user name the wall sends in <code>X-Forwarded-User</code> when
-<code>X-Forwarded-User-Token</code> is that name&#39;s HMAC-SHA256 by a secret the two share.</p>
+network, never outside it. It gives each user an app&#39;s wall signs in a database of their own:
+CouchDB trusts the user name sent in <code>X-Forwarded-User</code> when <code>X-Forwarded-User-Token</code> is that
+name&#39;s HMAC-SHA256 by a secret only serviceman, the machine&#39;s agent and CouchDB hold. The agent at
+the machine&#39;s door signs it (<a href="#a-store-for-each-user">A store for each user</a>); an app given the
+CouchDB as its admin may sign it itself.</p>
 <p>serviceman makes its admin&#39;s password and that secret, 64 hex digits, keeps them in
 <code>data/databases.json</code> with the other passwords, and before it starts lays <code>authwall.ini</code> into
 <code>/opt/couchdb/etc/local.d</code> (<code>src/main/src/helpers/couchdb_ini.js</code>):</p>
@@ -919,7 +921,31 @@ curl -s -H &#39;X-Forwarded-User: alice&#39; -H &quot;X-Forwarded-User-Token: $T
 </code></pre>
 <p>says <code>&quot;name&quot;:&quot;alice&quot;</code> in <code>userCtx</code>; signed by another secret, <code>&quot;name&quot;:null</code>. CouchDB 3.5 answers
 a user name sent with no token at all with an error, 500 <code>badarg</code>, and lets nobody in either way:
-the wall takes <code>X-Forwarded-User</code> out of what a visitor sends before it adds its own.</p>
+whatever signs the name takes <code>X-Forwarded-User</code> out of what a visitor sends before it adds its own.</p>
+<h3 id="a-store-for-each-user"><a class="anchor" href="#a-store-for-each-user" aria-hidden="true" tabindex="-1">#</a>A store for each user</h3>
+<p>An app behind a wall picks a CouchDB in its Data tab with <strong>+ Store for each user</strong>, kept in its
+config as <code>&quot;store&quot;: {&quot;server&quot;: &quot;couchdb-1&quot;}</code>. It needs no variable and no code of its own on a
+server: a page, one HTML file, uses it as it is. At <code>/_couch</code> on the app&#39;s own name, each user its
+wall signs in has a database of their own:</p>
+<pre><code class="language-js">await fetch(&#39;/_couch/note-1&#39;, {method: &#39;PUT&#39;, body: JSON.stringify({text: &#39;hello&#39;})});
+const note = await fetch(&#39;/_couch/note-1&#39;).then(v =&gt; v.json());
+</code></pre>
+<p>The agent at the door of the machine the CouchDB runs on answers it, and serviceman is in no step:
+serviceman writes the CouchDB&#39;s port, its secret and its admin into that door&#39;s table, and the
+agent, once the wall has said who the visitor is,</p>
+<ul>
+<li>drops whatever the visitor sent as a name for CouchDB: <code>Authorization</code>, <code>Cookie</code>,
+<code>X-Forwarded-User</code>, its token and <code>X-Forwarded-Roles</code>;</li>
+<li>makes that user&#39;s database the first time, <code>userdb-</code> and the name&#39;s bytes in hex, as CouchDB&#39;s
+own <code>couch_peruser</code> names it, with that user alone as its member;</li>
+<li>carries the request to it on <code>127.0.0.1</code>, <code>/_couch/note-1</code> as <code>/userdb-&lt;hex&gt;/note-1</code>, with the
+name signed.</li>
+</ul>
+<p>A path out of the user&#39;s own database (<code>..</code>, <code>%2e%2e</code>) is refused with 400, a visitor not signed
+in is sent to sign in, and everything else on the name is the app&#39;s. It is answered for a name that
+comes in at that machine&#39;s door, behind a wall; a name with no wall, or a CouchDB on another
+machine, leaves <code>/_couch</code> to the app. The door tables are sent again when the CouchDB comes up or
+fails. <code>tests/door_route.test.js</code> holds it.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server&#39;s name typed again, then takes its container and

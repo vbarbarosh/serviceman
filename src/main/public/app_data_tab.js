@@ -30,8 +30,11 @@ const ENGINES = {
 // to it at every start: a database of the Databases page, picked from a list, as its own user's
 // URL, which this page never sees whole; a folder kept for it on its machine or one of that
 // machine, as its path (FILES_DIR), mounted at /data/files in a container. REST (REST_URL) is a
-// sketch for now, kept in this browser under the app's name. A row goes at once, with Undo in its
-// place; a page, which has no program to read a variable, takes REST alone, at its own address.
+// sketch for now, kept in this browser under the app's name. A store for each user is real too: a
+// CouchDB of the Databases page, at /_couch on the app's own address, a database of their own for
+// each user its wall signs in, which the agent at that CouchDB's machine's door answers; it is
+// kept in the app's config as `store`. A row goes at once, with Undo in its place; a page, which
+// has no program to read a variable, takes REST and a store, at its own address.
 const app_data_tab = {
     template: `
 <div class="app-data">
@@ -39,12 +42,13 @@ const app_data_tab = {
         <button type="button" :disabled="((pick_free === null) || saving)" :title="pick_title" @click="click_database">+ Database</button>
         <button type="button" :disabled="((started === false) || (machine === null) || saving)" :title="(started ? ('New database, on ' + (machine || 'its machine') + ', given to ' + app.name) : 'serviceman does not start it, so it hands it no database')" @click="$emit('new_database', {given: [app.name], remote: machine})">New database…</button>
         <button type="button" :disabled="((started === false) || saving)" :title="(started ? 'A folder kept for it, or one of its machine, at every start' : 'serviceman does not start it, so it hands it no folder')" @click="click_folder">+ Folder</button>
+        <button type="button" :disabled="((store !== null) || (store_free === null) || saving)" :title="store_title" @click="click_store">+ Store for each user</button>
         <button type="button" :disabled="has_rest" :title="(has_rest ? 'It has REST already' : '')" @click="click_rest">+ REST</button>
     </div>
     <p class="muted app-settings-says">{{ how }}</p>
     <p v-if="(error !== '')" class="bad app-data-error">{{ error }}</p>
     <p v-if="(removed !== null)" class="app-data-removed">Removed {{ removed_title }} · <button type="button" class="link" :disabled="saving" @click="click_undo">Undo</button></p>
-    <p v-if="((picks.length === 0) && (folders.length === 0) && (items.length === 0))" class="muted app-data-none">Nothing yet: each row fills one variable of {{ app.name }}.</p>
+    <p v-if="((picks.length === 0) && (folders.length === 0) && (items.length === 0) && (store === null))" class="muted app-data-none">Nothing yet: each row fills one variable of {{ app.name }}.</p>
     <ul v-else class="app-data-list">
         <li v-for="(pick, index) of picks" :key="('pick-' + index)" class="app-data-item">
             <div class="app-data-what">
@@ -63,6 +67,22 @@ const app_data_tab = {
             </div>
             <div class="app-data-acts">
                 <span class="app-data-says" :class="(pick_problem(pick) === '') ? 'muted' : 'bad'">{{ pick_says(pick) }}</span>
+            </div>
+        </li>
+        <li v-if="(store !== null)" key="store" class="app-data-item">
+            <div class="app-data-what">
+                <span class="app-data-kind">Store</span>
+                <select :value="store.server" :disabled="saving" aria-label="Which CouchDB" @change="change_store($event.target.value)">
+                    <option v-if="(couch_of(store.server) === null)" :value="store.server">each user · {{ store.server }}, not there now</option>
+                    <option v-for="server of couches" :key="server.name" :value="server.name">each user · {{ server.name }} on {{ server.title }}</option>
+                </select>
+                <button type="button" class="app-data-remove" :disabled="saving" title="Remove the store; Undo brings it back" @click="click_remove_store">Remove</button>
+            </div>
+            <div class="app-data-var">
+                <code class="app-data-value">{{ host }}/_couch</code>
+            </div>
+            <div class="app-data-acts">
+                <span class="app-data-says" :class="(store_problem === '') ? 'muted' : 'bad'">{{ store_says }}</span>
             </div>
         </li>
         <li v-for="(folder, index) of folders" :key="('folder-' + index)" class="app-data-item">
@@ -111,12 +131,14 @@ const app_data_tab = {
     },
     emits: ['new_database', 'saved'],
     data: function () {
-        // picks and folders: its databases and its folders as its config has them; servers: the
-        // Databases page's, read when the tab opens; removed: the row Remove took and where it
-        // was, for Undo; items: the sketch's rows, this browser's
+        // picks and folders: its databases and its folders as its config has them; store: its
+        // store for each user, {server}, or null; servers: the Databases page's, read when the tab
+        // opens; removed: the row Remove took and where it was, for Undo; items: the sketch's
+        // rows, this browser's
         const picks = (this.app.databases === undefined) ? [] : this.app.databases.map(v => Object.assign({}, v));
         const folders = (this.app.folders === undefined) ? [] : this.app.folders.map(v => Object.assign({}, v));
-        return {KIND_WORDS, picks, folders, servers: null, items: items_read(this.app.name), removed: null, saving: false, error: '', copied: ''};
+        const store = ((this.app.store === undefined) || (this.app.store === null)) ? null : {server: this.app.store.server};
+        return {KIND_WORDS, picks, folders, store, servers: null, items: items_read(this.app.name), removed: null, saving: false, error: '', copied: ''};
     },
     computed: {
         kind: function () {
@@ -177,6 +199,58 @@ const app_data_tab = {
             }
             return 'A database of the Databases page, handed to it at every start';
         },
+        // The CouchDBs of the Databases page: a store for each user is one of them
+        couches: function () {
+            return ((this.servers === null) ? [] : this.servers).filter(v => v.engine === 'couchdb');
+        },
+        // The first CouchDB that is up, for + Store for each user; null with no wall to say who
+        // the user is, or none up
+        store_free: function () {
+            if ((this.app.auth === null) || (this.app.auth === undefined)) {
+                return null;
+            }
+            return this.couches.find(v => v.phase === 'up') || null;
+        },
+        store_title: function () {
+            if (this.store !== null) {
+                return 'It has a store for each user already';
+            }
+            if ((this.app.auth === null) || (this.app.auth === undefined)) {
+                return 'A store for each user needs a wall in front of the app, to say who the user is: give it one in its Settings';
+            }
+            if (this.servers === null) {
+                return 'reading the databases…';
+            }
+            if (this.store_free === null) {
+                return 'No CouchDB is up: New database brings one up';
+            }
+            return 'A database of their own for each user its wall signs in, at /_couch on its own address';
+        },
+        // What stands in the store's way now, or ''
+        store_problem: function () {
+            if (this.store === null) {
+                return '';
+            }
+            const server = this.couch_of(this.store.server);
+            if ((this.app.auth === null) || (this.app.auth === undefined)) {
+                return 'No wall in front of it to say who the user is: give it one in its Settings';
+            }
+            if ((server === null) && (this.servers !== null)) {
+                return `${this.store.server} is not on Databases now`;
+            }
+            if ((server !== null) && (server.phase !== 'up')) {
+                return `${this.store.server} is not up: see Databases`;
+            }
+            return '';
+        },
+        store_says: function () {
+            if (this.store_problem !== '') {
+                return this.store_problem;
+            }
+            const server = this.couch_of(this.store.server);
+            const where = (server === null) ? 'its machine' : server.title;
+            return `A database of their own for each user ${this.app.auth} signs in. The agent of ${where} answers it at its door, for a name of this app that comes in there.`;
+        },
         // What becomes of every value, said once over the rows
         how: function () {
             if (this.runs === false) {
@@ -188,6 +262,9 @@ const app_data_tab = {
             return 'serviceman does not start it: it hands it no database and no folder.';
         },
         removed_title: function () {
+            if (this.removed.kind === 'store') {
+                return 'the store for each user';
+            }
             if (this.removed.kind === 'pick') {
                 return this.removed.row.database;
             }
@@ -239,6 +316,23 @@ const app_data_tab = {
             this.folders.splice(index, 1);
             this.picks_save();
         },
+        click_store: function () {
+            this.store = {server: this.store_free.name};
+            this.removed = null;
+            this.picks_save();
+        },
+        change_store: function (name) {
+            this.store = {server: name};
+            this.picks_save();
+        },
+        click_remove_store: function () {
+            this.removed = {kind: 'store', row: this.store, index: 0};
+            this.store = null;
+            this.picks_save();
+        },
+        couch_of: function (name) {
+            return this.couches.find(v => v.name === name) || null;
+        },
         click_rest: function () {
             this.add({kind: 'rest', keep: 'serviceman', env: 'REST_URL'});
         },
@@ -282,6 +376,12 @@ const app_data_tab = {
             this.keep();
         },
         click_undo: function () {
+            if (this.removed.kind === 'store') {
+                this.store = this.removed.row;
+                this.removed = null;
+                this.picks_save();
+                return;
+            }
             const list = {pick: this.picks, folder: this.folders, item: this.items}[this.removed.kind];
             list.splice(Math.min(this.removed.index, list.length), 0, this.removed.row);
             const kind = this.removed.kind;
@@ -293,9 +393,9 @@ const app_data_tab = {
                 this.picks_save();
             }
         },
-        // Its databases and its folders written into the app's config as they are now, a folder
-        // of its machine whose path is not typed yet left out: the service as the config has
-        // it, the two replaced, the way Settings writes it
+        // Its databases, its folders and its store written into the app's config as they are now,
+        // a folder of its machine whose path is not typed yet left out: the service as the config
+        // has it, the three replaced, the way Settings writes it
         picks_save: async function () {
             this.saving = true;
             this.error = '';
@@ -313,6 +413,12 @@ const app_data_tab = {
                     if (service[key].length === 0) {
                         delete service[key];
                     }
+                }
+                if (this.store === null) {
+                    delete service.store;
+                }
+                else {
+                    service.store = {server: this.store.server};
                 }
                 const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.app.name)}`, {method: 'PUT', body: JSON.stringify({service})});
                 if (answer.ok === false) {

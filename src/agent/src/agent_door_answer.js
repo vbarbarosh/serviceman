@@ -1,3 +1,4 @@
+const agent_couch_answer = require('./agent_couch_answer');
 const agent_door_proxy = require('./agent_door_proxy');
 const agent_door_rule = require('./agent_door_rule');
 const agent_door_upgrade = require('./agent_door_upgrade');
@@ -33,6 +34,10 @@ async function agent_door_answer(options, relay, req, res)
         answer_now(res, routed.answer, group);
         return;
     }
+    if (routed.couch !== undefined) {
+        await agent_couch_answer(req, res, routed.couch, routed.user, group);
+        return;
+    }
     if (routed.target === null) {
         await relay_to_serviceman(relay, req, res, group);
         return;
@@ -62,6 +67,12 @@ agent_door_answer.upgrade = async function (options, relay, req, socket, head) {
         socket.end(`HTTP/1.1 ${routed.answer.status} ${http.STATUS_CODES[routed.answer.status]}\r\nconnection: close\r\ncontent-length: 0\r\n\r\n`);
         return;
     }
+    // A store for each user answers plain requests, never a websocket
+    if (routed.couch !== undefined) {
+        agent_say(group, 'door_request_refused', {status: 404, why: 'a store for each user is not a websocket'});
+        socket.end('HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n');
+        return;
+    }
     if (routed.target === null) {
         if (agent_doors_state.link === null) {
             agent_say(group, 'door_request_refused', {status: 503, why: 'not in this machine’s table, and serviceman is not connected'});
@@ -74,8 +85,9 @@ agent_door_answer.upgrade = async function (options, relay, req, socket, head) {
     agent_door_upgrade(req, socket, head, routed.target, routed.extra);
 };
 
-// Where this request goes: {target, extra, service}, {target: null} for serviceman to decide, or
-// {answer} for one this door gives itself
+// Where this request goes: {target, extra, service}, {target: null} for serviceman to decide,
+// {answer} for one this door gives itself, or {couch, user} for the store of the user the wall
+// named, when the name's rule carries a CouchDB of this machine (agent_couch_answer)
 async function route(options, req, host, group)
 {
     // Whatever a visitor claims to be is not taken from them: only the wall says who they are
@@ -110,6 +122,13 @@ async function route(options, req, host, group)
             return {answer: {status: 302, location: agent_wall_ask.sign_in(req)}};
         }
         req.headers['x-auth-user'] = said.user;
+    }
+    // Only behind a wall that said who it is: serviceman names a CouchDB in no other rule
+    if ((rule.couch !== undefined) && (rule.couch !== null) && (own === false) && agent_couch_answer.asks(req.url)) {
+        if (rule.wall === null) {
+            return {answer: {status: 404, why: `${host} has a store for each user and no wall to say who the user is`}};
+        }
+        return {couch: rule.couch, user: req.headers['x-auth-user']};
     }
     const target = await agent_service_target(table, name, options);
     if (target === null) {
