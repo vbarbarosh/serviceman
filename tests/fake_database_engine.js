@@ -4,12 +4,13 @@ const http = require('http');
 // A docker engine for the databases tests, on a socket of its own: the parts of the API a
 // database server is brought up with (an image, a network, a container made, started, inspected
 // and removed, a volume), files put into a container, and commands run in it. Its MySQL is a
-// make-believe: a ping answers once the container runs, and SQL run as a file makes the
-// databases its CREATE lines name and answers the list of them. Every request is kept, with its
+// make-believe, MySQL's or PostgreSQL's: a ping answers once the container runs, and SQL run as a
+// file makes the databases its CREATE lines name, drops those its DROP lines name, and answers
+// the list of them; every SQL run is kept, in `sql`. Every request is kept, with its
 // body, for the test to read what went where.
 async function fake_database_engine(socket)
 {
-    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, fail_build: false, next: 1};
+    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, fail_build: false, sql: [], next: 1};
     const server = http.createServer(function (req, res) {
         const chunks = [];
         req.on('data', v => chunks.push(v));
@@ -83,7 +84,8 @@ function container_route(engine, req, res, body, url, parts)
         return text(res, 204, '');
     }
     if (parts[2] === 'json') {
-        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': [{HostIp: '127.0.0.1', HostPort: '41337'}]}}});
+        const port = [{HostIp: '127.0.0.1', HostPort: '41337'}];
+        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port}}});
     }
     if (parts[2] === 'start') {
         container.running = true;
@@ -117,18 +119,28 @@ function exec_route(engine, req, res, parts)
     const cmd = exec.spec.Cmd;
     let printed = '';
     exec.code = 0;
-    if (cmd[0] === 'mysqladmin') {
+    if ((cmd[0] === 'mysqladmin') || (cmd[0] === 'pg_isready')) {
         exec.code = engine.fail_ping ? 1 : 0;
     }
     else if (cmd[0] === 'sh') {
         const file = cmd[cmd.length - 1];
         const sql = container.files[file].toString('utf8');
         delete container.files[file];
-        for (const found of sql.matchAll(/CREATE (?:DATABASE|SCHEMA)(?: IF NOT EXISTS)? `?([A-Za-z0-9_]+)`?/g)) {
+        engine.sql.push({container: container.name, cmd: cmd[2], sql});
+        for (const found of sql.matchAll(/DROP DATABASE IF EXISTS [`"]?([A-Za-z0-9_]+)[`"]?/g)) {
+            container.databases.delete(found[1]);
+        }
+        for (const found of sql.matchAll(/CREATE (?:DATABASE|SCHEMA)(?: IF NOT EXISTS)? [`"]?([A-Za-z0-9_]+)[`"]?/g)) {
             container.databases.add(found[1]);
         }
         if (sql.includes('information_schema.schemata')) {
             printed = [...container.databases].sort().map(v => `${v}\t2\t16384\n`).join('');
+        }
+        else if (sql.includes('FROM pg_database')) {
+            printed = [...container.databases].sort().map(v => `${v}\t16384\n`).join('');
+        }
+        else if (sql.includes("table_schema NOT IN ('pg_catalog'")) {
+            printed = '2\n';
         }
     }
     res.writeHead(200, {'content-type': 'application/vnd.docker.raw-stream'});

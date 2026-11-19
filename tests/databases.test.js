@@ -85,6 +85,42 @@ test('a MySQL is brought up filled with a sample, a database made in it, then re
     assert.strictEqual(engine.volumes.has('serviceman-db-mysql-1'), false);
 });
 
+// PostgreSQL the same way: its image, its data, its port, its client; a sample loaded into a
+// database made for it first, then each database's own user, the owner of it alone
+test('a PostgreSQL is brought up filled with a sample, and a database made in it is its user\'s alone', async function (t) {
+    const world = await world_start(t);
+    const engine = world.docker.engine;
+    const made = await control(world, 'POST', '/api/v1/databases', {name: 'postgresql-1', engine: 'postgresql', version: '17', remote: 'laptop', sample: 'tiny'});
+    assert.strictEqual(made.status, 202, JSON.stringify(made.body));
+    const up = await view_until(world, v => (v.servers[0].phase === 'up'));
+    assert.deepStrictEqual(up.servers[0].databases.map(v => `${v.name} ${v.tables} ${v.user}`), ['tiny 2 tiny']);
+    const spec = engine.containers.get('serviceman-db-postgresql-1').spec;
+    assert.strictEqual(spec.Image, 'docker.io/library/postgres:17');
+    assert.deepStrictEqual(spec.HostConfig.Binds, ['serviceman-db-postgresql-1:/var/lib/postgresql/data']);
+    assert.deepStrictEqual(Object.keys(spec.HostConfig.PortBindings), ['5432/tcp']);
+    assert.ok(spec.Env[0].startsWith('POSTGRES_PASSWORD='));
+    assert.strictEqual(up.servers[0].port, 41337);
+
+    // The sample ran in its own database, made afresh first, as root
+    const ran = engine.sql.filter(v => v.container === 'serviceman-db-postgresql-1');
+    assert.ok(ran.some(v => v.sql.startsWith('DROP DATABASE IF EXISTS "tiny" WITH (FORCE)')));
+    assert.ok(ran.some(v => v.sql.includes('CREATE TABLE note') && v.cmd.includes("-d 'tiny'")));
+    assert.ok(ran.every(v => v.cmd.startsWith('psql -v ON_ERROR_STOP=1')));
+
+    const notes = await control(world, 'POST', '/api/v1/databases/postgresql-1/databases', {name: 'notes'});
+    assert.strictEqual(notes.status, 201, JSON.stringify(notes.body));
+    assert.deepStrictEqual(notes.body.servers[0].databases.map(v => v.name), ['notes', 'tiny']);
+    const user = engine.sql.filter(v => v.sql.includes('CREATE DATABASE "notes"'))[0].sql;
+    assert.match(user, /CREATE DATABASE "notes" OWNER "notes";/);
+    assert.match(user, /REVOKE ALL ON DATABASE "notes" FROM PUBLIC;/);
+    assert.match(user, /\\connect "notes"\nGRANT ALL ON SCHEMA public TO "notes";/);
+
+    const kept = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0];
+    const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
+    assert.deepStrictEqual([kept.root, kept.users.notes.password, kept.users.tiny.password].filter(v => cmds.includes(v)), [], 'no password on a command line');
+    assert.ok([...engine.execs.values()].every(v => (v.spec.Env.length === 0) || (v.spec.Env[0] === `PGPASSWORD=${kept.root}`)));
+});
+
 // A sample whose file is not the one pinned is refused, and the server says why; brought up
 // again, it keeps the password its volume was made with
 test('a sample that is not the one pinned fails the server, and it can be brought up again', async function (t) {
@@ -160,7 +196,9 @@ async function world_start(t)
         res.end(out.sample_bytes);
     });
     await new Promise(v => samples.listen(0, '127.0.0.1', v));
-    database_samples.mysql.tiny = {label: 'Tiny', about: 'one table', database: 'tiny', files: [{url: `http://127.0.0.1:${samples.address().port}/tiny.sql`, sha256: crypto.createHash('sha256').update(SAMPLE_SQL).digest('hex')}]};
+    const pinned = [{url: `http://127.0.0.1:${samples.address().port}/tiny.sql`, sha256: crypto.createHash('sha256').update(SAMPLE_SQL).digest('hex')}];
+    database_samples.mysql.tiny = {label: 'Tiny', about: 'one table', database: 'tiny', files: pinned};
+    database_samples.postgresql.tiny = {label: 'Tiny', about: 'one table', database: 'tiny', into: 'tiny', files: pinned};
     out.docker = await fake_database_engine(path.join(dir, 'docker.sock'));
     // The docker command says a version, which is all the agent asks of it here
     const docker = path.join(dir, 'docker');
@@ -186,6 +224,7 @@ async function world_start(t)
     t.after(async function () {
         out.agent.kill();
         delete database_samples.mysql.tiny;
+        delete database_samples.postgresql.tiny;
         samples.close();
         await out.docker.close();
         for (const remote of app.remotes) {

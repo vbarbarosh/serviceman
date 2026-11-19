@@ -9,17 +9,19 @@ database in it, with its tables, its size and the apps that picked it.
 
 ## A server
 
-**+ MySQL** asks four things:
+**+ MySQL** and **+ PostgreSQL** ask four things:
 
 - **Machine:** one that is online, with docker its agent reaches; the others are listed, greyed,
   saying why.
-- **MySQL:** 8.4 or 8.0, the official image, `docker.io/library/mysql:<version>`.
+- **Version:** MySQL 8.4 or 8.0, PostgreSQL 17 or 16, the official image,
+  `docker.io/library/mysql:<version>` or `docker.io/library/postgres:<version>`.
 - **Filled with:** nothing, or a sample (below).
-- **Name:** `mysql-1`, the first number free; up to 40 small letters, digits and hyphens.
+- **Name:** `mysql-1` or `postgresql-1`, the first number free; up to 40 small letters, digits
+  and hyphens.
 
 **Bring it up**, and the server says each step as it takes it: pulling the image, making its
-container, waiting for MySQL to answer, fetching the sample, loading it. Then it is **up**, its
-databases listed. A step that fails leaves it **failed**, with the reason; **+ MySQL** with the
+container, waiting for the server to answer, fetching the sample, loading it. Then it is **up**, its
+databases listed. A step that fails leaves it **failed**, with the reason; its **+** with the
 same name on the same machine brings it up again, with the password its data was made with.
 
 What serviceman makes on that machine, through its docker's Engine API, reached over the agent's
@@ -28,14 +30,16 @@ link:
 | What      | Its name               | What it is for                                                   |
 |-----------|------------------------|------------------------------------------------------------------|
 | container | `serviceman-db-<name>` | the server, restarted with docker (`unless-stopped`): a restart of serviceman or of the agent touches nothing of it |
-| volume    | `serviceman-db-<name>` | its data, at `/var/lib/mysql`                                    |
+| volume    | `serviceman-db-<name>` | its data, at `/var/lib/mysql` or `/var/lib/postgresql/data`      |
 | network   | `serviceman-databases` | where an app in a container reaches it, by its container's name  |
 | port      | `127.0.0.1:<port>`     | where a program on that machine reaches it; docker picks the port, and nothing outside the machine reaches it |
 
 ## A database in it
 
 **+ Database** makes an empty one, its name up to 32 small letters, digits and `_`, with a user of
-its own named after it, whose rights are on that database alone.
+its own named after it, whose rights are on that database alone. In PostgreSQL the user owns it,
+and nobody else may connect to it: PostgreSQL lets every user connect to every database unless
+told otherwise.
 
 ## The passwords
 
@@ -54,8 +58,11 @@ on the `docker run` line on that machine for the moment it runs; the agent's log
 
 | Sample  | What it is                                     | Fetched from                                           | Licence      |
 |---------|------------------------------------------------|--------------------------------------------------------|--------------|
-| Sakila  | a DVD rental shop, 16 tables, 47 thousand rows | jOOQ's `sakila` on GitHub, commit `e089a5b`            | BSD-2-Clause |
+| Sakila  | a DVD rental shop, 47 thousand rows: 16 tables in MySQL, 21 in PostgreSQL | jOOQ's `sakila` on GitHub, commit `e089a5b` | BSD-2-Clause |
 | Chinook | a music store, 11 tables, 15 thousand rows     | `lerocha/chinook-database` on GitHub, release `v1.4.5` | MIT          |
+
+Each engine has its own files of each sample. PostgreSQL's Sakila loads into a database made
+for it first, afresh; its Chinook makes its own.
 
 Each file is fetched once by serviceman from that address, pinned to that commit or release,
 kept in `data/samples/` under its sha256, and loaded only when its sha256 is the one written in
@@ -86,6 +93,7 @@ reaches it:
 
     mysql://sakila:<password>@serviceman-db-mysql-1:3306/sakila     an app in a container
     mysql://sakila:<password>@127.0.0.1:<port>/sakila                a program on the machine
+    postgresql://sakila:<password>@serviceman-db-postgresql-1:5432/sakila
 
 An app in a container, a docker image or a program in an image, is put on the
 `serviceman-databases` network to reach the server there. A pick of another machine's database,
@@ -119,5 +127,5 @@ so. A machine that is offline keeps them: Remove is refused until it is back.
 | `data/databases.json`                          | the servers, their root passwords and their users, mode 600  |
 | `data/samples/<sha256>.sql`                    | the samples, as fetched                                      |
 | `docker ps --filter label=serviceman.database` | the servers' containers, on their machine                    |
-| `docker logs serviceman-db-<name>`             | what MySQL said, on its machine                              |
+| `docker logs serviceman-db-<name>`             | what MySQL or PostgreSQL said, on its machine                |
 | `database_*` in serviceman's log               | each server brought up, made, removed ([The log](logs.md))   |

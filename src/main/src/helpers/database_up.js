@@ -21,6 +21,12 @@ const READY_TIMEOUT_MS = 300000;
 const READY_EVERY_MS = 2000;
 // What a server that stopped said last, in its reason
 const LOG_LINES = 12;
+// What answers once each engine's real server is up, over TCP: its first start runs one of its
+// own without TCP while it makes its data folder
+const READY = {
+    mysql: ['mysqladmin', 'ping', '--protocol=TCP', '-h127.0.0.1', '-uroot', '--silent'],
+    postgresql: ['pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-q'],
+};
 
 // Brings a database server up on its machine, saying each step in its `said`: the image
 // pulled, the network and the volume made, the container made and started, then filled with
@@ -46,7 +52,7 @@ async function database_up(app, name)
         await network_made(connect);
         await container_made(connect, server, engine, image);
         said_set(app, name, `waiting for ${engine.label} to answer`);
-        await ready_wait(connect, server);
+        await ready_wait(connect, server, engine);
         if (server.sample) {
             await sample_load(app, connect, server);
         }
@@ -101,7 +107,7 @@ async function container_made(connect, server, engine, image)
     if (found.status === 404) {
         const made = await engine_call(connect, 'POST', `/containers/create?name=${container}`, {
             Image: image,
-            Env: [`MYSQL_ROOT_PASSWORD=${server.root}`],
+            Env: [`${engine.root_env}=${server.root}`],
             Labels: {'serviceman.database': server.name},
             ExposedPorts: {[`${engine.port}/tcp`]: {}},
             HostConfig: {
@@ -127,7 +133,7 @@ async function container_made(connect, server, engine, image)
 // Answering on its port: its first start runs a server of its own without one while it makes
 // the data folder, so a ping over TCP answers only once the real one is up. A container that
 // stopped meanwhile is said with the last of its log.
-async function ready_wait(connect, server)
+async function ready_wait(connect, server, engine)
 {
     const container = `serviceman-db-${server.name}`;
     const until = Date.now() + READY_TIMEOUT_MS;
@@ -136,7 +142,7 @@ async function ready_wait(connect, server)
         if ((inspected.status === 200) && (JSON.parse(inspected.body).State.Running === false)) {
             throw new Error(`it stopped as it came up: ${await log_tail(connect, container)}`);
         }
-        const ping = await engine_exec(connect, container, ['mysqladmin', 'ping', '--protocol=TCP', '-h127.0.0.1', '-uroot', '--silent'], [`MYSQL_PWD=${server.root}`]);
+        const ping = await engine_exec(connect, container, READY[engine.value], [`${engine.password_env}=${server.root}`]);
         if (ping.code === 0) {
             return;
         }
@@ -152,18 +158,24 @@ async function log_tail(connect, container)
     return answer.body.replace(/[\x00-\x08\x0e-\x1f]/g, '').split('\n').map(v => v.trim()).filter(v => v !== '').slice(-3).join(' · ');
 }
 
-// The sample's files, each run whole as root, then its database's own user
+// The sample's files, each run whole as root, then its database's own user. A PostgreSQL sample
+// that loads into a database of its own name has it made first, afresh: one that failed before
+// leaves it half made.
 async function sample_load(app, connect, server)
 {
     const sample = database_samples[server.engine][server.sample];
     said_set(app, server.name, `fetching ${sample.label}`);
     const files = await database_sample_files(app, server.engine, server.sample);
     said_set(app, server.name, `loading ${sample.label}, its sha256 checked`);
+    if ((sample.into !== undefined) && (sample.into !== null)) {
+        await database_sql(connect, server, `DROP DATABASE IF EXISTS "${sample.into}" WITH (FORCE);\n`);
+        await database_sql(connect, server, `CREATE DATABASE "${sample.into}";\n`);
+    }
     for (const file of files) {
-        await database_sql(connect, server, file.bytes.toString('utf8'));
+        await database_sql(connect, server, file.bytes.toString('utf8'), sample.into);
     }
     const user = database_user_make(sample.database);
-    await database_sql(connect, server, database_user_sql(sample.database, user));
+    await database_sql(connect, server, database_user_sql(server.engine, sample.database, user, false));
     const databases = databases_read(app);
     const kept = databases.servers.find(v => v.name === server.name);
     kept.users[sample.database] = user;

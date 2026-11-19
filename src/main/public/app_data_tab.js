@@ -14,6 +14,12 @@ const KINDS_STARTED = ['app folder', 'docker image', 'program'];
 // What every database URL shows of its password: the page never has it
 const DOTS = '•'.repeat(8);
 
+// Each engine as its URL says it and its servers are named: its scheme and its port inside
+const ENGINES = {
+    mysql: {label: 'MySQL', scheme: 'mysql', port: 3306},
+    postgresql: {label: 'PostgreSQL', scheme: 'postgresql', port: 5432},
+};
+
 // An app's Data tab, in its Settings window: what the app is given, a row each, every row filling
 // one variable of its env. A database is real: one of the Databases page, picked from a list,
 // kept in the app's config and handed to it at every start as its own user's URL, which this
@@ -126,7 +132,7 @@ const app_data_tab = {
                     return {key: `${server.name}/${database.name}`, label: `${database.name} · ${server.name}${why}`, disabled: (why !== '') || (server.phase !== 'up'), server, database};
                 });
                 if (options.length > 0) {
-                    out.push({server: server.name, label: `${server.name} · ${server.engine === 'mysql' ? 'MySQL' : server.engine} ${server.version} on ${server.title}`, options});
+                    out.push({server: server.name, label: `${server.name} · ${engine_of(server).label} ${server.version} on ${server.title}`, options});
                 }
             }
             return out;
@@ -296,11 +302,12 @@ const app_data_tab = {
         url_of: function (pick) {
             const option = this.option_of(pick);
             if (option === null) {
-                return `mysql://…:${DOTS}@…/${pick.database}`;
+                return `…://…:${DOTS}@…/${pick.database}`;
             }
+            const engine = engine_of(option.server);
             const user = (option.database.user === null) ? '…' : option.database.user;
-            const host = (this.app.runs_in === 'machine') ? `127.0.0.1:${option.server.port}` : `serviceman-db-${option.server.name}:3306`;
-            return `mysql://${user}:${DOTS}@${host}/${pick.database}`;
+            const host = (this.app.runs_in === 'machine') ? `127.0.0.1:${option.server.port}` : `serviceman-db-${option.server.name}:${engine.port}`;
+            return `${engine.scheme}://${user}:${DOTS}@${host}/${pick.database}`;
         },
         // Why a pick will not reach the app as it is, or nothing; an Adminer with no wall is one
         pick_problem: function (pick) {
@@ -359,6 +366,12 @@ const app_data_tab = {
         },
     },
 };
+
+// A server's engine as its URL says it; one the page does not know is said by its own name
+function engine_of(server)
+{
+    return ENGINES[server.engine] || {label: server.engine, scheme: server.engine, port: ''};
+}
 
 // The name the sketch's rows of an app are kept under in this browser
 function storage_name(name)

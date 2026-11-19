@@ -139,7 +139,7 @@ async function database_create(app, req, res, name)
     }
     const user = database_user_make(database);
     try {
-        await database_sql(connect, server, database_user_sql(database, user));
+        await database_sql(connect, server, database_user_sql(server.engine, database, user, true));
     }
     catch (error) {
         send_json(res, 502, {error: `${name} did not make ${database}: ${error.message}`});

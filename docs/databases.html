@@ -725,17 +725,19 @@ data kept there. An app picks one of its databases in its <strong>Data</strong> 
 <p>The page is <strong>Databases</strong> in the rail: each server, its machine and how it stands, and a row per
 database in it, with its tables, its size and the apps that picked it.</p>
 <h2 id="a-server"><a class="anchor" href="#a-server" aria-hidden="true" tabindex="-1">#</a>A server</h2>
-<p><strong>+ MySQL</strong> asks four things:</p>
+<p><strong>+ MySQL</strong> and <strong>+ PostgreSQL</strong> ask four things:</p>
 <ul>
 <li><strong>Machine:</strong> one that is online, with docker its agent reaches; the others are listed, greyed,
 saying why.</li>
-<li><strong>MySQL:</strong> 8.4 or 8.0, the official image, <code>docker.io/library/mysql:&lt;version&gt;</code>.</li>
+<li><strong>Version:</strong> MySQL 8.4 or 8.0, PostgreSQL 17 or 16, the official image,
+<code>docker.io/library/mysql:&lt;version&gt;</code> or <code>docker.io/library/postgres:&lt;version&gt;</code>.</li>
 <li><strong>Filled with:</strong> nothing, or a sample (below).</li>
-<li><strong>Name:</strong> <code>mysql-1</code>, the first number free; up to 40 small letters, digits and hyphens.</li>
+<li><strong>Name:</strong> <code>mysql-1</code> or <code>postgresql-1</code>, the first number free; up to 40 small letters, digits
+and hyphens.</li>
 </ul>
 <p><strong>Bring it up</strong>, and the server says each step as it takes it: pulling the image, making its
-container, waiting for MySQL to answer, fetching the sample, loading it. Then it is <strong>up</strong>, its
-databases listed. A step that fails leaves it <strong>failed</strong>, with the reason; <strong>+ MySQL</strong> with the
+container, waiting for the server to answer, fetching the sample, loading it. Then it is <strong>up</strong>, its
+databases listed. A step that fails leaves it <strong>failed</strong>, with the reason; its <strong>+</strong> with the
 same name on the same machine brings it up again, with the password its data was made with.</p>
 <p>What serviceman makes on that machine, through its docker&#39;s Engine API, reached over the agent&#39;s
 link:</p>
@@ -755,7 +757,7 @@ link:</p>
 <tr>
 <td>volume</td>
 <td><code>serviceman-db-&lt;name&gt;</code></td>
-<td>its data, at <code>/var/lib/mysql</code></td>
+<td>its data, at <code>/var/lib/mysql</code> or <code>/var/lib/postgresql/data</code></td>
 </tr>
 <tr>
 <td>network</td>
@@ -771,7 +773,9 @@ link:</p>
 </div>
 <h2 id="a-database-in-it"><a class="anchor" href="#a-database-in-it" aria-hidden="true" tabindex="-1">#</a>A database in it</h2>
 <p><strong>+ Database</strong> makes an empty one, its name up to 32 small letters, digits and <code>_</code>, with a user of
-its own named after it, whose rights are on that database alone.</p>
+its own named after it, whose rights are on that database alone. In PostgreSQL the user owns it,
+and nobody else may connect to it: PostgreSQL lets every user connect to every database unless
+told otherwise.</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
 600, beside what it writes about itself: never in the config, never in an answer to the page.
@@ -794,7 +798,7 @@ on the <code>docker run</code> line on that machine for the moment it runs; the 
 </thead>
 <tbody><tr>
 <td>Sakila</td>
-<td>a DVD rental shop, 16 tables, 47 thousand rows</td>
+<td>a DVD rental shop, 47 thousand rows: 16 tables in MySQL, 21 in PostgreSQL</td>
 <td>jOOQ&#39;s <code>sakila</code> on GitHub, commit <code>e089a5b</code></td>
 <td>BSD-2-Clause</td>
 </tr>
@@ -806,6 +810,8 @@ on the <code>docker run</code> line on that machine for the moment it runs; the 
 </tr>
 </tbody></table>
 </div>
+<p>Each engine has its own files of each sample. PostgreSQL&#39;s Sakila loads into a database made
+for it first, afresh; its Chinook makes its own.</p>
 <p>Each file is fetched once by serviceman from that address, pinned to that commit or release,
 kept in <code>data/samples/</code> under its sha256, and loaded only when its sha256 is the one written in
 <code>database_samples.js</code>. A file that changed there is refused: the server fails, saying the sha256
@@ -829,6 +835,7 @@ env:</p>
 reaches it:</p>
 <pre><code>mysql://sakila:&lt;password&gt;@serviceman-db-mysql-1:3306/sakila     an app in a container
 mysql://sakila:&lt;password&gt;@127.0.0.1:&lt;port&gt;/sakila                a program on the machine
+postgresql://sakila:&lt;password&gt;@serviceman-db-postgresql-1:5432/sakila
 </code></pre>
 <p>An app in a container, a docker image or a program in an image, is put on the
 <code>serviceman-databases</code> network to reach the server there. A pick of another machine&#39;s database,
@@ -871,7 +878,7 @@ so. A machine that is offline keeps them: Remove is refused until it is back.</p
 </tr>
 <tr>
 <td><code>docker logs serviceman-db-&lt;name&gt;</code></td>
-<td>what MySQL said, on its machine</td>
+<td>what MySQL or PostgreSQL said, on its machine</td>
 </tr>
 <tr>
 <td><code>database_*</code> in serviceman&#39;s log</td>
