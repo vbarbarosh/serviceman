@@ -6,6 +6,7 @@ const agent_signature = require('../helpers/agent_signature');
 const app_address_of = require('../helpers/app_address_of');
 const app_apply_config = require('../helpers/app_apply_config');
 const app_domain_names = require('../helpers/app_domain_names');
+const app_file_browser_put = require('../helpers/app_file_browser_put');
 const app_files_put = require('../helpers/app_files_put');
 const app_files_rename = require('../helpers/app_files_rename');
 const app_php_put = require('../helpers/app_php_put');
@@ -141,6 +142,7 @@ const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
 const RE_APPS = /^\/api\/v1\/apps\/([^/]+)$/;
 const RE_APP_SOCKET = /^\/api\/v1\/apps\/([^/]+)\/socket$/;
 const RE_APP_PHP = /^\/api\/v1\/apps\/([^/]+)\/php$/;
+const RE_APP_FILE_BROWSER = /^\/api\/v1\/apps\/([^/]+)\/file-browser$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -687,6 +689,11 @@ async function control_answer(app, req, res)
     const app_php = RE_APP_PHP.exec(url.pathname);
     if (app_php !== null) {
         await handle_app_php(app, req, res, url, route_param(app_php[1]));
+        return;
+    }
+    const app_file_browser = RE_APP_FILE_BROWSER.exec(url.pathname);
+    if (app_file_browser !== null) {
+        await handle_app_file_browser(app, req, res, route_param(app_file_browser[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -1975,6 +1982,25 @@ async function handle_app_php(app, req, res, url, name)
     try {
         const bytes = await body_bytes_read(req, PHP_LIMIT_BYTES);
         const done = await app_php_put(app, name, String(url.searchParams.get('file') || ''), bytes, String(url.searchParams.get('remote') || ''));
+        send_json(res, 201, {name, made: true, address: done.address, public: done.public, service: view_from_service(done.service)});
+    }
+    catch (error) {
+        log_event(app, 'control_error', {service: name, reason: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+    }
+}
+
+// PUT /api/v1/apps/<name>/file-browser (body)   {remote, path}: serviceman's File Manager put on
+// that machine as an app folder over the folder, path null for one kept for it
+// (app_file_browser_put). The owner's alone; the answer says where it answers.
+async function handle_app_file_browser(app, req, res, name)
+{
+    if (req.method !== 'PUT') {
+        send_json(res, 405, {error: 'a file browser is a PUT of {"remote": "laptop", "path": "/srv/photos"}, path null for a folder kept for it'});
+        return;
+    }
+    try {
+        const done = await app_file_browser_put(app, name, await body_fields(req, BODY_LIMIT_BYTES));
         send_json(res, 201, {name, made: true, address: done.address, public: done.public, service: view_from_service(done.service)});
     }
     catch (error) {

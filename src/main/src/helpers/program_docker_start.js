@@ -6,6 +6,7 @@ const docker_inspect = require('./docker_inspect');
 const docker_shell = require('./docker_shell');
 const docker_spec_hash = require('./docker_spec_hash');
 const docker_upstream = require('./docker_upstream');
+const folder_env = require('./folder_env');
 const image_pull = require('./image_pull');
 const log_event = require('./log_event');
 const program_env = require('./program_env');
@@ -23,11 +24,16 @@ const START_TIMEOUT_MS = 600000;
 async function program_docker_start(app, remote, given, instance, secrets)
 {
     // The databases it picked, in its env, reached by name on their network: made on it where the
-    // agent can, joined to it once made where the agent is older
+    // agent can, joined to it once made where the agent is older; the folders it picked mounted
     const picked = database_env(app, remote, given, true);
+    const folders = await folder_env(app, remote, given, true);
     const joins = (Object.keys(picked).length > 0);
     const made_on = joins && remote_can(remote, 'program_network');
-    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked), network: made_on ? database_up.NETWORK : null}) : given;
+    const service = Object.assign({}, given, {
+        env: Object.assign({}, given.env, folders.env, picked),
+        volumes: ((given.volumes === undefined) ? [] : given.volumes).concat(folders.volumes),
+        network: made_on ? database_up.NETWORK : null,
+    });
     const container = docker_container_name(service, instance.slot);
     const spec = docker_spec_hash(service);
     const found = await docker_inspect(app, remote, container);

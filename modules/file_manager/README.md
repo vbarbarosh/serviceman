@@ -461,6 +461,9 @@ that `app/index.js --files` names, each where it sits in this
 repository. Nothing is installed: node, and nothing else.
 On serviceman, **New service**, **An app folder**, **A .zip…** takes
 it; **New zip…** on its page takes a new version, its `data/` kept.
+**+ A file browser** on **Apps** puts the same files on a machine
+without a zip, over the folder picked there, which is its `FILES_DIR`
+from its **Data** tab ([a file browser](../../docs/config.md#a-file-browser)).
 
 - `PORT`: where it listens, on 127.0.0.1 alone; serviceman gives it,
   and its wall says who may open the page.

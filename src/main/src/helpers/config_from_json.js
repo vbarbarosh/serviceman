@@ -53,6 +53,8 @@ const RE_REDIRECT = /^https?:\/\/[^\s/]+(\/[^\s?#]*)?$/;
 const RE_DATABASE_SERVER = /^[a-z][a-z0-9-]{0,39}$/;
 const RE_DATABASE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const RE_ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// The system's own folders, which no app is given
+const FOLDERS_REFUSED = ['/bin', '/boot', '/dev', '/etc', '/lib', '/lib32', '/lib64', '/proc', '/run', '/sbin', '/sys', '/usr', '/var/lib/serviceman'];
 
 // Raw serviceman.json -> the config the server runs on: defaults applied, paths absolute, durations in ms
 function config_from_json(json, base_dir)
@@ -428,6 +430,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         // s6-overlay image quits at once when it is not
         out.init = json.init !== false;
         out.databases = databases_from_json(json.databases, `${label}.databases`);
+        out.folders = folders_from_json(json.folders, `${label}.folders`, out.databases);
     }
     if (out.type === 'shell') {
         out.command = json.command;
@@ -452,6 +455,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         out.cwd_made = (json.cwd === undefined) && (out.lifecycle.install !== null);
         out.env = json.env || {};
         out.databases = databases_from_json(json.databases, `${label}.databases`);
+        out.folders = folders_from_json(json.folders, `${label}.folders`, out.databases);
     }
     if (out.type === 'external') {
         if (publish.port !== undefined) {
@@ -521,6 +525,52 @@ function databases_from_json(json, label)
         names.add(env);
         return {server: item.server, database: item.database, env};
     });
+}
+
+// The folders an app picked in its Data tab, each one variable of its env at every start:
+// [{path, env}], path null for a folder kept for it on its machine, or a folder of that machine,
+// absolute, never one of the system's own. A variable a database of it fills is refused.
+function folders_from_json(json, label, databases)
+{
+    if ((json === undefined) || (json === null)) {
+        return [];
+    }
+    if (Array.isArray(json) === false) {
+        throw new Error(`${label}: a list of {path, env}, path null for a folder kept for it (got ${JSON.stringify(json)})`);
+    }
+    const names = new Set(databases.map(v => v.env));
+    return json.map(function (item, i) {
+        const at = `${label}[${i}]`;
+        if ((item === null) || (typeof item !== 'object')) {
+            throw new Error(`${at}: {path, env}, path null for a folder kept for it (got ${JSON.stringify(item)})`);
+        }
+        const where = ((item.path === undefined) || (item.path === null)) ? null : item.path;
+        const why = (where === null) ? null : folder_path_refusal(where);
+        if (why !== null) {
+            throw new Error(`${at}.path: ${why} (got ${JSON.stringify(item.path)})`);
+        }
+        const env = (item.env === undefined) ? 'FILES_DIR' : String(item.env);
+        if (RE_ENV_NAME.test(env) === false) {
+            throw new Error(`${at}.env: a variable's name, letters, digits and _, like FILES_DIR (got ${JSON.stringify(item.env)})`);
+        }
+        if (names.has(env)) {
+            throw new Error(`${at}.env: ${env} is filled by another of its databases or folders already`);
+        }
+        names.add(env);
+        return {path: where, env};
+    });
+}
+
+// Why a folder of a machine cannot be an app's, or null: a full path, none of the system's own
+function folder_path_refusal(where)
+{
+    if ((typeof where !== 'string') || (where.startsWith('/') === false) || (path.posix.normalize(where) !== where) || (where.length > 1 && where.endsWith('/'))) {
+        return 'a folder of its machine is a full path, like /srv/photos';
+    }
+    if ((where === '/') || FOLDERS_REFUSED.some(v => (where === v) || where.startsWith(`${v}/`))) {
+        return 'a folder of the system\'s own: an app gets a folder of its own, like /srv/photos';
+    }
+    return null;
 }
 
 // The name of the service a service stands behind, or null for none

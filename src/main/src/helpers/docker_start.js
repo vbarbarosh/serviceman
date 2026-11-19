@@ -8,6 +8,7 @@ const docker_inspect = require('./docker_inspect');
 const docker_shell = require('./docker_shell');
 const docker_spec_hash = require('./docker_spec_hash');
 const docker_upstream = require('./docker_upstream');
+const folder_env = require('./folder_env');
 const image_pull = require('./image_pull');
 const log_event = require('./log_event');
 const service_said = require('./service_said');
@@ -16,12 +17,18 @@ const volume_paths_create = require('./volume_paths_create');
 
 // Starts the container for a service and answers with the address it is reachable at. The
 // databases it picked are in its env, and it is on their network to reach them by name; one
-// with a network of its own joins theirs once it is made. An Adminer opens on the first.
+// with a network of its own joins theirs once it is made. An Adminer opens on the first. The
+// folders it picked are mounted, and their variables say where.
 async function docker_start(app, remote, given, slot)
 {
     const picked = database_env(app, remote, given, true);
+    const folders = await folder_env(app, remote, given, true);
     const joins = (Object.keys(picked).length > 0);
-    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked), network: (given.network === null) ? database_up.NETWORK : given.network}) : given;
+    const service = Object.assign({}, given, {
+        env: Object.assign({}, given.env, folders.env, picked),
+        volumes: given.volumes.concat(folders.volumes),
+        network: (joins && (given.network === null)) ? database_up.NETWORK : given.network,
+    });
     const container_name = docker_container_name(service, slot);
     const found = await docker_inspect(app, remote, container_name);
     if (found.exists && (found.label === service.name) && (found.spec !== docker_spec_hash(service))) {

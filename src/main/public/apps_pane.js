@@ -1,3 +1,4 @@
+import app_file_browser_add from './app_file_browser_add.js';
 import app_files_pick from './app_files_pick.js';
 import app_kind_of from './app_kind_of.js';
 import app_php_add from './app_php_add.js';
@@ -72,6 +73,10 @@ const apps_pane = {
         <button type="button" @click="socket_adding = true">+ An app on a socket</button>
         <span class="muted">its program listens on a socket file, in serviceman's {{ state_folder }}/ folder or on a machine of yours; serviceman gives it an address</span>
     </div>
+    <div class="app-more">
+        <button type="button" @click="browser_adding = true">+ A file browser</button>
+        <span class="muted">serviceman's File Manager over one folder of a machine of yours, opened on it</span>
+    </div>
     <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
          for a new app when an app's New version asked for it -->
     <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html,.php" hidden @change="picked">
@@ -115,11 +120,12 @@ const apps_pane = {
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
+    <app-file-browser-add v-if="browser_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="browser_adding = false" @made="browser_made"/>
     <app-php-add v-if="(php_adding !== null)" :file="php_adding.file" :named="php_adding.name" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="php_adding = null" @made="php_made"/>
     <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
+    components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
     emits: ['select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
@@ -135,7 +141,7 @@ const apps_pane = {
         // wall_busy: the list on top is being saved; wall_error: why its last save was refused;
         // tailnet_busy and tailnet_error the same for the switch under it
         // query: the search box's text; current: the cell among those shown that Enter opens
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, php_adding: null, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, php_adding: null, browser_adding: false, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
     },
     computed: {
         sending: function () {
@@ -244,7 +250,7 @@ const apps_pane = {
             if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || (search === undefined) || (search === null)) {
                 return;
             }
-            if ((this.settings !== null) || this.socket_adding || (this.php_adding !== null)) {
+            if ((this.settings !== null) || this.socket_adding || (this.php_adding !== null) || this.browser_adding) {
                 return;
             }
             const focused = document.activeElement;
@@ -343,6 +349,11 @@ const apps_pane = {
             this.socket_adding = false;
             this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address, socket: said.service.socket_said, remote: said.remote};
             this.$emit('saved');
+        },
+        // A new file browser: the card says where it answers, as for every app
+        browser_made: function (said) {
+            this.browser_adding = false;
+            this.php_made(said);
         },
         // A new PHP app: the card says where it answers, as for every app
         php_made: function (said) {

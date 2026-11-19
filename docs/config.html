@@ -1948,6 +1948,10 @@ instance of a docker service shares the same volumes — the service must be rea
 <td>The databases it picked in its Data tab, each one variable of its env: <a href="databases.html#an-app-picks-one">an app picks one</a>.</td>
 </tr>
 <tr>
+<td><code>folders</code></td>
+<td>The folders it picked there, <code>[{&quot;path&quot;: null, &quot;env&quot;: &quot;FILES_DIR&quot;}]</code>, <code>null</code> for one kept for it: mounted at <code>/data/files</code> (an app&#39;s <strong>Data</strong> tab, below).</td>
+</tr>
+<tr>
 <td><code>init</code></td>
 <td><code>false</code> leaves docker&#39;s <code>--init</code> out, for an image that has to be pid 1 itself — one built on s6-overlay quits otherwise. Default <code>true</code>.</td>
 </tr>
@@ -2203,12 +2207,16 @@ the door that answers most names already, behind <code>authwall</code> where the
 variable of its env. <strong>+ Database</strong> picks a database of the <a href="databases.html">Databases</a> page on the
 app&#39;s own machine, <code>DATABASE_URL</code> unless renamed: it is written into the app&#39;s config as
 <code>databases</code> and handed to it at every start as its own user&#39;s URL, an Adminer opening on it
-logged in (<a href="databases.html#an-app-picks-one">an app picks one</a>). <strong>+ Folder</strong> and <strong>+ REST</strong> are a
-sketch for now, kept in the browser that set them: a folder kept for it or one of its machine,
-<code>FILES_DIR</code>, mounted at <code>/data/files</code> in a docker image; <code>REST_URL</code>, its documents kept by
-serviceman. A name can be changed (<code>DB_URL</code>), and two rows never take one unasked
-(<code>DATABASE_URL_2</code>). A page takes REST alone, at its own <code>/_data/</code>; an app serviceman does not
-start is handed no database. <strong>Remove</strong> goes at once, with <strong>Undo</strong> in its place.</p>
+logged in (<a href="databases.html#an-app-picks-one">an app picks one</a>). <strong>+ Folder</strong> is a folder kept for
+it, in the agent&#39;s <code>data/&lt;app&gt;/files</code> on its machine, or a folder of that machine typed as a full
+path, never one of the system&#39;s own, made when it is not there: written into the config as
+<code>folders</code>, <code>FILES_DIR</code> unless renamed, it is mounted at <code>/data/files</code> (<code>/data/files-2</code> for a
+second) for an app in a container and its variable says so, and a program on the machine finds
+the folder&#39;s own path. <strong>+ REST</strong> is a sketch for now, kept in the browser that set it:
+<code>REST_URL</code>, its documents kept by serviceman. A name can be changed (<code>DB_URL</code>), and two rows
+never take one unasked (<code>DATABASE_URL_2</code>). A page takes REST alone, at its own <code>/_data/</code>; an app
+serviceman does not start is handed no database and no folder. <strong>Remove</strong> goes at once, with
+<strong>Undo</strong> in its place.</p>
 <p>A new name takes the addresses made of its name with it (<code>notes.localhost</code> is <code>wiki.localhost</code>,
 <code>notes.apps.example.com</code> is <code>wiki.apps.example.com</code>), and an app of files its folder in <code>apps/</code>;
 an address added by hand stays, and so does a folder the config names. The door rules that answer
@@ -2383,6 +2391,17 @@ app folder does:</p>
     &quot;cwd&quot;: &quot;/home/user/serviceman-agent/services/adminer&quot;,
     &quot;publish&quot;: {&quot;host&quot;: &quot;adminer.localhost&quot;, &quot;port&quot;: 8080}
 }
+</code></pre>
+<h3 id="a-file-browser"><a class="anchor" href="#a-file-browser" aria-hidden="true" tabindex="-1">#</a>A file browser</h3>
+<p><strong>+ A file browser</strong> on <strong>Apps</strong> puts serviceman&#39;s own File Manager on a machine of yours, as an
+app folder of its own, over one folder there: a folder kept for it, or one of that machine typed
+as a full path, never one of the system&#39;s own. It opens on that folder, which it shows as <code>/</code> and
+never leaves, and is that folder&#39;s first row in its <strong>Data</strong> tab, <code>FILES_DIR</code>. It is a program run
+by node, which the agent runs on, on the first port from 8080 that no program of serviceman&#39;s is
+given and the machine does not listen on. Whoever opens it can read, change and delete what is in
+the folder: put it behind a wall in its <strong>Settings</strong>. The same through the control door, the
+owner&#39;s alone, <code>null</code> for a folder kept for it:</p>
+<pre><code>curl -X PUT -d &#39;{&quot;remote&quot;: &quot;laptop&quot;, &quot;path&quot;: &quot;/srv/photos&quot;}&#39; -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock http://localhost/api/v1/apps/photos/file-browser
 </code></pre>
 <h3 id="app-boards"><a class="anchor" href="#app-boards" aria-hidden="true" tabindex="-1">#</a>App boards</h3>
 <p>A board is a page of apps put together by hand and published on machines. On each, its agent

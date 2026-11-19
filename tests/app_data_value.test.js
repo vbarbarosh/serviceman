@@ -1,18 +1,11 @@
 const assert = require('assert');
 const test = require('node:test');
 
-// The value each sketch's row of an app's Data tab fills its variable with, as serviceman would
-// give it; a database's is real, and serviceman's alone (database_env)
-test('a folder and REST each say the value they put in the app\'s variable', async function () {
+// The value the sketch's REST row fills its variable with, as serviceman would give it; a
+// database's and a folder's are real, and serviceman's (database_env, folder_env)
+test('REST says the value it puts in the app\'s variable', async function () {
     const app_data_value = (await import('../src/main/public/app_data_value.js')).default;
     const program = {name: 'crm', kind: 'program', host: 'crm.localhost'};
-
-    // A folder: kept for it on its machine, a folder of the machine as typed, inside an image at
-    // /data/files
-    assert.strictEqual(app_data_value({kind: 'folder', from: 'kept', path: ''}, program), '~/serviceman-agent/data/crm/files');
-    assert.strictEqual(app_data_value({kind: 'folder', from: 'machine', path: '/srv/photos'}, program), '/srv/photos');
-    assert.strictEqual(app_data_value({kind: 'folder', from: 'machine', path: ''}, program), '/srv/files', 'nothing typed yet: the placeholder');
-    assert.strictEqual(app_data_value({kind: 'folder', from: 'machine', path: '/srv/photos'}, {name: 'crm', kind: 'docker image', host: 'crm.localhost'}), '/data/files');
 
     // REST: /_data/ at its address; a page asks its own
     assert.strictEqual(app_data_value({kind: 'rest', keep: 'serviceman'}, program), 'http://crm.localhost/_data/');

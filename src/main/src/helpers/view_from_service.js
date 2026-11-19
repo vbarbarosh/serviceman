@@ -62,6 +62,8 @@ function view_from_service(service, now)
         // The databases it picked in its Data tab, [{server, database, env}]: names alone, never
         // a password
         databases: (service.databases === undefined) ? [] : service.databases,
+        // The folders it picked there, [{path, env}], path null for the one kept for it
+        folders: (service.folders === undefined) ? [] : service.folders,
         // Where it runs, which is how it reaches a database: in a container (a docker image, a
         // program in an image) or on the machine itself; null for what serviceman does not start
         runs_in: runs_in_of(service),

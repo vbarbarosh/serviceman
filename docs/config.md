@@ -1077,6 +1077,7 @@ instance of a docker service shares the same volumes — the service must be rea
 | `volumes`  | Storage. See below.                                |
 | `network`  | The docker network to join.                        |
 | `databases` | The databases it picked in its Data tab, each one variable of its env: [an app picks one](databases.md#an-app-picks-one). |
+| `folders`  | The folders it picked there, `[{"path": null, "env": "FILES_DIR"}]`, `null` for one kept for it: mounted at `/data/files` (an app's **Data** tab, below). |
 | `init`     | `false` leaves docker's `--init` out, for an image that has to be pid 1 itself — one built on s6-overlay quits otherwise. Default `true`. |
 | `run_args` | Anything else for `docker run`, written as a list. |
 | `args`     | The command line for the image itself.             |
@@ -1329,12 +1330,16 @@ Its **Data** tab, beside **Settings**, is what the app is given, a row each, eve
 variable of its env. **+ Database** picks a database of the [Databases](databases.md) page on the
 app's own machine, `DATABASE_URL` unless renamed: it is written into the app's config as
 `databases` and handed to it at every start as its own user's URL, an Adminer opening on it
-logged in ([an app picks one](databases.md#an-app-picks-one)). **+ Folder** and **+ REST** are a
-sketch for now, kept in the browser that set them: a folder kept for it or one of its machine,
-`FILES_DIR`, mounted at `/data/files` in a docker image; `REST_URL`, its documents kept by
-serviceman. A name can be changed (`DB_URL`), and two rows never take one unasked
-(`DATABASE_URL_2`). A page takes REST alone, at its own `/_data/`; an app serviceman does not
-start is handed no database. **Remove** goes at once, with **Undo** in its place.
+logged in ([an app picks one](databases.md#an-app-picks-one)). **+ Folder** is a folder kept for
+it, in the agent's `data/<app>/files` on its machine, or a folder of that machine typed as a full
+path, never one of the system's own, made when it is not there: written into the config as
+`folders`, `FILES_DIR` unless renamed, it is mounted at `/data/files` (`/data/files-2` for a
+second) for an app in a container and its variable says so, and a program on the machine finds
+the folder's own path. **+ REST** is a sketch for now, kept in the browser that set it:
+`REST_URL`, its documents kept by serviceman. A name can be changed (`DB_URL`), and two rows
+never take one unasked (`DATABASE_URL_2`). A page takes REST alone, at its own `/_data/`; an app
+serviceman does not start is handed no database and no folder. **Remove** goes at once, with
+**Undo** in its place.
 
 A new name takes the addresses made of its name with it (`notes.localhost` is `wiki.localhost`,
 `notes.apps.example.com` is `wiki.apps.example.com`), and an app of files its folder in `apps/`;
@@ -1544,6 +1549,19 @@ app folder does:
     "publish": {"host": "adminer.localhost", "port": 8080}
 }
 ```
+
+### A file browser
+
+**+ A file browser** on **Apps** puts serviceman's own File Manager on a machine of yours, as an
+app folder of its own, over one folder there: a folder kept for it, or one of that machine typed
+as a full path, never one of the system's own. It opens on that folder, which it shows as `/` and
+never leaves, and is that folder's first row in its **Data** tab, `FILES_DIR`. It is a program run
+by node, which the agent runs on, on the first port from 8080 that no program of serviceman's is
+given and the machine does not listen on. Whoever opens it can read, change and delete what is in
+the folder: put it behind a wall in its **Settings**. The same through the control door, the
+owner's alone, `null` for a folder kept for it:
+
+    curl -X PUT -d '{"remote": "laptop", "path": "/srv/photos"}' -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock http://localhost/api/v1/apps/photos/file-browser
 
 ### App boards
 

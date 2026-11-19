@@ -3,6 +3,7 @@ const assert = require('assert');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const database_env = require('../src/main/src/helpers/database_env');
 const databases_write = require('../src/main/src/helpers/databases_write');
+const folder_env = require('../src/main/src/helpers/folder_env');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -51,6 +52,61 @@ test('a picked database is its own user\'s URL, by name in a container, by port 
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-3', database: 'x', env: 'DATABASE_URL'}]}, true), /mysql-3 is not up/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-1', database: 'shop', env: 'DATABASE_URL'}]}, true), /mysql-1 has no database shop made by serviceman/);
 });
+
+// The folders an app picked, as its config keeps them: kept for it, or a full path of its machine
+// that is none of the system's own; a variable a database of it fills is refused
+test('a service\'s folders are read from the config, FILES_DIR unless named; a wrong one is refused', function () {
+    function folders_of(folders, databases) {
+        return config_from_json(Object.assign({}, BASE, {services: [Object.assign({}, ADMINER, {folders, databases})]}), os.tmpdir()).services[0].folders;
+    }
+    assert.deepStrictEqual(folders_of(undefined), []);
+    assert.deepStrictEqual(folders_of([{path: null}]), [{path: null, env: 'FILES_DIR'}]);
+    assert.deepStrictEqual(folders_of([{path: '/srv/photos', env: 'PHOTOS'}, {}]), [{path: '/srv/photos', env: 'PHOTOS'}, {path: null, env: 'FILES_DIR'}]);
+    for (const where of ['/etc', '/etc/x', '/', '/usr/local/x', '/var/lib/serviceman/data', 'srv/photos', '/srv/a/', '/srv/../etc']) {
+        assert.throws(() => folders_of([{path: where}]), /folders\[0\]\.path: /, where);
+    }
+    assert.throws(() => folders_of([{path: null}, {path: null}]), /folders\[1\]\.env: FILES_DIR is filled by another/);
+    assert.throws(() => folders_of([{path: null, env: 'DATABASE_URL'}], [{server: 'mysql-1', database: 'a'}]), /folders\[0\]\.env: DATABASE_URL is filled by another/);
+});
+
+// At its start: mounted in a container, /data/files then /data/files-2, the kept one the
+// agent's; on the machine, each its own path, the kept one made in the agent's data/ now
+test('a picked folder is mounted in a container, and its own path on the machine', async function () {
+    const service = {name: 'files', folders: [{path: null, env: 'FILES_DIR'}, {path: '/srv/photos', env: 'PHOTOS'}]};
+    const inside = await folder_env({}, {name: 'laptop'}, service, true);
+    assert.deepStrictEqual(inside.env, {FILES_DIR: '/data/files', PHOTOS: '/data/files-2'});
+    assert.deepStrictEqual(inside.volumes, [
+        {kind: 'kept', source: '', keep: 'files/files', target: '/data/files', readonly: false, create: true},
+        {kind: 'path', source: '/srv/photos', target: '/data/files-2', readonly: false, create: true},
+    ]);
+    const made = [];
+    const app = {};
+    const remote = {name: 'laptop', state: {phase: 'online', resources: {dir: '/home/user/serviceman-agent'}}};
+    const outside = await folder_env_with(app, remote, service, made);
+    assert.deepStrictEqual(outside.env, {FILES_DIR: '/home/user/serviceman-agent/data/files/files', PHOTOS: '/srv/photos'});
+    assert.deepStrictEqual(made, ['/home/user/serviceman-agent/data/files/files', '/srv/photos']);
+    assert.deepStrictEqual(await folder_env({}, remote, {name: 'web'}, false), {env: {}, volumes: []}, 'a service with no folders');
+});
+
+// folder_env on the machine, its agent's dir_create caught here
+async function folder_env_with(app, remote, service, made)
+{
+    const remote_call_path = require.resolve('../src/main/src/helpers/remote_call');
+    const folder_env_path = require.resolve('../src/main/src/helpers/folder_env');
+    const kept = require.cache[remote_call_path];
+    require.cache[remote_call_path] = {id: remote_call_path, filename: remote_call_path, loaded: true, exports: async function (app_, remote_, method, params) {
+        made.push(params.path);
+        return {created: true};
+    }};
+    delete require.cache[folder_env_path];
+    try {
+        return await require(folder_env_path)(app, remote, service, false);
+    }
+    finally {
+        require.cache[remote_call_path] = kept;
+        delete require.cache[folder_env_path];
+    }
+}
 
 // A program in an image that picked a database is made on the databases' network, by an agent
 // that can; one that picked none is made as before

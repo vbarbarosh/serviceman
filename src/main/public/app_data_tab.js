@@ -21,23 +21,24 @@ const ENGINES = {
 };
 
 // An app's Data tab, in its Settings window: what the app is given, a row each, every row filling
-// one variable of its env. A database is real: one of the Databases page, picked from a list,
-// kept in the app's config and handed to it at every start as its own user's URL, which this
-// page never sees whole. A folder (FILES_DIR) and REST (REST_URL) are a sketch for now, kept in
-// this browser under the app's name. A row goes at once, with Undo in its place; a page, which
-// has no program to read a variable, takes REST alone, at its own address.
+// one variable of its env. A database and a folder are real, kept in the app's config and handed
+// to it at every start: a database of the Databases page, picked from a list, as its own user's
+// URL, which this page never sees whole; a folder kept for it on its machine or one of that
+// machine, as its path (FILES_DIR), mounted at /data/files in a container. REST (REST_URL) is a
+// sketch for now, kept in this browser under the app's name. A row goes at once, with Undo in its
+// place; a page, which has no program to read a variable, takes REST alone, at its own address.
 const app_data_tab = {
     template: `
 <div class="app-data">
     <div class="app-data-adds">
         <button type="button" :disabled="((pick_free === null) || saving)" :title="pick_title" @click="click_database">+ Database</button>
-        <button type="button" :disabled="(runs === false)" @click="click_folder">+ Folder</button>
+        <button type="button" :disabled="((started === false) || saving)" :title="(started ? 'A folder kept for it, or one of its machine, at every start' : 'serviceman does not start it, so it hands it no folder')" @click="click_folder">+ Folder</button>
         <button type="button" :disabled="has_rest" :title="(has_rest ? 'It has REST already' : '')" @click="click_rest">+ REST</button>
     </div>
     <p class="muted app-settings-says">{{ how }}</p>
     <p v-if="(error !== '')" class="bad app-data-error">{{ error }}</p>
     <p v-if="(removed !== null)" class="app-data-removed">Removed {{ removed_title }} · <button type="button" class="link" :disabled="saving" @click="click_undo">Undo</button></p>
-    <p v-if="((picks.length === 0) && (items.length === 0))" class="muted app-data-none">Nothing yet: each row fills one variable of {{ app.name }}.</p>
+    <p v-if="((picks.length === 0) && (folders.length === 0) && (items.length === 0))" class="muted app-data-none">Nothing yet: each row fills one variable of {{ app.name }}.</p>
     <ul v-else class="app-data-list">
         <li v-for="(pick, index) of picks" :key="('pick-' + index)" class="app-data-item">
             <div class="app-data-what">
@@ -58,18 +59,29 @@ const app_data_tab = {
                 <span class="app-data-says" :class="(pick_problem(pick) === '') ? 'muted' : 'bad'">{{ pick_says(pick) }}</span>
             </div>
         </li>
+        <li v-for="(folder, index) of folders" :key="('folder-' + index)" class="app-data-item">
+            <div class="app-data-what">
+                <span class="app-data-kind">Folder</span>
+                <select :value="((folder.path === null) ? 'kept' : 'machine')" :disabled="saving" aria-label="Which folder" @change="change_from(folder, $event.target.value)">
+                    <option value="kept">a folder kept for it</option>
+                    <option value="machine">a folder of its machine</option>
+                </select>
+                <input v-if="(folder.path !== null)" :value="folder.path" class="app-data-path" placeholder="/srv/photos" :disabled="saving" spellcheck="false" autocomplete="off" aria-label="The folder on its machine" @change="change_path(folder, $event.target.value.trim())">
+                <button type="button" class="app-data-remove" :disabled="saving" title="Remove the folder; Undo brings it back" @click="click_remove_folder(index)">Remove</button>
+            </div>
+            <div class="app-data-var">
+                <input :value="folder.env" class="app-data-env" :class="{bad: (env_taken(folder.env, folder) || (folder.env === ''))}" :disabled="saving" spellcheck="false" autocomplete="off" aria-label="The variable it fills" @input="input_env" @change="change_env(folder, $event.target.value)">
+                <code class="app-data-value"><span class="muted">=&nbsp;</span>{{ folder_value(folder, index) }}</code>
+            </div>
+            <div class="app-data-acts">
+                <span class="app-data-says" :class="(folder_problem(folder) === '') ? 'muted' : 'bad'">{{ folder_says(folder) }}</span>
+            </div>
+        </li>
         <li v-for="(item, index) of items" :key="item.id" class="app-data-item">
             <div class="app-data-what">
                 <span class="app-data-kind">{{ KIND_WORDS[item.kind] }}</span>
                 <span class="pill app-data-sketch-tag" title="Kept in this browser; nothing is made behind it yet">sketch</span>
-                <template v-if="(item.kind === 'folder')">
-                    <select v-model="item.from" aria-label="Which folder" @change="keep">
-                        <option value="kept">a folder kept for it</option>
-                        <option value="machine">a folder of its machine</option>
-                    </select>
-                    <input v-if="(item.from === 'machine')" v-model.trim="item.path" class="app-data-path" placeholder="/srv/files" spellcheck="false" autocomplete="off" aria-label="The folder on its machine" @change="keep">
-                </template>
-                <select v-else v-model="item.keep" aria-label="Where its documents are kept" @change="keep">
+                <select v-model="item.keep" aria-label="Where its documents are kept" @change="keep">
                     <option value="serviceman">documents kept by serviceman</option>
                 </select>
                 <button type="button" class="app-data-remove" :title="('Remove ' + title_of(item) + '; Undo brings it back')" @click="click_remove(index)">Remove</button>
@@ -93,11 +105,12 @@ const app_data_tab = {
     },
     emits: ['saved'],
     data: function () {
-        // picks: its databases as its config has them; servers: the Databases page's, read when
-        // the tab opens; removed: the row Remove took and where it was, for Undo; items: the
-        // sketch's rows, this browser's
+        // picks and folders: its databases and its folders as its config has them; servers: the
+        // Databases page's, read when the tab opens; removed: the row Remove took and where it
+        // was, for Undo; items: the sketch's rows, this browser's
         const picks = (this.app.databases === undefined) ? [] : this.app.databases.map(v => Object.assign({}, v));
-        return {KIND_WORDS, picks, servers: null, items: items_read(this.app.name), removed: null, saving: false, error: '', copied: ''};
+        const folders = (this.app.folders === undefined) ? [] : this.app.folders.map(v => Object.assign({}, v));
+        return {KIND_WORDS, picks, folders, servers: null, items: items_read(this.app.name), removed: null, saving: false, error: '', copied: ''};
     },
     computed: {
         kind: function () {
@@ -164,12 +177,15 @@ const app_data_tab = {
                 return 'A page has no program to read a variable: it keeps its data through REST, at its own address.';
             }
             if (this.started) {
-                return 'A database is handed to it at its next start, as its variable says. A folder and REST are a sketch for now, kept in this browser.';
+                return 'A database and a folder are handed to it at its next start, as their variables say. REST is a sketch for now, kept in this browser.';
             }
-            return 'serviceman does not start it: copy each value into it yourself.';
+            return 'serviceman does not start it: it hands it no database and no folder.';
         },
         removed_title: function () {
-            return (this.removed.kind === 'pick') ? this.removed.row.database : this.title_of(this.removed.row);
+            if (this.removed.kind === 'pick') {
+                return this.removed.row.database;
+            }
+            return (this.removed.kind === 'folder') ? 'the folder' : this.title_of(this.removed.row);
         },
     },
     mounted: function () {
@@ -187,13 +203,35 @@ const app_data_tab = {
         },
         click_database: function () {
             const free = this.pick_free;
-            const env = app_data_env_free(this.picks.map(v => v.env).concat(this.items.map(v => v.env)), 'DATABASE_URL');
+            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), 'DATABASE_URL');
             this.picks.push({server: free.server.name, database: free.database.name, env});
             this.removed = null;
             this.picks_save();
         },
+        // A folder kept for it, the first; one of its machine once its path is typed
         click_folder: function () {
-            this.add({kind: 'folder', from: 'kept', path: '', env: 'FILES_DIR'});
+            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), 'FILES_DIR');
+            this.folders.push({path: null, env});
+            this.removed = null;
+            this.picks_save();
+        },
+        // Kept for it at once; one of its machine waits for its path
+        change_from: function (folder, from) {
+            folder.path = (from === 'kept') ? null : '';
+            if (folder.path === null) {
+                this.picks_save();
+            }
+        },
+        change_path: function (folder, value) {
+            folder.path = value;
+            if (this.folder_problem(folder) === '') {
+                this.picks_save();
+            }
+        },
+        click_remove_folder: function (index) {
+            this.removed = {kind: 'folder', row: this.folders[index], index};
+            this.folders.splice(index, 1);
+            this.picks_save();
         },
         click_rest: function () {
             this.add({kind: 'rest', keep: 'serviceman', env: 'REST_URL'});
@@ -232,19 +270,20 @@ const app_data_tab = {
             this.keep();
         },
         click_undo: function () {
-            const list = (this.removed.kind === 'pick') ? this.picks : this.items;
+            const list = {pick: this.picks, folder: this.folders, item: this.items}[this.removed.kind];
             list.splice(Math.min(this.removed.index, list.length), 0, this.removed.row);
             const kind = this.removed.kind;
             this.removed = null;
-            if (kind === 'pick') {
-                this.picks_save();
-            }
-            else {
+            if (kind === 'item') {
                 this.keep();
             }
+            else {
+                this.picks_save();
+            }
         },
-        // The databases written into the app's config as they are now: the service as the
-        // config has it, its databases replaced, the way Settings writes it
+        // Its databases and its folders written into the app's config as they are now, a folder
+        // of its machine whose path is not typed yet left out: the service as the config has
+        // it, the two replaced, the way Settings writes it
         picks_save: async function () {
             this.saving = true;
             this.error = '';
@@ -254,9 +293,14 @@ const app_data_tab = {
                 if (entry === undefined) {
                     throw new Error(`${this.app.name} is not in the config any more`);
                 }
-                const service = Object.assign({}, entry, {databases: this.picks.map(v => ({server: v.server, database: v.database, env: v.env}))});
-                if (service.databases.length === 0) {
-                    delete service.databases;
+                const service = Object.assign({}, entry, {
+                    databases: this.picks.map(v => ({server: v.server, database: v.database, env: v.env})),
+                    folders: this.folders.filter(v => v.path !== '').map(v => ({path: v.path, env: v.env})),
+                });
+                for (const key of ['databases', 'folders']) {
+                    if (service[key].length === 0) {
+                        delete service[key];
+                    }
                 }
                 const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.app.name)}`, {method: 'PUT', body: JSON.stringify({service})});
                 if (answer.ok === false) {
@@ -283,7 +327,7 @@ const app_data_tab = {
             }
         },
         add: function (item) {
-            const env = app_data_env_free(this.picks.map(v => v.env).concat(this.items.map(v => v.env)), item.env);
+            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), item.env);
             this.items.push(Object.assign(item, {id: id_make(), env, env_own: false}));
             this.removed = null;
             this.keep();
@@ -342,25 +386,63 @@ const app_data_tab = {
             return 'its own user and password, at every start';
         },
         env_taken: function (env, row) {
-            return this.picks.some(v => (v !== row) && (v.env === env)) || this.items.some(v => (v !== row) && (v.env === env));
+            return this.picks.concat(this.folders, this.items).some(v => (v !== row) && (v.env === env));
         },
-        title_of: function (item) {
-            return (item.kind === 'folder') ? 'the folder' : 'REST';
+        // As the app finds it: mounted at /data/files in a container, then /data/files-2; on
+        // its machine, the folder's own path, the one kept for it in the agent's data/
+        folder_value: function (folder, index) {
+            const suffix = (index === 0) ? '' : `-${index + 1}`;
+            if (this.app.runs_in === 'container') {
+                return `/data/files${suffix}`;
+            }
+            if (folder.path === null) {
+                return `~/serviceman-agent/data/${this.app.name}/files${suffix}`;
+            }
+            return (folder.path === '') ? '…' : folder.path;
+        },
+        // Why a folder will not reach the app as it is, or nothing: as the config refuses one
+        folder_problem: function (folder) {
+            if ((folder.env === '') || this.env_taken(folder.env, folder)) {
+                return 'another row fills this variable too: one of them is lost';
+            }
+            if (folder.path === null) {
+                return '';
+            }
+            if (folder.path === '') {
+                return 'type its full path, like /srv/photos';
+            }
+            if ((folder.path.startsWith('/') === false) || folder.path.endsWith('/') || folder.path.includes('//') || /(^|\/)\.\.?(\/|$)/.test(folder.path)) {
+                return 'a full path, like /srv/photos';
+            }
+            if (/^\/(bin|boot|dev|etc|lib|lib32|lib64|proc|run|sbin|sys|usr)(\/|$)|^\/var\/lib\/serviceman(\/|$)/.test(folder.path)) {
+                return 'a folder of the system\'s own: it gets a folder of its own, like /srv/photos';
+            }
+            return '';
+        },
+        folder_says: function (folder) {
+            const problem = this.folder_problem(folder);
+            if (problem !== '') {
+                return problem;
+            }
+            if (this.app.runs_in === 'container') {
+                return (folder.path === null) ? 'kept for it on its machine, mounted at every start' : `${folder.path} of its machine, mounted at every start`;
+            }
+            return (folder.path === null) ? 'kept for it on its machine, made at its next start' : 'made at its next start when it is not there';
+        },
+        title_of: function () {
+            return 'REST';
         },
         value_of: function (item) {
             return app_data_value(item, {name: this.app.name, kind: this.kind, host: this.host});
         },
-        // What a row has to say of its own: a name left empty or given twice, in red; a folder
-        // mounted into an image; nothing for the rest, as the line over the rows says it
+        // What a row has to say of its own: a name left empty or given twice, in red; nothing
+        // for the rest, as the line over the rows says it
         says_of: function (item) {
             if (this.runs && (item.env === '')) {
                 return 'a variable needs a name';
             }
             if (this.runs && this.env_taken(item.env, item)) {
                 return `another row fills ${item.env} too: one of them is lost`;
-            }
-            if ((item.kind === 'folder') && (this.kind === 'docker image')) {
-                return 'mounted there, inside the image';
             }
             return '';
         },
@@ -379,13 +461,13 @@ function storage_name(name)
     return `serviceman.app_data.${name}`;
 }
 
-// The sketch's rows this browser kept for an app, a folder or REST; a database the sketch kept
-// here before databases were real is left out, and none when it kept something unreadable
+// The sketch's rows this browser kept for an app, REST alone; a database or a folder the sketch
+// kept here before they were real is left out, and none when it kept something unreadable
 function items_read(name)
 {
     try {
         const kept = JSON.parse(storage_get(storage_name(name)));
-        return Array.isArray(kept) ? kept.filter(v => ['folder', 'rest'].includes(v.kind)) : [];
+        return Array.isArray(kept) ? kept.filter(v => v.kind === 'rest') : [];
     }
     catch {
         return [];

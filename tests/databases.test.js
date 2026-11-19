@@ -180,6 +180,37 @@ test('a PHP file becomes an app folder on the machine, an Adminer with its login
     await assert.rejects(php_image_make(world.app, remote, service), /could not make serviceman-php:8\.4: no space left on device/);
 });
 
+// A file browser: serviceman's own File Manager put on the machine as an app folder, over the
+// folder picked; a system folder refused before anything is sent
+test('a file browser is the File Manager on the machine, over the folder picked', async function (t) {
+    const world = await world_start(t);
+    const made = await control(world, 'PUT', '/api/v1/apps/files/file-browser', {remote: 'laptop', path: null});
+    assert.strictEqual(made.status, 201, JSON.stringify(made.body));
+    const folder = path.join(world.agent_dir, 'services', 'files');
+    for (const file of ['bin/run', 'modules/file_manager/app/index.js', 'LICENSE', 'node_modules/@vbarbarosh/node-helpers/LICENSE']) {
+        assert.ok(fs.existsSync(path.join(folder, file)), file);
+    }
+    assert.match(fs.readFileSync(path.join(folder, 'bin', 'run'), 'utf8'), /exec node modules\/file_manager\/app\/index\.js/);
+    assert.strictEqual(fs.statSync(path.join(folder, 'bin', 'run')).mode & 0o111, 0o111, 'bin/run runs');
+    const entry = JSON.parse(fs.readFileSync(world.config_path, 'utf8')).services.find(v => v.name === 'files');
+    assert.deepStrictEqual([entry.type, entry.remote, entry.command, entry.cwd], ['shell', 'laptop', 'bin/run', folder]);
+    assert.deepStrictEqual(entry.folders, [{path: null, env: 'FILES_DIR'}]);
+    assert.ok(entry.publish.port >= 8080, String(entry.publish.port));
+
+    const photos = await control(world, 'PUT', '/api/v1/apps/photos/file-browser', {remote: 'laptop', path: '/srv/photos'});
+    assert.strictEqual(photos.status, 201);
+    const second = JSON.parse(fs.readFileSync(world.config_path, 'utf8')).services.find(v => v.name === 'photos');
+    assert.deepStrictEqual(second.folders, [{path: '/srv/photos', env: 'FILES_DIR'}]);
+    assert.notStrictEqual(second.publish.port, entry.publish.port, 'a port of its own on the machine');
+
+    const system = await control(world, 'PUT', '/api/v1/apps/etc/file-browser', {remote: 'laptop', path: '/etc'});
+    assert.strictEqual(system.status, 400);
+    assert.match(system.body.error, /a folder of the system's own/);
+    assert.strictEqual(fs.existsSync(path.join(world.agent_dir, 'services', 'etc')), false, 'nothing sent');
+    assert.strictEqual((await control(world, 'PUT', '/api/v1/apps/files/file-browser', {remote: 'laptop', path: null})).status, 409);
+    assert.strictEqual((await control(world, 'PUT', '/api/v1/apps/other/file-browser', {remote: 'phone', path: null})).status, 400);
+});
+
 async function put_php(world, name, file, bytes, remote)
 {
     const answer = await fetch_host({port: world.control_port, host: '127.0.0.1', path: `/api/v1/apps/${name}/php?remote=${remote}&file=${encodeURIComponent(file)}`, method: 'PUT', headers: {'content-length': String(bytes.length)}, body: bytes});
