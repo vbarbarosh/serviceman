@@ -1,57 +1,56 @@
+import CATEGORIES from './categories.js';
+import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
-import is_name_in_title from './is_name_in_title.js';
-import logline_link from './logline_link.js';
-import logs_link from './logs_link.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import service_kind from './service_kind.js';
 import service_state_word from './service_state_word.js';
+import state_pill from './state_pill.js';
 
-// Every service, one row each, in one table: its kind, its machine, its address, how it stands.
-// A filter and the state chips narrow it; a click on a row opens the service.
+// Every service, one row each, in the kit's table card: its name over its title or what is
+// wrong, its kind, its machine, its address, its state as a pill. The find box and the state
+// chips narrow it; a click on a row opens the service.
 const services_pane = {
     template: `
 <article id="detail" class="list">
     <page-head category="services" :count="services.length">
         <template #acts><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
     </page-head>
-    <div class="list-tools">
-        <input v-model.trim="filter" type="search" placeholder="find a service" aria-label="Find a service by its name, address, image or machine" spellcheck="false">
-        <button v-if="(place !== null)" type="button" class="chip on" title="Show the services of every machine again" @click="$emit('only', null)">on {{ place.title }} ×</button>
-        <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
-            <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
-            {{ chip.label }}
-            <span class="muted">{{ chip.count }}</span>
-        </button>
-    </div>
-    <data-table :columns="columns" :rows="rows" row_key="name" :on_row="(row => $emit('select', row.name))" :marks="false" :empty="((services.length === 0) ? 'No services yet. A service is a docker image, a program, or an address serviceman answers for.' : 'Nothing matches.')">
-        <template #cell="{row, column}">
-            <span v-if="(column.key === 'name')" class="row-of">
-                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
-                <button type="button" class="link" title="The service's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
-                <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
-                <logs-link :url="logs_url('service', row.name, row.remotes)" kind="service"/>
+    <data-table :columns="columns" :rows="rows" row_key="name" :row_class="(row => ((row.tone === '') ? [] : ('dt-' + row.tone)))" :on_row="(row => $emit('select', row.name))" :marks="false" framed :total="services_here.length" :foot="foot" :empty_icon="SERVICES_ICON" empty_title="No services yet" empty="A service is something serviceman runs and answers for: a docker image, an app folder, a program, a folder of files, or an address that already runs.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a service" aria-label="Find a service by its name, address, image or machine" spellcheck="false">
+            <span class="dt-chips">
+                <button v-if="(place !== null)" type="button" class="chip on" title="Show the services of every machine again" @click="$emit('only', null)">on {{ place.title }} ×</button>
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
             </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
+        <template #cell="{row, column}">
+            <name-cell v-if="(column.key === 'name')" :icon="row.icon" :name="row.name" :line="row.line" :tone="row.tone"/>
             <template v-else-if="(column.key === 'what')">{{ row.what }}</template>
             <span v-else-if="(column.key === 'machine')" :class="{muted: (row.machine === '—')}">{{ row.machine }}</span>
             <template v-else-if="(column.key === 'address')">
-                <a v-if="(row.host !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.host }}</code></a>
+                <a v-if="(row.host !== '')" class="dt-address" :href="row.url" target="_blank" rel="noopener">{{ row.host }}</a>
                 <span v-else-if="(row.brought !== '')" class="muted" title="Its port, brought to these machines">→ {{ row.brought }}</span>
                 <span v-else class="muted">no address</span>
                 <span v-if="(row.more > 0)" class="tag">+{{ row.more }}</span>
             </template>
-            <span v-else-if="(column.key === 'state')" class="dt-state"><span class="dot" :class="row.phase"/>{{ row.state }}</span>
-            <span v-else-if="(column.key === 'detail')" :class="(row.bad ? 'bad' : 'muted')" :title="row.detail">{{ row.detail }}</span>
+            <state-pill v-else-if="(column.key === 'state')" :tone="row.pill" :text="row.state"/>
         </template>
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table, 'logs-link': logs_link, 'page-head': page_head},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],
     data: function () {
-        return {filter: '', show: 'all'};
+        return {filter: '', show: 'all', SERVICES_ICON: CATEGORIES.find(v => v.key === 'services').icon};
     },
     computed: {
         services: function () {
@@ -81,16 +80,34 @@ const services_pane = {
                 {value: 'attention', label: 'Needs you', phase: 'failed', count: services.filter(v => this.is_attention(v)).length},
             ];
         },
-        // The table's columns, each that may fold with when: the detail first, the address last
+        // The table's columns, each that may fold with when, the address last; on a phone the
+        // kind and the machine share a line, the address one of its own
         columns: function () {
             return [
-                {key: 'name', label: 'Name', wraps: true},
-                {key: 'what', label: 'What', fold: 2},
-                {key: 'machine', label: 'Machine', fold: 3},
-                {key: 'address', label: 'Address', fold: 4},
-                {key: 'state', label: 'State'},
-                {key: 'detail', label: 'Detail', fold: 1, hide: v => (v.detail === '')},
+                {key: 'name', label: 'Name'},
+                {key: 'what', label: 'What', fold: 1},
+                {key: 'machine', label: 'Machine', fold: 2},
+                {key: 'address', label: 'Address', fold: 3, phone: 'row'},
+                {key: 'state', label: 'State', phone: 'state'},
             ];
+        },
+        // The footer: how many, how many run, sleep, and need a look, of the machine's or all
+        foot: function () {
+            const services = this.services_here;
+            const out = [{text: `${services.length} ${(services.length === 1) ? 'service' : 'services'}`, tone: ''}];
+            const running = services.filter(v => v.phase === 'running').length;
+            const asleep = services.filter(v => v.phase === 'stopped').length;
+            const attention = services.filter(v => this.is_attention(v)).length;
+            if (running > 0) {
+                out.push({text: `${running} running`, tone: ''});
+            }
+            if (asleep > 0) {
+                out.push({text: `${asleep} asleep`, tone: ''});
+            }
+            if (attention > 0) {
+                out.push({text: `${attention} ${(attention === 1) ? 'needs' : 'need'} you`, tone: 'bad'});
+            }
+            return out;
         },
         // Every row shown, in the order the config lists them
         rows: function () {
@@ -99,9 +116,6 @@ const services_pane = {
         },
     },
     methods: {
-        logs_url: function (kind, name, remotes) {
-            return logline_link(this.state.logline, kind, name, remotes);
-        },
         is_shown: function (service, wanted) {
             if ((this.show === 'running') && (service.phase !== 'running')) {
                 return false;
@@ -119,23 +133,24 @@ const services_pane = {
             const words = [service.name, service.title || '', service.type, service.phase, service.image || ''].concat(service.publish.hosts, service.remotes, titles).join(' ').toLowerCase();
             return words.includes(wanted);
         },
-        // What wants a look: it broke, it lost its machine, or it gave up restarting
+        // What wants a look: it broke, it lost its machine or its machine is offline, or it gave
+        // up restarting
         is_attention: function (service) {
-            return (service.phase === 'failed') || (service.phase === 'lost') || (service.gave_up === true) || ((service.error !== null) && (service.phase !== 'running'));
+            return (service.phase === 'failed') || (service.phase === 'lost') || (service.gave_up === true) || ((service.error !== null) && (service.phase !== 'running')) || this.machine_away(service);
         },
         row_of: function (service) {
             const host = (service.publish.hosts.length === 0) ? '' : service.publish.hosts[0];
             const kind = service_kind(service);
             const away = this.machine_away(service);
+            const tone = this.is_attention(service) ? 'bad' : ((service.doing !== null) ? 'warn' : '');
             return {
                 name: service.name,
                 icon: kind.icon,
                 what: kind.word,
                 machine: this.machine_text(service),
-                title: service.title || service.name,
-                name_shown: is_name_in_title(service.title, service.name) === false,
-                remotes: service.remotes,
-                phase: away ? 'failed' : ((service.doing === null) ? service.phase : 'starting'),
+                tone,
+                line: this.line_of(service, tone, away),
+                pill: {bad: 'bad', warn: 'busy'}[tone] || ((service.phase === 'running') ? 'run' : 'idle'),
                 host,
                 url: this.url_of(host),
                 more: Math.max(0, service.publish.hosts.length - 1),
@@ -143,18 +158,28 @@ const services_pane = {
                 brought: this.brought_text(service),
                 type: service.type,
                 state: away ? 'machine offline' : service_state_word(service),
-                detail: this.detail_of(service),
-                bad: (service.error !== null) && (service.phase !== 'running'),
             };
         },
-        // One short line about now: what it is doing, why it broke, or when it goes to sleep
+        // The line under the name: what is wrong, red; what it is doing, orange; else its title,
+        // or one short line about now when it has none
+        line_of: function (service, tone, away) {
+            if (away) {
+                const remote = this.remotes.find(v => v.name === service.remotes[0]);
+                return ((remote.left_at === null) || (remote.left_at === undefined)) ? 'machine offline' : `machine offline since ${clock_of(remote.left_at)}`;
+            }
+            if (tone === 'bad') {
+                return (service.error === null) ? service_state_word(service) : service.error;
+            }
+            if ((tone === 'warn') && (service.progress_text !== null) && (service.progress_text !== '')) {
+                return service.progress_text;
+            }
+            if ((service.title !== '') && (service.title !== null) && (service.title !== service.name)) {
+                return service.title;
+            }
+            return this.detail_of(service);
+        },
+        // One short line about now: how many run, or when it goes to sleep
         detail_of: function (service) {
-            if (service.doing !== null) {
-                return (service.progress_text === null) ? '' : service.progress_text;
-            }
-            if ((service.error !== null) && (service.phase !== 'running')) {
-                return service.error;
-            }
             if ((service.phase === 'running') && (service.policy.instances.max > 1)) {
                 return `${service.instances_running} of ${service.policy.instances.max} instances`;
             }

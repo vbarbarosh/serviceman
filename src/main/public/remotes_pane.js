@@ -1,15 +1,18 @@
+import CATEGORIES from './categories.js';
 import agent_current from './agent_current.js';
 import apt_all_section from './apt_all_section.js';
+import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
-import is_name_in_title from './is_name_in_title.js';
 import machine_icons from './machine_icons.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import share_level from './share_level.js';
+import state_pill from './state_pill.js';
 import tailnet_name_of from './tailnet_name_of.js';
 
 // Every machine, a row each, in one table: its tags, what it is, how full its memory and disks
@@ -25,59 +28,59 @@ const remotes_pane = {
             <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button>
         </template>
     </page-head>
-    <div class="list-tools">
-        <input v-model.trim="filter" type="search" placeholder="find a machine" aria-label="Find a machine by its name, hostname, tailnet name or tag" spellcheck="false">
-        <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
-            <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
-            {{ chip.label }}
-            <span class="muted">{{ chip.count }}</span>
-        </button>
-    </div>
     <apt-all-section v-if="apt_open" :remotes="shown" :answering="answering" @close="apt_open = false" @configure="$emit('configure', $event)"/>
-    <data-table class="machines-table" :columns="columns" :rows="cards" row_key="name" :empty="empty_text" :on_row="(row => $emit('select', row.name))" :marks="false">
-        <template #cell="{row, column}">
-            <span v-if="(column.key === 'name')" class="machine-name">
-                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
-                <button type="button" class="link" title="The machine's page" @click="$emit('select', row.name)"><b>{{ row.title }}</b></button>
-                <code v-if="row.name_shown" class="muted">{{ row.name }}</code>
-                <code v-if="(row.tailnet !== null)" class="tailnet-name" :title="('Its name on your tailnet, as Tailscale says: ' + row.tailnet)">{{ row.tailnet }}</code>
+    <data-table class="machines-table" :columns="columns" :rows="cards" row_key="name" :row_class="(row => ((row.tone === '') ? [] : ('dt-' + row.tone)))" :on_row="(row => $emit('select', row.name))" :opens="(row => (row.notes.length > 0))" :marks="false" framed :total="remotes.length" :foot="foot" :empty_icon="REMOTES_ICON" empty_title="No machines yet" empty="A machine joins when its agent dials in: one line to run on it, and it shows up here with its memory, disk and services.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a machine" aria-label="Find a machine by its name, hostname, tailnet name or tag" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
             </span>
-            <span v-else-if="(column.key === 'tags')" class="row-of">
+        </template>
+        <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button></template>
+        <template #cell="{row, column}">
+            <name-cell v-if="(column.key === 'name')" :icon="row.icon" :name="row.name" :line="row.line" :tone="row.tone"/>
+            <span v-else-if="((column.key === 'tags') && (row.tags.length > 0))" class="row-of">
                 <span v-for="tag of row.tags" :key="tag" class="tag">#{{ tag }}</span>
             </span>
-            <span v-else-if="(column.key === 'system')">{{ row.system }}</span>
+            <span v-else-if="((column.key === 'system') && (row.system !== ''))">{{ row.system }}</span>
             <span v-else-if="(bar_of(row, column.key) !== null)" class="load" :title="bar_of(row, column.key).text">
+                <span class="dt-ph-label">{{ bar_of(row, column.key).label }}</span>
                 <span class="meter" :class="bar_of(row, column.key).level"><i :style="{width: (Math.max(2, bar_of(row, column.key).percent) + '%')}"/></span>
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).percent }}%</button>
                 <span v-else>{{ bar_of(row, column.key).percent }}%</span>
             </span>
-            <span v-else-if="((column.key === 'memory') || (column.key === 'disk'))" class="muted">—</span>
+            <span v-else-if="((column.key === 'memory') || (column.key === 'disk'))" class="muted"><span class="dt-ph-label">{{ ((column.key === 'memory') ? 'Memory' : 'Disk') }}</span>—</span>
             <!-- Its services open their own list, holding only what this machine carries -->
             <template v-else-if="(column.key === 'services')">
                 <button v-if="(row.services > 0)" type="button" class="link" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
                 <span v-else class="muted">0</span>
             </template>
-            <span v-else-if="(column.key === 'state')" class="dt-state">
-                <span class="dot" :class="row.dot"/>{{ row.pill }}
-                <span v-if="(row.agent === false)" class="tag waiting" title="It runs an older agent than this host serves: its page says how it updates">update</span>
-            </span>
+            <state-pill v-else-if="(column.key === 'state')" :tone="row.pill_tone" :text="row.pill"/>
         </template>
-        <!-- What is wrong with a machine, under its row: since when it is away, what waits for
-             it, what it refused -->
-        <template #below="{row}">
-            <div v-if="(row.troubles.length > 0) || (row.online === false)" class="machine-notes">
-                <p v-if="(row.online === false)" class="muted">{{ row.away_text }}</p>
-                <p v-for="line of row.troubles" :key="line" class="alert">{{ line }}</p>
-            </div>
+        <!-- What is wrong with a machine, whole, in its window: since when it is away, what
+             waits for it, what it refused; its name on the tailnet -->
+        <template #details="{row}">
+            <template v-if="(row.notes.length > 0)">
+                <dt>Notes</dt>
+                <dd><p v-for="line of row.notes" :key="line" class="machine-note">{{ line }}</p></dd>
+            </template>
+            <template v-if="(row.tailnet !== null)">
+                <dt>On the tailnet</dt>
+                <dd><code>{{ row.tailnet }}</code></dd>
+            </template>
         </template>
     </data-table>
 </article>
 `,
-    components: {'apt-all-section': apt_all_section, 'data-table': data_table, 'page-head': page_head},
+    components: {'apt-all-section': apt_all_section, 'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
     props: ['state', 'answering'],
     emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {
-        return {filter: '', show: 'all', apt_open: false};
+        return {filter: '', show: 'all', apt_open: false, REMOTES_ICON: CATEGORIES.find(v => v.key === 'remotes').icon};
     },
     computed: {
         remotes: function () {
@@ -89,15 +92,34 @@ const remotes_pane = {
                 {value: 'all', label: 'All', phase: null, count: this.remotes.length},
                 {value: 'online', label: 'Online', phase: 'running', count: online},
                 {value: 'offline', label: 'Offline', phase: 'failed', count: this.remotes.length - online},
+                {value: 'update', label: 'Update', phase: 'stopping', count: this.remotes.filter(v => this.update_waits(v)).length},
             ];
+        },
+        // The footer: how many machines, online, offline, and with an update waiting
+        foot: function () {
+            const all = this.remotes.length;
+            const online = this.remotes.filter(v => v.phase === 'online').length;
+            const update = this.remotes.filter(v => this.update_waits(v)).length;
+            const out = [{text: `${all} ${(all === 1) ? 'machine' : 'machines'}`, tone: ''}, {text: `${online} online`, tone: ''}];
+            if (online < all) {
+                out.push({text: `${all - online} offline`, tone: 'bad'});
+            }
+            if (update > 0) {
+                out.push({text: `${update} update waiting`, tone: 'warn'});
+            }
+            return out;
         },
         // The machines the chips and the filter leave
         shown: function () {
             const wanted = this.filter.toLowerCase();
             const show = this.show;
+            const self = this;
             return this.remotes.filter(function (remote) {
                 const online = (remote.phase === 'online');
                 if (((show === 'online') && (online === false)) || ((show === 'offline') && online)) {
+                    return false;
+                }
+                if ((show === 'update') && (self.update_waits(remote) === false)) {
                     return false;
                 }
                 const machine = (remote.machine === undefined) ? null : remote.machine;
@@ -115,25 +137,23 @@ const remotes_pane = {
                 return (remote.phase === 'online') && (machine !== null) && (machine.can !== null) && machine.can.includes('apt') && (machine.updates !== null) && (machine.updates.pending > 0);
             }).length;
         },
-        // Name and state never fold; the rest fold where the pane is narrow, the tags first
+        // Name and state never fold; the rest fold where the pane is narrow, the tags first. On
+        // a phone the tags and the system share a line, memory and disk a line each
         columns: function () {
             return [
-                {key: 'name', label: 'Name', wraps: true},
+                {key: 'name', label: 'Name'},
                 {key: 'tags', label: 'Tags', fold: 1, hide: v => (v.tags.length === 0)},
                 {key: 'system', label: 'System', fold: 2, hide: v => (v.system === '')},
-                {key: 'memory', label: 'Memory', fold: 4},
-                {key: 'disk', label: 'Disk', fold: 3},
-                {key: 'services', label: 'Svc', fold: 5, align: 'right'},
-                {key: 'state', label: 'State'},
+                {key: 'memory', label: 'Memory', fold: 4, phone: 'row'},
+                {key: 'disk', label: 'Disk', fold: 3, phone: 'row'},
+                {key: 'services', label: 'Services', fold: 5, align: 'right', phone: 'hide'},
+                {key: 'state', label: 'State', phone: 'state'},
             ];
         },
         // How the Canvas draws each machine, by its name
         kind_by_name: function () {
             const machines = ((this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
             return Object.fromEntries(machines.map(v => [v.name, v.kind]));
-        },
-        empty_text: function () {
-            return (this.remotes.length === 0) ? 'No remotes yet. A remote is a machine with an agent that dials in; a service runs on one.' : 'Nothing matches.';
         },
     },
     methods: {
@@ -158,27 +178,56 @@ const remotes_pane = {
             if (unanswered !== '') {
                 troubles.push(unanswered);
             }
-            return {
+            const bars = (online && (machine !== null)) ? this.bars_of(machine) : [];
+            const said = this.said_of(remote, troubles, unanswered, bars, services);
+            return Object.assign({
                 name: remote.name,
                 remote,
                 icon: machine_icons[this.kind_by_name[remote.name]] || machine_icons.server,
                 tags: remote.tags,
-                title: remote.title || remote.name,
-                name_shown: is_name_in_title(remote.title, remote.name) === false,
                 // Its name on the tailnet, beside the one serviceman gives it; null for none
                 tailnet: (tailnet_name_of(machine) === '') ? null : tailnet_name_of(machine),
                 online,
-                // running, waiting while its answers do not come, failed while it is away
-                dot: remote_dot(remote),
-                pill: remote_state_text(remote),
-                agent: agent_current(remote, this.state.agent_built),
-                troubles,
-                bars: (online && (machine !== null)) ? this.bars_of(machine) : [],
-                away_text: this.away_text(remote, services),
+                // What is wrong, whole, for the row's window: since when it is away, then the rest
+                notes: (online ? [] : [this.away_text(remote, services)]).concat(troubles),
+                bars,
                 services: services.length,
                 // What it is: its system and its cores, as it said them last
                 system: (machine === null) ? '' : [machine.os || machine.platform || '', (machine.cpu === undefined) ? '' : `${machine.cpu.count} CPU`].filter(v => v !== '').join(', '),
-            };
+            }, said);
+        },
+        // The line under its name and its pill: away, red, with what waits for it; something
+        // wrong, red; an agent behind, not answering or a disk nearly full, orange; else its title
+        said_of: function (remote, troubles, unanswered, bars, services) {
+            // Online or offline, as drawn; how long its calls have waited when it does not answer
+            const pill = (unanswered === '') ? ((remote.phase === 'online') ? 'online' : 'offline') : remote_state_text(remote);
+            const pill_tone = {failed: 'bad', starting: 'busy', running: 'run'}[remote_dot(remote)] || 'idle';
+            if (remote.phase !== 'online') {
+                const since = ((remote.left_at === null) || (remote.left_at === undefined)) ? 'not linked since serviceman started' : `not linked since ${clock_of(remote.left_at)}`;
+                const first = (services.length === 0) ? '' : (services[0].title || services[0].name);
+                const waits = (services.length === 0) ? '' : ((services.length === 1) ? `; ${first} waits for it` : `; ${first} and ${services.length - 1} more wait for it`);
+                return {line: since + waits, tone: 'bad', pill, pill_tone};
+            }
+            const hard = troubles.filter(v => v !== unanswered);
+            if (hard.length > 0) {
+                return {line: hard[0], tone: 'bad', pill, pill_tone: 'bad'};
+            }
+            if (unanswered !== '') {
+                return {line: unanswered, tone: 'warn', pill, pill_tone};
+            }
+            if (this.update_waits(remote)) {
+                return {line: `agent ${remote.agent_version || 'of an older build'}; a newer one waits`, tone: 'warn', pill: 'update waiting', pill_tone: 'busy'};
+            }
+            const full = bars.filter(v => (v.level === 'full') && (v.key !== 'cpu')).map(v => v.label.toLowerCase());
+            if (full.length > 0) {
+                return {line: `${full.join(' and ')} nearly full`, tone: 'warn', pill, pill_tone};
+            }
+            const title = ((remote.title === null) || (remote.title === undefined) || (remote.title === remote.name)) ? '' : remote.title;
+            return {line: title, tone: '', pill, pill_tone};
+        },
+        // An online machine whose agent is behind the one this host serves: its update waits
+        update_waits: function (remote) {
+            return (remote.phase === 'online') && (agent_current(remote, this.state.agent_built) === false);
         },
         bars_of: function (machine) {
             const out = [];

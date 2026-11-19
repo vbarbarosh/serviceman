@@ -1324,7 +1324,7 @@ machine; a docker image, a program, something already running. **New version…*
 card are for a page and an app folder, the kinds that take one; the own port and the names under
 the apps domain stay theirs and an app on a socket's.
 
-**+ An app on a socket** under the card adds one whose program listens on a socket file
+**An app on a socket**, in the drop card on **Apps**, adds one whose program listens on a socket file
 ([something listening on a socket file](#something-listening-on-a-socket-file)): its name, where
 its socket is, serviceman's own `data/` folder (chosen as it opens) or a machine, and the file,
 `data/sockets/<name>.sock` or `~/<name>.sock` there unless another is typed. It answers at once at
@@ -1438,8 +1438,8 @@ Inside a word `/` joins parts that must all hold (`app/laptop`), `^` and `$` hol
 start or the end of a name, and `!` turns a part around (`app/!laptop`). Upper and lower case are
 the same, and Cyrillic letters are found by Latin ones, `pochta` finding Почта.
 
-**The page and every app behind a wall:** one list on top of **Apps**, **This page and every
-app**, under those addresses, puts the page of apps and every app behind the wall picked, an app
+**The page and every app behind a wall:** one list in the card **Settings** opens on **Apps**,
+**This page and every app**, under those addresses, puts the page of apps and every app behind the wall picked, an app
 sent tomorrow too. The page asks it first on each of its names, and `/auth/…` there is the wall's
 own, so the sign-in comes up on the name you typed; each app asks it at every address it has, as
 its own pick would ([behind a wall at every address](#behind-a-wall-at-every-address)). An app
@@ -1502,7 +1502,7 @@ agent joins straight to the app's port here: nothing goes into the public log of
 and nothing passes through serviceman ([Both ends on one machine](remotes.md#both-ends-on-one-machine)).
 A phone runs no agent, and is left with https.
 
-**Or off the tailnet, by localhost alone.** **On the tailnet** on Apps, set off, gives the apps
+**Or off the tailnet, by localhost alone.** **On the tailnet** in Apps' **Settings**, set off, gives the apps
 no port of their own (`"apps": {"ports": null}`; `PUT /api/v1/apps` with `{"tailnet": false}`):
 no device of the tailnet opens one by serviceman's name, the page of apps is not answered there,
 no certificate is asked of tailscale, so serviceman's name goes into no public log, Health warns
@@ -1576,7 +1576,7 @@ app folder does:
 
 ### A file browser
 
-**+ A file browser** on **Apps** puts serviceman's own File Manager on a machine of yours, as an
+**A file browser**, in the drop card on **Apps**, puts serviceman's own File Manager on a machine of yours, as an
 app folder of its own, over one folder there: a folder kept for it, or one of that machine typed
 as a full path, never one of the system's own. It opens on that folder, which it shows as `/` and
 never leaves, and is that folder's first row in its **Data** tab, `FILES_DIR`. It is a program run

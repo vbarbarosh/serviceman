@@ -1,8 +1,11 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import mounts_write from './mounts_write.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 import step_frame from './step_frame.js';
 
 // A folder of one machine, mounted on another: `from` is where the folder is, `to` where it
@@ -63,54 +66,84 @@ const mounts_section = {
             <p>A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder straight through the agent of the machine on the left, over the tailnet; an agent too old for that, or one that cannot be reached that way, goes over both machines' links through serviceman instead. No ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
         </template>
     </page-head>
-    <data-table :columns="columns" :rows="mounts" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
+    <data-table :columns="columns" :rows="mounts_shown" :total="mounts.length" row_key="label" :row_class="row_class" framed :foot="foot" :empty_icon="MOUNTS_ICON" empty_title="No mounts yet" empty="Mount a folder of one machine on another: serviceman's state on a server, read only, say.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a mount, a machine or a folder" aria-label="Find a mount by its name, its machines or its folders" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" :disabled="making" @click="begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New mount</button></template>
         <template #cell="{row, column}">
-            <template v-if="(column.key === 'label')">{{ row.label }}</template>
-            <template v-else-if="(column.key === 'from')"><span class="muted">{{ from_place(row.from) }} · </span><code>{{ from_text(row.from) }}</code></template>
-            <template v-else-if="(column.key === 'to')"><span class="muted">{{ title_of(row.to.remote) }} · </span><code>{{ row.to.path }}</code></template>
-            <span v-else-if="(column.key === 'mode')" :class="(row.mode === 'rw' ? 'mount-rw' : 'muted')">{{ (row.mode === 'rw' ? 'read-write' : 'read-only') }}</span>
-            <span v-else-if="(column.key === 'now')" class="dt-state" :class="{bad: bad_of(row)}"><span class="dot" :class="dot_of(row)"/>{{ word_of(row) }}<span v-if="((row.state === 'mounted') && (row.way === 'straight'))" class="muted" title="Straight to the agent of the folder's machine: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'mounted') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
-            <span v-else-if="(column.key === 'problem')" :class="(row.problem === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
+            <name-cell v-if="(column.key === 'label')" :icon="MOUNTS_ICON" :name="row.label" :line="wrong_text(row)" :tone="(bad_of(row) ? 'bad' : '')"/>
+            <template v-else-if="(column.key === 'from')"><b>{{ from_place(row.from) }}</b> <code>{{ from_text(row.from) }}</code></template>
+            <template v-else-if="(column.key === 'to')"><b>{{ title_of(row.to.remote) }}</b> <code>{{ row.to.path }}</code></template>
+            <span v-else-if="(column.key === 'mode')" :class="(row.mode === 'rw' ? 'mount-rw' : 'muted')">{{ (row.mode === 'rw' ? 'read and write' : 'read only') }}</span>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
+            <state-pill v-else-if="(column.key === 'now')" :tone="pill_of(row)" :text="word_of(row)"/>
         </template>
         <template #actions="{row, close}">
             <label title="Mounted, or set aside for now"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)">mounted</label>
             <button type="button" :disabled="busy" @click="close(); edit(row)">edit</button>
             <button type="button" class="danger" :disabled="busy" @click="drop(row)">forget it</button>
         </template>
-        <template #empty>No mounts yet — <button type="button" class="link" :disabled="making" @click="begin">mount the first one</button>: serviceman's {{ state_folder }}/ on a server, read-only, say.</template>
     </data-table>
     </template>
 </div>
 `,
-    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
     emits: [],
     data: function () {
         // `editing` is the mount the window is rewriting, by the label it had; `here_value` is
         // serviceman itself in the picker
-        return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE};
+        return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE, filter: '', show: 'all', MOUNTS_ICON: CATEGORIES.find(v => v.key === 'mounts').icon};
     },
     computed: {
         mounts: function () {
             return ((this.state === null) || (this.state.mounts === undefined)) ? [] : this.state.mounts;
         },
-        wrongs: function () {
-            return this.mounts.some(v => this.wrong_text(v) !== '');
-        },
+        // Its name over what is wrong, the folder, where it is mounted, its mode, through what,
+        // its state; on a phone the folder and where it is mounted share a line
         columns: function () {
-            const out = [
-                {key: 'label', label: 'Label', wraps: true},
-                // The folder's path takes what the row has left, cut with … (its whole under the row)
-                {key: 'from', label: 'Folder', fold: 6, clip: true},
-                {key: 'to', label: 'Mounted on', fold: 5},
-                {key: 'mode', label: 'Mode', fold: 4},
-                {key: 'now', label: 'Now'},
+            return [
+                {key: 'label', label: 'Name'},
+                {key: 'from', label: 'From', fold: 6, clip: true},
+                {key: 'to', label: 'To', fold: 5},
+                {key: 'mode', label: 'Mode', fold: 4, phone: 'hide'},
+                {key: 'through', label: 'Through', fold: 3, phone: 'hide'},
+                {key: 'now', label: 'State', phone: 'state'},
             ];
-            if (this.wrongs) {
-                out.push({key: 'problem', label: 'What is wrong', fold: 2, hide: v => (this.wrong_text(v) === '')});
+        },
+        chips: function () {
+            return [
+                {value: 'all', label: 'All', dot: null, count: this.mounts.length},
+                {value: 'on', label: 'Mounted', dot: 'running', count: this.mounts.filter(v => (this.dot_of(v) === 'running')).length},
+                {value: 'bad', label: 'Needs you', dot: 'failed', count: this.mounts.filter(v => this.bad_of(v)).length},
+            ];
+        },
+        // The mounts the chips and the find box leave
+        mounts_shown: function () {
+            const wanted = this.filter.toLowerCase();
+            return this.mounts.filter(function (v) {
+                if (((this.show === 'on') && ((this.dot_of(v) === 'running') === false)) || ((this.show === 'bad') && (this.bad_of(v) === false))) {
+                    return false;
+                }
+                return (wanted === '') || `${v.label} ${this.from_place(v.from)} ${this.from_text(v.from)} ${this.title_of(v.to.remote)} ${v.to.path}`.toLowerCase().includes(wanted);
+            }, this);
+        },
+        // The footer: how many, how many are mounted, how many are wrong
+        foot: function () {
+            const mounted = this.mounts.filter(v => this.dot_of(v) === 'running').length;
+            const wrong = this.mounts.filter(v => this.bad_of(v)).length;
+            const out = [{text: `${this.mounts.length} ${(this.mounts.length === 1) ? 'mount' : 'mounts'}`, tone: ''}, {text: `${mounted} mounted`, tone: ''}];
+            if (wrong > 0) {
+                out.push({text: `${wrong} ${(wrong === 1) ? 'needs' : 'need'} you`, tone: 'bad'});
             }
-            out.push({key: 'through', label: 'Through it', fold: 3});
             return out;
         },
         machines: function () {
@@ -243,6 +276,16 @@ const mounts_section = {
                 return 'starting';
             }
             return (item.state === 'aside') ? '' : 'failed';
+        },
+        // A mount that is wrong is edged red; one set aside is struck through
+        row_class: function (item) {
+            return (this.bad_of(item) ? ['dt-bad'] : []).concat(item.off ? ['off'] : []);
+        },
+        pill_of: function (item) {
+            if (this.bad_of(item)) {
+                return 'bad';
+            }
+            return {running: 'run', starting: 'busy'}[this.dot_of(item)] || 'idle';
         },
         bad_of: function (item) {
             if (['aside', 'waiting'].includes(item.state)) {

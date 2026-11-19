@@ -1,6 +1,9 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 import step_frame from './step_frame.js';
 
 // Load tests: k6 sent at a service. A test is a number of users asking for one address for a
@@ -93,25 +96,19 @@ const load_tests_pane = {
             <p>A test sends <a href="https://k6.io/" target="_blank" rel="noopener">k6</a> at a service: a number of users asking for one address for a while. k6 runs once, as the <code>grafana/k6</code> container on the remote you pick, and is removed afterwards. A sleeping service is woken first, so its start is not counted as a slow answer.</p>
         </template>
     </page-head>
-    <data-table :columns="test_columns" :rows="tests" row_key="name" :chosen="v => (v.name === picked_name)" :on_row="v => (picked = v.name)" actions_label="Run">
+    <data-table :columns="test_columns" :rows="tests" row_key="name" :row_class="test_class" :chosen="v => (v.name === picked_name)" :on_row="v => (picked = v.name)" framed :foot="test_foot" :empty_icon="TESTS_ICON" empty_title="No load tests yet" empty="Send many users at a service for a while, and see how fast it answers and how often it fails.">
+        <template #empty_act><button type="button" class="primary" @click="form_begin(null)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New test</button></template>
         <template #cell="{row, column}">
-            <b v-if="(column.key === 'name')">{{ row.name }}</b>
+            <name-cell v-if="(column.key === 'name')" :icon="TESTS_ICON" :name="row.name" :line="((last_of(row.name) === null) ? 'never run' : result_text(last_of(row.name)))" :tone="(test_bad(row) ? 'bad' : '')"/>
             <button v-else-if="(column.key === 'service')" type="button" class="link" @click="$emit('select', row.service)">{{ row.service }}</button>
             <button v-else-if="(column.key === 'remote')" type="button" class="link" @click="$emit('remote', row.remote)">{{ remote_title(row.remote) }}</button>
             <template v-else-if="(column.key === 'load')">{{ load_text(row) }}</template>
-            <template v-else-if="(column.key === 'last')">
-                <span v-if="(last_of(row.name) !== null)" class="lt-last">
-                    <span class="pill" :class="pill_of(last_of(row.name))">{{ phase_text(last_of(row.name)) }}</span>
-                    <span class="muted">{{ result_text(last_of(row.name)) }}</span>
-                </span>
-                <span v-else class="muted">never run</span>
-            </template>
+            <state-pill v-else-if="(column.key === 'last')" :tone="test_tone(row)" :text="((last_of(row.name) === null) ? 'never run' : phase_text(last_of(row.name)))"/>
         </template>
         <template #actions="{row}">
-            <button v-if="(going_of(row.name) === null)" type="button" :disabled="busy" @click="run(row)">Run</button>
+            <button v-if="(going_of(row.name) === null)" type="button" class="primary" :disabled="busy" @click="run(row)">Run</button>
             <button v-else type="button" :disabled="(busy || (going_of(row.name).phase === 'stopping'))" @click="stop(row)">Stop</button>
         </template>
-        <template #empty>No tests yet — <button type="button" class="link" @click="form_begin(null)">make the first one</button>.</template>
     </data-table>
     <p v-if="((form === null) && (note !== ''))" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
     <template v-if="(test_now !== null)">
@@ -176,12 +173,12 @@ const load_tests_pane = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
         // `log_id` is the run whose log is open under it, and `log_text` that log once it came
-        return {picked: null, form: null, step: 0, mode: 'steps', busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
+        return {picked: null, form: null, step: 0, mode: 'steps', busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false, TESTS_ICON: CATEGORIES.find(v => v.key === 'load-tests').icon};
     },
     computed: {
         // Target, Load, Passes when, then Check; a change is one page of them
@@ -221,14 +218,29 @@ const load_tests_pane = {
             return {ok: true, why: ''};
         },
         // The tables' columns, each that may fold with when
+        // The test over its last result, its target, where it runs from, its load, how its last
+        // run went; on a phone the target and the machine share a line
         test_columns: function () {
             return [
-                {key: 'name', label: 'Test', wraps: true},
-                {key: 'service', label: 'Service', fold: 3},
-                {key: 'remote', label: 'From', fold: 1},
-                {key: 'load', label: 'Load', fold: 2},
-                {key: 'last', label: 'Last run'},
+                {key: 'name', label: 'Test'},
+                {key: 'service', label: 'Target', fold: 3},
+                {key: 'remote', label: 'Run from', fold: 1},
+                {key: 'load', label: 'Load', fold: 2, phone: 'hide'},
+                {key: 'last', label: 'State', phone: 'state'},
             ];
+        },
+        // The footer: how many tests, running, and failed last time
+        test_foot: function () {
+            const running = this.tests.filter(v => this.going_of(v.name) !== null).length;
+            const failed = this.tests.filter(v => this.test_bad(v)).length;
+            const out = [{text: `${this.tests.length} ${(this.tests.length === 1) ? 'test' : 'tests'}`, tone: ''}];
+            if (running > 0) {
+                out.push({text: `${running} running`, tone: ''});
+            }
+            if (failed > 0) {
+                out.push({text: `${failed} failed last time`, tone: 'bad'});
+            }
+            return out;
         },
         run_columns: function () {
             function result(run) {
@@ -320,6 +332,18 @@ const load_tests_pane = {
         },
         phase_text: function (item) {
             return {waking: 'waking the service', running: 'running', stopping: 'stopping', passed: 'passed', failed: 'failed', stopped: 'stopped', error: 'did not run'}[item.phase] || item.phase;
+        },
+        // A test whose last run failed, or did not run
+        test_bad: function (test) {
+            const last = this.last_of(test.name);
+            return (last !== null) && ['failed', 'error'].includes(last.phase);
+        },
+        test_class: function (test) {
+            return this.test_bad(test) ? 'dt-bad' : [];
+        },
+        test_tone: function (test) {
+            const last = this.last_of(test.name);
+            return (last === null) ? 'idle' : ({running: 'run', failed: 'bad', starting: 'busy'}[this.pill_of(last)] || 'idle');
         },
         pill_of: function (item) {
             if (item.phase === 'passed') {

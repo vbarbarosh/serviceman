@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
@@ -5,9 +6,10 @@ import format_ms_ago from './format_ms_ago.js';
 import forward_end_parse from './forward_end_parse.js';
 import forward_here_parse from './forward_here_parse.js';
 import forward_now_said from './forward_now_said.js';
-import forward_state from './forward_state.js';
 import forwards_write from './forwards_write.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 import step_frame from './step_frame.js';
 
 // A port or a socket of one machine, brought to another: `from` is where the service is, `to`
@@ -66,54 +68,85 @@ const forwards_section = {
             <p>A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection goes straight to the agent of the machine on the left, over the tailnet, and on to the service there; serviceman carries none of it. An agent too old for that, or a machine whose agent cannot be reached that way, rides both machines' links through serviceman instead. No ssh and no key: the agents are already there. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
         </template>
     </page-head>
-    <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
+    <data-table :columns="columns" :rows="forwards_shown" :total="forwards.length" row_key="label" :row_class="row_class" framed :foot="foot" :empty_icon="FORWARDS_ICON" empty_title="No forwards yet" empty="Bring a port or a socket of one machine to another: a database on a server, say, answered on the laptop.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a forward, a machine or a port" aria-label="Find a forward by its name, its machines or its ports" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" :disabled="making" @click="begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New forward</button></template>
         <template #cell="{row, column}">
-            <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span><span v-if="(row.service !== null)" class="muted" title="It brings the port of this program over, and goes with it: renamed and removed with it, changed on its page"> · part of {{ row.service }}</span></template>
-            <template v-else-if="(column.key === 'from')"><span class="muted">{{ title_of(row.from.remote) }} · </span><code>{{ end_text(row.from) }}</code></template>
-            <template v-else-if="(column.key === 'to')"><span class="muted">{{ place_of(row.to) }} · </span><code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
-            <span v-else-if="(column.key === 'now')"><forward-state :forward="row" :remotes="machines"/><span v-if="((row.state === 'ready') && (row.way === 'straight'))" class="muted" title="Joined by the agents alone: serviceman carries none of it"> · straight</span><span v-else-if="((row.state === 'ready') && (row.way_why !== null))" class="muted" :title="('Not straight: ' + row.way_why)"> · through serviceman</span></span>
-            <span v-else-if="(column.key === 'problem')" :class="(problem_of(row) === null ? 'muted' : 'bad')">{{ wrong_text(row) }}</span>
+            <name-cell v-if="(column.key === 'label')" :icon="FORWARDS_ICON" :name="row.label" :line="line_of(row)" :tone="(said_of(row).bad ? 'bad' : '')"/>
+            <template v-else-if="(column.key === 'from')"><b>{{ title_of(row.from.remote) }}</b> <code>{{ end_text(row.from) }}</code></template>
+            <template v-else-if="(column.key === 'to')"><b>{{ place_of(row.to) }}</b> <code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
             <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
+            <state-pill v-else-if="(column.key === 'now')" :tone="pill_of(row)" :text="said_of(row).word"/>
         </template>
         <template #actions="{row, close}">
             <label title="Listening, or set aside for now"><input type="checkbox" :checked="(row.off === false)" :disabled="busy" @change="turn(row, $event.target.checked)">listening</label>
             <button type="button" :disabled="busy" @click="close(); edit(row)">edit</button>
             <button type="button" class="danger" :disabled="busy" @click="drop(row)">forget it</button>
         </template>
-        <template #empty>No forwards yet — <button type="button" class="link" :disabled="making" @click="begin">add the first one</button>: a socket on the laptop, say, answered by a port on a server.</template>
     </data-table>
     </template>
 </div>
 `,
-    components: {'data-table': data_table, 'forward-state': forward_state, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
     emits: [],
     data: function () {
         // `editing` is the forward the line below is rewriting, by the label it had; `here_value`
         // is serviceman itself in the picker
-        return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE};
+        return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE, filter: '', show: 'all', FORWARDS_ICON: CATEGORIES.find(v => v.key === 'forwards').icon};
     },
     computed: {
         forwards: function () {
             return ((this.state === null) || (this.state.forwards === undefined)) ? [] : this.state.forwards;
         },
-        // Whether any forward has something wrong to tell, now or last time: else no column for it
-        wrongs: function () {
-            return this.forwards.some(v => this.wrong_text(v) !== '');
-        },
         // The table's columns, each that may fold with when: what is wrong first, where it is from last
+        // Its name over who asked for it or what is wrong, from, to, how fast, through what, its
+        // state; on a phone from and to share a line
         columns: function () {
-            const out = [
-                {key: 'label', label: 'Label', wraps: true},
+            return [
+                {key: 'label', label: 'Name'},
                 {key: 'from', label: 'From', fold: 6},
-                {key: 'to', label: 'Shows up on', fold: 5},
-                {key: 'now', label: 'Now'},
+                {key: 'to', label: 'To', fold: 5},
+                {key: 'through', label: 'Through', fold: 3, phone: 'hide'},
+                {key: 'speed', label: 'Speed', fold: 4, phone: 'hide'},
+                {key: 'now', label: 'State', phone: 'state'},
             ];
-            if (this.wrongs) {
-                out.push({key: 'problem', label: 'What is wrong', fold: 2, hide: v => (this.wrong_text(v) === '')});
+        },
+        chips: function () {
+            return [
+                {value: 'all', label: 'All', dot: null, count: this.forwards.length},
+                {value: 'on', label: 'Listening', dot: 'running', count: this.forwards.filter(v => (this.said_of(v).dot === 'running')).length},
+                {value: 'bad', label: 'Needs you', dot: 'failed', count: this.forwards.filter(v => this.said_of(v).bad).length},
+            ];
+        },
+        // The forwards the chips and the find box leave
+        forwards_shown: function () {
+            const wanted = this.filter.toLowerCase();
+            return this.forwards.filter(function (v) {
+                if (((this.show === 'on') && ((this.said_of(v).dot === 'running') === false)) || ((this.show === 'bad') && (this.said_of(v).bad === false))) {
+                    return false;
+                }
+                return (wanted === '') || `${v.label} ${this.title_of(v.from.remote)} ${this.end_text(v.from)} ${this.place_of(v.to)} ${this.landed_text(v.to)}`.toLowerCase().includes(wanted);
+            }, this);
+        },
+        // The footer: how many, how many listen, how many are wrong
+        foot: function () {
+            const listening = this.forwards.filter(v => (this.said_of(v).dot === 'running')).length;
+            const wrong = this.forwards.filter(v => this.said_of(v).bad).length;
+            const out = [{text: `${this.forwards.length} ${(this.forwards.length === 1) ? 'forward' : 'forwards'}`, tone: ''}, {text: `${listening} listening`, tone: ''}];
+            if (wrong > 0) {
+                out.push({text: `${wrong} not listening`, tone: 'bad'});
             }
-            out.push({key: 'speed', label: 'Speed', fold: 4}, {key: 'through', label: 'Through it', fold: 3});
             return out;
         },
         machines: function () {
@@ -222,10 +255,36 @@ const forwards_section = {
         document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
-        // What stands in its way now, in full, where its word on the line (forward-state) does
-        // not say it all; null when nothing does
+        // Its state as the line says it: {dot, word, bad, problem}
+        said_of: function (item) {
+            return forward_now_said(item, this.machines);
+        },
+        // What stands in its way now, in full, where its word on the line does not say it all;
+        // null when nothing does
         problem_of: function (item) {
-            return forward_now_said(item, this.machines).problem;
+            return this.said_of(item).problem;
+        },
+        // A forward that does not listen is edged red; one set aside is struck through
+        row_class: function (item) {
+            return (this.said_of(item).bad ? ['dt-bad'] : []).concat(item.off ? ['off'] : []);
+        },
+        // The line under its name: what is wrong, else who asked for it and what it is part of
+        line_of: function (item) {
+            const wrong = this.wrong_text(item);
+            if (wrong !== '') {
+                return wrong;
+            }
+            const parts = [];
+            if (item.by !== null) {
+                parts.push(`by ${item.by.label}${item.by.revoked ? ' (revoked)' : ''}`);
+            }
+            if (item.service !== null) {
+                parts.push(`part of ${item.service}`);
+            }
+            return parts.join(' · ');
+        },
+        pill_of: function (item) {
+            return {running: 'run', failed: 'bad', starting: 'busy', stopping: 'busy'}[this.said_of(item).dot] || 'idle';
         },
         // What stands in its way now, else the last failure, else nothing
         wrong_text: function (item) {
@@ -261,10 +320,6 @@ const forwards_section = {
         title_of: function (name) {
             const found = this.machines.find(v => v.name === name);
             return (found === undefined) ? name : (found.title || found.name);
-        },
-        // Who asked for a forward, said in full where the line has room for a word
-        by_title: function (by) {
-            return by.revoked ? `Asked for by the token ${by.label}, since revoked` : `Asked for by the token ${by.label}, through the control door`;
         },
         // The machine one end is on, serviceman itself included, as a picker's value names it
         place_title: function (value) {

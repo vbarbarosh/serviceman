@@ -43,7 +43,7 @@ mounted on its row. It
 belongs to the person whose agent runs on the home, by number: uid 1000 there is uid 1000 on
 every machine.
 
-**Mount on a machine…** picks the machine, the path and the mode. serviceman sends the machine
+**Mount on a machine…**, behind the **⋯** at the end of a folder's row, picks the machine, the path and the mode. serviceman sends the machine
 its whole table of mounts, the way it sends the door table. The agent keeps the table, root's
 alone, and its root half mounts each folder:
 
@@ -63,11 +63,11 @@ A machine that is away keeps its row and is mounted the moment its agent dials i
 | mounted         | It is there, as the row says                                                  |
 | on its way      | Sent to the machine, not answered yet                                         |
 | waiting         | The machine is away, or the home is not set up yet                            |
-| in use          | A changed mode or folder waits for the processes that hold the path; the line under the row names them and says the mode it still has |
+| in use          | A changed mode or folder waits for the processes that hold the path; the folder's window names them and says the mode it still has |
 | not empty       | The path holds files of its own: the folder mounted there would hide them. Nothing is moved; empty it, or pick another path |
 | path taken      | Another file system is mounted at the path                                    |
 | cannot mount    | The machine has no root half, or an agent from before shared folders          |
-| failed          | juicefs said why, or a part of the path is a link, under the row; the machine tries again every minute |
+| failed          | juicefs said why, or a part of the path is a link, under the folder's name and in its window; the machine tries again every minute |
 
 A path is refused when it is not a full path, is `/` or a folder at the top (`/srv`), or is
 under the system's own folders: `/bin`, `/boot`, `/dev`, `/etc`, `/lib`, `/proc`, `/run`,

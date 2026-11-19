@@ -1,5 +1,8 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 import step_frame from './step_frame.js';
 
 // How often an open pane asks how the mounts stand: a mount on its way lands within seconds
@@ -117,19 +120,7 @@ const shared_folders_pane = {
         </dl>
     </div>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-    <p v-if="(home_ready && (folders.length === 0) && (folder_form === null))" class="muted">No folders yet — <button type="button" class="link" @click="folder_form_begin">make the first one</button>.</p>
-    <section v-for="folder of folders" :key="folder.name" class="sf-folder">
-        <div class="list-head sf-head">
-            <h2>
-                <svg class="sf-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>
-                {{ folder.name }}
-            </h2>
-            <span class="muted">{{ mounted_text(folder) }}</span>
-            <div class="list-acts">
-                <button type="button" :disabled="((mount_form !== null) || (machines_free(folder).length === 0))" :title="((machines_free(folder).length === 0) ? 'mounted on every machine already' : '')" @click="mount_form_begin(folder, null)">Mount on a machine…</button>
-                <button type="button" :disabled="(folder.mounts.length > 0)" :title="((folder.mounts.length > 0) ? 'unmount it everywhere first' : '')" @click="delete_begin(folder)">Delete…</button>
-            </div>
-        </div>
+    <template v-for="folder of folders" :key="('forms-' + folder.name)">
         <div v-if="((delete_form !== null) && (delete_form.folder === folder.name))" class="card sf-card sf-delete">
             <p>Deleting <b>{{ folder.name }}</b> deletes every file in it. juicefs keeps them in its trash for a day, and then they are gone. Type its name to go on:</p>
             <div class="row-of sf-form">
@@ -153,33 +144,44 @@ const shared_folders_pane = {
             </div>
             <p class="muted">A path that holds files is refused: the folder mounted there would hide them.</p>
         </div>
-        <data-table :columns="columns" :rows="folder.mounts" :row_key="v => v.remote" :more="cell_more" actions_label="" empty="Not mounted anywhere yet.">
-            <template #cell="{row, column}">
-                <button v-if="(column.key === 'machine')" type="button" class="link" @click="$emit('remote', row.remote)">{{ row.title }}</button>
-                <code v-else-if="(column.key === 'path')" :title="row.path">{{ row.path }}</code>
-                <span v-else-if="(column.key === 'mode')" class="pill" :class="{running: (row.mode === 'rw')}">{{ (row.mode === 'rw') ? 'read-write' : 'read-only' }}</span>
-                <span v-else-if="(column.key === 'state')" class="dt-state">
-                    <span class="dot" :class="state_of(row).dot"/>
-                    <span :class="{bad: (state_of(row).dot === 'failed')}"><span v-if="(row.leaving === true)" class="spin"/>{{ state_label(row) }}</span>
-                </span>
+    </template>
+    <data-table v-if="home_ready" :columns="folder_columns" :rows="folders" row_key="name" :row_class="folder_class" framed :foot="folder_foot" :empty_icon="SHARED_ICON" empty_title="No shared folders yet" empty="A shared folder is the same on every machine that mounts it, each at a path of its own.">
+        <template #empty_act><button type="button" class="primary" :disabled="(folder_form !== null)" @click="folder_form_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New shared folder</button></template>
+        <template #cell="{row, column}">
+            <name-cell v-if="(column.key === 'name')" :icon="SHARED_ICON" :name="row.name" :line="folder_line(row)" :tone="folder_tone(row)"/>
+            <span v-else-if="(column.key === 'mounts')" class="sf-mounted"><template v-for="(mount, index) of row.mounts" :key="mount.remote"><template v-if="(index > 0)"> · </template><b>{{ mount.title }}</b> <span class="muted">{{ (mount.mode === 'rw') ? 'rw' : 'ro' }}</span></template><span v-if="(row.mounts.length === 0)" class="muted">on no machine</span></span>
+            <state-pill v-else-if="(column.key === 'state')" :tone="folder_pill(row).tone" :text="folder_pill(row).text"/>
+        </template>
+        <!-- Each machine it is mounted on, in the folder's window: its path, its mode, how it
+             stands and why, changed or unmounted there -->
+        <template #details="{row: folder}">
+            <template v-for="mount of folder.mounts" :key="mount.remote">
+                <dt><button type="button" class="link" @click="$emit('remote', mount.remote)">{{ mount.title }}</button></dt>
+                <dd>
+                    <code>{{ mount.path }}</code> · {{ (mount.mode === 'rw') ? 'read-write' : 'read-only' }} ·
+                    <span class="dt-state"><span class="dot" :class="state_of(mount).dot"/><span :class="{bad: (state_of(mount).dot === 'failed')}"><span v-if="(mount.leaving === true)" class="spin"/>{{ state_label(mount) }}</span></span>
+                    <p v-if="(why_of(mount) !== '')" class="sf-why" :class="((state_of(mount).dot === 'failed') ? 'sf-why-bad' : 'muted')">{{ why_of(mount) }}</p>
+                    <span class="row-of sf-mount-acts">
+                        <button type="button" :disabled="((mount_form !== null) || (mount.pending === true))" @click="mount_form_begin(folder, mount)">Change</button>
+                        <button type="button" :disabled="(mount.pending === true)" @click="mount_remove(folder, mount)">Unmount</button>
+                    </span>
+                </dd>
             </template>
-            <template #below="{row}">
-                <div v-if="(why_of(row) !== '')" class="sf-why" :class="((state_of(row).dot === 'failed') ? 'sf-why-bad' : 'muted')">{{ why_of(row) }}</div>
-            </template>
-            <template #actions="{row}">
-                <button type="button" :disabled="((mount_form !== null) || (row.pending === true))" @click="mount_form_begin(folder, row)">Change</button>
-                <button type="button" :disabled="(row.pending === true)" @click="mount_remove(folder, row)">Unmount</button>
-            </template>
-        </data-table>
-    </section>
+        </template>
+        <template #actions="{row: folder}">
+            <button type="button" :disabled="((mount_form !== null) || (machines_free(folder).length === 0))" :title="((machines_free(folder).length === 0) ? 'mounted on every machine already' : '')" @click="mount_form_begin(folder, null)">Mount on a machine…</button>
+            <button type="button" :disabled="(folder.mounts.length > 0)" :title="((folder.mounts.length > 0) ? 'unmount it everywhere first' : '')" @click="delete_begin(folder)">Delete…</button>
+        </template>
+    </data-table>
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
     emits: ['remote', 'changed'],
     data: function () {
         return {
+            SHARED_ICON: CATEGORIES.find(v => v.key === 'shared-folders').icon,
             view: null,
             load_error: '',
             home_pick: '',
@@ -271,13 +273,23 @@ const shared_folders_pane = {
             }
             return out;
         },
-        columns: function () {
+        // A folder over how many machines have it, the machines it is mounted on, its state; on
+        // a phone the machines a line of their own
+        folder_columns: function () {
             return [
-                {key: 'machine', label: 'Machine'},
-                {key: 'path', label: 'Path on it', clip: true, fold: 2},
-                {key: 'mode', label: 'Mode', fold: 1},
-                {key: 'state', label: 'State'},
+                {key: 'name', label: 'Name'},
+                {key: 'mounts', label: 'Mounted on', fold: 1, phone: 'row'},
+                {key: 'state', label: 'State', phone: 'state'},
             ];
+        },
+        // The footer: how many folders, mounted where, and how many need a look
+        folder_foot: function () {
+            const bad = this.folders.filter(v => this.folder_tone(v) === 'bad').length;
+            const out = [{text: `${this.folders.length} ${(this.folders.length === 1) ? 'folder' : 'folders'}`, tone: ''}];
+            if (bad > 0) {
+                out.push({text: `${bad} ${(bad === 1) ? 'needs' : 'need'} you`, tone: 'bad'});
+            }
+            return out;
         },
         home_options: function () {
             const out = [{value: '', label: 'Pick a VPS…', disabled: true}];
@@ -472,8 +484,36 @@ const shared_folders_pane = {
             }
             return ((row.error === undefined) || (row.error === null)) ? '' : row.error;
         },
-        cell_more: function (row, key) {
-            return (key === 'path') && (row.path.length > 40);
+        // A folder is wrong where a mount of it failed, behind where one waits or is in use
+        folder_tone: function (folder) {
+            const dots = folder.mounts.map(v => this.state_of(v).dot);
+            if (dots.includes('failed')) {
+                return 'bad';
+            }
+            return (dots.includes('starting') || dots.includes('stopping')) ? 'warn' : '';
+        },
+        folder_class: function (folder) {
+            const tone = this.folder_tone(folder);
+            return (tone === '') ? [] : `dt-${tone}`;
+        },
+        // The line under its name: the first mount that is not plain mounted, its machine and why
+        // (or its state where it says no why), else how many machines have it
+        folder_line: function (folder) {
+            const wrong = folder.mounts.find(v => ['failed', 'starting', 'stopping'].includes(this.state_of(v).dot));
+            if (wrong === undefined) {
+                return this.mounted_text(folder);
+            }
+            return `${wrong.title}: ${(this.why_of(wrong) === '') ? this.state_label(wrong) : this.why_of(wrong)}`;
+        },
+        folder_pill: function (folder) {
+            const tone = this.folder_tone(folder);
+            if (tone === 'bad') {
+                return {tone: 'bad', text: 'failed'};
+            }
+            if (tone === 'warn') {
+                return {tone: 'busy', text: 'on its way'};
+            }
+            return (folder.mounts.length === 0) ? {tone: 'idle', text: 'not mounted'} : {tone: 'run', text: 'mounted'};
         },
         title_of: function (name) {
             const found = (this.view === null) ? undefined : this.view.machines.find(v => v.name === name);

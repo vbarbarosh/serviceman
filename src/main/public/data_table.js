@@ -22,7 +22,11 @@ import {Comment} from 'vue';
 //                across a row's empty cells, those cells left out and never in its details;
 //                'actions' among them takes the actions' cell too; with none of them left
 //                (no row has anything in them) the note wraps in its own cell
-//                A row_class of dim fades the row: a row shown for its place, not for itself
+//                phone: what the cell is when a phone draws the row as a card, the first
+//                column its name: 'state' top right, 'line' joined with the others by ' · '
+//                (the default), 'row' a line of its own, 'hide' left out
+//                A row_class of dim fades the row: a row shown for its place, not for itself;
+//                dt-bad or dt-warn gives a framed card's row a red or orange edge
 //     rows       the things, one a row, already in their order (and by group, when grouped)
 //     row_key    the field that names a row, or a function of the row
 //     empty      the line shown in the table's place when there is no row (or slot empty)
@@ -42,10 +46,18 @@ import {Comment} from 'vue';
 //     on_row     (row, event) => a click on the row is the page's too (a folder opened, a file
 //                ticked); the row is still shown whole when it has more to show
 //     marks      false for a table whose page shows a row whole its own way, picked by on_row:
-//                the table draws no bar
+//                a click on a row opens no window (a framed card's ⋯ still does)
 //     actions_label, actions_fold   the actions column's header, and when it folds (0: first)
 //     sort       {key, down}: the column sorted by, emitting sort(key) on a header's click
 //     selected   the keys of the rows ticked, a box on each row, emitting selected(keys)
+//     framed     the kit's table card: the tools on top (slot tools), a band of headers, a ⋯ at
+//                the end of each row that has more, opening it in the window with its actions,
+//                a footer of counts (foot), fifty rows and Show 50 more past them
+//     total      how many there are before the filter: none at all draws the empty state,
+//                empty_icon (the inside of a 24x24 svg), empty_title and empty, with slot
+//                empty_act, in place of the tools and the table
+//     foot       [{text, tone}] the footer's counts, tone '' or bad or warn
+//     title      a framed card's own title, in a band over its tools, with its count
 //
 // Slots
 //     cell        {row, column, more}: a cell, more true when drawn in the details; an icon
@@ -59,14 +71,24 @@ import {Comment} from 'vue';
 //                 anything (a log, a form, a message)
 //     group_head  {group, rows}: the row that begins a group
 //     empty       the line shown when there is no row
+//     tools       the find box and the chips, inside a framed card's top
+//     empty_act   the primary action of a framed card's empty state
 //
 // Emits: sort(key), selected(keys), branch(row)
 const data_table = {
     template: `
-<div class="data-table-room">
-    <p v-if="(rows.length === 0)" class="muted data-table-empty"><slot name="empty">{{ empty }}</slot></p>
+<div class="data-table-room" :class="{'card dt-card': framed}">
+    <div v-if="(framed && (title !== ''))" class="card-head"><h2>{{ title }} <span class="muted">{{ ((total === null) ? rows.length : total) }}</span></h2></div>
+    <div v-if="(framed && ($slots.tools !== undefined) && (empty_big === false))" class="dt-tools"><slot name="tools"/></div>
+    <div v-if="empty_big" class="dt-empty-big">
+        <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="empty_icon"/></span>
+        <h3>{{ empty_title }}</h3>
+        <p>{{ empty }}</p>
+        <slot name="empty_act"/>
+    </div>
+    <p v-else-if="(rows.length === 0)" class="muted data-table-empty"><slot name="empty">{{ ((framed && (empty_title !== '')) ? 'Nothing matches.' : empty) }}</slot></p>
     <fold-table v-else v-slot="fold" :order="fold_order" @folded="v => (folded = v)">
-        <table class="data-table" :class="{'dt-bare': (head === false)}">
+        <table class="data-table" :class="{'dt-bare': (head === false), 'dt-framed': framed}">
             <thead>
                 <tr>
                     <th v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick every row" :checked="all_ticked" @change="tick_all($event.target.checked)"></th>
@@ -74,7 +96,8 @@ const data_table = {
                         <button v-if="(column.sort === true)" type="button" class="dt-sort" :class="{on: sorted_by(column)}" @click="$emit('sort', column.key)">{{ column.label }}<span v-if="sorted_by(column)">{{ (sort.down ? ' ↓' : ' ↑') }}</span></button>
                         <template v-else>{{ column.label }}</template>
                     </th>
-                    <th v-if="has_actions" data-fold="actions" class="dt-actions">{{ actions_label }}</th>
+                    <th v-if="(has_actions && (framed === false))" data-fold="actions" class="dt-actions">{{ actions_label }}</th>
+                    <th v-if="row_menu" class="dt-menu-cell"></th>
                 </tr>
             </thead>
             <tbody>
@@ -85,27 +108,35 @@ const data_table = {
                     <tr :class="row_classes(row, fold.folded)" @click="row_click(row, fold.folded, $event)">
                         <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
                         <template v-for="(column, i) of columns_shown" :key="column.key">
-                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="[cell_classes(column), {'dt-note': note_of(row, column)}]" :style="((i === 0) ? indent_of(row) : null)">
+                        <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="[cell_classes(column, i), {'dt-note': note_of(row, column)}]" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
                         </td>
                         </template>
-                        <td v-if="(has_actions && (spread_over(row).includes('actions') === false))" data-fold="actions" class="dt-actions">
+                        <td v-if="(has_actions && (framed === false) && (spread_over(row).includes('actions') === false))" data-fold="actions" class="dt-actions">
                             <span v-if="asking_of(row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
                             <slot v-else name="actions" :row="row" :ask="(question, yes, action) => ask(row, question, yes, action)" :close="() => (whole = null)"/>
                         </td>
+                        <td v-if="row_menu" class="dt-menu-cell"><button v-if="opens_now(row, fold.folded)" type="button" class="dt-menu" title="More: every column and what it can do" :aria-expanded="String(whole === key_of(row))" @click="whole = ((whole === key_of(row)) ? null : key_of(row))"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></td>
                     </tr>
                     <tr v-if="below_of(row)" class="dt-below">
                         <td :colspan="span_of(fold.folded)"><slot name="below" :row="row"/></td>
                     </tr>
                 </template>
-                <tr v-if="(rows_shown.length < rows.length)" class="dt-more">
+                <tr v-if="((framed === false) && (rows_shown.length < rows.length))" class="dt-more">
                     <td :colspan="span_of(fold.folded)"><button type="button" class="link" @click="all_shown = true">Show the other {{ rows.length - rows_shown.length }}</button></td>
                 </tr>
             </tbody>
         </table>
     </fold-table>
+    <div v-if="(framed && (empty_big === false) && ((foot !== null) || (rows_shown.length < rows.length)))" class="dt-foot">
+        <span v-if="(foot !== null)" class="dt-foot-says"><template v-for="(part, i) of foot" :key="i"><template v-if="(i > 0)"> · </template><span :class="part.tone">{{ part.text }}</span></template></span>
+        <span v-if="(rows_shown.length < rows.length)" class="dt-foot-more">
+            <button type="button" @click="shown_more += 50">Show {{ Math.min(50, rows.length - rows_shown.length) }} more</button>
+            <button type="button" @click="all_shown = true">Show all {{ rows.length }}</button>
+        </span>
+    </div>
     <div v-if="whole_shown(folded)" class="dt-window" @click.self="whole = null">
     <div ref="whole" class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
         <div class="dt-whole-head">
@@ -118,7 +149,7 @@ const data_table = {
                 <dd><slot name="cell" :row="whole_row" :column="column" :more="true">{{ whole_row[column.key] }}</slot></dd>
             </template>
             <slot name="details" :row="whole_row"/>
-            <template v-if="(has_actions && folded.includes('actions') && ((acts === null) || acts(whole_row)))">
+            <template v-if="(has_actions && (framed || folded.includes('actions')) && ((acts === null) || acts(whole_row)))">
                 <dt>{{ actions_label }}</dt>
                 <dd class="fold-actions dt-actions">
                     <span v-if="asking_of(whole_row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
@@ -152,13 +183,20 @@ const data_table = {
         actions_fold: {type: Number, default: 0},
         sort: {type: Object, default: null},
         selected: {type: Array, default: undefined},
+        framed: {type: Boolean, default: false},
+        total: {type: Number, default: null},
+        empty_title: {type: String, default: ''},
+        empty_icon: {type: String, default: ''},
+        foot: {type: Array, default: null},
+        title: {type: String, default: ''},
     },
     emits: ['sort', 'selected', 'branch'],
     data: function () {
         // The key of the row shown whole in the bar, or null; whether every row is shown past the
         // limit; and the question standing in a row's actions, {key, question, yes, action}
         // folded: the columns folded now, as fold_table last said, for the bar outside it
-        return {whole: null, folded: [], all_shown: false, asking: null};
+        // shown_more: the rows shown past a framed card's first fifty, fifty a click
+        return {whole: null, folded: [], all_shown: false, shown_more: 0, asking: null};
     },
     watch: {
         // A window opened takes the keys; Esc puts it away wherever the focus went since
@@ -188,8 +226,24 @@ const data_table = {
         has_actions: function () {
             return (this.$slots.actions !== undefined);
         },
+        // A framed card shows fifty rows unless told another limit
+        limit_now: function () {
+            return ((this.framed === true) && (this.limit === null)) ? 50 : this.limit;
+        },
         rows_shown: function () {
-            return ((this.limit === null) || this.all_shown) ? this.rows : this.rows.slice(0, this.limit);
+            return ((this.limit_now === null) || this.all_shown) ? this.rows : this.rows.slice(0, this.limit_now + this.shown_more);
+        },
+        // Nothing at all, not nothing that matches: the card says what would be here and how
+        // to make the first one
+        empty_big: function () {
+            if ((this.framed === false) || (this.empty_title === '')) {
+                return false;
+            }
+            return (this.total === null) ? (this.rows.length === 0) : (this.total === 0);
+        },
+        // Whether a framed card's rows end in a ⋯ that opens them: they have actions, or more
+        row_menu: function () {
+            return this.framed && (this.has_actions || (this.opens !== null) || (this.$slots.details !== undefined));
         },
         // The columns with something to say in a row: one empty in every row, or taken over by a
         // spread cell in every row, is left out, its header too, rather than stand as a bare header
@@ -200,7 +254,7 @@ const data_table = {
         fold_order: function () {
             const folding = this.columns_shown.filter(v => Number.isFinite(v.fold)).slice().sort((a, b) => (a.fold - b.fold));
             const out = folding.map(v => v.key);
-            if (this.has_actions) {
+            if (this.has_actions && (this.framed === false)) {
                 const at = folding.findIndex(v => v.fold > this.actions_fold);
                 out.splice((at === -1) ? out.length : at, 0, 'actions');
             }
@@ -276,12 +330,12 @@ const data_table = {
             if ((this.details_of(row, folded).length > 0) || ((this.opens !== null) && this.opens(row))) {
                 return true;
             }
-            return this.has_actions && folded.includes('actions') && ((this.acts === null) || this.acts(row));
+            return this.has_actions && (this.framed || folded.includes('actions')) && ((this.acts === null) || this.acts(row));
         },
         // Whether the bar is drawn: a row is shown whole, and it still has more to show at this
-        // width
+        // width; a framed card's ⋯ opens it even where a click on the row is the page's
         whole_shown: function (folded) {
-            return this.marks && (this.whole_row !== null) && this.opens_now(this.whole_row, folded);
+            return (this.marks || this.framed) && (this.whole_row !== null) && this.opens_now(this.whole_row, folded);
         },
         // The row whole: every column after its name that has anything to say for it
         whole_columns: function (row) {
@@ -313,13 +367,19 @@ const data_table = {
             }
             return out;
         },
-        cell_classes: function (column) {
-            return {wraps: (column.wraps === true), 'dt-clip': (column.clip === true), 'dt-right': (column.align === 'right')};
+        // A framed card's cell also says what it is on a phone's card: the first is the name
+        cell_classes: function (column, i) {
+            const out = {wraps: (column.wraps === true), 'dt-clip': (column.clip === true), 'dt-right': (column.align === 'right')};
+            if (this.framed) {
+                out[(i === 0) ? 'dt-ph-name' : `dt-ph-${column.phone || 'line'}`] = true;
+            }
+            return out;
         },
         // The columns shown now, for a full-width cell to span them all
         span_of: function (folded) {
             const shown = this.columns_shown.filter(v => (folded.includes(v.key) === false)).length;
-            return (shown + ((this.selected !== undefined) ? 1 : 0) + ((this.has_actions && (folded.includes('actions') === false)) ? 1 : 0));
+            const actions = (this.has_actions && (this.framed === false) && (folded.includes('actions') === false)) ? 1 : 0;
+            return (shown + ((this.selected !== undefined) ? 1 : 0) + actions + (this.row_menu ? 1 : 0));
         },
         tick: function (row, on) {
             const key = this.key_of(row);

@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import app_file_browser_add from './app_file_browser_add.js';
 import app_files_pick from './app_files_pick.js';
 import app_kind_of from './app_kind_of.js';
@@ -5,9 +6,13 @@ import app_php_add from './app_php_add.js';
 import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
 import apps_search from './apps_search.js';
+import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import https_off_note from './https_off_note.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import service_kind from './service_kind.js';
+import state_pill from './state_pill.js';
 import to_clipboard from './to_clipboard.js';
 import wall_select from './wall_select.js';
 import walls_of from './walls_of.js';
@@ -21,6 +26,13 @@ const RE_PHP = /\.php$/i;
 
 // What a cell says of its app's state, in a visitor's words
 const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stopping', failed: 'failed', lost: 'its machine went', stopped: 'asleep'};
+
+// The apps as a table: the name, the address, the state
+const APP_COLUMNS = [
+    {key: 'name', label: 'Name'},
+    {key: 'address', label: 'Address', fold: 1, phone: 'row'},
+    {key: 'state', label: 'State', phone: 'state'},
+];
 
 // The small apps: the ones of files serviceman serves, the ones that run from a folder of their
 // own (bin/run), wherever that is, and the ones whose program listens on a socket file, which
@@ -39,48 +51,57 @@ const apps_pane = {
 <section class="apps-pane">
     <page-head category="apps" :count="apps.length">
         <template #acts>
+            <button type="button" :aria-expanded="String(every_open)" title="The page of every app, the wall in front of them, their ports on the tailnet" @click="every_open = !every_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/></svg>Settings</button>
             <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button>
         </template>
         <template #how>
             <p>Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once; one .php file runs on a machine you pick. An app folder is made with + New service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
         </template>
     </page-head>
-    <div v-if="(page_links.length > 0)" class="app-page">
-        <b>Every app on one page:</b>
-        <span v-for="link of page_links" :key="link.href" class="app-page-link">
-            <a :href="link.href" target="_blank" rel="noopener" :title="('Type it in a browser ' + link.where + ': a cell for every app, each opening it')">{{ link.text }}</a>
-            <span class="muted">{{ link.where }}</span>
-            <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
-        </span>
-    </div>
     <https-off-note v-if="https_off_shown" :https_off="https_off"/>
-    <div class="apps-wall">
-        <label class="apps-wall-label" for="apps-wall-pick">This page and every app:</label>
-        <wall-select id="apps-wall-pick" :model-value="wall" :walls="walls" none="open: each app as its own Settings say" label="The wall in front of this page and every app" :disabled="wall_busy" @update:model-value="change_wall_all" @create="$emit('walls')"/>
-        <span class="muted">{{ ((wall === '') ? 'an app picks its own wall in its Settings' : 'every visitor signs in first, a new app too; a wall an app picks itself stays its own') }}</span>
-    </div>
-    <p v-if="(wall_error !== '')" class="bad apps-wall-says">{{ wall_error }}</p>
-    <div class="apps-wall">
-        <label class="apps-wall-label" for="apps-tailnet-pick">{{ (tailnet_name === null ? 'Each app at its own port:' : 'On the tailnet:') }}</label>
-        <select id="apps-tailnet-pick" :value="(tailnet_on ? 'on' : 'off')" :disabled="tailnet_busy" aria-label="Whether every app has a port of its own on the tailnet" @change="change_tailnet($event.target.value === 'on')">
-            <option value="on">on: each app at a port of its own</option>
-            <option value="off">off: by localhost, through a machine's board</option>
-        </select>
-        <span class="muted">{{ (tailnet_on ? 'every device of the tailnet opens each app by serviceman’s name and its port' : 'no app answers on the tailnet; a machine opens the apps of a board published on it, on Boards') }}</span>
-    </div>
-    <p v-if="(tailnet_error !== '')" class="bad apps-wall-says">{{ tailnet_error }}</p>
-    <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
-        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
-        <b>Drop a .zip, a folder, an .html page or a .php file here</b>
-        <span class="muted">or click to pick one · a zip or a folder has its index.html at the top · a .php file runs on a machine of yours</span>
-    </div>
-    <div class="app-more">
-        <button type="button" @click="socket_adding = true">+ An app on a socket</button>
-        <span class="muted">its program listens on a socket file, in serviceman's {{ state_folder }}/ folder or on a machine of yours; serviceman gives it an address</span>
-    </div>
-    <div class="app-more">
-        <button type="button" @click="browser_adding = true">+ A file browser</button>
-        <span class="muted">serviceman's File Manager over one folder of a machine of yours, opened on it</span>
+    <section v-if="every_open" class="card apps-every">
+        <div class="card-head">
+            <h2>Settings of every app</h2>
+            <button type="button" class="link" @click="every_open = false">Close</button>
+        </div>
+        <div class="card-body">
+            <div v-if="(page_links.length > 0)" class="app-page">
+                <b>Every app on one page:</b>
+                <span v-for="link of page_links" :key="link.href" class="app-page-link">
+                    <a :href="link.href" target="_blank" rel="noopener" :title="('Type it in a browser ' + link.where + ': a cell for every app, each opening it')">{{ link.text }}</a>
+                    <span class="muted">{{ link.where }}</span>
+                    <button type="button" @click="copy(link.href)">{{ (copied === link.href ? 'Copied' : 'Copy') }}</button>
+                </span>
+            </div>
+            <div class="apps-wall">
+                <label class="apps-wall-label" for="apps-wall-pick">This page and every app:</label>
+                <wall-select id="apps-wall-pick" :model-value="wall" :walls="walls" none="open: each app as its own Settings say" label="The wall in front of this page and every app" :disabled="wall_busy" @update:model-value="change_wall_all" @create="$emit('walls')"/>
+                <span class="muted">{{ ((wall === '') ? 'an app picks its own wall in its Settings' : 'every visitor signs in first, a new app too; a wall an app picks itself stays its own') }}</span>
+            </div>
+            <p v-if="(wall_error !== '')" class="bad apps-wall-says">{{ wall_error }}</p>
+            <div class="apps-wall">
+                <label class="apps-wall-label" for="apps-tailnet-pick">{{ (tailnet_name === null ? 'Each app at its own port:' : 'On the tailnet:') }}</label>
+                <select id="apps-tailnet-pick" :value="(tailnet_on ? 'on' : 'off')" :disabled="tailnet_busy" aria-label="Whether every app has a port of its own on the tailnet" @change="change_tailnet($event.target.value === 'on')">
+                    <option value="on">on: each app at a port of its own</option>
+                    <option value="off">off: by localhost, through a machine's board</option>
+                </select>
+                <span class="muted">{{ (tailnet_on ? 'every device of the tailnet opens each app by serviceman’s name and its port' : 'no app answers on the tailnet; a machine opens the apps of a board published on it, on Boards') }}</span>
+            </div>
+            <p v-if="(tailnet_error !== '')" class="bad apps-wall-says">{{ tailnet_error }}</p>
+        </div>
+    </section>
+    <div class="card apps-drop-card">
+        <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
+            <span class="app-drop-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+            <span class="app-drop-text">
+                <b>Drop a .zip, a folder, an .html page or a .php file</b>
+                <span class="muted">or click to pick one; it answers at an address of its own at once</span>
+            </span>
+            <span class="app-drop-ways">
+                <button type="button" :title="socket_way_title" @click.stop="socket_adding = true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></svg>An app on a socket</button>
+                <button type="button" title="serviceman's File Manager over one folder of a machine of yours, opened on it" @click.stop="browser_adding = true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>A file browser</button>
+            </span>
+        </div>
     </div>
     <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
          for a new app when an app's New version asked for it -->
@@ -101,36 +122,64 @@ const apps_pane = {
             </template>
         </template>
     </div>
-    <div v-if="(apps.length > 0)" class="list-tools">
-        <input ref="search" v-model="query" type="search" placeholder="find an app by its name, kind or address; Enter opens it" spellcheck="false" aria-label="Find an app; Enter opens the first" @input="current = 0">
-    </div>
-    <p v-if="((apps.length > 0) && (shown.length === 0))" class="muted">No app has {{ query.trim() }} in its name, kind or address.</p>
-    <ul v-if="(shown.length > 0)" class="app-cells">
-        <li v-for="(app, index) of shown" :key="app.name" :class="{over: (over === app.name), current: ((query.trim() !== '') && (index === current))}" @dragover="dragged_over($event, app)" @dragleave="dragged_off($event, app)" @drop="dropped_on($event, app)">
-            <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
-                <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
-                <b>{{ app.title || app.name }}</b>
-                <span class="muted app-host"><svg v-if="(app.auth !== null)" class="app-lock" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" role="img" :aria-label="('behind ' + app.auth)"><title>{{ ('Behind ' + app.auth + ': every visitor signs in first') }}</title><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>{{ host_of(app) }}</span>
-                <span v-if="(app.socket !== null)" class="muted app-host" :title="socket_place(app)">{{ socket_place(app) }}</span>
-                <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
-            </a>
-            <a v-if="(tailnet_of(app.name) !== '')" class="app-tailnet" :class="{http: (https_off !== null)}" :href="tailnet_of(app.name)" target="_blank" rel="noopener" :title="tailnet_title(app.name)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>tailnet :{{ port_of(app.name).port }}<template v-if="(https_off !== null)"> · http</template></a>
-            <span v-else-if="((port_of(app.name) !== null) && (port_of(app.name).error !== null))" class="app-tailnet bad" :title="('Port ' + port_of(app.name).port + ' does not listen: ' + port_of(app.name).error + '. Tried again every minute.')">tailnet :{{ port_of(app.name).port }} {{ (/EADDRINUSE/.test(port_of(app.name).error) ? 'taken' : 'closed') }}</span>
-            <div class="app-acts">
-                <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
-                <button v-else-if="takes_version(app)" type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
-                <button type="button" :title="('The name, the sign-in, the public address and the data of ' + app.name)" @click="settings = app">Settings</button>
-            </div>
-        </li>
-    </ul>
-    <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
+    <section class="card apps-list">
+        <div v-if="(apps.length > 0)" class="dt-tools">
+            <input ref="search" v-model="query" type="search" placeholder="Find an app; Enter opens it" spellcheck="false" aria-label="Find an app; Enter opens the first" @input="current = 0">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
+            <span class="seg apps-view" role="group" aria-label="How the apps are shown">
+                <button type="button" :class="{on: (view_as === 'cards')}" @click="view_as = 'cards'">Cards</button>
+                <button type="button" :class="{on: (view_as === 'table')}" @click="view_as = 'table'">Table</button>
+            </span>
+        </div>
+        <p v-if="((apps.length > 0) && (shown.length === 0))" class="muted apps-none">No app has {{ query.trim() }} in its name, kind or address.</p>
+        <ul v-if="((shown.length > 0) && (view_as === 'cards'))" class="app-cells">
+            <li v-for="(app, index) of shown" :key="app.name" :class="[{over: (over === app.name), current: ((query.trim() !== '') && (index === current))}, ((app_tone(app) === '') ? '' : ('app-' + app_tone(app)))]" @dragover="dragged_over($event, app)" @dragleave="dragged_off($event, app)" @drop="dropped_on($event, app)">
+                <a class="app-cell" :href="link_of(app)" target="_blank" rel="noopener" :title="((app.title || app.name) + ' · ' + host_of(app))">
+                    <span class="app-tile" :style="{'--hue': hue_of(app.name)}">{{ letter_of(app) }}</span>
+                    <b>{{ app.title || app.name }}</b>
+                    <span class="muted app-host"><svg v-if="(app.auth !== null)" class="app-lock" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" role="img" :aria-label="('behind ' + app.auth)"><title>{{ ('Behind ' + app.auth + ': every visitor signs in first') }}</title><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>{{ host_of(app) }}</span>
+                    <span v-if="(app.socket !== null)" class="muted app-host" :title="socket_place(app)">{{ socket_place(app) }}</span>
+                    <span v-else class="muted"><span class="dot" :class="app.phase"></span>{{ STATE_WORDS[app.phase] || app.phase }}</span>
+                </a>
+                <a v-if="(tailnet_of(app.name) !== '')" class="app-tailnet" :class="{http: (https_off !== null)}" :href="tailnet_of(app.name)" target="_blank" rel="noopener" :title="tailnet_title(app.name)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>tailnet :{{ port_of(app.name).port }}<template v-if="(https_off !== null)"> · http</template></a>
+                <span v-else-if="((port_of(app.name) !== null) && (port_of(app.name).error !== null))" class="app-tailnet bad" :title="('Port ' + port_of(app.name).port + ' does not listen: ' + port_of(app.name).error + '. Tried again every minute.')">tailnet :{{ port_of(app.name).port }} {{ (/EADDRINUSE/.test(port_of(app.name).error) ? 'taken' : 'closed') }}</span>
+                <div class="app-acts">
+                    <button v-if="(app.socket !== null)" type="button" :title="('Copy ' + app.socket_said + ', the file its app listens on')" @click="copy(app.socket_said)">{{ (copied === app.socket_said ? 'Copied' : 'Copy socket') }}</button>
+                    <button v-else-if="takes_version(app)" type="button" :disabled="sending" :title="version_title(app)" @click="pick_for(app.name)">New version…</button>
+                    <button type="button" :title="('The name, the sign-in, the public address and the data of ' + app.name)" @click="settings = app">Settings</button>
+                </div>
+            </li>
+        </ul>
+        <data-table v-if="((shown.length > 0) && (view_as === 'table'))" :columns="APP_COLUMNS" :rows="shown" row_key="name" :row_class="(app => ((app_tone(app) === '') ? [] : ('dt-' + app_tone(app))))">
+            <template #cell="{row, column}">
+                <name-cell v-if="(column.key === 'name')" :icon="kind_icon(row)" :name="(row.title || row.name)" :line="((row.title && (row.title !== row.name)) ? row.name : '')"/>
+                <a v-else-if="(column.key === 'address')" class="dt-address" :href="link_of(row)" target="_blank" rel="noopener">{{ host_of(row) }}</a>
+                <state-pill v-else-if="(column.key === 'state')" :tone="({bad: 'bad', warn: 'busy'}[app_tone(row)] || ((row.phase === 'running') ? 'run' : 'idle'))" :text="(STATE_WORDS[row.phase] || row.phase)"/>
+            </template>
+        </data-table>
+        <div v-if="(apps.length === 0)" class="dt-empty-big">
+            <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="APPS_ICON"/></span>
+            <h3>No apps yet</h3>
+            <p>Drop a page or a folder above, and it answers at an address of its own at once; any service you make shows up here as a card too.</p>
+            <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button>
+        </div>
+        <div v-if="(apps.length > 0)" class="dt-foot">
+            <span class="dt-foot-says">{{ apps.length }} {{ (apps.length === 1) ? 'app' : 'apps' }} · on {{ boards_count }} {{ (boards_count === 1) ? 'board' : 'boards' }}<template v-if="(page_links.length > 0)"> · every app on one page at <a class="dt-address" :href="page_links[0].href" target="_blank" rel="noopener">{{ page_links[0].text }}</a></template></span>
+        </div>
+    </section>
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
     <app-file-browser-add v-if="browser_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="browser_adding = false" @made="browser_made"/>
     <app-php-add v-if="(php_adding !== null)" :file="php_adding.file" :named="php_adding.name" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="php_adding = null" @made="php_made"/>
     <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @new_database="$emit('new_database', $event)" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'page-head': page_head, 'wall-select': wall_select},
+    components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'data-table': data_table, 'https-off-note': https_off_note, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'wall-select': wall_select},
     emits: ['create', 'new_database', 'select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
@@ -146,9 +195,15 @@ const apps_pane = {
         // wall_busy: the list on top is being saved; wall_error: why its last save was refused;
         // tailnet_busy and tailnet_error the same for the switch under it
         // query: the search box's text; current: the cell among those shown that Enter opens
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, php_adding: null, browser_adding: false, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
+        // every_open: the card of every app's settings is open; view_as: cards or table; show:
+        // the chip picked
+        return {every_open: false, view_as: 'cards', show: 'all', APPS_ICON: CATEGORIES.find(v => v.key === 'apps').icon, APP_COLUMNS, dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, php_adding: null, browser_adding: false, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
     },
     computed: {
+        // What An app on a socket does, in its title
+        socket_way_title: function () {
+            return `Its program listens on a socket file, in serviceman's ${this.state_folder}/ folder or on a machine of yours; serviceman gives it an address`;
+        },
         sending: function () {
             return (this.sent !== null) && this.sent.busy;
         },
@@ -173,8 +228,20 @@ const apps_pane = {
             const answer = apps_search(items, this.query);
             return {found: answer.found.map(v => v.app), tops: answer.tops.map(v => v.app)};
         },
+        // What the search box finds, narrowed to the chip picked
         shown: function () {
-            return this.searched.found;
+            return this.searched.found.filter(v => (this.show === 'all') || (this.show_of(v) === this.show));
+        },
+        chips: function () {
+            return [
+                {value: 'all', label: 'All', dot: null, count: this.apps.length},
+                {value: 'running', label: 'Running', dot: 'running', count: this.apps.filter(v => this.show_of(v) === 'running').length},
+                {value: 'asleep', label: 'Asleep', dot: 'stopped', count: this.apps.filter(v => this.show_of(v) === 'asleep').length},
+                {value: 'needs', label: 'Needs you', dot: 'failed', count: this.apps.filter(v => this.show_of(v) === 'needs').length},
+            ];
+        },
+        boards_count: function () {
+            return (this.state.boards === undefined) ? 0 : this.state.boards.length;
         },
         // What an app's own name has after it, beside serviceman's own name in its config, as
         // serviceman names a new app (app_files_hosts): localhost for serviceman.localhost,
@@ -237,6 +304,23 @@ const apps_pane = {
         },
     },
     methods: {
+        // Which chip an app falls under: running, asleep, or needs you when it broke
+        show_of: function (app) {
+            if ((app.phase === 'failed') || (app.phase === 'lost')) {
+                return 'needs';
+            }
+            return (app.phase === 'running') ? 'running' : ((app.phase === 'stopped') ? 'asleep' : '');
+        },
+        // An app's card edged red when it broke, orange while it starts or stops
+        app_tone: function (app) {
+            if (this.show_of(app) === 'needs') {
+                return 'bad';
+            }
+            return ((app.phase === 'starting') || (app.phase === 'stopping')) ? 'warn' : '';
+        },
+        kind_icon: function (app) {
+            return service_kind(app).icon;
+        },
         // A page and an app folder take a new version, a zip or a folder dropped on their card
         takes_version: function (app) {
             return (app.type === 'files') || (app.app_folder !== null);

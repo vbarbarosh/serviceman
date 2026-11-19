@@ -1,4 +1,5 @@
 import CATEGORIES from './categories.js';
+import clock_of from './clock_of.js';
 import format_ms_ago from './format_ms_ago.js';
 import page_head from './page_head.js';
 
@@ -253,12 +254,5 @@ const categories_pane = {
         },
     },
 };
-
-// A time of today as the page's clock says it: 11:02
-function clock_of(ms)
-{
-    const date = new Date(ms);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
 
 export default categories_pane;

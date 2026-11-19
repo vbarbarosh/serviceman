@@ -755,7 +755,7 @@ not mounted yet; <strong>Check</strong>. A first mount the machine refuses leave
 mounted on its row. It
 belongs to the person whose agent runs on the home, by number: uid 1000 there is uid 1000 on
 every machine.</p>
-<p><strong>Mount on a machine…</strong> picks the machine, the path and the mode. serviceman sends the machine
+<p><strong>Mount on a machine…</strong>, behind the <strong>⋯</strong> at the end of a folder&#39;s row, picks the machine, the path and the mode. serviceman sends the machine
 its whole table of mounts, the way it sends the door table. The agent keeps the table, root&#39;s
 alone, and its root half mounts each folder:</p>
 <pre><code>juicefs mount -d --subdir /media [--read-only] redis://100.64.0.20:16379/1 /srv/media
@@ -787,7 +787,7 @@ A machine that is away keeps its row and is mounted the moment its agent dials i
 </tr>
 <tr>
 <td>in use</td>
-<td>A changed mode or folder waits for the processes that hold the path; the line under the row names them and says the mode it still has</td>
+<td>A changed mode or folder waits for the processes that hold the path; the folder&#39;s window names them and says the mode it still has</td>
 </tr>
 <tr>
 <td>not empty</td>
@@ -803,7 +803,7 @@ A machine that is away keeps its row and is mounted the moment its agent dials i
 </tr>
 <tr>
 <td>failed</td>
-<td>juicefs said why, or a part of the path is a link, under the row; the machine tries again every minute</td>
+<td>juicefs said why, or a part of the path is a link, under the folder&#39;s name and in its window; the machine tries again every minute</td>
 </tr>
 </tbody></table>
 </div>

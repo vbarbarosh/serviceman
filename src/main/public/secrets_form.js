@@ -1,4 +1,6 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import secret_name_said from './secret_name_said.js';
 import secret_write from './secret_write.js';
@@ -66,20 +68,19 @@ const secrets_form = {
         </template>
     </page-head>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-    <div class="list-tools">
-        <input v-model.trim="filter" type="search" placeholder="find a secret" aria-label="Find a secret by its name or its service" spellcheck="false">
-        <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
-            {{ chip.label }}
-            <span class="muted">{{ chip.count }}</span>
-        </button>
-    </div>
-    <data-table :columns="columns" :rows="rows" row_key="key" actions_label="" :actions_fold="9" :empty="empty_text">
-        <template #cell="{row, column}">
-            <span v-if="(column.key === 'name')" class="row-of">
-                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
-                <code>{{ row.name }}</code>
+    <data-table :columns="columns" :rows="rows" row_key="key" framed :total="(global.length + services.length)" :foot="foot" :empty_icon="SECRETS_ICON" empty_title="No secrets yet" empty="A secret is written down once into the library and copied into the services given it; a service's own is made on its page.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a secret" aria-label="Find a secret by its name or its service" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
             </span>
-            <span v-else-if="(column.key === 'kept')" :class="{muted: (row.service === null)}">{{ (row.service === null) ? 'the library' : row.service }}</span>
+        </template>
+        <template #empty_act><button type="button" class="primary" :disabled="adding" @click="add_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New secret</button></template>
+        <template #cell="{row, column}">
+            <name-cell v-if="(column.key === 'name')" :icon="SECRETS_ICON" :name="row.name" :line="((row.service === null) ? 'the library' : ('held by ' + row.service))" mono/>
             <span v-else-if="(column.key === 'length')">{{ row.length }} characters</span>
             <span v-else-if="(column.key === 'users')" class="muted">{{ row.users }}</span>
         </template>
@@ -90,10 +91,11 @@ const secrets_form = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'step-frame': step_frame},
     emits: [],
     data: function () {
         return {
+            SECRETS_ICON: CATEGORIES.find(v => v.key === 'secrets').icon,
             global: [],
             services: [],
             name: '',
@@ -142,13 +144,19 @@ const secrets_form = {
                 {value: 'services', label: 'Held by services', count: this.services.length},
             ];
         },
+        // Its name over where it is kept, its length, who has a copy; on a phone the copies a
+        // line of their own
         columns: function () {
             return [
-                {key: 'name', label: 'Name', wraps: true},
-                {key: 'kept', label: 'Kept by', fold: 2},
-                {key: 'length', label: 'Length', fold: 1, align: 'right'},
-                {key: 'users', label: 'Copies', fold: 3, hide: v => (v.users === '')},
+                {key: 'name', label: 'Name'},
+                {key: 'length', label: 'Length', fold: 1, align: 'right', phone: 'hide'},
+                {key: 'users', label: 'Given to', fold: 2, hide: v => (v.users === ''), phone: 'row'},
             ];
+        },
+        // The footer: how many, in the library and held by services
+        foot: function () {
+            const all = this.global.length + this.services.length;
+            return [{text: `${all} ${(all === 1) ? 'secret' : 'secrets'}`, tone: ''}, {text: `${this.global.length} in the library`, tone: ''}, {text: `${this.services.length} held by services`, tone: ''}];
         },
         // The library first, then each service's own, as the chips and the filter leave them
         rows: function () {
@@ -156,9 +164,6 @@ const secrets_form = {
             const library = (this.show === 'services') ? [] : this.global.map(v => ({key: `library ${v.name}`, name: v.name, service: null, length: v.length, users: this.users_text(v.name), question: `Forget ${v.name}? Services holding a copy keep theirs.`}));
             const own = (this.show === 'library') ? [] : this.services.map(v => ({key: `${v.service} ${v.name}`, name: v.name, service: v.service, length: v.length, users: '', question: `Forget it? ${v.service} will not find it any more.`}));
             return library.concat(own).filter(v => (wanted === '') || `${v.name} ${v.service || ''}`.toLowerCase().includes(wanted));
-        },
-        empty_text: function () {
-            return ((this.global.length + this.services.length) === 0) ? 'None yet: + New secret writes one into the library; a service\'s page makes one of its own.' : 'Nothing matches.';
         },
     },
     methods: {

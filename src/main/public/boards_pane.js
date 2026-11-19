@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
 
@@ -38,7 +39,12 @@ export default {
             <p v-if="(palette.length === 0)" class="muted">{{ (apps.length === 0 ? 'No app yet: one dropped on Apps lands here.' : 'No app has that in its name.') }}</p>
         </aside>
         <div class="boards-list">
-            <p v-if="(boards.length === 0)" class="muted boards-empty">No board yet. + New board makes one; then drag apps onto it and pick the machine it is on.</p>
+            <div v-if="(boards.length === 0)" class="card dt-empty-big">
+                <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="BOARDS_ICON"/></span>
+                <h3>No boards yet</h3>
+                <p>A board is a page of apps you put together: make one, drag apps onto it from Every app, and pick the machine it is published on.</p>
+                <button type="button" class="primary" :disabled="busy" @click="board_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New board</button>
+            </div>
             <article v-for="board of boards" :key="board.name" class="board-card">
                 <div class="board-head">
                     <input v-if="(naming === board.name)" ref="name_box" v-model.trim="name_typed" class="board-name-box" spellcheck="false" aria-label="The board's name under .localhost" @keyup.enter="rename_end(board)" @keyup.esc="naming = null" @blur="rename_end(board)">
@@ -73,7 +79,7 @@ export default {
         state: {type: Object, required: true},
     },
     data: function () {
-        return {boards: copy_of(this.state.boards), busy: false, note: '', bad: false, query: '', pressed: null, dragged: null, ghost: {x: 0, y: 0}, over: null, naming: null, name_typed: ''};
+        return {BOARDS_ICON: CATEGORIES.find(v => v.key === 'boards').icon, boards: copy_of(this.state.boards), busy: false, note: '', bad: false, query: '', pressed: null, dragged: null, ghost: {x: 0, y: 0}, over: null, naming: null, name_typed: ''};
     },
     computed: {
         apps: function () {

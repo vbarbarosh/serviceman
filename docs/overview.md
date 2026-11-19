@@ -127,9 +127,12 @@ service, its state, its addresses, its policy and its instances, and it does the
   named after the service and kept running on the machine as its other terminals are. A docker
   service's are inside its running container, `docker exec` in a pane, one container at a time.
   `control.shell: false` takes the shells away.
-- **The front page** — every service, one row each, under the machine it runs on: its
-  address, kind and state. A filter and the state chips narrow it; the name in the header
-  brings it back. **Addresses** lists every name that reaches a service, with who opens it and
+- **The front page** — every service, one row each: its name over its title, or over what is
+  wrong in red, its kind, its machine, its address and its state. A filter and the state chips
+  narrow it; the name in the header brings it back.
+- **Every list** — a table in a card: the find box and the chips on top, a row for each thing
+  with a red or orange edge when it needs you, **⋯** at its end for what can be done to it, the
+  counts at its foot, fifty rows and **Show 50 more**. On a phone each row is a card. **Addresses** lists every name that reaches a service, with who opens it and
   whether it does.
 - **The head** — under the crumbs, every category's page opens with its icon, its name and
   count, one line of what it is, and its buttons on the right, the main one last. **How it

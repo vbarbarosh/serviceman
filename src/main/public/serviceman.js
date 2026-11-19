@@ -2105,7 +2105,7 @@ const app = {
         <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
-        <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
+        <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @create="create" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>

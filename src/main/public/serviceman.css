@@ -817,6 +817,506 @@ button:disabled:hover {
     margin: 0;
 }
 
+/* The kit's table card (data_table framed): the find box and the chips in its top, a band of
+   headers, 58 px rows with a line between, a red or orange edge for a row in trouble, a ⋯ that
+   opens a row, a footer of counts; with nothing at all, what would be here and how to begin */
+.data-table-room.dt-card {
+    overflow: hidden;
+    margin: 0;
+}
+
+.dt-card > .fold-room {
+    margin: 0;
+}
+
+.dt-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.dt-tools > input[type=search] {
+    width: 300px;
+    height: 36px;
+    padding: 0 12px 0 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--code) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8c80' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E") 11px 50% / 15px no-repeat;
+    color: var(--fg);
+    font: inherit;
+}
+
+.dt-tools > input[type=search]:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+/* The chips joined in one row, the picked one lit above its neighbours' edges */
+.dt-chips {
+    display: flex;
+}
+
+.dt-chips > button.chip {
+    gap: 7px;
+    height: 36px;
+    margin-left: -1px;
+    padding: 0 13px;
+    border-radius: 0;
+    background: var(--panel-2);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.dt-chips > button.chip:first-child {
+    margin-left: 0;
+    border-radius: 4px 0 0 4px;
+}
+
+.dt-chips > button.chip:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.dt-chips > button.chip:only-child {
+    border-radius: 4px;
+}
+
+.dt-chips > button.chip.on {
+    position: relative;
+    z-index: 1;
+    background: var(--sel);
+}
+
+.dt-chips > button.chip .muted {
+    font-weight: 500;
+}
+
+.dt-chips > button.chip.on .muted {
+    color: var(--link);
+}
+
+.fold-room > table.dt-framed > thead > tr > th {
+    height: 40px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.fold-room > table.dt-framed > tbody > tr > td {
+    height: 58px;
+    padding: 0 14px;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+    vertical-align: middle;
+}
+
+.fold-room > table.dt-framed > tbody > tr:first-child > td {
+    border-top: 0;
+}
+
+.fold-room > table.dt-framed > tbody > tr.foldable:hover {
+    background: var(--hover);
+}
+
+.fold-room > table.dt-framed > tbody > tr.dt-bad > td:first-child {
+    box-shadow: inset 3px 0 0 var(--bad);
+}
+
+.fold-room > table.dt-framed > tbody > tr.dt-warn > td:first-child {
+    box-shadow: inset 3px 0 0 var(--busy);
+}
+
+.fold-room > table.dt-framed > * > tr > .dt-menu-cell {
+    width: 44px;
+    padding: 0 8px;
+    text-align: right;
+}
+
+button.dt-menu {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+}
+
+button.dt-menu:hover,
+button.dt-menu[aria-expanded="true"] {
+    background: var(--hover);
+    color: var(--fg);
+}
+
+.dt-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    min-height: 46px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+.dt-foot-says .bad {
+    color: var(--bad);
+}
+
+.dt-foot-says .warn {
+    color: var(--busy-text);
+}
+
+.dt-foot-more {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dt-foot-more > button {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+}
+
+.dt-card > .data-table-empty {
+    padding: 18px 14px;
+}
+
+.dt-empty-big {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 46px 20px 50px;
+    text-align: center;
+}
+
+.dt-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 6px;
+    border: 1px solid var(--accent-edge);
+    border-radius: 50%;
+    background: var(--sel);
+    color: var(--link);
+}
+
+.dt-empty-big h3 {
+    margin: 0;
+    font-size: 19px;
+}
+
+.dt-empty-big p {
+    max-width: 520px;
+    margin: 0 0 8px;
+    color: var(--muted);
+}
+
+.dt-empty-big > button {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    height: 42px;
+    padding: 0 20px;
+    font-size: 15.5px;
+    font-weight: 600;
+}
+
+/* A row's name: its icon in a tile, the name, and a line under it, red or orange for trouble */
+.dt-name {
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    min-width: 0;
+}
+
+.dt-name-tile {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--link);
+}
+
+.dt-name-tile.run {
+    color: var(--run);
+}
+
+.dt-name-tile.bad {
+    border-color: var(--bad-edge);
+    background: var(--bad-soft);
+    color: var(--bad);
+}
+
+.dt-name-tile.warn {
+    color: var(--busy-text);
+}
+
+/* What stands in front of a row's name: the wall's name with a lock, orange */
+.tag.walled {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    border: 1px solid var(--busy-edge);
+    background: var(--busy-soft);
+    color: var(--busy-text);
+}
+
+.dt-name-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.dt-name-main,
+.dt-name-line {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dt-name-main {
+    color: var(--fg);
+    font-size: 15.5px;
+    font-weight: 650;
+}
+
+.dt-name-main.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14.5px;
+    font-weight: 400;
+}
+
+.dt-name-line {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.dt-name-line.bad {
+    color: var(--bad);
+}
+
+.dt-name-line.warn {
+    color: var(--busy-text);
+}
+
+/* A state: a pill, soft, edged, with its dot; asleep an empty ring */
+.st-pill {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.st-pill > i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.st-pill.run {
+    border-color: var(--run-edge);
+    background: var(--run-soft);
+    color: var(--run);
+}
+
+.st-pill.idle {
+    border-color: var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+}
+
+.st-pill.idle > i {
+    border: 1.5px solid currentColor;
+    background: transparent;
+}
+
+.st-pill.bad {
+    border-color: var(--bad-edge);
+    background: var(--bad-soft);
+    color: var(--bad);
+}
+
+.st-pill.busy {
+    border-color: var(--busy-edge);
+    background: var(--busy-soft);
+    color: var(--busy-text);
+}
+
+.st-pill.acc {
+    border-color: var(--accent-edge);
+    background: var(--sel);
+    color: var(--link);
+}
+
+/* An address in a row: mono, in the colour of a link, not underlined until pointed at */
+a.dt-address {
+    color: var(--link);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+    text-decoration: none;
+}
+
+a.dt-address:hover {
+    text-decoration: underline;
+}
+
+/* A cell's own label, for the phone's card alone: Memory, Disk */
+.dt-ph-label {
+    display: none;
+}
+
+/* What is wrong with a machine, whole, in its row's window */
+.machine-note {
+    margin: 0 0 .3rem;
+}
+
+/* On a phone each row is a card: its name and line, the state top right, then the rest on a
+   line, joined by ' · ', and what has a line of its own under it */
+@media (max-width: 600px) {
+    .dt-ph-label {
+        display: inline-block;
+        width: 64px;
+        color: var(--muted);
+    }
+
+    .dt-tools > input[type=search] {
+        width: 100%;
+    }
+
+    .dt-chips {
+        overflow: hidden;
+        width: 100%;
+        mask-image: linear-gradient(90deg, #000 85%, transparent);
+    }
+
+    .dt-chips > button.chip {
+        height: 34px;
+        padding: 0 11px;
+        font-size: 13.5px;
+    }
+
+    .fold-room > table.dt-framed,
+    .fold-room > table.dt-framed > tbody,
+    .fold-room > table.dt-framed > tbody > tr,
+    .fold-room > table.dt-framed > tbody > tr > td {
+        display: block;
+        width: 100%;
+    }
+
+    .fold-room > table.dt-framed > thead {
+        display: none;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr {
+        position: relative;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .fold-room > table.dt-framed > tbody > tr:first-child {
+        border-top: 0;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td {
+        height: auto;
+        padding: 0;
+        border: 0;
+        white-space: normal;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr.dt-bad {
+        box-shadow: inset 3px 0 0 var(--bad);
+    }
+
+    .fold-room > table.dt-framed > tbody > tr.dt-warn {
+        box-shadow: inset 3px 0 0 var(--busy);
+    }
+
+    .fold-room > table.dt-framed > tbody > tr:is(.dt-bad, .dt-warn) > td:first-child {
+        box-shadow: none;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-name {
+        margin-bottom: 6px;
+        padding-right: 110px;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-state {
+        position: absolute;
+        top: 14px;
+        right: 12px;
+        width: auto;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-line {
+        display: inline;
+        color: var(--muted);
+        font-size: 13.5px;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-line + td.dt-ph-line::before {
+        content: ' · ';
+    }
+
+    /* A cell with nothing to say takes no place on the card, nor a ' · ' before it */
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-line:empty {
+        display: none;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-line > .row-of {
+        display: inline-flex;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-row {
+        margin-top: 3px;
+        font-size: 13.5px;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-hide,
+    .fold-room > table.dt-framed > tbody > tr > td.dt-menu-cell {
+        display: none;
+    }
+
+    .fold-room > table.dt-framed .st-pill {
+        height: 24px;
+        padding: 0 8px;
+        font-size: 12.5px;
+    }
+
+    .dt-name-main,
+    .dt-name-line {
+        max-width: 210px;
+    }
+}
+
 /* A name that may wrap is measured on one line up to 30rem: a name of a usual length folds a
    lesser column rather than wrap (UI-21); only an absurd one wraps rather than fold the rest of
    its row away */
@@ -1850,6 +2350,16 @@ pre {
 .tk-row > span {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+/* The owner's notice on Tokens: a small note card, Sign out at its end */
+.tk-owner {
+    margin: 0;
+    padding: 10px 14px;
+}
+
+.tk-owner > button {
+    margin-left: auto;
 }
 
 .tk-made {
@@ -3325,69 +3835,6 @@ button.tag:hover {
     background: color-mix(in srgb, var(--bad) 10%, transparent);
 }
 
-/* Addresses: who opens a name, its mark coloured by the check, what was measured under it. What
-   was measured wraps in the room the column has and widens nothing, in the measure too: the
-   column keeps a width of its own for it, and the rest of the row keeps its columns */
-.way {
-    display: flex;
-    flex-direction: column;
-    gap: .1rem;
-    min-width: min(14rem, 50vw);
-}
-
-.way-who {
-    white-space: nowrap;
-}
-
-/* The mark beside the address, at every width: it opens, it does not, not told, not checked.
-   A long address wraps beside it, never under it */
-.way-address {
-    display: flex;
-    align-items: baseline;
-}
-
-.way-address > span {
-    min-width: 0;
-}
-
-.way-mark {
-    flex: none;
-    width: 1.1em;
-    text-align: center;
-}
-
-.way-mark.ok {
-    color: var(--run);
-}
-
-.way-mark.bad,
-.way.bad {
-    color: var(--bad);
-}
-
-.way-mark.unsure {
-    color: var(--busy-text);
-}
-
-.way-mark.none,
-.way-mark.checking,
-.way.checking {
-    color: var(--muted);
-}
-
-.way-why {
-    width: 0;
-    min-width: 100%;
-    color: var(--muted);
-    font-size: .9em;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
-.way.bad .way-why {
-    color: var(--bad);
-}
-
 /* A machine's name on the tailnet, beside its own: a long one is cut, whole in its title */
 .tailnet-name {
     min-width: 0;
@@ -3397,40 +3844,10 @@ button.tag:hover {
     color: var(--muted);
 }
 
-.machine-name .tailnet-name,
 .ov-summary .tailnet-name {
     display: inline-block;
     max-width: 100%;
     vertical-align: bottom;
-}
-
-/* Remotes as a table: a row for each machine, what is wrong with it under its row. Its icon
-   hangs left of the name, so a name that wraps never leaves it alone on a line */
-.machine-name {
-    display: block;
-    position: relative;
-    padding-left: 1.5rem;
-}
-
-.machine-name .dt-icon {
-    position: absolute;
-    top: .2em;
-    left: 0;
-}
-
-.machine-name code {
-    display: inline-block;
-    margin-left: .35rem;
-}
-
-.machine-notes {
-    display: flex;
-    flex-direction: column;
-    gap: .35rem;
-}
-
-.machine-notes p {
-    margin: 0;
 }
 
 /* Remotes: updates installed on every machine shown, a row each; a long name or line is cut
@@ -5018,18 +5435,6 @@ article.rf .actions {
     background: none;
 }
 
-.lt-last {
-    display: inline-flex;
-    gap: .5rem;
-    align-items: center;
-    white-space: normal;
-}
-
-/* A test's name breaks only where it must, never short ones mid-word */
-.load-tests td.wraps > b {
-    overflow-wrap: break-word;
-}
-
 /* A run's notes and its log take the width the columns leave them and never widen one */
 .load-tests .lt-room {
     contain: inline-size;
@@ -5251,24 +5656,8 @@ article.rf .actions {
     gap: .3rem;
 }
 
-.shared-folders .sf-folder {
-    margin-top: 1.4rem;
-}
-
-.shared-folders .sf-head {
-    flex-wrap: wrap;
-}
-
-.shared-folders .sf-head h2 {
-    display: flex;
-    gap: .45rem;
-    align-items: center;
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
-/* The reason under a row wraps in the row's width and widens no column; a refusal is said in
-   the colour of one, by a class of its own, since a .bad in a table cell stays on one line */
+/* Why a mount is not plain mounted, in the folder's window: it wraps in the window's width; a
+   refusal is said in the colour of one */
 .shared-folders .sf-why {
     contain: inline-size;
     white-space: normal;
@@ -5279,8 +5668,12 @@ article.rf .actions {
     color: var(--bad);
 }
 
-.shared-folders .sf-head h2 .sf-icon {
-    flex: none;
+.shared-folders .sf-why {
+    margin: .3rem 0 0;
+}
+
+.shared-folders .sf-mount-acts {
+    margin-top: .3rem;
 }
 
 /* Databases: one table of every database; a database's page, its Remove asking in a card */
@@ -5774,25 +6167,128 @@ article.rf .actions {
     box-decoration-break: clone;
 }
 
-/* Apps: a card to drop an app's zip or folder on, what came of it, and the apps as cells */
+/* Apps: a card to drop an app's zip or folder on, its two other ways on its right, what came of
+   it, and the apps as cards in a card of their own */
+/* One column, as wide as the page and never wider, whatever a card's content would want */
+section.apps-pane {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.apps-pane > section.card {
+    display: block;
+    min-width: 0;
+}
+
+.apps-pane .apps-drop-card,
+.apps-pane .apps-every {
+    margin-bottom: 18px;
+}
+
 .apps-pane .app-drop {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 18px;
     align-items: center;
-    gap: .35rem;
-    margin: 1rem 0;
-    padding: 1.6rem 1rem;
+    margin: 16px;
+    padding: 22px 24px;
     border: 2px dashed var(--line-strong);
     border-radius: 6px;
-    background: var(--panel);
+    background: var(--panel-2);
     color: var(--muted);
-    text-align: center;
     cursor: pointer;
     transition: border-color .12s ease, background .12s ease;
 }
 
+.apps-pane .app-drop-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: 1px solid var(--accent-edge);
+    border-radius: 6px;
+    background: var(--sel);
+    color: var(--link);
+}
+
+.apps-pane .app-drop-text {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
 .apps-pane .app-drop b {
     color: var(--fg);
+    font-size: 16.5px;
+}
+
+.apps-pane .app-drop-ways {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.apps-pane .app-drop-ways > button {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    height: 36px;
+    font-weight: 600;
+}
+
+.apps-pane .apps-view {
+    margin-left: auto;
+}
+
+.apps-pane .apps-none {
+    margin: 0;
+    padding: 18px 14px;
+}
+
+.apps-pane .apps-list > .data-table-room {
+    margin: 0;
+}
+
+/* On a phone the cards are one a row, the tile on their left, as drawn */
+@media (max-width: 600px) {
+    section.apps-pane .app-drop {
+        margin: 10px;
+        padding: 16px;
+    }
+
+    section.apps-pane .app-drop-ways {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    section.apps-pane .app-drop-ways > button {
+        flex: 1;
+        font-size: 13px;
+    }
+
+    section.apps-pane .app-cells {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        padding: 10px;
+    }
+
+    section.apps-pane .app-cell {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        column-gap: 12px;
+    }
+
+    section.apps-pane .app-cell > .app-tile {
+        grid-row: span 3;
+        align-self: center;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+        font-size: 19px;
+    }
 }
 
 .apps-pane .app-drop:hover,
@@ -5842,10 +6338,10 @@ article.rf .actions {
 
 .apps-pane .app-cells {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-    gap: .9rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+    gap: 12px;
     margin: 0;
-    padding: 0;
+    padding: 16px;
     list-style: none;
 }
 
@@ -5857,8 +6353,18 @@ article.rf .actions {
     min-width: 0;
     border: 1px solid var(--line);
     border-radius: 6px;
-    background: var(--panel);
+    background: var(--panel-2);
     transition: border-color .12s ease, background .12s ease;
+}
+
+/* An app that broke is edged red on top, one starting or stopping orange */
+.apps-pane .app-cells > li.app-bad {
+    border-color: var(--bad-edge);
+    box-shadow: inset 0 3px 0 var(--bad);
+}
+
+.apps-pane .app-cells > li.app-warn {
+    box-shadow: inset 0 3px 0 var(--busy);
 }
 
 .apps-pane .app-cells > li:hover {
@@ -5927,11 +6433,6 @@ article.rf .actions {
     color: var(--busy-text);
 }
 
-/* The search box over the cells, clear of the outline the current cell gets */
-.apps-pane .list-tools {
-    margin-bottom: .9rem;
-}
-
 /* The cell Enter opens, as navplace marks its current link */
 .apps-pane .app-cells > li.current {
     outline: 3px solid var(--accent);
@@ -5973,13 +6474,15 @@ article.rf .actions {
 .apps-pane .app-tile {
     display: grid;
     place-items: center;
-    height: 5rem;
-    margin-bottom: .45rem;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 4px;
     border-radius: 6px;
-    background: hsl(var(--hue) 40% 36%);
+    background: linear-gradient(145deg, hsl(var(--hue) 55% 48%), hsl(var(--hue) 45% 32%));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25);
     color: #fff;
-    font-size: 1.9rem;
-    font-weight: 700;
+    font-size: 21px;
+    font-weight: 800;
 }
 
 .apps-pane .app-cell b,
@@ -5987,6 +6490,12 @@ article.rf .actions {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.apps-pane .app-cell .app-host {
+    color: var(--link);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
 }
 
 .apps-pane .app-cell .dot {
@@ -6124,15 +6633,7 @@ article.rf .actions {
     margin: .25rem 0 0 1.6rem;
 }
 
-/* An app on a socket is added from a line under the drop card, and the card says the file */
-.apps-pane .app-more {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: .4rem .75rem;
-    margin: -.4rem 0 1rem;
-}
-
+/* What came of an app on a socket says the file it listens on */
 .apps-pane .app-sent-socket {
     overflow-wrap: anywhere;
 }
@@ -6542,7 +7043,7 @@ article.rf .actions {
     top: 1rem;
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
-    padding: .8rem;
+    padding: 0 12px 12px;
     border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--panel);
@@ -6555,14 +7056,22 @@ article.rf .actions {
     background: var(--hover);
 }
 
+/* The palette's title in a band of its own, as every card's in the kit */
 .boards-pane .boards-palette h2 {
-    margin: 0 0 .6rem;
-    font-size: 1rem;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-height: 50px;
+    margin: 0 -12px 12px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    font-size: 16px;
 }
 
 .boards-pane .boards-palette input {
     width: 100%;
-    margin-bottom: .7rem;
+    margin-bottom: 12px;
 }
 
 .boards-pane .board-cells {
@@ -6574,8 +7083,26 @@ article.rf .actions {
     list-style: none;
 }
 
+/* In the palette an app is a small chip: its letter in a tile, its name beside it */
 .boards-pane .palette-cells {
-    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 8px;
+}
+
+.boards-pane .palette-cells > .board-cell {
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    padding: 8px;
+    background: var(--panel-2);
+}
+
+.boards-pane .palette-cells .board-tile {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 
 .boards-pane .board-cell {

@@ -65,21 +65,8 @@ const fold_table = {
             for (const cell of spreads) {
                 cell.colSpan = 1 + cell.dataset.spread.split(' ').length;
             }
-            table.classList.add('fold-measure');
-            let width = table.offsetWidth;
-            const widths = {};
-            for (const cell of head.querySelectorAll('[data-fold]')) {
-                widths[cell.dataset.fold] = ((widths[cell.dataset.fold] || 0) + cell.offsetWidth);
-            }
-            table.classList.remove('fold-measure');
-            const folded = [];
-            for (const name of this.order) {
-                if (width <= room.clientWidth) {
-                    break;
-                }
-                folded.push(name);
-                width -= widths[name] || 0;
-            }
+            // A phone draws each row as a card, a line for each cell: nothing folds there
+            const folded = (getComputedStyle(table).display === 'block') ? [] : this.folds_of(room, table, head);
             for (const cell of cells) {
                 cell.hidden = folded.includes(cell.dataset.fold);
             }
@@ -94,6 +81,25 @@ const fold_table = {
             if (span !== this.span) {
                 this.span = span;
             }
+        },
+        // The columns that must fold for the table to fit its room, the least needed first
+        folds_of: function (room, table, head) {
+            table.classList.add('fold-measure');
+            let width = table.offsetWidth;
+            const widths = {};
+            for (const cell of head.querySelectorAll('[data-fold]')) {
+                widths[cell.dataset.fold] = ((widths[cell.dataset.fold] || 0) + cell.offsetWidth);
+            }
+            table.classList.remove('fold-measure');
+            const out = [];
+            for (const name of this.order) {
+                if (width <= room.clientWidth) {
+                    break;
+                }
+                out.push(name);
+                width -= widths[name] || 0;
+            }
+            return out;
         },
     },
 };

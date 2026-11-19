@@ -1,9 +1,12 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import database_cell from './database_cell.js';
 import database_new from './database_new.js';
 import database_rows from './database_rows.js';
 import database_state from './database_state.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 
 // How often an open pane asks how the servers stand: one coming up says each step within seconds
 const REFRESH_MS = 3000;
@@ -68,17 +71,24 @@ const databases_pane = {
                 <button type="button" class="primary" @click="$emit('place', {page: 'new'})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database</button>
             </template>
         </page-head>
-        <div class="list-tools">
-            <input v-model.trim="filter" type="search" placeholder="find a database" aria-label="Find a database by its name, engine, machine or app" spellcheck="false">
-            <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
-                <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
-                {{ chip.label }}
-                <span class="muted">{{ chip.count }}</span>
-            </button>
-        </div>
         <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-        <data-table :columns="columns" :rows="rows_shown" row_key="key" :on_row="row_open" :marks="false" :empty="((rows.length === 0) ? 'No database yet. + New database brings one up on a machine of yours, empty or filled with a sample, and gives it to your apps.' : 'Nothing matches.')">
-            <template #cell="{row, column}"><table-cell :row="row" :column="column" @select="$emit('select', $event)"/></template>
+        <data-table :columns="columns" :rows="rows_shown" row_key="key" :row_class="(row => (row.bad ? 'dt-bad' : []))" :on_row="row_open" :marks="false" framed :total="rows.length" :foot="foot" :empty_icon="DATABASES_ICON" empty_title="No databases yet" empty="A database server on a machine of yours, empty or with a sample, given to your apps by its URL.">
+            <template #tools>
+                <input v-model.trim="filter" type="search" placeholder="Find a database" aria-label="Find a database by its name, engine, machine or app" spellcheck="false">
+                <span class="dt-chips">
+                    <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                        <span v-if="(chip.dot !== null)" class="dot" :class="chip.dot"/>
+                        {{ chip.label }}
+                        <span class="muted">{{ chip.count }}</span>
+                    </button>
+                </span>
+            </template>
+            <template #empty_act><button type="button" class="primary" @click="$emit('place', {page: 'new'})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database</button></template>
+            <template #cell="{row, column}">
+                <name-cell v-if="(column.key === 'name')" :icon="row.icon" :name="row.name" :line="(row.bad ? row.detail : row.aside)" :tone="(row.bad ? 'bad' : '')"/>
+                <state-pill v-else-if="(column.key === 'state')" :tone="({running: 'run', failed: 'bad', starting: 'busy', stopping: 'busy'}[row.dot] || 'idle')" :text="row.state"/>
+                <table-cell v-else :row="row" :column="column" @select="$emit('select', $event)"/>
+            </template>
         </data-table>
     </template>
 </article>
@@ -86,7 +96,9 @@ const databases_pane = {
     components: {
         'data-table': data_table,
         'database-new': database_new,
+        'name-cell': name_cell,
         'page-head': page_head,
+        'state-pill': state_pill,
         'table-cell': database_cell,
     },
     // place: what is open, null for the table; {page: 'new', restore, given, remote} for New
@@ -98,7 +110,7 @@ const databases_pane = {
     emits: ['changed', 'machine', 'place', 'select', 'service'],
     data: function () {
         // removing: Remove's typed confirmation on a database's page
-        return {DATABASE_ICON: database_rows.DATABASE_ICON, view: null, load_error: '', filter: '', show: 'all', removing: null, busy: false, note: '', bad: false, timer: null};
+        return {DATABASE_ICON: database_rows.DATABASE_ICON, DATABASES_ICON: CATEGORIES.find(v => v.key === 'databases').icon, view: null, load_error: '', filter: '', show: 'all', removing: null, busy: false, note: '', bad: false, timer: null};
     },
     computed: {
         // The page open: a database that is not there any more shows the table
@@ -142,16 +154,28 @@ const databases_pane = {
         databases_count: function () {
             return (this.view === null) ? '' : String(this.rows.filter(v => v.database !== '').length);
         },
+        // The name over what is wrong or what it is, its engine, machine, size, the apps it is
+        // given to, its state; on a phone the engine and the machine share a line, the apps one
+        // of their own
         columns: function () {
             return [
-                {key: 'name', label: 'Name', wraps: true},
+                {key: 'name', label: 'Name'},
                 {key: 'engine', label: 'Engine', fold: 4},
                 {key: 'machine', label: 'Machine', fold: 3},
-                {key: 'size', label: 'Size', align: 'right', fold: 2},
-                {key: 'apps', label: 'Given to', wraps: true, fold: 5},
-                {key: 'state', label: 'State'},
-                {key: 'detail', label: 'Detail', fold: 1, hide: v => (v.detail === '')},
+                {key: 'size', label: 'Size', align: 'right', fold: 2, phone: 'hide'},
+                {key: 'apps', label: 'Given to', wraps: true, fold: 5, phone: 'row'},
+                {key: 'state', label: 'State', phone: 'state'},
             ];
+        },
+        // The footer: how many, how many run, how many need a look
+        foot: function () {
+            const running = this.rows.filter(v => v.dot === 'running').length;
+            const bad = this.rows.filter(v => v.bad).length;
+            const out = [{text: `${this.rows.length} ${(this.rows.length === 1) ? 'database' : 'databases'}`, tone: ''}, {text: `${running} running`, tone: ''}];
+            if (bad > 0) {
+                out.push({text: `${bad} ${(bad === 1) ? 'needs' : 'need'} you`, tone: 'bad'});
+            }
+            return out;
         },
         open_server: function () {
             if ((this.place === null) || (this.place.page !== 'database')) {

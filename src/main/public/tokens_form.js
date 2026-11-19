@@ -1,6 +1,8 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_ms_ago from './format_ms_ago.js';
 import format_token_section from './format_token_section.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import secret_hidden from './secret_hidden.js';
 import step_frame from './step_frame.js';
@@ -123,7 +125,7 @@ const tokens_form = {
             <p>Each one lets an agent or a program do what you give it below with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the secrets, another machine, the config but the forwards its forwards right writes between its machines and the apps of files its apps right sends, or a service but the one its versions right sends a new version to.</p>
         </template>
     </page-head>
-    <p class="muted tk-row">
+    <p class="card muted tk-row tk-owner">
         <span>This page is signed in with the owner's token, which <code>bin/owner-token</code> prints.<template v-if="(owner_token_file !== null)"> Should it leak, delete <code>{{ owner_token_file }}</code> and restart serviceman: a new one is made, and every page signs in again.</template></span>
         <button type="button" @click="sign_out">Sign out</button>
     </p>
@@ -146,15 +148,21 @@ const tokens_form = {
         </div>
     </div>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-    <data-table :columns="columns" :rows="tokens" row_key="id" actions_label="" :actions_fold="9" empty="None yet: + New token makes one, for an agent or a program.">
-        <template #cell="{row, column}">
-            <span v-if="(column.key === 'label')" class="row-of">
-                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/></svg>
-                <b>{{ row.label }}</b>
+    <data-table :columns="columns" :rows="tokens_shown" row_key="id" framed :total="tokens.length" :foot="foot" :empty_icon="TOKENS_ICON" empty_title="No tokens yet" empty="A token lets an agent or a program use this serviceman with the rights you give it, on the machines you name.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a token" aria-label="Find a token by its label or its machines" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
             </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" @click="new_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New token</button></template>
+        <template #cell="{row, column}">
+            <name-cell v-if="(column.key === 'label')" :icon="TOKENS_ICON" :name="row.label" :line="used_text(row)"/>
             <span v-else-if="(column.key === 'machines')">{{ machines_text(row) }}</span>
             <span v-else-if="(column.key === 'rights')" class="muted"><template v-for="(part, index) of sections_of(row)" :key="part.value">{{ (index > 0) ? ' · ' : '' }}{{ part.said }}<template v-if="((part.value === 'files') && (row.folders.length > 0))"> in <code>{{ row.folders.join(', ') }}</code></template><template v-if="((part.value === 'apps') && (row.services.length > 0))">{{ (part.level === 'fine') ? '' : ', versions' }} of <code>{{ row.services.join(', ') }}</code></template><template v-if="((part.value === 'apps') && row.apps_own)">, only the apps it makes<template v-if="(row.apps.length > 0)">: <code>{{ row.apps.join(', ') }}</code></template><template v-else>, none yet</template></template></template></span>
-            <span v-else-if="(column.key === 'used')" class="muted">{{ used_text(row) }}</span>
         </template>
         <template #actions="{row, ask}">
             <button type="button" :disabled="busy" @click="edit_open(row)">Edit…</button>
@@ -165,10 +173,14 @@ const tokens_form = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'step-frame': step_frame},
     emits: [],
     data: function () {
         return {
+            TOKENS_ICON: CATEGORIES.find(v => v.key === 'tokens').icon,
+            // The find box and the chip picked: all, used, unused
+            filter: '',
+            show: 'all',
             tokens: [],
             // The sections a token's rights are given by (token_sections)
             sections: token_sections,
@@ -203,13 +215,37 @@ const tokens_form = {
         };
     },
     computed: {
+        // Its label over when it was last used, its machines, its rights; on a phone the rights
+        // a line of their own
         columns: function () {
             return [
-                {key: 'label', label: 'Label', wraps: true},
+                {key: 'label', label: 'Label'},
                 {key: 'machines', label: 'Machines', fold: 3},
-                {key: 'rights', label: 'Rights', fold: 2, wraps: true},
-                {key: 'used', label: 'Used', fold: 1},
+                {key: 'rights', label: 'Rights', fold: 2, wraps: true, phone: 'row'},
             ];
+        },
+        chips: function () {
+            const used = this.tokens.filter(v => v.used_at !== null).length;
+            return [
+                {value: 'all', label: 'All', count: this.tokens.length},
+                {value: 'used', label: 'Used', count: used},
+                {value: 'unused', label: 'Not used yet', count: this.tokens.length - used},
+            ];
+        },
+        // The tokens the chips and the find box leave
+        tokens_shown: function () {
+            const wanted = this.filter.toLowerCase();
+            return this.tokens.filter(function (item) {
+                if (((this.show === 'used') && (item.used_at === null)) || ((this.show === 'unused') && (item.used_at !== null))) {
+                    return false;
+                }
+                return (wanted === '') || `${item.label} ${this.machines_text(item)}`.toLowerCase().includes(wanted);
+            }, this);
+        },
+        // The footer: how many, and how many were used
+        foot: function () {
+            const used = this.tokens.filter(v => v.used_at !== null).length;
+            return [{text: `${this.tokens.length} ${(this.tokens.length === 1) ? 'token' : 'tokens'}`, tone: ''}, {text: `${used} used`, tone: ''}];
         },
         folders_list: function () {
             return this.folders.split('\n').map(v => v.trim()).filter(v => (v !== ''));

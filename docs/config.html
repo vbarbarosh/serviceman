@@ -2202,7 +2202,7 @@ folder</a>), a program run as <code>bin/run</code> in its folder, here or on a
 machine; a docker image, a program, something already running. <strong>New version…</strong> and a drop on the
 card are for a page and an app folder, the kinds that take one; the own port and the names under
 the apps domain stay theirs and an app on a socket&#39;s.</p>
-<p><strong>+ An app on a socket</strong> under the card adds one whose program listens on a socket file
+<p><strong>An app on a socket</strong>, in the drop card on <strong>Apps</strong>, adds one whose program listens on a socket file
 (<a href="#something-listening-on-a-socket-file">something listening on a socket file</a>): its name, where
 its socket is, serviceman&#39;s own <code>data/</code> folder (chosen as it opens) or a machine, and the file,
 <code>data/sockets/&lt;name&gt;.sock</code> or <code>~/&lt;name&gt;.sock</code> there unless another is typed. It answers at once at
@@ -2301,8 +2301,8 @@ the last word&#39;s, and Enter opens the first app of every word before it too, 
 Inside a word <code>/</code> joins parts that must all hold (<code>app/laptop</code>), <code>^</code> and <code>$</code> hold a part to the
 start or the end of a name, and <code>!</code> turns a part around (<code>app/!laptop</code>). Upper and lower case are
 the same, and Cyrillic letters are found by Latin ones, <code>pochta</code> finding Почта.</p>
-<p><strong>The page and every app behind a wall:</strong> one list on top of <strong>Apps</strong>, <strong>This page and every
-app</strong>, under those addresses, puts the page of apps and every app behind the wall picked, an app
+<p><strong>The page and every app behind a wall:</strong> one list in the card <strong>Settings</strong> opens on <strong>Apps</strong>,
+<strong>This page and every app</strong>, under those addresses, puts the page of apps and every app behind the wall picked, an app
 sent tomorrow too. The page asks it first on each of its names, and <code>/auth/…</code> there is the wall&#39;s
 own, so the sign-in comes up on the name you typed; each app asks it at every address it has, as
 its own pick would (<a href="#behind-a-wall-at-every-address">behind a wall at every address</a>). An app
@@ -2355,7 +2355,7 @@ secure context through a forward on its own loopback, <code>http://notes.localho
 agent joins straight to the app&#39;s port here: nothing goes into the public log of certificates,
 and nothing passes through serviceman (<a href="remotes.html#both-ends-on-one-machine">Both ends on one machine</a>).
 A phone runs no agent, and is left with https.</p>
-<p><strong>Or off the tailnet, by localhost alone.</strong> <strong>On the tailnet</strong> on Apps, set off, gives the apps
+<p><strong>Or off the tailnet, by localhost alone.</strong> <strong>On the tailnet</strong> in Apps&#39; <strong>Settings</strong>, set off, gives the apps
 no port of their own (<code>&quot;apps&quot;: {&quot;ports&quot;: null}</code>; <code>PUT /api/v1/apps</code> with <code>{&quot;tailnet&quot;: false}</code>):
 no device of the tailnet opens one by serviceman&#39;s name, the page of apps is not answered there,
 no certificate is asked of tailscale, so serviceman&#39;s name goes into no public log, Health warns
@@ -2416,7 +2416,7 @@ app folder does:</p>
 }
 </code></pre>
 <h3 id="a-file-browser"><a class="anchor" href="#a-file-browser" aria-hidden="true" tabindex="-1">#</a>A file browser</h3>
-<p><strong>+ A file browser</strong> on <strong>Apps</strong> puts serviceman&#39;s own File Manager on a machine of yours, as an
+<p><strong>A file browser</strong>, in the drop card on <strong>Apps</strong>, puts serviceman&#39;s own File Manager on a machine of yours, as an
 app folder of its own, over one folder there: a folder kept for it, or one of that machine typed
 as a full path, never one of the system&#39;s own. It opens on that folder, which it shows as <code>/</code> and
 never leaves, and is that folder&#39;s first row in its <strong>Data</strong> tab, <code>FILES_DIR</code>. It is a program run

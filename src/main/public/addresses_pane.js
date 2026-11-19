@@ -1,15 +1,19 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
 import https_off_note from './https_off_note.js';
+import name_cell from './name_cell.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 
 // How often the ways are asked again while the page is open: serviceman keeps each lookup as long
 const WAYS_EVERY_MS = 30000;
 
-// The mark of a way's check: works, measured not to, not told by what was measured, nothing to
-// measure
-const CHECK_MARKS = {ok: '✓', bad: '✗', unsure: '?', none: '·'};
+// The mark of a way's check in its row's tile, an icon's inside: works, measured not to, not
+// told by what was measured, nothing to measure, being checked; and the colour of each
+const WAY_ICONS = {ok: '<path d="M5 12l5 5 9-10"/>', bad: '<path d="M6 6l12 12M18 6L6 18"/>', unsure: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V14M12 17.5v.5"/>', none: '<path d="M7 12h10"/>', checking: '<path d="M6 12h.5M12 12h.5M18 12h.5"/>'};
+const WAY_TONES = {ok: 'run', bad: 'bad', unsure: 'warn', none: '', checking: ''};
 
 // Where a name is set, as the link says it
 const SET_IN_WORDS = {settings: 'Settings', apps: 'Apps', config: 'Config', doors: 'Doors'};
@@ -26,67 +30,86 @@ const addresses_pane = {
             <button type="button" @click="$emit('doors')">Doors and door names</button>
         </template>
     </page-head>
-    <div class="list-tools">
-        <input v-model.trim="filter" type="search" placeholder="filter by name or service" spellcheck="false">
-        <button v-if="(place_title !== null)" type="button" class="chip on" title="Show every address again" @click="$emit('only', null)">the door of {{ place_title }} ×</button>
-        <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
-            {{ chip.label }}
-            <span class="muted">{{ chip.count }}</span>
-        </button>
-    </div>
     <https-off-note v-if="https_off_shown" :https_off="state.tailnet.https_off"/>
     <p v-if="(ways_error !== '')" class="bad">Not checked whether each opens: {{ ways_error }}</p>
-    <data-table :columns="columns" :rows="rows" row_key="key" :row_class="v => (v.off ? 'off' : [])" :empty="((rows_all.length === 0) ? 'No addresses yet. A service with a publish.host has one; a door name is added under Doors.' : 'Nothing matches.')">
+    <data-table :columns="columns" :rows="rows" row_key="key" :row_class="row_class" :acts="(row => (row.remote !== null))" framed :total="rows_here.length" :foot="foot" :empty_icon="ADDRESSES_ICON" empty_title="No addresses yet" empty="An address shows up here once a service is published at a name, or a machine's door answers one.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find an address or a service" aria-label="Find an address by its name or its service" spellcheck="false">
+            <span class="dt-chips">
+                <button v-if="(place_title !== null)" type="button" class="chip on" title="Show every address again" @click="$emit('only', null)">the door of {{ place_title }} ×</button>
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.value === 'bad')" class="dot failed"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
         <template #cell="{row, column, more}">
-            <span v-if="(column.key === 'address')" class="way-address">
-                <b class="way-mark" :class="way_class(row)" :title="way_mark_title(row)">{{ way_mark(row) }}</b>
-                <span>
-                    <a v-if="(row.url !== '')" :href="row.url" target="_blank" rel="noopener"><code>{{ row.address }}</code></a>
-                    <code v-else>{{ row.address }}</code>
-                    <span v-if="(row.note !== '')" class="muted"> · {{ row.note }}</span>
-                </span>
+            <span v-if="(column.key === 'address')" :title="way_mark_title(row)">
+                <name-cell :icon="WAY_ICONS[way_class(row)]" :tile="WAY_TONES[way_class(row)]" :name="row.address" :line="line_of(row, more)" :tone="WAY_TONES[way_class(row)]" mono/>
             </span>
             <button v-else-if="(column.key === 'service')" type="button" class="link dt-state" title="The service's page" @click="$emit('select', row.service)"><span class="dot" :class="row.phase"/>{{ row.service_title }}</button>
-            <span v-else-if="(column.key === 'who')" class="way" :class="way_class(row)" :title="way_title(row)">
-                <span class="way-who">{{ way_who(row) }}</span>
-                <span v-if="(way_why(row, more) !== '')" class="way-why">{{ way_why(row, more) }}</span>
-            </span>
-            <button v-else-if="(column.key === 'set_in')" type="button" class="link" :title="set_in_title(row)" @click="set_in_open(row)">{{ set_in_words(row) }} ↗</button>
-            <span v-else-if="(column.key === 'through')" :class="{muted: (row.remote === null)}">{{ row.through }}</span>
-            <span v-else-if="(column.key === 'behind')" :class="{muted: (row.behind === null)}">{{ (row.behind !== null) ? row.behind : (more ? 'nothing — anyone may reach it' : '—') }}</span>
-            <template v-else-if="(column.key === 'on')">
-                <span v-if="(row.remote === null)" class="pill running" :title="((row.kind === 'port') ? 'serviceman listens on the port of each app for as long as the app is in the config' : 'serviceman answers its own addresses for as long as the service is in the config')">on</span>
-                <span v-else class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
-                    <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
-                    <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
-                </span>
+            <span v-else-if="(column.key === 'who')" :title="way_title(row)">{{ way_who(row) }}</span>
+            <button v-else-if="(column.key === 'set_in')" type="button" class="link" :title="set_in_title(row)" @click="set_in_open(row)">{{ set_in_words(row) }}</button>
+            <code v-else-if="(column.key === 'through')" :class="{muted: (row.remote === null)}">{{ row.through }}</code>
+            <template v-else-if="(column.key === 'behind')">
+                <span v-if="(row.behind !== null)" class="tag walled"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>{{ row.behind }}</span>
+                <span v-else class="muted">{{ (more ? 'nothing — anyone may reach it' : '—') }}</span>
             </template>
+            <state-pill v-else-if="(column.key === 'on')" :tone="on_of(row).tone" :text="on_of(row).text"/>
+        </template>
+        <!-- A door's name is answered or set aside, in its window: serviceman's own always are -->
+        <template #actions="{row}">
+            <span class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
+                <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
+                <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
+            </span>
         </template>
     </data-table>
     <p v-if="(note !== '')" class="bad">{{ note }}</p>
 </article>
 `,
-    components: {'data-table': data_table, 'https-off-note': https_off_note, 'page-head': page_head},
+    components: {'data-table': data_table, 'https-off-note': https_off_note, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
     // remote: the one machine whose door names the list is narrowed to, or null for every address
     props: ['state', 'remote'],
-    emits: ['apps', 'config', 'doors', 'only', 'select', 'settings'],
+    emits: ['apps', 'config', 'create', 'doors', 'only', 'select', 'settings'],
     data: function () {
         // ways: each row's way by its key (address_ways), null until serviceman first says;
         // ways_error: why it did not
-        return {filter: '', show: 'all', busy: false, note: '', ways: null, ways_error: '', timer: null};
+        return {filter: '', show: 'all', busy: false, note: '', ways: null, ways_error: '', timer: null, ADDRESSES_ICON: CATEGORIES.find(v => v.key === 'addresses').icon, WAY_ICONS, WAY_TONES};
     },
     computed: {
-        // The table's columns, each that may fold with when: what stands in front first
+        // The table's columns, each that may fold with when: what stands in front first; on a
+        // phone who opens it and where it goes share a line
         columns: function () {
             return [
-                {key: 'address', label: 'Address', wraps: true},
-                {key: 'who', label: 'Who opens it', wraps: true, fold: 5},
+                {key: 'address', label: 'Address'},
+                {key: 'who', label: 'Who opens it', fold: 5},
                 {key: 'service', label: 'Goes to', fold: 4},
-                {key: 'set_in', label: 'Set in', fold: 3},
-                {key: 'through', label: 'Arrives through', fold: 2},
-                {key: 'behind', label: 'Behind', fold: 1},
-                {key: 'on', label: 'On'},
+                {key: 'set_in', label: 'Set in', fold: 3, phone: 'hide'},
+                {key: 'through', label: 'Arrives through', fold: 2, phone: 'hide'},
+                {key: 'behind', label: 'Behind', fold: 1, phone: 'hide'},
+                {key: 'on', label: 'On', phone: 'state'},
             ];
+        },
+        // The footer: how many, behind a wall, not opening, and not told
+        foot: function () {
+            const rows = this.rows_here;
+            const out = [{text: `${rows.length} ${(rows.length === 1) ? 'address' : 'addresses'}`, tone: ''}];
+            const walled = rows.filter(v => v.behind !== null).length;
+            const bad = rows.filter(v => this.check_of(v) === 'bad').length;
+            const unsure = rows.filter(v => this.check_of(v) === 'unsure').length;
+            if (walled > 0) {
+                out.push({text: `${walled} behind a wall`, tone: ''});
+            }
+            if (bad > 0) {
+                out.push({text: `${bad} not opening`, tone: 'bad'});
+            }
+            if (unsure > 0) {
+                out.push({text: `${unsure} not sure`, tone: 'warn'});
+            }
+            return out;
         },
         // Said over the table while an app's own port has a tailnet link that opens over http
         https_off_shown: function () {
@@ -247,12 +270,30 @@ const addresses_pane = {
             }
             return (this.ways_error === '') ? 'checking' : 'none';
         },
-        way_mark: function (row) {
+        // A row not opening is edged red, one not told orange; one set aside is struck through
+        row_class: function (row) {
             const check = this.check_of(row);
-            if (check !== null) {
-                return CHECK_MARKS[check];
+            return [{bad: 'dt-bad', unsure: 'dt-warn'}[check] || []].concat(row.off ? ['off'] : []).flat();
+        },
+        // The line under the address: what was measured where it does not open, else its note
+        line_of: function (row, more) {
+            const why = this.way_why(row, more);
+            return (why === '') ? row.note : why;
+        },
+        // Whether it is answered: on; off where a door's name is set aside; not opening, or not
+        // sure, as its check says
+        on_of: function (row) {
+            if (row.off) {
+                return {tone: 'idle', text: 'off'};
             }
-            return (this.ways_error === '') ? '…' : CHECK_MARKS.none;
+            const check = this.check_of(row);
+            if (check === 'bad') {
+                return {tone: 'bad', text: 'not opening'};
+            }
+            if (check === 'unsure') {
+                return {tone: 'busy', text: 'not sure'};
+            }
+            return {tone: 'run', text: 'on'};
         },
         // What the mark beside an address says: whether it opens, and for whom
         way_mark_title: function (row) {
