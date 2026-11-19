@@ -2520,8 +2520,8 @@ input.sf-big {
     align-self: flex-start;
 }
 
-/* Editing a service: a card left aside while another is open steps back; one changed and not
-   saved yet is marked; the bar at the foot holds what waits for Save, square where it touches */
+/* Editing a service: a card left aside while another is open steps back; the open one is
+   marked while it differs from what is saved, and its Save writes it at once */
 .svc-cards {
     display: contents;
 }
@@ -2579,37 +2579,6 @@ input.sf-big {
     background: var(--busy-soft);
     color: var(--busy-text);
     font-weight: 600;
-}
-
-.svc-undo {
-    color: var(--busy-text);
-}
-
-.svc-bar {
-    position: sticky;
-    bottom: -1rem;
-    z-index: 2;
-    display: flex;
-    flex-wrap: wrap;
-    gap: .6rem;
-    align-items: center;
-    margin-top: .5rem;
-    padding: .8rem 1rem;
-    border-top: 2px solid var(--busy, #ff8400);
-    background: var(--panel);
-}
-
-.svc-bar-says {
-    flex: 1 1 22rem;
-    display: flex;
-    flex-direction: column;
-    gap: .15rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.svc-bar-count {
-    color: var(--busy-text);
 }
 
 /* All categories: a group a block, its tiles side by side, each standing alone, 6 px */

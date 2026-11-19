@@ -119,8 +119,7 @@ service, its state, its addresses, its policy and its instances, and it does the
   — storage, policy, copies — stays on serviceman's defaults until changed on Check.
 - **The service page** — its state on top, then one card per part of it: name, what runs,
   where it runs, addresses, storage and secrets, when it runs, copies. **Edit** on a card
-  opens it; **Keep this** keeps the change, marked, and a bar at the foot lists what waits,
-  with **Undo all** and **Save**, which writes them all at once.
+  opens it, and its **Save** writes that card at once; **Cancel** puts it back.
 - **Start**, **Stop** — by hand, whatever the policy says.
 - **Logs** — a place kept for what the service itself writes. Not implemented yet.
 - **Files**, **Shell** — where the service lives. A program's are its folder on the
