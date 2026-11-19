@@ -9,7 +9,7 @@ const http = require('http');
 // body, for the test to read what went where.
 async function fake_database_engine(socket)
 {
-    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, next: 1};
+    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, fail_build: false, next: 1};
     const server = http.createServer(function (req, res) {
         const chunks = [];
         req.on('data', v => chunks.push(v));
@@ -37,6 +37,14 @@ function route(engine, req, res, body)
     if ((parts[0] === 'images') && (parts[1] === 'create')) {
         engine.images.add(`${url.searchParams.get('fromImage')}:${url.searchParams.get('tag')}`);
         return text(res, 200, '{"status":"Pulling"}\n{"status":"Downloaded"}\n');
+    }
+    // A build says how it went line by line, a failure as its last, with an answer of 200 all the same
+    if (parts[0] === 'build') {
+        if (engine.fail_build) {
+            return text(res, 200, '{"stream":"Step 1/3"}\n{"error":"no space left on device"}\n');
+        }
+        engine.images.add(url.searchParams.get('t'));
+        return text(res, 200, '{"stream":"Step 1/3"}\n{"stream":"Successfully built"}\n');
     }
     if ((parts[0] === 'networks') && (parts[1] === 'create')) {
         engine.networks.add(JSON.parse(body).Name);

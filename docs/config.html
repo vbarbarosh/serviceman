@@ -2360,6 +2360,30 @@ Every device of the tailnet then opens <code>http://notes.apps.example.com:3000/
 port, which the tailnet reaches in its container, and the page of cells at
 <code>http://apps.example.com:3000/</code>; nothing of it is reached from outside the tailnet. <strong>Apps</strong>
 leads with that link once <code>dns</code> is set. A change of <code>dns</code> or <code>address</code> waits for a restart.</p>
+<h3 id="a-php-file"><a class="anchor" href="#a-php-file" aria-hidden="true" tabindex="-1">#</a>A PHP file</h3>
+<p>One <code>.php</code> file dropped on <strong>Apps</strong>, <code>adminer.php</code> say, is an app that runs on a machine of yours:
+a small window asks its name and the machine, one that is online with docker. serviceman puts an
+app folder of its own in the agent&#39;s services folder there, the file and a <code>bin/run</code> that serves
+it with PHP&#39;s own server, every request going to the file, and runs it in <code>serviceman-php:8.4</code>:
+the official <code>php:8.4-cli</code> with the drivers of MySQL and PostgreSQL (<code>mysqli</code>, <code>pdo_mysql</code>,
+<code>pgsql</code>, <code>pdo_pgsql</code>), made on that machine through its docker the first time a PHP app starts
+there, a minute or two. An Adminer&#39;s folder holds its login too: given a database in its Data
+tab, it opens on it (<a href="databases.html#adminer">Adminer</a>). The same through the control door, the
+owner&#39;s alone:</p>
+<pre><code>curl -T adminer.php -H &quot;Authorization: Bearer $TOKEN&quot; --unix-socket data/serviceman.sock &quot;http://localhost/api/v1/apps/adminer/php?remote=laptop&amp;file=adminer.php&quot;
+</code></pre>
+<p>In the config it is a program in that image, an app folder, which takes a new version as every
+app folder does:</p>
+<pre><code class="language-json">{
+    &quot;name&quot;: &quot;adminer&quot;,
+    &quot;type&quot;: &quot;shell&quot;,
+    &quot;remote&quot;: &quot;laptop&quot;,
+    &quot;image&quot;: &quot;serviceman-php:8.4&quot;,
+    &quot;command&quot;: &quot;bin/run&quot;,
+    &quot;cwd&quot;: &quot;/home/user/serviceman-agent/services/adminer&quot;,
+    &quot;publish&quot;: {&quot;host&quot;: &quot;adminer.localhost&quot;, &quot;port&quot;: 8080}
+}
+</code></pre>
 <h3 id="app-boards"><a class="anchor" href="#app-boards" aria-hidden="true" tabindex="-1">#</a>App boards</h3>
 <p>A board is a page of apps put together by hand and published on machines. On each, its agent
 answers it on <code>127.0.0.1</code> and nowhere else: the board at its name under <code>.localhost</code>, each app

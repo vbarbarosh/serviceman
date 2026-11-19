@@ -1,5 +1,6 @@
 import app_files_pick from './app_files_pick.js';
 import app_kind_of from './app_kind_of.js';
+import app_php_add from './app_php_add.js';
 import app_settings from './app_settings.js';
 import app_socket_add from './app_socket_add.js';
 import apps_search from './apps_search.js';
@@ -13,6 +14,8 @@ import zip_entries from './zip_entries.js';
 
 // A page of its own, given as one file: 2.html, notes.htm
 const RE_PAGE = /\.html?$/i;
+// A PHP app, given as one file, run on a machine: adminer.php
+const RE_PHP = /\.php$/i;
 
 // What a cell says of its app's state, in a visitor's words
 const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stopping', failed: 'failed', lost: 'its machine went', stopped: 'asleep'};
@@ -35,7 +38,7 @@ const apps_pane = {
     <div class="list-head">
         <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
     </div>
-    <p class="muted">Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once. An app folder is made with + Add service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
+    <p class="muted">Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once; one .php file runs on a machine you pick. An app folder is made with + Add service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
     <div v-if="(page_links.length > 0)" class="app-page">
         <b>Every app on one page:</b>
         <span v-for="link of page_links" :key="link.href" class="app-page-link">
@@ -62,8 +65,8 @@ const apps_pane = {
     <p v-if="(tailnet_error !== '')" class="bad apps-wall-says">{{ tailnet_error }}</p>
     <div class="app-drop" :class="{over: dragging, busy: sending}" role="button" tabindex="0" @click="pick_for(null)" @keyup.enter="pick_for(null)" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropped">
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M11 5v2M11 9v2M11 13v2"/></svg>
-        <b>Drop a .zip, a folder or an .html page here</b>
-        <span class="muted">or click to pick a .zip or a page · a zip or a folder has its index.html at the top</span>
+        <b>Drop a .zip, a folder, an .html page or a .php file here</b>
+        <span class="muted">or click to pick one · a zip or a folder has its index.html at the top · a .php file runs on a machine of yours</span>
     </div>
     <div class="app-more">
         <button type="button" @click="socket_adding = true">+ An app on a socket</button>
@@ -71,7 +74,7 @@ const apps_pane = {
     </div>
     <!-- Outside the card: a click on it bubbles, and the card's own click would take the pick
          for a new app when an app's New version asked for it -->
-    <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html" hidden @change="picked">
+    <input ref="zip" type="file" accept=".zip,application/zip,.html,.htm,text/html,.php" hidden @change="picked">
     <div v-if="(sent !== null)" class="card app-sent" :class="{bad: (sent.error !== '')}">
         <p v-if="sent.busy" class="muted"><span class="spin"/>{{ sent.name }}: {{ (sent.doing ? sent.doing : 'sending ' + format_bytes(sent.bytes)) }}…</p>
         <p v-else-if="(sent.error !== '')" class="bad">{{ sent.error }}</p>
@@ -112,10 +115,11 @@ const apps_pane = {
     </ul>
     <p v-else class="muted">No app yet: the first one dropped above lands here.</p>
     <app-socket-add v-if="socket_adding" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" :folder="state_folder" @close="socket_adding = false" @made="socket_made"/>
+    <app-php-add v-if="(php_adding !== null)" :file="php_adding.file" :named="php_adding.name" :remotes="state.remotes" :names="state.services.map(v => v.name)" :suffix="suffix" @close="php_adding = null" @made="php_made"/>
     <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
+    components: {'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
     emits: ['select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
@@ -131,7 +135,7 @@ const apps_pane = {
         // wall_busy: the list on top is being saved; wall_error: why its last save was refused;
         // tailnet_busy and tailnet_error the same for the switch under it
         // query: the search box's text; current: the cell among those shown that Enter opens
-        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
+        return {dragging: false, over: null, target: null, sent: null, settings: null, socket_adding: false, php_adding: null, copied: null, wall_busy: false, wall_error: '', tailnet_busy: false, tailnet_error: '', query: '', current: 0, STATE_WORDS};
     },
     computed: {
         sending: function () {
@@ -240,7 +244,7 @@ const apps_pane = {
             if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || (search === undefined) || (search === null)) {
                 return;
             }
-            if ((this.settings !== null) || this.socket_adding) {
+            if ((this.settings !== null) || this.socket_adding || (this.php_adding !== null)) {
                 return;
             }
             const focused = document.activeElement;
@@ -340,6 +344,15 @@ const apps_pane = {
             this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address, socket: said.service.socket_said, remote: said.remote};
             this.$emit('saved');
         },
+        // A new PHP app: the card says where it answers, as for every app
+        php_made: function (said) {
+            const outside = ((said.public === null) || (said.public === undefined)) ? '' : said.public;
+            const port = this.state.listen.port;
+            const tailnet = (this.names_on && (outside !== '')) ? `http://${outside}${(port === 80) ? '' : ':' + port}/` : '';
+            this.php_adding = null;
+            this.sent = {name: said.name, bytes: 0, busy: false, error: '', made: true, link: (tailnet === '') ? said.address : tailnet, other: (tailnet === '') ? outside : said.address};
+            this.$emit('saved');
+        },
         // Its service page, from the settings window's foot
         more: function (name) {
             this.settings = null;
@@ -419,7 +432,7 @@ const apps_pane = {
         pick_for: function (name) {
             const app = this.apps.find(v => v.name === name);
             this.target = name;
-            this.$refs.zip.accept = ((app !== undefined) && (app.app_folder !== null)) ? '.zip,application/zip' : '.zip,application/zip,.html,.htm,text/html';
+            this.$refs.zip.accept = ((app !== undefined) && (app.app_folder !== null)) ? '.zip,application/zip' : '.zip,application/zip,.html,.htm,text/html,.php';
             this.$refs.zip.click();
         },
         picked: async function (event) {
@@ -441,6 +454,11 @@ const apps_pane = {
                 return;
             }
             const folder = (given.folder !== undefined);
+            // A PHP file is an app run on a machine: its window asks which one
+            if ((folder === false) && RE_PHP.test(given.file.name) && ((fixed === null) || (fixed === undefined))) {
+                this.php_adding = {file: given.file, name: name_of(given.file.name.replace(RE_PHP, ''))};
+                return;
+            }
             const page = (folder === false) && RE_PAGE.test(given.file.name);
             const raw = folder ? ((given.folder.length === 0) ? '' : given.folder[0].path.split('/')[0]) : given.file.name.replace(page ? RE_PAGE : /\.zip$/i, '');
             const name = ((fixed === null) || (fixed === undefined)) ? name_of(raw) : fixed;

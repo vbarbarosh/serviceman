@@ -1,5 +1,6 @@
 const database_env = require('./database_env');
 const database_network_join = require('./database_network_join');
+const database_up = require('./database_up');
 const docker_container_name = require('./docker_container_name');
 const docker_inspect = require('./docker_inspect');
 const docker_shell = require('./docker_shell');
@@ -9,6 +10,7 @@ const image_pull = require('./image_pull');
 const log_event = require('./log_event');
 const program_env = require('./program_env');
 const remote_call = require('./remote_call');
+const remote_can = require('./remote_can');
 const service_said = require('./service_said');
 const volume_paths_create = require('./volume_paths_create');
 
@@ -20,10 +22,12 @@ const START_TIMEOUT_MS = 600000;
 // driver, because by then it is an ordinary container of ours.
 async function program_docker_start(app, remote, given, instance, secrets)
 {
-    // The databases it picked, in its env, reached by name on their network, which it joins
+    // The databases it picked, in its env, reached by name on their network: made on it where the
+    // agent can, joined to it once made where the agent is older
     const picked = database_env(app, remote, given, true);
     const joins = (Object.keys(picked).length > 0);
-    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked)}) : given;
+    const made_on = joins && remote_can(remote, 'program_network');
+    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked), network: made_on ? database_up.NETWORK : null}) : given;
     const container = docker_container_name(service, instance.slot);
     const spec = docker_spec_hash(service);
     const found = await docker_inspect(app, remote, container);
@@ -51,7 +55,7 @@ async function program_docker_start(app, remote, given, instance, secrets)
             throw new Error(`docker start failed: ${started.stderr}`);
         }
     }
-    if (joins) {
+    if (joins && (made_on === false)) {
         await database_network_join(app, remote, container);
     }
     const out = await docker_upstream(app, remote, service, instance.slot);
@@ -73,6 +77,7 @@ function create(app, remote, service, instance, container, spec, secrets)
         user: service.user,
         command: service.command,
         env: program_env(service),
+        network: (service.network === undefined) ? null : service.network,
         port: service.port,
         volumes: service.volumes,
         secrets,

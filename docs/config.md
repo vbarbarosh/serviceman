@@ -1516,6 +1516,35 @@ port, which the tailnet reaches in its container, and the page of cells at
 `http://apps.example.com:3000/`; nothing of it is reached from outside the tailnet. **Apps**
 leads with that link once `dns` is set. A change of `dns` or `address` waits for a restart.
 
+### A PHP file
+
+One `.php` file dropped on **Apps**, `adminer.php` say, is an app that runs on a machine of yours:
+a small window asks its name and the machine, one that is online with docker. serviceman puts an
+app folder of its own in the agent's services folder there, the file and a `bin/run` that serves
+it with PHP's own server, every request going to the file, and runs it in `serviceman-php:8.4`:
+the official `php:8.4-cli` with the drivers of MySQL and PostgreSQL (`mysqli`, `pdo_mysql`,
+`pgsql`, `pdo_pgsql`), made on that machine through its docker the first time a PHP app starts
+there, a minute or two. An Adminer's folder holds its login too: given a database in its Data
+tab, it opens on it ([Adminer](databases.md#adminer)). The same through the control door, the
+owner's alone:
+
+    curl -T adminer.php -H "Authorization: Bearer $TOKEN" --unix-socket data/serviceman.sock "http://localhost/api/v1/apps/adminer/php?remote=laptop&file=adminer.php"
+
+In the config it is a program in that image, an app folder, which takes a new version as every
+app folder does:
+
+```json
+{
+    "name": "adminer",
+    "type": "shell",
+    "remote": "laptop",
+    "image": "serviceman-php:8.4",
+    "command": "bin/run",
+    "cwd": "/home/user/serviceman-agent/services/adminer",
+    "publish": {"host": "adminer.localhost", "port": 8080}
+}
+```
+
 ### App boards
 
 A board is a page of apps put together by hand and published on machines. On each, its agent

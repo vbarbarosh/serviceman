@@ -101,6 +101,11 @@ visitor is in `X-Auth-User` and drops any a visitor sends, so the plugin lets in
 wall let in. Without a wall it lets nobody in and says so; a server typed in its form is
 never reached. Its Data tab says which of the two it is.
 
+The single `adminer.php` does the same: dropped on **Apps**, it runs on the machine picked, in
+serviceman's PHP image ([a PHP file](config.md#a-php-file)), and its folder holds the plugin and
+the `adminer-plugins.php` that Adminer loads beside itself. Its container is made on
+`serviceman-databases`, by an agent that can (an older one joins it once it is made).
+
 ## Remove
 
 **Remove…** asks for the server's name typed again, then takes its container and its volume

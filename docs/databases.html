@@ -841,6 +841,10 @@ the container as it starts (<code>src/main/adminer/serviceman_database.php</code
 visitor is in <code>X-Auth-User</code> and drops any a visitor sends, so the plugin lets in only whom the
 wall let in. Without a wall it lets nobody in and says so; a server typed in its form is
 never reached. Its Data tab says which of the two it is.</p>
+<p>The single <code>adminer.php</code> does the same: dropped on <strong>Apps</strong>, it runs on the machine picked, in
+serviceman&#39;s PHP image (<a href="config.html#a-php-file">a PHP file</a>), and its folder holds the plugin and
+the <code>adminer-plugins.php</code> that Adminer loads beside itself. Its container is made on
+<code>serviceman-databases</code>, by an agent that can (an older one joins it once it is made).</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong> asks for the server&#39;s name typed again, then takes its container and its volume
 away, with every database in it. An app that picked one of them stops at its next start, saying

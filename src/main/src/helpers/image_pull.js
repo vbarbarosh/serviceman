@@ -1,6 +1,7 @@
 const docker_shell = require('./docker_shell');
 const format_seconds = require('../../../helpers/format_seconds');
 const log_event = require('./log_event');
+const php_image_make = require('./php_image_make');
 const reason_from_answer = require('../../../helpers/reason_from_answer');
 const service_said = require('./service_said');
 const shell_progress_docker_pull = require('./shell_progress_docker_pull');
@@ -14,6 +15,10 @@ const shell_progress_docker_pull = require('./shell_progress_docker_pull');
 // quiet, because there is no page and no one to tell.
 async function image_pull(app, remote, service, loud)
 {
+    // serviceman's own PHP is made on the machine, there being nowhere to pull it from
+    if (service.image === php_image_make.IMAGE) {
+        return await php_image_make(app, remote, service);
+    }
     const here = await docker_shell(app, remote, ['image', 'inspect', service.image]);
     if (here.ok) {
         return false;

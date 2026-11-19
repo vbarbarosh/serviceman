@@ -8,10 +8,12 @@ const app_apply_config = require('../helpers/app_apply_config');
 const app_domain_names = require('../helpers/app_domain_names');
 const app_files_put = require('../helpers/app_files_put');
 const app_files_rename = require('../helpers/app_files_rename');
+const app_php_put = require('../helpers/app_php_put');
 const app_socket_put = require('../helpers/app_socket_put');
 const app_token_refusal = require('../helpers/app_token_refusal');
 const apt_all_run = require('../helpers/apt_all_run');
 const apt_run = require('../helpers/apt_run');
+const body_bytes_read = require('../body_bytes_read');
 const body_fields = require('../body_fields');
 const body_file_write = require('../body_file_write');
 const canvas_of = require('../helpers/canvas_of');
@@ -131,11 +133,14 @@ const BODY_LIMIT_BYTES = 1024*1024;
 // A zip of an app folder, written to a file while it comes and read from there a file at a
 // time: an app with its models and assets, not a disk image
 const ZIP_LIMIT_BYTES = 64*1024*1024*1024;
+// One PHP file, an app of its own: Adminer is under a megabyte
+const PHP_LIMIT_BYTES = 16*1024*1024;
 
 const RE_ACTION = /^\/api\/v1\/services\/([^/]+)\/(start|stop|restart|update|pull|replace)$/;
 const RE_ZIP = /^\/api\/v1\/services\/([^/]+)\/zip$/;
 const RE_APPS = /^\/api\/v1\/apps\/([^/]+)$/;
 const RE_APP_SOCKET = /^\/api\/v1\/apps\/([^/]+)\/socket$/;
+const RE_APP_PHP = /^\/api\/v1\/apps\/([^/]+)\/php$/;
 const RE_REMOTE = /^\/api\/v1\/remotes\/([^/]+)$/;
 const RE_REMOTE_SCREENSHOT = /^\/api\/v1\/remotes\/([^/]+)\/screenshot$/;
 const RE_REMOTE_LOGS = /^\/api\/v1\/remotes\/([^/]+)\/logs$/;
@@ -677,6 +682,11 @@ async function control_answer(app, req, res)
     const app_socket = RE_APP_SOCKET.exec(url.pathname);
     if (app_socket !== null) {
         await handle_app_socket(app, req, res, route_param(app_socket[1]));
+        return;
+    }
+    const app_php = RE_APP_PHP.exec(url.pathname);
+    if (app_php !== null) {
+        await handle_app_php(app, req, res, url, route_param(app_php[1]));
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -1946,6 +1956,26 @@ async function handle_app_socket(app, req, res, name)
     try {
         const done = await app_socket_put(app, name, await body_fields(req, BODY_LIMIT_BYTES), req.control_token);
         send_json(res, done.made ? 201 : 200, {name, made: done.made, address: done.address, public: done.public, service: view_from_service(done.service)});
+    }
+    catch (error) {
+        log_event(app, 'control_error', {service: name, reason: error.message});
+        send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
+    }
+}
+
+// PUT /api/v1/apps/<name>/php?remote=<machine>&file=<adminer.php>   the file as the body: an
+// app folder of its own on that machine, run in serviceman's PHP image (app_php_put). The owner's
+// alone; the answer says where it answers, as for an app of files.
+async function handle_app_php(app, req, res, url, name)
+{
+    if (req.method !== 'PUT') {
+        send_json(res, 405, {error: 'a PHP app is a PUT of its .php file, ?remote=<machine>&file=<its name>'});
+        return;
+    }
+    try {
+        const bytes = await body_bytes_read(req, PHP_LIMIT_BYTES);
+        const done = await app_php_put(app, name, String(url.searchParams.get('file') || ''), bytes, String(url.searchParams.get('remote') || ''));
+        send_json(res, 201, {name, made: true, address: done.address, public: done.public, service: view_from_service(done.service)});
     }
     catch (error) {
         log_event(app, 'control_error', {service: name, reason: error.message});

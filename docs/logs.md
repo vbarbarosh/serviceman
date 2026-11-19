@@ -571,6 +571,10 @@ list, in a bar under its header and first on its Health page.
 | `config_change`              | What the new config did to the running services.                          |
 | `app_files_put`              | An app of files got a zip: its name, whether it was new, its files and bytes. |
 | `app_files_renamed`          | An app of files took a new name, its folder and its addresses with it.    |
+| `app_php_put`                | A PHP file became an app on a machine: its name, the file, its bytes, the machine, and whether it is Adminer. |
+| `php_image_begin`            | serviceman's PHP image began to be made on a machine, for a PHP app's first start there. |
+| `php_image_end_ok`           | It is made; `ms=` how long it took.                                       |
+| `php_image_end_error`        | Making it failed; `reason=` what docker said, and the start fails with it. |
 | `shell_begin`                | A shell was opened inside a container.                                    |
 | `shell_end_ok`               | It was closed.                                                            |
 | `shell_refused`              | A shell was asked for from somewhere it may not be asked.                 |

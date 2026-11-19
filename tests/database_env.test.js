@@ -6,6 +6,7 @@ const databases_write = require('../src/main/src/helpers/databases_write');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const program_docker_argv = require('../src/helpers/program_docker_argv');
 const test = require('node:test');
 
 const BASE = {listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'laptop', token: 'token-of-the-laptop-0123456789'}]};
@@ -49,6 +50,17 @@ test('a picked database is its own user\'s URL, by name in a container, by port 
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-9', database: 'x', env: 'DATABASE_URL'}]}, true), /no database server is called mysql-9 now/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-3', database: 'x', env: 'DATABASE_URL'}]}, true), /mysql-3 is not up/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-1', database: 'shop', env: 'DATABASE_URL'}]}, true), /mysql-1 has no database shop made by serviceman/);
+});
+
+// A program in an image that picked a database is made on the databases' network, by an agent
+// that can; one that picked none is made as before
+test('a program\'s container is made on the network it is given, and on none unless given', function () {
+    const params = {container: 'serviceman-admin', service: 'admin', spec: 'abc', dir: '/home/user/x', image: 'serviceman-php:8.4', command: 'bin/run', env: {}, port: 8080};
+    const on = program_docker_argv(Object.assign({}, params, {network: 'serviceman-databases'}));
+    assert.strictEqual(on[on.indexOf('--network') + 1], 'serviceman-databases');
+    assert.ok(on.indexOf('--network') < on.indexOf('serviceman-php:8.4'), 'before the image');
+    assert.strictEqual(program_docker_argv(params).includes('--network'), false);
+    assert.strictEqual(program_docker_argv(Object.assign({}, params, {network: null})).includes('--network'), false);
 });
 
 // Only Adminer's own image is given the login; anything else is left as it is, with nothing asked

@@ -44,6 +44,10 @@ function program_docker_argv(params)
     for (const name of Object.keys(((params.env === undefined) || (params.env === null)) ? {} : params.env)) {
         out.push('--env', `${name}=${params.env[name]}`);
     }
+    // The network it is made on: the databases' one, for a program that picked a database there
+    if ((typeof params.network === 'string') && (params.network !== '')) {
+        out.push('--network', params.network);
+    }
     out.push(params.image, '/bin/sh', '-c', params.command);
     return out;
 }

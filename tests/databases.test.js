@@ -1,7 +1,6 @@
 const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
-const config_from_json = require('../src/main/src/helpers/config_from_json');
 const crypto = require('crypto');
 const database_samples = require('../src/main/src/helpers/database_samples');
 const fake_database_engine = require('./fake_database_engine');
@@ -10,6 +9,8 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const php_image_make = require('../src/main/src/helpers/php_image_make');
+const profile_from_db = require('../src/main/src/helpers/profile_from_db');
 const server_start = require('../src/main/src/helpers/server_start');
 const test = require('node:test');
 const timers = require('timers/promises');
@@ -105,6 +106,50 @@ test('a sample that is not the one pinned fails the server, and it can be brough
     assert.strictEqual(JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0].root, root);
 });
 
+// A PHP file dropped on Apps: an app folder on the machine, run in serviceman's PHP image, an
+// Adminer's with its login beside it; the image made once through the machine's docker
+test('a PHP file becomes an app folder on the machine, an Adminer with its login; its image is made once', async function (t) {
+    const world = await world_start(t);
+    const adminer = Buffer.from('<?php\n/** Adminer - Compact database management */namespace\nAdminer;echo 1;\n');
+    const made = await put_php(world, 'admin', 'adminer.php', adminer, 'laptop');
+    assert.strictEqual(made.status, 201, JSON.stringify(made.body));
+    const folder = path.join(world.agent_dir, 'services', 'admin');
+    assert.deepStrictEqual(fs.readdirSync(folder).sort(), ['adminer-plugins.php', 'adminer.php', 'bin', 'serviceman_database.php']);
+    assert.deepStrictEqual(fs.readFileSync(path.join(folder, 'adminer.php')), adminer);
+    assert.match(fs.readFileSync(path.join(folder, 'bin', 'run'), 'utf8'), /exec php -S "0\.0\.0\.0:\$PORT" adminer\.php/);
+    assert.strictEqual(fs.statSync(path.join(folder, 'bin', 'run')).mode & 0o111, 0o111, 'bin/run runs');
+    assert.match(fs.readFileSync(path.join(folder, 'adminer-plugins.php'), 'utf8'), /require __DIR__ \. '\/serviceman_database\.php'/);
+    const entry = JSON.parse(fs.readFileSync(world.config_path, 'utf8')).services.find(v => v.name === 'admin');
+    assert.deepStrictEqual(entry, {name: 'admin', type: 'shell', remote: 'laptop', image: 'serviceman-php:8.4', command: 'bin/run', cwd: folder, publish: {host: 'admin.localhost', port: 8080}});
+
+    const plain = await put_php(world, 'hello', 'hello.php', Buffer.from('<?php echo "hi";\n'), 'laptop');
+    assert.strictEqual(plain.status, 201);
+    assert.deepStrictEqual(fs.readdirSync(path.join(world.agent_dir, 'services', 'hello')).sort(), ['bin', 'hello.php'], 'no login for what is not Adminer');
+
+    assert.strictEqual((await put_php(world, 'admin', 'adminer.php', adminer, 'laptop')).status, 409, 'a name taken');
+    assert.strictEqual((await put_php(world, 'other', 'my file.php', adminer, 'laptop')).status, 400, 'a file name with a space');
+    assert.strictEqual((await put_php(world, 'Other', 'adminer.php', adminer, 'laptop')).status, 400, 'a name in capitals');
+    assert.strictEqual((await put_php(world, 'other', 'adminer.php', adminer, 'phone')).status, 400, 'a machine that is not there');
+
+    const remote = world.app.remote_by_name.laptop;
+    const service = world.app.service_by_name.admin;
+    assert.strictEqual(await php_image_make(world.app, remote, service), true);
+    assert.strictEqual(await php_image_make(world.app, remote, service), false, 'made once');
+    const builds = world.docker.engine.requests.filter(v => v.url.startsWith('/build'));
+    assert.strictEqual(builds.length, 1);
+    assert.match(builds[0].url, /t=serviceman-php%3A8\.4/);
+    assert.ok(builds[0].body.includes('docker-php-ext-install mysqli pdo_mysql pgsql pdo_pgsql'));
+    world.docker.engine.images.clear();
+    world.docker.engine.fail_build = true;
+    await assert.rejects(php_image_make(world.app, remote, service), /could not make serviceman-php:8\.4: no space left on device/);
+});
+
+async function put_php(world, name, file, bytes, remote)
+{
+    const answer = await fetch_host({port: world.control_port, host: '127.0.0.1', path: `/api/v1/apps/${name}/php?remote=${remote}&file=${encodeURIComponent(file)}`, method: 'PUT', headers: {'content-length': String(bytes.length)}, body: bytes});
+    return {status: answer.status, body: JSON.parse(answer.body)};
+}
+
 async function world_start(t)
 {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'databases-'));
@@ -120,15 +165,18 @@ async function world_start(t)
     // The docker command says a version, which is all the agent asks of it here
     const docker = path.join(dir, 'docker');
     fs.writeFileSync(docker, '#!/bin/sh\necho 27.3.1\n', {mode: 0o755});
-    process.env.SERVICEMAN_STATE_DIR = state_dir;
-    const config = config_from_json({
+    // In a file, as serviceman runs: a new app is written into it
+    const config_path = path.join(dir, 'serviceman.json');
+    fs.writeFileSync(config_path, JSON.stringify({
         listen: {host: '127.0.0.1', port: 0},
         control: {host: 'serviceman.localhost', port: 0},
         remotes: [{name: 'laptop', token: TOKEN}],
         services: [],
-    }, dir);
-    const app = app_from_config(config);
-    delete process.env.SERVICEMAN_STATE_DIR;
+    }, null, 4));
+    const app = app_from_config(await profile_from_db(config_path));
+    app.state_dir = state_dir;
+    out.config_path = config_path;
+    out.agent_dir = path.join(dir, 'agent');
     const servers = await server_start(app);
     Object.assign(out, {app, servers, control_port: servers.control.address().port});
     const log = fs.openSync(out.agent_log, 'w');
