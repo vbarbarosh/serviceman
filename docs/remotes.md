@@ -681,8 +681,14 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | A critical CVE, new or with a fix out              | The machine's last Security look against Ubuntu's list: a new one until the bar is closed on it, a fix out until it is in use. [Its vulnerabilities](#its-vulnerabilities). |
 | The apps' own ports without https                  | tailscale's answer to serviceman's last ask for the tailnet's certificate: its reason, what mends it, and a link to Tailscale's DNS page when HTTPS is off for the tailnet ([An app's own port](config.md#an-app-sent-to-serviceman)). Not shown while the Tailscale page has it said there alone. |
 
-Health shows the rest beside them, said but not counted as problems, one table per part with a
-column per check; a click on a row shows every check's detail in a window over the page. Logline's store counts as
+Health opens with four tiles: the machines linked, the services that answer, the machines whose
+lines reach Logline and the forwards that listen, each of how many, with the first that is not.
+**Check now** beside its header looks at once, without waiting for the minute
+(`POST /api/v1/health/check`, the owner's alone). Health shows the rest beside the problems,
+said but not counted as problems: a table card per part, Machines and Services side by side,
+what is wrong first. Machines show their link, agent and room; Services their state and
+answers, five and then the rest on a click. A row's **⋯** shows every check and its detail in a
+window over the page. Logline's store counts as
 working while the machines' lines are taken: its address is theirs to reach, and serviceman may
 not be able to look it up.
 

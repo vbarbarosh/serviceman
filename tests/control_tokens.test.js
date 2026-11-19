@@ -478,3 +478,16 @@ function shell_answer(running, token, asked)
         socket.on('error', () => resolve('closed'));
     });
 }
+
+// Check now, on the Health page: the look of each minute at once, answered once it is done; the
+// owner's alone
+test('Check now looks at once, and is the owner\'s alone', async function (t) {
+    const running = await serviceman_start(t);
+    const before = Date.now();
+    const asked = await call(running, 'POST', '/api/v1/health/check', null, running.owner);
+    assert.strictEqual(asked.status, 200);
+    assert.ok(JSON.parse(asked.body).checked_at >= before, 'looked at now');
+    const made = await token_make(running, {label: 'a reader', remotes: ['vps1'], rights: ['metrics']});
+    const refused = await call(running, 'POST', '/api/v1/health/check', null, made.token);
+    assert.deepStrictEqual([refused.status, JSON.parse(refused.body).error], [403, 'the token "a reader" has no right to this']);
+});

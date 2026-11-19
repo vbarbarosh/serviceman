@@ -7204,50 +7204,148 @@ article.rf .actions {
     }
 }
 
-/* The Health page: what is wrong first, one card each, its red dot, the subject and where it
-   is on one line, why and what mends it below; then a table per kind of thing */
-.health .problem {
-    display: grid;
-    gap: .35rem;
-    margin-bottom: .75rem;
-    padding: .7rem .9rem;
-    border-radius: 0;
+/* The Health page, as drawn: four tiles, then what is wrong as red cards, its icon, what and
+   where, for how long, why in mono and the way to mend it; then a table card per kind, two a row */
+.health-tiles {
+    margin-bottom: 18px;
 }
 
-.health .problem-head {
+.health-tiles .ov-tile b small {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.health-tiles .ov-tile.ov-bad b {
+    color: var(--fg);
+}
+
+.health-tiles .ov-tile.ov-bad small.muted {
+    color: var(--bad);
+}
+
+.card.problem {
     display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: baseline;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    padding: 16px 18px;
+    border-color: var(--bad-edge);
+    border-left: 4px solid var(--bad);
+    background: var(--bad-soft);
+}
+
+.card.problem.problem-warn {
+    border-color: var(--busy-edge);
+    border-left-color: var(--busy);
+    background: var(--busy-soft);
+}
+
+.problem-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--bad);
+}
+
+.problem-warn .problem-icon {
+    color: var(--busy-text);
+}
+
+.problem-body {
+    display: grid;
+    flex: 1;
+    gap: 6px;
     min-width: 0;
 }
 
-.health .problem-subject {
+.problem-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    align-items: center;
+    min-width: 0;
+}
+
+.problem-subject {
     min-width: 0;
     overflow-wrap: anywhere;
 }
 
-.health .problem-since {
+button.st-pill.problem-where {
+    height: auto;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+
+.problem-since {
     margin-left: auto;
+    font-size: 13px;
     white-space: nowrap;
 }
 
-.health .problem-cause,
-.health .problem-fix,
-.health .problem-link {
+.problem-cause {
+    margin: 0;
+    color: var(--muted);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow-wrap: anywhere;
+}
+
+.problem-fix,
+.problem-link {
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-.health-area h2 {
-    margin: 1.2rem 0 .5rem;
-    color: var(--muted);
-    font-size: .8rem;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
+.health-tables {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: start;
+    margin-top: 4px;
 }
 
+.health-tables .dt-name {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    vertical-align: middle;
+}
+
+.health-tables .dt-name small {
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.health-tables .dt-name small.bad {
+    color: var(--bad);
+}
+
+.health-check .warn {
+    color: var(--busy-text);
+}
+
+.health-check .bad {
+    color: var(--bad);
+}
+
+@media (max-width: 900px) {
+    .health-tables {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .card.problem {
+        padding: 14px;
+    }
+
+    .problem-since {
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+}
 
 /* Shared folders: the home's card, then each folder with a row per machine that mounts it */
 .shared-folders .sf-card {

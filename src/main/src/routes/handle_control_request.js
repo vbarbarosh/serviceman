@@ -76,6 +76,7 @@ const os = require('os');
 const package_json = require('../../../../package.json');
 const packages_serve = require('../../../../modules/packages/server/packages_serve');
 const path = require('path');
+const problems_check = require('../helpers/problems_check');
 const problems_of_tailnet_cert = require('../helpers/problems_of_tailnet_cert');
 const processes_serve = require('../../../../modules/processes/server/processes_serve');
 const remote_call = require('../helpers/remote_call');
@@ -406,6 +407,13 @@ async function control_answer(app, req, res)
     }
     if ((url.pathname === '/api/v1/security') && (req.method === 'GET')) {
         send_json(res, 200, security_view(app, app.remotes.map(v => view_from_remote(v, Date.now(), app.config.logline)), Date.now()));
+        return;
+    }
+    if ((url.pathname === '/api/v1/health/check') && (req.method === 'POST')) {
+        // Check now: the look of each minute, at once, answered once it is done; asked while one
+        // runs, the answer is that one's
+        await problems_check(app);
+        send_json(res, 200, {checked_at: app.health_seen.checked_at});
         return;
     }
     if ((url.pathname === '/api/v1/security/check') && (req.method === 'POST')) {
