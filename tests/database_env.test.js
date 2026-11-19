@@ -126,3 +126,23 @@ test('the login goes into Adminer\'s image alone', async function () {
         assert.strictEqual(await adminer_login_put(null, null, image, 'serviceman-x'), false, image);
     }
 });
+
+// A CouchDB is given as its admin, with no database in its URL, and its secret beside it, named
+// after the URL's variable
+test('a picked CouchDB is its admin\'s URL and the secret it trusts a signed user name by', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'database-env-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const app = {state_dir: dir};
+    const root = 'r'.repeat(32);
+    const secret = 's'.repeat(64);
+    databases_write(app, {servers: [
+        {name: 'couch-1', engine: 'couchdb', version: '3', remote: 'laptop', root, secret, users: {admin: {user: 'admin', password: root}}, phase: 'up', port: 41339},
+    ]});
+    const laptop = {name: 'laptop'};
+    const wall = {name: 'authwall', databases: [{server: 'couch-1', database: 'admin', env: 'COUCHDB_URL'}]};
+    assert.deepStrictEqual(database_env(app, laptop, wall, true), {COUCHDB_URL: `http://admin:${root}@serviceman-db-couch-1:5984`, COUCHDB_SECRET: secret});
+    assert.deepStrictEqual(database_env(app, laptop, wall, false), {COUCHDB_URL: `http://admin:${root}@127.0.0.1:41339`, COUCHDB_SECRET: secret});
+    assert.strictEqual(database_env.secret_env('COUCHDB_URL_2'), 'COUCHDB_SECRET_2');
+    assert.strictEqual(database_env.secret_env('STORE'), 'STORE_SECRET');
+    assert.strictEqual(database_env.secret_env('DATABASE_URL'), 'DATABASE_SECRET');
+});

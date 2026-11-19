@@ -1,8 +1,14 @@
 const database_engines = require('./database_engines');
 const databases_read = require('./databases_read');
 
+// A variable's _URL, with the number a second one of its name has
+const RE_URL_ENV = /_URL(_\d+)?$/;
+
 // The variables an app finds the databases it picked in its Data tab in, at every start:
-// {<env>: <url>}, each the database's own user and password. An app in a container reaches the
+// {<env>: <url>}, each the database's own user and password. A CouchDB is given as its admin,
+// with no database in its URL, and the secret it trusts a signed user name by in a variable of
+// its own: COUCHDB_SECRET beside COUCHDB_URL, COUCHDB_SECRET_2 beside COUCHDB_URL_2, and
+// <env>_SECRET beside a name with no _URL (app_data_tab.js says it the same). An app in a container reaches the
 // server by its container's name on the databases' network, which it joins (inside); a program
 // on the machine itself reaches it on 127.0.0.1, at its port there. A database is reached on its
 // own machine: a pick of another machine's, or of one that is not there or not up, stops the
@@ -32,9 +38,21 @@ function database_env(app, remote, service, inside)
         }
         const engine = database_engines.find(v => v.value === server.engine);
         const host = inside ? `serviceman-db-${server.name}:${engine.port}` : `127.0.0.1:${server.port}`;
+        if (server.engine === 'couchdb') {
+            out[row.env] = `${engine.scheme}://${user.user}:${user.password}@${host}`;
+            out[secret_env(row.env)] = server.secret;
+            continue;
+        }
         out[row.env] = `${engine.scheme}://${user.user}:${user.password}@${host}/${row.database}`;
     }
     return out;
 }
+
+function secret_env(env)
+{
+    return RE_URL_ENV.test(env) ? env.replace(RE_URL_ENV, '_SECRET$1') : `${env}_SECRET`;
+}
+
+database_env.secret_env = secret_env;
 
 module.exports = database_env;

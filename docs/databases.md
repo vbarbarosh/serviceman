@@ -114,6 +114,54 @@ serviceman's PHP image ([a PHP file](config.md#a-php-file)), and its folder hold
 the `adminer-plugins.php` that Adminer loads beside itself. Its container is made on
 `serviceman-databases`, by an agent that can (an older one joins it once it is made).
 
+## CouchDB, for a wall's users
+
+**+ CouchDB** brings up CouchDB 3, `docker.io/library/couchdb:3`, the same way: its data in a
+volume at `/opt/couchdb/data`, port 5984 on `127.0.0.1` of its machine and on the databases'
+network, never outside it. It is for a wall that gives each user it signs in a database of their
+own: CouchDB trusts the user name the wall sends in `X-Forwarded-User` when
+`X-Forwarded-User-Token` is that name's HMAC-SHA256 by a secret the two share.
+
+serviceman makes its admin's password and that secret, 64 hex digits, keeps them in
+`data/databases.json` with the other passwords, and before it starts lays `authwall.ini` into
+`/opt/couchdb/etc/local.d` (`src/main/src/helpers/couchdb_ini.js`):
+
+```ini
+[chttpd]
+authentication_handlers = proxy, cookie, default
+
+[chttpd_auth]
+proxy_use_secret = true
+secret = <the secret>
+x_auth_username = X-Forwarded-User
+x_auth_token = X-Forwarded-User-Token
+hash_algorithms = sha256, sha
+
+[couchdb]
+single_node = true
+```
+
+It is one row, **admin**: every database in it, counted with their size, made by the app given
+it, one for each user; **+ Database** is not offered. An app picks it in its Data tab as
+**admin · couch-1** and finds, at every start:
+
+| Variable         | What it holds                                                                    |
+|------------------|----------------------------------------------------------------------------------|
+| `COUCHDB_URL`    | `http://admin:<password>@serviceman-db-couch-1:5984`; on the machine, `127.0.0.1:<port>` |
+| `COUCHDB_SECRET` | the secret, to sign a user name with                                             |
+
+A variable named otherwise has its secret beside it the same way: `STORE_URL` and
+`STORE_SECRET`, `COUCHDB_URL_2` and `COUCHDB_SECRET_2`. From the app's side, alice signed in:
+
+```sh
+T=$(printf alice | openssl dgst -sha256 -hmac "$COUCHDB_SECRET" | sed 's/.* //')
+curl -s -H 'X-Forwarded-User: alice' -H "X-Forwarded-User-Token: $T" http://serviceman-db-couch-1:5984/_session
+```
+
+says `"name":"alice"` in `userCtx`; signed by another secret, `"name":null`. CouchDB 3.5 answers
+a user name sent with no token at all with an error, 500 `badarg`, and lets nobody in either way:
+the wall takes `X-Forwarded-User` out of what a visitor sends before it adds its own.
+
 ## Remove
 
 **Remove…** asks for the server's name typed again, then takes its container and its volume

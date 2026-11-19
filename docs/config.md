@@ -1330,8 +1330,9 @@ Its **Data** tab, beside **Settings**, is what the app is given, a row each, eve
 variable of its env. **+ Database** picks a database of the [Databases](databases.md) page on the
 app's own machine, `DATABASE_URL` unless renamed: it is written into the app's config as
 `databases` and handed to it at every start as its own user's URL, an Adminer opening on it
-logged in ([an app picks one](databases.md#an-app-picks-one)). **+ Folder** is a folder kept for
-it, in the agent's `data/<app>/files` on its machine, or a folder of that machine typed as a full
+logged in ([an app picks one](databases.md#an-app-picks-one)); a CouchDB comes as its admin,
+`COUCHDB_URL` with `COUCHDB_SECRET` beside it ([for a wall's users](databases.md#couchdb-for-a-walls-users)).
+**+ Folder** is a folder kept for it, in the agent's `data/<app>/files` on its machine, or a folder of that machine typed as a full
 path, never one of the system's own, made when it is not there: written into the config as
 `folders`, `FILES_DIR` unless renamed, it is mounted at `/data/files` (`/data/files-2` for a
 second) for an app in a container and its variable says so, and a program on the machine finds

@@ -1,3 +1,4 @@
+const couchdb_ini = require('./couchdb_ini');
 const database_engines = require('./database_engines');
 const database_sample_files = require('./database_sample_files');
 const database_samples = require('./database_samples');
@@ -9,6 +10,7 @@ const databases_write = require('./databases_write');
 const docker_exec_connect = require('./docker_exec_connect');
 const engine_call = require('./engine_call');
 const engine_exec = require('./engine_exec');
+const engine_files_put = require('./engine_files_put');
 const engine_pull = require('./engine_pull');
 const engine_said = require('./engine_said');
 const log_event = require('./log_event');
@@ -26,7 +28,10 @@ const LOG_LINES = 12;
 const READY = {
     mysql: ['mysqladmin', 'ping', '--protocol=TCP', '-h127.0.0.1', '-uroot', '--silent'],
     postgresql: ['pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-q'],
+    couchdb: ['curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:5984/_up'],
 };
+// Where a CouchDB reads the settings serviceman lays in, before it starts
+const COUCHDB_LOCAL = '/opt/couchdb/etc/local.d';
 
 // Brings a database server up on its machine, saying each step in its `said`: the image
 // pulled, the network and the volume made, the container made and started, then filled with
@@ -107,7 +112,7 @@ async function container_made(connect, server, engine, image)
     if (found.status === 404) {
         const made = await engine_call(connect, 'POST', `/containers/create?name=${container}`, {
             Image: image,
-            Env: [`${engine.root_env}=${server.root}`],
+            Env: [`${engine.root_env}=${server.root}`].concat((engine.admin_env === undefined) ? [] : [`${engine.admin_env}=${engine.admin}`]),
             Labels: {'serviceman.database': server.name},
             ExposedPorts: {[`${engine.port}/tcp`]: {}},
             HostConfig: {
@@ -123,6 +128,9 @@ async function container_made(connect, server, engine, image)
     }
     else if (found.status !== 200) {
         throw new Error(engine_said(found));
+    }
+    if (server.engine === 'couchdb') {
+        await engine_files_put(connect, container, COUCHDB_LOCAL, [{name: 'authwall.ini', bytes: Buffer.from(couchdb_ini(server.secret))}]);
     }
     const started = await engine_call(connect, 'POST', `/containers/${container}/start`);
     if ((started.status !== 204) && (started.status !== 304)) {
@@ -142,7 +150,7 @@ async function ready_wait(connect, server, engine)
         if ((inspected.status === 200) && (JSON.parse(inspected.body).State.Running === false)) {
             throw new Error(`it stopped as it came up: ${await log_tail(connect, container)}`);
         }
-        const ping = await engine_exec(connect, container, READY[engine.value], [`${engine.password_env}=${server.root}`]);
+        const ping = await engine_exec(connect, container, READY[engine.value], (engine.password_env === null) ? [] : [`${engine.password_env}=${server.root}`]);
         if (ping.code === 0) {
             return;
         }

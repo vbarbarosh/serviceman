@@ -13,11 +13,16 @@ const KINDS_STARTED = ['app folder', 'docker image', 'program'];
 
 // What every database URL shows of its password: the page never has it
 const DOTS = '•'.repeat(8);
+// A variable's _URL, with the number a second one of its name has; and the names a pick is
+// given until one is typed, by the kind of server it picks
+const RE_URL_ENV = /_URL(_\d+)?$/;
+const RE_ENV_GIVEN = /^(DATABASE|COUCHDB)_URL(_\d+)?$/;
 
 // Each engine as its URL says it and its servers are named: its scheme and its port inside
 const ENGINES = {
     mysql: {label: 'MySQL', scheme: 'mysql', port: 3306},
     postgresql: {label: 'PostgreSQL', scheme: 'postgresql', port: 5432},
+    couchdb: {label: 'CouchDB', scheme: 'http', port: 5984},
 };
 
 // An app's Data tab, in its Settings window: what the app is given, a row each, every row filling
@@ -203,7 +208,7 @@ const app_data_tab = {
         },
         click_database: function () {
             const free = this.pick_free;
-            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), 'DATABASE_URL');
+            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), env_given(free.server));
             this.picks.push({server: free.server.name, database: free.database.name, env});
             this.removed = null;
             this.picks_save();
@@ -236,10 +241,16 @@ const app_data_tab = {
         click_rest: function () {
             this.add({kind: 'rest', keep: 'serviceman', env: 'REST_URL'});
         },
+        // A name it was given and not typed follows the kind of server picked: COUCHDB_URL for
+        // a CouchDB, DATABASE_URL for the others
         change_pick: function (pick, key) {
             const at = key.indexOf('/');
             pick.server = key.slice(0, at);
             pick.database = key.slice(at + 1);
+            const option = this.option_of(pick);
+            if ((option !== null) && RE_ENV_GIVEN.test(pick.env) && (pick.env.startsWith(env_given(option.server).replace(/_URL$/, '')) === false)) {
+                pick.env = app_data_env_free(this.picks.concat(this.folders, this.items).filter(v => v !== pick).map(v => v.env), env_given(option.server));
+            }
             this.picks_save();
         },
         // A variable's name as an env takes it: letters, digits and _, upper case
@@ -351,6 +362,9 @@ const app_data_tab = {
             const engine = engine_of(option.server);
             const user = (option.database.user === null) ? '…' : option.database.user;
             const host = (this.app.runs_in === 'machine') ? `127.0.0.1:${option.server.port}` : `serviceman-db-${option.server.name}:${engine.port}`;
+            if (option.server.engine === 'couchdb') {
+                return `${engine.scheme}://${user}:${DOTS}@${host}`;
+            }
             return `${engine.scheme}://${user}:${DOTS}@${host}/${pick.database}`;
         },
         // Why a pick will not reach the app as it is, or nothing; an Adminer with no wall is one
@@ -382,6 +396,10 @@ const app_data_tab = {
             }
             if (this.adminer && (pick.env === 'DATABASE_URL')) {
                 return (this.app.auth === null) ? 'Adminer opens on it only behind a wall: pick one in Settings' : `Adminer opens on it, logged in, for whoever ${this.app.auth} lets in`;
+            }
+            const option = this.option_of(pick);
+            if ((option !== null) && (option.server.engine === 'couchdb')) {
+                return `its admin, at every start, and ${secret_env(pick.env)}, the secret it trusts a signed user name by`;
             }
             return 'its own user and password, at every start';
         },
@@ -453,6 +471,18 @@ const app_data_tab = {
 function engine_of(server)
 {
     return ENGINES[server.engine] || {label: server.engine, scheme: server.engine, port: ''};
+}
+
+// The name a pick of this server is given: CouchDB's admin URL apart from a database's
+function env_given(server)
+{
+    return (server.engine === 'couchdb') ? 'COUCHDB_URL' : 'DATABASE_URL';
+}
+
+// The variable a CouchDB's secret comes in, beside its URL's (database_env.js says it the same)
+function secret_env(env)
+{
+    return RE_URL_ENV.test(env) ? env.replace(RE_URL_ENV, '_SECRET$1') : `${env}_SECRET`;
 }
 
 // The name the sketch's rows of an app are kept under in this browser

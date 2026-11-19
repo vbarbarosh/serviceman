@@ -121,6 +121,49 @@ test('a PostgreSQL is brought up filled with a sample, and a database made in it
     assert.ok([...engine.execs.values()].every(v => (v.spec.Env.length === 0) || (v.spec.Env[0] === `PGPASSWORD=${kept.root}`)));
 });
 
+// A CouchDB comes up with its admin and the ini that trusts a user name signed by its secret, laid
+// in before it starts; it is one row, its admin, with the app's databases counted; + Database is
+// refused; and neither its password nor its secret is ever said or put on a command line
+test('a CouchDB is brought up with its admin and its secret, as one row an app picks as its admin', async function (t) {
+    const world = await world_start(t);
+    const engine = world.docker.engine;
+    const made = await control(world, 'POST', '/api/v1/databases', {name: 'couch-1', engine: 'couchdb', version: '3', remote: 'laptop'});
+    assert.strictEqual(made.status, 202, JSON.stringify(made.body));
+    // A database the app made for a user it signed in, there before the page first asks
+    await wait_until(() => engine.containers.has('serviceman-db-couch-1'), 10000);
+    const container = engine.containers.get('serviceman-db-couch-1');
+    container.databases.add('userdb-616c696365');
+    const up = await view_until(world, v => (v.servers[0].phase === 'up'));
+    assert.deepStrictEqual(up.servers[0].databases.map(v => `${v.name} ${v.tables} ${v.bytes} ${v.user}`), ['admin 1 16384 admin']);
+    assert.strictEqual(up.engines.find(v => v.value === 'couchdb').samples.length, 0);
+
+    const spec = container.spec;
+    assert.strictEqual(spec.Image, 'docker.io/library/couchdb:3');
+    assert.deepStrictEqual(spec.HostConfig.Binds, ['serviceman-db-couch-1:/opt/couchdb/data']);
+    assert.deepStrictEqual(spec.HostConfig.PortBindings, {'5984/tcp': [{HostIp: '127.0.0.1', HostPort: ''}]});
+    assert.strictEqual(spec.HostConfig.NetworkMode, 'serviceman-databases');
+    const kept = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0];
+    assert.match(kept.secret, /^[0-9a-f]{64}$/);
+    assert.deepStrictEqual(kept.users, {admin: {user: 'admin', password: kept.root}});
+    assert.deepStrictEqual(spec.Env.sort(), [`COUCHDB_PASSWORD=${kept.root}`, 'COUCHDB_USER=admin']);
+    const ini = container.files['/opt/couchdb/etc/local.d/authwall.ini'].toString('utf8');
+    assert.match(ini, /^authentication_handlers = proxy, cookie, default$/m);
+    assert.match(ini, /^proxy_use_secret = true$/m);
+    assert.ok(ini.includes(`\nsecret = ${kept.secret}\n`));
+    assert.match(ini, /^x_auth_username = X-Forwarded-User$/m);
+    assert.match(ini, /^x_auth_token = X-Forwarded-User-Token$/m);
+    assert.match(ini, /^single_node = true$/m);
+
+    const refused = await control(world, 'POST', '/api/v1/databases/couch-1/databases', {name: 'notes'});
+    assert.strictEqual(refused.status, 409);
+    assert.match(refused.body.error, /its databases are made by the app given it, as its admin/);
+
+    const said = JSON.stringify(up) + JSON.stringify(refused.body);
+    assert.strictEqual(said.includes(kept.root) || said.includes(kept.secret), false, 'neither is ever in an answer');
+    const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
+    assert.strictEqual(cmds.includes(kept.root) || cmds.includes(kept.secret), false, 'neither on a command line');
+});
+
 // A sample whose file is not the one pinned is refused, and the server says why; brought up
 // again, it keeps the password its volume was made with
 test('a sample that is not the one pinned fails the server, and it can be brought up again', async function (t) {

@@ -694,7 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
-<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#a-server">A server</a></li><li><a href="#a-database-in-it">A database in it</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
+<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#a-server">A server</a></li><li><a href="#a-database-in-it">A database in it</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -852,6 +852,56 @@ never reached. Its Data tab says which of the two it is.</p>
 serviceman&#39;s PHP image (<a href="config.html#a-php-file">a PHP file</a>), and its folder holds the plugin and
 the <code>adminer-plugins.php</code> that Adminer loads beside itself. Its container is made on
 <code>serviceman-databases</code>, by an agent that can (an older one joins it once it is made).</p>
+<h2 id="couchdb-for-a-walls-users"><a class="anchor" href="#couchdb-for-a-walls-users" aria-hidden="true" tabindex="-1">#</a>CouchDB, for a wall&#39;s users</h2>
+<p><strong>+ CouchDB</strong> brings up CouchDB 3, <code>docker.io/library/couchdb:3</code>, the same way: its data in a
+volume at <code>/opt/couchdb/data</code>, port 5984 on <code>127.0.0.1</code> of its machine and on the databases&#39;
+network, never outside it. It is for a wall that gives each user it signs in a database of their
+own: CouchDB trusts the user name the wall sends in <code>X-Forwarded-User</code> when
+<code>X-Forwarded-User-Token</code> is that name&#39;s HMAC-SHA256 by a secret the two share.</p>
+<p>serviceman makes its admin&#39;s password and that secret, 64 hex digits, keeps them in
+<code>data/databases.json</code> with the other passwords, and before it starts lays <code>authwall.ini</code> into
+<code>/opt/couchdb/etc/local.d</code> (<code>src/main/src/helpers/couchdb_ini.js</code>):</p>
+<pre><code class="language-ini">[chttpd]
+authentication_handlers = proxy, cookie, default
+
+[chttpd_auth]
+proxy_use_secret = true
+secret = &lt;the secret&gt;
+x_auth_username = X-Forwarded-User
+x_auth_token = X-Forwarded-User-Token
+hash_algorithms = sha256, sha
+
+[couchdb]
+single_node = true
+</code></pre>
+<p>It is one row, <strong>admin</strong>: every database in it, counted with their size, made by the app given
+it, one for each user; <strong>+ Database</strong> is not offered. An app picks it in its Data tab as
+<strong>admin · couch-1</strong> and finds, at every start:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>COUCHDB_URL</code></td>
+<td><code>http://admin:&lt;password&gt;@serviceman-db-couch-1:5984</code>; on the machine, <code>127.0.0.1:&lt;port&gt;</code></td>
+</tr>
+<tr>
+<td><code>COUCHDB_SECRET</code></td>
+<td>the secret, to sign a user name with</td>
+</tr>
+</tbody></table>
+</div>
+<p>A variable named otherwise has its secret beside it the same way: <code>STORE_URL</code> and
+<code>STORE_SECRET</code>, <code>COUCHDB_URL_2</code> and <code>COUCHDB_SECRET_2</code>. From the app&#39;s side, alice signed in:</p>
+<pre><code class="language-sh">T=$(printf alice | openssl dgst -sha256 -hmac &quot;$COUCHDB_SECRET&quot; | sed &#39;s/.* //&#39;)
+curl -s -H &#39;X-Forwarded-User: alice&#39; -H &quot;X-Forwarded-User-Token: $T&quot; http://serviceman-db-couch-1:5984/_session
+</code></pre>
+<p>says <code>&quot;name&quot;:&quot;alice&quot;</code> in <code>userCtx</code>; signed by another secret, <code>&quot;name&quot;:null</code>. CouchDB 3.5 answers
+a user name sent with no token at all with an error, 500 <code>badarg</code>, and lets nobody in either way:
+the wall takes <code>X-Forwarded-User</code> out of what a visitor sends before it adds its own.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong> asks for the server&#39;s name typed again, then takes its container and its volume
 away, with every database in it. An app that picked one of them stops at its next start, saying

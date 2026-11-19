@@ -101,8 +101,15 @@ async function server_create(app, req, res)
         return;
     }
     // Tried again where it was, it keeps its root password: its volume holds data made with it
-    const root = ((found !== undefined) && (found.remote === remote.name)) ? found.root : crypto.randomBytes(16).toString('hex');
+    const again = (found !== undefined) && (found.remote === remote.name);
+    const root = again ? found.root : crypto.randomBytes(16).toString('hex');
     const server = {name, engine: engine.value, version, remote: remote.name, sample, root, users: (found === undefined) ? {} : found.users, phase: 'starting', said: 'on its way', error: null, port: null, made: new Date().toISOString()};
+    // A CouchDB is given to an app as its admin, and trusts a user name signed by a secret of
+    // its own, made here and kept with its password
+    if (engine.value === 'couchdb') {
+        server.users = {[engine.admin]: {user: engine.admin, password: root}};
+        server.secret = (again && (typeof found.secret === 'string')) ? found.secret : crypto.randomBytes(32).toString('hex');
+    }
     databases.servers = databases.servers.filter(v => v.name !== name).concat([server]);
     databases_write(app, databases);
     app.database_jobs.add(name);
@@ -124,6 +131,10 @@ async function database_create(app, req, res, name)
     const server = databases_read(app).servers.find(v => v.name === name);
     if (server === undefined) {
         send_json(res, 404, {error: `no database server called ${JSON.stringify(name)}`});
+        return;
+    }
+    if (server.engine === 'couchdb') {
+        send_json(res, 409, {error: `${name} is a CouchDB: its databases are made by the app given it, as its admin, one for each user it signs in`});
         return;
     }
     const remote = app.remote_by_name[server.remote];

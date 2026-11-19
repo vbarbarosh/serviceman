@@ -27,7 +27,7 @@ const databases_pane = {
             <button v-for="engine of engines" :key="engine.value" type="button" class="primary" :disabled="(form !== null)" @click="form_begin(engine)">+ {{ engine.label }}</button>
         </div>
     </div>
-    <p class="muted">A database server on one of your machines, always up, its data kept there. An app picks one of its databases in its Data tab, on Apps, and finds it in <code>DATABASE_URL</code> at every start; the passwords stay with serviceman.</p>
+    <p class="muted">A database server on one of your machines, always up, its data kept there. An app picks one of its databases in its Data tab, on Apps, and finds it in <code>DATABASE_URL</code> at every start; the passwords stay with serviceman. A CouchDB is picked as its admin, with the secret it trusts a signed user name by, for a wall that gives each user a database of their own.</p>
     <div v-if="(form !== null)" class="card db-card db-form">
         <div class="db-form-grid">
             <label for="db-form-remote">Machine</label>
@@ -38,11 +38,13 @@ const databases_pane = {
             <select id="db-form-version" v-model="form.version">
                 <option v-for="version of form.engine.versions" :key="version" :value="version">{{ version }}</option>
             </select>
-            <label for="db-form-sample">Filled with</label>
-            <select id="db-form-sample" v-model="form.sample">
-                <option value="">nothing: an empty server</option>
-                <option v-for="sample of form.engine.samples" :key="sample.value" :value="sample.value">{{ sample.label }}</option>
-            </select>
+            <template v-if="(form.engine.samples.length > 0)">
+                <label for="db-form-sample">Filled with</label>
+                <select id="db-form-sample" v-model="form.sample">
+                    <option value="">nothing: an empty server</option>
+                    <option v-for="sample of form.engine.samples" :key="sample.value" :value="sample.value">{{ sample.label }}</option>
+                </select>
+            </template>
             <label for="db-form-name">Name</label>
             <input id="db-form-name" v-model.trim="form.name" :class="{wrong: (name_problem !== '')}" spellcheck="false" autocomplete="off" @keydown.enter="form_save">
         </div>
@@ -65,7 +67,7 @@ const databases_pane = {
             <span class="muted db-where">{{ where_text(server) }}</span>
             <span class="db-phase"><span class="dot" :class="phase_of(server).dot"/><span :class="{bad: (server.phase === 'failed')}"><span v-if="(server.phase === 'starting')" class="spin"/>{{ phase_text(server) }}</span></span>
             <div class="list-acts">
-                <button type="button" :disabled="((server.phase !== 'up') || (server.online === false) || (adding !== null))" :title="add_title(server)" @click="add_begin(server)">+ Database</button>
+                <button v-if="(server.engine !== 'couchdb')" type="button" :disabled="((server.phase !== 'up') || (server.online === false) || (adding !== null))" :title="add_title(server)" @click="add_begin(server)">+ Database</button>
                 <button type="button" :disabled="(server.phase === 'removing')" @click="remove_begin(server)">Remove…</button>
             </div>
         </div>
@@ -88,8 +90,8 @@ const databases_pane = {
         </div>
         <data-table :columns="columns" :rows="server.databases" :row_key="v => v.name" :more="cell_more" actions_label="" :empty="empty_text(server)">
             <template #cell="{row, column}">
-                <code v-if="(column.key === 'name')">{{ row.name }}</code>
-                <span v-else-if="(column.key === 'tables')">{{ row.tables }}</span>
+                <span v-if="(column.key === 'name')"><code>{{ row.name }}</code><span v-if="(server.engine === 'couchdb')" class="muted"> · every database, made by the app</span></span>
+                <span v-else-if="(column.key === 'tables')">{{ (server.engine === 'couchdb') ? (row.tables + ((row.tables === 1) ? ' database' : ' databases')) : row.tables }}</span>
                 <span v-else-if="(column.key === 'size')">{{ size_text(row.bytes) }}</span>
                 <span v-else-if="(column.key === 'apps')" class="db-apps">
                     <span v-if="(row.apps.length === 0)" class="muted">no app yet</span>
@@ -147,6 +149,9 @@ const databases_pane = {
             const sample = this.form.engine.samples.find(v => v.value === this.form.sample);
             const machine = this.view.machines.find(v => v.remote === this.form.remote);
             const where = (machine === undefined) ? 'the machine you pick' : machine.title;
+            if (this.form.engine.value === 'couchdb') {
+                return `CouchDB ${this.form.version} on ${where}, always up, its data in a folder kept for it there, never reached from outside it. An app given it in its Data tab is its admin and makes a database for each user its wall signs in.`;
+            }
             if (sample === undefined) {
                 return `${this.form.engine.label} ${this.form.version} on ${where}, always up, its data in a folder kept for it there; + Database makes the databases in it.`;
             }

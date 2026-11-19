@@ -85,7 +85,7 @@ function container_route(engine, req, res, body, url, parts)
     }
     if (parts[2] === 'json') {
         const port = [{HostIp: '127.0.0.1', HostPort: '41337'}];
-        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port}}});
+        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port, '5984/tcp': port}}});
     }
     if (parts[2] === 'start') {
         container.running = true;
@@ -119,8 +119,12 @@ function exec_route(engine, req, res, parts)
     const cmd = exec.spec.Cmd;
     let printed = '';
     exec.code = 0;
-    if ((cmd[0] === 'mysqladmin') || (cmd[0] === 'pg_isready')) {
+    if ((cmd[0] === 'mysqladmin') || (cmd[0] === 'pg_isready') || (cmd[0] === 'curl')) {
         exec.code = engine.fail_ping ? 1 : 0;
+    }
+    // A CouchDB's databases, as its admin asks them: its own and the app's, by name
+    else if ((cmd[0] === 'sh') && cmd[2].includes('/_dbs_info')) {
+        printed = JSON.stringify(['_replicator', '_users', ...container.databases].sort().map(v => ({key: v, info: {sizes: {file: 16384}, doc_count: 1}})));
     }
     else if (cmd[0] === 'sh') {
         const file = cmd[cmd.length - 1];
