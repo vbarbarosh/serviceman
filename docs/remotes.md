@@ -15,9 +15,14 @@ dialled. The visitor sees no difference.
 
 ## Add a remote
 
-**+ New remote** on the control page asks for a name, makes the token for you, and writes it
-to the config. The remote appears under **Remotes** at once — offline, with the two ways to put the
-agent on that machine, filled in with its name, this host's address and its token. The address is
+**+ New remote** on the control page asks two things, step by step or on one page. **Name**: its
+name, its tags as chips (a service can ask for `#eu` instead of a name) and a title for the page;
+**Next** makes the token for you and writes it to the config. **Connect**: the two lines to run on
+that machine, the agent fetched and started with this host's address and its token, **Copy** beside
+them, the token shown as dots; the page waits, live, until that agent dials in, then says what it
+is (system, cores, memory, agent) and offers **Put a service on it**, New service with that machine
+picked. The remote is under **Remotes** from **Next** on, offline until then, its page's **Install**
+tab holding every other way to put the agent there. The address is
 serviceman's own name on the tailnet, as tailscale in its image says (`serviceman.tail1234.ts.net`,
 at the control port), which every machine on the tailnet reaches; off a tailnet it is the address
 the page was opened on, to change for one the machine can reach. **Machines that join by

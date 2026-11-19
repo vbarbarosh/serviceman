@@ -4169,6 +4169,79 @@ article.rf h1 + p {
     margin: 0;
 }
 
+/* New remote: its tags as chips with ×, the wait for its agent dashed, its arrival green */
+.rf-label {
+    padding-top: .35rem;
+    color: var(--muted);
+}
+
+.rf-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.rf-tags .tag {
+    display: inline-flex;
+    gap: .2rem;
+    align-items: center;
+    padding: .15rem .5rem;
+    border: 1px solid var(--accent);
+    background: var(--sel);
+    color: var(--fg);
+    font-size: .9rem;
+}
+
+.rf-tag-x {
+    padding: 0 .15rem;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    line-height: 1;
+}
+
+.form input.rf-tag-new {
+    width: 7rem;
+    padding: .2rem .45rem;
+}
+
+.rf-tags-says {
+    flex-basis: 100%;
+    font-size: .85rem;
+}
+
+.rf-wait {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    padding: .8rem 1rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: 6px;
+}
+
+.rf-joined {
+    display: flex;
+    gap: .7rem;
+    align-items: center;
+    padding: .8rem 1rem;
+    border: 2px solid var(--run);
+    border-radius: 6px;
+    background: var(--run-soft);
+    color: var(--run);
+}
+
+.rf-joined span {
+    display: flex;
+    flex-direction: column;
+    color: var(--fg);
+}
+
+.rf-joined small {
+    color: var(--muted);
+}
+
 .rf-card {
     display: flex;
     flex-direction: column;

@@ -1,10 +1,18 @@
+import agent_url_of from './agent_url_of.js';
 import entry_from_form from './entry_from_form.js';
+import format_bytes from './format_bytes.js';
 import machine_drawing from './machine_drawing.js';
 import settled from './settled.js';
+import snippet from './snippet.js';
 import state_read from './state_read.js';
+import step_frame from './step_frame.js';
 import to_clipboard from './to_clipboard.js';
 
 const TOKEN_BYTES = 32;
+// A remote's name, as the config takes it
+const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+// How often the Connect step asks whether its agent has dialled in
+const JOIN_EVERY_MS = 2000;
 
 // How a machine may be drawn on the Canvas
 const KINDS = [
@@ -13,10 +21,62 @@ const KINDS = [
     {kind: 'home', label: 'home computer'},
 ];
 
-// Adding a machine that carries services, without touching the config text
+// Adding a machine that carries services, without touching the config text: a new one step by
+// step, its name, then the lines to run there while the page waits for its agent; a machine
+// that exists, its settings in one form
 const remote_form = {
     template: `
 <article id="detail" class="form rf">
+    <step-frame v-if="(original === null)" title="New remote" :steps="steps" :step="step" :mode="mode" :can_next="name_ok.ok" :next_title="name_ok.why" :busy="busy" :create_label="create_label" @step="step_go" @mode="mode = $event" @cancel="cancel_new" @create="create_click">
+        <template #name>
+            <div class="sf-fields">
+                <input ref="name" v-model.trim="model.name" class="sf-big" placeholder="vps2" aria-label="Its name" :disabled="(saved_name !== null)" spellcheck="false" @keydown.enter="step_go(1)">
+                <p v-if="((model.name !== '') && (name_ok.ok === false))" class="bad">{{ name_ok.why }}</p>
+                <p v-else class="muted">Lowercase letters, digits, <code>-</code> and <code>_</code>. A service names its machine by this.</p>
+                <div class="sf-grid">
+                    <span class="rf-label">Tags</span>
+                    <div class="rf-tags">
+                        <span v-for="tag of tags_list" :key="tag" class="tag">#{{ tag }}<button v-if="(saved_name === null)" type="button" class="rf-tag-x" :aria-label="('Take #' + tag + ' away')" @click="tag_drop(tag)">×</button></span>
+                        <input v-if="(saved_name === null)" v-model.trim="tag_typed" class="rf-tag-new" placeholder="+ tag" aria-label="A tag" spellcheck="false" @keydown.enter.prevent="tag_add" @keydown.space.prevent="tag_add" @keydown.,.prevent="tag_add" @blur="tag_add">
+                        <span class="muted rf-tags-says">a service can ask for <code>#{{ tags_list[0] || 'eu' }}</code> instead of a name</span>
+                    </div>
+                    <label for="rf-title-new">Title on this page</label>
+                    <input id="rf-title-new" v-model.trim="model.title" placeholder="Hetzner, Falkenstein — optional" :disabled="(saved_name !== null)" spellcheck="false">
+                </div>
+                <p v-if="(saved_name !== null)" class="muted">Kept as <b>{{ saved_name }}</b>, with a token of its own; its page's Settings changes it.</p>
+            </div>
+        </template>
+        <template #connect>
+            <div class="sf-fields">
+                <template v-if="(saved_name === null)">
+                    <p class="muted">Create remote keeps it with a token of its own; then the two lines to run there are here, and the page waits for its agent.</p>
+                </template>
+                <template v-else-if="(agent_url === null)">
+                    <p class="muted">The config gives agents a socket file and no port: its page's <b>Install</b> tab says how to bring it there.</p>
+                </template>
+                <template v-else>
+                    <p class="muted">On {{ saved_name }}, as you:</p>
+                    <snip :text="lines_text" :secret="model.token"/>
+                    <p class="muted">It needs node and nothing else; the token is its whole introduction. Its page's <b>Install</b> tab has the one-command install that keeps it up across reboots.</p>
+                </template>
+                <div v-if="((saved_name !== null) && (joined === null))" class="rf-wait" role="status"><span class="spin"/>Waiting for {{ saved_name }} to connect…</div>
+                <div v-else-if="(joined !== null)" class="rf-joined" role="status">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>
+                    <span><b>{{ saved_name }} is connected</b><small>{{ joined_text }}</small></span>
+                </div>
+            </div>
+        </template>
+        <template #summary>
+            <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><b>{{ model.name || 'no name yet' }}</b></div>
+            <p v-if="(tags_list.length > 0)" class="sum-line"><span>{{ tags_list.map(v => ('#' + v)).join(' ') }}</span></p>
+            <p class="sum-line"><span>a token of its own</span></p>
+            <p class="sum-line muted"><span>{{ (joined !== null) ? 'connected' : ((saved_name === null) ? 'not made yet' : 'not connected yet') }}</span></p>
+        </template>
+        <template #note>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+    </step-frame>
+    <template v-else>
     <div>
         <h1>{{ (original === null ? 'New remote' : 'Settings of ' + (original.title || original.name)) }}</h1>
         <p class="muted">A machine that runs services for this host. Its agent connects to this host and waits for orders, so that machine needs no open port and no public address.</p>
@@ -100,11 +160,13 @@ const remote_form = {
         <button type="button" @click="$emit('close')">Cancel</button>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
+    </template>
 </article>
 `,
-    components: {'machine-drawing': machine_drawing},
-    props: ['original'],
-    emits: ['close', 'saved', 'service'],
+    components: {'machine-drawing': machine_drawing, snip: snippet, 'step-frame': step_frame},
+    // control, tailnet: where a new agent dials, for the lines a new machine is given
+    props: ['original', 'control', 'tailnet'],
+    emits: ['close', 'saved', 'service', 'service_here'],
     data: function () {
         return {
             KINDS,
@@ -136,15 +198,155 @@ const remote_form = {
             // The services keeping this machine, when it would not go
             blockers: [],
             copied: false,
+            // A new one: the step open, how the form is shown, the tag being typed; its name once
+            // it is kept, and what its agent said once it dialled in
+            step: 0,
+            mode: 'steps',
+            tag_typed: '',
+            saved_name: null,
+            joined: null,
+            join_timer: null,
         };
     },
     computed: {
+        steps: function () {
+            return [
+                {key: 'name', name: 'Name', question: 'What do you call this machine?', answer: (this.saved_name === null) ? '' : this.saved_name},
+                {key: 'connect', name: 'Connect', question: (this.saved_name === null) ? 'Connect it' : `Run this on ${this.saved_name}`, answer: (this.joined === null) ? '' : 'connected'},
+            ];
+        },
+        name_ok: function () {
+            if (this.saved_name !== null) {
+                return {ok: true, why: ''};
+            }
+            if (this.model.name === '') {
+                return {ok: false, why: 'A name first'};
+            }
+            if (RE_NAME.test(this.model.name) === false) {
+                return {ok: false, why: 'Lowercase letters, digits, - and _ only, starting with a letter or a digit.'};
+            }
+            return {ok: true, why: ''};
+        },
+        tags_list: function () {
+            return this.model.tags.split(',').map(v => v.trim().toLowerCase()).filter(v => v !== '');
+        },
+        create_label: function () {
+            if (this.saved_name === null) {
+                return 'Create remote';
+            }
+            return (this.joined === null) ? 'Done' : 'Put a service on it →';
+        },
+        // Where its agent dials: serviceman's name on the tailnet at its control port, or this
+        // page's address; null where the config gives agents no port
+        agent_url: function () {
+            const port = ((this.control === undefined) || (this.control === null)) ? null : this.control.port;
+            return (port === null) ? null : agent_url_of(this.tailnet, port);
+        },
+        lines_text: function () {
+            return `curl -fsSL ${this.agent_url}/api/v1/agent.js -o serviceman-agent.js\nnode serviceman-agent.js --url ${this.agent_url} --token ${this.model.token}`;
+        },
+        // What it said of itself as it dialled in: its system, cores, memory, agent
+        joined_text: function () {
+            const machine = this.joined.machine;
+            if ((machine === null) || (machine === undefined)) {
+                return `agent ${this.joined.agent_version || ''}`.trim();
+            }
+            return [machine.os || machine.platform || '', (machine.cpu === undefined) ? '' : `${machine.cpu.count} CPU`, ((machine.mem === undefined) || (machine.mem.total === null)) ? '' : format_bytes(machine.mem.total), (this.joined.agent_version === undefined) ? '' : `agent ${this.joined.agent_version}`].filter(v => v !== '').join(' · ');
+        },
         // A new token on a machine that exists locks its agent out until it is given the token
         token_changed: function () {
             return (this.original !== null) && (this.model.token !== (this.original.token || ''));
         },
     },
     methods: {
+        tag_add: function () {
+            const typed = this.tag_typed.replace(/^#/, '').replace(/,/g, '').trim().toLowerCase();
+            this.tag_typed = '';
+            if ((typed === '') || this.tags_list.includes(typed)) {
+                return;
+            }
+            this.model.tags = this.tags_list.concat([typed]).join(', ');
+        },
+        tag_drop: function (tag) {
+            this.model.tags = this.tags_list.filter(v => v !== tag).join(', ');
+        },
+        // Next from its name keeps it, with its token, so its agent can dial in
+        step_go: async function (index) {
+            if ((index > this.step) && (this.name_ok.ok === false)) {
+                return;
+            }
+            if ((index === 1) && (this.saved_name === null)) {
+                if (await this.save_new() === false) {
+                    return;
+                }
+            }
+            this.step = index;
+        },
+        // Create, Done or Put a service on it, as the step stands
+        create_click: async function () {
+            if (this.saved_name === null) {
+                if ((this.name_ok.ok === false) || (await this.save_new() === false)) {
+                    return;
+                }
+                if (this.mode === 'steps') {
+                    this.step = 1;
+                }
+                return;
+            }
+            if (this.joined !== null) {
+                this.$emit('service_here', this.saved_name);
+                return;
+            }
+            this.$emit('saved', this.saved_name);
+            this.$emit('close');
+        },
+        // Cancel once it is kept leaves it kept: its page shows it
+        cancel_new: function () {
+            if (this.saved_name !== null) {
+                this.$emit('saved', this.saved_name);
+            }
+            this.$emit('close');
+        },
+        save_new: async function () {
+            this.busy = true;
+            this.report('', false);
+            try {
+                const answer = await fetch('/api/v1/remotes', {method: 'POST', body: JSON.stringify({remote: json_from_remote(this.model)})});
+                const outcome = await answer.json().catch(() => ({}));
+                if (answer.ok === false) {
+                    this.report(outcome.error || `serviceman answered ${answer.status}`, true);
+                    return false;
+                }
+                this.saved_name = this.model.name;
+                this.join_wait();
+                return true;
+            }
+            catch {
+                this.report('the answer never came back: its page shows whether it landed', true);
+                return false;
+            }
+            finally {
+                this.busy = false;
+            }
+        },
+        // Asked every two seconds until its agent has dialled in
+        join_wait: function () {
+            const self = this;
+            clearTimeout(this.join_timer);
+            this.join_timer = setTimeout(async function () {
+                try {
+                    const found = (await state_read()).remotes.find(v => v.name === self.saved_name);
+                    if ((found !== undefined) && (found.phase === 'online')) {
+                        self.joined = found;
+                        return;
+                    }
+                }
+                catch {
+                    // asked again
+                }
+                self.join_wait();
+            }, JOIN_EVERY_MS);
+        },
         // How the Canvas draws it now
         kind_read: async function () {
             try {
@@ -267,7 +469,12 @@ const remote_form = {
     mounted: function () {
         if (this.original !== null) {
             this.kind_read();
+            return;
         }
+        this.$refs.name.focus();
+    },
+    unmounted: function () {
+        clearTimeout(this.join_timer);
     },
 };
 

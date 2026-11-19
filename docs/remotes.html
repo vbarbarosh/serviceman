@@ -730,9 +730,14 @@ serve folders of pages and give addresses to what already runs, and nothing more
 container runs on the remote, and every request rides back through the link the agent
 dialled. The visitor sees no difference.</p>
 <h2 id="add-a-remote"><a class="anchor" href="#add-a-remote" aria-hidden="true" tabindex="-1">#</a>Add a remote</h2>
-<p><strong>+ New remote</strong> on the control page asks for a name, makes the token for you, and writes it
-to the config. The remote appears under <strong>Remotes</strong> at once — offline, with the two ways to put the
-agent on that machine, filled in with its name, this host&#39;s address and its token. The address is
+<p><strong>+ New remote</strong> on the control page asks two things, step by step or on one page. <strong>Name</strong>: its
+name, its tags as chips (a service can ask for <code>#eu</code> instead of a name) and a title for the page;
+<strong>Next</strong> makes the token for you and writes it to the config. <strong>Connect</strong>: the two lines to run on
+that machine, the agent fetched and started with this host&#39;s address and its token, <strong>Copy</strong> beside
+them, the token shown as dots; the page waits, live, until that agent dials in, then says what it
+is (system, cores, memory, agent) and offers <strong>Put a service on it</strong>, New service with that machine
+picked. The remote is under <strong>Remotes</strong> from <strong>Next</strong> on, offline until then, its page&#39;s <strong>Install</strong>
+tab holding every other way to put the agent there. The address is
 serviceman&#39;s own name on the tailnet, as tailscale in its image says (<code>serviceman.tail1234.ts.net</code>,
 at the control port), which every machine on the tailnet reaches; off a tailnet it is the address
 the page was opened on, to change for one the machine can reach. <strong>Machines that join by
