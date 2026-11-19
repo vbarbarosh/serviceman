@@ -18,6 +18,7 @@ import config_tokens_back from './config_tokens_back.js';
 import config_tokens_hidden from './config_tokens_hidden.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import data_table from './data_table.js';
+import databases_pane from './databases_pane.js';
 import file_manager from 'file_manager/file_manager.js';
 import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
@@ -2086,6 +2087,11 @@ const app = {
             <span class="name">Shared folders</span>
             <span class="muted">{{ shared_count }}</span>
         </button>
+        <button type="button" class="row kind" :class="{on: (kind_now === 'databases'), open: (kind_now === 'databases')}" title="Database servers on your machines, for the apps to pick" @click="databases_show">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></svg>
+            <span class="name">Databases</span>
+            <span class="muted">{{ databases_count }}</span>
+        </button>
         <button type="button" class="row kind" :class="{on: (kind_now === 'mounts'), open: (kind_now === 'mounts')}" title="A folder of one machine, mounted on another" @click="mounts_show">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5A1.5 1.5 0 0 1 3.5 6H7l1.5 1.5H10V16H2z"/><path d="M14 9.5A1.5 1.5 0 0 1 15.5 8H19l1.5 1.5H22V18h-8z"/><path d="M10 12h3M11.5 10.5L13 12l-1.5 1.5"/></svg>
             <span class="name">Mounts</span>
@@ -2140,6 +2146,7 @@ const app = {
     <section>
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
+        <databases-pane v-else-if="databases_open" @changed="databases_count_read" @select="select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open"/>
         <tokens-form v-else-if="tokens_open"/>
@@ -2168,7 +2175,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2227,6 +2234,8 @@ const app = {
             volumes_count: '',
             shared_open: false,
             shared_count: '',
+            databases_open: false,
+            databases_count: '',
             networking_open: false,
             forwards_open: false,
             mounts_open: false,
@@ -2343,6 +2352,9 @@ const app = {
             if (this.shared_open) {
                 return '/shared-folders';
             }
+            if (this.databases_open) {
+                return '/databases';
+            }
             if (this.secrets_open) {
                 return '/secrets';
             }
@@ -2427,6 +2439,9 @@ const app = {
             }
             if (this.shared_open) {
                 return 'shared-folders';
+            }
+            if (this.databases_open) {
+                return 'databases';
             }
             if (this.secrets_open) {
                 return 'secrets';
@@ -2752,6 +2767,10 @@ const app = {
                 this.shared_open = true;
                 return;
             }
+            if (route.kind === 'databases') {
+                this.databases_open = true;
+                return;
+            }
             if (route.kind === 'secrets') {
                 this.secrets_open = true;
                 return;
@@ -2838,6 +2857,7 @@ const app = {
                 this.secrets_count_read();
                 this.volumes_count_read();
                 this.shared_count_read();
+                this.databases_count_read();
                 this.route_settle();
             }
             catch {
@@ -2884,6 +2904,21 @@ const app = {
         shared_show: function () {
             this.panes_close();
             this.shared_open = true;
+        },
+        databases_show: function () {
+            this.panes_close();
+            this.databases_open = true;
+        },
+        // The servers as kept: the machines are not asked for the rail's count
+        databases_count_read: async function () {
+            try {
+                const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
+                const body = await answer.json();
+                this.databases_count = String(body.servers.length);
+            }
+            catch {
+                this.databases_count = '';
+            }
         },
         // The folders as kept: the machines are not asked for the rail's count
         shared_count_read: async function () {
@@ -3101,6 +3136,7 @@ const app = {
             this.tokens_open = false;
             this.volumes_open = false;
             this.shared_open = false;
+            this.databases_open = false;
             this.form_open = false;
             this.remote_form_open = false;
             this.networking_open = false;

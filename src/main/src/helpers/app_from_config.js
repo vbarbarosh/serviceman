@@ -44,6 +44,10 @@ function app_from_config(config)
         config_lock: Promise.resolve(),
         // The apps a zip of files is being put in place for now: one at a time each
         files_sending: new Set(),
+        // The database servers being brought up now, by name, and each one's databases as it
+        // said them last, {at, rows} (handle_databases)
+        database_jobs: new Set(),
+        database_lists: new Map(),
         // The connections agents' tokens hold open now (control_token_live)
         control_token_live: new Set(),
         // Machines taken out of the config while they were away. A laptop that was asleep when

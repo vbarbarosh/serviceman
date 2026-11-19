@@ -694,6 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
+<li><a href="databases.html">Databases</a></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -1943,6 +1944,10 @@ instance of a docker service shares the same volumes — the service must be rea
 <td>The docker network to join.</td>
 </tr>
 <tr>
+<td><code>databases</code></td>
+<td>The databases it picked in its Data tab, each one variable of its env: <a href="databases.html#an-app-picks-one">an app picks one</a>.</td>
+</tr>
+<tr>
 <td><code>init</code></td>
 <td><code>false</code> leaves docker&#39;s <code>--init</code> out, for an image that has to be pid 1 itself — one built on s6-overlay quits otherwise. Default <code>true</code>.</td>
 </tr>
@@ -2194,14 +2199,16 @@ none (<a href="#behind-a-wall-at-every-address">behind a wall at every address</
 the names a machine&#39;s door answers for it, and nothing more; one Save writes them all, Cancel or Esc nothing, and
 the rest of the service is on its page, linked at the window&#39;s foot. A new address goes through
 the door that answers most names already, behind <code>authwall</code> where there is one.</p>
-<p>Its <strong>Data</strong> tab, beside <strong>Settings</strong>, is a sketch for now: what the app would be given, a row
-each, every row one variable of its env. <strong>+ Database</strong> is PostgreSQL, MySQL, MariaDB or MongoDB
-at a version, <code>DATABASE_URL</code> or <code>MONGO_URL</code>; <strong>+ Folder</strong> is a folder kept for it or one of its
-machine, <code>FILES_DIR</code>, mounted at <code>/data/files</code> in a docker image; <strong>+ REST</strong> is <code>REST_URL</code>, its
-documents kept by serviceman or in its MongoDB. A name can be changed (<code>DB_URL</code>), and two rows never
-take one unasked (<code>DATABASE_URL_2</code>). A page takes REST alone, at its own <code>/_data/</code>; an app
-serviceman does not start gets each value to copy into it. Nothing is made behind the rows yet: they
-are kept in the browser that set them, and <strong>Remove</strong> goes at once, with <strong>Undo</strong> in its place.</p>
+<p>Its <strong>Data</strong> tab, beside <strong>Settings</strong>, is what the app is given, a row each, every row one
+variable of its env. <strong>+ Database</strong> picks a database of the <a href="databases.html">Databases</a> page on the
+app&#39;s own machine, <code>DATABASE_URL</code> unless renamed: it is written into the app&#39;s config as
+<code>databases</code> and handed to it at every start as its own user&#39;s URL, an Adminer opening on it
+logged in (<a href="databases.html#an-app-picks-one">an app picks one</a>). <strong>+ Folder</strong> and <strong>+ REST</strong> are a
+sketch for now, kept in the browser that set them: a folder kept for it or one of its machine,
+<code>FILES_DIR</code>, mounted at <code>/data/files</code> in a docker image; <code>REST_URL</code>, its documents kept by
+serviceman. A name can be changed (<code>DB_URL</code>), and two rows never take one unasked
+(<code>DATABASE_URL_2</code>). A page takes REST alone, at its own <code>/_data/</code>; an app serviceman does not
+start is handed no database. <strong>Remove</strong> goes at once, with <strong>Undo</strong> in its place.</p>
 <p>A new name takes the addresses made of its name with it (<code>notes.localhost</code> is <code>wiki.localhost</code>,
 <code>notes.apps.example.com</code> is <code>wiki.apps.example.com</code>), and an app of files its folder in <code>apps/</code>;
 an address added by hand stays, and so does a folder the config names. The door rules that answer

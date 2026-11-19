@@ -694,6 +694,7 @@ img {
 <li class="current"><a href="logs.html" aria-current="page">The log</a><ul class="toc"><li><a href="#what-a-value-looks-like">What a value looks like</a></li><li><a href="#how-long-it-took">How long it took</a></li><li><a href="#the-laws">The laws</a></li><li><a href="#one-sender-one-place">One sender, one place</a></li><li><a href="#traces">Traces</a></li><li><a href="#the-senders">The senders</a></li><li><a href="#what-is-never-written">What is never written</a></li><li><a href="#where-the-lines-go">Where the lines go</a></li></ul></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
+<li><a href="databases.html">Databases</a></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -1765,6 +1766,36 @@ group says whose it is, and that group&#39;s <code>group_spawn</code> here names
 <tr>
 <td><code>root_apt_lists_error</code></td>
 <td>On a machine: that fetch failed; <code>code=</code> apt&#39;s, <code>reason=</code> its errors; said once per reason, tried again an hour on.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="databases"><a class="anchor" href="#databases" aria-hidden="true" tabindex="-1">#</a>Databases</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Sender</th>
+<th>What it says</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>database_up_begin</code></td>
+<td>A database server began to be brought up on a machine: its engine, version and sample.</td>
+</tr>
+<tr>
+<td><code>database_up_end_ok</code></td>
+<td>It is up; <code>port=</code> its port on that machine&#39;s 127.0.0.1.</td>
+</tr>
+<tr>
+<td><code>database_up_end_error</code></td>
+<td>Bringing it up failed; <code>reason=</code> what failed: the machine, docker, MySQL or the sample.</td>
+</tr>
+<tr>
+<td><code>database_make</code></td>
+<td>A database was made in a server, with a user of its own.</td>
+</tr>
+<tr>
+<td><code>database_remove</code></td>
+<td>A server was removed: its container and its volume, every database in it.</td>
 </tr>
 </tbody></table>
 </div>

@@ -4280,6 +4280,121 @@ article.rf .actions {
     flex: none;
 }
 
+/* Databases: + MySQL's form, then each server with a row per database in it */
+.databases .db-card {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-bottom: 1rem;
+    padding: .8rem 1rem;
+}
+
+.databases .db-card p {
+    margin: 0;
+}
+
+.databases .db-card .row-of {
+    flex-wrap: wrap;
+    gap: .6rem;
+}
+
+/* The form's fields as label and field in two columns; one column on a phone */
+.databases .db-form-grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 22rem);
+    gap: .5rem .8rem;
+    align-items: center;
+}
+
+@media (max-width: 560px) {
+    .databases .db-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.databases .db-form-grid label {
+    color: var(--muted);
+}
+
+.databases .db-card select,
+.databases .db-card input {
+    min-width: 0;
+    max-width: 100%;
+    padding: .35rem .55rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.databases .db-card select:focus,
+.databases .db-card input:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.databases .db-card input.wrong {
+    border-color: var(--bad);
+}
+
+.databases .db-server {
+    margin-top: 1.4rem;
+}
+
+.databases .db-head {
+    flex-wrap: wrap;
+    gap: .3rem .8rem;
+}
+
+.databases .db-head h2 {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-head h2 .db-icon {
+    flex: none;
+}
+
+.databases .db-where {
+    overflow-wrap: anywhere;
+}
+
+.databases .db-phase {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.databases .db-why {
+    margin: .2rem 0 .6rem;
+    overflow-wrap: anywhere;
+}
+
+/* The apps of a row wrap in their cell, each a link to its service */
+.databases .db-apps {
+    white-space: normal;
+}
+
+/* Each name a link that wraps when it is long, its comma inside it, so a line never starts with
+   one: a button is a box of its own, and a line may break on either side of it */
+.databases .db-apps button.link {
+    margin-right: .35em;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-comma {
+    color: var(--muted);
+}
+
+/* + MySQL stays one button on a phone */
+.databases .list-acts button {
+    white-space: nowrap;
+}
+
 /* The Canvas: every machine drawn as what it is, one light each, on a board that pans and zooms */
 .canvas-legend {
     display: flex;
@@ -5178,8 +5293,13 @@ article.rf .actions {
 
 /* An app's Data tab: the buttons that add a row, then a card a row: what it is, the variable
    and its value, its buttons and what becomes of it; a long value wraps in its own place */
-.apps-pane .app-data-sketch {
-    margin: .75rem 0 0;
+.apps-pane .app-data-sketch-tag {
+    font-size: .8rem;
+}
+
+.apps-pane .app-data-error {
+    margin: .5rem 0 0;
+    overflow-wrap: anywhere;
 }
 
 .apps-pane .app-data-adds {

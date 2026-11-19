@@ -1,3 +1,4 @@
+const database_env = require('./database_env');
 const program_docker_start = require('./program_docker_start');
 const program_env = require('./program_env');
 const program_install = require('./program_install');
@@ -21,7 +22,7 @@ async function shell_start_on(app, remote, service, instance)
         slot: instance.slot,
         cwd: service.cwd,
         argv: shell_argv(service),
-        env: Object.assign({}, secrets_env(secrets), program_env(service)),
+        env: Object.assign({}, secrets_env(secrets), program_env(service), database_env(app, remote, service, false)),
     });
     instance.pid = answer.pid;
     return (service.port === null) ? null : {host: '127.0.0.1', port: service.port};

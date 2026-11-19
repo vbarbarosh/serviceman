@@ -502,6 +502,16 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `root_apt_lists_fetched`  | On a machine: the root half fetched apt's package lists, older than 6 hours; `took_ms=`, `age_ms=` how old they were. |
 | `root_apt_lists_error`    | On a machine: that fetch failed; `code=` apt's, `reason=` its errors; said once per reason, tried again an hour on. |
 
+### Databases
+
+| Sender                    | What it says                                                          |
+|---------------------------|-----------------------------------------------------------------------|
+| `database_up_begin`       | A database server began to be brought up on a machine: its engine, version and sample. |
+| `database_up_end_ok`      | It is up; `port=` its port on that machine's 127.0.0.1.               |
+| `database_up_end_error`   | Bringing it up failed; `reason=` what failed: the machine, docker, MySQL or the sample. |
+| `database_make`           | A database was made in a server, with a user of its own.              |
+| `database_remove`         | A server was removed: its container and its volume, every database in it. |
+
 ### Logline
 
 | Sender                  | What it says                                                            |

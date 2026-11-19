@@ -50,6 +50,7 @@ const fs_grant_of = require('../helpers/fs_grant_of');
 const fs_grant_read = require('../helpers/fs_grant_read');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
+const handle_databases = require('./handle_databases');
 const handle_shared_folders = require('./handle_shared_folders');
 const health_from_views = require('../helpers/health_from_views');
 const link_test = require('../helpers/link_test');
@@ -198,7 +199,7 @@ const CONTROL_SITE = {name: 'serviceman', type: 'static', root: path.join(__dirn
 // The addresses the control page has, besides the front: a pane with a word of its own, and a
 // page per service and per machine with its tabs. Anything else is a mistyped address, and gets
 // a 404 rather than the front page — which opens whatever it opens first, and looks like an answer.
-const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'boards', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
+const PAGE_PANES = ['canvas', 'health', 'security', 'services', 'remotes', 'addresses', 'config', 'storage', 'shared-folders', 'databases', 'secrets', 'tokens', 'networking', 'forwards', 'mounts', 'apps', 'boards', 'join', 'map', 'logline', 'authwall', 'load-tests', 'tailscale'];
 const SERVICE_TABS = ['overview', 'settings', 'logs', 'files', 'shell'];
 const REMOTE_TABS = ['overview', 'configure', 'files', 'docker', 'firewall', 'logs', 'ports', 'processes', 'disks', 'packages', 'vulnerabilities', 'settings', 'shell', 'install'];
 const SKINS_ROOT = path.join(__dirname, '..', '..', 'skins');
@@ -334,6 +335,9 @@ async function control_answer(app, req, res)
         return;
     }
     if (await handle_shared_folders(app, req, res, url)) {
+        return;
+    }
+    if (await handle_databases(app, req, res, url)) {
         return;
     }
     if ((url.pathname === '/navplace') && (req.method === 'GET')) {

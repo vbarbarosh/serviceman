@@ -1,3 +1,7 @@
+const adminer_login_put = require('./adminer_login_put');
+const database_env = require('./database_env');
+const database_network_join = require('./database_network_join');
+const database_up = require('./database_up');
 const docker_argv_from_service = require('./docker_argv_from_service');
 const docker_container_name = require('./docker_container_name');
 const docker_inspect = require('./docker_inspect');
@@ -10,9 +14,14 @@ const service_said = require('./service_said');
 const volume_keep_root = require('./volume_keep_root');
 const volume_paths_create = require('./volume_paths_create');
 
-// Starts the container for a service and answers with the address it is reachable at
-async function docker_start(app, remote, service, slot)
+// Starts the container for a service and answers with the address it is reachable at. The
+// databases it picked are in its env, and it is on their network to reach them by name; one
+// with a network of its own joins theirs once it is made. An Adminer opens on the first.
+async function docker_start(app, remote, given, slot)
 {
+    const picked = database_env(app, remote, given, true);
+    const joins = (Object.keys(picked).length > 0);
+    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked), network: (given.network === null) ? database_up.NETWORK : given.network}) : given;
     const container_name = docker_container_name(service, slot);
     const found = await docker_inspect(app, remote, container_name);
     if (found.exists && (found.label === service.name) && (found.spec !== docker_spec_hash(service))) {
@@ -45,6 +54,13 @@ async function docker_start(app, remote, service, slot)
         if (started.ok === false) {
             throw new Error(`docker start failed: ${started.stderr}`);
         }
+    }
+    if (joins && (service.network !== database_up.NETWORK)) {
+        await database_network_join(app, remote, container_name);
+    }
+    // An Adminer given a database opens on it: its login is put in before anyone is let in
+    if (joins && await adminer_login_put(app, remote, service.image, container_name)) {
+        service_said(app, {service: service.name, text: 'Adminer opens on its database, for whoever its wall lets in'});
     }
     const out = await docker_upstream(app, remote, service, slot);
     if (out === null) {

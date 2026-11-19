@@ -1076,6 +1076,7 @@ instance of a docker service shares the same volumes — the service must be rea
 | `env`      | Names and values for `--env`.                      |
 | `volumes`  | Storage. See below.                                |
 | `network`  | The docker network to join.                        |
+| `databases` | The databases it picked in its Data tab, each one variable of its env: [an app picks one](databases.md#an-app-picks-one). |
 | `init`     | `false` leaves docker's `--init` out, for an image that has to be pid 1 itself — one built on s6-overlay quits otherwise. Default `true`. |
 | `run_args` | Anything else for `docker run`, written as a list. |
 | `args`     | The command line for the image itself.             |
@@ -1324,14 +1325,16 @@ the names a machine's door answers for it, and nothing more; one Save writes the
 the rest of the service is on its page, linked at the window's foot. A new address goes through
 the door that answers most names already, behind `authwall` where there is one.
 
-Its **Data** tab, beside **Settings**, is a sketch for now: what the app would be given, a row
-each, every row one variable of its env. **+ Database** is PostgreSQL, MySQL, MariaDB or MongoDB
-at a version, `DATABASE_URL` or `MONGO_URL`; **+ Folder** is a folder kept for it or one of its
-machine, `FILES_DIR`, mounted at `/data/files` in a docker image; **+ REST** is `REST_URL`, its
-documents kept by serviceman or in its MongoDB. A name can be changed (`DB_URL`), and two rows never
-take one unasked (`DATABASE_URL_2`). A page takes REST alone, at its own `/_data/`; an app
-serviceman does not start gets each value to copy into it. Nothing is made behind the rows yet: they
-are kept in the browser that set them, and **Remove** goes at once, with **Undo** in its place.
+Its **Data** tab, beside **Settings**, is what the app is given, a row each, every row one
+variable of its env. **+ Database** picks a database of the [Databases](databases.md) page on the
+app's own machine, `DATABASE_URL` unless renamed: it is written into the app's config as
+`databases` and handed to it at every start as its own user's URL, an Adminer opening on it
+logged in ([an app picks one](databases.md#an-app-picks-one)). **+ Folder** and **+ REST** are a
+sketch for now, kept in the browser that set them: a folder kept for it or one of its machine,
+`FILES_DIR`, mounted at `/data/files` in a docker image; `REST_URL`, its documents kept by
+serviceman. A name can be changed (`DB_URL`), and two rows never take one unasked
+(`DATABASE_URL_2`). A page takes REST alone, at its own `/_data/`; an app serviceman does not
+start is handed no database. **Remove** goes at once, with **Undo** in its place.
 
 A new name takes the addresses made of its name with it (`notes.localhost` is `wiki.localhost`,
 `notes.apps.example.com` is `wiki.apps.example.com`), and an app of files its folder in `apps/`;

@@ -48,6 +48,12 @@ const PUBLISH_FIELDS = ['host', 'hosts', 'port', 'strip_prefix'];
 // A handover address is an ordinary http address, with a path at most
 const RE_REDIRECT = /^https?:\/\/[^\s/]+(\/[^\s?#]*)?$/;
 
+// A database an app picks: a server of the Databases page, a database in it (a sample's may have
+// capitals, Chinook), and the variable it fills
+const RE_DATABASE_SERVER = /^[a-z][a-z0-9-]{0,39}$/;
+const RE_DATABASE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const RE_ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 // Raw serviceman.json -> the config the server runs on: defaults applied, paths absolute, durations in ms
 function config_from_json(json, base_dir)
 {
@@ -421,6 +427,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         // docker's own init as pid 1, unless the image insists on being pid 1 itself — an
         // s6-overlay image quits at once when it is not
         out.init = json.init !== false;
+        out.databases = databases_from_json(json.databases, `${label}.databases`);
     }
     if (out.type === 'shell') {
         out.command = json.command;
@@ -444,6 +451,7 @@ function service_from_json(json, service_defaults, base_dir, label)
         // named in the config belongs to whoever named it, and is never removed.
         out.cwd_made = (json.cwd === undefined) && (out.lifecycle.install !== null);
         out.env = json.env || {};
+        out.databases = databases_from_json(json.databases, `${label}.databases`);
     }
     if (out.type === 'external') {
         if (publish.port !== undefined) {
@@ -484,6 +492,35 @@ function service_from_json(json, service_defaults, base_dir, label)
     }
     assert_service_valid(out, label);
     return out;
+}
+
+// The databases an app picked in its Data tab, each one variable of its env at every start:
+// [{server, database, env}], a server of the Databases page and a database in it. Whether they
+// are there is said at its start: the servers are serviceman's state, not the config's.
+function databases_from_json(json, label)
+{
+    if ((json === undefined) || (json === null)) {
+        return [];
+    }
+    if (Array.isArray(json) === false) {
+        throw new Error(`${label}: a list of {server, database, env} (got ${JSON.stringify(json)})`);
+    }
+    const names = new Set();
+    return json.map(function (item, i) {
+        const at = `${label}[${i}]`;
+        if ((item === null) || (typeof item !== 'object') || (typeof item.server !== 'string') || (typeof item.database !== 'string') || (RE_DATABASE_SERVER.test(item.server) === false) || (RE_DATABASE_NAME.test(item.database) === false)) {
+            throw new Error(`${at}: a server of the Databases page and a database in it, like {"server": "mysql-1", "database": "sakila"} (got ${JSON.stringify(item)})`);
+        }
+        const env = (item.env === undefined) ? 'DATABASE_URL' : String(item.env);
+        if (RE_ENV_NAME.test(env) === false) {
+            throw new Error(`${at}.env: a variable's name, letters, digits and _, like DATABASE_URL (got ${JSON.stringify(item.env)})`);
+        }
+        if (names.has(env)) {
+            throw new Error(`${at}.env: ${env} is filled by another database of it already`);
+        }
+        names.add(env);
+        return {server: item.server, database: item.database, env};
+    });
 }
 
 // The name of the service a service stands behind, or null for none

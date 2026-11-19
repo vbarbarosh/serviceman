@@ -50,6 +50,7 @@ modules' by `bin/build-pages`.
 - [The log](docs/logs.md) — one shape per line, and how to read a trace back to its cause
 - [Remotes](docs/remotes.md) — carry services on another machine, with an agent that dials in
 - [Shared folders](docs/shared-folders.md) — one folder on every machine, at a path of each one's own, read-write or read-only, encrypted
+- [Databases](docs/databases.md) — a MySQL on a machine at a click, empty or filled with a sample; an app picks one of its databases, Adminer opens on it
 - [Mounts](docs/mounts.md) — a folder of one machine, or serviceman's own data/, mounted on another, read-only or read-write, over the agents' links
 - [Deploy](docs/deploy.md) — DNS, port 80, TLS, systemd, who may reach the control page
 - [Terminals from another program](docs/terminals.md) — list, join and type into a machine's kept terminals, from Visual Notes or a script

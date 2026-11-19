@@ -59,6 +59,12 @@ function view_from_service(service, now)
         folder: (service.type === 'shell') ? service.cwd : null,
         // Whether there is an image behind it, and so something a pull could bring
         image: (service.type === 'docker') ? service.image : null,
+        // The databases it picked in its Data tab, [{server, database, env}]: names alone, never
+        // a password
+        databases: (service.databases === undefined) ? [] : service.databases,
+        // Where it runs, which is how it reaches a database: in a container (a docker image, a
+        // program in an image) or on the machine itself; null for what serviceman does not start
+        runs_in: runs_in_of(service),
         // Work that the phase does not show, and the last of what it printed while doing it,
         // so that a page open on a slow install sees the install rather than a still picture
         doing: (state.doing === undefined) ? null : state.doing,
@@ -183,6 +189,18 @@ function copy_view(copy, at)
     const ratio = ((copy.ratio !== null) && (copy.ratio !== undefined)) ? copy.ratio : (((copy.bytes === null) || (copy.bytes === 0)) ? null : copy.bytes_done/copy.bytes);
     const left_ms = ((ratio === null) || (ratio <= 0.01) || (ms < 2000)) ? null : ms*(1 - ratio)/ratio;
     return {title: copy.title, unit: copy.unit, state: 'going', files: copy.files, files_done: copy.files_done, failed: 0, bytes: copy.bytes, bytes_done: copy.bytes_done, ratio: (copy.ratio === undefined) ? null : copy.ratio, samples: copy.samples, left_ms, now: copy.now};
+}
+
+// container, machine, or null for a service serviceman does not start
+function runs_in_of(service)
+{
+    if (service.type === 'docker') {
+        return 'container';
+    }
+    if (service.type === 'shell') {
+        return (service.image === null) ? 'machine' : 'container';
+    }
+    return null;
 }
 
 module.exports = view_from_service;

@@ -1,3 +1,5 @@
+const database_env = require('./database_env');
+const database_network_join = require('./database_network_join');
 const docker_container_name = require('./docker_container_name');
 const docker_inspect = require('./docker_inspect');
 const docker_shell = require('./docker_shell');
@@ -16,8 +18,12 @@ const START_TIMEOUT_MS = 600000;
 // other serviceman container has, with the program's folder mounted and the command as its
 // command. Everything after this — stopping it, finding it again, its output — is the docker
 // driver, because by then it is an ordinary container of ours.
-async function program_docker_start(app, remote, service, instance, secrets)
+async function program_docker_start(app, remote, given, instance, secrets)
 {
+    // The databases it picked, in its env, reached by name on their network, which it joins
+    const picked = database_env(app, remote, given, true);
+    const joins = (Object.keys(picked).length > 0);
+    const service = joins ? Object.assign({}, given, {env: Object.assign({}, given.env, picked)}) : given;
     const container = docker_container_name(service, instance.slot);
     const spec = docker_spec_hash(service);
     const found = await docker_inspect(app, remote, container);
@@ -44,6 +50,9 @@ async function program_docker_start(app, remote, service, instance, secrets)
         if (started.ok === false) {
             throw new Error(`docker start failed: ${started.stderr}`);
         }
+    }
+    if (joins) {
+        await database_network_join(app, remote, container);
     }
     const out = await docker_upstream(app, remote, service, instance.slot);
     if (out === null) {
