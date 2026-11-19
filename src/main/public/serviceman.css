@@ -1775,6 +1775,171 @@ ul.tried {
     }
 }
 
+/* A service's Overview, as drawn: its tiles, then what runs beside its newest lines and its
+   addresses; on a phone one under another */
+.svc-ov-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.svc-ov-side {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+
+.svc-ov .card-head h2 svg {
+    color: var(--link);
+}
+
+.svc-head-acts {
+    display: flex;
+    gap: 18px;
+    margin-left: auto;
+}
+
+.svc-head-acts .link,
+.svc-ov .card-head > .link {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-weight: 600;
+}
+
+.svc-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.svc-facts code {
+    background: none;
+    color: var(--fg);
+}
+
+.svc-command {
+    padding: 14px 18px 18px;
+    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.svc-program {
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+}
+
+.svc-program-name {
+    color: var(--link);
+}
+
+.svc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.svc-chip {
+    max-width: 100%;
+    padding: 3px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--code);
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+}
+
+.svc-tail {
+    margin: 0;
+    padding: 14px 18px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.svc-none {
+    margin: 0;
+    padding: 14px 18px;
+}
+
+.svc-addr-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding: 8px 18px;
+    border-top: 1px solid var(--line);
+}
+
+.svc-addr .card-head + .svc-addr-row {
+    border-top: 0;
+}
+
+.svc-addr-row a.mono {
+    color: var(--link);
+    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.svc-addr-none {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 16px 18px;
+}
+
+.svc-addr-none > span:nth-child(2) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.svc-addr-none .muted {
+    font-size: 13.5px;
+}
+
+.svc-machine .svc-meter-row {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) 2.8rem;
+    gap: 10px;
+    align-items: center;
+    font-size: 13.5px;
+}
+
+.svc-machine .svc-meter-row > span:last-child {
+    text-align: right;
+}
+
+.svc-machine .meter {
+    height: 6px;
+    max-width: none;
+    margin: 0;
+}
+
+.svc-now {
+    padding: 14px 18px;
+}
+
+.svc-ov .ov-tile small {
+    white-space: normal;
+}
+
+@media (max-width: 600px) {
+    .svc-ov-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* An item's header: its icon and name, how it stands, its tags, then what is done to it */
 .item-head {
     display: flex;

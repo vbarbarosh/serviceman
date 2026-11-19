@@ -62,6 +62,7 @@ import security_pane from './security_pane.js';
 import service_doors from './service_doors.js';
 import service_form from './service_form.js';
 import service_kind from './service_kind.js';
+import service_overview from './service_overview.js';
 import service_script from './service_script.js';
 import service_shell from './service_shell.js';
 import service_state_word from './service_state_word.js';
@@ -117,190 +118,6 @@ const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org
 const dot = {
     template: `<span class="dot" :class="phase"/>`,
     props: ['phase'],
-};
-
-// How a service stands now, above its cards: the state and what it is doing about it, where it
-// is reached, and how much it is being asked. Everything here moves by itself; nothing here is
-// set — that is the cards below.
-const service_status = {
-    template: `
-<div class="card svc-status">
-    <div class="row-of svc-state">
-        <span class="pill" :class="pill">{{ state_text }}</span>
-        <span class="muted">{{ state_detail }}</span>
-    </div>
-    <!-- Bytes on their way for it, a new version or an image, drawn as every copy is -->
-    <copy-progress v-if="((view.copy !== null) && (view.copy !== undefined))" :copy="view.copy"/>
-    <template v-else-if="(view.doing !== null)">
-        <div class="meter"><i :style="{width: (view.progress === null ? '100%' : (Math.round(view.progress * 100) + '%'))}"/></div>
-        <p class="muted"><span class="spin"/>{{ view.doing }}{{ view.progress_text === null ? '' : ' · ' + view.progress_text }}</p>
-    </template>
-    <p v-if="error_shown" class="bad">{{ view.error }}</p>
-    <pre v-if="(tail !== '')" class="tail">{{ tail }}</pre>
-    <dl>
-        <dt>Address</dt>
-        <dd>
-            <span v-if="(view.publish.hosts.length === 0 && door_names.length === 0)" class="muted">none — it only runs</span>
-            <span v-for="host of own_hosts" :key="host" class="svc-host"><a :href="address_of(host)" target="_blank" rel="noopener">{{ host }}</a><span v-if="(view.auth !== null)" class="muted"> behind {{ view.auth }}</span></span>
-            <span v-for="name of door_names" :key="(name.machine + ' ' + name.host)" class="svc-host" :class="{muted: name.off}"><a v-if="(name.host.startsWith('*') === false)" :href="('https://' + name.host)" target="_blank" rel="noopener">{{ name.host }}</a><code v-else>{{ name.host }}</code> <span class="muted">via {{ name.title }}<template v-if="(name.auth !== null)">, behind {{ name.auth }}</template><template v-if="name.off"> · off</template></span></span>
-        </dd>
-        <template v-if="(view.type === 'files')">
-            <dt>Serves</dt>
-            <dd>the files in <code>{{ view.source.text }}</code><template v-if="view.source.kept"> of serviceman's state folder</template></dd>
-        </template>
-        <template v-else-if="(view.type !== 'external')">
-            <dt>Runs on</dt>
-            <dd>
-                <template v-for="(name, i) of view.remotes" :key="name"><span v-if="(i > 0)" class="muted"> then </span><button type="button" class="link" @click="$emit('remote', name)">{{ remote_text(name) }}</button></template>
-            </dd>
-        </template>
-        <template v-else>
-            <dt>{{ ((view.socket === null) || (view.socket === undefined)) ? 'Answers at' : 'Its socket' }}</dt>
-            <dd><code>{{ view.upstream }}</code><template v-if="(view.remotes.length > 0)"><span class="muted"> on </span><button type="button" class="link" @click="$emit('remote', view.remotes[0])">{{ remote_text(view.remotes[0]) }}</button><span class="muted">, through its link</span></template></dd>
-        </template>
-        <template v-if="(forwards.length > 0)">
-            <dt>Its port on</dt>
-            <dd>
-                <span v-for="item of forwards" :key="item.label" class="svc-fwd-now"><span>{{ end_text(item.from) }} → <template v-if="item.to.here">this host</template><button v-else type="button" class="link" @click="$emit('remote', item.to.remote)">{{ remote_text(item.to.remote) }}</button> · <code :title="(item.at === null ? '' : item.at)">{{ end_text(item.to) }}</code></span> <forward-state :forward="item" :remotes="remotes" :reason="true"/></span>
-                <a href="/forwards" class="muted" @click.prevent="$emit('forwards')">every forward, on Forwards</a>
-            </dd>
-        </template>
-        <dt>Requests</dt>
-        <dd>{{ view.requests }} served · {{ view.inflight }} in flight<span v-if="(view.queue > 0)"> · {{ view.queue }} waiting</span><span v-if="(view.cold_start_ms !== null)" class="muted"> · last start took {{ format_ms(view.cold_start_ms) }}</span></dd>
-        <template v-if="(view.instances.length > 1)">
-            <dt>Copies</dt>
-            <dd>
-                <span v-for="item of view.instances" :key="item.slot" class="svc-copy"><span class="dot" :class="item.phase"/>#{{ item.slot }} {{ item.phase }}<span v-if="(item.inflight > 0)" class="muted"> · {{ item.inflight }} in flight</span></span>
-            </dd>
-        </template>
-    </dl>
-</div>
-`,
-    components: {'copy-progress': copy_progress, 'forward-state': forward_state},
-    // forwards: those of the status that are part of this service, its port brought over
-    props: ['view', 'busy', 'port', 'remotes', 'forwards'],
-    emits: ['forwards', 'remote'],
-    computed: {
-        // The names machines' doors answer for this service, beside its own
-        // Its own addresses, but those a door also answers: a door's rule of "*" answers an app
-        // on its own address, said once, with the door
-        own_hosts: function () {
-            return this.view.publish.hosts.filter(v => this.door_names.every(vv => vv.host !== v));
-        },
-        door_names: function () {
-            const out = [];
-            for (const item of ((this.remotes === undefined) ? [] : this.remotes)) {
-                const inbound = (item.inbound === undefined) ? {} : item.inbound;
-                for (const host of Object.keys(inbound)) {
-                    const rule = (typeof inbound[host] === 'string') ? {service: inbound[host]} : inbound[host];
-                    // The wall it stands behind at every address comes first: the door's is not asked
-                    const auth = (this.view.auth !== null) ? this.view.auth : ((rule.auth === undefined) ? null : rule.auth);
-                    if (rule.service === this.view.name) {
-                        out.push({machine: item.name, title: item.title || item.name, host, off: (rule.off === true), auth});
-                    }
-                    // A rule of "*" answers each of its names with the service whose own
-                    // address it is: this one's, where the rule covers them
-                    if (rule.service === '*') {
-                        for (const own of this.view.publish.hosts.map(v => v.split('/')[0]).filter(v => (v === host) || (host.startsWith('*.') && v.endsWith(host.slice(1)) && (v.length > host.length - 1)))) {
-                            out.push({machine: item.name, title: item.title || item.name, host: own, off: (rule.off === true), auth});
-                        }
-                    }
-                }
-            }
-            return out;
-        },
-        pill: function () {
-            if ((this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping')) {
-                return 'starting';
-            }
-            if ((this.view.phase === 'failed') || this.view.gave_up) {
-                return 'failed';
-            }
-            return (this.view.phase === 'running') ? 'running' : 'stopped';
-        },
-        state_text: function () {
-            if (this.view.type === 'external') {
-                return 'already running';
-            }
-            if (this.view.type === 'files') {
-                return 'serving its files';
-            }
-            if ((this.view.phase === 'running') && (this.view.policy.instances.max > 1)) {
-                return `running · ${this.view.instances_running} of ${this.view.policy.instances.max}`;
-            }
-            return (this.view.doing === null) ? this.view.phase : 'working';
-        },
-        // The one line after the state: when it goes to sleep, how long it has been up, what
-        // wakes it, or why it will not
-        state_detail: function () {
-            const view = this.view;
-            if (view.type === 'external') {
-                return 'serviceman passes requests on and never starts or stops it';
-            }
-            if (view.type === 'files') {
-                return 'serviceman reads them when they are asked for; nothing runs';
-            }
-            // No failed start behind it: what failed was the setting up of a new version
-            if (view.gave_up && (view.failures === 0)) {
-                return 'serviceman does not start it until asked — Start tries again';
-            }
-            if (view.gave_up) {
-                return `it failed ${view.failures} times in a row, so serviceman stopped trying — Start tries again`;
-            }
-            if (view.phase === 'lost') {
-                return 'its machine is not connected; it keeps running there';
-            }
-            if (view.phase === 'running') {
-                const said = [];
-                if (view.uptime_ms !== null) {
-                    said.push(`up ${format_ms(view.uptime_ms)}`);
-                }
-                if (view.stop_in_ms !== null) {
-                    said.push(`sleeps in ${format_ms(view.stop_in_ms)} unless asked`);
-                }
-                return said.join(' · ');
-            }
-            if (view.phase === 'stopped') {
-                // Stopped by hand: serviceman starts it no more by itself (services_held)
-                if ((view.held === true) && (view.policy.start === 'always')) {
-                    return 'stopped by hand: only Start starts it again';
-                }
-                return (view.policy.start === 'always') ? 'it starts with serviceman' : 'the first request starts it';
-            }
-            return '';
-        },
-        error_shown: function () {
-            return (this.view.error !== null) && (this.view.phase !== 'running');
-        },
-        // What it printed while it was worked on; once it runs, the Logs tab is the place
-        tail: function () {
-            const worth = (this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'failed') || this.error_shown;
-            if ((worth === false) || (this.view.said === undefined)) {
-                return '';
-            }
-            return this.view.said.join('\n');
-        },
-    },
-    methods: {
-        format_ms,
-        remote_text: function (name) {
-            const found = ((this.remotes === undefined) ? [] : this.remotes).find(v => v.name === name) || null;
-            return (found === null) ? name : (found.title || found.name);
-        },
-        // One end of a forward as the config writes it: a socket file, or a port on the loopback
-        end_text: function (forward_end) {
-            if (forward_end.socket !== null) {
-                return forward_end.socket;
-            }
-            return (forward_end.host === null) ? String(forward_end.port) : `${forward_end.host}:${forward_end.port}`;
-        },
-        address_of: function (host) {
-            const mark = host.indexOf('/');
-            const hostname = (mark === -1) ? host : host.slice(0, mark);
-            const prefix = (mark === -1) ? '' : host.slice(mark);
-            return (this.port === 80) ? `http://${hostname}${prefix}` : `http://${hostname}:${this.port}${prefix}`;
-        },
-    },
 };
 
 // The Logs tab of a service: a place kept for what the service itself writes, with nothing in
@@ -1880,13 +1697,15 @@ const service_page = {
     <!-- The overview is how it stands, then what it is made of: one card per part, each
          edited in place -->
     <keep-alive :max="10">
-    <article v-if="(tab_now === 'overview')" id="detail" class="list svc">
-        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" :forwards="brought" @forwards="$emit('forwards')" @remote="$emit('remote', $event)"/>
-        <service-doors :view="view" :remotes="remotes" :names="names"/>
-        <service-script v-if="(view.app_folder !== null)" :view="view"/>
-    </article>
-    <!-- Its settings, a card each, edited and saved in place; Remove last -->
-    <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" @saved="saved" @walls="$emit('walls')"/>
+    <service-overview v-if="(tab_now === 'overview')" :view="view" :original="original" :remotes="remotes" :port="port" :forwards="brought" @logs="$emit('tab', 'logs')" @remote="$emit('remote', $event)" @settings="settings_at($event)"/>
+    <!-- Its settings, a card each, edited and saved in place; Remove last; then the names a
+         machine's door answers for it, and a new version from a script -->
+    <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" @saved="saved" @walls="$emit('walls')">
+        <template #after>
+            <service-doors :view="view" :remotes="remotes" :names="names"/>
+            <service-script v-if="(view.app_folder !== null)" :view="view"/>
+        </template>
+    </service-form>
     <article v-else-if="(tab_now === 'settings')" id="detail" class="list svc">
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
@@ -1897,7 +1716,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status, 'state-pill': state_pill},
+    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],

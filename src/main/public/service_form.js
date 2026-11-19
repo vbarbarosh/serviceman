@@ -233,7 +233,7 @@ const duration = {
 const service_form = {
     template: `
 <article id="detail" class="list form svc">
-    <!-- What the page holding this puts above the cards: the state of a service that exists -->
+    <!-- What the page holding this puts above the cards -->
     <slot/>
     <!-- A new service in the step frame: one question a screen, or all of them on one page; All
          settings, from Check, is the whole form -->
@@ -769,6 +769,9 @@ const service_form = {
             </span>
         </div>
     </div>
+    <!-- What the page holding this puts under the cards: the names a machine's door answers for
+         it, a new version from a script -->
+    <slot name="after"/>
     <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
     <div v-if="(creating && (simple === false))" class="svc-create">
         <button type="button" class="primary" :disabled="busy" @click="create"><span v-if="busy" class="spin"/>{{ busy ? 'creating…' : 'Create service' }}</button>
@@ -790,8 +793,8 @@ const service_form = {
     // restore: what a new service's form held when Add a machine left it, {model, what, step,
     // mode, app_files}, taken up again with the machine made
     // kinds: how the Canvas draws each machine, by its name; counts: how many services each runs
-    // start: what a service's cards open at, when its head's ⋯ led there: 'name' for Rename,
-    // 'remove' for Remove…
+    // start: what a service's cards open at, when its head or its Overview led there: a card's
+    // id ('name' for Rename, 'runs' for Edit of what runs, 'address' for Add), or 'remove'
     props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts', 'start'],
     emits: ['close', 'databases', 'machine', 'saved', 'walls'],
     data: function () {
@@ -1316,17 +1319,17 @@ const service_form = {
     },
     // Led here by the head's ⋯: Rename opens the Name card, Remove… asks to remove, in view
     mounted: function () {
-        if ((this.start !== 'name') && (this.start !== 'remove')) {
+        if ((typeof this.start !== 'string') || (this.start === '')) {
             return;
         }
-        if (this.start === 'name') {
-            this.section_open('name');
-        }
-        else {
+        if (this.start === 'remove') {
             this.removing = true;
         }
+        else if (this.sections.some(v => v.id === this.start)) {
+            this.section_open(this.start);
+        }
         this.$nextTick(function () {
-            const found = this.$el.querySelector((this.start === 'name') ? '#svc-name' : '.svc-remove');
+            const found = this.$el.querySelector((this.start === 'remove') ? '.svc-remove' : `#svc-${this.start}`);
             if (found !== null) {
                 found.scrollIntoView({block: 'center'});
             }

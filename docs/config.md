@@ -52,7 +52,11 @@ address made of its name unless one is typed; what runs on a machine, the first 
 the one it was added from. **Change** under the rest, on Check, opens the whole form, every card,
 with what the steps filled in, as does a problem no step shows; an address with a path strips
 its prefix. A service's own
-page has the same cards under its **Settings** tab, in a grid, each with **Edit** — addresses, image, storage, environment,
+page reads how it runs on its **Overview**: how long it is up, its last start (or its requests,
+once it has an address), how many starts failed in a row, its machine's CPU, memory and disk,
+what runs with each option as a chip (**Copy** takes the whole line, **Edit** opens its card),
+its newest lines and its addresses; nothing there is set. It has the same cards under its
+**Settings** tab, in a grid, each with **Edit** — addresses, image, storage, environment,
 the whole policy. **Edit** opens that card across the top, the others stepping back; **Keep
 this** closes it on the change, marked **changed** with **Undo**, and **Cancel** puts it back.
 What waits is listed in a bar at the foot, old → new a card each, with what Save does, **Undo
