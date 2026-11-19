@@ -30,7 +30,6 @@ import format_ms from './format_ms.js';
 import forward_state from './forward_state.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
-import is_name_in_title from './is_name_in_title.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -1786,67 +1785,77 @@ function tab_allowed(view, tab)
     if ((tab === 'files') || (tab === 'shell')) {
         return (view.type === 'shell') || ((view.type === 'docker') && (view.phase === 'running'));
     }
-    // Settings are the cards of the overview now; an address that names the tab lands there
-    return tab !== 'settings';
+    return true;
 }
+
+// A service's tabs, in the order its head's card shows them
+const SERVICE_TABS = [
+    {key: 'overview', label: 'Overview', icon: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>'},
+    {key: 'logs', label: 'Logs', icon: '<path d="M4 6h16M4 11h11M4 16h16M4 21h8"/>'},
+    {key: 'settings', label: 'Settings', icon: '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/>'},
+    {key: 'files', label: 'Files', icon: '<path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'},
+    {key: 'shell', label: 'Shell', icon: '<path d="M5 7l5 5-5 5"/><path d="M13 17h6"/>'},
+];
 
 // One service as one page: tabs pick what is below, the actions stand to the right of them,
 // and the tab picked here is the app's, so it follows from service to service
 const service_page = {
     template: `
 <div id="page">
-    <div class="item-head">
-        <svg class="item-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="kind.icon"/>
-        <h1>{{ view.title || view.name }}</h1>
-        <code v-if="name_shown" class="muted">{{ view.name }}</code>
-        <span class="pill" :class="state_pill.kind"><span class="dot" :class="(view.doing === null ? view.phase : 'starting')"/>{{ state_pill.text }}</span>
-        <span v-if="(place !== null)" class="muted">on <button type="button" class="link" @click="$emit('remote', place.name)">{{ place.title }}</button></span>
-        <div class="acts crumb-acts">
-            <template v-if="driven">
-                <button type="button" :disabled="(waiting || view.phase === 'running')" @click="$emit('start', view)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>
-                    Start
-                </button>
-                <button type="button" :disabled="(waiting || view.phase !== 'running')" @click="$emit('stop', view)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
-                    Stop
-                </button>
-                <button type="button" :disabled="(waiting || view.phase !== 'running')" title="Stop it and start it again, without the wait in between" @click="$emit('restart', view)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg>
-                    Restart
-                </button>
-                <button v-if="(view.image !== null)" type="button" :disabled="waiting" title="Ask the registry for that image again. A tag is not a version — this is what fetches one that was pushed over it. What is running is made again from what comes down." @click="$emit('pull', view)">
-                    <svg v-if="(view.doing === null)" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M4 20h16"/><path d="M17 7.5a5 5 0 0 0-9.6-1.2A3.6 3.6 0 0 0 8 13"/></svg>
-                    <span v-else class="spin"/>
-                    {{ (view.doing === null ? 'Pull' : 'Pulling…') }}
-                </button>
-                <button v-if="(view.installs === true && view.app_folder === null)" type="button" :disabled="waiting" title="Run the install line again in an empty folder, then start what came back. Storage and secrets stay." @click="$emit('update', view)">
-                    <svg v-if="(view.doing === null)" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
-                    <span v-else class="spin"/>
-                    {{ (view.doing === null ? 'Fetch again' : 'Fetching…') }}
-                </button>
-                <template v-if="(view.app_folder !== null)">
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as its folder on this computer, put in place as soon as it is picked: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.folder.click()">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
-                        New folder…
-                    </button>
-                    <button type="button" :disabled="(waiting || version_busy)" title="A new version of the app, as a zip, put in place as soon as it is picked: everything in its folder but data/ is replaced, bin/configure and bin/build run if it has them, and data/ is put back" @click="$refs.zip.click()">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V5M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
-                        New zip…
-                    </button>
+    <!-- The kit's item head, said once: what it is and how it stands, what can be done to it now,
+         ⋯ for the rest, and its tabs in the card's foot -->
+    <div class="item-card">
+        <div class="item-top">
+            <span class="item-tile"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="kind.icon"/></span>
+            <div class="item-what">
+                <div class="item-name">
+                    <h1>{{ view.name }}</h1>
+                    <state-pill :tone="state_pill.tone" :text="state_pill.text"/>
+                </div>
+                <div class="item-line">
+                    <span>{{ kind_said }}<template v-if="(place !== null)"> on <button type="button" class="link" @click="$emit('remote', place.name)">{{ place.name }}</button></template></span>
+                    <a v-if="(address !== null)" class="mono" :href="address.url" target="_blank" rel="noopener">{{ address.host }}</a>
+                    <span v-else>no address</span>
+                    <span v-if="(view.title && (view.title !== view.name))">{{ view.title }}</span>
+                </div>
+            </div>
+            <div class="item-acts">
+                <template v-if="(acts === 'running')">
+                    <button type="button" :disabled="waiting" @click="$emit('stop', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button>
+                    <button type="button" :disabled="waiting" title="Stop it and start it again, without the wait in between" @click="$emit('restart', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg>Restart</button>
+                </template>
+                <button v-else-if="(acts === 'going')" type="button" :disabled="(busy === true)" @click="$emit('stop', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button>
+                <button v-else-if="(acts === 'stopped')" type="button" class="primary" :disabled="waiting" @click="$emit('start', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>Start</button>
+                <span class="item-menu-wrap">
+                    <button type="button" class="item-dots" aria-label="More for this service" :aria-expanded="menu_open" @click="menu_open = (menu_open === false)">⋯</button>
+                    <span v-if="menu_open" class="item-menu" role="menu">
+                        <button type="button" role="menuitem" title="A new service that starts from this one's settings" @click="menu_pick(() => $emit('clone', view))">Clone</button>
+                        <button v-if="(driven && (view.image !== null))" type="button" role="menuitem" :disabled="waiting" title="Ask the registry for that image again: what is running is made again from what comes down" @click="menu_pick(() => $emit('pull', view))">{{ (view.doing === null) ? 'Pull the image again' : 'Pulling…' }}</button>
+                        <button v-if="(driven && (view.installs === true) && (view.app_folder === null))" type="button" role="menuitem" :disabled="waiting" title="Run the install line again in an empty folder, then start what came back; storage and secrets stay" @click="menu_pick(() => $emit('update', view))">{{ (view.doing === null) ? 'Fetch again' : 'Fetching…' }}</button>
+                        <template v-if="(driven && (view.app_folder !== null))">
+                            <button type="button" role="menuitem" :disabled="(waiting || version_busy)" title="A new version, as its folder on this computer: everything but data/ is replaced" @click="menu_pick(() => $refs.folder.click())">New version, a folder…</button>
+                            <button type="button" role="menuitem" :disabled="(waiting || version_busy)" title="A new version, as a zip: everything but data/ is replaced" @click="menu_pick(() => $refs.zip.click())">New version, a zip…</button>
+                        </template>
+                        <a v-if="(logline_url !== null)" role="menuitem" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours" @click="menu_open = false">Logs in Logline ↗</a>
+                        <button type="button" role="menuitem" @click="menu_pick(() => settings_at('name'))">Rename</button>
+                        <button type="button" role="menuitem" class="danger-item" @click="menu_pick(() => settings_at('remove'))">Remove…</button>
+                    </span>
+                </span>
+                <template v-if="(driven && (view.app_folder !== null))">
                     <input ref="folder" type="file" webkitdirectory hidden @change="version_picked">
                     <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="version_picked">
                 </template>
-            </template>
-            <button type="button" title="A new service that starts from this one's settings" @click="$emit('clone', view)">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15.5 4.5H6a1.5 1.5 0 0 0-1.5 1.5v9.5"/></svg>
-                Clone
-            </button>
-            <span v-if="(waiting && view.doing === null)" class="muted"><span class="spin"/>{{ view.phase }}…</span>
-            <span v-if="(view.type === 'external')" class="muted">runs somewhere else — serviceman only answers for it</span>
-            <span v-if="(view.type === 'files')" class="muted">a folder of files — serviceman serves them itself</span>
+            </div>
         </div>
-        <a v-if="(logline_url !== null)" class="crumb-logs" :href="logline_url" target="_blank" rel="noopener" title="This service's lines in Logline, the last 24 hours">Logs in Logline ↗</a>
+        <div class="tabbar">
+            <nav class="tabs">
+                <button v-for="item of tabs" :key="item.key" type="button" class="tab" :class="{on: (tab_now === item.key)}" @click="$emit('tab', item.key)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/>
+                    {{ item.label }}
+                </button>
+                <ink :mark="(view.name + ':' + tab_now)"/>
+            </nav>
+        </div>
     </div>
     <!-- A new version of an app folder goes in as soon as it is picked: the browser's pick is
          the ask. The bar says what it is, what happens to the folder, and how far it got; it
@@ -1867,40 +1876,18 @@ const service_page = {
             <span v-if="((version_copy === null) || (version_copy.state !== 'going'))" class="muted">{{ version_note }}</span>
         </div>
     </div></div>
-    <div class="tabbar">
-        <nav class="tabs">
-            <button type="button" class="tab" :class="{on: (tab_now === 'overview')}" @click="$emit('tab', 'overview')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
-                Overview
-            </button>
-            <button v-if="driven" type="button" class="tab" :class="{on: (tab_now === 'logs')}" @click="$emit('tab', 'logs')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 11h11M4 16h16M4 21h8"/></svg>
-                Logs
-            </button>
-            <button v-if="inside" type="button" class="tab" :class="{on: (tab_now === 'files')}" @click="$emit('tab', 'files')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>
-                Files
-            </button>
-            <button v-if="inside" type="button" class="tab" :class="{on: (tab_now === 'shell')}" @click="$emit('tab', 'shell')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg>
-                Shell
-            </button>
-            <ink :mark="(view.name + ':' + tab_now)"/>
-        </nav>
-    </div>
     <!-- Walking between tabs keeps each pane as it stands, the way a remote's page does -->
     <!-- The overview is how it stands, then what it is made of: one card per part, each
          edited in place -->
     <keep-alive :max="10">
-    <service-form v-if="(tab_now === 'overview' && original !== null)" :key="('cards-' + view.name + '-' + edit_key)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" @saved="saved" @walls="$emit('walls')">
+    <article v-if="(tab_now === 'overview')" id="detail" class="list svc">
         <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" :forwards="brought" @forwards="$emit('forwards')" @remote="$emit('remote', $event)"/>
         <service-doors :view="view" :remotes="remotes" :names="names"/>
         <service-script v-if="(view.app_folder !== null)" :view="view"/>
-    </service-form>
-    <article v-else-if="(tab_now === 'overview')" id="detail" class="list svc">
-        <service-status :view="view" :busy="busy" :port="port" :remotes="remotes" :forwards="brought" @forwards="$emit('forwards')" @remote="$emit('remote', $event)"/>
-        <service-doors :view="view" :remotes="remotes" :names="names"/>
-        <service-script v-if="(view.app_folder !== null)" :view="view"/>
+    </article>
+    <!-- Its settings, a card each, edited and saved in place; Remove last -->
+    <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" @saved="saved" @walls="$emit('walls')"/>
+    <article v-else-if="(tab_now === 'settings')" id="detail" class="list svc">
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
     <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline"/>
@@ -1910,7 +1897,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
+    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
@@ -1921,21 +1908,67 @@ const service_page = {
         // version_new: a new version of an app folder, a folder or a zip read and on its way
         // (app_entries_read without its own data/, with how many files that held, the service
         // it is for, done and error); version_copy: its files on their way, as every copy is shown
-        return {original: null, original_state: 'reading', tied: [], forward_labels: [], edit_key: 0, version_new: null, version_busy: false, version_note: '', version_copy: null};
+        // menu_open: its ⋯; settings_start: what Settings opens at when ⋯ led there ('name' or
+        // 'remove'), '' for nothing
+        return {original: null, original_state: 'reading', tied: [], forward_labels: [], edit_key: 0, version_new: null, version_busy: false, version_note: '', version_copy: null, menu_open: false, settings_start: ''};
     },
     computed: {
-        // The name beside the title, unless it only repeats it
-        name_shown: function () {
-            return is_name_in_title(this.view.title, this.view.name) === false;
-        },
         kind: function () {
             return service_kind(this.view);
         },
-        // How it stands, with how long it has been up: running · up 2 h
+        // What it is, as the line under its name begins: a program, a docker image
+        kind_said: function () {
+            const word = this.kind.word.toLowerCase();
+            if (word === 'already running') {
+                return 'already running';
+            }
+            return `${/^[aeiou]/.test(word) ? 'an' : 'a'} ${word}`;
+        },
+        // Its first address, to open; null for none
+        address: function () {
+            const hosts = this.view.publish.hosts;
+            if (hosts.length === 0) {
+                return null;
+            }
+            const port = (this.port === 80) ? '' : `:${this.port}`;
+            const host = hosts[0];
+            return {host, url: `http://${host.replace(/\/.*$/, '')}${port}${host.includes('/') ? host.slice(host.indexOf('/')) : ''}`};
+        },
+        // Its machine is away: it waits for it
+        machine_away: function () {
+            if ((this.driven === false) || (this.place === null)) {
+                return false;
+            }
+            const found = this.remotes.find(v => v.name === this.place.name);
+            return (found !== undefined) && (found.phase !== 'online');
+        },
+        // How it stands, once, with its time: running · up 58s, stopped, failed, waits for its machine
         state_pill: function () {
+            if (this.machine_away) {
+                return {tone: 'busy', text: 'waits for its machine'};
+            }
             const word = service_state_word(this.view);
             const up = ((this.view.phase === 'running') && (this.view.uptime_ms !== null) && (this.view.uptime_ms !== undefined)) ? ` · up ${format_ms(this.view.uptime_ms)}` : '';
-            return {kind: {running: 'running', failed: 'failed', lost: 'failed'}[this.view.phase] || ((this.view.doing === null) ? '' : 'waiting'), text: word + up};
+            const tone = {running: 'run', failed: 'bad', lost: 'bad'}[this.view.phase] || ((this.waiting) ? 'busy' : 'idle');
+            return {tone, text: word + up};
+        },
+        // What the head offers by how it stands: running, Stop and Restart; on its way, Stop;
+        // stopped or failed, Start; its machine away, or nothing to start, only ⋯
+        acts: function () {
+            if ((this.driven === false) || this.machine_away) {
+                return 'none';
+            }
+            if (this.view.phase === 'running') {
+                return 'running';
+            }
+            if ((this.view.doing !== null) || (this.view.phase === 'starting') || (this.view.phase === 'stopping')) {
+                return 'going';
+            }
+            return 'stopped';
+        },
+        // Its tabs: Overview, Logs, Settings, Files, Shell, those it has
+        tabs: function () {
+            return SERVICE_TABS.filter(v => tab_allowed(this.view, v.key));
         },
         logline_url: function () {
             return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
@@ -1979,7 +2012,35 @@ const service_page = {
             },
         },
     },
+    // A click outside its ⋯, or Esc, puts it away
+    mounted: function () {
+        const self = this;
+        this.menus_away = function (event) {
+            if ((event.type === 'keydown') && (event.key !== 'Escape')) {
+                return;
+            }
+            if ((event.type === 'click') && (event.target.closest('.item-menu-wrap') !== null)) {
+                return;
+            }
+            self.menu_open = false;
+        };
+        document.addEventListener('click', this.menus_away);
+        document.addEventListener('keydown', this.menus_away);
+    },
+    unmounted: function () {
+        document.removeEventListener('click', this.menus_away);
+        document.removeEventListener('keydown', this.menus_away);
+    },
     methods: {
+        menu_pick: function (then) {
+            this.menu_open = false;
+            then();
+        },
+        // Settings, open at its Name card for Rename, or at Remove for Remove…
+        settings_at: function (start) {
+            this.settings_start = start;
+            this.$emit('tab', 'settings');
+        },
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             // A serviceman with no config file has no entry to edit; the page says so
@@ -2559,7 +2620,7 @@ const app = {
                 return page_crumbs({page: 'remote', name: this.selected_remote.name, title: '', tab: this.remote_tab_now});
             }
             if ((this.kind_now === 'services') && (this.selected !== null)) {
-                return page_crumbs({page: 'service', name: this.selected.name, title: this.selected.title || '', tab: this.service_tab_now});
+                return page_crumbs({page: 'service', name: this.selected.name, title: '', tab: this.service_tab_now});
             }
             // A form a category's page opens in itself: New secret, Change a forward
             if (this.pane_form !== '') {

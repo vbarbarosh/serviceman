@@ -790,7 +790,9 @@ const service_form = {
     // restore: what a new service's form held when Add a machine left it, {model, what, step,
     // mode, app_files}, taken up again with the machine made
     // kinds: how the Canvas draws each machine, by its name; counts: how many services each runs
-    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts'],
+    // start: what a service's cards open at, when its head's ⋯ led there: 'name' for Rename,
+    // 'remove' for Remove…
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts', 'start'],
     emits: ['close', 'databases', 'machine', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
@@ -1311,6 +1313,24 @@ const service_form = {
                 this.m.strip_prefix = true;
             }
         },
+    },
+    // Led here by the head's ⋯: Rename opens the Name card, Remove… asks to remove, in view
+    mounted: function () {
+        if ((this.start !== 'name') && (this.start !== 'remove')) {
+            return;
+        }
+        if (this.start === 'name') {
+            this.section_open('name');
+        }
+        else {
+            this.removing = true;
+        }
+        this.$nextTick(function () {
+            const found = this.$el.querySelector((this.start === 'name') ? '#svc-name' : '.svc-remove');
+            if (found !== null) {
+                found.scrollIntoView({block: 'center'});
+            }
+        });
     },
     methods: {
         host_from_name: function (name) {

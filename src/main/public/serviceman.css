@@ -1617,6 +1617,25 @@ ul.tried {
     background: var(--hover);
 }
 
+.item-menu > button.danger-item {
+    color: var(--bad);
+}
+
+.item-menu > button:disabled {
+    opacity: .5;
+}
+
+.item-line a.mono {
+    color: var(--link);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.item-line .link {
+    font-size: inherit;
+}
+
 .item-menu > button.on {
     color: var(--link);
     font-weight: 600;
@@ -1721,7 +1740,7 @@ ul.tried {
         width: 100%;
     }
 
-    .item-acts > button.primary {
+    .item-acts > button {
         flex: 1;
         justify-content: center;
     }

@@ -52,7 +52,7 @@ address made of its name unless one is typed; what runs on a machine, the first 
 the one it was added from. **Change** under the rest, on Check, opens the whole form, every card,
 with what the steps filled in, as does a problem no step shows; an address with a path strips
 its prefix. A service's own
-page is the same cards, in a grid, each with **Edit** — addresses, image, storage, environment,
+page has the same cards under its **Settings** tab, in a grid, each with **Edit** — addresses, image, storage, environment,
 the whole policy. **Edit** opens that card across the top, the others stepping back; **Keep
 this** closes it on the change, marked **changed** with **Undo**, and **Cancel** puts it back.
 What waits is listed in a bar at the foot, old → new a card each, with what Save does, **Undo
@@ -704,7 +704,7 @@ that carries the program:
 ### Fetching a program again
 
 The program moved on — a commit was pushed — and the config did not change, so serviceman has
-no reason to notice. **Fetch again** on its page (`POST /api/v1/services/<name>/update`) is how
+no reason to notice. **Fetch again**, under **⋯** on its page (`POST /api/v1/services/<name>/update`), is how
 you say so: it stops the service whatever it is doing, runs the `update` line, or the `install`
 line in an empty folder when there is no `update` line, and starts it again if it was running,
 starting or failed. Nothing starts it while the line runs: a restart it was waiting for is
@@ -722,8 +722,8 @@ its start attempts gets them back, because this is a different program now.
 ### A new version of an app folder
 
 An app folder (`bin/run` in a folder named in `cwd`, as **An app folder** on the New service
-form makes one) takes a new version the two ways it was made: **New folder…** or **New zip…**
-on its page, in place of **Fetch again**. **`data/` is the service's working space, never merged
+form makes one) takes a new version the two ways it was made: **New version, a folder…** or
+**New version, a zip…**, under **⋯** on its page, in place of **Fetch again**. **`data/` is the service's working space, never merged
 or overwritten:** what the app keeps lives there, and it is all that outlives a new version:
 
 1. the page reads the folder or the zip and sends its files beside the folder, to `<folder>.new`,
@@ -1112,7 +1112,7 @@ serviceman runs `docker run -d --name serviceman-<name> --label serviceman.servi
 --publish 127.0.0.1::<port> ...`. Docker picks the host port, serviceman reads it back with
 `docker port`, so two services never fight over a number.
 
-**Pull** on the service's page fetches the image again. A tag is not a version — `:latest`, or
+**Pull the image again**, under **⋯** on the service's page, fetches the image again. A tag is not a version — `:latest`, or
 `:24`, or anything else somebody pushes over, is a name for whatever was published under it
 last — and a machine that already has an image by that name never asks again. This is the ask.
 Then it asks the container which image it was made from: where that is not the image the name

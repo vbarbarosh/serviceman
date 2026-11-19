@@ -768,7 +768,7 @@ address made of its name unless one is typed; what runs on a machine, the first 
 the one it was added from. <strong>Change</strong> under the rest, on Check, opens the whole form, every card,
 with what the steps filled in, as does a problem no step shows; an address with a path strips
 its prefix. A service&#39;s own
-page is the same cards, in a grid, each with <strong>Edit</strong> — addresses, image, storage, environment,
+page has the same cards under its <strong>Settings</strong> tab, in a grid, each with <strong>Edit</strong> — addresses, image, storage, environment,
 the whole policy. <strong>Edit</strong> opens that card across the top, the others stepping back; <strong>Keep
 this</strong> closes it on the change, marked <strong>changed</strong> with <strong>Undo</strong>, and <strong>Cancel</strong> puts it back.
 What waits is listed in a bar at the foot, old → new a card each, with what Save does, <strong>Undo
@@ -1579,7 +1579,7 @@ that carries the program:</p>
 </div>
 <h3 id="fetching-a-program-again"><a class="anchor" href="#fetching-a-program-again" aria-hidden="true" tabindex="-1">#</a>Fetching a program again</h3>
 <p>The program moved on — a commit was pushed — and the config did not change, so serviceman has
-no reason to notice. <strong>Fetch again</strong> on its page (<code>POST /api/v1/services/&lt;name&gt;/update</code>) is how
+no reason to notice. <strong>Fetch again</strong>, under <strong>⋯</strong> on its page (<code>POST /api/v1/services/&lt;name&gt;/update</code>), is how
 you say so: it stops the service whatever it is doing, runs the <code>update</code> line, or the <code>install</code>
 line in an empty folder when there is no <code>update</code> line, and starts it again if it was running,
 starting or failed. Nothing starts it while the line runs: a restart it was waiting for is
@@ -1593,8 +1593,8 @@ exactly what it was.</p>
 its start attempts gets them back, because this is a different program now.</p>
 <h3 id="a-new-version-of-an-app-folder"><a class="anchor" href="#a-new-version-of-an-app-folder" aria-hidden="true" tabindex="-1">#</a>A new version of an app folder</h3>
 <p>An app folder (<code>bin/run</code> in a folder named in <code>cwd</code>, as <strong>An app folder</strong> on the New service
-form makes one) takes a new version the two ways it was made: <strong>New folder…</strong> or <strong>New zip…</strong>
-on its page, in place of <strong>Fetch again</strong>. <strong><code>data/</code> is the service&#39;s working space, never merged
+form makes one) takes a new version the two ways it was made: <strong>New version, a folder…</strong> or
+<strong>New version, a zip…</strong>, under <strong>⋯</strong> on its page, in place of <strong>Fetch again</strong>. <strong><code>data/</code> is the service&#39;s working space, never merged
 or overwritten:</strong> what the app keeps lives there, and it is all that outlives a new version:</p>
 <ol>
 <li>the page reads the folder or the zip and sends its files beside the folder, to <code>&lt;folder&gt;.new</code>,
@@ -1992,7 +1992,7 @@ instance of a docker service shares the same volumes — the service must be rea
 </div>
 <p>serviceman runs <code>docker run -d --name serviceman-&lt;name&gt; --label serviceman.service=&lt;name&gt; --publish 127.0.0.1::&lt;port&gt; ...</code>. Docker picks the host port, serviceman reads it back with
 <code>docker port</code>, so two services never fight over a number.</p>
-<p><strong>Pull</strong> on the service&#39;s page fetches the image again. A tag is not a version — <code>:latest</code>, or
+<p><strong>Pull the image again</strong>, under <strong>⋯</strong> on the service&#39;s page, fetches the image again. A tag is not a version — <code>:latest</code>, or
 <code>:24</code>, or anything else somebody pushes over, is a name for whatever was published under it
 last — and a machine that already has an image by that name never asks again. This is the ask.
 Then it asks the container which image it was made from: where that is not the image the name

@@ -55,3 +55,12 @@ test('a machine\'s page shows six tabs, the rest under More', function () {
     assert.deepStrictEqual(main, ['overview', 'services', 'databases', 'files', 'logs', 'settings']);
     assert.match(text, /class="item-card"/, 'its head is the kit\'s card');
 });
+
+// A service's head says it once, its tabs in the card's foot: Overview, Logs, Settings, Files, Shell
+test('a service\'s page has its tabs in its head\'s card, Settings among them', function () {
+    const text = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
+    const found = /const SERVICE_TABS = \[([\s\S]*?)\n\];/.exec(text);
+    assert.notStrictEqual(found, null, 'the service\'s tabs are listed');
+    const keys = found[1].split('\n').filter(v => v.includes('key: ')).map(v => /key: '([a-z]+)'/.exec(v)[1]);
+    assert.deepStrictEqual(keys, ['overview', 'logs', 'settings', 'files', 'shell']);
+});
