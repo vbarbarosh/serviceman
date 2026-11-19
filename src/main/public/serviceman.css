@@ -2513,6 +2513,98 @@ input.sf-big {
     align-self: flex-start;
 }
 
+/* Editing a service: a card left aside while another is open steps back; one changed and not
+   saved yet is marked; the bar at the foot holds what waits for Save, square where it touches */
+.svc-cards {
+    display: contents;
+}
+
+.svc-cards.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: .75rem;
+    align-items: stretch;
+}
+
+/* A card at rest in the grid: its title and its buttons on top, what it says under them */
+.svc-cards.grid .svc-sec:not(.open) .svc-head {
+    flex-wrap: wrap;
+    align-items: center;
+    height: 100%;
+    align-content: flex-start;
+}
+
+.svc-cards.grid .svc-sec:not(.open) .svc-head > b {
+    flex: 1;
+    width: auto;
+}
+
+.svc-cards.grid .svc-sec:not(.open) .svc-sum {
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    color: var(--fg);
+}
+
+.svc-cards.grid .svc-sec:not(.open) .svc-sum > span + span {
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+.svc-cards.grid .svc-sec.open {
+    order: -1;
+    grid-column: 1 / -1;
+}
+
+.svc-sec.dim {
+    opacity: .45;
+}
+
+.svc-remove {
+    margin-top: .25rem;
+}
+
+.svc-sec.changed {
+    border-color: var(--accent);
+}
+
+.tag.svc-changed {
+    background: var(--busy-soft);
+    color: var(--busy-text);
+    font-weight: 600;
+}
+
+.svc-undo {
+    color: var(--busy-text);
+}
+
+.svc-bar {
+    position: sticky;
+    bottom: -1rem;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+    margin-top: .5rem;
+    padding: .8rem 1rem;
+    border-top: 2px solid var(--busy, #ff8400);
+    background: var(--panel);
+}
+
+.svc-bar-says {
+    flex: 1 1 22rem;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.svc-bar-count {
+    color: var(--busy-text);
+}
+
 /* All categories: a group a block, its tiles side by side, each standing alone, 6 px */
 .cat-group {
     margin-top: 1.4rem;

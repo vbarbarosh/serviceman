@@ -107,6 +107,19 @@ const SECTIONS = [
     {id: 'scale', title: 'Copies', kinds: ['docker'], must: false},
 ];
 
+// What each card changes in the model: Undo puts these back as saved, and a card is marked
+// changed while any of them differs from what is saved
+const SECTION_FIELDS = {
+    name: ['name', 'title', 'type'],
+    runs: ['image', 'port', 'network', 'init', 'prepull', 'env', 'command', 'user', 'cwd', 'install', 'update', 'stop', 'uninstall', 'upstream', 'socket', 'folder'],
+    where: ['places'],
+    address: ['hosts', 'strip_prefix', 'redirect', 'auth'],
+    ports: ['brought'],
+    keep: ['volumes', 'secrets'],
+    policy: ['start', 'restart', 'stop_after_idle', 'never_stop', 'start_timeout', 'stop_timeout', 'request_timeout', 'never_request_timeout', 'start_tries'],
+    scale: ['min', 'max', 'concurrency', 'warmup_queue', 'warmup_wait', 'scale_down_after', 'prepull', 'autoscale', 'busy_up', 'up_for', 'busy_down', 'down_for', 'cool_down'],
+};
+
 // Which card each thing that can be wrong is in
 const SECTION_PROBLEMS = {
     name: ['name'],
@@ -360,15 +373,21 @@ const service_form = {
             </button>
         </div>
     </template>
-    <div v-for="section of (simple ? [] : sections)" :key="section.id" class="card svc-sec" :class="{open: section.open, wrong: section.wrong}" :id="('svc-' + section.id)">
+    <!-- A service's cards stand in a grid at rest, the one open across it on top; while one is
+         made they are a column -->
+    <div class="svc-cards" :class="{grid: (creating === false)}">
+    <div v-for="section of (simple ? [] : sections)" :key="section.id" class="card svc-sec" :class="{open: section.open, wrong: section.wrong, changed: section.changed, dim: ((creating === false) && (editing !== '') && (section.open === false))}" :id="('svc-' + section.id)">
         <div class="svc-head">
             <b>{{ section.title }}</b>
+            <span v-if="section.changed" class="tag svc-changed">changed</span>
             <span v-if="(section.open === false)" class="svc-sum">
                 <span v-for="line of section.summary.lines" :key="line">{{ line }}</span>
+                <span v-if="section.changed" class="muted">was {{ section.was }}</span>
                 <span v-if="(section.summary.warn !== '')" class="svc-warn">{{ section.summary.warn }}</span>
             </span>
             <span class="list-right">
                 <button v-if="(section.open === false && section.summary.fix !== null && creating === false)" type="button" :disabled="(editing !== '')" @click="fix(section.summary.fix)">{{ section.summary.fix.label }}</button>
+                <button v-if="((section.open === false) && section.changed)" type="button" class="link svc-undo" :disabled="(editing !== '')" @click="section_undo(section.id)">Undo</button>
                 <button v-if="(section.open === false)" type="button" :disabled="(creating === false && editing !== '')" @click="section_open(section.id)">{{ creating ? 'Change' : 'Edit' }}</button>
                 <button v-else-if="(creating && section.must === false)" type="button" @click="section_close(section.id)">Use the defaults</button>
             </span>
@@ -704,12 +723,13 @@ const service_form = {
             </template>
         </div>
         <div v-if="(section.open && section.last && creating === false)" class="svc-foot">
-            <button type="button" class="primary" :disabled="busy" @click="section_save"><span v-if="busy" class="spin"/>{{ busy ? 'saving…' : 'Save' }}</button>
+            <button type="button" class="primary" :disabled="busy" @click="section_keep">Keep this</button>
             <button type="button" :disabled="busy" @click="section_cancel">Cancel</button>
-            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+            <span :class="(bad ? 'bad' : 'muted')">{{ (problems_here().length > 0 && tried) ? 'Something here is to be put right first' : 'waits for Save, with the other changes' }}</span>
         </div>
     </div>
-    <div v-if="(creating === false)" class="card svc-sec">
+    </div>
+    <div v-if="(creating === false)" class="card svc-sec svc-remove" :class="{dim: (editing !== '')}">
         <div class="svc-head">
             <b>Remove</b>
             <span v-if="(removing === false)" class="svc-sum"><span>Takes {{ model.name }} out of the config{{ forwards_gone }}. Anything running keeps running.</span></span>
@@ -722,6 +742,17 @@ const service_form = {
                 </template>
             </span>
         </div>
+    </div>
+    <!-- What waits for Save, old → new a card each, and what Save does; one write for them all -->
+    <div v-if="((creating === false) && (changes.length > 0) && (editing === ''))" class="svc-bar" role="region" aria-label="Changes waiting for Save">
+        <div class="svc-bar-says">
+            <span><b class="svc-bar-count">{{ (changes.length === 1) ? '1 change' : (changes.length + ' changes') }}:</b> {{ changes.map(v => v.text).join(', ') }}</span>
+            <span class="muted">{{ save_says }}</span>
+            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </div>
+        <button type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} serviceman.json</button>
+        <button type="button" :disabled="busy" @click="undo_all">Undo all</button>
+        <button type="button" class="primary" :disabled="busy" @click="section_save"><span v-if="busy" class="spin"/>{{ busy ? 'saving…' : 'Save' }}</button>
     </div>
     <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
     <div v-if="(creating && (simple === false))" class="svc-create">
@@ -787,6 +818,8 @@ const service_form = {
             draft: null,
             // The card open on a service that exists, one at a time
             editing: '',
+            // What waited for Save when that card was opened, for its Cancel to put back
+            snapshot: null,
             // The optional cards opened while making one
             opened: {},
             // Whether the path checkbox was touched: until it is, an address with a path takes
@@ -959,7 +992,9 @@ const service_form = {
                 const wrong = (SECTION_PROBLEMS[item.id] || []).some(v => this.problems[v] !== undefined);
                 // A folder of files has nothing that runs: its card says what it serves
                 const title = ((item.id === 'runs') && (this.m.type === 'files')) ? 'What it serves' : item.title;
-                out.push({id: item.id, title, must: item.must, open, wrong, last: false, summary: this.summary_of(item.id, this.model)});
+                const changed = (this.creating === false) && this.changed_ids.includes(item.id);
+                const was = changed ? this.summary_of(item.id, this.model).lines[0] : '';
+                out.push({id: item.id, title, must: item.must, open, wrong, last: false, changed, was, summary: this.summary_of(item.id, this.m)});
             }
             // Save and Cancel go under the last card open: a new kind opens several at once
             const opened = out.filter(v => v.open);
@@ -967,6 +1002,35 @@ const service_form = {
                 opened[opened.length - 1].last = true;
             }
             return out;
+        },
+        // The cards whose fields differ from what is saved, while changes wait for Save
+        changed_ids: function () {
+            if ((this.creating === true) || (this.draft === null)) {
+                return [];
+            }
+            const draft = this.draft;
+            const model = this.model;
+            const out = Object.keys(SECTION_FIELDS).filter(v => SECTION_FIELDS[v].some(vv => JSON.stringify(draft[vv]) !== JSON.stringify(model[vv])));
+            if ((this.secrets_gone.length > 0) && (out.includes('keep') === false)) {
+                out.push('keep');
+            }
+            return out;
+        },
+        // What waits for Save, a line a card: its title, what is saved, what it becomes
+        changes: function () {
+            return this.sections.filter(v => v.changed).map(v => ({id: v.id, text: `${v.title.toLowerCase()} ${change_text(v.was, v.summary.lines[0])}`}));
+        },
+        // What Save does, in a line: one write, and the service starting afresh at its next
+        // start; on another machine, what it kept stays where it was
+        save_says: function () {
+            const name = this.model.name;
+            if (this.changed_ids.includes('where') && (this.model.volumes.length > 0)) {
+                return `Save writes serviceman.json once. ${name} starts afresh on ${this.place_text(this.draft.places[0].text)} at its next start; what it kept stays on ${this.place_text(this.model.places[0].text)}.`;
+            }
+            if (this.changed_ids.includes('where')) {
+                return `Save writes serviceman.json once. ${name} starts afresh on ${this.place_text(this.draft.places[0].text)} at its next start.`;
+            }
+            return `Save writes serviceman.json once; ${name} starts afresh with it at its next start.`;
         },
         // The kind is being changed in the Name card: what the new kind needs is asked in the
         // same save, since a kind with nothing said about what runs is not a service at all
@@ -1438,8 +1502,11 @@ const service_form = {
             }
             else {
                 this.tried = false;
-                this.draft = model_copy(this.model);
-                this.secrets_gone = [];
+                if (this.draft === null) {
+                    this.draft = model_copy(this.model);
+                    this.secrets_gone = [];
+                }
+                this.snapshot = {draft: model_copy(this.draft), secrets_gone: this.secrets_gone.slice()};
                 this.editing = id;
                 this.strip_touched = false;
                 this.image_change();
@@ -1463,8 +1530,14 @@ const service_form = {
             }
             this.opened[id] = false;
         },
+        // Cancel puts the open card back as it was when it was opened; what other cards kept waits
         section_cancel: function () {
-            this.draft = null;
+            if (this.snapshot !== null) {
+                this.draft = this.snapshot.draft;
+                this.secrets_gone = this.snapshot.secrets_gone;
+            }
+            this.snapshot = null;
+            this.draft_settle();
             this.editing = '';
             this.tried = false;
             this.note = '';
@@ -1816,9 +1889,47 @@ const service_form = {
             return app_files_send(this.app_files, place, folder, v => this.report(v, false), this.files_copy);
         },
         // One card saved: the whole service is sent, and only this card differs from what was
-        section_save: async function () {
+        // Keep this: the card closes on what it says, marked, waiting for Save with the others
+        section_keep: function () {
             this.tried = true;
             if (this.problems_here().length > 0) {
+                return;
+            }
+            this.tried = false;
+            this.snapshot = null;
+            this.editing = '';
+            this.draft_settle();
+        },
+        // A card back as it is saved; the others keep what they wait with
+        section_undo: function (id) {
+            for (const name of SECTION_FIELDS[id]) {
+                this.draft[name] = JSON.parse(JSON.stringify(this.model[name]));
+            }
+            if (id === 'keep') {
+                this.secrets_gone = [];
+            }
+            this.draft_settle();
+        },
+        undo_all: function () {
+            this.draft = null;
+            this.secrets_gone = [];
+            this.snapshot = null;
+            this.editing = '';
+            this.tried = false;
+            this.report('', false);
+        },
+        // Nothing waiting for Save is no draft at all: the cards show what is saved
+        draft_settle: function () {
+            if ((this.draft !== null) && (this.editing === '') && (this.changed_ids.length === 0)) {
+                this.draft = null;
+            }
+        },
+        // Every change at once, one write; a card with something wrong opens to be put right
+        section_save: async function () {
+            this.tried = true;
+            const wrong = this.sections.find(v => v.wrong);
+            if (wrong !== undefined) {
+                this.section_open(wrong.id);
                 return;
             }
             const model = this.model_now();
@@ -1826,7 +1937,9 @@ const service_form = {
             if (ok) {
                 this.model = model;
                 this.draft = null;
+                this.snapshot = null;
                 this.editing = '';
+                this.tried = false;
                 this.$emit('saved', model.name);
             }
         },
@@ -1935,6 +2048,21 @@ const service_form = {
         }
     },
 };
+
+// What a card's line was and is, the parts both say left out: "sleeps after 1h idle → sleeps
+// after 2m idle" where the whole line says when it starts too
+function change_text(was, now)
+{
+    const before = String(was).split(', ');
+    const after = String(now).split(', ');
+    const kept = before.filter(v => after.includes(v));
+    const old_parts = before.filter(v => (kept.includes(v) === false));
+    const new_parts = after.filter(v => (kept.includes(v) === false));
+    if ((old_parts.length === 0) || (new_parts.length === 0)) {
+        return `${was} → ${now}`;
+    }
+    return `${old_parts.join(', ')} → ${new_parts.join(', ')}`;
+}
 
 // A size in the unit it reads best in, for a machine's free memory: 3 GB, 512 MB
 function size_words(bytes)

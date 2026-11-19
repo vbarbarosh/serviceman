@@ -48,8 +48,11 @@ address made of its name unless one is typed; what runs on a machine, the first 
 the one it was added from. **Change** under the rest, on Check, opens the whole form, every card,
 with what the steps filled in, as does a problem no step shows; an address with a path strips
 its prefix. A service's own
-page is the same cards, each with **Edit** — addresses, image, storage, environment, the
-whole policy. A card's **Save** writes the config file and applies it at once; only the
+page is the same cards, in a grid, each with **Edit** — addresses, image, storage, environment,
+the whole policy. **Edit** opens that card across the top, the others stepping back; **Keep
+this** closes it on the change, marked **changed** with **Undo**, and **Cancel** puts it back.
+What waits is listed in a bar at the foot, old → new a card each, with what Save does, **Undo
+all** and **Save**, which writes the config file once and applies it at once; only the
 fields you fill land in the file. What no card shows (`run_args`, `args`, `argv`, a key
 written by hand) stays in the file as it was; **Show what Save writes to serviceman.json**,
 under the cards, shows the whole entry before you save. A service made another kind loses
