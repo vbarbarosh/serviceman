@@ -2473,7 +2473,9 @@ comes off them.</li>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this
-is the list it writes.</p>
+is the list it writes. <strong>+ New test</strong> asks step by step, or on one page: <strong>Target</strong>, the service
+and its address; <strong>Load</strong>, the users, for how long, and the machine it runs from; <strong>Passes when</strong>,
+the 95th percentile and the share of errors; <strong>Check</strong>, with its name.</p>
 <pre><code class="language-json">&quot;load_tests&quot;: [
     {&quot;name&quot;: &quot;whoami&quot;, &quot;service&quot;: &quot;whoami&quot;, &quot;remote&quot;: &quot;laptop&quot;, &quot;vus&quot;: 20, &quot;duration&quot;: &quot;30s&quot;, &quot;p95_ms&quot;: 500, &quot;errors_pct&quot;: 1}
 ]

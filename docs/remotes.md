@@ -966,8 +966,10 @@ client reads any 502, 503, 504 or 52x as "not reachable now".
 ## A port or a socket from one machine to another
 
 A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
-the machines' agents carry it. `from` is where the service is, `to` where it shows up. A Loki on
-vps1's loopback, as a socket file on the laptop:
+the machines' agents carry it. `from` is where the service is, `to` where it shows up. The
+**Forwards** page's **+ Add forward** asks for them step by step, or on one page: **From**, the
+machine and its port, address or socket; **To**, where it comes out; **Check**, with a label. A
+Loki on vps1's loopback, as a socket file on the laptop:
 
 ```json
 "forwards": [

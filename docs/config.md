@@ -1620,7 +1620,9 @@ publishes it there. Each change is saved at once. A program reads the list with
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address
 for a while. The **Load tests** page makes them, runs them and keeps what each run measured; this
-is the list it writes.
+is the list it writes. **+ New test** asks step by step, or on one page: **Target**, the service
+and its address; **Load**, the users, for how long, and the machine it runs from; **Passes when**,
+the 95th percentile and the share of errors; **Check**, with its name.
 
 ```json
 "load_tests": [

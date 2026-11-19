@@ -36,7 +36,10 @@ where it is.
 
 ## A folder on a machine
 
-**+ New folder** makes a folder of the volume: up to 40 small letters, digits and hyphens. It
+**+ New folder** makes a folder of the volume, step by step: its **Name**, up to 40 small letters,
+digits and hyphens; **Where it lives**, the first machine it is mounted on and the path there, or
+not mounted yet; **Check**. A first mount the machine refuses leaves the folder made, said, to be
+mounted on its row. It
 belongs to the person whose agent runs on the home, by number: uid 1000 there is uid 1000 on
 every machine.
 

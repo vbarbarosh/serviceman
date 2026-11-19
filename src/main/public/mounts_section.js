@@ -2,6 +2,7 @@ import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import mounts_write from './mounts_write.js';
+import step_frame from './step_frame.js';
 
 // A folder of one machine, mounted on another: `from` is where the folder is, `to` where it
 // shows up, read-only or read-write. sshfs on `to` speaks SFTP over both machines' links,
@@ -10,6 +11,49 @@ import mounts_write from './mounts_write.js';
 const mounts_section = {
     template: `
 <div class="forwards mounts">
+    <step-frame v-if="making" :title="((editing === null) ? 'New mount' : ('Change ' + editing.label))" :steps="steps" :step="step" :mode="((editing === null) ? mode : 'page')" :switchable="(editing === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((editing === null) ? 'Mount' : 'Save')" @step="step_go" @mode="mode = $event" @cancel="clear" @create="write">
+        <template #from>
+            <div class="sf-fields fwd-step">
+
+                    <select ref="first" v-model="fresh.from_remote" aria-label="The machine the folder is on">
+                        <option value="">a machine…</option>
+                        <option :value="here_value">this host — serviceman's {{ state_folder }}/</option>
+                        <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <input v-model.trim="fresh.from" :placeholder="from_hint" spellcheck="false" aria-label="The folder there" @keyup.enter="write">
+                    <div class="fwd-end-says" :class="{bad: (from_says.bad)}">{{ from_says.text }}</div>
+            </div>
+        </template>
+        <template #to>
+            <div class="sf-fields fwd-step">
+
+                    <select v-model="fresh.to_remote" aria-label="The machine it is mounted on">
+                        <option value="">a machine…</option>
+                        <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <input v-model.trim="fresh.to" placeholder="/mnt/photos" spellcheck="false" aria-label="The folder it is mounted at there" @keyup.enter="write">
+                    <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
+            <div class="mount-modes" role="radiogroup" aria-label="What the machine it is mounted on may do">
+                <label :class="{on: (fresh.mode === 'ro')}"><input v-model="fresh.mode" type="radio" value="ro"><span><b>Read-only</b> <span class="muted">— nothing there may change it</span></span></label>
+                <label :class="{on: (fresh.mode === 'rw')}"><input v-model="fresh.mode" type="radio" value="rw"><span><b>Read-write</b> <span class="muted">— files are written, renamed and removed there</span></span></label>
+            </div>
+            </div>
+        </template>
+        <template #check>
+            <div class="sf-fields">
+            <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and both folders.' : summary) }}</p>
+                <div class="fwd-make-foot"><label>Label <input v-model.trim="fresh.label" class="fwd-label" :placeholder="label_auto" maxlength="100" spellcheck="false" title="Any text, one per mount; left empty, the one shown" @keyup.enter="write"></label></div>
+            </div>
+        </template>
+        <template #summary>
+            <div class="sum-head"><b>{{ fresh.label || label_auto || 'not named yet' }}</b></div>
+            <p class="sum-line"><span>{{ (summary === null) ? 'Pick both machines and both folders.' : summary }}</span></p>
+        </template>
+        <template #note>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+    </step-frame>
+    <template v-else>
     <div class="list-head">
         <h1>Mounts</h1>
         <span class="muted">{{ mounts.length }}</span>
@@ -18,48 +62,6 @@ const mounts_section = {
         </div>
     </div>
     <p class="muted">A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder straight through the agent of the machine on the left, over the tailnet; an agent too old for that, or one that cannot be reached that way, goes over both machines' links through serviceman instead. No ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
-    <div v-if="making" class="dt-window" @click.self="clear">
-    <div class="fwd-make" :class="{editing: (editing !== null)}" role="dialog" aria-modal="true">
-        <h2>{{ (editing === null ? 'Mount a folder on another machine' : 'Change ' + editing.label) }}</h2>
-        <div class="fwd-ends">
-            <div class="fwd-end">
-                <div class="fwd-end-title">The folder is on</div>
-                <select ref="first" v-model="fresh.from_remote" aria-label="The machine the folder is on">
-                    <option value="">a machine…</option>
-                    <option :value="here_value">this host — serviceman's {{ state_folder }}/</option>
-                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                </select>
-                <input v-model.trim="fresh.from" :placeholder="from_hint" spellcheck="false" aria-label="The folder there" @keyup.enter="write">
-                <div class="fwd-end-says" :class="{bad: (from_says.bad)}">{{ from_says.text }}</div>
-            </div>
-            <div class="fwd-arrow" aria-hidden="true">
-                <svg class="across" viewBox="0 0 120 24" preserveAspectRatio="none"><path d="M2 12 H110" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M106 5 L117 12 L106 19" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                <svg class="down" viewBox="0 0 24 48" width="24" height="48"><path d="M12 2 V38" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M5 34 L12 45 L19 34" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                <span>over the agents' links</span>
-            </div>
-            <div class="fwd-end">
-                <div class="fwd-end-title">It is mounted on</div>
-                <select v-model="fresh.to_remote" aria-label="The machine it is mounted on">
-                    <option value="">a machine…</option>
-                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                </select>
-                <input v-model.trim="fresh.to" placeholder="/mnt/photos" spellcheck="false" aria-label="The folder it is mounted at there" @keyup.enter="write">
-                <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
-            </div>
-        </div>
-        <div class="mount-modes" role="radiogroup" aria-label="What the machine it is mounted on may do">
-            <label :class="{on: (fresh.mode === 'ro')}"><input v-model="fresh.mode" type="radio" value="ro"><span><b>Read-only</b> <span class="muted">— nothing there may change it</span></span></label>
-            <label :class="{on: (fresh.mode === 'rw')}"><input v-model="fresh.mode" type="radio" value="rw"><span><b>Read-write</b> <span class="muted">— files are written, renamed and removed there</span></span></label>
-        </div>
-        <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and both folders.' : summary) }}</p>
-        <div class="fwd-make-foot">
-            <label>Label <input v-model.trim="fresh.label" class="fwd-label" :placeholder="label_auto" maxlength="100" spellcheck="false" title="Any text, one per mount; left empty, the one shown" @keyup.enter="write"></label>
-            <button type="button" class="primary" :disabled="(busy || ready === false)" @click="write">{{ (editing === null ? 'Mount' : 'Save') }}</button>
-            <button type="button" :disabled="busy" @click="clear">Cancel</button>
-            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
-        </div>
-    </div>
-    </div>
     <data-table :columns="columns" :rows="mounts" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'label')">{{ row.label }}</template>
@@ -77,15 +79,16 @@ const mounts_section = {
         </template>
         <template #empty>No mounts yet — <button type="button" class="link" :disabled="making" @click="begin">mount the first one</button>: serviceman's {{ state_folder }}/ on a server, read-only, say.</template>
     </data-table>
+    </template>
 </div>
 `,
-    components: {'data-table': data_table},
+    components: {'step-frame': step_frame, 'data-table': data_table},
     props: ['state'],
     emits: [],
     data: function () {
         // `editing` is the mount the window is rewriting, by the label it had; `here_value` is
         // serviceman itself in the picker
-        return {fresh: fresh_empty(), making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE};
+        return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE};
     },
     computed: {
         mounts: function () {
@@ -156,6 +159,28 @@ const mounts_section = {
                 return {text: 'a full path one level below the top at least, like /mnt/photos', bad: true};
             }
             return {text: `mounted at ${text}; a folder with files of its own is left as it is`, bad: false};
+        },
+        // From, To, then Check; a change is one page of them
+        steps: function () {
+            const out = [
+                {key: 'from', name: 'From', question: 'Which folder, on which machine?', answer: (this.fresh.from === '') ? '' : this.fresh.from},
+                {key: 'to', name: 'To', question: 'Where does it appear?', answer: (this.fresh.to === '') ? '' : this.fresh.to},
+            ];
+            if ((this.editing === null) && (this.mode === 'steps')) {
+                out.push({key: 'check', name: 'Check', question: 'Check, then mount it', answer: ''});
+            }
+            return out;
+        },
+        // What the open step wants before Next: both halves of its end, and nothing said wrong
+        step_ok: function () {
+            const key = (this.mode === 'page') ? 'check' : this.steps[Math.min(this.step, this.steps.length - 1)].key;
+            if ((key === 'from') && ((this.fresh.from_remote === '') || (this.fresh.from === '') || this.from_says.bad)) {
+                return {ok: false, why: this.from_says.bad ? this.from_says.text : 'Its machine and its folder first'};
+            }
+            if ((key === 'to') && ((this.fresh.to_remote === '') || (this.fresh.to === '') || this.to_says.bad)) {
+                return {ok: false, why: this.to_says.bad ? this.to_says.text : 'Where it appears first'};
+            }
+            return {ok: true, why: ''};
         },
         ready: function () {
             const fresh = this.fresh;
@@ -278,10 +303,14 @@ const mounts_section = {
             this.editing = null;
             this.fresh = fresh_empty();
             this.report('', false);
+            this.step = 0;
+            this.mode = 'steps';
             this.making = true;
             this.form_show();
         },
         edit: function (item) {
+            this.step = 0;
+            this.mode = 'page';
             this.making = true;
             this.editing = item;
             this.fresh = {label: item.label, from_remote: item.from.here ? HERE : item.from.remote, from: item.from.path, to_remote: item.to.remote, to: item.to.path, mode: item.mode};
@@ -292,6 +321,12 @@ const mounts_section = {
             this.$nextTick(function () {
                 this.$refs.first.focus({preventScroll: true});
             });
+        },
+        step_go: function (index) {
+            if ((index > this.step) && (this.step_ok.ok === false)) {
+                return;
+            }
+            this.step = index;
         },
         clear: function () {
             this.making = false;

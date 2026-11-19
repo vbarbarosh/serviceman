@@ -1,26 +1,16 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import step_frame from './step_frame.js';
 
 // Load tests: k6 sent at a service. A test is a number of users asking for one address for a
 // while, run from a remote picked for it; each run is kept with what it measured.
 const load_tests_pane = {
     template: `
 <article id="detail" class="list load-tests">
-    <div class="list-head">
-        <h1>Load tests</h1>
-        <span class="muted">{{ tests.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" :disabled="(form !== null)" @click="form_begin(null)">+ New test</button>
-        </div>
-    </div>
-    <p class="muted">A test sends <a href="https://k6.io/" target="_blank" rel="noopener">k6</a> at a service: a number of users asking for one address for a while. k6 runs once, as the <code>grafana/k6</code> container on the remote you pick, and is removed afterwards. A sleeping service is woken first, so its start is not counted as a slow answer.</p>
-    <template v-if="(form !== null)">
-        <div class="list-head lt-head">
-            <h2>{{ (form.original === null) ? 'New test' : 'Change ' + form.original }}</h2>
-        </div>
-        <div class="card svc-status">
-            <div class="form">
-                <div class="grid">
+    <step-frame v-if="(form !== null)" :title="((form.original === null) ? 'New load test' : ('Change ' + form.original))" :steps="steps" :step="step" :mode="((form.original === null) ? mode : 'page')" :switchable="(form.original === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((form.original === null) ? 'Create test' : 'Save')" @step="step_go" @mode="mode = $event" @cancel="form = null" @create="form_save">
+        <template #target>
+            <div class="sf-fields">
+                <div class="sf-grid">
                     <label for="lt-service">Service</label>
                     <div>
                         <select id="lt-service" v-model="form.service" @change="form_service_picked">
@@ -32,13 +22,12 @@ const load_tests_pane = {
                         <input id="lt-url" v-model.trim="form.url" :placeholder="(address_of(form.service) || 'http://…')" spellcheck="false">
                         <p class="muted">Left empty, the test asks the service's own address, the one shown here.</p>
                     </div>
-                    <label for="lt-remote">Run from</label>
-                    <div>
-                        <select id="lt-remote" v-model="form.remote">
-                            <option v-for="item of remote_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                        </select>
-                        <p class="muted">An address under <code>.localhost</code> is serviceman's own: k6 is sent to serviceman over the tailnet, so any remote will do. A public name is asked as it is.</p>
-                    </div>
+                </div>
+            </div>
+        </template>
+        <template #load>
+            <div class="sf-fields">
+                <div class="sf-grid">
                     <label for="lt-vus">Users</label>
                     <div class="row-of">
                         <input id="lt-vus" v-model.number="form.vus" type="number" min="1" max="1000" class="short">
@@ -46,6 +35,19 @@ const load_tests_pane = {
                         <input v-model.trim="form.duration" class="short" placeholder="30s" spellcheck="false">
                         <span class="muted">each asking again as soon as it is answered</span>
                     </div>
+                    <label for="lt-remote">Run from</label>
+                    <div>
+                        <select id="lt-remote" v-model="form.remote">
+                            <option v-for="item of remote_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                        </select>
+                        <p class="muted">An address under <code>.localhost</code> is serviceman's own: k6 is sent to serviceman over the tailnet, so any remote will do. A public name is asked as it is.</p>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <template #passes>
+            <div class="sf-fields">
+                <div class="sf-grid">
                     <label for="lt-p95">Passes when</label>
                     <div class="row-of">
                         <span class="muted">95% of answers under</span>
@@ -54,19 +56,42 @@ const load_tests_pane = {
                         <input v-model.number="form.errors_pct" type="number" min="0" max="100" step="0.1" class="short">
                         <span class="muted">%</span>
                     </div>
+                </div>
+            </div>
+        </template>
+        <template #check>
+            <div class="sf-fields">
+                <div class="check-rows">
+                    <div v-for="row of check_rows" :key="row.key" class="check-row">
+                        <span class="cr-text"><span class="muted">{{ row.title }}</span><span>{{ row.text }}</span></span>
+                        <button type="button" class="link" @click="step = row.step">Change</button>
+                    </div>
+                </div>
+                <div class="sf-grid">
                     <label for="lt-name">Name</label>
                     <div>
                         <input id="lt-name" v-model.trim="form.name" spellcheck="false">
                     </div>
                 </div>
-                <div class="actions">
-                    <button type="button" class="primary" :disabled="busy" @click="form_save">{{ (form.original === null) ? 'Create test' : 'Save' }}</button>
-                    <button type="button" :disabled="busy" @click="form = null">Cancel</button>
-                    <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
-                </div>
             </div>
+        </template>
+        <template #summary>
+            <div class="sum-head"><b>{{ form.name || 'not named yet' }}</b></div>
+            <p v-for="row of check_rows" :key="row.key" class="sum-line"><span>{{ row.text }}</span></p>
+        </template>
+        <template #note>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+    </step-frame>
+    <template v-else>
+    <div class="list-head">
+        <h1>Load tests</h1>
+        <span class="muted">{{ tests.length }}</span>
+        <div class="list-acts">
+            <button type="button" class="primary" :disabled="(form !== null)" @click="form_begin(null)">+ New test</button>
         </div>
-    </template>
+    </div>
+    <p class="muted">A test sends <a href="https://k6.io/" target="_blank" rel="noopener">k6</a> at a service: a number of users asking for one address for a while. k6 runs once, as the <code>grafana/k6</code> container on the remote you pick, and is removed afterwards. A sleeping service is woken first, so its start is not counted as a slow answer.</p>
     <data-table :columns="test_columns" :rows="tests" row_key="name" :chosen="v => (v.name === picked_name)" :on_row="v => (picked = v.name)" actions_label="Run">
         <template #cell="{row, column}">
             <b v-if="(column.key === 'name')">{{ row.name }}</b>
@@ -147,16 +172,53 @@ const load_tests_pane = {
             </template>
         </data-table>
     </template>
+    </template>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'step-frame': step_frame},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
         // `log_id` is the run whose log is open under it, and `log_text` that log once it came
-        return {picked: null, form: null, busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
+        return {picked: null, form: null, step: 0, mode: 'steps', busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false};
     },
     computed: {
+        // Target, Load, Passes when, then Check; a change is one page of them
+        steps: function () {
+            const form = this.form;
+            const out = [
+                {key: 'target', name: 'Target', question: 'Which service, at which address?', answer: (form.url !== '') ? form.url : form.service},
+                {key: 'load', name: 'Load', question: 'How many users, for how long?', answer: `${form.vus} users, ${form.duration}`},
+                {key: 'passes', name: 'Passes when', question: 'When does it pass?', answer: `p95 < ${form.p95_ms} ms`},
+            ];
+            if ((form.original === null) && (this.mode === 'steps')) {
+                out.push({key: 'check', name: 'Check', question: 'Check, then create', answer: ''});
+            }
+            return out;
+        },
+        check_rows: function () {
+            const form = this.form;
+            return [
+                {key: 'target', step: 0, title: 'Target', text: `${form.service}${(form.url === '') ? '' : ` at ${form.url}`}`},
+                {key: 'load', step: 1, title: 'Load', text: `${form.vus} users for ${form.duration}, from ${form.remote}`},
+                {key: 'passes', step: 2, title: 'Passes when', text: `95% of answers under ${form.p95_ms} ms, errors under ${form.errors_pct}%`},
+            ];
+        },
+        // What the open step wants before Next
+        step_ok: function () {
+            const form = this.form;
+            const key = (this.mode === 'page') ? 'check' : this.steps[Math.min(this.step, this.steps.length - 1)].key;
+            if ((key === 'target') && (form.service === '')) {
+                return {ok: false, why: 'A service first'};
+            }
+            if ((key === 'load') && ((form.remote === '') || (Number(form.vus) < 1) || (form.duration === ''))) {
+                return {ok: false, why: 'Users, how long, and a machine to run from'};
+            }
+            if ((key === 'passes') && ((Number(form.p95_ms) < 1) || (form.errors_pct === ''))) {
+                return {ok: false, why: 'Both numbers first'};
+            }
+            return {ok: true, why: ''};
+        },
         // The tables' columns, each that may fold with when
         test_columns: function () {
             return [
@@ -308,8 +370,16 @@ const load_tests_pane = {
         ago: function (at) {
             return format_ms(Math.max(0, this.state.now - at));
         },
+        step_go: function (index) {
+            if ((index > this.step) && (this.step_ok.ok === false)) {
+                return;
+            }
+            this.step = index;
+        },
         form_begin: function (test) {
             this.report('', false);
+            this.step = 0;
+            this.mode = (test === null) ? 'steps' : 'page';
             if (test !== null) {
                 this.form = {original: test.name, name: test.name, service: test.service, url: test.url || '', remote: test.remote, vus: test.vus, duration: test.duration, p95_ms: test.p95_ms, errors_pct: test.errors_pct};
                 return;

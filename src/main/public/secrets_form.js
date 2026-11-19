@@ -1,6 +1,8 @@
 import data_table from './data_table.js';
 import secret_name_said from './secret_name_said.js';
 import secret_write from './secret_write.js';
+import state_read from './state_read.js';
+import step_frame from './step_frame.js';
 
 // Everything kept on this host, in one table: the library, and what each service reads.
 //
@@ -11,6 +13,49 @@ import secret_write from './secret_write.js';
 const secrets_form = {
     template: `
 <article id="detail" class="list form">
+    <!-- A new one, step by step: its name and value, then the services given a copy of it -->
+    <step-frame v-if="adding" title="New secret" :steps="steps" :step="step" :mode="mode" :can_next="value_ok.ok" :next_title="value_ok.why" :busy="busy" create_label="Create secret" @step="step_go" @mode="mode = $event" @cancel="adding = false" @create="save">
+        <template #value>
+            <div class="sf-fields">
+                <div class="sf-grid">
+                    <label for="secret-name">Name</label>
+                    <div>
+                        <input id="secret-name" ref="name" v-model.trim="name" class="sf-big" placeholder="google-oauth" :class="{wrong: (name_said !== '')}" spellcheck="false">
+                        <p v-if="(name_said !== '')" class="bad">{{ name_said }}</p>
+                    </div>
+                    <label for="secret-value">Value</label>
+                    <div>
+                        <textarea id="secret-value" v-model="value" rows="4" :class="{'secret-hidden': (shown === false)}" placeholder='{"web": {"client_id": "…", "client_secret": "…"}}' spellcheck="false" autocomplete="off"></textarea>
+                        <div class="row-of">
+                            <button type="button" class="link" @click="shown = (shown === false)">{{ shown ? 'Hide' : 'Show' }}</button>
+                            <button type="button" class="link" @click="$refs.file.click()">From a file…</button>
+                            <input ref="file" type="file" hidden @change="value_from_file">
+                        </div>
+                    </div>
+                </div>
+                <p class="muted">Kept by serviceman only, never in the config; a program asks for it by name, <code>secrets {{ name || 'google-oauth' }}</code>.</p>
+            </div>
+        </template>
+        <template #given>
+            <div class="sf-fields">
+                <p class="muted">Each one ticked gets a copy of its own, under the same name; none, and it waits in the library.</p>
+                <div class="given-list">
+                    <label v-for="item of programs" :key="item.name" class="check"><input type="checkbox" :value="item.name" v-model="given"> <span><b>{{ item.title }}</b> <span class="muted">{{ item.what }}</span></span></label>
+                    <p v-if="(programs === null)" class="muted"><span class="spin"/>reading the services…</p>
+                    <p v-else-if="(programs.length === 0)" class="muted">No service yet.</p>
+                </div>
+            </div>
+        </template>
+        <template #summary>
+            <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg><b>{{ name || 'no name yet' }}</b></div>
+            <p class="sum-line"><span>{{ (value === '') ? 'no value yet' : (value.length + ' characters, in the library') }}</span></p>
+            <p class="sum-line muted"><span>{{ (given.length === 0) ? 'given to no service yet' : ('a copy for ' + given.join(', ')) }}</span></p>
+        </template>
+        <template #note>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+    </step-frame>
+    <template v-else>
     <div class="list-head">
         <h1>Secrets</h1>
         <span class="muted">{{ (global.length + services.length) }}</span>
@@ -19,23 +64,6 @@ const secrets_form = {
         </div>
     </div>
     <p class="muted">Kept beside what serviceman writes about itself, readable by nobody else, and never in the config. A program asks for one by name — <code>secrets credentials</code> — and gets the one its own service holds. The library is written down once, to be copied into the services that need it; a service's own is made on its page, and private to it.</p>
-    <div v-if="adding" class="card list-new">
-        <div class="grid">
-            <label for="secret-name">Name</label>
-            <div>
-                <input id="secret-name" ref="name" v-model.trim="name" placeholder="google-oauth" :class="{wrong: (name_said !== '')}" spellcheck="false">
-                <p v-if="(name_said !== '')" class="bad">{{ name_said }}</p>
-            </div>
-            <label for="secret-value">Value</label>
-            <div>
-                <textarea id="secret-value" v-model="value" rows="3" placeholder='{"web": {"client_id": "…", "client_secret": "…"}}' spellcheck="false"></textarea>
-            </div>
-        </div>
-        <div class="row-of">
-            <button type="button" class="primary" :disabled="(busy || name === '' || value === '' || name_said !== '')" @click="save"><span v-if="keeping" class="spin"/>{{ keeping ? 'keeping…' : 'Keep it in the library' }}</button>
-            <button type="button" :disabled="busy" @click="adding = false">Cancel</button>
-        </div>
-    </div>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="find a secret" aria-label="Find a secret by its name or its service" spellcheck="false">
@@ -58,9 +86,10 @@ const secrets_form = {
             <button type="button" class="danger" :disabled="busy" @click="ask(row.question, 'Forget it', () => drop(row.service, row.name))">Take it away…</button>
         </template>
     </data-table>
+    </template>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'step-frame': step_frame},
     emits: [],
     data: function () {
         return {
@@ -68,8 +97,14 @@ const secrets_form = {
             services: [],
             name: '',
             value: '',
-            // The library's form is open, for one more secret
+            // The library's form is open, for one more secret: its step, how it is shown, the
+            // value shown or dots, the services given a copy, and the services there are
             adding: false,
+            step: 0,
+            mode: 'steps',
+            shown: false,
+            given: [],
+            programs: null,
             filter: '',
             show: 'all',
             busy: false,
@@ -83,6 +118,21 @@ const secrets_form = {
         // What the door would say to the name as it stands, said under its box before it is asked
         name_said: function () {
             return secret_name_said(this.name);
+        },
+        steps: function () {
+            return [
+                {key: 'value', name: 'Value', question: 'What is the secret?', answer: this.name},
+                {key: 'given', name: 'Given to', question: 'Which services get it?', answer: (this.given.length === 0) ? 'the library alone' : this.given.join(', ')},
+            ];
+        },
+        value_ok: function () {
+            if (this.name === '') {
+                return {ok: false, why: 'A name first'};
+            }
+            if (this.name_said !== '') {
+                return {ok: false, why: this.name_said};
+            }
+            return (this.value === '') ? {ok: false, why: 'Its value first'} : {ok: true, why: ''};
         },
         chips: function () {
             return [
@@ -130,18 +180,51 @@ const secrets_form = {
         },
         // The boxes are emptied for the next one only when the door has this one: what it did
         // not take stays as it was typed, to be put right
-        add_begin: function () {
-            this.adding = true;
+        add_begin: async function () {
+            Object.assign(this, {adding: true, step: 0, name: '', value: '', shown: false, given: [], note: '', bad: false});
             this.$nextTick(() => this.$refs.name.focus());
+            try {
+                const state = await state_read();
+                this.programs = state.services.map(v => ({name: v.name, title: v.title || v.name, what: {docker: 'a docker image', shell: 'a program', files: 'a folder of files', external: 'already running'}[v.type] || v.type}));
+            }
+            catch {
+                this.programs = [];
+            }
         },
+        step_go: function (index) {
+            if ((index > this.step) && (this.value_ok.ok === false)) {
+                return;
+            }
+            this.step = index;
+        },
+        value_from_file: async function (event) {
+            const file = event.target.files[0];
+            if (file !== undefined) {
+                this.value = await file.text();
+            }
+            event.target.value = '';
+        },
+        // The library first, then a copy for each service ticked, each from the library by name
         save: async function () {
             this.keeping = true;
-            const kept = await this.write({name: this.name, value: this.value}, `${this.name} is kept`);
+            const name = this.name;
+            let kept = await this.write({name, value: this.value}, `${name} is kept`);
+            for (const service of this.given) {
+                if (kept === false) {
+                    break;
+                }
+                kept = await this.write({service, name, copy_from: name}, `${name} is kept, and given to ${this.given.join(', ')}`);
+            }
             this.keeping = false;
             if (kept) {
                 this.name = '';
                 this.value = '';
+                this.given = [];
                 this.adding = false;
+            }
+            else {
+                // What the door refused is shown where it was typed
+                this.step = 0;
             }
         },
         drop: async function (service, name) {

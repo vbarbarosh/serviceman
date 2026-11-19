@@ -1684,8 +1684,10 @@ connection and answers <code>502</code>. A front or a CDN may answer for it with
 client reads any 502, 503, 504 or 52x as &quot;not reachable now&quot;.</p>
 <h2 id="a-port-or-a-socket-from-one-machine-to-another"><a class="anchor" href="#a-port-or-a-socket-from-one-machine-to-another" aria-hidden="true" tabindex="-1">#</a>A port or a socket from one machine to another</h2>
 <p>A forward makes a port of one machine show up on another, the way <code>ssh -L</code> does, with no ssh:
-the machines&#39; agents carry it. <code>from</code> is where the service is, <code>to</code> where it shows up. A Loki on
-vps1&#39;s loopback, as a socket file on the laptop:</p>
+the machines&#39; agents carry it. <code>from</code> is where the service is, <code>to</code> where it shows up. The
+<strong>Forwards</strong> page&#39;s <strong>+ Add forward</strong> asks for them step by step, or on one page: <strong>From</strong>, the
+machine and its port, address or socket; <strong>To</strong>, where it comes out; <strong>Check</strong>, with a label. A
+Loki on vps1&#39;s loopback, as a socket file on the laptop:</p>
 <pre><code class="language-json">&quot;forwards&quot;: [
     {&quot;label&quot;: &quot;Loki on vps1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 3100}, &quot;to&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;socket&quot;: &quot;~/repos/loki.sock&quot;}}
 ]

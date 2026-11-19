@@ -918,7 +918,7 @@ const service_form = {
         },
         // Whether the step open has what it needs to go on, and why not
         next_ok: function () {
-            const key = this.steps[this.step].key;
+            const key = this.steps[Math.min(this.step, this.steps.length - 1)].key;
             const problems = this.problems;
             const bad = (STEP_PROBLEMS[key] || []).find(v => problems[v] !== undefined);
             if (bad !== undefined) {
@@ -1635,7 +1635,7 @@ const service_form = {
             }
             this.step = index;
             this.$nextTick(function () {
-                const field = ({source: ({docker: this.$refs.image, app: this.$refs.pick, program: this.$refs.command, files: this.$refs.folder_path, external: this.$refs.upstream})[this.what]})[this.steps[this.step].key];
+                const field = ({source: ({docker: this.$refs.image, app: this.$refs.pick, program: this.$refs.command, files: this.$refs.folder_path, external: this.$refs.upstream})[this.what]})[this.steps[Math.min(this.step, this.steps.length - 1)].key];
                 if (field !== undefined) {
                     field.focus();
                 }

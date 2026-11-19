@@ -10,7 +10,7 @@ const step_frame = {
 <div class="step-frame" :class="('sf-as-' + mode)">
     <div class="sf-head">
         <h1>{{ title }}</h1>
-        <span class="seg sf-mode" role="group" aria-label="How the form is shown">
+        <span v-if="switchable" class="seg sf-mode" role="group" aria-label="How the form is shown">
             <button type="button" :class="{on: (mode === 'steps')}" :aria-pressed="(mode === 'steps')" @click="$emit('mode', 'steps')">Step by step</button>
             <button type="button" :class="{on: (mode === 'page')}" :aria-pressed="(mode === 'page')" @click="$emit('mode', 'page')">One page</button>
         </span>
@@ -28,8 +28,8 @@ const step_frame = {
             </li>
         </ol>
         <div class="sf-body">
-            <h2>{{ steps[step].question }}</h2>
-            <slot :name="steps[step].key"/>
+            <h2>{{ step_now.question }}</h2>
+            <slot :name="step_now.key"/>
         </div>
     </template>
     <div v-else class="sf-page">
@@ -51,6 +51,12 @@ const step_frame = {
 </div>
 `,
     emits: ['cancel', 'create', 'mode', 'step'],
+    computed: {
+        // The step open, never past the last: a form whose steps shrink keeps standing
+        step_now: function () {
+            return this.steps[Math.min(this.step, this.steps.length - 1)];
+        },
+    },
     props: {
         title: {type: String, required: true},
         // [{key, name, question, answer}]: answer is what was picked, shown under a step done
@@ -63,6 +69,8 @@ const step_frame = {
         can_next: {type: Boolean, default: true},
         next_title: {type: String, default: ''},
         create_label: {type: String, default: 'Create'},
+        // false for a form that is shown one way only: an edit on one page
+        switchable: {type: Boolean, default: true},
         busy: {type: Boolean, default: false},
     },
 };

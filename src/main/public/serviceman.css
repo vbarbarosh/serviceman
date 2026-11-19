@@ -1505,7 +1505,10 @@ pre {
 
 .form input,
 .form select,
-.form textarea {
+.form textarea,
+.step-frame input:not([type=checkbox]):not([type=radio]),
+.step-frame select,
+.step-frame textarea {
     width: 100%;
     max-width: 34rem;
     padding: .35rem .55rem;
@@ -1517,6 +1520,9 @@ pre {
     transition: border-color .12s ease;
 }
 
+.step-frame input:focus,
+.step-frame select:focus,
+.step-frame textarea:focus,
 .form input:focus,
 .form select:focus,
 .form textarea:focus {
@@ -1524,7 +1530,8 @@ pre {
     border-color: var(--accent);
 }
 
-.form input.short {
+.form input.short,
+.step-frame input.short {
     width: 5.5rem;
 }
 
@@ -4276,8 +4283,16 @@ article.rf h1 + p {
 
 /* A token in a field is drawn as dots, a password's are. It stays a text field, so no password
    manager offers to keep it, and Copy beside it takes it. */
-input.secret {
+input.secret,
+textarea.secret-hidden {
     -webkit-text-security: disc;
+}
+
+/* New secret's services, a box each, in columns while there is room */
+.given-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: .4rem 1rem;
 }
 
 .rf-danger {
