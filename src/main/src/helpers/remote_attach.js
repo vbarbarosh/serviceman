@@ -23,6 +23,7 @@ const logline_tell = require('./logline_tell');
 const mounts_counts_apply = require('./mounts_counts_apply');
 const mounts_tell = require('./mounts_tell');
 const program_ended = require('./program_ended');
+const program_said_last = require('./program_said_last');
 const remote_call = require('./remote_call');
 const remote_measure = require('./remote_measure');
 const remote_said_refusal = require('./remote_said_refusal');
@@ -233,7 +234,9 @@ function message_read(app, remote, message)
     }
     if (message.type === 'program_end') {
         // A program of ours stopped by itself over there. The line about it came up the link
-        // as every line does; this is the fact, for the restart policy to act on.
+        // as every line does; this is the fact, for the restart policy to act on, with its last
+        // lines for its page.
+        program_said_last(app, remote, message);
         program_ended(app, remote, message);
         return;
     }

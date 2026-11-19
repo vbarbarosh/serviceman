@@ -9,6 +9,9 @@ const proc_start_time = require('./proc_start_time');
 // The last words of a program, kept for whoever asks for its log
 const KEEP_LINES = 400;
 const READ_EVERY_MS = 500;
+// The last words sent with the word that it ended: why it ended is in them, and once it has
+// ended no one can ask for them any more
+const END_LINES = 20;
 // A file a program writes for weeks is emptied at this size; what it said is in the agent's
 // log by then, line by line
 const FILE_MAX_BYTES = 8*1024*1024;
@@ -23,9 +26,22 @@ function agent_program_follow(programs, record, child, group)
 {
     const key = `${record.name}#${record.slot}`;
     const base = path.join(agent_programs_dir(), `${record.name}.${record.slot}`);
-    const output = lines_last(`${base}.out`, `${base}.err`);
+    // What its files hold now, and from where each is read on: a line a program writes at once,
+    // between the two, would be in neither
+    const outs = file_read(`${base}.out`);
+    const errs = file_read(`${base}.err`);
+    const output = outs.lines.concat(errs.lines).slice(-KEEP_LINES);
+    // A program this agent just spawned wrote them since: they go to the log as every line
+    // does. One taken back wrote them for the agent before, which logged them.
+    if (child !== null) {
+        for (const [lines, sender] of [[outs.lines, 'program_stdout'], [errs.lines, 'program_stderr']]) {
+            for (const line of lines.filter(v => v.trim() !== '')) {
+                agent_say(group, sender, line, record.name);
+            }
+        }
+    }
     const out = {pid: record.pid, started: record.started, cwd: record.dir, output};
-    const readers = [reader(`${base}.out`, 'program_stdout', group, record, output), reader(`${base}.err`, 'program_stderr', group, record, output)];
+    const readers = [reader(`${base}.out`, outs.size, 'program_stdout', group, record, output), reader(`${base}.err`, errs.size, 'program_stderr', group, record, output)];
     const timer = setInterval(function () {
         for (const read of readers) {
             read();
@@ -50,7 +66,7 @@ function agent_program_follow(programs, record, child, group)
             delete programs[key];
         }
         record_remove(`${base}.json`, record.pid);
-        ended_told(record, code, signal);
+        ended_told(record, code, signal, output.filter(v => v.trim() !== '').slice(-END_LINES));
     }
     if (child !== null) {
         child.on('exit', function (code, signal) {
@@ -75,9 +91,9 @@ function agent_program_follow(programs, record, child, group)
 // between two looks) is tried again at the next one. It is said once, not twice a second;
 // thrown from the timer, where nothing catches, it ended the agent, and the machine's link
 // with it.
-function reader(file, sender, group, record, output)
+function reader(file, from, sender, group, record, output)
 {
-    let offset = file_size(file);
+    let offset = from;
     let rest = '';
     let failed = false;
     return function () {
@@ -127,22 +143,18 @@ function reader(file, sender, group, record, output)
     }
 }
 
-// The last lines a program printed before this agent started watching it: an agent that was
-// restarted shows the same log the one before it did
-function lines_last(...files)
+// The lines a program printed before this agent started watching it, and how many bytes they
+// are, for the reader to go on from there: an agent that was restarted shows the same log the
+// one before it did
+function file_read(file)
 {
-    const lines = [];
-    for (const file of files) {
-        let text = '';
-        try {
-            text = fs.readFileSync(file, 'utf8');
-        }
-        catch {
-            continue;
-        }
-        lines.push(...text.split('\n').filter(v => v !== ''));
+    try {
+        const buffer = fs.readFileSync(file);
+        return {lines: buffer.toString('utf8').split('\n').filter(v => v !== ''), size: buffer.length};
     }
-    return lines.slice(-KEEP_LINES);
+    catch {
+        return {lines: [], size: 0};
+    }
 }
 
 // The note on the disk goes with the program it is about; a note a newer start wrote over it
@@ -172,14 +184,14 @@ function file_size(file)
 // The host holds the restart policy, so it is told the fact apart from the line: a line is for
 // reading, this is for acting on. A machine with no link says it to nobody, and the host finds
 // out the usual way when it asks again.
-function ended_told(record, code, signal)
+function ended_told(record, code, signal, said)
 {
     const socket = agent_link();
     if ((socket === null) || socket.destroyed) {
         return;
     }
     try {
-        link_send_message(socket, {type: 'program_end', service: record.name, slot: record.slot, code, signal});
+        link_send_message(socket, {type: 'program_end', service: record.name, slot: record.slot, code, signal, said});
     }
     catch {
         // The link went while this was being written; the host will ask

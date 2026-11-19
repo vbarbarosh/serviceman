@@ -13,6 +13,7 @@ const reap_idle = require('../src/main/src/helpers/reap_idle');
 const remote_tags = require('../src/main/src/helpers/remote_tags');
 const remotes_update = require('../src/main/src/helpers/remotes_update');
 const server_start = require('../src/main/src/helpers/server_start');
+const service_ensure_running = require('../src/main/src/helpers/service_ensure_running');
 const service_phase = require('../src/main/src/helpers/service_phase');
 const service_probe = require('../src/main/src/helpers/service_probe');
 const service_stop = require('../src/main/src/helpers/service_stop');
@@ -372,6 +373,29 @@ test('a program with no port, found running by a save of its definition, keeps i
     }
     finally {
         await service_stop(running.app, running.app.service_by_name.quiet, 'the test is over').catch(() => null);
+        await running.close();
+    }
+});
+
+// A program that ends at once still says why: its last lines come with the word that it ended,
+// so its page shows them, a start that failed on its way up too
+test('a program that ends at once leaves its last lines on its page', async function () {
+    const port = await free_port();
+    const running = await serviceman_start([
+        {name: 'broken', type: 'shell', remote: 'vps1', publish: {host: 'broken.test', port}, command: 'echo loading bolt.gguf; echo "main: error: unable to load model" >&2; exit 1'},
+        {name: 'quick', type: 'shell', remote: 'vps1', command: 'echo "out of memory" >&2; exit 3', policy: {start: 'always', restart: 'never'}},
+    ]);
+    try {
+        await running.agent_start();
+        await assert.rejects(service_ensure_running(running.app, running.app.service_by_name.broken), /its program ended \(code 1\)/);
+        await wait_until(() => running.app.service_by_name.broken.state.said.includes('main: error: unable to load model'), 3000);
+        assert.ok(running.app.service_by_name.broken.state.said.includes('loading bolt.gguf'), 'what it printed before, too');
+
+        await service_ensure_running(running.app, running.app.service_by_name.quick);
+        await wait_until(() => running.app.service_by_name.quick.state.said.includes('out of memory'), 3000);
+        assert.strictEqual(running.app.service_by_name.quick.state.said.filter(v => v === 'out of memory').length, 1, 'said once');
+    }
+    finally {
         await running.close();
     }
 });

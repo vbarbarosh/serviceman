@@ -941,7 +941,8 @@ it answers nowhere — a socket, a tunnel, a job — so it carries no `publish` 
 with serviceman (`"start": "always"`).
 
 A program runs as one copy. The agent keeps the last of what it prints, and the waiting page
-reads it while the program comes up. The agent stops the whole process group, so a shell line
+reads it while the program comes up. When it ends, its last lines come to serviceman with the
+word that it ended, so its page says why, a program that ends at once too. The agent stops the whole process group, so a shell line
 takes its children with it.
 
 serviceman stops none of its programs when it stops itself: a program goes on running on its

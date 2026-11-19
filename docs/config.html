@@ -1776,7 +1776,8 @@ is told and the port is written once; an <code>env</code> that names <code>PORT<
 it answers nowhere — a socket, a tunnel, a job — so it carries no <code>publish</code> at all and it starts
 with serviceman (<code>&quot;start&quot;: &quot;always&quot;</code>).</p>
 <p>A program runs as one copy. The agent keeps the last of what it prints, and the waiting page
-reads it while the program comes up. The agent stops the whole process group, so a shell line
+reads it while the program comes up. When it ends, its last lines come to serviceman with the
+word that it ended, so its page says why, a program that ends at once too. The agent stops the whole process group, so a shell line
 takes its children with it.</p>
 <p>serviceman stops none of its programs when it stops itself: a program goes on running on its
 machine, as a container does, and the next serviceman takes it back when its agent dials in,
