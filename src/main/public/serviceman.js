@@ -2086,8 +2086,8 @@ const app = {
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
-        <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
+        <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_close" @saved="remote_saved"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" @close="form_open = false" @databases="databases_show" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :port="state.listen.port" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
@@ -2112,6 +2112,10 @@ const app = {
             // The text the config editor puts its cursor on as it opens, '' for the top
             editor_seek: '',
             form_open: false,
+            // A new service's form as Add a machine left it, taken up again once New remote is
+            // done; and what the form is opened with then
+            form_stash: null,
+            form_restore: null,
             // A service the new-service form starts from — the Clone button fills it
             form_source: null,
             form_remote: null,
@@ -3133,15 +3137,50 @@ const app = {
             this.remote_form_open = true;
         },
         remote_saved: async function (name) {
+            // A new service's form waits for it: back to it at once, before the form's Close
+            // that follows takes it back without the machine
+            if ((name !== null) && (this.form_stash !== null)) {
+                this.form_back(name);
+                await this.poll();
+                return;
+            }
             await this.poll();
             if (name !== null) {
                 this.remote_name = name;
                 this.selected_name = null;
             }
         },
+        // New remote put away: a new service's form that sent there comes back as it was
+        remote_form_close: function () {
+            this.remote_form_open = false;
+            if (this.form_stash !== null) {
+                this.form_back(null);
+            }
+        },
+        // Add a machine, from a new service's Machine step
+        machine_add: function (stash) {
+            this.form_stash = stash;
+            this.remote_new();
+        },
+        // The new service's form again, every answer as it was, the machine just made picked
+        form_back: function (name) {
+            const stash = this.form_stash;
+            this.form_stash = null;
+            if (name !== null) {
+                stash.model.places[0].text = name;
+            }
+            this.panes_close();
+            this.form_source = null;
+            this.form_remote = name;
+            this.form_restore = stash;
+            this.form_key++;
+            this.form_open = true;
+        },
         // From a machine's page the new service runs on that machine
         create: function (remote) {
             this.panes_close();
+            this.form_stash = null;
+            this.form_restore = null;
             this.form_source = null;
             this.form_remote = (remote === undefined) ? null : remote;
             this.form_key++;
@@ -3151,6 +3190,8 @@ const app = {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
             const config = JSON.parse(loaded.text);
             this.form_source = config.services.find(v => v.name === view.name) || null;
+            this.form_stash = null;
+            this.form_restore = null;
             this.form_remote = null;
             this.form_key++;
             this.form_open = (this.form_source !== null);

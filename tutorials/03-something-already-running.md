@@ -25,14 +25,14 @@ without one).
 ### 1. have
 
 - **Do:** open **New service**, `http://serviceman.localhost:3001/services/new`.
-- **See:** the short form, with **All settings…** at its foot.
+- **See:** its first step, **What**: seven tiles, **Already running** among them.
 - **Say:** A dashboard already answers on port 8090. serviceman can give it an address without starting anything.
 
 ### 2. kind
 
-- **Do:** **All settings…**; **Something already running**; name `dash`, where it answers `127.0.0.1:8090`, address `dash.localhost`; **Create service**.
+- **Do:** **Already running**, **Next**; where it answers `127.0.0.1:8090`, name `dash`, **Next**; address `dash.localhost`, **Next**; on **Check**, **Create service**.
 - **See:** dash's own page, `/services/dash`.
-- **Say:** In All settings, pick Something already running, say where it answers, and give it an address.
+- **Say:** Pick Already running, say where it answers, and give it an address.
 
 ### 3. ready
 

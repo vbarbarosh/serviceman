@@ -21,12 +21,12 @@ docker; nothing called `authwall` yet.
 ### 1. have
 
 - **Do:** open **New service**, `http://serviceman.localhost:3001/services/new`.
-- **See:** its three tiles, **A docker image** among them.
+- **See:** its first step, **What**: seven tiles, **Docker image** among them.
 - **Say:** authwall asks visitors to sign in. Every tutorial after this one uses it, so it is set up once, here.
 
 ### 2. kind
 
-- **Do:** click **A docker image**; image `vbarbarosh/authwall:latest`; name `authwall`; port inside `3000`; machine `laptop`; **Create service**.
+- **Do:** **Docker image**, **Next**; image `vbarbarosh/authwall:latest`, name `authwall`, port inside `3000`, **Next**; **laptop**, **Next**; **Next**; on **Check**, **Create service**.
 - **See:** authwall's own page, `/services/authwall`, its address `authwall.localhost`.
 - **Say:** It is a docker image. Name it authwall: that is the name the other services ask for.
 

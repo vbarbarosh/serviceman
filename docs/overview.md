@@ -99,10 +99,10 @@ the service itself stays up.
 `serviceman.localhost` (and a second port of its own) serves a small Vue page. It shows every
 service, its state, its addresses, its policy and its instances, and it does the work:
 
-- **+ New service** — pick what it is, then fill the cards it cannot do without: what runs,
-  where, and its addresses. The name and the port come from the image when left empty, and
-  an address with a path strips its prefix. The rest — storage, policy, copies — stays on
-  serviceman's defaults until opened.
+- **+ New service** — one question a screen, or all of them on one page: what it is, where it
+  comes from, the machine, its address and who may open it, then Check. The name and the port
+  come from the image when left empty, and an address with a path strips its prefix. The rest
+  — storage, policy, copies — stays on serviceman's defaults until changed on Check.
 - **The service page** — its state on top, then one card per part of it: name, what runs,
   where it runs, addresses, storage and secrets, when it runs, copies. **Edit** on a card
   opens it in place; its **Save** writes that change and nothing else.

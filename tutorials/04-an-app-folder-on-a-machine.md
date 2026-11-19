@@ -1,6 +1,6 @@
 # 04. An app folder on a machine
 
-A zip of an app folder with `bin/run` in it: **New service**, **An app folder**, copies it to a
+A zip of an app folder with `bin/run` in it: **New service**, **App folder**, copies it to a
 machine whose agent dialled in, where it sleeps until somebody visits. Behind authwall, a
 stranger asking for its page is sent to sign in and wakes nothing; authwall's own sign-in page
 asks the app for `/favicon.ico`, which authwall lets through, and that wakes it.
@@ -13,7 +13,7 @@ folder with `bin/run` starting a small server on `PORT`, titled "Notes", which s
 ## Flowchart
 
 - `have`, a step: notes-app.zip, bin/run and server.js; New service
-- `kind`, a question: what kind? **An app folder**; or a docker image (not shown)
+- `kind`, a question: what kind? **App folder**; or a docker image (not shown)
 - `where`, a question: which machine? laptop; or another one (not shown)
 - `asleep`, a step: asleep, nothing runs yet
 - `wall`, a question: behind authwall? Yes, its Sign-in; no: any visit wakes it (not shown)
@@ -27,18 +27,18 @@ folder with `bin/run` starting a small server on `PORT`, titled "Notes", which s
 ### 1. have
 
 - **Do:** open **New service**, `http://serviceman.localhost:3001/services/new`.
-- **See:** its three tiles, **An app folder** among them.
+- **See:** its first step, **What**: seven tiles, **App folder** among them.
 - **Say:** notes-app is a folder with bin run in it. serviceman runs it on a machine, only while somebody uses it.
 
 ### 2. kind
 
-- **Do:** click **An app folder**; **A .zip…**; in the window that opens, pick `notes-app.zip`, **Open**.
-- **See:** the zip named in the form, with how many files it holds, laptop as its machine.
-- **Say:** Pick An app folder, and give it the zip.
+- **Do:** **App folder**, **Next**; **A .zip…**; in the window that opens, pick `notes-app.zip`, **Open**.
+- **See:** the zip named in its **Folder** step, with how many files it holds, its name `notes-app` from it.
+- **Say:** Pick App folder, and give it the zip.
 
 ### 3. where
 
-- **Do:** leave **laptop** chosen; **Create service**.
+- **Do:** **Next**; leave **laptop** chosen, **Next**; **Next**; on **Check**, **Create service**.
 - **See:** notes-app's own page, `/services/notes-app`.
 - **Say:** It goes to laptop, the machine whose agent dialled in. serviceman copies it there.
 

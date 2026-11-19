@@ -14,8 +14,17 @@ missing image, a hostname written twice, a duration nobody can read.
 
 ## Edit from the control page
 
-Services are created and reshaped on the control page itself. **+ New service** is a short
-form for the three common kinds. **A docker image** asks for the image; the name comes from it
+Services are created and reshaped on the control page itself. **+ New service** asks one
+question a screen, the steps on top keeping each answer, a click on one going back to it, and
+**One page** beside **Step by step** puts every question on one page with a summary of what
+**Create** makes; the switch keeps every answer. **What** is a tile each: Docker image, App
+folder, Program, Folder of files, Database (which opens [Databases](databases.md)), App on a
+socket, Already running. Then where it comes from (the image, the folder, the line that runs
+it, the socket, or where it answers already), the **Machine** for what runs on one, a card each
+with how it stands and its free memory, and **Add a machine**, which opens New remote and comes
+back with that machine picked; the **Address** and who may open it, anyone or signed in behind
+a wall; and **Check**, a row per answer with **Change**, and the rest at serviceman's defaults.
+**A docker image** asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. **An app folder** asks for the app's folder
 on this computer, or a `.zip` of it: **A folder…** or **A .zip…**, or either dropped on the
 form. The folder must hold `bin/run`, which serves the app on the port it finds in `PORT`, and
@@ -29,14 +38,16 @@ own folder, where everything the agent installs lives (`~/serviceman-agent/servi
 for an agent installed as its user), and never a folder that holds files already. It stays
 there when the service is removed, with the app's `data/`, which is the service's working space:
 nothing ever merges into it or overwrites it, a new version included. A folder already on the machine is
-named in **All settings…**, as the program's working folder. The name comes from the folder or
-the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. **A proxy** asks for a name, where its app listens,
+named in the whole form, as the program's working folder. The name comes from the folder or
+the zip, and the port is the first one from 8080 that no other program is given and the machine does not listen on. **A program** asks for the line that runs it, on that same first free port unless one is typed. **An app on a socket** asks for a name, where its app listens,
 serviceman's own `data/` folder unless a machine is picked (or the form was opened from a machine's
 page), and the socket file there, `data/sockets/<name>.sock` or `~/<name>.sock` on a machine unless
 another is typed: serviceman passes every request into that file and never starts or stops the app
-([something listening on a socket file](#something-listening-on-a-socket-file)). All three get an
-address made of their name; a container and an app folder, the machine they run on. **All settings…** opens every card, with what the short form filled in, for a program of
-another shape or something already running; an address with a path strips its prefix. A service's own
+([something listening on a socket file](#something-listening-on-a-socket-file)). Each gets an
+address made of its name unless one is typed; what runs on a machine, the first one there is, or
+the one it was added from. **Change** under the rest, on Check, opens the whole form, every card,
+with what the steps filled in, as does a problem no step shows; an address with a path strips
+its prefix. A service's own
 page is the same cards, each with **Edit** — addresses, image, storage, environment, the
 whole policy. A card's **Save** writes the config file and applies it at once; only the
 fields you fill land in the file. What no card shows (`run_args`, `args`, `argv`, a key

@@ -2113,6 +2113,406 @@ article.list > p {
     font-size: 1.3rem;
 }
 
+/* The frame of a create form: title and the switch, the steps on top, one question, a bar at
+   the foot; or all of it on one page with a summary beside. Tiles and cards stand alone, 6 px;
+   step numbers, fields and buttons 4 px; rows that touch, square */
+.step-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 60rem;
+}
+
+.sf-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+}
+
+.sf-head h1 {
+    flex: 1;
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.sf-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sf-steps button {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-start;
+    min-width: 0;
+    max-width: 11rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+}
+
+.sf-steps button:disabled {
+    opacity: 1;
+}
+
+.sf-steps button:hover {
+    background: none;
+}
+
+.sf-num {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+.sf-steps .now .sf-num {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+.sf-steps .done .sf-num {
+    border-color: var(--ok, var(--run));
+    color: var(--run);
+}
+
+.sf-name {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.sf-steps .now .sf-name {
+    color: var(--link);
+}
+
+.sf-name small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sf-body {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    min-height: 16rem;
+}
+
+.sf-body h2 {
+    margin: .4rem 0 0;
+    font-size: 1.2rem;
+}
+
+.sf-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+    padding: .8rem 0 0;
+    border-top: 1px solid var(--line);
+}
+
+.sf-note {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem .6rem;
+    min-width: 0;
+}
+
+.kind-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: .75rem;
+}
+
+.kind-tile {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    align-items: center;
+    min-width: 0;
+    padding: .9rem .6rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.kind-tile svg {
+    color: var(--link);
+}
+
+.kind-tile .muted {
+    font-size: .82rem;
+}
+
+.kind-tile.on,
+.machine-card.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.sf-fields {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+}
+
+.sf-fields p {
+    margin: 0;
+}
+
+.form input.sf-big,
+input.sf-big {
+    max-width: 40rem;
+    padding: .55rem .7rem;
+    font: 1.05rem ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.sf-found {
+    color: var(--run);
+}
+
+.sf-grid {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 32rem);
+    gap: .6rem .9rem;
+    align-items: start;
+}
+
+.sf-grid > label {
+    padding-top: .35rem;
+    color: var(--muted);
+}
+
+.sf-sub {
+    margin: .6rem 0 0;
+    font-size: 1.05rem;
+}
+
+.sf-more {
+    align-self: flex-start;
+}
+
+.machine-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: .75rem;
+}
+
+.machine-card {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    align-items: stretch;
+    min-width: 0;
+    min-height: 6.5rem;
+    padding: .8rem .9rem;
+    border-radius: 6px;
+    text-align: left;
+}
+
+.machine-card.away {
+    opacity: .7;
+}
+
+.mc-head {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.mc-head b {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mc-head svg {
+    flex: none;
+    color: var(--link);
+}
+
+.machine-card .muted {
+    font-size: .85rem;
+    overflow-wrap: anywhere;
+}
+
+.machine-card.mc-add {
+    align-items: center;
+    justify-content: center;
+    border-style: dashed;
+    color: var(--link);
+}
+
+.who-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 15rem));
+    gap: .75rem;
+}
+
+.kind-tile.who {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: .2rem .6rem;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.kind-tile.who .muted {
+    flex-basis: 100%;
+    padding-left: calc(20px + .6rem);
+}
+
+/* What Create makes, rows that touch: square */
+.check-rows {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+}
+
+.check-row {
+    display: flex;
+    gap: .7rem;
+    align-items: center;
+    padding: .6rem .8rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.check-row:last-child {
+    border-bottom: 0;
+}
+
+.check-row svg {
+    flex: none;
+    color: var(--link);
+}
+
+.cr-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.rest-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: .75rem;
+}
+
+.rest-card {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    align-items: flex-start;
+    padding: .7rem .8rem;
+}
+
+/* One page: every step a section, the summary beside them while there is room */
+.sf-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    gap: 1.2rem;
+    align-items: start;
+}
+
+.sf-section {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: .9rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.sf-section h3 {
+    margin: .3rem 0 0;
+    font-size: 1rem;
+}
+
+/* On one page the kinds are a row of chips, their words in the tooltip */
+.sf-page .kind-tiles {
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    gap: .5rem;
+}
+
+.sf-page .kind-tile {
+    flex-direction: row;
+    gap: .5rem;
+    justify-content: flex-start;
+    padding: .45rem .7rem;
+    border-radius: 4px;
+    text-align: left;
+}
+
+.sf-page .kind-tile svg {
+    width: 16px;
+    height: 16px;
+}
+
+.sf-page .kind-tile:not(.who) .muted {
+    display: none;
+}
+
+.card.sf-summary {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    padding: 1rem;
+    border-style: dashed;
+    border-color: var(--accent);
+}
+
+.sum-head {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    font-size: 1.1rem;
+}
+
+.sum-head svg,
+.sum-line svg {
+    flex: none;
+    color: var(--link);
+}
+
+.sum-line {
+    display: flex;
+    gap: .45rem;
+    align-items: flex-start;
+    margin: 0;
+    font-size: .9rem;
+    overflow-wrap: anywhere;
+}
+
+.sf-summary .link {
+    align-self: flex-start;
+}
+
 /* All categories: a group a block, its tiles side by side, each standing alone, 6 px */
 .cat-group {
     margin-top: 1.4rem;
@@ -2726,6 +3126,16 @@ button.palette-hit.on {
 @media (max-width: 40rem) {
     .crumbs-bar {
         padding: .5rem 1rem;
+    }
+
+    .sf-page,
+    .sf-section,
+    .sf-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .who-tiles {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     #find {

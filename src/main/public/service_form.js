@@ -14,9 +14,11 @@ import forwards_from_brought from './forwards_from_brought.js';
 import secret_name_said from './secret_name_said.js';
 import secret_rows_write from './secret_rows_write.js';
 import service_from_form from './service_from_form.js';
+import service_kind from './service_kind.js';
 import settled from './settled.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
+import step_frame from './step_frame.js';
 import wall_select from './wall_select.js';
 
 // What a service can be, in the order the question is worth asking
@@ -53,6 +55,37 @@ const SHORT_WORDS = {
     shell: 'its folder or a .zip of it, with bin/run, from this computer',
     external: 'its app listens on a socket file, in serviceman\'s own folder or on a machine; serviceman passes requests into it',
 };
+
+// What a new service can be, the first step's tiles: each the kind of service it makes (type), and
+// for a database the Databases page, where one is brought up. `like` is a service of that kind,
+// for its icon (service_kind); a database has its own.
+const WHAT = [
+    {key: 'docker', type: 'docker', name: 'Docker image', says: 'an image from a registry', like: {type: 'docker'}},
+    {key: 'app', type: 'shell', name: 'App folder', says: 'a folder with bin/run', like: {type: 'shell', app_folder: {}}},
+    {key: 'program', type: 'shell', name: 'Program', says: 'a command kept alive', like: {type: 'shell', app_folder: null}},
+    {key: 'files', type: 'files', name: 'Folder of files', says: 'pages, no server', like: {type: 'files'}},
+    {key: 'database', type: null, name: 'Database', says: 'PostgreSQL, MySQL…', like: null, icon: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>'},
+    {key: 'socket', type: 'external', name: 'App on a socket', says: 'it listens on a file', like: {type: 'external', socket: 'x'}},
+    {key: 'external', type: 'external', name: 'Already running', says: 'only an address', like: {type: 'external', socket: null}},
+];
+
+// The second step of each, as its bar names it and asks it
+const SOURCE_STEP = {
+    docker: {name: 'Image', question: 'Which image?'},
+    app: {name: 'Folder', question: 'Which app folder?'},
+    program: {name: 'Command', question: 'What runs it?'},
+    files: {name: 'Folder', question: 'Which folder does it serve?'},
+    socket: {name: 'Socket', question: 'Which socket does it listen on?'},
+    external: {name: 'Answers at', question: 'Where does it answer already?'},
+};
+
+// The icons of a machine, of a tag of machines and of a wall, the inside of a 24x24 stroked svg
+const MACHINE_ICON = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>';
+const TAG_ICON = '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>';
+const SHIELD_ICON = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>';
+
+// Which step each thing that can be wrong is fixed in
+const STEP_PROBLEMS = {source: ['name', 'port', 'cwd', 'command', 'upstream', 'socket'], machine: ['places'], address: ['hosts']};
 
 // The ports an app folder is given, the first one free from here: well away from serviceman's
 // own and from what most dev servers take
@@ -173,85 +206,148 @@ const service_form = {
 <article id="detail" class="list form svc">
     <!-- What the page holding this puts above the cards: the state of a service that exists -->
     <slot/>
-    <!-- A new service asks for what almost every one needs, and nothing else; All settings is the whole form -->
-    <template v-if="(creating && simple)">
-        <div class="list-head">
-            <h1>{{ heading }}</h1>
-        </div>
-        <div class="kinds short">
-            <button v-for="type of SHORT_KINDS" :key="type" type="button" class="kind" :class="{on: (type === m.type)}" @click="short_kind(type)">
-                <span class="name">{{ SHORT_NAMES[type] }}</span>
-                <span class="muted">{{ SHORT_WORDS[type] }}</span>
-            </button>
-        </div>
-        <div class="card svc-sec open" :class="{dropping: drop_over}" @dragover.prevent="drop_over = true" @dragleave="drop_over = false" @drop.prevent="app_dropped">
-            <div class="grid svc-body">
-                <template v-if="(m.type === 'docker')">
-                    <label>Image</label>
-                    <div>
-                        <input ref="image" v-model.trim="m.image" placeholder="grafana/grafana:latest — or paste a whole docker run line" spellcheck="false" @input="image_input" @change="image_change">
-                    </div>
+    <!-- A new service in the step frame: one question a screen, or all of them on one page; All
+         settings, from Check, is the whole form -->
+    <step-frame v-if="(creating && simple)" :title="heading" :steps="steps" :step="step" :mode="mode" :can_next="next_ok.ok" :next_title="next_ok.why" :busy="busy" create_label="Create service" @step="step_go" @mode="mode = $event" @cancel="$emit('close')" @create="create">
+        <template #what>
+            <div class="kind-tiles" role="radiogroup" aria-label="What it runs">
+                <button v-for="item of what_items" :key="item.key" type="button" role="radio" class="kind-tile" :class="{on: (item.key === what)}" :title="item.says" :aria-checked="(item.key === what)" @click="what_pick(item.key)">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/>
+                    <b>{{ item.name }}</b>
+                    <span class="muted">{{ item.says }}</span>
+                </button>
+            </div>
+        </template>
+        <template #source>
+            <div class="sf-fields" :class="{dropping: drop_over}" @dragover.prevent="drop_over = (what === 'app')" @dragleave="drop_over = false" @drop.prevent="app_dropped">
+                <template v-if="(what === 'docker')">
+                    <input ref="image" v-model.trim="m.image" class="sf-big" placeholder="grafana/grafana:latest" aria-label="The image" spellcheck="false" @input="image_input" @change="image_change">
+                    <p v-if="(detected_port !== null)" class="sf-found">✓ It listens on port {{ detected_port }}, as the image says</p>
+                    <p class="muted">or paste a whole <code>docker run</code> line: the rest is filled from it</p>
                 </template>
-                <template v-else-if="(m.type === 'shell')">
-                    <label>App</label>
+                <template v-else-if="(what === 'app')">
+                    <div class="line">
+                        <button ref="pick" type="button" :class="{wrong: problems.cwd}" @click="$refs.folder.click()">A folder…</button>
+                        <button type="button" :class="{wrong: problems.cwd}" @click="$refs.zip.click()">A .zip…</button>
+                        <input ref="folder" type="file" webkitdirectory hidden @change="app_picked">
+                        <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="app_picked">
+                    </div>
+                    <p v-if="(app_files !== null)"><code>{{ app_files.label }}</code> <span v-if="(app_files.files > 0)" class="muted">— {{ app_files.files === 1 ? 'one file' : app_files.files + ' files' }}, {{ size_text(app_files.size) }}</span></p>
+                    <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
+                    <p v-else-if="(app_files === null)" class="muted">Its folder on this computer, with <code>bin/run</code> in it, or a .zip of that folder: picked, or dropped here. serviceman copies it to the machine it runs on.</p>
+                    <p v-else class="muted">{{ app_steps }}, on port {{ app_port }} as <code>PORT</code>.</p>
+                </template>
+                <template v-else-if="(what === 'program')">
+                    <input ref="command" v-model="m.command" class="sf-big" placeholder="node server.js" aria-label="The line that runs it" spellcheck="false">
+                    <p v-if="problems.command" class="bad">{{ problems.command }}</p>
+                    <p v-else class="muted">The line it is started with, kept alive on its machine; it reads <code>PORT</code> for the port below.</p>
+                </template>
+                <template v-else-if="(what === 'files')">
+                    <input ref="folder_path" v-model.trim="m.folder" class="sf-big" placeholder="sites/docs" aria-label="The folder it serves" spellcheck="false">
+                    <p class="muted">A folder of serviceman's own machine, from the config's folder or from <code>/</code>: serviceman serves its files itself, nothing runs.</p>
+                </template>
+                <template v-else-if="(what === 'socket')">
+                    <div class="sf-grid">
+                        <label for="sf-socket-place">It is on</label>
+                        <select id="sf-socket-place" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
+                            <option value="">serviceman's own {{ state_folder }}/ folder</option>
+                            <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
+                        </select>
+                        <label for="sf-socket">Socket</label>
+                        <input id="sf-socket" v-model.trim="m.socket" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
+                    </div>
+                    <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
+                    <p v-else class="muted">The file its app listens on; serviceman passes every request into it, and never starts or stops it.</p>
+                </template>
+                <template v-else>
+                    <input ref="upstream" v-model.trim="m.upstream" class="sf-big" placeholder="127.0.0.1:8081" aria-label="Where it already answers" :class="{wrong: problems.upstream}" spellcheck="false">
+                    <p v-if="problems.upstream" class="bad">{{ problems.upstream }}</p>
+                    <p v-else class="muted">host:port where it already answers; serviceman only gives it an address and passes requests on.</p>
+                </template>
+                <div class="sf-grid">
+                    <label for="sf-name">Name</label>
                     <div>
-                        <div class="line">
-                            <button ref="pick" type="button" :class="{wrong: problems.cwd}" @click="$refs.folder.click()">A folder…</button>
-                            <button type="button" :class="{wrong: problems.cwd}" @click="$refs.zip.click()">A .zip…</button>
-                            <input ref="folder" type="file" webkitdirectory hidden @change="app_picked">
-                            <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="app_picked">
+                        <input id="sf-name" ref="short_name" v-model.trim="m.name" :placeholder="((easy_name === '') ? 'grafana' : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
+                        <p v-if="problems.name" class="bad">{{ problems.name }}</p>
+                        <p v-else-if="((m.name === '') && (easy_name !== ''))" class="muted">Left empty, it is named <code>{{ easy_name }}</code>.</p>
+                    </div>
+                    <template v-if="((what === 'docker') || (what === 'program'))">
+                        <label for="sf-port">Port inside</label>
+                        <div>
+                            <input id="sf-port" v-model.trim="m.port" class="short" :placeholder="((what === 'program') ? String(app_port) : ((detected_port === null) ? '80' : String(detected_port)))" :class="{wrong: problems.port}" spellcheck="false">
+                            <p v-if="problems.port" class="bad">{{ problems.port }}</p>
                         </div>
-                        <p v-if="(app_files !== null)">
-                            <code>{{ app_files.label }}</code> <span v-if="(app_files.files > 0)" class="muted">— {{ app_files.files === 1 ? 'one file' : app_files.files + ' files' }}, {{ size_text(app_files.size) }}</span> <button type="button" class="link" @click="app_files = null">not this one</button>
-                        </p>
-                        <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
-                        <p v-else-if="(app_files !== null)" class="muted">Copied to <code>{{ app_dir }}</code> on {{ place_text(m.places[0].text) }}; {{ app_steps }}, on port {{ app_port }} as <code>PORT</code>.</p>
-                        <p v-else class="muted">Its folder on this computer, with <code>bin/run</code> in it, or a .zip of that folder: picked, or dropped here. serviceman copies it to the machine it runs on, into a folder of its own.</p>
-                    </div>
-                </template>
-                <label>Name</label>
-                <div>
-                    <input ref="short_name" v-model.trim="m.name" :placeholder="(easy_name === '' ? ({docker: 'grafana', shell: 'appdir', external: 'agency'})[m.type] : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
-                    <p v-if="problems.name" class="bad">{{ problems.name }}</p>
-                    <p v-else-if="(m.name === '' && easy_name !== '')" class="muted">Left empty, it is named <code>{{ easy_name }}</code> after its {{ m.type === 'docker' ? 'image' : ((app_files !== null && app_files.label.endsWith('/')) ? 'folder' : 'zip') }}.</p>
-                </div>
-                <template v-if="(m.type === 'docker')">
-                    <label>Port inside</label>
-                    <div>
-                        <div class="line">
-                            <input v-model.trim="m.port" :placeholder="(detected_port === null ? '80' : String(detected_port))" class="short" :class="{wrong: problems.port}" spellcheck="false">
-                            <button v-if="(detected_port !== null && m.port !== String(detected_port))" type="button" class="tab" @click="m.port = String(detected_port)">use {{ detected_port }}, from the image</button>
-                        </div>
-                        <p v-if="problems.port" class="bad">{{ problems.port }}</p>
-                        <p v-else-if="(m.port === '')" class="muted">Left empty, it is {{ detected_port === null ? '80' : detected_port + ', the one the image names' }}.</p>
-                    </div>
-                </template>
-                <label>{{ (m.type === 'external' ? 'Its socket on' : 'Runs on') }}</label>
-                <div>
-                    <select v-if="((places.length > 0) || (m.type === 'external'))" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
-                        <option v-if="(m.type === 'external')" value="">serviceman's own {{ state_folder }}/ folder</option>
-                        <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <p v-else class="bad">No machine yet. It runs where an agent is — add a remote first.</p>
-                    <p v-if="(places.length > 0 && problems.places)" class="bad">{{ problems.places }}</p>
-                </div>
-                <template v-if="(m.type === 'external')">
-                    <label>Socket</label>
-                    <div>
-                        <input v-model.trim="m.socket" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
-                        <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
-                        <p v-else-if="(m.places[0].text === '')" class="muted">A file in serviceman's own <code>{{ state_folder }}/</code>, the folder <code>bin/run</code> gives its container: its app listens on it there. serviceman passes every request into it, and never starts or stops it.</p>
-                        <p v-else class="muted">The file its app listens on, on {{ place_text(m.places[0].text) }}; <code>~</code> is the home of the user its agent runs as. serviceman passes every request into it, and never starts or stops it.</p>
-                    </div>
-                </template>
-                <label>Address</label>
-                <div>
-                    <p v-if="(easy_host === '')" class="muted">Taken from its name, once it has one that fits.</p>
-                    <p v-else><code>{{ easy_host }}</code> <span class="muted">— from its name</span></p>
+                    </template>
                 </div>
             </div>
-        </div>
-    </template>
+        </template>
+        <template #machine>
+            <div class="machine-cards" role="radiogroup" aria-label="The machine it runs on">
+                <button v-for="item of machine_cards" :key="item.value" type="button" role="radio" class="machine-card" :class="{on: (item.value === m.places[0].text), away: item.away}" :aria-checked="(item.value === m.places[0].text)" :disabled="item.disabled" :title="item.why" @click="machine_pick(item.value)">
+                    <span class="mc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/><b>{{ item.title }}</b><span v-if="(item.dot !== '')" class="dot" :class="item.dot"/></span>
+                    <span v-for="line of item.lines" :key="line" class="muted">{{ line }}</span>
+                </button>
+                <button type="button" class="machine-card mc-add" @click="machine_add">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+                    <b>Add a machine</b>
+                </button>
+            </div>
+            <p v-if="problems.places" class="bad">{{ problems.places }}</p>
+        </template>
+        <template #address>
+            <div class="sf-fields">
+                <div v-for="(row, index) of m.hosts" :key="row.key" class="line">
+                    <input v-model.trim="row.text" class="sf-big" :placeholder="((index === 0) ? (easy_host || 'grafana.example.com') : 'another.example.com')" :aria-label="('Address ' + (index + 1))" :class="{wrong: problems.hosts}" spellcheck="false">
+                    <button v-if="(index > 0)" type="button" class="link" @click="m.hosts.splice(index, 1)">Remove</button>
+                </div>
+                <p v-if="problems.hosts" class="bad">{{ problems.hosts }}</p>
+                <p v-else-if="((easy_host !== '') && m.hosts.every(v => (v.text === '')))" class="muted">Left empty, it is <code>{{ easy_host }}</code>, from its name.</p>
+                <button type="button" class="link sf-more" @click="m.hosts.push({key: Math.random(), text: ''})">+ another address</button>
+                <h3 class="sf-sub">Who may open it?</h3>
+                <div class="who-tiles" role="radiogroup" aria-label="Who may open it">
+                    <button type="button" role="radio" class="kind-tile who" :class="{on: (m.auth === '')}" :aria-checked="(m.auth === '')" @click="m.auth = ''">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+                        <b>Anyone</b><span class="muted">no sign-in</span>
+                    </button>
+                    <button type="button" role="radio" class="kind-tile who" :class="{on: (m.auth !== '')}" :aria-checked="(m.auth !== '')" :disabled="(walls_here.length === 0)" @click="signed_in_pick">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><circle cx="12" cy="10.5" r="2"/><path d="M12 12.5v3.5"/></svg>
+                        <b>Signed in</b><span class="muted">{{ (walls_here.length === 0) ? 'no wall yet' : ('behind ' + ((m.auth === '') ? walls_here[0].name : m.auth)) }}</span>
+                    </button>
+                </div>
+                <wall-select v-if="((m.auth !== '') && (walls_here.length > 1))" v-model="m.auth" :walls="walls_here" none="anyone: no sign-in" :self="m.name" @create="$emit('walls')"/>
+                <p v-if="(walls_here.length === 0)" class="muted">A sign-in needs a wall: <button type="button" class="link" @click="$emit('walls')">Authwall</button> sets one up.</p>
+            </div>
+        </template>
+        <template #check>
+            <div class="check-rows">
+                <div v-for="row of check_rows" :key="row.key" class="check-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
+                    <span class="cr-text"><span>{{ row.text }}</span><small v-if="(row.sub !== '')" class="muted">{{ row.sub }}</small></span>
+                    <button type="button" class="link" @click="step_to(row.step)">Change</button>
+                </div>
+            </div>
+            <template v-if="(rest_cards.length > 0)">
+                <p class="muted">The rest as usual; change any, or leave it.</p>
+                <div class="rest-cards">
+                    <div v-for="card of rest_cards" :key="card.id" class="card rest-card">
+                        <span class="muted">{{ card.title }}</span>
+                        <span>{{ card.text }}</span>
+                        <button type="button" class="link" @click="rest_change(card.id)">Change</button>
+                    </div>
+                </div>
+            </template>
+        </template>
+        <template #summary>
+            <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="what_item.icon"/><b>{{ model_now().name || 'no name yet' }}</b></div>
+            <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text }}</span></p>
+            <p v-for="card of rest_cards" :key="card.id" class="sum-line muted"><span>{{ card.text }}</span></p>
+            <button type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} serviceman.json</button>
+        </template>
+        <template #note>
+            <span v-if="((problem_count > 0) && tried)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
+            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+        </template>
+    </step-frame>
     <template v-if="(creating && simple === false)">
         <div class="list-head">
             <h1>{{ heading }}</h1>
@@ -628,10 +724,9 @@ const service_form = {
         </div>
     </div>
     <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
-    <div v-if="creating" class="svc-create">
+    <div v-if="(creating && (simple === false))" class="svc-create">
         <button type="button" class="primary" :disabled="busy" @click="create"><span v-if="busy" class="spin"/>{{ busy ? 'creating…' : 'Create service' }}</button>
         <button type="button" @click="$emit('close')">Cancel</button>
-        <button v-if="simple" type="button" class="link" @click="all_settings">All settings…</button>
         <span v-if="(problem_count > 0)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
@@ -641,13 +736,15 @@ const service_form = {
     </div>
 </article>
 `,
-    components: {'copy-progress': copy_progress, duration, snip: snippet, 'wall-select': wall_select},
+    components: {'copy-progress': copy_progress, duration, snip: snippet, 'step-frame': step_frame, 'wall-select': wall_select},
     // folder: the one serviceman keeps its own things in, as its owner sees it (data); walls:
     // walls_of(state), for the Sign-in list
     // tied: the config file's forwards that are part of the service, as the file has them;
     // forward_labels: the label of every forward of the config, for a new one's to be its own
-    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels'],
-    emits: ['close', 'saved', 'walls'],
+    // restore: what a new service's form held when Add a machine left it, {model, what, step,
+    // mode, app_files}, taken up again with the machine made
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore'],
+    emits: ['close', 'databases', 'machine', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
         const model = form_from_service((this.original === null) ? source : this.original);
@@ -658,7 +755,20 @@ const service_form = {
             model.name = name_free(source.name, this.names || []);
             model.hosts = [{key: Math.random(), text: ''}];
         }
+        const restore = ((this.restore === undefined) || (this.restore === null)) ? null : this.restore;
+        if (restore !== null) {
+            Object.assign(model, restore.model);
+        }
+        // A new one is asked its address in a row of its own, filled from its name when left empty
+        if ((this.original === null) && (model.hosts.length === 0)) {
+            model.hosts.push({key: Math.random(), text: ''});
+        }
         return {
+            // The tile picked on the first step, step by step or on one page, the step open,
+            // and how the form is shown
+            what: (restore === null) ? 'docker' : restore.what,
+            step: (restore === null) ? 0 : restore.step,
+            mode: (restore === null) ? 'steps' : restore.mode,
             // The machine this form picked by itself for a new service, so a change of kind can
             // take it back again
             place_given: null,
@@ -693,7 +803,7 @@ const service_form = {
             detected_port: null,
             // The app, a folder or a zip of this computer, read here and sent to its machine
             // as its files on Create (app_entries_read), and the name it gives the app
-            app_files: null,
+            app_files: (restore === null) ? null : restore.app_files,
             // The app's files on their way to its machine, as every copy is shown
             files_copy: null,
             drop_over: false,
@@ -751,6 +861,87 @@ const service_form = {
         // The model the fields are bound to: the draft of the open card, or the new service
         m: function () {
             return (this.draft === null) ? this.model : this.draft;
+        },
+        what_items: function () {
+            return WHAT.map(v => Object.assign({}, v, {icon: (v.like === null) ? v.icon : service_kind(v.like).icon}));
+        },
+        what_item: function () {
+            return this.what_items.find(v => v.key === this.what);
+        },
+        // The steps of what was picked: what it is, where it comes from, the machine it runs on
+        // for what runs on one, its address, then Check; each with its answer so far
+        steps: function () {
+            const now = this.model_now();
+            const source = SOURCE_STEP[this.what] || SOURCE_STEP.docker;
+            const out = [{key: 'what', name: 'What', question: 'What will it run?', answer: this.what_item.name}];
+            out.push({key: 'source', name: source.name, question: source.question, answer: this.source_answer(now)});
+            if (['docker', 'app', 'program'].includes(this.what)) {
+                out.push({key: 'machine', name: 'Machine', question: 'Where will it run?', answer: (now.places[0].text === '') ? '' : this.place_text(now.places[0].text)});
+            }
+            const host = now.hosts.find(v => v.text !== '');
+            out.push({key: 'address', name: 'Address', question: 'Where will people open it?', answer: (host === undefined) ? '' : host.text});
+            out.push({key: 'check', name: 'Check', question: 'Check, then create', answer: ''});
+            return out;
+        },
+        // Whether the step open has what it needs to go on, and why not
+        next_ok: function () {
+            const key = this.steps[this.step].key;
+            const problems = this.problems;
+            const bad = (STEP_PROBLEMS[key] || []).find(v => problems[v] !== undefined);
+            if (bad !== undefined) {
+                return {ok: false, why: problems[bad]};
+            }
+            const now = this.model_now();
+            const missing = {
+                source: {docker: (now.image === '') ? 'Which image, first' : '', app: (this.app_files === null) ? 'Pick the app first' : '', program: (now.command === '') ? 'The line that runs it, first' : '', files: (now.folder === '') ? 'Which folder, first' : '', socket: '', external: (now.upstream === '') ? 'Where it answers, first' : ''}[this.what],
+                machine: (now.places[0].text === '') ? 'Pick a machine first' : '',
+            }[key] || '';
+            if ((missing === '') && (key === 'source') && (now.name === '')) {
+                return {ok: false, why: 'A name first'};
+            }
+            return {ok: (missing === ''), why: missing};
+        },
+        // A card for each machine, and for each tag, any machine with it: online or since when
+        // it is away, its system and its free memory
+        machine_cards: function () {
+            const out = [];
+            for (const item of this.remotes) {
+                const machine = ((item.machine === undefined) || (item.machine === null)) ? null : item.machine;
+                const lines = [];
+                if (machine !== null) {
+                    lines.push([machine.os || machine.platform || '', ((machine.mem.free === null) || (machine.mem.free === undefined)) ? '' : `${size_words(machine.mem.free)} free`].filter(v => v !== '').join(' · '));
+                }
+                if (item.phase !== 'online') {
+                    lines.push((item.left_at === null) ? 'not connected yet' : 'offline');
+                }
+                out.push({value: item.name, title: item.title || item.name, icon: MACHINE_ICON, dot: (item.phase === 'online') ? 'running' : 'stopped', away: (item.phase !== 'online'), lines, disabled: false, why: ''});
+            }
+            for (const item of this.places.filter(v => v.value.startsWith('#'))) {
+                const one = (this.what === 'app');
+                out.push({value: item.value, title: item.value, icon: TAG_ICON, dot: '', away: false, lines: ['any machine with the tag'], disabled: one, why: one ? 'An app folder is on one machine: pick that one' : ''});
+            }
+            return out;
+        },
+        walls_here: function () {
+            return ((this.walls === undefined) || (this.walls === null)) ? [] : this.walls;
+        },
+        // What Create makes, a row each, every one with the step that changes it
+        check_rows: function () {
+            const now = this.model_now();
+            const out = [{key: 'source', step: 'source', icon: this.what_item.icon, text: `${this.what_item.name} ${this.source_answer(now)}`.trim(), sub: this.source_sub(now)}];
+            if (this.steps.some(v => v.key === 'machine')) {
+                out.push({key: 'machine', step: 'machine', icon: MACHINE_ICON, text: `Runs on ${this.place_text(now.places[0].text)}`, sub: ''});
+            }
+            const hosts = now.hosts.map(v => v.text).filter(v => v !== '');
+            out.push({key: 'address', step: 'address', icon: SHIELD_ICON, text: `${(hosts.length === 0) ? 'no address yet' : hosts.join(', ')}${(now.auth === '') ? ', anyone' : `, signed in only · behind ${now.auth}`}`, sub: ''});
+            return out;
+        },
+        // What a new one has at serviceman's defaults, each a card that opens its part of the
+        // whole form: its data, when it runs, its copies, for the kinds that have them
+        rest_cards: function () {
+            const now = this.model_now();
+            const cards = [{id: 'keep', title: 'Its data'}, {id: 'policy', title: 'When it runs'}, {id: 'scale', title: 'Copies'}];
+            return cards.filter(v => SECTIONS.find(vv => vv.id === v.id).kinds.includes(now.type)).map(v => Object.assign({}, v, {text: this.summary_of(v.id, now).lines.join(' · ')}));
         },
         heading: function () {
             if ((this.source !== undefined) && (this.source !== null)) {
@@ -824,7 +1015,7 @@ const service_form = {
         // control page's own domain — serviceman.localhost gives grafana.localhost
         easy_host: function () {
             const name = this.model_now().name;
-            if ((this.creating === false) || (this.made_short === false) || (/^[a-z0-9][a-z0-9_-]*$/.test(name) === false)) {
+            if ((this.creating === false) || ((this.made_short === false) && (this.simple === false)) || (/^[a-z0-9][a-z0-9_-]*$/.test(name) === false)) {
                 return '';
             }
             return this.host_from_name(name);
@@ -842,6 +1033,9 @@ const service_form = {
         easy_name: function () {
             if ((this.m.type === 'shell') && this.made_short && (this.app_files !== null)) {
                 return name_free(this.app_files.name, this.names || []);
+            }
+            if ((this.m.type === 'files') && this.simple && (this.m.folder !== '')) {
+                return name_free(name_from_folder(this.m.folder), this.names || []);
             }
             if ((this.m.type !== 'docker') || (this.m.image === '')) {
                 return '';
@@ -867,7 +1061,7 @@ const service_form = {
         // Whether what is made fills itself in from the short form: an image always does, an
         // app folder while it is made there
         made_short: function () {
-            return (this.m.type === 'docker') || (((this.m.type === 'shell') || (this.m.type === 'external')) && this.simple);
+            return (this.m.type === 'docker') || (this.simple && ((this.what === 'app') || (this.what === 'socket')));
         },
         // The port an app folder is given: the first one no program of serviceman's is given
         // and its machine does not listen on now
@@ -957,7 +1151,7 @@ const service_form = {
             if (this.tried && (model.type === 'shell') && (this.model_now().command === '')) {
                 out.command = 'A program needs the line that runs it.';
             }
-            if ((model.type === 'shell') && this.simple && this.creating) {
+            if ((model.type === 'shell') && this.simple && this.creating && (this.what === 'app')) {
                 if (this.tried && (this.app_files === null)) {
                     out.cwd = 'Pick the app: its folder, or a .zip of it.';
                 }
@@ -981,7 +1175,7 @@ const service_form = {
                 out.socket = 'On a machine, the path of the socket file from / or from ~/: ~/agency.sock.';
             }
             // An app not picked yet is said once, where it is picked: the name comes from it
-            const unpicked = (model.type === 'shell') && this.simple && this.creating && (this.app_files === null);
+            const unpicked = (model.type === 'shell') && this.simple && this.creating && (this.what === 'app') && (this.app_files === null);
             if (this.tried && (this.model_now().name === '') && (unpicked === false)) {
                 out.name = 'A service needs a name.';
             }
@@ -1041,7 +1235,7 @@ const service_form = {
         // without an address answers on its name — what the empty boxes say they stand for.
         model_now: function () {
             const model = this.m;
-            if ((this.creating === false) || (this.made_short === false)) {
+            if ((this.creating === false) || ((this.made_short === false) && (this.simple === false))) {
                 return model;
             }
             const name = (model.name === '') ? this.easy_name : model.name;
@@ -1049,12 +1243,19 @@ const service_form = {
             if (model.type === 'docker') {
                 out.port = (model.port === '') ? String((this.detected_port === null) ? 80 : this.detected_port) : model.port;
             }
-            else if (model.type === 'external') {
+            else if ((model.type === 'external') && (this.what === 'socket')) {
                 // A proxy's socket is named after it unless another is typed
                 out.socket = (model.socket === '') ? this.socket_default : model.socket;
                 out.upstream = '';
             }
-            else {
+            else if (model.type === 'external') {
+                out.socket = '';
+            }
+            else if ((model.type === 'shell') && (this.what === 'program')) {
+                // A program on its machine, on the first port free there unless another is typed
+                out.port = (model.port === '') ? String(this.app_port) : model.port;
+            }
+            else if (model.type === 'shell') {
                 // An app folder is one shape of program: bin/run on its port, bin/configure and
                 // bin/build first when the folder has them, in the folder serviceman gives it
                 const files = this.app_files;
@@ -1340,6 +1541,70 @@ const service_form = {
                 this.ports_read();
             }
         },
+        // A tile of the first step: its kind, and the machine it needs. A database is made on
+        // the Databases page.
+        what_pick: function (key) {
+            const item = WHAT.find(v => v.key === key);
+            if (item.type === null) {
+                this.$emit('databases');
+                return;
+            }
+            this.what = key;
+            this.m.type = item.type;
+            if (item.type === 'shell') {
+                this.ports_read();
+            }
+        },
+        // Back to any step, and on to the next one when this one has what it needs
+        step_go: function (index) {
+            if ((index > this.step) && (this.next_ok.ok === false)) {
+                return;
+            }
+            this.step = index;
+            this.$nextTick(function () {
+                const field = ({source: ({docker: this.$refs.image, app: this.$refs.pick, program: this.$refs.command, files: this.$refs.folder_path, external: this.$refs.upstream})[this.what]})[this.steps[this.step].key];
+                if (field !== undefined) {
+                    field.focus();
+                }
+            });
+        },
+        step_to: function (key) {
+            this.mode = 'steps';
+            this.step = this.steps.findIndex(v => v.key === key);
+        },
+        machine_pick: function (value) {
+            this.m.places[0].text = value;
+            this.place_change();
+        },
+        // New remote, and back here once it is made, with every answer and that machine picked
+        machine_add: function () {
+            const index = this.steps.findIndex(v => v.key === 'machine');
+            this.$emit('machine', {model: model_copy(this.model), what: this.what, step: (index === -1) ? this.step : index, mode: this.mode, app_files: this.app_files});
+        },
+        signed_in_pick: function () {
+            if (this.m.auth === '') {
+                this.m.auth = this.walls_here[0].name;
+            }
+        },
+        // One of the rest, changed in the whole form, its card open
+        rest_change: function (id) {
+            this.all_settings();
+            this.section_open(id);
+        },
+        // What the second step said, in a few words: the image, the app, the line, the folder,
+        // the socket or the address it answers at
+        source_answer: function (now) {
+            return ({docker: now.image, app: (this.app_files === null) ? '' : this.app_files.label, program: now.command, files: now.folder, socket: now.socket, external: now.upstream})[this.what] || '';
+        },
+        source_sub: function (now) {
+            if ((this.what === 'docker') || (this.what === 'program')) {
+                return (now.port === '') ? '' : `port ${now.port}`;
+            }
+            if (this.what === 'app') {
+                return (this.app_files === null) ? '' : `${this.app_steps}, on port ${this.app_port}`;
+            }
+            return '';
+        },
         place_change: function () {
             if (this.m.type === 'docker') {
                 this.image_change();
@@ -1510,9 +1775,18 @@ const service_form = {
         create: async function () {
             this.tried = true;
             if (this.problem_count > 0) {
-                // Something the short form does not show is shown where it can be fixed
-                if (Object.keys(this.problems).some(v => ['name', 'port', 'cwd', 'places'].includes(v) === false)) {
-                    this.simple = false;
+                // Something is shown where it can be fixed: the step that asks it, or the whole
+                // form for what no step shows
+                if (this.simple) {
+                    const keys = Object.keys(this.problems);
+                    const found = this.steps.findIndex(v => (STEP_PROBLEMS[v.key] || []).some(vv => keys.includes(vv)));
+                    if (found === -1) {
+                        this.all_settings();
+                    }
+                    else {
+                        this.mode = 'steps';
+                        this.step = found;
+                    }
                 }
                 return;
             }
@@ -1661,6 +1935,13 @@ const service_form = {
         }
     },
 };
+
+// A size in the unit it reads best in, for a machine's free memory: 3 GB, 512 MB
+function size_words(bytes)
+{
+    const gb = bytes/(1024*1024*1024);
+    return (gb >= 1) ? `${(gb >= 10) ? Math.round(gb) : gb.toFixed(1)} GB` : `${Math.round(bytes/(1024*1024))} MB`;
+}
 
 // A model as a copy of its own, rows and all, for a card to change without touching the page
 function model_copy(model)
