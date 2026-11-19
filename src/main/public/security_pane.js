@@ -1,22 +1,25 @@
+import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import overview_tile from './overview_tile.js';
 import page_head from './page_head.js';
+import state_pill from './state_pill.js';
 
-// The dot of each state, as Health draws a check
-const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
+// The tone of each state, as a pill draws it
+const TONES = {ok: 'run', warn: 'busy', bad: 'bad', none: 'idle'};
 // The tab of a machine's page that mends a check, by the name its button shows
 const TAB_NAMES = {firewall: 'Firewall', docker: 'Docker', shell: 'Shell', configure: 'Configure', vulnerabilities: 'Vulnerabilities'};
 // A check a column, the last folding first on a narrow screen; a machine with nothing to show
 // says why across them
 const COLUMNS = [
     {key: 'name', label: 'Machine', wraps: true},
-    {key: 'open', label: 'Open to the internet', fold: 7, spread: v => (v.checks.length === 0) ? ['firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'] : []},
-    {key: 'firewall', label: 'Firewall', fold: 4},
-    {key: 'ssh', label: 'SSH', fold: 5},
-    {key: 'updates', label: 'Updates', fold: 3},
-    {key: 'auto', label: 'Auto updates', fold: 2},
-    {key: 'system', label: 'System', fold: 1},
-    {key: 'vulnerabilities', label: 'Vulnerabilities', fold: 6},
+    {key: 'open', label: 'Open to the internet', fold: 7, phone: 'row', spread: v => (v.checks.length === 0) ? ['firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'] : []},
+    {key: 'firewall', label: 'Firewall', fold: 4, phone: 'row'},
+    {key: 'ssh', label: 'SSH', fold: 5, phone: 'row'},
+    {key: 'updates', label: 'Updates', fold: 3, phone: 'row'},
+    {key: 'auto', label: 'Auto updates', fold: 2, phone: 'row'},
+    {key: 'system', label: 'Release', fold: 1, phone: 'row'},
+    {key: 'vulnerabilities', label: 'Vulnerabilities', fold: 6, phone: 'row'},
 ];
 
 // What each machine leaves open to harm, worst first: a row per machine, a column per check,
@@ -38,19 +41,38 @@ const security_pane = {
         </template>
     </page-head>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
-    <data-table :columns="COLUMNS" :rows="rows" row_key="remote" :row_class="row_class" :more="more" empty="No machines yet: a machine is looked at once its agent dials in.">
+    <!-- At a glance, as drawn: what is to mend and where, what to look at, what passes, and
+         how many machines were looked at -->
+    <div v-if="(rows.length > 0)" class="ov-tiles security-tiles">
+        <overview-tile v-for="tile of tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="null" :note="tile.note" :tone="tile.tone">{{ tile.value }}<small v-if="(tile.all !== null)">/ {{ tile.all }}</small></overview-tile>
+    </div>
+    <data-table :columns="COLUMNS" :rows="rows_shown" row_key="remote" :row_class="row_class" :more="more" framed :total="rows.length" :foot="foot" empty_icon="&lt;path d=&quot;M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z&quot;/&gt;" empty_title="No machines yet" empty="A machine is looked at once its agent dials in.">
+        <template #tools>
+            <input v-model.trim="filter" type="search" placeholder="Find a machine" aria-label="Find a machine by its name" spellcheck="false">
+            <span class="dt-chips">
+                <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+                    <span v-if="(chip.phase !== null)" class="dot" :class="chip.phase"/>
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
+        </template>
         <template #cell="{row, column, more}">
             <template v-if="(column.key === 'name')">
-                <span class="dt-state" :class="row.state"><span class="dot" :class="dot_of(row.state)"/></span>
-                <button type="button" class="link" :title="('The page of ' + row.name)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
-                <span v-if="(row.phase !== 'online')" class="muted security-when"> offline</span>
-                <span v-else-if="row.checking" class="muted security-when"> <span class="spin"/>looking now</span>
+                <span class="dt-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg></span>
+                <span class="dt-name">
+                    <button type="button" class="link" :title="('The page of ' + row.name)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
+                    <small v-if="(row.phase !== 'online')" class="bad">{{ away_of(row) }}</small>
+                    <small v-else-if="row.checking"><span class="spin"/>looking now</small>
+                    <small v-else-if="(title_of(row) !== '')">{{ title_of(row) }}</small>
+                </span>
                 <span v-if="(more && (row.at !== null))" class="dt-detail">looked at {{ format_ms(Math.max(0, state.now - row.at)) }} ago</span>
             </template>
             <span v-else-if="(row.checks.length === 0)" class="muted"><span v-if="((row.error === null) && row.checking)" class="spin"/>{{ note_of(row) }}</span>
             <template v-else>
-                <div v-for="check of checks_in(row, column.key)" :key="check.key" class="dt-state" :class="check.state" :title="((more || (check.detail === null)) ? '' : check.detail)">
-                    <span class="dot" :class="dot_of(check.state)"/>{{ check.text }}
+                <small v-if="(more === false)" class="security-label">{{ column.label }}</small>
+                <div v-for="check of checks_in(row, column.key)" :key="check.key" class="security-check" :title="((more || (check.detail === null)) ? '' : check.detail)">
+                    <state-pill :tone="tone_of(check.state)" :text="check.text"/>
                     <span v-if="(more && (check.detail !== null))" class="dt-detail">{{ check.detail }}</span>
                     <button v-if="(more && (check.mend !== null) && (row.phase === 'online'))" type="button" class="security-mend primary" :disabled="(mending_of(row) !== null)" @click="mend(row, check)"><span v-if="(mending_of(row) === check.mend.key)" class="spin"/>{{ ((mending_of(row) === check.mend.key) ? check.mend.doing : check.mend.label) }}</button>
                     <button v-else-if="(more && (check.tab !== null) && (check.state !== 'ok') && (row.phase === 'online'))" type="button" class="security-mend" @click="$emit('tab', {remote: row.remote, tab: check.tab})">Open {{ TAB_NAMES[check.tab] }}</button>
@@ -61,7 +83,7 @@ const security_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table, 'page-head': page_head},
+    components: {'data-table': data_table, 'overview-tile': overview_tile, 'page-head': page_head, 'state-pill': state_pill},
     props: ['state'],
     emits: ['remote', 'tab'],
     data: function () {
@@ -70,7 +92,8 @@ const security_pane = {
         // mends: the mend a click started on each machine, until a look after it shows; the
         // status says it too, for a page opened meanwhile. mend_errors: why one failed, by
         // machine and check, under that check.
-        return {COLUMNS, TAB_NAMES, asking: false, asked: false, error: null, mends: {}, mend_errors: {}};
+        // filter, show: the find box and the chip picked, all, bad or warn
+        return {COLUMNS, TAB_NAMES, asking: false, asked: false, error: null, mends: {}, mend_errors: {}, filter: '', show: 'all'};
     },
     computed: {
         security: function () {
@@ -78,6 +101,47 @@ const security_pane = {
         },
         rows: function () {
             return (this.security === null) ? [] : this.security.rows;
+        },
+        // The rows the find box and the chip leave
+        rows_shown: function () {
+            const word = this.filter.toLowerCase();
+            return this.rows.filter(v => ((this.show === 'all') || (v.state === this.show)) && ((word === '') || v.name.toLowerCase().includes(word)));
+        },
+        chips: function () {
+            return [{value: 'all', label: 'All', phase: null, count: this.rows.length}, {value: 'bad', label: 'To mend', phase: 'failed', count: this.state_count('bad')}, {value: 'warn', label: 'To look at', phase: 'stopping', count: this.state_count('warn')}];
+        },
+        // The four tiles, as drawn: what is to mend and where, what to look at and of what kind,
+        // what passes, and how many machines were looked at
+        tiles: function () {
+            const checks = [].concat(...this.rows.map(v => v.checks.map(vv => Object.assign({remote: v.name}, vv))));
+            const bad = checks.filter(v => v.state === 'bad');
+            const warn = checks.filter(v => v.state === 'warn');
+            const ok = checks.filter(v => v.state === 'ok');
+            const where = Array.from(new Set(bad.map(v => v.remote)));
+            const kinds = Array.from(new Set(warn.map(v => COLUMNS.find(vv => vv.key === v.key).label.toLowerCase())));
+            const looked = this.rows.filter(v => v.checks.length > 0);
+            const away = this.rows.filter(v => v.phase !== 'online');
+            return [
+                {icon: 'lock', label: 'To mend', value: bad.length, all: null, note: (bad.length === 0) ? 'nothing' : ((where.length === 1) ? `all on ${where[0]}` : `on ${where.length} machines`), tone: (bad.length === 0) ? '' : 'mend'},
+                {icon: 'warning', label: 'To look at', value: warn.length, all: null, note: (warn.length === 0) ? 'nothing' : kinds.slice(0, 2).join(', '), tone: (warn.length === 0) ? '' : 'look'},
+                {icon: 'tag', label: 'Fine', value: ok.length, all: null, note: 'checks that pass', tone: ''},
+                {icon: 'monitor', label: 'Looked at', value: looked.length, all: this.rows.length, note: (away.length === 0) ? 'every machine' : `${away[0].name} offline${(away.length > 1) ? ` and ${away.length - 1} more` : ''}`, tone: ''},
+            ];
+        },
+        // The footer: how many machines, to mend, to look at, not looked at
+        foot: function () {
+            const unlooked = this.rows.filter(v => v.checks.length === 0).length;
+            const out = [{text: `${this.rows.length} ${(this.rows.length === 1) ? 'machine' : 'machines'}`, tone: ''}];
+            if (this.state_count('bad') > 0) {
+                out.push({text: `${this.state_count('bad')} to mend`, tone: 'bad'});
+            }
+            if (this.state_count('warn') > 0) {
+                out.push({text: `${this.state_count('warn')} to look at`, tone: 'warn'});
+            }
+            if (unlooked > 0) {
+                out.push({text: `${unlooked} not looked at`, tone: ''});
+            }
+            return out;
         },
         checking: function () {
             return this.asked || ((this.security !== null) && this.security.checking);
@@ -128,8 +192,22 @@ const security_pane = {
     },
     methods: {
         format_ms,
-        dot_of: function (state) {
-            return DOT_OF[state];
+        tone_of: function (state) {
+            return TONES[state];
+        },
+        // How many machines stand so
+        state_count: function (state) {
+            return this.rows.filter(v => v.state === state).length;
+        },
+        // Under a machine away: since when, as its page says it
+        away_of: function (row) {
+            const found = this.state.remotes.find(v => v.name === row.remote);
+            return ((found === undefined) || (found.left_at === null) || (found.left_at === undefined)) ? 'offline' : `offline since ${clock_of(found.left_at)}`;
+        },
+        // Under a machine: its title, when it has one of its own
+        title_of: function (row) {
+            const found = this.state.remotes.find(v => v.name === row.remote);
+            return ((found === undefined) || (found.title === undefined) || (found.title === null) || (found.title === found.name)) ? '' : found.title;
         },
         checks_in: function (row, key) {
             return row.checks.filter(v => v.key === key);
@@ -138,9 +216,13 @@ const security_pane = {
         more: function (row, key) {
             return this.checks_in(row, key).some(v => v.detail !== null);
         },
-        // A machine away is shown for its last look, faded
+        // A machine away is shown for its last look, faded; one with something to mend or to look
+        // at has its edge
         row_class: function (row) {
-            return (row.phase === 'online') ? '' : 'dim';
+            if (row.phase !== 'online') {
+                return 'dim';
+            }
+            return {bad: 'dt-bad', warn: 'dt-warn'}[row.state] || '';
         },
         // Why a machine has no checks to show
         note_of: function (row) {

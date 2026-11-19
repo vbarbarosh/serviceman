@@ -7330,6 +7330,75 @@ button.st-pill.problem-where {
     color: var(--bad);
 }
 
+/* Security, as drawn: the numbers to mend red, to look at orange; a pill in every cell */
+.security-tiles {
+    margin-bottom: 18px;
+}
+
+.security-tiles .ov-tile b small {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.security-tiles .ov-mend b {
+    color: var(--bad);
+}
+
+.security-tiles .ov-look b {
+    color: var(--busy-text);
+}
+
+.security .dt-name {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    vertical-align: middle;
+}
+
+.security .dt-name small {
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.security .dt-name small.bad {
+    color: var(--bad);
+}
+
+.security-check + .security-check {
+    margin-top: 4px;
+}
+
+/* Each check's name stands over it on a phone's card alone, two checks a row, as drawn */
+.security-label {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .security .fold-room > table.dt-framed > tbody > tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+    }
+
+    .security .fold-room > table.dt-framed > tbody > tr > td.dt-ph-name,
+    .security .fold-room > table.dt-framed > tbody > tr > td:has(> span.muted) {
+        grid-column: 1 / -1;
+    }
+
+    .security-label {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+}
+
 @media (max-width: 900px) {
     .health-tables {
         grid-template-columns: minmax(0, 1fr);

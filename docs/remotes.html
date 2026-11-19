@@ -1178,9 +1178,11 @@ ufw runs as root: in the machine&#39;s root half where it has one, else as <code
 needs a sudoers line naming ufw. A machine without ufw says so; a root half older than the
 firewall says it is updating. The module is <code>modules/firewall</code>, and its README has the API.</p>
 <h2 id="its-security"><a class="anchor" href="#its-security" aria-hidden="true" tabindex="-1">#</a>Its security</h2>
-<p>The <strong>Security</strong> page, on All categories beside Health, says what each machine leaves open to harm: a
-row per machine, a column per check, the worst first, red where something is to be mended,
-orange where it wants a look, grey where there is nothing to say, and why. A click on a row
+<p>The <strong>Security</strong> page, on All categories beside Health, says what each machine leaves open to harm.
+Four tiles count what is to mend and where, what to look at and of what kind, the checks that
+pass, and the machines looked at. Then a table card: a row per machine, a column per check, each
+cell a pill, red where something is to be mended, orange where it wants a look, grey where
+there is nothing to say; a find box and the chips All, To mend and To look at narrow it. A click on a row
 shows what stands behind each check, and mends it with a click where the machine&#39;s root half
 can (below), else opens the tab of the machine&#39;s page that mends it.
 Each machine is looked over once an hour, as soon as it connects, and on <strong>Check again</strong>, which
