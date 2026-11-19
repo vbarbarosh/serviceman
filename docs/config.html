@@ -730,16 +730,20 @@ node src/main data/serviceman.json --check   # read the config, report what is w
 <p><code>--check</code> refuses a config that would only fail at the first request: an unknown type, a
 missing image, a hostname written twice, a duration nobody can read.</p>
 <h2 id="edit-from-the-control-page"><a class="anchor" href="#edit-from-the-control-page" aria-hidden="true" tabindex="-1">#</a>Edit from the control page</h2>
-<p>Services are created and reshaped on the control page itself. <strong>New service</strong> asks one
-question a screen, the steps on top keeping each answer, a click on one going back to it, and
-<strong>One page</strong> beside <strong>Step by step</strong> puts every question on one page with a summary of what
-<strong>Create</strong> makes; the switch keeps every answer. <strong>What</strong> is a tile each: Docker image, App
-folder, Program, Folder of files, Database (which opens <a href="databases.html">Databases</a>), App on a
-socket, Already running. Then where it comes from (the image, the folder, the line that runs
-it, the socket, or where it answers already), the <strong>Machine</strong> for what runs on one, a card each
-with how it stands and its free memory, and <strong>Add a machine</strong>, which opens New remote and comes
-back with that machine picked; the <strong>Address</strong> and who may open it, anyone or signed in behind
-a wall; and <strong>Check</strong>, a row per answer with <strong>Change</strong>, and the rest at serviceman&#39;s defaults.
+<p>Services are created and reshaped on the control page itself. <strong>New service</strong> stands in a card of
+its own, as every form that makes something does: one question a screen with a line under it, the
+steps in a band above keeping each answer, a click on one going back to it, and <strong>Back</strong>, <strong>Show
+serviceman.json</strong> and <strong>Next</strong> in a bar at its foot, with why <strong>Next</strong> waits beside it. <strong>One
+page</strong> beside <strong>Step by step</strong> puts every question on one page with what <strong>Create</strong> makes beside
+them; the switch keeps every answer. <strong>What</strong> is a tile each: Docker image, App folder, Program,
+Folder of files, Database (which opens <a href="databases.html">Databases</a>), App on a socket, Already
+running. Then where it comes from (the image, the folder, the line that runs it, the socket, or
+where it answers already), the <strong>Machine</strong> for what runs on one, a tile each with whether it is
+online, what it is, how many services it runs and its free memory of all, with a meter of it, and
+<strong>Add a machine</strong>, which opens New remote and comes back with that machine picked; the
+<strong>Address</strong> and who may open it, anyone or signed in behind a wall; and <strong>Check</strong>, a row per
+answer with <strong>Change</strong>, and the rest at serviceman&#39;s defaults. A <strong>Create</strong> serviceman refuses
+says why in red on Check, nothing written, and the button becomes <strong>Create again</strong>.
 <strong>A docker image</strong> asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. <strong>An app folder</strong> asks for the app&#39;s folder
 on this computer, or a <code>.zip</code> of it: <strong>A folder…</strong> or <strong>A .zip…</strong>, or either dropped on the

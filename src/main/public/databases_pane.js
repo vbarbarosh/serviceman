@@ -21,7 +21,7 @@ const databases_pane = {
     template: `
 <article id="detail" class="list databases" :class="{form: (place_now.page === 'new')}">
     <p v-if="(view === null)" class="muted"><span v-if="(load_error === '')" class="spin"/>{{ (load_error === '') ? 'reading…' : load_error }}</p>
-    <database-new v-else-if="(place_now.page === 'new')" :view="view" :restore="(place_now.restore || null)" :given="(place_now.given || [])" :remote="(place_now.remote || '')" @close="$emit('place', null)" @made="made" @machine="$emit('machine', $event)" @service="$emit('service')"/>
+    <database-new v-else-if="(place_now.page === 'new')" :view="view" :restore="(place_now.restore || null)" :given="(place_now.given || [])" :remote="(place_now.remote || '')" @close="$emit('place', null)" @made="made" @machine="$emit('machine', $event)"/>
     <template v-else-if="(place_now.page === 'database')">
         <div class="item-head">
             <svg class="item-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" :stroke="colour_of(open_server)" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/>
@@ -107,7 +107,7 @@ const databases_pane = {
     props: {
         place: {type: Object, default: null},
     },
-    emits: ['changed', 'machine', 'place', 'select', 'service'],
+    emits: ['changed', 'machine', 'place', 'select'],
     data: function () {
         // removing: Remove's typed confirmation on a database's page
         return {DATABASE_ICON: database_rows.DATABASE_ICON, DATABASES_ICON: CATEGORIES.find(v => v.key === 'databases').icon, view: null, load_error: '', filter: '', show: 'all', removing: null, busy: false, note: '', bad: false, timer: null};

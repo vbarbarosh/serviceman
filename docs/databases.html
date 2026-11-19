@@ -728,24 +728,25 @@ database to show (empty, coming up, failed, its machine away) is a row of its ow
 and the chips <strong>All</strong>, <strong>Running</strong> and <strong>Needs you</strong> narrow it; a click on a row opens the
 database&#39;s page, at <code>/databases/&lt;server&gt;/&lt;database&gt;</code>.</p>
 <h2 id="new-database"><a class="anchor" href="#new-database" aria-hidden="true" tabindex="-1">#</a>New database</h2>
-<p><strong>New database</strong> opens a form of five steps, step by step or on one page, as New service
+<p><strong>New database</strong> opens a form of four steps, step by step or on one page, as New service
 does; it opens at <code>/databases/new</code>, from <strong>Database</strong> in New service&#39;s first step, from <strong>+ New
 database here</strong> on a machine&#39;s Databases tab (that machine picked), and from <strong>New database…</strong>
 in an app&#39;s Data tab (that app ticked).</p>
 <ol>
-<li><strong>What:</strong> a database; <strong>Another kind</strong> goes back to New service.</li>
-<li><strong>Engine:</strong> PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
-(<code>docker.io/library/postgres:&lt;version&gt;</code>, <code>mysql:&lt;version&gt;</code>, <code>couchdb:3</code>); an empty database
-or a sample (below); its name, up to 32 small letters, digits and <code>_</code>, a letter first.</li>
-<li><strong>Machine:</strong> a card each, its system, its free memory and how many services it runs; one that
-is offline or has no docker its agent reaches is shown, and says why. <strong>Add a machine</strong> opens
-New remote and comes back with every answer kept and the new machine picked.</li>
-<li><strong>Given to:</strong> every app, those on that machine that serviceman starts (a docker image, an app
-folder, a program) ticked or not; one on another machine, a page or an address already running
-is shown, and says why it cannot be. The first one ticked shows what it finds at every start,
-its password hidden: <code>DATABASE_URL=postgresql://orders:••••••@127.0.0.1:&lt;port&gt;/orders</code>.</li>
-<li><strong>Check:</strong> a row per answer, each with <strong>Change</strong>; the rest as it is today: no backups, reached
-from its machine only, Adminer as an app.</li>
+<li><strong>Engine:</strong> a tile each, PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
+(<code>docker.io/library/postgres:&lt;version&gt;</code>, <code>mysql:&lt;version&gt;</code>, <code>couchdb:3</code>); its version; and
+what it starts with, a tile each: an empty database or a sample (below).</li>
+<li><strong>Machine:</strong> a tile each, what it is, how many services it runs and its free memory of all,
+with a meter of it; one that is offline or has no docker its agent reaches is shown, and says
+why. <strong>Add a machine</strong> opens New remote and comes back with every answer kept and the new
+machine picked.</li>
+<li><strong>Given to:</strong> every app a row, those on that machine that serviceman starts (a docker image,
+an app folder, a program) ticked or not; one on another machine, a page or an address already
+running is shown, and says why it cannot be. The first one ticked shows what it finds at every
+start, its password hidden: <code>DATABASE_URL=postgresql://orders:••••••@127.0.0.1:&lt;port&gt;/orders</code>.</li>
+<li><strong>Check:</strong> its name, up to 32 small letters, digits and <code>_</code>, a letter first (a sample and a
+CouchDB name it themselves); a row per answer, each with <strong>Change</strong>; the rest as it is today:
+no backups, reached from its machine only, Adminer as an app.</li>
 </ol>
 <p><strong>Create database</strong> puts it in a server of that engine and version already up on that machine;
 with none, it brings one up first, named after its engine and the first number free

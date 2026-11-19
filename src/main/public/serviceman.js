@@ -2087,14 +2087,14 @@ const app = {
         <crumbs-bar :category="kind_now" :trail="crumbs_trail" :tallies="tallies" @go="crumb_go" @open="counts_read" @pick="category_show"/>
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" :state="state" :problems="problems" :counts="{addresses: addresses_count, guarded: guarded_count, apps: apps_count, boards: boards_count}" @pick="category_show"/>
-        <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
-        <databases-pane v-else-if="databases_open" :place="database_place" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add" @service="create()"/>
+        <shared-folders-pane v-else-if="shared_open" :state="state" @form="pane_form = $event" @changed="shared_count_read" @remote="remote_select_named"/>
+        <databases-pane v-else-if="databases_open" :place="database_place" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
-        <secrets-form v-else-if="secrets_open"/>
-        <tokens-form v-else-if="tokens_open"/>
+        <secrets-form v-else-if="secrets_open" @form="pane_form = $event"/>
+        <tokens-form v-else-if="tokens_open" @form="pane_form = $event"/>
         <networking-pane v-else-if="networking_open" :key="networking_key" :state="state"/>
-        <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
-        <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state"/></article>
+        <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state" @form="pane_form = $event"/></article>
+        <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state" @form="pane_form = $event"/></article>
         <article v-else-if="boards_open" id="detail" class="form"><boards-pane :state="state" @saved="poll"/></article>
         <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @create="create" @new_database="databases_show(Object.assign({page: 'new'}, $event))" @select="select_named" @saved="poll" @walls="wall_new"/></article>
         <tailscale-pane v-else-if="tailscale_open" :state="state" @saved="poll"/>
@@ -2102,14 +2102,14 @@ const app = {
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
         <authwall-pane v-else-if="authwall_open" :key="('authwall-' + authwall_new)" :state="state" :creating="(authwall_new > 0)" @create="create" @doors="networking_show" @saved="poll" @select="select_named"/>
-        <load-tests-pane v-else-if="load_tests_open" :state="state" @remote="remote_select_named" @select="select_named"/>
+        <load-tests-pane v-else-if="load_tests_open" :state="state" @form="pane_form = $event" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @create="create" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>
-        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
+        <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" :kinds="kind_by_remote" :counts="service_counts" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :port="state.listen.port" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
         <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
@@ -2210,6 +2210,8 @@ const app = {
             // The first address the page writes replaces the one it was opened on, so landing
             // on / and being sent to the first service is not a step to go back through
             routed: false,
+            // The form a category's page has open in itself, as the crumbs name it; '' when none
+            pane_form: '',
             // Whether the name the address asked for has been looked for in what serviceman
             // knows. A name that is not there falls back to the first service, once.
             route_checked: false,
@@ -2452,6 +2454,16 @@ const app = {
             }
             return 'services';
         },
+        // How many services each machine runs, by its name
+        service_counts: function () {
+            const out = {};
+            for (const service of this.state.services) {
+                for (const name of (service.remotes || [])) {
+                    out[name] = (out[name] || 0) + 1;
+                }
+            }
+            return out;
+        },
         // How the Canvas draws each machine, by its name: server, laptop or home
         kind_by_remote: function () {
             const machines = ((this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
@@ -2477,6 +2489,10 @@ const app = {
             }
             if ((this.kind_now === 'services') && (this.selected !== null)) {
                 return page_crumbs({page: 'service', name: this.selected.name, title: this.selected.title || '', tab: this.service_tab_now});
+            }
+            // A form a category's page opens in itself: New secret, Change a forward
+            if (this.pane_form !== '') {
+                return [{label: this.pane_form, to: null}];
             }
             return [];
         },

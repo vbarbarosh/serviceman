@@ -7,7 +7,8 @@ own; the files stay where they are.
 
 The page is **Mounts**, on All categories beside Shared folders. **New mount** asks step by step, or on one
 page: **From**, the machine the folder is on and the folder; **To**, the machine it is mounted on
-and where, and the mode, read-only or read-write; **Check**, with a label of its own. Each mount is a row: where it stands, what is wrong with it, what went through it.
+and where, the two drawn as cards joined by an arrow, and the mode, read and write or read only;
+**Check**, with a label of its own. Each mount is a row: where it stands, what is wrong with it, what went through it.
 A row's actions (a click on a row opens them where the table has no room) set it aside and back
 without retyping it, **edit** it, or **forget it**, which takes it out of the config and
 unmounts it.

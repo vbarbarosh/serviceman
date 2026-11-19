@@ -514,122 +514,6 @@ button:disabled:hover {
     stroke: var(--muted);
 }
 
-/* A new forward drawn as what it does: the machine with the service, an arrow, the machine
-   it shows up on; each box says back what was typed in it. On a phone the boxes stack and
-   the arrow points down. */
-.fwd-make {
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--panel);
-}
-
-.fwd-make.editing {
-    border-color: var(--accent);
-}
-
-/* "Change" and the forward's label, which may be one long word */
-.fwd-make h2 {
-    margin: 0 0 .75rem;
-    font-size: 1rem;
-    overflow-wrap: anywhere;
-}
-
-.fwd-ends {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 7rem minmax(0, 1fr);
-    gap: .75rem;
-    align-items: center;
-}
-
-.fwd-end {
-    display: grid;
-    gap: .4rem;
-    padding: .75rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-}
-
-.form .fwd-end select,
-.form .fwd-end input {
-    width: 100%;
-}
-
-.fwd-end-title {
-    font-weight: 600;
-}
-
-.fwd-end-says {
-    min-height: 1.3em;
-    color: var(--muted);
-    font-size: .85rem;
-    overflow-wrap: anywhere;
-}
-
-.fwd-end-says.bad {
-    color: var(--bad);
-}
-
-.fwd-arrow {
-    display: grid;
-    justify-items: center;
-    gap: .2rem;
-    color: var(--link);
-    font-size: .75rem;
-    text-align: center;
-}
-
-.fwd-arrow svg.across {
-    width: 100%;
-    height: 24px;
-}
-
-.fwd-arrow svg.down {
-    display: none;
-}
-
-.fwd-arrow span {
-    color: var(--muted);
-}
-
-.fwd-sum {
-    margin: .75rem 0;
-}
-
-/* A mount's mode: two choices side by side, the picked one framed */
-.mount-modes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    margin-top: .75rem;
-}
-
-.mount-modes label {
-    display: flex;
-    flex: 1 1 14rem;
-    gap: .5rem;
-    align-items: baseline;
-    justify-content: flex-start;
-    min-width: 0;
-    padding: .45rem .6rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.form .mount-modes input {
-    flex: none;
-    width: auto;
-    margin: 0;
-    padding: 0;
-}
-
-.mount-modes label.on {
-    border-color: var(--accent);
-    background: var(--sel);
-}
-
 .mount-rw {
     color: var(--busy-text);
 }
@@ -638,41 +522,6 @@ button:disabled:hover {
    for a few words a line, never one letter */
 .mounts .fold-room > table > * > tr > .wraps {
     min-width: 12rem;
-}
-
-.fwd-make-foot {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem 1rem;
-    align-items: center;
-}
-
-.fwd-make-foot label {
-    display: inline-flex;
-    max-width: 100%;
-    gap: .5rem;
-    align-items: center;
-}
-
-/* A forward's label is any text: room for a machine and a port, or a path, whole, and on a
-   phone no wider than its row */
-.form .fwd-make-foot input.fwd-label {
-    width: 16rem;
-    min-width: 0;
-}
-
-@media (max-width: 640px) {
-    .fwd-ends {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .fwd-arrow svg.across {
-        display: none;
-    }
-
-    .fwd-arrow svg.down {
-        display: block;
-    }
 }
 
 /* A table that keeps its columns while they fit and folds the rest under a row on a click
@@ -2262,71 +2111,27 @@ pre {
     opacity: .55;
 }
 
-/* A token's rights by section: its name, none, read or write, the way to its rights one by
-   one, and what it holds; what a section asks more, its ticks or its folders, under its row */
-.tk-rights {
-    display: flex;
+/* A token's rights by section, a row each: its name, what it holds, the way to its rights one by
+   one, and None | Read | Write; what a section asks more, its ticks or its folders, a row under */
+.sf-rights .tk-fine {
+    flex: none;
+    font-size: 13.5px;
+}
+
+.sf-rights .tk-fine.on {
+    font-weight: 700;
+}
+
+.sf-rights .sf-li.tk-under {
     flex-direction: column;
-    gap: .75rem;
-    min-width: 0;
+    align-items: stretch;
+    padding: 10px 14px 12px 136px;
+    border-top-style: dashed;
 }
 
-.tk-sections {
-    display: grid;
-    grid-template-columns: max-content max-content max-content minmax(0, 1fr);
-    gap: .5rem .75rem;
-    align-items: baseline;
-}
-
-.tk-sections .tk-said {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.tk-sections .tk-under {
-    grid-column: 2 / -1;
-    margin-bottom: .35rem;
-}
-
-.tk-sections .tk-under > label {
-    display: block;
-    margin-bottom: .25rem;
-}
-
-/* The way to a section's rights one by one; lit when they are a choice of its own */
-.tk-sections .tk-fine {
-    padding: .2rem .55rem;
-    font-size: .9rem;
-}
-
-.tk-sections .tk-fine.on {
-    background: var(--sel);
-    color: var(--link);
-    font-weight: 600;
-}
-
-/* On a phone the rights take the form's width, and what a section holds a line of its own */
-@media (max-width: 40rem) {
-    .form .grid > .tk-rights {
-        grid-column: 1 / -1;
-    }
-
-    .tk-sections {
-        grid-template-columns: max-content max-content minmax(0, 1fr);
-        gap: .4rem .6rem;
-    }
-
-    .tk-sections .tk-fine {
-        justify-self: start;
-    }
-
-    .tk-sections .tk-said,
-    .tk-sections .tk-under {
-        grid-column: 1 / -1;
-    }
-
-    .tk-sections .tk-said {
-        margin-bottom: .4rem;
+@media (max-width: 600px) {
+    .sf-rights .sf-li.tk-under {
+        padding-left: 14px;
     }
 }
 
@@ -2848,70 +2653,137 @@ button.link.page-head-how {
     }
 }
 
-/* The frame of a create form: title and the switch, the steps on top, one question, a bar at
-   the foot; or all of it on one page with a summary beside. Tiles and cards stand alone, 6 px;
-   step numbers, fields and buttons 4 px; rows that touch, square */
+/* The step frame: a card of its own, centred, at most 980 px. Its head holds the title and Step
+   by step | One page; the steps sit in a band under it, joined by a line; one question with a
+   line under it; a bar at its foot. Tiles, cards and the frame stand alone, 6 px; step numbers,
+   fields and buttons 4 px; rows that touch, square */
 .step-frame {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    max-width: 60rem;
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    overflow: hidden;
 }
 
 .sf-head {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 12px;
     align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
 }
 
 .sf-head h1 {
     flex: 1;
+    min-width: 0;
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 22px;
+}
+
+.step-frame .seg button {
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 16px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color .12s ease, color .12s ease;
+}
+
+.step-frame .seg.sf-mode button {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 14px;
+}
+
+.step-frame .seg button.on {
+    position: relative;
+    z-index: 1;
+    border-color: var(--accent);
+    background: var(--sel);
+    color: var(--link);
+}
+
+.sf-band {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
 }
 
 .sf-steps {
     display: flex;
-    flex-wrap: wrap;
-    gap: .4rem 1.4rem;
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.sf-steps button {
+/* The line joining a step to the next runs behind its name, which hides it with the band's colour */
+.sf-steps li {
+    position: relative;
+    flex: 1;
     display: flex;
-    gap: .5rem;
+    min-width: 0;
+}
+
+.sf-steps li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 40px;
+    right: 10px;
+    height: 2px;
+    background: var(--line);
+}
+
+.sf-steps button {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 10px;
     align-items: flex-start;
     min-width: 0;
-    max-width: 11rem;
-    padding: 0;
+    max-width: 100%;
+    padding: 0 8px 0 0;
     border: 0;
-    background: none;
+    border-radius: 0;
+    background: var(--panel-2);
+    color: var(--fg);
     text-align: left;
 }
 
+.sf-steps button:hover,
 .sf-steps button:disabled {
+    background: var(--panel-2);
     opacity: 1;
-}
-
-.sf-steps button:hover {
-    background: none;
 }
 
 .sf-num {
     flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border: 1px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 2px solid var(--line-strong);
     border-radius: 4px;
+    background: var(--panel);
     color: var(--muted);
-    font-size: .8rem;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.sf-steps .done .sf-num,
+.sf-num.done {
+    border-color: var(--run-edge);
+    background: var(--run-soft);
+    color: var(--run);
 }
 
 .sf-steps .now .sf-num {
@@ -2920,50 +2792,100 @@ button.link.page-head-how {
     color: #fff;
 }
 
-.sf-steps .done .sf-num {
-    border-color: var(--ok, var(--run));
-    color: var(--run);
-}
-
 .sf-name {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    font-weight: 600;
+    margin-top: 4px;
+    font-size: 14.5px;
+    font-weight: 650;
 }
 
 .sf-steps .now .sf-name {
     color: var(--link);
 }
 
+.sf-steps .later .sf-name {
+    color: var(--muted);
+}
+
 .sf-name small {
+    max-width: 130px;
     overflow: hidden;
     color: var(--muted);
-    font-size: .8rem;
+    font-size: 13px;
     font-weight: 400;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+/* On a phone the steps are the one open, its number of all and a bar */
+.sf-phone-steps {
+    display: none;
+}
+
+.sf-phone-steps > span:first-child {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-weight: 650;
+}
+
+.sf-phone-steps .muted {
+    font-weight: 500;
+}
+
+.sf-bar {
+    display: block;
+    height: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.sf-bar i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+
 .sf-body {
     display: flex;
     flex-direction: column;
-    gap: .9rem;
-    min-height: 16rem;
+    gap: 18px;
+    min-height: 330px;
+    padding: 26px 28px 30px;
 }
 
 .sf-body h2 {
-    margin: .4rem 0 0;
-    font-size: 1.2rem;
+    margin: 0;
+    font-size: 22px;
+}
+
+.sf-says {
+    margin: -12px 0 2px;
+    color: var(--muted);
 }
 
 .sf-foot {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 12px;
     align-items: center;
-    padding: .8rem 0 0;
+    padding: 14px 24px;
     border-top: 1px solid var(--line);
+    background: var(--panel-2);
+}
+
+.sf-foot > button,
+.sf-summary > button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 14px;
+    font-weight: 600;
 }
 
 .sf-note {
@@ -2974,169 +2896,541 @@ button.link.page-head-how {
     min-width: 0;
 }
 
-.kind-tiles {
+.sf-waits {
+    max-width: 22rem;
+    font-size: 13.5px;
+    text-align: right;
+}
+
+.sf-json:empty {
+    display: none;
+}
+
+.sf-json .link {
+    font-weight: 600;
+}
+
+/* One page: every step a section under its question, what Create makes beside them */
+.sf-page {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-    gap: .75rem;
+    grid-template-columns: minmax(0, 1fr) 320px;
 }
 
-.kind-tile {
-    display: flex;
-    flex-direction: column;
-    gap: .3rem;
-    align-items: center;
+.sf-sections {
     min-width: 0;
-    padding: .9rem .6rem;
-    border-radius: 6px;
-    text-align: center;
+    padding: 8px 28px 26px;
+    border-right: 1px solid var(--line);
 }
 
-.kind-tile svg {
-    color: var(--link);
+.sf-section {
+    padding: 20px 0;
+    border-top: 1px solid var(--line);
 }
 
-.kind-tile .muted {
-    font-size: .82rem;
+.sf-section:first-child {
+    border-top: 0;
 }
 
-.kind-tile.on,
-.machine-card.on {
-    border-color: var(--accent);
-    background: var(--sel);
+.sf-section h3 {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 14px;
+    font-size: 17px;
 }
 
-.sf-fields {
+.sf-section h3 .sf-num {
+    width: 26px;
+    height: 26px;
+    border-width: 1px;
+    font-size: 13px;
+}
+
+.sf-section-body {
     display: flex;
     flex-direction: column;
-    gap: .7rem;
+    gap: 16px;
+    min-width: 0;
 }
 
-.sf-fields p {
+.sf-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 22px 20px;
+    background: var(--panel-2);
+}
+
+.sf-summary h3 {
     margin: 0;
-}
-
-.form input.sf-big,
-input.sf-big {
-    max-width: 40rem;
-    padding: .55rem .7rem;
-    font: 1.05rem ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.sf-found {
-    color: var(--run);
-}
-
-.sf-grid {
-    display: grid;
-    grid-template-columns: 8rem minmax(0, 32rem);
-    gap: .6rem .9rem;
-    align-items: start;
-}
-
-.sf-grid > label {
-    padding-top: .35rem;
     color: var(--muted);
+    font-size: 12.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
 }
 
-.sf-sub {
-    margin: .6rem 0 0;
-    font-size: 1.05rem;
-}
-
-.sf-more {
-    align-self: flex-start;
-}
-
-.machine-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-    gap: .75rem;
-}
-
-.machine-card {
+.sf-sum-list {
     display: flex;
     flex-direction: column;
-    gap: .25rem;
-    align-items: stretch;
-    min-width: 0;
-    min-height: 6.5rem;
-    padding: .8rem .9rem;
+    border: 1px solid var(--line);
     border-radius: 6px;
-    text-align: left;
-}
-
-.machine-card.away {
-    opacity: .7;
-}
-
-.mc-head {
-    display: flex;
-    gap: .45rem;
-    align-items: center;
-    min-width: 0;
-}
-
-.mc-head b {
-    flex: 1;
-    min-width: 0;
+    background: var(--panel);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.mc-head svg {
+.sum-head,
+.sum-line {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-height: 50px;
+    margin: 0;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.sf-sum-list > :first-child {
+    border-top: 0;
+}
+
+.sum-head svg,
+.sum-line svg {
     flex: none;
     color: var(--link);
 }
 
+.sf-summary > .primary {
+    width: 100%;
+    height: 42px;
+    font-size: 15.5px;
+}
+
+.sf-summary > .sf-json {
+    text-align: center;
+}
+
+/* Tiles to pick one from, four a row: a 40 px icon tile, a name and a line; the picked one with
+   a 2 px accent border and a tick. A machine's tile adds its dot and a meter of its memory */
+.kind-tiles,
+.machine-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.kind-tiles.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.kind-tiles.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.kind-tile,
+.machine-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-width: 0;
+    min-height: 124px;
+    padding: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--fg);
+    font-weight: 400;
+    text-align: left;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+
+.kind-tile:not(.on):not(:disabled):hover,
+.machine-card:not(.on):not(:disabled):hover {
+    border-color: var(--accent-edge);
+    background: var(--hover);
+}
+
+.kind-tile:disabled,
+.machine-card:disabled {
+    opacity: .5;
+}
+
+.kt-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 4px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--link);
+}
+
+.kind-tile b,
+.machine-card b {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 15.5px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kind-tile .muted,
 .machine-card .muted {
-    font-size: .85rem;
+    max-width: 100%;
+    font-size: 13.5px;
     overflow-wrap: anywhere;
+}
+
+.kind-tile.on,
+.machine-card.on {
+    padding: 15px;
+    border: 2px solid var(--accent);
+    background: var(--sel);
+}
+
+.kind-tile.on .kt-icon,
+.machine-card.on .kt-icon {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+.kind-tile.on::after,
+.machine-card.on::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+
+.mc-dot {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--run);
+}
+
+.mc-dot.off {
+    border: 2px solid var(--muted);
+    background: transparent;
+}
+
+.machine-card.on .mc-dot {
+    right: 42px;
+}
+
+.machine-card.away {
+    opacity: .55;
+}
+
+.mc-meter {
+    display: block;
+    align-self: stretch;
+    height: 6px;
+    margin-top: auto;
+    border: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.mc-meter i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+
+.mc-meter i.low {
+    background: var(--busy);
 }
 
 .machine-card.mc-add {
     align-items: center;
     justify-content: center;
     border-style: dashed;
+    background: transparent;
+    color: var(--link);
+    text-align: center;
+}
+
+.machine-card.mc-add b {
+    white-space: normal;
+}
+
+/* With no machine at all, Add a machine is the step's one tile, across it */
+.machine-card.mc-add.alone {
+    grid-column: 1 / -1;
+    min-height: 180px;
+}
+
+.machine-card.mc-add.alone b {
+    font-size: 18px;
+}
+
+/* One page: the tiles are names to pick, the machines' a name and a meter */
+.sf-page .kind-tile,
+.sf-page .machine-card {
+    min-height: 0;
+    padding: 12px;
+}
+
+.sf-page .kind-tile.on,
+.sf-page .machine-card.on {
+    padding: 11px;
+}
+
+.sf-page .kind-tile b,
+.sf-page .machine-card b {
+    padding-right: 22px;
+    font-size: 14.5px;
+    white-space: normal;
+}
+
+.sf-page .kind-tile .kt-icon,
+.sf-page .kind-tile .muted,
+.sf-page .machine-card .kt-icon,
+.sf-page .machine-card .muted,
+.sf-page .machine-card .mc-dot {
+    display: none;
+}
+
+.sf-page .kind-tile.on::after,
+.sf-page .machine-card.on::after {
+    top: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    background-size: 12px;
+}
+
+.sf-page .machine-card.mc-add {
+    min-height: 0;
+}
+
+/* A field: its label above, 44 px, a hint under it */
+.sf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.sf-field > label,
+.sf-label {
+    color: var(--fg);
+    font-weight: 650;
+}
+
+.sf-field > .sf-label-row {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.step-frame input:not([type=checkbox]):not([type=radio]),
+.step-frame select {
+    height: 44px;
+    max-width: none;
+    padding: 0 14px;
+    background: var(--code);
+    font-size: 16px;
+}
+
+.step-frame textarea {
+    max-width: none;
+    padding: 12px 14px;
+    background: var(--code);
+    font-size: 15px;
+}
+
+.step-frame input:not([type=checkbox]):not([type=radio]):focus,
+.step-frame select:focus,
+.step-frame textarea:focus {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.step-frame input.wrong:not([type=checkbox]):not([type=radio]),
+.step-frame select.wrong {
+    border-color: var(--bad);
+    box-shadow: inset 0 0 0 1px var(--bad);
+}
+
+.step-frame input.sf-mono:not([type=checkbox]):not([type=radio]),
+.step-frame input.sf-big:not([type=checkbox]):not([type=radio]) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+}
+
+.sf-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+.sf-hint.ok,
+.sf-found {
+    color: var(--run);
+}
+
+.sf-hint.bad {
+    color: var(--bad);
+}
+
+/* Two fields side by side, the first the wider */
+.sf-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 14px;
+}
+
+.sf-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.sf-fields p {
+    margin: 0;
+}
+
+.sf-sub {
+    margin: 8px 0 -6px;
+    font-size: 16px;
+}
+
+.sf-more {
+    align-self: flex-start;
+    margin-top: -12px;
+    font-size: 13.5px;
+}
+
+/* A label beside a row of choices: Version 17 16 15, On laptop it is … */
+.sf-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: center;
+}
+
+.sf-inline > b {
+    font-size: 16px;
+}
+
+/* A note in the step: an icon and a line or two, in a card of its own */
+.sf-info {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 0;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+}
+
+.sf-info > svg {
+    flex: none;
+    margin-top: 2px;
     color: var(--link);
 }
 
-.who-tiles {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 15rem));
-    gap: .75rem;
+/* Create refused: what was said, and that nothing was written */
+.sf-failed {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 0;
+    padding: 12px 16px;
+    border: 1px solid var(--bad-edge);
+    border-radius: 6px;
+    background: var(--bad-soft);
+    overflow-wrap: anywhere;
 }
 
-.kind-tile.who {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: .2rem .6rem;
-    justify-content: flex-start;
-    text-align: left;
+.sf-failed > svg {
+    flex: none;
+    margin-top: 2px;
+    color: var(--bad);
 }
 
-.kind-tile.who .muted {
-    flex-basis: 100%;
-    padding-left: calc(20px + .6rem);
+.sf-failed > span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
-/* What Create makes, rows that touch: square */
+/* Rows that touch, each a thing to pick or a line of what Create makes: square inside, the list
+   a card of its own */
+.sf-list,
 .check-rows {
     display: flex;
     flex-direction: column;
     border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+    overflow: hidden;
 }
 
+.sf-li,
 .check-row {
     display: flex;
-    gap: .7rem;
+    gap: 12px;
     align-items: center;
-    padding: .6rem .8rem;
-    border-bottom: 1px solid var(--line);
+    min-height: 52px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
 }
 
-.check-row:last-child {
-    border-bottom: 0;
+.sf-li:first-child,
+.check-row:first-child {
+    border-top: 0;
+}
+
+.sf-li.on {
+    background: var(--sel);
+}
+
+.sf-li.off {
+    color: var(--muted);
+}
+
+.sf-li .muted {
+    font-size: 13.5px;
+}
+
+.sf-li input[type=checkbox] {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+}
+
+.sf-li-end {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.sf-li-end code {
+    color: var(--muted);
+    font-size: 13px;
 }
 
 .check-row svg {
@@ -3146,106 +3440,521 @@ input.sf-big {
 
 .cr-text {
     flex: 1;
-    display: flex;
-    flex-direction: column;
     min-width: 0;
     overflow-wrap: anywhere;
 }
 
+.cr-text .muted::before {
+    content: ' · ';
+}
+
+.check-row .link {
+    flex: none;
+}
+
+/* What a new one has at serviceman's defaults: a card each, its value and a Change */
+.rest-title {
+    margin: 8px 0 -6px;
+    font-size: 16px;
+}
+
+.rest-title .muted {
+    font-size: 14px;
+    font-weight: 400;
+}
+
 .rest-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-    gap: .75rem;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 18px;
 }
 
 .rest-card {
     display: flex;
     flex-direction: column;
-    gap: .25rem;
+    gap: 6px;
     align-items: flex-start;
-    padding: .7rem .8rem;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
 }
 
-/* One page: every step a section, the summary beside them while there is room */
-.sf-page {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 17rem;
-    gap: 1.2rem;
-    align-items: start;
+.rest-card > .muted:first-child {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 13.5px;
+    font-weight: 600;
 }
 
-.sf-section {
-    display: grid;
-    grid-template-columns: 8rem minmax(0, 1fr);
-    gap: .9rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--line);
+.rest-card > .muted:first-child svg {
+    color: var(--link);
 }
 
-.sf-section h3 {
-    margin: .3rem 0 0;
-    font-size: 1rem;
+.rest-card > b {
+    font-weight: 650;
 }
 
-/* On one page the kinds are a row of chips, their words in the tooltip */
-.sf-page .kind-tiles {
-    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
-    gap: .5rem;
-}
-
-.sf-page .kind-tile {
-    flex-direction: row;
-    gap: .5rem;
-    justify-content: flex-start;
-    padding: .45rem .7rem;
+/* Lines to run elsewhere: each numbered, with its own Copy */
+.sf-code {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
     border-radius: 4px;
-    text-align: left;
+    background: var(--code);
+    font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.sf-page .kind-tile svg {
-    width: 16px;
-    height: 16px;
+.sf-code > code {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    background: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.sf-page .kind-tile:not(.who) .muted {
-    display: none;
+.sf-code-no {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font: 700 13px system-ui, sans-serif;
 }
 
-.card.sf-summary {
-    position: sticky;
-    top: 0;
+.sf-code > button {
+    flex: none;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    height: 30px;
+    font: 600 13px system-ui, sans-serif;
+}
+
+/* Waiting for something outside the page: a ring that turns, and what it waits for */
+.sf-waiting {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 18px;
+    border: 1px dashed var(--accent-edge);
+    border-radius: 6px;
+    background: var(--sel);
+}
+
+.sf-waiting > .spin {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-width: 4px;
+}
+
+.sf-waiting b,
+.sf-here b {
+    display: block;
+    font-size: 16px;
+}
+
+/* A machine that has just dialled in: a green card, then what it said of itself */
+.sf-here {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid var(--run-edge);
+    border-radius: 6px;
+    background: var(--run-soft);
+}
+
+.sf-here-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--run-edge);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--run);
+}
+
+.sf-here-name {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: center;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.sf-here .muted {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.sf-specs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sf-spec {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+}
+
+.sf-spec > span {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.sf-spec > span svg {
+    color: var(--link);
+}
+
+.sf-spec > b {
+    display: block;
+    margin-top: 6px;
+    font-size: 17px;
+    overflow-wrap: anywhere;
+}
+
+/* One machine's end and another's, joined by an arrow: where a mount or a forward comes from
+   and where it appears */
+.sf-flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+    align-items: stretch;
+}
+
+.sf-arrow {
+    display: grid;
+    place-items: center;
+    color: var(--link);
+}
+
+.sf-end {
     display: flex;
     flex-direction: column;
-    gap: .45rem;
-    padding: 1rem;
-    border-style: dashed;
-    border-color: var(--accent);
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel-2);
 }
 
-.sum-head {
+.sf-end.on {
+    padding: 15px;
+    border: 2px solid var(--accent);
+    background: var(--sel);
+}
+
+.sf-end-head {
     display: flex;
-    gap: .5rem;
+    gap: 8px;
     align-items: center;
-    font-size: 1.1rem;
+    font-size: 16px;
+    font-weight: 700;
 }
 
-.sum-head svg,
-.sum-line svg {
+.sf-end-head svg {
     flex: none;
     color: var(--link);
 }
 
-.sum-line {
+.sf-end-head + .muted {
+    margin-top: -10px;
+    font-size: 13.5px;
+}
+
+/* An end's machine is its card's title: a pick that reads as a heading */
+.step-frame .sf-end-head select {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 6px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--fg);
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.step-frame .sf-end-head select:hover {
+    border-color: var(--line-strong);
+}
+
+/* What an end already says, shown as its field but not to be typed in here */
+.sf-end-value {
     display: flex;
-    gap: .45rem;
-    align-items: flex-start;
-    margin: 0;
-    font-size: .9rem;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--code);
+    font: 15px ui-monospace, SFMono-Regular, Menlo, monospace;
     overflow-wrap: anywhere;
 }
 
-.sf-summary .link {
-    align-self: flex-start;
+/* Two numbers to read at a glance, each with its slider */
+.sf-counts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sf-count {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel-2);
+}
+
+.sf-count > label {
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+.step-frame .sf-count input.sf-count-value:not([type=checkbox]):not([type=radio]) {
+    width: 100%;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 34px;
+    font-weight: 800;
+}
+
+.sf-count-value-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+
+.sf-count-value-row small {
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.step-frame .sf-count input[type=range] {
+    width: 100%;
+    height: 16px;
+    margin: 6px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* What a token may do, a section a row: its name, what it covers, None | Read | Write */
+.sf-rights .sf-li {
+    min-height: 60px;
+}
+
+.sf-rights .sf-li > b {
+    flex: none;
+    width: 110px;
+}
+
+.sf-rights .sf-li > .muted {
+    flex: 1;
+    min-width: 0;
+}
+
+.sf-rights .seg button {
+    height: 36px;
+    padding: 0 14px;
+}
+
+/* What Create writes to serviceman.json, under the frame and as wide */
+.svc-json.framed {
+    max-width: 980px;
+    margin: 18px auto 0;
+}
+
+.cr-text .mono,
+.sum-line .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+}
+
+/* A phone: the frame from edge to edge, Step n of m with a bar, tiles two a row, the summary
+   under the sections, the ends of a flow one above the other */
+@media (max-width: 600px) {
+    .step-frame {
+        width: auto;
+        margin: -16px -12px 0;
+        border-right: 0;
+        border-left: 0;
+        border-radius: 0;
+    }
+
+    /* A list's page keeps 16 px each side on a phone */
+    article.list > .step-frame,
+    article.list > * > .step-frame {
+        margin-right: -16px;
+        margin-left: -16px;
+    }
+
+    .sf-head {
+        padding: 14px 16px;
+    }
+
+    .sf-head h1 {
+        font-size: 20px;
+    }
+
+    .sf-band {
+        padding: 12px 16px;
+    }
+
+    .sf-steps {
+        display: none;
+    }
+
+    .sf-phone-steps {
+        display: block;
+    }
+
+    .sf-body {
+        min-height: 0;
+        padding: 18px 16px 22px;
+    }
+
+    .sf-body h2 {
+        font-size: 20px;
+    }
+
+    .sf-foot {
+        padding: 12px 16px;
+    }
+
+    .sf-foot .sf-json,
+    .sf-foot .sf-kept {
+        display: none;
+    }
+
+    .sf-waits {
+        display: none;
+    }
+
+    .sf-page {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sf-sections {
+        padding: 0 16px 16px;
+        border-right: 0;
+    }
+
+    .sf-summary {
+        border-top: 1px solid var(--line);
+    }
+
+    .kind-tiles,
+    .kind-tiles.three,
+    .machine-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .kind-tile,
+    .machine-card {
+        min-height: 108px;
+        padding: 13px;
+    }
+
+    .kind-tile.on,
+    .machine-card.on {
+        padding: 12px;
+    }
+
+    .sf-row,
+    .sf-flow,
+    .sf-counts {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sf-row {
+        gap: 18px;
+    }
+
+    .sf-arrow {
+        height: 44px;
+        transform: rotate(90deg);
+    }
+
+    .sf-specs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sf-here {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sf-code > code {
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    .sf-li.wraps {
+        flex-wrap: wrap;
+    }
+
+    .sf-li.wraps > .sf-li-end {
+        flex-basis: 100%;
+        margin-left: 32px;
+    }
+
+    .sf-rights .sf-li {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .sf-rights .sf-li > b {
+        width: auto;
+    }
+
+    .sf-rights .sf-li > .muted {
+        order: 3;
+        flex-basis: 100%;
+    }
+
+    .sf-rights .seg {
+        margin-left: auto;
+    }
+
+    .sf-rights .seg button {
+        height: 34px;
+        padding: 0 10px;
+    }
 }
 
 /* Editing a service: a card left aside while another is open steps back; the open one is
@@ -4079,16 +4788,6 @@ button.palette-hit.on {
 @media (max-width: 40rem) {
     .crumbs-bar {
         padding: .5rem 1rem;
-    }
-
-    .sf-page,
-    .sf-section,
-    .sf-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .who-tiles {
-        grid-template-columns: minmax(0, 1fr);
     }
 
     #find {
@@ -5030,29 +5729,40 @@ article.rf h1 + p {
     margin: 0;
 }
 
-/* New remote: its tags as chips with ×, the wait for its agent dashed, its arrival green */
-.rf-label {
-    padding-top: .35rem;
-    color: var(--muted);
-}
-
+/* New remote: its tags as chips with × in a field of their own, a tag typed after them */
 .rf-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: .4rem;
+    gap: 6px;
     align-items: center;
     min-width: 0;
+    min-height: 44px;
+    padding: 6px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--code);
 }
 
-.rf-tags .tag {
+.rf-tags:focus-within {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.rf-tags.off {
+    opacity: .6;
+}
+
+.rf-tags .tag,
+.sf-here .tag {
     display: inline-flex;
     gap: .2rem;
     align-items: center;
-    padding: .15rem .5rem;
-    border: 1px solid var(--accent);
-    background: var(--sel);
+    padding: .1rem .45rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--panel-2);
     color: var(--fg);
-    font-size: .9rem;
+    font-size: 13.5px;
 }
 
 .rf-tag-x {
@@ -5063,44 +5773,16 @@ article.rf h1 + p {
     line-height: 1;
 }
 
-.form input.rf-tag-new {
-    width: 7rem;
-    padding: .2rem .45rem;
-}
-
-.rf-tags-says {
-    flex-basis: 100%;
-    font-size: .85rem;
-}
-
-.rf-wait {
-    display: flex;
-    gap: .6rem;
-    align-items: center;
-    padding: .8rem 1rem;
-    border: 1px dashed var(--line-strong);
-    border-radius: 6px;
-}
-
-.rf-joined {
-    display: flex;
-    gap: .7rem;
-    align-items: center;
-    padding: .8rem 1rem;
-    border: 2px solid var(--run);
-    border-radius: 6px;
-    background: var(--run-soft);
-    color: var(--run);
-}
-
-.rf-joined span {
-    display: flex;
-    flex-direction: column;
-    color: var(--fg);
-}
-
-.rf-joined small {
-    color: var(--muted);
+.step-frame input.rf-tag-new:not([type=checkbox]):not([type=radio]) {
+    flex: 1;
+    width: auto;
+    min-width: 6rem;
+    height: 30px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 15px;
 }
 
 .rf-card {
@@ -5742,58 +6424,7 @@ article.rf .actions {
     color: var(--muted);
 }
 
-/* New database: the line under the machines, an app's variable on its card, and the URL the
-   first one ticked finds, its password hidden */
-.db-says {
-    display: flex;
-    gap: .5rem;
-    align-items: flex-start;
-    margin: .8rem 0 0;
-}
-
-.sf-label {
-    margin-bottom: -.4rem;
-    color: var(--muted);
-}
-
-.db-says svg {
-    flex: none;
-    margin-top: .15rem;
-}
-
-/* An app's card is a label round its tick box, drawn as the machines' buttons are */
-.machine-card.db-app {
-    border: 1px solid var(--line-strong);
-    background: var(--panel);
-    color: var(--fg);
-    cursor: pointer;
-}
-
-.machine-card.db-app.on {
-    border-color: var(--accent);
-    background: var(--sel);
-}
-
-.machine-card.db-app.away {
-    cursor: default;
-}
-
-/* A tick box, not a field: a form's fields fill their row */
-.machine-card.db-app input[type=checkbox] {
-    flex: none;
-    width: auto;
-    margin: 0;
-}
-
-.db-env {
-    align-self: flex-start;
-    padding: .05rem .4rem;
-    border-radius: 4px;
-    background: var(--run-soft);
-    color: var(--run);
-    font-size: .8rem;
-}
-
+/* New database: the URL the first app ticked finds, its password hidden */
 .db-url {
     display: block;
     padding: .55rem .7rem;

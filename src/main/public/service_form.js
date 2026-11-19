@@ -11,12 +11,13 @@ import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
 import forwards_from_brought from './forwards_from_brought.js';
+import machine_card from './machine_card.js';
+import machine_tile from './machine_tile.js';
 import secret_name_said from './secret_name_said.js';
 import secret_rows_write from './secret_rows_write.js';
 import service_from_form from './service_from_form.js';
 import service_kind from './service_kind.js';
 import settled from './settled.js';
-import size_words from './size_words.js';
 import snippet from './snippet.js';
 import state_read from './state_read.js';
 import step_frame from './step_frame.js';
@@ -72,18 +73,32 @@ const WHAT = [
 
 // The second step of each, as its bar names it and asks it
 const SOURCE_STEP = {
-    docker: {name: 'Image', question: 'Which image?'},
-    app: {name: 'Folder', question: 'Which app folder?'},
-    program: {name: 'Command', question: 'What runs it?'},
-    files: {name: 'Folder', question: 'Which folder does it serve?'},
-    socket: {name: 'Socket', question: 'Which socket does it listen on?'},
-    external: {name: 'Answers at', question: 'Where does it answer already?'},
+    docker: {name: 'Image', question: 'Which image?', says: 'Its name on Docker Hub or a registry of yours.'},
+    app: {name: 'Folder', question: 'Which app folder?', says: 'Its folder on this computer with bin/run in it, or a .zip of it: serviceman copies it to its machine.'},
+    program: {name: 'Command', question: 'What runs it?', says: 'The line it is started with, kept alive on its machine.'},
+    files: {name: 'Folder', question: 'Which folder does it serve?', says: 'A folder of serviceman\'s own machine: serviceman serves its files itself, nothing runs.'},
+    socket: {name: 'Socket', question: 'Which socket does it listen on?', says: 'The file its app listens on; serviceman passes every request into it.'},
+    external: {name: 'Answers at', question: 'Where does it answer already?', says: 'Where it answers now; serviceman only gives it an address and passes requests on.'},
+};
+
+// What the machine step says when there is no machine yet, for each kind that runs on one
+const NO_MACHINE_SAYS = {
+    docker: 'A docker image runs on a machine of yours.',
+    app: 'An app folder runs on a machine of yours.',
+    program: 'A program runs on a machine of yours.',
 };
 
 // The icons of a machine, of a tag of machines and of a wall, the inside of a 24x24 stroked svg
 const MACHINE_ICON = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>';
 const TAG_ICON = '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>';
 const SHIELD_ICON = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>';
+const GLOBE_ICON = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>';
+// The icons of the rest at their defaults: its data, when it runs, its copies
+const REST_ICONS = {
+    keep: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/>',
+    policy: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    scale: '<rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M4 16V5.5A1.5 1.5 0 0 1 5.5 4H16"/>',
+};
 
 // Which step each thing that can be wrong is fixed in
 const STEP_PROBLEMS = {source: ['name', 'port', 'cwd', 'command', 'upstream', 'socket'], machine: ['places'], address: ['hosts']};
@@ -222,11 +237,11 @@ const service_form = {
     <slot/>
     <!-- A new service in the step frame: one question a screen, or all of them on one page; All
          settings, from Check, is the whole form -->
-    <step-frame v-if="(creating && simple)" :title="heading" :steps="steps" :step="step" :mode="mode" :can_next="next_ok.ok" :next_title="next_ok.why" :busy="busy" create_label="Create service" @step="step_go" @mode="mode = $event" @cancel="$emit('close')" @create="create">
+    <step-frame v-if="(creating && simple)" :title="heading" :steps="steps" :step="step" :mode="mode" :can_next="next_ok.ok" :next_title="next_ok.why" :busy="busy" :create_label="create_label" @step="step_go" @mode="mode = $event" @cancel="$emit('close')" @create="create">
         <template #what>
             <div class="kind-tiles" role="radiogroup" aria-label="What it runs">
                 <button v-for="item of what_items" :key="item.key" type="button" role="radio" class="kind-tile" :class="{on: (item.key === what)}" :title="item.says" :aria-checked="(item.key === what)" @click="what_pick(item.key)">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/>
+                    <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/></span>
                     <b>{{ item.name }}</b>
                     <span class="muted">{{ item.says }}</span>
                 </button>
@@ -234,12 +249,13 @@ const service_form = {
         </template>
         <template #source>
             <div class="sf-fields" :class="{dropping: drop_over}" @dragover.prevent="drop_over = (what === 'app')" @dragleave="drop_over = false" @drop.prevent="app_dropped">
-                <template v-if="(what === 'docker')">
-                    <input ref="image" v-model.trim="m.image" class="sf-big" placeholder="grafana/grafana:latest" aria-label="The image" spellcheck="false" @input="image_input" @change="image_change">
-                    <p v-if="(detected_port !== null)" class="sf-found">✓ It listens on port {{ detected_port }}, as the image says</p>
-                    <p class="muted">or paste a whole <code>docker run</code> line: the rest is filled from it</p>
-                </template>
-                <template v-else-if="(what === 'app')">
+                <div v-if="(what === 'docker')" class="sf-field">
+                    <label for="sf-image">Image</label>
+                    <input id="sf-image" ref="image" v-model.trim="m.image" class="sf-mono" placeholder="grafana/grafana:latest" spellcheck="false" @input="image_input" @change="image_change">
+                    <p v-if="(detected_port !== null)" class="sf-hint ok">✓ It listens on port {{ detected_port }}, as the image says</p>
+                </div>
+                <div v-else-if="(what === 'app')" class="sf-field">
+                    <span class="sf-label">Its folder</span>
                     <div class="line">
                         <button ref="pick" type="button" :class="{wrong: problems.cwd}" @click="$refs.folder.click()">A folder…</button>
                         <button type="button" :class="{wrong: problems.cwd}" @click="$refs.zip.click()">A .zip…</button>
@@ -247,119 +263,129 @@ const service_form = {
                         <input ref="zip" type="file" accept=".zip,application/zip" hidden @change="app_picked">
                     </div>
                     <p v-if="(app_files !== null)"><code>{{ app_files.label }}</code> <span v-if="(app_files.files > 0)" class="muted">— {{ app_files.files === 1 ? 'one file' : app_files.files + ' files' }}, {{ size_text(app_files.size) }}</span></p>
-                    <p v-if="problems.cwd" class="bad">{{ problems.cwd }}</p>
-                    <p v-else-if="(app_files === null)" class="muted">Its folder on this computer, with <code>bin/run</code> in it, or a .zip of that folder: picked, or dropped here. serviceman copies it to the machine it runs on.</p>
-                    <p v-else class="muted">{{ app_steps }}, on port {{ app_port }} as <code>PORT</code>.</p>
-                </template>
-                <template v-else-if="(what === 'program')">
-                    <input ref="command" v-model="m.command" class="sf-big" placeholder="node server.js" aria-label="The line that runs it" spellcheck="false">
-                    <p v-if="problems.command" class="bad">{{ problems.command }}</p>
-                    <p v-else class="muted">The line it is started with, kept alive on its machine; it reads <code>PORT</code> for the port below.</p>
-                </template>
-                <template v-else-if="(what === 'files')">
-                    <input ref="folder_path" v-model.trim="m.folder" class="sf-big" placeholder="sites/docs" aria-label="The folder it serves" spellcheck="false">
-                    <p class="muted">A folder of serviceman's own machine, from the config's folder or from <code>/</code>: serviceman serves its files itself, nothing runs.</p>
-                </template>
+                    <p v-if="problems.cwd" class="sf-hint bad">{{ problems.cwd }}</p>
+                    <p v-else-if="(app_files === null)" class="sf-hint">Picked, or dropped here.</p>
+                    <p v-else class="sf-hint">{{ app_steps }}, on port {{ app_port }} as <code>PORT</code>.</p>
+                </div>
+                <div v-else-if="(what === 'program')" class="sf-field">
+                    <label for="sf-command">Command</label>
+                    <input id="sf-command" ref="command" v-model="m.command" class="sf-mono" placeholder="node server.js" :class="{wrong: problems.command}" spellcheck="false">
+                    <p v-if="problems.command" class="sf-hint bad">{{ problems.command }}</p>
+                    <p v-else class="sf-hint">It reads <code>PORT</code> for the port inside.</p>
+                </div>
+                <div v-else-if="(what === 'files')" class="sf-field">
+                    <label for="sf-folder">Folder</label>
+                    <input id="sf-folder" ref="folder_path" v-model.trim="m.folder" class="sf-mono" placeholder="sites/docs" spellcheck="false">
+                    <p class="sf-hint">from the config's folder, or from <code>/</code></p>
+                </div>
                 <template v-else-if="(what === 'socket')">
-                    <div class="sf-grid">
+                    <div class="sf-field">
                         <label for="sf-socket-place">It is on</label>
                         <select id="sf-socket-place" v-model="m.places[0].text" :class="{wrong: problems.places}" @change="place_change">
                             <option value="">serviceman's own {{ state_folder }}/ folder</option>
                             <option v-for="item of places" :key="item.value" :value="item.value">{{ item.label }}</option>
                         </select>
+                    </div>
+                    <div class="sf-field">
                         <label for="sf-socket">Socket</label>
-                        <input id="sf-socket" v-model.trim="m.socket" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
+                        <input id="sf-socket" v-model.trim="m.socket" class="sf-mono" :placeholder="socket_default" :class="{wrong: problems.socket}" spellcheck="false">
+                        <p v-if="problems.socket" class="sf-hint bad">{{ problems.socket }}</p>
+                        <p v-else class="sf-hint">serviceman never starts or stops it</p>
                     </div>
-                    <p v-if="problems.socket" class="bad">{{ problems.socket }}</p>
-                    <p v-else class="muted">The file its app listens on; serviceman passes every request into it, and never starts or stops it.</p>
                 </template>
-                <template v-else>
-                    <input ref="upstream" v-model.trim="m.upstream" class="sf-big" placeholder="127.0.0.1:8081" aria-label="Where it already answers" :class="{wrong: problems.upstream}" spellcheck="false">
-                    <p v-if="problems.upstream" class="bad">{{ problems.upstream }}</p>
-                    <p v-else class="muted">host:port where it already answers; serviceman only gives it an address and passes requests on.</p>
-                </template>
-                <div class="sf-grid">
-                    <label for="sf-name">Name</label>
-                    <div>
-                        <input id="sf-name" ref="short_name" v-model.trim="m.name" :placeholder="((easy_name === '') ? 'grafana' : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
-                        <p v-if="problems.name" class="bad">{{ problems.name }}</p>
-                        <p v-else-if="((m.name === '') && (easy_name !== ''))" class="muted">Left empty, it is named <code>{{ easy_name }}</code>.</p>
-                    </div>
-                    <template v-if="((what === 'docker') || (what === 'program'))">
-                        <label for="sf-port">Port inside</label>
-                        <div>
-                            <input id="sf-port" v-model.trim="m.port" class="short" :placeholder="((what === 'program') ? String(app_port) : ((detected_port === null) ? '80' : String(detected_port)))" :class="{wrong: problems.port}" spellcheck="false">
-                            <p v-if="problems.port" class="bad">{{ problems.port }}</p>
-                        </div>
-                    </template>
+                <div v-else class="sf-field">
+                    <label for="sf-upstream">Answers at</label>
+                    <input id="sf-upstream" ref="upstream" v-model.trim="m.upstream" class="sf-mono" placeholder="127.0.0.1:8081" :class="{wrong: problems.upstream}" spellcheck="false">
+                    <p v-if="problems.upstream" class="sf-hint bad">{{ problems.upstream }}</p>
+                    <p v-else class="sf-hint">host:port</p>
                 </div>
+                <div :class="(((what === 'docker') || (what === 'program')) ? 'sf-row' : 'sf-fields')">
+                    <div class="sf-field">
+                        <label for="sf-name">Name</label>
+                        <input id="sf-name" ref="short_name" v-model.trim="m.name" class="sf-mono" :placeholder="((easy_name === '') ? 'grafana' : easy_name)" :class="{wrong: problems.name}" spellcheck="false">
+                        <p v-if="problems.name" class="sf-hint bad">{{ problems.name }}</p>
+                        <p v-else-if="((m.name === '') && (easy_name !== ''))" class="sf-hint">Left empty, it is <code>{{ easy_name }}</code>; its address and folder are named after it.</p>
+                        <p v-else class="sf-hint">its address and folder are named after it</p>
+                    </div>
+                    <div v-if="((what === 'docker') || (what === 'program'))" class="sf-field">
+                        <label for="sf-port">Port inside</label>
+                        <input id="sf-port" v-model.trim="m.port" :placeholder="((what === 'program') ? String(app_port) : ((detected_port === null) ? '80' : String(detected_port)))" :class="{wrong: problems.port}" spellcheck="false">
+                        <p v-if="problems.port" class="sf-hint bad">{{ problems.port }}</p>
+                        <p v-else-if="((what === 'docker') && (detected_port !== null) && (m.port === String(detected_port)))" class="sf-hint">read from the image</p>
+                    </div>
+                </div>
+                <p v-if="(what === 'docker')" class="sf-info"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Or paste a whole <code>docker run …</code> line into Image: its ports, folders and variables are filled from it.</span></p>
             </div>
         </template>
         <template #machine>
             <div class="machine-cards" role="radiogroup" aria-label="The machine it runs on">
-                <button v-for="item of machine_cards" :key="item.value" type="button" role="radio" class="machine-card" :class="{on: (item.value === m.places[0].text), away: item.away}" :aria-checked="(item.value === m.places[0].text)" :disabled="item.disabled" :title="item.why" @click="machine_pick(item.value)">
-                    <span class="mc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/><b>{{ item.title }}</b><span v-if="(item.dot !== '')" class="dot" :class="item.dot"/></span>
-                    <span v-for="line of item.lines" :key="line" class="muted">{{ line }}</span>
-                </button>
-                <button type="button" class="machine-card mc-add" @click="machine_add">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+                <machine-tile v-for="item of machine_cards" :key="item.value" :item="item" :on="(item.value === m.places[0].text)" :disabled="item.disabled" :title="item.why" @click="machine_pick(item.value)"/>
+                <button type="button" class="machine-card mc-add" :class="{alone: (machine_cards.length === 0)}" @click="machine_add">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                     <b>Add a machine</b>
+                    <span class="muted">{{ (machine_cards.length === 0) ? 'Its agent is one line to run there; it dials in, and you come back here with it picked' : 'its agent dials in; you come back here with it picked' }}</span>
                 </button>
             </div>
-            <p v-if="problems.places" class="bad">{{ problems.places }}</p>
+            <p v-if="problems.places" class="sf-hint bad">{{ problems.places }}</p>
+            <p v-if="(machine_cards.length === 0)" class="sf-info"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>No machine yet. A <b>folder of files</b> or an address that <b>already runs</b> needs none: <button type="button" class="link" @click="step_to('what')">change what it runs</button>.</span></p>
         </template>
         <template #address>
             <div class="sf-fields">
-                <div v-for="(row, index) of m.hosts" :key="row.key" class="line">
-                    <input v-model.trim="row.text" class="sf-big" :placeholder="((index === 0) ? (easy_host || 'grafana.example.com') : 'another.example.com')" :aria-label="('Address ' + (index + 1))" :class="{wrong: problems.hosts}" spellcheck="false">
-                    <button v-if="(index > 0)" type="button" class="link" @click="m.hosts.splice(index, 1)">Remove</button>
+                <div class="sf-field">
+                    <label :for="('sf-host-' + m.hosts[0].key)">Address</label>
+                    <div v-for="(row, index) of m.hosts" :key="row.key" class="line">
+                        <input :id="('sf-host-' + row.key)" v-model.trim="row.text" class="sf-mono" :placeholder="((index === 0) ? (easy_host || 'grafana.example.com') : 'another.example.com')" :aria-label="('Address ' + (index + 1))" :class="{wrong: problems.hosts}" spellcheck="false">
+                        <button v-if="(index > 0)" type="button" class="link" @click="m.hosts.splice(index, 1)">Remove</button>
+                    </div>
+                    <p v-if="problems.hosts" class="sf-hint bad">{{ problems.hosts }}</p>
+                    <p v-else-if="((easy_host !== '') && m.hosts.every(v => (v.text === '')))" class="sf-hint">Left empty, it is <code>{{ easy_host }}</code>, from its name.</p>
                 </div>
-                <p v-if="problems.hosts" class="bad">{{ problems.hosts }}</p>
-                <p v-else-if="((easy_host !== '') && m.hosts.every(v => (v.text === '')))" class="muted">Left empty, it is <code>{{ easy_host }}</code>, from its name.</p>
                 <button type="button" class="link sf-more" @click="m.hosts.push({key: Math.random(), text: ''})">+ another address</button>
                 <h3 class="sf-sub">Who may open it?</h3>
-                <div class="who-tiles" role="radiogroup" aria-label="Who may open it">
-                    <button type="button" role="radio" class="kind-tile who" :class="{on: (m.auth === '')}" :aria-checked="(m.auth === '')" @click="m.auth = ''">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
-                        <b>Anyone</b><span class="muted">no sign-in</span>
+                <div class="kind-tiles two" role="radiogroup" aria-label="Who may open it">
+                    <button type="button" role="radio" class="kind-tile" :class="{on: (m.auth === '')}" :aria-checked="(m.auth === '')" @click="m.auth = ''">
+                        <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></span>
+                        <b>Anyone</b><span class="muted">no sign-in; anyone who has the address</span>
                     </button>
-                    <button type="button" role="radio" class="kind-tile who" :class="{on: (m.auth !== '')}" :aria-checked="(m.auth !== '')" :disabled="(walls_here.length === 0)" @click="signed_in_pick">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><circle cx="12" cy="10.5" r="2"/><path d="M12 12.5v3.5"/></svg>
-                        <b>Signed in</b><span class="muted">{{ (walls_here.length === 0) ? 'no wall yet' : ('behind ' + ((m.auth === '') ? walls_here[0].name : m.auth)) }}</span>
+                    <button type="button" role="radio" class="kind-tile" :class="{on: (m.auth !== '')}" :aria-checked="(m.auth !== '')" :disabled="(walls_here.length === 0)" @click="signed_in_pick">
+                        <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><circle cx="12" cy="10.5" r="2"/><path d="M12 12.5v3.5"/></svg></span>
+                        <b>Signed in</b><span class="muted">{{ (walls_here.length === 0) ? 'no wall yet' : ('behind ' + ((m.auth === '') ? walls_here[0].name : m.auth) + ': only who signs in') }}</span>
                     </button>
                 </div>
                 <wall-select v-if="((m.auth !== '') && (walls_here.length > 1))" v-model="m.auth" :walls="walls_here" none="anyone: no sign-in" :self="m.name" @create="$emit('walls')"/>
-                <p v-if="(walls_here.length === 0)" class="muted">A sign-in needs a wall: <button type="button" class="link" @click="$emit('walls')">Authwall</button> sets one up.</p>
+                <p v-if="(walls_here.length === 0)" class="sf-hint">A sign-in needs a wall: <button type="button" class="link" @click="$emit('walls')">Authwall</button> sets one up.</p>
             </div>
         </template>
         <template #check>
+            <p v-if="refused !== ''" class="sf-failed" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg><span><b>Not created: {{ refused }}</b><span>Nothing was written. Change what it says, and create again.</span></span></p>
             <div class="check-rows">
                 <div v-for="row of check_rows" :key="row.key" class="check-row">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
-                    <span class="cr-text"><span>{{ row.text }}</span><small v-if="(row.sub !== '')" class="muted">{{ row.sub }}</small></span>
+                    <span class="cr-text"><span :class="{mono: row.mono}">{{ row.text }}</span><span v-if="(row.sub !== '')" class="muted">{{ row.sub }}</span></span>
                     <button type="button" class="link" @click="step_to(row.step)">Change</button>
                 </div>
             </div>
             <template v-if="(rest_cards.length > 0)">
-                <p class="muted">The rest as usual; change any, or leave it.</p>
+                <h3 class="rest-title">The rest at their defaults <span class="muted">· change any, or leave it</span></h3>
                 <div class="rest-cards">
-                    <div v-for="card of rest_cards" :key="card.id" class="card rest-card">
-                        <span class="muted">{{ card.title }}</span>
-                        <span>{{ card.text }}</span>
+                    <div v-for="card of rest_cards" :key="card.id" class="rest-card">
+                        <span class="muted"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="card.icon"/>{{ card.title }}</span>
+                        <b>{{ card.text }}</b>
                         <button type="button" class="link" @click="rest_change(card.id)">Change</button>
                     </div>
                 </div>
             </template>
         </template>
         <template #summary>
-            <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="what_item.icon"/><b>{{ model_now().name || 'no name yet' }}</b></div>
-            <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text }}</span></p>
-            <p v-for="card of rest_cards" :key="card.id" class="sum-line muted"><span>{{ card.text }}</span></p>
+            <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span :class="{mono: row.mono}">{{ row.text }}</span></p>
+            <p v-for="card of rest_cards" :key="card.id" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="card.icon"/><span>{{ card.text }}</span></p>
+        </template>
+        <template #json>
             <button type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} serviceman.json</button>
         </template>
         <template #note>
             <span v-if="((problem_count > 0) && tried)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
-            <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+            <span v-if="(refused === '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </template>
     </step-frame>
     <template v-if="(creating && simple === false)">
@@ -750,20 +776,21 @@ const service_form = {
         <span v-if="(problem_count > 0)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
-    <div ref="json" class="svc-json">
-        <button type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} what {{ creating ? 'Create' : 'Save' }} writes to serviceman.json</button>
+    <div v-if="(((creating && simple) === false) || json_open)" ref="json" class="svc-json" :class="{framed: (creating && simple)}">
+        <button v-if="((creating && simple) === false)" type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} what {{ creating ? 'Create' : 'Save' }} writes to serviceman.json</button>
         <pre v-if="json_open" class="tail">{{ config_text }}</pre>
     </div>
 </article>
 `,
-    components: {'copy-progress': copy_progress, duration, snip: snippet, 'step-frame': step_frame, 'wall-select': wall_select},
+    components: {'copy-progress': copy_progress, duration, 'machine-tile': machine_tile, snip: snippet, 'step-frame': step_frame, 'wall-select': wall_select},
     // folder: the one serviceman keeps its own things in, as its owner sees it (data); walls:
     // walls_of(state), for the Sign-in list
     // tied: the config file's forwards that are part of the service, as the file has them;
     // forward_labels: the label of every forward of the config, for a new one's to be its own
     // restore: what a new service's form held when Add a machine left it, {model, what, step,
     // mode, app_files}, taken up again with the machine made
-    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore'],
+    // kinds: how the Canvas draws each machine, by its name; counts: how many services each runs
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts'],
     emits: ['close', 'databases', 'machine', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
@@ -823,6 +850,8 @@ const service_form = {
             // what serviceman has
             half: false,
             detected_port: null,
+            // What serviceman said when it refused Create; nothing was written
+            refused: '',
             // The app, a folder or a zip of this computer, read here and sent to its machine
             // as its files on Create (app_entries_read), and the name it gives the app
             app_files: (restore === null) ? null : restore.app_files,
@@ -895,14 +924,15 @@ const service_form = {
         steps: function () {
             const now = this.model_now();
             const source = SOURCE_STEP[this.what] || SOURCE_STEP.docker;
-            const out = [{key: 'what', name: 'What', question: 'What will it run?', answer: this.what_item.name}];
-            out.push({key: 'source', name: source.name, question: source.question, answer: this.source_answer(now)});
+            const out = [{key: 'what', name: 'What', question: 'What will it run?', says: 'Pick one; the next steps ask only what it needs.', answer: this.what_item.name}];
+            out.push({key: 'source', name: source.name, question: source.question, says: source.says, answer: this.source_answer(now)});
             if (['docker', 'app', 'program'].includes(this.what)) {
-                out.push({key: 'machine', name: 'Machine', question: 'Where will it run?', answer: (now.places[0].text === '') ? '' : this.place_text(now.places[0].text)});
+                const says = (this.machine_cards.length === 0) ? NO_MACHINE_SAYS[this.what] : 'A machine whose agent is online; the free memory is now.';
+                out.push({key: 'machine', name: 'Machine', question: 'Where will it run?', says, answer: (now.places[0].text === '') ? '' : now.places[0].text});
             }
             const host = now.hosts.find(v => v.text !== '');
-            out.push({key: 'address', name: 'Address', question: 'Where will people open it?', answer: (host === undefined) ? '' : host.text});
-            out.push({key: 'check', name: 'Check', question: 'Check, then create', answer: ''});
+            out.push({key: 'address', name: 'Address', question: 'Where will people open it?', says: 'A name a request arrives on; serviceman routes it to this service.', answer: (host === undefined) ? '' : host.text});
+            out.push({key: 'check', name: 'Check', question: 'Check, then create', says: 'What Create writes, one row an answer.', answer: ''});
             return out;
         },
         // Whether the step open has what it needs to go on, and why not
@@ -926,21 +956,12 @@ const service_form = {
         // A card for each machine, and for each tag, any machine with it: online or since when
         // it is away, its system and its free memory
         machine_cards: function () {
-            const out = [];
-            for (const item of this.remotes) {
-                const machine = ((item.machine === undefined) || (item.machine === null)) ? null : item.machine;
-                const lines = [];
-                if (machine !== null) {
-                    lines.push([machine.os || machine.platform || '', ((machine.mem.free === null) || (machine.mem.free === undefined)) ? '' : `${size_words(machine.mem.free)} free`].filter(v => v !== '').join(' · '));
-                }
-                if (item.phase !== 'online') {
-                    lines.push((item.left_at === null) ? 'not connected yet' : 'offline');
-                }
-                out.push({value: item.name, title: item.title || item.name, icon: MACHINE_ICON, dot: (item.phase === 'online') ? 'running' : 'stopped', away: (item.phase !== 'online'), lines, disabled: false, why: ''});
-            }
+            const kinds = this.kinds || {};
+            const counts = this.counts || {};
+            const out = this.remotes.map(v => Object.assign(machine_card(v, kinds[v.name], counts[v.name] || 0), {disabled: false, why: ''}));
             for (const item of this.places.filter(v => v.value.startsWith('#'))) {
                 const one = (this.what === 'app');
-                out.push({value: item.value, title: item.value, icon: TAG_ICON, dot: '', away: false, lines: ['any machine with the tag'], disabled: one, why: one ? 'An app folder is on one machine: pick that one' : ''});
+                out.push({value: item.value, title: item.value, icon: TAG_ICON, dot: '', away: false, lines: ['any machine with the tag'], meter: null, disabled: one, why: one ? 'An app folder is on one machine: pick that one' : ''});
             }
             return out;
         },
@@ -950,12 +971,17 @@ const service_form = {
         // What Create makes, a row each, every one with the step that changes it
         check_rows: function () {
             const now = this.model_now();
-            const out = [{key: 'source', step: 'source', icon: this.what_item.icon, text: `${this.what_item.name} ${this.source_answer(now)}`.trim(), sub: this.source_sub(now)}];
+            const answer = this.source_answer(now);
+            const out = [{key: 'source', step: 'source', icon: this.what_item.icon, text: (answer === '') ? this.what_item.name : answer, mono: (answer !== ''), sub: this.source_sub(now)}];
             if (this.steps.some(v => v.key === 'machine')) {
-                out.push({key: 'machine', step: 'machine', icon: MACHINE_ICON, text: `Runs on ${this.place_text(now.places[0].text)}`, sub: ''});
+                const place = now.places[0].text;
+                const card = this.machine_cards.find(v => v.value === place);
+                const room = ((card === undefined) || (card.meter === null)) ? '' : card.lines[card.lines.length - 1];
+                out.push({key: 'machine', step: 'machine', icon: (card === undefined) ? MACHINE_ICON : card.icon, text: (place === '') ? 'No machine yet' : `Runs on ${place}${((card === undefined) || (card.dot !== 'off')) ? '' : ' (offline)'}`, mono: false, sub: room});
             }
             const hosts = now.hosts.map(v => v.text).filter(v => v !== '');
-            out.push({key: 'address', step: 'address', icon: SHIELD_ICON, text: `${(hosts.length === 0) ? 'no address yet' : hosts.join(', ')}${(now.auth === '') ? ', anyone' : `, signed in only · behind ${now.auth}`}`, sub: ''});
+            out.push({key: 'address', step: 'address', icon: GLOBE_ICON, text: (hosts.length === 0) ? 'No address yet' : hosts.join(', '), mono: (hosts.length > 0), sub: ''});
+            out.push({key: 'who', step: 'address', icon: SHIELD_ICON, text: (now.auth === '') ? 'Anyone' : 'Signed in only', mono: false, sub: (now.auth === '') ? 'no sign-in' : `behind ${now.auth}`});
             return out;
         },
         // What a new one has at serviceman's defaults, each a card that opens its part of the
@@ -963,7 +989,11 @@ const service_form = {
         rest_cards: function () {
             const now = this.model_now();
             const cards = [{id: 'keep', title: 'Its data'}, {id: 'policy', title: 'When it runs'}, {id: 'scale', title: 'Copies'}];
-            return cards.filter(v => SECTIONS.find(vv => vv.id === v.id).kinds.includes(now.type)).map(v => Object.assign({}, v, {text: this.summary_of(v.id, now).lines.join(' · ')}));
+            return cards.filter(v => SECTIONS.find(vv => vv.id === v.id).kinds.includes(now.type)).map(v => Object.assign({}, v, {icon: REST_ICONS[v.id], text: this.summary_of(v.id, now).lines[0]}));
+        },
+        // Create, or Create again once serviceman refused it
+        create_label: function () {
+            return (this.refused === '') ? 'Create service' : 'Create again';
         },
         heading: function () {
             if ((this.source !== undefined) && (this.source !== null)) {
@@ -1929,8 +1959,12 @@ const service_form = {
                 const outcome = await answer.json();
                 if (answer.ok === false) {
                     this.report(outcome.error, true);
+                    if (method === 'POST') {
+                        this.refused = outcome.error;
+                    }
                     return false;
                 }
+                this.refused = '';
                 // The secrets are not part of the config, so they are written after it — and
                 // under the name the service has now, which may be the name it just got. One the
                 // door does not take is said in the door's words and nothing closes: its row

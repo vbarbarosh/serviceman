@@ -1,6 +1,8 @@
 import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import machine_card from './machine_card.js';
+import machine_tile from './machine_tile.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
@@ -13,75 +15,65 @@ const load_tests_pane = {
 <article id="detail" class="list load-tests">
     <step-frame v-if="(form !== null)" :title="((form.original === null) ? 'New load test' : ('Change ' + form.original))" :steps="steps" :step="step" :mode="((form.original === null) ? mode : 'page')" :switchable="(form.original === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((form.original === null) ? 'Create test' : 'Save')" @step="step_go" @mode="mode = $event" @cancel="form = null" @create="form_save">
         <template #target>
-            <div class="sf-fields">
-                <div class="sf-grid">
-                    <label for="lt-service">Service</label>
-                    <div>
-                        <select id="lt-service" v-model="form.service" @change="form_service_picked">
-                            <option v-for="item of service_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                        </select>
-                    </div>
-                    <label for="lt-url">Address</label>
-                    <div>
-                        <input id="lt-url" v-model.trim="form.url" :placeholder="(address_of(form.service) || 'http://…')" spellcheck="false">
-                        <p class="muted">Left empty, the test asks the service's own address, the one shown here.</p>
-                    </div>
-                </div>
+            <div class="sf-field">
+                <label for="lt-service">Service</label>
+                <select id="lt-service" v-model="form.service" @change="form_service_picked">
+                    <option v-for="item of service_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+            </div>
+            <div class="sf-field">
+                <label for="lt-url">Address</label>
+                <input id="lt-url" v-model.trim="form.url" class="sf-mono" :placeholder="(address_of(form.service) || 'http://…')" spellcheck="false">
+                <p class="sf-hint">left empty, the test asks the service's own address, the one shown</p>
             </div>
         </template>
         <template #load>
-            <div class="sf-fields">
-                <div class="sf-grid">
-                    <label for="lt-vus">Users</label>
-                    <div class="row-of">
-                        <input id="lt-vus" v-model.number="form.vus" type="number" min="1" max="1000" class="short">
-                        <span class="muted">for</span>
-                        <input v-model.trim="form.duration" class="short" placeholder="30s" spellcheck="false">
-                        <span class="muted">each asking again as soon as it is answered</span>
-                    </div>
-                    <label for="lt-remote">Run from</label>
-                    <div>
-                        <select id="lt-remote" v-model="form.remote">
-                            <option v-for="item of remote_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                        </select>
-                        <p class="muted">An address under <code>.localhost</code> is serviceman's own: k6 is sent to serviceman over the tailnet, so any remote will do. A public name is asked as it is.</p>
-                    </div>
+            <div class="sf-counts">
+                <div class="sf-count">
+                    <label for="lt-vus">Users at once</label>
+                    <input id="lt-vus" v-model.number="form.vus" type="number" min="1" max="1000" class="sf-count-value">
+                    <input v-model.number="form.vus" type="range" min="1" max="200" aria-label="Users at once">
+                </div>
+                <div class="sf-count">
+                    <label for="lt-for">For</label>
+                    <span class="sf-count-value-row"><input id="lt-for" v-model.lazy.trim="form.duration" class="sf-count-value" placeholder="30s" spellcheck="false"></span>
+                    <input v-model.number="duration_secs" type="range" min="5" max="600" step="5" aria-label="For, in seconds">
                 </div>
             </div>
+            <h3 class="sf-sub">Run from</h3>
+            <div class="machine-cards" role="radiogroup" aria-label="The machine k6 runs on">
+                <machine-tile v-for="item of machine_cards" :key="item.value" :item="item" :on="(item.value === form.remote)" @click="form.remote = item.value"/>
+            </div>
+            <p class="sf-hint">An address under <code>.localhost</code> is serviceman's own: k6 is sent to serviceman over the tailnet, so any machine will do. A public name is asked as it is.</p>
         </template>
         <template #passes>
-            <div class="sf-fields">
-                <div class="sf-grid">
-                    <label for="lt-p95">Passes when</label>
-                    <div class="row-of">
-                        <span class="muted">95% of answers under</span>
-                        <input id="lt-p95" v-model.number="form.p95_ms" type="number" min="1" class="short">
-                        <span class="muted">ms, and errors under</span>
-                        <input v-model.number="form.errors_pct" type="number" min="0" max="100" step="0.1" class="short">
-                        <span class="muted">%</span>
-                    </div>
+            <div class="sf-row">
+                <div class="sf-field">
+                    <label for="lt-p95">95% of answers under, ms</label>
+                    <input id="lt-p95" v-model.number="form.p95_ms" type="number" min="1">
+                </div>
+                <div class="sf-field">
+                    <label for="lt-errors">Errors under, %</label>
+                    <input id="lt-errors" v-model.number="form.errors_pct" type="number" min="0" max="100" step="0.1">
                 </div>
             </div>
         </template>
         <template #check>
-            <div class="sf-fields">
-                <div class="check-rows">
-                    <div v-for="row of check_rows" :key="row.key" class="check-row">
-                        <span class="cr-text"><span class="muted">{{ row.title }}</span><span>{{ row.text }}</span></span>
-                        <button type="button" class="link" @click="step = row.step">Change</button>
-                    </div>
+            <div v-if="(mode === 'steps')" class="check-rows">
+                <div v-for="row of check_rows" :key="row.key" class="check-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
+                    <span class="cr-text"><span>{{ row.title }}</span><span class="muted">{{ row.text }}</span></span>
+                    <button type="button" class="link" @click="step = row.step">Change</button>
                 </div>
-                <div class="sf-grid">
-                    <label for="lt-name">Name</label>
-                    <div>
-                        <input id="lt-name" v-model.trim="form.name" spellcheck="false">
-                    </div>
-                </div>
+            </div>
+            <div class="sf-field">
+                <label for="lt-name">Name</label>
+                <input id="lt-name" v-model.trim="form.name" class="sf-mono" spellcheck="false">
             </div>
         </template>
         <template #summary>
-            <div class="sum-head"><b>{{ form.name || 'not named yet' }}</b></div>
-            <p v-for="row of check_rows" :key="row.key" class="sum-line"><span>{{ row.text }}</span></p>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span class="mono">{{ form.name || 'not named yet' }}</span></p>
+            <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text }}</span></p>
         </template>
         <template #note>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -173,33 +165,37 @@ const load_tests_pane = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'machine-tile': machine_tile, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
-    emits: ['remote', 'select'],
+    emits: ['form', 'remote', 'select'],
     data: function () {
         // `log_id` is the run whose log is open under it, and `log_text` that log once it came
         return {picked: null, form: null, step: 0, mode: 'steps', busy: false, note: '', bad: false, log_id: null, log_text: null, log_note: '', log_bad: false, TESTS_ICON: CATEGORIES.find(v => v.key === 'load-tests').icon};
     },
     computed: {
+        // The form open, as the crumbs name it after the category; '' when none is
+        form_crumb: function () {
+            return (this.form === null) ? '' : ((this.form.original === null) ? 'New load test' : `Change ${this.form.original}`);
+        },
         // Target, Load, Passes when, then Check; a change is one page of them
         steps: function () {
             const form = this.form;
             const out = [
-                {key: 'target', name: 'Target', question: 'Which service, at which address?', answer: (form.url !== '') ? form.url : form.service},
-                {key: 'load', name: 'Load', question: 'How many users, for how long?', answer: `${form.vus} users, ${form.duration}`},
-                {key: 'passes', name: 'Passes when', question: 'When does it pass?', answer: `p95 < ${form.p95_ms} ms`},
+                {key: 'target', name: 'Target', question: 'Which service, at which address?', says: 'A service of yours; its address, or another one it answers on.', answer: (form.url !== '') ? form.url : form.service},
+                {key: 'load', name: 'Load', question: 'How many users, for how long?', says: 'k6 sends them at once, each asking again as soon as it is answered; a sleeping service is woken first.', answer: `${form.vus} users, ${form.duration}`},
+                {key: 'passes', name: 'Passes when', question: 'When does it pass?', says: 'Both at once: fast enough, and few enough errors.', answer: `p95 < ${form.p95_ms} ms`},
             ];
             if ((form.original === null) && (this.mode === 'steps')) {
-                out.push({key: 'check', name: 'Check', question: 'Check, then create', answer: ''});
+                out.push({key: 'check', name: 'Check', question: 'Check, then create', says: 'What Create writes, one row an answer.', answer: ''});
             }
             return out;
         },
         check_rows: function () {
             const form = this.form;
             return [
-                {key: 'target', step: 0, title: 'Target', text: `${form.service}${(form.url === '') ? '' : ` at ${form.url}`}`},
-                {key: 'load', step: 1, title: 'Load', text: `${form.vus} users for ${form.duration}, from ${form.remote}`},
-                {key: 'passes', step: 2, title: 'Passes when', text: `95% of answers under ${form.p95_ms} ms, errors under ${form.errors_pct}%`},
+                {key: 'target', step: 0, title: 'Target', icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>', text: `${form.service}${(form.url === '') ? '' : ` at ${form.url}`}`},
+                {key: 'load', step: 1, title: 'Load', icon: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5M16 4.5a3.5 3.5 0 0 1 0 7M18 13.8c2 .9 3.5 3 3.5 6.2"/>', text: `${form.vus} users for ${form.duration}, from ${form.remote}`},
+                {key: 'passes', step: 2, title: 'Passes when', icon: '<path d="M5 12l5 5 9-10"/>', text: `95% of answers under ${form.p95_ms} ms, errors under ${form.errors_pct}%`},
             ];
         },
         // What the open step wants before Next
@@ -284,9 +280,35 @@ const load_tests_pane = {
         service_options: function () {
             return this.state.services.map(v => ({value: v.name, label: v.name}));
         },
-        remote_options: function () {
-            return this.state.remotes.map(v => ({value: v.name, label: `${v.title || v.name}${(v.phase === 'online') ? '' : ` · ${v.phase}`}`}));
+        // Each machine k6 may run from, as a step's tile draws it
+        machine_cards: function () {
+            const canvas = ((this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
+            const kinds = Object.fromEntries(canvas.map(v => [v.name, v.kind]));
+            const services = this.state.services;
+            return this.state.remotes.map(v => machine_card(v, kinds[v.name], services.filter(vv => (vv.remotes || []).includes(v.name)).length));
         },
+        // How long a test runs, in seconds, for its slider; the slider writes it back in seconds
+        duration_secs: {
+            get: function () {
+                const parts = /^(\d+)\s*(s|m|h)?$/.exec(this.form.duration);
+                if (parts === null) {
+                    return 30;
+                }
+                return parseInt(parts[1], 10)*({s: 1, m: 60, h: 3600}[parts[2] || 's']);
+            },
+            set: function (secs) {
+                this.form.duration = `${secs}s`;
+            },
+        },
+    },
+    watch: {
+        // The crumbs name the form while it is open
+        form_crumb: function (title) {
+            this.$emit('form', title);
+        },
+    },
+    beforeUnmount: function () {
+        this.$emit('form', '');
     },
     methods: {
         last_of: function (name) {

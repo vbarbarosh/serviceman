@@ -7,6 +7,7 @@ import forward_end_parse from './forward_end_parse.js';
 import forward_here_parse from './forward_here_parse.js';
 import forward_now_said from './forward_now_said.js';
 import forwards_write from './forwards_write.js';
+import machine_icons from './machine_icons.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
@@ -22,38 +23,61 @@ const forwards_section = {
 <div class="forwards">
     <step-frame v-if="making" :title="((editing === null) ? 'New forward' : ('Change ' + editing.label))" :steps="steps" :step="step" :mode="((editing === null) ? mode : 'page')" :switchable="(editing === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((editing === null) ? 'Add the forward' : 'Save')" @step="step_go" @mode="mode = $event" @cancel="clear" @create="write">
         <template #from>
-            <div class="sf-fields fwd-step">
-
-                    <select ref="first" v-model="fresh.from_remote" aria-label="The machine the service is on">
-                        <option value="">a machine…</option>
-                        <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <input v-model.trim="fresh.from" placeholder="3100" spellcheck="false" aria-label="Its port, address or socket there" title="A port on its loopback (3100), an address it reaches (10.0.0.5:3100), or a socket file (/run/app.sock)" @keyup.enter="write">
-                    <div class="fwd-end-says" :class="{bad: (from_says.bad)}">{{ from_says.text }}</div>
+            <div class="sf-end" :class="{on: (mode === 'steps')}">
+                <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.from_remote)"/><select ref="first" v-model="fresh.from_remote" aria-label="The machine the service is on">
+                    <option value="">a machine…</option>
+                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select></span>
+                <span class="muted">what listens there</span>
+                <div class="sf-field">
+                    <label for="fwd-from">Port, address or socket</label>
+                    <input id="fwd-from" v-model.trim="fresh.from" class="sf-mono" placeholder="3100" spellcheck="false" title="A port on its loopback (3100), an address it reaches (10.0.0.5:3100), or a socket file (/run/app.sock)" @keyup.enter="write">
+                    <p class="sf-hint" :class="{bad: from_says.bad}">{{ from_says.text }}</p>
+                </div>
             </div>
         </template>
         <template #to>
-            <div class="sf-fields fwd-step">
-
-                    <select v-model="fresh.to_remote" aria-label="The machine it shows up on">
+            <div :class="{'sf-flow': (mode === 'steps')}">
+                <template v-if="(mode === 'steps')">
+                <div class="sf-end">
+                    <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.from_remote)"/>{{ fresh.from_remote || 'no machine yet' }}</span>
+                    <span class="muted">what listens there</span>
+                    <div class="sf-field"><span class="sf-label">Port, address or socket</span><span class="sf-end-value">{{ fresh.from || '—' }}</span></div>
+                </div>
+                <span class="sf-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></span>
+                </template>
+                <div class="sf-end" :class="{on: (mode === 'steps')}">
+                    <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.to_remote)"/><select v-model="fresh.to_remote" aria-label="The machine it shows up on">
                         <option value="">a machine…</option>
-                        <option :value="here_value">this host — where serviceman runs</option>
+                        <option :value="here_value">this host, where serviceman runs</option>
                         <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <input v-model.trim="fresh.to" :placeholder="to_hint.placeholder" spellcheck="false" :aria-label="to_hint.label" :title="to_hint.title" @keyup.enter="write">
-                    <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
-
+                    </select></span>
+                    <span class="muted">where it comes out, on its loopback only</span>
+                    <div class="sf-field">
+                        <label for="fwd-to">Port or socket</label>
+                        <input id="fwd-to" v-model.trim="fresh.to" class="sf-mono" :placeholder="to_hint.placeholder" spellcheck="false" :title="to_hint.title" @keyup.enter="write">
+                        <p class="sf-hint" :class="{bad: to_says.bad}">{{ to_says.text }}</p>
+                    </div>
+                </div>
             </div>
         </template>
         <template #check>
-            <div class="sf-fields">
-            <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and what to bring.' : summary) }}</p>
-                <div class="fwd-make-foot"><label>Label <input v-model.trim="fresh.label" class="fwd-label" :placeholder="label_auto" maxlength="100" spellcheck="false" title="Any text, one per forward; left empty, the one shown" @keyup.enter="write"></label></div>
+            <div class="check-rows">
+                <div class="check-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+                    <span class="cr-text"><span>{{ (summary === null) ? 'Pick both machines and what to bring.' : summary }}</span></span>
+                    <button type="button" class="link" @click="step = 0">Change</button>
+                </div>
+            </div>
+            <div class="sf-field">
+                <label for="fwd-label">Label</label>
+                <input id="fwd-label" v-model.trim="fresh.label" class="sf-mono" :placeholder="label_auto" maxlength="100" spellcheck="false" @keyup.enter="write">
+                <p class="sf-hint">any text, one a forward; left empty, the one shown</p>
             </div>
         </template>
         <template #summary>
-            <div class="sum-head"><b>{{ fresh.label || label_auto || 'not named yet' }}</b></div>
-            <p class="sum-line"><span>{{ (summary === null) ? 'Pick both machines and what to bring.' : summary }}</span></p>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span class="mono">{{ fresh.label || label_auto || 'not named yet' }}</span></p>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg><span>{{ (summary === null) ? 'Pick both machines and what to bring.' : summary }}</span></p>
         </template>
         <template #note>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -99,13 +123,17 @@ const forwards_section = {
 `,
     components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
-    emits: [],
+    emits: ['form'],
     data: function () {
         // `editing` is the forward the line below is rewriting, by the label it had; `here_value`
         // is serviceman itself in the picker
         return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE, filter: '', show: 'all', FORWARDS_ICON: CATEGORIES.find(v => v.key === 'forwards').icon};
     },
     computed: {
+        // The form open, as the crumbs name it after the category; '' when none is
+        form_crumb: function () {
+            return (this.making === false) ? '' : ((this.editing === null) ? 'New forward' : `Change ${this.editing.label}`);
+        },
         forwards: function () {
             return ((this.state === null) || (this.state.forwards === undefined)) ? [] : this.state.forwards;
         },
@@ -152,8 +180,13 @@ const forwards_section = {
         machines: function () {
             return (this.state === null) ? [] : this.state.remotes;
         },
+        // How the Canvas draws each machine, by its name
+        kinds: function () {
+            const machines = ((this.state === null) || (this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
+            return Object.fromEntries(machines.map(v => [v.name, v.kind]));
+        },
         machine_options: function () {
-            return this.machines.map(v => ({value: v.name, label: (v.phase === 'online') ? (v.title || v.name) : `${v.title || v.name} · offline`}));
+            return this.machines.map(v => ({value: v.name, label: (v.phase === 'online') ? v.name : `${v.name} · offline`}));
         },
         // Each end as typed, said back in words under its box
         from_says: function () {
@@ -187,11 +220,11 @@ const forwards_section = {
         // From, To, then Check; a change is one page of them
         steps: function () {
             const out = [
-                {key: 'from', name: 'From', question: 'What to bring over?', answer: (this.fresh.from === '') ? '' : this.fresh.from},
-                {key: 'to', name: 'To', question: 'Where does it come out?', answer: (this.fresh.to === '') ? '' : this.fresh.to},
+                {key: 'from', name: 'From', question: 'What to bring over?', says: 'A port or a socket of one machine, brought to another, as ssh -L does.', answer: (this.fresh.from === '') ? '' : `${this.fresh.from_remote} ${this.fresh.from}`},
+                {key: 'to', name: 'To', question: 'Where does it come out?', says: 'A port or a socket of one machine, brought to another, as ssh -L does.', answer: (this.fresh.to === '') ? '' : this.fresh.to},
             ];
             if ((this.editing === null) && (this.mode === 'steps')) {
-                out.push({key: 'check', name: 'Check', question: 'Check, then add it', answer: ''});
+                out.push({key: 'check', name: 'Check', question: 'Check, then add it', says: 'What it does, and the label it is shown by.', answer: ''});
             }
             return out;
         },
@@ -242,6 +275,15 @@ const forwards_section = {
         },
     },
     // Esc puts the form's window away, wherever the focus went (a busy button lets it go)
+    watch: {
+        // The crumbs name the form while it is open
+        form_crumb: function (title) {
+            this.$emit('form', title);
+        },
+    },
+    beforeUnmount: function () {
+        this.$emit('form', '');
+    },
     mounted: function () {
         const self = this;
         this.escape_listener = function (event) {
@@ -255,6 +297,13 @@ const forwards_section = {
         document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
+        // A machine's icon as the Canvas draws it; serviceman's own host as a home computer
+        machine_icon: function (name) {
+            if (name === this.here_value) {
+                return machine_icons.home;
+            }
+            return machine_icons[this.kinds[name]] || machine_icons.server;
+        },
         // Its state as the line says it: {dot, word, bad, problem}
         said_of: function (item) {
             return forward_now_said(item, this.machines);

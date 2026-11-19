@@ -50,69 +50,68 @@ const tokens_form = {
 <article id="detail" class="list form">
     <step-frame v-if="form_open" :title="((editing === null) ? 'New token' : ('Edit ' + editing.label))" :steps="steps" :step="step" :mode="((editing === null) ? mode : 'page')" :switchable="(editing === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((editing === null) ? 'Make the token' : 'Save the changes')" @step="step_go" @mode="mode = $event" @cancel="form_close" @create="create_click">
         <template #who>
-            <div class="sf-fields">
-                <input id="tk-label" ref="label" class="sf-big" v-model.trim="label" placeholder="the agent of the notes project" spellcheck="false">
-                <p class="muted">Who or what holds it: the agent of a project, a script, a person. It names the token here and in the log.</p>
-                <p v-if="(editing !== null)" class="muted">The token stays the same: whoever holds it goes on with what is given here from the next request.</p>
+            <div class="sf-field">
+                <label for="tk-label">Label</label>
+                <input id="tk-label" ref="label" v-model.trim="label" placeholder="the agent of the notes project" spellcheck="false">
+                <p class="sf-hint">{{ (editing === null) ? 'it names the token here and in the log' : 'The token stays the same: whoever holds it goes on with what is given here from the next request.' }}</p>
             </div>
         </template>
         <template #rights>
-            <div class="tk-rights">
-                <div class="tk-row">
-                    <button type="button" @click="click_all_read_only">All: read only</button>
-                    <span class="muted">each section to read, Terminals to none</span>
-                </div>
-                <div class="tk-sections">
-                    <template v-for="section of sections" :key="section.value">
+            <div class="tk-row">
+                <button type="button" @click="click_all_read_only">All: read only</button>
+                <span class="muted">each section to read, Terminals to none</span>
+            </div>
+            <div class="sf-list sf-rights">
+                <template v-for="section of sections" :key="section.value">
+                    <div class="sf-li">
                         <b>{{ section.label }}</b>
+                        <span class="muted"><template v-if="(level_of(section) === 'fine')">ticked: {{ format_rights_ticked(section) }} · </template>{{ section.said }}<template v-if="(section.read === null)"> · {{ section.no_read }}</template><template v-if="(section.write === null)"> · {{ section.no_write }}</template></span>
+                        <button type="button" class="link tk-fine" :class="{on: (level_of(section) === 'fine')}" :aria-expanded="fine_open.includes(section.value)" :title="('The rights of ' + section.label + ' one by one')" @click="click_fine(section)">fine {{ fine_open.includes(section.value) ? '▾' : '▸' }}</button>
                         <span class="seg" role="group" :aria-label="('What it may do with ' + section.label)">
                             <button type="button" :class="{on: (level_of(section) === 'none')}" :aria-pressed="(level_of(section) === 'none')" @click="click_level(section, 'none')">None</button>
                             <button type="button" :class="{on: (level_of(section) === 'read')}" :aria-pressed="(level_of(section) === 'read')" :disabled="(section.read === null)" :title="section.no_read" @click="click_level(section, 'read')">Read</button>
                             <button type="button" :class="{on: (level_of(section) === 'write')}" :aria-pressed="(level_of(section) === 'write')" :disabled="(section.write === null)" :title="section.no_write" @click="click_level(section, 'write')">Write</button>
                         </span>
-                        <button type="button" class="tk-fine" :class="{on: (level_of(section) === 'fine')}" :aria-expanded="fine_open.includes(section.value)" :title="('The rights of ' + section.label + ' one by one')" @click="click_fine(section)">fine {{ fine_open.includes(section.value) ? '▾' : '▸' }}</button>
-                        <span class="muted tk-said"><template v-if="(level_of(section) === 'fine')">ticked: {{ format_rights_ticked(section) }} · </template>{{ section.said }}<template v-if="(section.read === null)"> · {{ section.no_read }}</template><template v-if="(section.write === null)"> · {{ section.no_write }}</template></span>
-                        <div v-if="fine_open.includes(section.value)" class="tk-checks tk-under">
-                            <label v-for="right of section.rights" :key="right" class="check"><input type="checkbox" :checked="is_right_held(section, right)" :disabled="is_right_under(section, right)" @change="change_right(right)"> <span><b>{{ right }}</b> {{ said_of(right) }}<template v-if="is_right_under(section, right)">; {{ section.under[right] }} holds it</template></span></label>
-                        </div>
-                        <div v-if="((section.value === 'files') && files_chosen)" class="tk-under">
-                            <label for="tk-folders" class="muted">Folders</label>
-                            <textarea id="tk-folders" v-model="folders" rows="3" placeholder="~/visual-agency&#10;~/notes" spellcheck="false"></textarea>
-                            <p class="muted">One a line, the same on each of its machines; <code>~</code> is that machine's home. A folder not there yet is made when something is first written into it. A link inside that leads out is refused too.</p>
-                        </div>
-                        <div v-if="((section.value === 'apps') && rights_chosen.includes('apps'))" class="tk-checks tk-under">
-                            <label class="check"><input type="checkbox" v-model="apps_own"> <span><b>only the apps it makes</b> a new name, then that app's new versions; an app someone else has, yours or another token's, is refused</span></label>
-                        </div>
-                        <div v-if="((section.value === 'apps') && rights_chosen.includes('versions'))" class="tk-checks tk-under">
-                            <span class="muted">{{ (services.length === 0) ? 'New versions: no app folder yet' : 'New versions of the app folders ticked; none ticked, of every app folder on its machines' }}</span>
-                            <label v-for="name of services" :key="name" class="check"><input type="checkbox" :value="name" v-model="services_chosen"> {{ name }}</label>
-                        </div>
-                    </template>
-                </div>
+                    </div>
+                    <div v-if="fine_open.includes(section.value)" class="sf-li tk-under tk-checks">
+                        <label v-for="right of section.rights" :key="right" class="check"><input type="checkbox" :checked="is_right_held(section, right)" :disabled="is_right_under(section, right)" @change="change_right(right)"> <span><b>{{ right }}</b> {{ said_of(right) }}<template v-if="is_right_under(section, right)">; {{ section.under[right] }} holds it</template></span></label>
+                    </div>
+                    <div v-if="((section.value === 'files') && files_chosen)" class="sf-li tk-under sf-field">
+                        <label for="tk-folders">Folders</label>
+                        <textarea id="tk-folders" v-model="folders" rows="3" class="sf-mono" placeholder="~/visual-agency&#10;~/notes" spellcheck="false"></textarea>
+                        <p class="sf-hint">One a line, the same on each of its machines; <code>~</code> is that machine's home. A folder not there yet is made when something is first written into it. A link inside that leads out is refused too.</p>
+                    </div>
+                    <div v-if="((section.value === 'apps') && rights_chosen.includes('apps'))" class="sf-li tk-under tk-checks">
+                        <label class="check"><input type="checkbox" v-model="apps_own"> <span><b>only the apps it makes</b> a new name, then that app's new versions; an app someone else has, yours or another token's, is refused</span></label>
+                    </div>
+                    <div v-if="((section.value === 'apps') && rights_chosen.includes('versions'))" class="sf-li tk-under tk-checks">
+                        <span class="muted">{{ (services.length === 0) ? 'New versions: no app folder yet' : 'New versions of the app folders ticked; none ticked, of every app folder on its machines' }}</span>
+                        <label v-for="name of services" :key="name" class="check"><input type="checkbox" :value="name" v-model="services_chosen"> {{ name }}</label>
+                    </div>
+                </template>
             </div>
         </template>
         <template #where>
-            <div class="tk-checks">
-                <label class="check"><input type="checkbox" v-model="every"> <span><b>every machine</b> new ones too</span></label>
-                <label v-for="name of remotes" :key="name" class="check" :class="{off: every}"><input type="checkbox" :value="name" v-model="remotes_chosen" :disabled="every"> {{ name }}</label>
-                <span v-if="(remotes.length === 0)" class="muted">no machine yet</span>
+            <div class="sf-list" role="group" aria-label="The machines it reaches">
+                <label class="sf-li" :class="{on: every}"><input v-model="every" type="checkbox"><b>every machine</b><span class="muted">new ones too</span></label>
+                <label v-for="name of remotes" :key="name" class="sf-li" :class="{on: (every === false) && remotes_chosen.includes(name), off: every}"><input v-model="remotes_chosen" type="checkbox" :value="name" :disabled="every"><b>{{ name }}</b></label>
             </div>
+            <p v-if="(remotes.length === 0)" class="sf-hint">no machine yet</p>
         </template>
         <template #check>
             <div class="check-rows">
                 <div v-for="row of check_rows" :key="row.key" class="check-row">
-                    <span class="cr-text"><span class="muted">{{ row.title }}</span><span>{{ row.text }}</span></span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
+                    <span class="cr-text"><span>{{ row.title }}</span><span class="muted">{{ row.text }}</span></span>
                     <button type="button" class="link" @click="step = row.step">Change</button>
                 </div>
             </div>
-            <p class="muted">Made, it is shown once to copy: only its hash is kept.</p>
         </template>
         <template #summary>
-            <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/></svg><b>{{ label || 'no label yet' }}</b></div>
-            <p v-for="row of check_rows.slice(1)" :key="row.key" class="sum-line"><span>{{ row.text }}</span></p>
+            <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text || 'nothing yet' }}</span></p>
         </template>
         <template #note>
-            <span v-if="((step_ok.ok === false) && (note === ''))" class="muted">{{ not_ready_said }}</span>
+            <span v-if="((step_ok.ok === false) && (note === '') && ((mode === 'page') || (editing !== null)))" class="muted">{{ not_ready_said }}</span>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
         </template>
     </step-frame>
@@ -174,7 +173,7 @@ const tokens_form = {
 </article>
 `,
     components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'step-frame': step_frame},
-    emits: [],
+    emits: ['form'],
     data: function () {
         return {
             TOKENS_ICON: CATEGORIES.find(v => v.key === 'tokens').icon,
@@ -215,6 +214,10 @@ const tokens_form = {
         };
     },
     computed: {
+        // The form open, as the crumbs name it after the category; '' when none is
+        form_crumb: function () {
+            return (this.form_open === false) ? '' : ((this.editing === null) ? 'New token' : `Edit ${this.editing.label}`);
+        },
         // Its label over when it was last used, its machines, its rights; on a phone the rights
         // a line of their own
         columns: function () {
@@ -257,12 +260,12 @@ const tokens_form = {
         // Who for, its rights, its machines, then Check; an edit is one page of the first three
         steps: function () {
             const out = [
-                {key: 'who', name: 'Who for', question: 'Who is it for?', answer: this.label},
-                {key: 'rights', name: 'Rights', question: 'What may it do?', answer: (this.rights_chosen.length === 0) ? '' : this.sections_of(this.form_item).map(v => v.said).join(' · ')},
-                {key: 'where', name: 'Where', question: 'On which machines?', answer: this.machines_text(this.form_item)},
+                {key: 'who', name: 'Who for', question: 'Who is it for?', says: 'Who or what holds it: the agent of a project, a script, a person.', answer: this.label},
+                {key: 'rights', name: 'Rights', question: 'What may it do?', says: 'Section by section; it never touches the secrets, the config or another token.', answer: (this.rights_chosen.length === 0) ? '' : this.sections_of(this.form_item).map(v => v.said).join(' · ')},
+                {key: 'where', name: 'Where', question: 'On which machines?', says: 'What it may do, it may do on these.', answer: this.machines_text(this.form_item)},
             ];
             if ((this.editing === null) && (this.mode === 'steps')) {
-                out.push({key: 'check', name: 'Check', question: 'Check, then make it', answer: ''});
+                out.push({key: 'check', name: 'Check', question: 'Check, then make it', says: 'Made, it is shown once to copy: only its hash is kept.', answer: ''});
             }
             return out;
         },
@@ -273,9 +276,9 @@ const tokens_form = {
         check_rows: function () {
             const item = this.form_item;
             return [
-                {key: 'who', step: 0, title: 'Who for', text: item.label},
-                {key: 'rights', step: 1, title: 'Rights', text: this.sections_of(item).map(v => v.said).join(' · ') + ((this.files_chosen && (item.folders.length > 0)) ? ` · in ${item.folders.join(', ')}` : '')},
-                {key: 'where', step: 2, title: 'Where', text: this.machines_text(item)},
+                {key: 'who', step: 0, title: 'Who for', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>', text: item.label},
+                {key: 'rights', step: 1, title: 'Rights', icon: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>', text: this.sections_of(item).map(v => v.said).join(' · ') + ((this.files_chosen && (item.folders.length > 0)) ? ` · in ${item.folders.join(', ')}` : '')},
+                {key: 'where', step: 2, title: 'Where', icon: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>', text: this.machines_text(item)},
             ];
         },
         // What the open step wants before Next
@@ -316,6 +319,15 @@ const tokens_form = {
             }
             return `curl ${auth} http://127.0.0.1:${this.port}/api/v1/status`;
         },
+    },
+    watch: {
+        // The crumbs name the form while it is open
+        form_crumb: function (title) {
+            this.$emit('form', title);
+        },
+    },
+    beforeUnmount: function () {
+        this.$emit('form', '');
     },
     methods: {
         secret_hidden,

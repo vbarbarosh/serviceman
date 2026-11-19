@@ -1,7 +1,8 @@
 import app_data_env_free from './app_data_env_free.js';
+import machine_card from './machine_card.js';
 import machine_icons from './machine_icons.js';
+import machine_tile from './machine_tile.js';
 import service_kind from './service_kind.js';
-import size_words from './size_words.js';
 import state_read from './state_read.js';
 import step_frame from './step_frame.js';
 
@@ -11,114 +12,118 @@ const UP_EVERY_MS = 2000;
 const ENGINE_ORDER = ['postgresql', 'mysql', 'couchdb'];
 // A database's name, as a server takes it
 const RE_DATABASE = /^[a-z][a-z0-9_]{0,31}$/;
-// Each engine's mark, its port inside and its URL's scheme
+// Each engine's port inside and its URL's scheme
 const ENGINES = {
-    mysql: {colour: '#FF8400', port: 3306, scheme: 'mysql'},
-    postgresql: {colour: '#1299DA', port: 5432, scheme: 'postgresql'},
-    couchdb: {colour: '#C77DFF', port: 5984, scheme: 'http'},
+    mysql: {port: 3306, scheme: 'mysql'},
+    postgresql: {port: 5432, scheme: 'postgresql'},
+    couchdb: {port: 5984, scheme: 'http'},
 };
 const DATABASE_ICON = '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>';
-const LINK_ICON = '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>';
-const OTHER_ICON = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/>';
+const SERVER_ICON = '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>';
+const BOX_ICON = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/>';
+// What each engine is for, under its name on its tile
+const ENGINE_SAYS = {
+    postgresql: 'the usual pick; most apps speak it',
+    mysql: 'for apps made for it: WordPress, Matomo',
+    couchdb: 'documents and sync, over HTTP',
+};
 
-// New database, step by step: What (a database, as New service's first step picks it), the
-// engine, its version and the database's name; the machine its data stays on; the apps given
-// it; Check. A database lives in a server of its engine: one already up on that machine, or one
+// New database, step by step: the engine, its version and what it starts with; the machine its
+// data stays on; the apps given it; Check, with the database's name. A database lives in a server of its engine: one already up on that machine, or one
 // Create brings up there first, said step by step as it comes up. A CouchDB is its server, given
 // as its admin; a sample comes in a new server, under its own name. Each app ticked gets it at
 // its next start, as its Data tab would give it.
 const database_new = {
     template: `
 <step-frame title="New database" :steps="steps" :step="step" :mode="mode" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" create_label="Create database" @step="step_go" @mode="mode = $event" @cancel="$emit('close')" @create="create">
-    <template #what>
-        <div class="kind-tiles" role="radiogroup" aria-label="What it is">
-            <button type="button" role="radio" class="kind-tile on" aria-checked="true" @click="step_go(1)">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/>
-                <b>Database</b><span class="muted">PostgreSQL, MySQL, CouchDB</span>
-            </button>
-            <button type="button" role="radio" class="kind-tile" aria-checked="false" :disabled="busy" @click="$emit('service')">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="OTHER_ICON"/>
-                <b>Another kind</b><span class="muted">an image, an app, a program…</span>
+    <template #engine>
+        <div class="kind-tiles three" role="radiogroup" aria-label="Which database">
+            <button v-for="item of engines" :key="item.value" type="button" role="radio" class="kind-tile" :class="{on: (item.value === m.engine)}" :aria-checked="(item.value === m.engine)" @click="engine_pick(item.value)">
+                <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/></span>
+                <b>{{ item.label }}</b>
+                <span class="muted">{{ engine_says(item.value) }}</span>
             </button>
         </div>
-    </template>
-    <template #engine>
-        <div class="sf-fields">
-            <div class="kind-tiles" role="radiogroup" aria-label="Which database">
-                <button v-for="item of engines" :key="item.value" type="button" role="radio" class="kind-tile" :class="{on: (item.value === m.engine)}" :aria-checked="(item.value === m.engine)" @click="engine_pick(item.value)">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" :stroke="colour_of(item.value)" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/>
+        <div class="sf-inline">
+            <b>Version</b>
+            <span class="seg" role="group" aria-label="Its version">
+                <button v-for="v of engine_item.versions" :key="v" type="button" :class="{on: (v === m.version)}" :aria-pressed="(v === m.version)" @click="m.version = v">{{ v }}</button>
+            </span>
+            <span class="muted">{{ engine_item.versions[0] }} is the newest</span>
+        </div>
+        <template v-if="(engine_item.samples.length > 0)">
+            <h3 class="sf-sub">Start with</h3>
+            <div class="kind-tiles three" role="radiogroup" aria-label="What it starts with">
+                <button type="button" role="radio" class="kind-tile" :class="{on: (m.sample === '')}" :aria-checked="(m.sample === '')" @click="m.sample = ''">
+                    <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+                    <b>An empty database</b>
+                    <span class="muted">tables come from the app</span>
+                </button>
+                <button v-for="item of engine_item.samples" :key="item.value" type="button" role="radio" class="kind-tile" :class="{on: (m.sample === item.value)}" :title="item.about" :aria-checked="(m.sample === item.value)" @click="m.sample = item.value">
+                    <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/></span>
                     <b>{{ item.label }}</b>
+                    <span class="muted">a sample: {{ item.about.split(',')[0] }}</span>
                 </button>
             </div>
-            <div class="row-of">
-                <span class="muted">Version</span>
-                <button v-for="v of engine_item.versions" :key="v" type="button" class="chip" :class="{on: (v === m.version)}" :aria-pressed="(v === m.version)" @click="m.version = v">{{ v }}</button>
-            </div>
-            <div v-if="(engine_item.samples.length > 0)" class="row-of">
-                <span class="muted">Start with</span>
-                <button type="button" class="chip" :class="{on: (m.sample === '')}" :aria-pressed="(m.sample === '')" @click="m.sample = ''">an empty database</button>
-                <button v-for="item of engine_item.samples" :key="item.value" type="button" class="chip" :class="{on: (m.sample === item.value)}" :aria-pressed="(m.sample === item.value)" :title="item.about" @click="m.sample = item.value">{{ item.label }}</button>
-            </div>
-            <template v-if="((m.engine !== 'couchdb') && (m.sample === ''))">
-                <label class="sf-label" for="db-new-name">Name</label>
-                <input id="db-new-name" ref="name" v-model.trim="m.name" class="sf-big" placeholder="orders" spellcheck="false" autocomplete="off" :class="{wrong: name_wrong}" @keydown.enter="step_go(step + 1)">
-                <p :class="(name_wrong ? 'bad' : 'muted')">{{ name_wrong ? name_problem : 'Small letters, digits and _, a letter first; it gets a user of its own, named after it.' }}</p>
-            </template>
-            <p v-else-if="(m.sample !== '')" class="muted">{{ sample_item.label }}, {{ sample_item.about }}: it comes in a server of its own, as the database <code>{{ sample_item.database }}</code>.</p>
-            <p v-else class="muted">A CouchDB is one store: the app given it is its admin, and makes a database for each user its wall signs in.</p>
-        </div>
+            <p v-if="(m.sample !== '')" class="sf-hint">It comes in a server of its own, as the database <code>{{ sample_item.database }}</code>.</p>
+        </template>
+        <p v-else-if="(m.engine === 'couchdb')" class="sf-hint">A CouchDB is one store: the app given it is its admin, and makes a database for each user its wall signs in.</p>
     </template>
     <template #machine>
         <div class="machine-cards" role="radiogroup" aria-label="The machine its data stays on">
-            <button v-for="item of machine_cards" :key="item.value" type="button" role="radio" class="machine-card" :class="{on: (item.value === m.remote), away: item.away}" :aria-checked="(item.value === m.remote)" :disabled="item.disabled" :title="item.why" @click="m.remote = item.value">
-                <span class="mc-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/><b>{{ item.title }}</b><span class="dot" :class="item.dot"/></span>
-                <span v-for="line of item.lines" :key="line" class="muted">{{ line }}</span>
-            </button>
-            <button type="button" class="machine-card mc-add" :disabled="busy" @click="machine_add">
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+            <machine-tile v-for="item of machine_cards" :key="item.value" :item="item" :on="(item.value === m.remote)" :disabled="item.disabled" :title="item.why" @click="m.remote = item.value"/>
+            <button type="button" class="machine-card mc-add" :class="{alone: (machine_cards.length === 0)}" :disabled="busy" @click="machine_add">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                 <b>Add a machine</b>
+                <span class="muted">its agent dials in; you come back here with it picked</span>
             </button>
         </div>
-        <p class="muted db-says"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/><span>{{ server_says }}</span></p>
+        <p class="sf-info"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/><span>{{ server_says }}</span></p>
     </template>
     <template #given>
-        <div class="sf-fields">
-            <div v-if="(app_cards.length > 0)" class="machine-cards" role="group" aria-label="The apps given it">
-                <label v-for="item of app_cards" :key="item.name" class="machine-card db-app" :class="{on: m.given.includes(item.name), away: item.disabled}" :title="item.why">
-                    <span class="mc-head"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="item.icon"/><b>{{ item.title }}</b><input v-model="m.given" type="checkbox" :value="item.name" :disabled="item.disabled" :aria-label="('Given to ' + item.title)"></span>
-                    <code v-if="(item.disabled === false)" class="db-env">{{ env_name }}</code>
-                    <span class="muted">{{ item.disabled ? item.why : item.line }}</span>
-                </label>
-            </div>
-            <p v-if="(app_cards.length === 0)" class="muted">No app yet: an app picks it later, in its Data tab on Apps.</p>
-            <template v-else-if="(m.given.length > 0)">
-                <p class="muted">{{ m.given[0] }} gets, at every start</p>
-                <code class="db-url">{{ url_shown }}</code>
-            </template>
-            <p v-else class="muted">None ticked, and an app picks it later, in its Data tab on Apps; its password stays with serviceman.</p>
+        <div v-if="(app_cards.length > 0)" class="sf-list" role="group" aria-label="The apps given it">
+            <label v-for="item of app_cards" :key="item.name" class="sf-li" :class="{on: m.given.includes(item.name), off: item.disabled}" :title="item.why">
+                <input v-model="m.given" type="checkbox" :value="item.name" :disabled="item.disabled" :aria-label="('Given to ' + item.title)">
+                <b>{{ item.title }}</b>
+                <span class="muted">{{ item.line }}</span>
+                <span class="sf-li-end"><code v-if="m.given.includes(item.name)">{{ env_name }}</code><span v-else-if="item.disabled" class="muted">{{ item.why }}</span></span>
+            </label>
         </div>
+        <p v-if="(app_cards.length === 0)" class="sf-hint">No app yet: an app picks it later, in its Data tab on Apps.</p>
+        <template v-else-if="(m.given.length > 0)">
+            <p class="sf-hint">{{ m.given[0] }} gets, at every start</p>
+            <code class="db-url">{{ url_shown }}</code>
+        </template>
+        <p v-else class="sf-hint">None is fine too: an app picks it later, in its Data tab on Apps; its password stays with serviceman.</p>
     </template>
     <template #check>
-        <div class="check-rows">
-            <div v-for="row of check_rows" :key="row.key" class="check-row">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
-                <span class="cr-text"><span>{{ row.text }}</span><small v-if="(row.sub !== '')" class="muted">{{ row.sub }}</small></span>
-                <button type="button" class="link" @click="step = row.step">Change</button>
-            </div>
+        <div v-if="((m.engine !== 'couchdb') && (m.sample === ''))" class="sf-field">
+            <label for="db-new-name">Name</label>
+            <input id="db-new-name" ref="name" v-model.trim="m.name" class="sf-mono" placeholder="orders" spellcheck="false" autocomplete="off" :class="{wrong: name_wrong}" @keydown.enter="create">
+            <p :class="['sf-hint', {bad: name_wrong}]">{{ name_wrong ? name_problem : 'small letters, digits and _; it gets a user of its own, named after it' }}</p>
         </div>
-        <p class="muted">The rest, as it is today.</p>
-        <div class="rest-cards">
-            <div v-for="card of rest_cards" :key="card.id" class="card rest-card">
-                <span class="muted">{{ card.title }}</span>
-                <span>{{ card.text }}</span>
-                <small class="muted">{{ card.note }}</small>
+        <p v-else class="sf-hint">It is called <code>{{ database_name }}</code>{{ (m.engine === 'couchdb') ? ', the app given it its admin' : ', as its sample names it' }}.</p>
+        <template v-if="(mode === 'steps')">
+            <div class="check-rows">
+                <div v-for="row of check_rows" :key="row.key" class="check-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/>
+                    <span class="cr-text"><span>{{ row.text }}</span><span v-if="(row.sub !== '')" class="muted">{{ row.sub }}</span></span>
+                    <button type="button" class="link" @click="step = row.step">Change</button>
+                </div>
             </div>
-        </div>
+            <h3 class="rest-title">The rest, as it is today</h3>
+            <div class="rest-cards">
+                <div v-for="card of rest_cards" :key="card.id" class="rest-card">
+                    <span class="muted">{{ card.title }}</span>
+                    <b>{{ card.text }}</b>
+                    <span class="sf-hint">{{ card.note }}</span>
+                </div>
+            </div>
+        </template>
     </template>
     <template #summary>
-        <div class="sum-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" :stroke="colour_of(m.engine)" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/><b>{{ database_name || 'no name yet' }}</b></div>
-        <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text }}</span></p>
-        <p v-for="card of rest_cards" :key="card.id" class="sum-line muted"><span>{{ card.title }}: {{ card.text }}</span></p>
+        <p v-for="row of check_rows" :key="row.key" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="row.icon"/><span>{{ row.text }}</span></p>
+        <p v-for="card of rest_cards" :key="card.id" class="sum-line"><span>{{ card.title }}: {{ card.text }}</span></p>
     </template>
     <template #note>
         <span v-if="(said !== '')" class="muted"><span class="spin"/>{{ said }}</span>
@@ -127,7 +132,7 @@ const database_new = {
     </template>
 </step-frame>
 `,
-    components: {'step-frame': step_frame},
+    components: {'machine-tile': machine_tile, 'step-frame': step_frame},
     props: {
         // What GET /api/v1/databases answers: {engines, machines, servers}
         view: {type: Object, required: true},
@@ -137,7 +142,7 @@ const database_new = {
         given: {type: Array, default: () => []},
         remote: {type: String, default: ''},
     },
-    emits: ['close', 'machine', 'made', 'service'],
+    emits: ['close', 'machine', 'made'],
     data: function () {
         const engine = engines_ordered(this.view.engines)[0];
         const free = this.view.machines.find(v => v.online && v.docker);
@@ -148,9 +153,8 @@ const database_new = {
         }
         return {
             DATABASE_ICON,
-            OTHER_ICON,
             m,
-            step: (this.restore === null) ? 1 : this.restore.step,
+            step: (this.restore === null) ? 0 : this.restore.step,
             mode: (this.restore === null) ? 'steps' : this.restore.mode,
             // The services and the machines as the status says them, for the cards
             state: null,
@@ -215,16 +219,12 @@ const database_new = {
             return `A ${this.engine_text} is brought up on ${this.remote_title} first, as ${this.server_name}, always up; its data stays there, in a folder of its own.`;
         },
         steps: function () {
-            const out = [
-                {key: 'what', name: 'What', question: 'What will it be?', answer: 'Database'},
-                {key: 'engine', name: 'Engine', question: 'Which database?', answer: this.engine_text},
-                {key: 'machine', name: 'Machine', question: 'Where will it run?', answer: this.remote_title},
-                {key: 'given', name: 'Given to', question: 'Which apps use it?', answer: (this.m.given.length === 0) ? 'none yet' : this.m.given.join(', ')},
+            return [
+                {key: 'engine', name: 'Engine', question: 'Which database?', says: '', answer: this.engine_text},
+                {key: 'machine', name: 'Machine', question: 'Where will it run?', says: 'Its data is kept on that machine, in a folder of its own.', answer: this.m.remote},
+                {key: 'given', name: 'Given to', question: 'Which apps get it?', says: `Each gets the database's URL as ${this.env_name} at its next start.`, answer: (this.m.given.length === 0) ? 'none yet' : this.m.given.join(', ')},
+                {key: 'check', name: 'Check', question: (this.mode === 'steps') ? 'Check, then create' : 'Its name', says: '', answer: (this.name_problem === '') ? this.database_name : ''},
             ];
-            if (this.mode === 'steps') {
-                out.push({key: 'check', name: 'Check', question: 'Check, then create', answer: ''});
-            }
-            return out;
         },
         name_problem: function () {
             if ((this.m.engine === 'couchdb') || (this.m.sample !== '')) {
@@ -245,7 +245,7 @@ const database_new = {
         // Whether the open step, or the whole page, has what it needs
         step_ok: function () {
             const key = (this.mode === 'page') ? 'all' : this.steps[Math.min(this.step, this.steps.length - 1)].key;
-            if (((key === 'engine') || (key === 'all')) && (this.name_problem !== '')) {
+            if (((key === 'check') || (key === 'all')) && (this.name_problem !== '')) {
                 return {ok: false, why: this.name_problem};
             }
             if (((key === 'machine') || (key === 'all')) && (this.m.remote === '')) {
@@ -264,19 +264,16 @@ const database_new = {
             const services = (this.state === null) ? [] : this.state.services;
             const kinds = this.kinds;
             return this.view.machines.map(function (item) {
-                const remote = remotes.find(v => v.name === item.remote);
-                const machine = ((remote === undefined) || (remote.machine === undefined) || (remote.machine === null)) ? null : remote.machine;
-                const why = (item.online === false) ? 'offline' : ((item.docker === false) ? 'with no docker its agent reaches' : '');
-                const lines = [];
+                const remote = remotes.find(v => v.name === item.remote) || {name: item.remote, title: item.title, phase: item.online ? 'online' : 'offline', left_at: null, machine: null};
+                const count = services.filter(v => (v.remotes !== undefined) && v.remotes.includes(item.remote)).length;
+                const card = machine_card(remote, kinds[item.remote], count);
+                const why = (item.online === false) ? '' : ((item.docker === false) ? 'with no docker its agent reaches' : '');
                 if (why !== '') {
-                    lines.push(why);
+                    card.lines = [card.lines[0], why];
+                    card.meter = null;
+                    card.away = true;
                 }
-                else if (machine !== null) {
-                    lines.push([machine.os || machine.platform || '', ((machine.mem.free === null) || (machine.mem.free === undefined)) ? '' : `${size_words(machine.mem.free)} free`].filter(v => v !== '').join(' · '));
-                }
-                const count = services.filter(v => (v.remotes !== undefined) && (v.remotes[0] === item.remote)).length;
-                lines.push(`${count} ${(count === 1) ? 'service' : 'services'}`);
-                return {value: item.remote, title: item.title, icon: machine_icons[kinds[item.remote]] || machine_icons.server, dot: item.online ? 'running' : 'stopped', away: (why !== ''), lines: lines.filter(v => v !== ''), disabled: (why !== ''), why};
+                return Object.assign(card, {disabled: (item.online === false) || (why !== ''), why: (item.online === false) ? 'offline' : why});
             });
         },
         kinds: function () {
@@ -303,7 +300,7 @@ const database_new = {
                 else if (machine !== this.m.remote) {
                     why = `on ${title}: an app is given a database of its own machine`;
                 }
-                cards.push({name: service.name, title: service.title || service.name, icon: kind.icon, line: `${kind.word.toLowerCase()} on ${title}`, disabled: (why !== ''), why});
+                cards.push({name: service.name, title: service.name, icon: kind.icon, line: `${kind.word} · ${machine || 'serviceman'}`, disabled: (why !== ''), why});
             }
             return cards.filter(v => v.disabled === false).concat(cards.filter(v => v.disabled));
         },
@@ -324,9 +321,9 @@ const database_new = {
         check_rows: function () {
             const keys = this.steps.map(v => v.key);
             return [
-                {key: 'engine', step: keys.indexOf('engine'), icon: DATABASE_ICON, text: `${this.engine_text}, ${this.database_name || 'no name yet'}`, sub: (this.m.sample === '') ? '' : `filled with ${this.sample_item.label}`},
-                {key: 'machine', step: keys.indexOf('machine'), icon: machine_icons[this.kinds[this.m.remote]] || machine_icons.server, text: (this.m.remote === '') ? 'No machine yet' : `Runs on ${this.remote_title}`, sub: (this.server === null) ? `in a new server, ${this.server_name}, its data kept in a folder of its own` : `in ${this.server.name}, up there already`},
-                {key: 'given', step: keys.indexOf('given'), icon: LINK_ICON, text: (this.m.given.length === 0) ? 'Given to no app yet' : `Given to ${this.m.given.join(', ')} as ${this.env_name}`, sub: ''},
+                {key: 'engine', step: keys.indexOf('engine'), icon: DATABASE_ICON, text: this.engine_text, sub: (this.m.sample === '') ? ((this.m.engine === 'couchdb') ? 'one store' : 'empty') : `filled with ${this.sample_item.label}`},
+                {key: 'machine', step: keys.indexOf('machine'), icon: machine_icons[this.kinds[this.m.remote]] || SERVER_ICON, text: (this.m.remote === '') ? 'No machine yet' : `On ${this.m.remote}`, sub: (this.server === null) ? `in a new server, ${this.server_name}, its data in a folder of its own` : `in ${this.server.name}, up there already`},
+                {key: 'given', step: keys.indexOf('given'), icon: BOX_ICON, text: (this.m.given.length === 0) ? 'Given to no app yet' : `Given to ${this.m.given.join(', ')}`, sub: (this.m.given.length === 0) ? '' : `as ${this.env_name}`},
             ];
         },
         // The rest, as serviceman does it today
@@ -346,8 +343,8 @@ const database_new = {
         },
     },
     methods: {
-        colour_of: function (engine) {
-            return (ENGINES[engine] === undefined) ? 'currentColor' : ENGINES[engine].colour;
+        engine_says: function (engine) {
+            return ENGINE_SAYS[engine] || '';
         },
         machine_title: function (name) {
             const found = this.view.machines.find(v => v.remote === name);
@@ -366,7 +363,7 @@ const database_new = {
             this.step = Math.min(index, this.steps.length - 1);
             this.note = '';
             this.$nextTick(function () {
-                if ((this.steps[this.step].key === 'engine') && (this.$refs.name !== undefined)) {
+                if ((this.steps[this.step].key === 'check') && (this.$refs.name !== undefined)) {
                     this.$refs.name.focus();
                 }
             });

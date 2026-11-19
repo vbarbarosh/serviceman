@@ -12,24 +12,25 @@ database's page, at `/databases/<server>/<database>`.
 
 ## New database
 
-**New database** opens a form of five steps, step by step or on one page, as New service
+**New database** opens a form of four steps, step by step or on one page, as New service
 does; it opens at `/databases/new`, from **Database** in New service's first step, from **+ New
 database here** on a machine's Databases tab (that machine picked), and from **New database…**
 in an app's Data tab (that app ticked).
 
-1. **What:** a database; **Another kind** goes back to New service.
-2. **Engine:** PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
-   (`docker.io/library/postgres:<version>`, `mysql:<version>`, `couchdb:3`); an empty database
-   or a sample (below); its name, up to 32 small letters, digits and `_`, a letter first.
-3. **Machine:** a card each, its system, its free memory and how many services it runs; one that
-   is offline or has no docker its agent reaches is shown, and says why. **Add a machine** opens
-   New remote and comes back with every answer kept and the new machine picked.
-4. **Given to:** every app, those on that machine that serviceman starts (a docker image, an app
-   folder, a program) ticked or not; one on another machine, a page or an address already running
-   is shown, and says why it cannot be. The first one ticked shows what it finds at every start,
-   its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`.
-5. **Check:** a row per answer, each with **Change**; the rest as it is today: no backups, reached
-   from its machine only, Adminer as an app.
+1. **Engine:** a tile each, PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
+   (`docker.io/library/postgres:<version>`, `mysql:<version>`, `couchdb:3`); its version; and
+   what it starts with, a tile each: an empty database or a sample (below).
+2. **Machine:** a tile each, what it is, how many services it runs and its free memory of all,
+   with a meter of it; one that is offline or has no docker its agent reaches is shown, and says
+   why. **Add a machine** opens New remote and comes back with every answer kept and the new
+   machine picked.
+3. **Given to:** every app a row, those on that machine that serviceman starts (a docker image,
+   an app folder, a program) ticked or not; one on another machine, a page or an address already
+   running is shown, and says why it cannot be. The first one ticked shows what it finds at every
+   start, its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`.
+4. **Check:** its name, up to 32 small letters, digits and `_`, a letter first (a sample and a
+   CouchDB name it themselves); a row per answer, each with **Change**; the rest as it is today:
+   no backups, reached from its machine only, Adminer as an app.
 
 **Create database** puts it in a server of that engine and version already up on that machine;
 with none, it brings one up first, named after its engine and the first number free

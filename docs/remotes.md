@@ -15,13 +15,14 @@ dialled. The visitor sees no difference.
 
 ## Add a remote
 
-**New remote** on the control page asks two things, step by step or on one page. **Name**: its
-name, its tags as chips (a service can ask for `#eu` instead of a name) and a title for the page;
-**Next** makes the token for you and writes it to the config. **Connect**: the two lines to run on
-that machine, the agent fetched and started with this host's address and its token, **Copy** beside
-them, the token shown as dots; the page waits, live, until that agent dials in, then says what it
-is (system, cores, memory, agent) and offers **Put a service on it**, New service with that machine
-picked. The remote is under **Remotes** from **Next** on, offline until then, its page's **Install**
+**New remote** on the control page asks in three steps, step by step or on one page. **Name**:
+its name, its tags as chips (a service can ask for `#eu` instead of a name) and a title for the
+page; **Next** makes the token for you and writes it to the config. **Connect**: the two lines to
+run on that machine, the agent fetched and started with this host's address and its token, each
+numbered with a **Copy** of its own, the token cut short where it is shown; the page waits, live,
+until that agent dials in, and moves on by itself to **Connected**: the machine online, and what it
+said of itself (system, cores, memory, agent), with **Put a service on it**, New service with that
+machine picked. The remote is under **Remotes** from **Next** on, offline until then, its page's **Install**
 tab holding every other way to put the agent there. The address is
 serviceman's own name on the tailnet, as tailscale in its image says (`serviceman.tail1234.ts.net`,
 at the control port), which every machine on the tailnet reaches; off a tailnet it is the address
@@ -969,7 +970,8 @@ client reads any 502, 503, 504 or 52x as "not reachable now".
 A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
 the machines' agents carry it. `from` is where the service is, `to` where it shows up. The
 **Forwards** page's **New forward** asks for them step by step, or on one page: **From**, the
-machine and its port, address or socket; **To**, where it comes out; **Check**, with a label. A
+machine and its port, address or socket; **To**, where it comes out, the two drawn as cards
+joined by an arrow; **Check**, with a label. A
 Loki on vps1's loopback, as a socket file on the laptop:
 
 ```json

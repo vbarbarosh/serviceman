@@ -2,6 +2,7 @@ import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
+import machine_icons from './machine_icons.js';
 import mounts_write from './mounts_write.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
@@ -17,41 +18,68 @@ const mounts_section = {
 <div class="forwards mounts">
     <step-frame v-if="making" :title="((editing === null) ? 'New mount' : ('Change ' + editing.label))" :steps="steps" :step="step" :mode="((editing === null) ? mode : 'page')" :switchable="(editing === null)" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" :create_label="((editing === null) ? 'Mount' : 'Save')" @step="step_go" @mode="mode = $event" @cancel="clear" @create="write">
         <template #from>
-            <div class="sf-fields fwd-step">
-
-                    <select ref="first" v-model="fresh.from_remote" aria-label="The machine the folder is on">
-                        <option value="">a machine…</option>
-                        <option :value="here_value">this host — serviceman's {{ state_folder }}/</option>
-                        <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <input v-model.trim="fresh.from" :placeholder="from_hint" spellcheck="false" aria-label="The folder there" @keyup.enter="write">
-                    <div class="fwd-end-says" :class="{bad: (from_says.bad)}">{{ from_says.text }}</div>
+            <div class="sf-end" :class="{on: (mode === 'steps')}">
+                <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.from_remote)"/><select ref="first" v-model="fresh.from_remote" aria-label="The machine the folder is on">
+                    <option value="">a machine…</option>
+                    <option :value="here_value">this host, serviceman's {{ state_folder }}/</option>
+                    <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select></span>
+                <span class="muted">the folder there</span>
+                <div class="sf-field">
+                    <label for="mnt-from">Folder</label>
+                    <input id="mnt-from" v-model.trim="fresh.from" class="sf-mono" :placeholder="from_hint" spellcheck="false" @keyup.enter="write">
+                    <p class="sf-hint" :class="{bad: from_says.bad}">{{ from_says.text }}</p>
+                </div>
             </div>
         </template>
         <template #to>
-            <div class="sf-fields fwd-step">
-
-                    <select v-model="fresh.to_remote" aria-label="The machine it is mounted on">
+            <div :class="{'sf-flow': (mode === 'steps')}">
+                <template v-if="(mode === 'steps')">
+                <div class="sf-end">
+                    <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.from_remote)"/>{{ (fresh.from_remote === here_value) ? 'this host' : (fresh.from_remote || 'no machine yet') }}</span>
+                    <span class="muted">the folder there</span>
+                    <div class="sf-field"><span class="sf-label">Folder</span><span class="sf-end-value">{{ fresh.from || '—' }}</span></div>
+                </div>
+                <span class="sf-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></span>
+                </template>
+                <div class="sf-end" :class="{on: (mode === 'steps')}">
+                    <span class="sf-end-head"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="machine_icon(fresh.to_remote)"/><select v-model="fresh.to_remote" aria-label="The machine it is mounted on">
                         <option value="">a machine…</option>
                         <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <input v-model.trim="fresh.to" placeholder="/mnt/photos" spellcheck="false" aria-label="The folder it is mounted at there" @keyup.enter="write">
-                    <div class="fwd-end-says" :class="{bad: (to_says.bad)}">{{ to_says.text }}</div>
-            <div class="mount-modes" role="radiogroup" aria-label="What the machine it is mounted on may do">
-                <label :class="{on: (fresh.mode === 'ro')}"><input v-model="fresh.mode" type="radio" value="ro"><span><b>Read-only</b> <span class="muted">— nothing there may change it</span></span></label>
-                <label :class="{on: (fresh.mode === 'rw')}"><input v-model="fresh.mode" type="radio" value="rw"><span><b>Read-write</b> <span class="muted">— files are written, renamed and removed there</span></span></label>
+                    </select></span>
+                    <span class="muted">where it appears</span>
+                    <div class="sf-field">
+                        <label for="mnt-to">Folder</label>
+                        <input id="mnt-to" v-model.trim="fresh.to" class="sf-mono" placeholder="/mnt/photos" spellcheck="false" @keyup.enter="write">
+                        <p class="sf-hint" :class="{bad: to_says.bad}">{{ to_says.text }}</p>
+                    </div>
+                </div>
             </div>
+            <div class="sf-inline">
+                <b>On {{ fresh.to_remote || 'that machine' }} it is</b>
+                <span class="seg" role="radiogroup" aria-label="What the machine it is mounted on may do">
+                    <button type="button" role="radio" :class="{on: (fresh.mode === 'rw')}" :aria-checked="(fresh.mode === 'rw')" title="files are written, renamed and removed there" @click="fresh.mode = 'rw'">read and write</button>
+                    <button type="button" role="radio" :class="{on: (fresh.mode === 'ro')}" :aria-checked="(fresh.mode === 'ro')" title="nothing there may change it" @click="fresh.mode = 'ro'">read only</button>
+                </span>
             </div>
         </template>
         <template #check>
-            <div class="sf-fields">
-            <p class="fwd-sum" :class="{muted: (summary === null)}">{{ (summary === null ? 'Pick both machines and both folders.' : summary) }}</p>
-                <div class="fwd-make-foot"><label>Label <input v-model.trim="fresh.label" class="fwd-label" :placeholder="label_auto" maxlength="100" spellcheck="false" title="Any text, one per mount; left empty, the one shown" @keyup.enter="write"></label></div>
+            <div class="check-rows">
+                <div class="check-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>
+                    <span class="cr-text"><span>{{ (summary === null) ? 'Pick both machines and both folders.' : summary }}</span></span>
+                    <button type="button" class="link" @click="step = 0">Change</button>
+                </div>
+            </div>
+            <div class="sf-field">
+                <label for="mnt-label">Label</label>
+                <input id="mnt-label" v-model.trim="fresh.label" class="sf-mono" :placeholder="label_auto" maxlength="100" spellcheck="false" @keyup.enter="write">
+                <p class="sf-hint">any text, one a mount; left empty, the one shown</p>
             </div>
         </template>
         <template #summary>
-            <div class="sum-head"><b>{{ fresh.label || label_auto || 'not named yet' }}</b></div>
-            <p class="sum-line"><span>{{ (summary === null) ? 'Pick both machines and both folders.' : summary }}</span></p>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span class="mono">{{ fresh.label || label_auto || 'not named yet' }}</span></p>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span>{{ (summary === null) ? 'Pick both machines and both folders.' : summary }}</span></p>
         </template>
         <template #note>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -97,13 +125,17 @@ const mounts_section = {
 `,
     components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
-    emits: [],
+    emits: ['form'],
     data: function () {
         // `editing` is the mount the window is rewriting, by the label it had; `here_value` is
         // serviceman itself in the picker
         return {fresh: fresh_empty(), step: 0, mode: 'steps', making: false, editing: null, note: '', bad: false, busy: false, here_value: HERE, filter: '', show: 'all', MOUNTS_ICON: CATEGORIES.find(v => v.key === 'mounts').icon};
     },
     computed: {
+        // The form open, as the crumbs name it after the category; '' when none is
+        form_crumb: function () {
+            return (this.making === false) ? '' : ((this.editing === null) ? 'New mount' : `Change ${this.editing.label}`);
+        },
         mounts: function () {
             return ((this.state === null) || (this.state.mounts === undefined)) ? [] : this.state.mounts;
         },
@@ -149,8 +181,13 @@ const mounts_section = {
         machines: function () {
             return (this.state === null) ? [] : this.state.remotes;
         },
+        // How the Canvas draws each machine, by its name
+        kinds: function () {
+            const machines = ((this.state === null) || (this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
+            return Object.fromEntries(machines.map(v => [v.name, v.kind]));
+        },
         machine_options: function () {
-            return this.machines.map(v => ({value: v.name, label: (v.phase === 'online') ? (v.title || v.name) : `${v.title || v.name} · offline`}));
+            return this.machines.map(v => ({value: v.name, label: (v.phase === 'online') ? v.name : `${v.name} · offline`}));
         },
         // The state dir as its owner sees it beside the config: data/ under bin/run
         state_folder: function () {
@@ -197,11 +234,11 @@ const mounts_section = {
         // From, To, then Check; a change is one page of them
         steps: function () {
             const out = [
-                {key: 'from', name: 'From', question: 'Which folder, on which machine?', answer: (this.fresh.from === '') ? '' : this.fresh.from},
-                {key: 'to', name: 'To', question: 'Where does it appear?', answer: (this.fresh.to === '') ? '' : this.fresh.to},
+                {key: 'from', name: 'From', question: 'Which folder, on which machine?', says: 'The folder of one machine, mounted on another.', answer: (this.fresh.from === '') ? '' : `${(this.fresh.from_remote === this.here_value) ? 'this host' : this.fresh.from_remote} ${this.fresh.from}`},
+                {key: 'to', name: 'To', question: 'Where does it appear?', says: 'The folder of one machine, mounted on another.', answer: (this.fresh.to === '') ? '' : this.fresh.to},
             ];
             if ((this.editing === null) && (this.mode === 'steps')) {
-                out.push({key: 'check', name: 'Check', question: 'Check, then mount it', answer: ''});
+                out.push({key: 'check', name: 'Check', question: 'Check, then mount it', says: 'What it does, and the label it is shown by.', answer: ''});
             }
             return out;
         },
@@ -239,6 +276,15 @@ const mounts_section = {
             return ((last === '') || (last === '~')) ? 'home' : last;
         },
     },
+    watch: {
+        // The crumbs name the form while it is open
+        form_crumb: function (title) {
+            this.$emit('form', title);
+        },
+    },
+    beforeUnmount: function () {
+        this.$emit('form', '');
+    },
     mounted: function () {
         const self = this;
         this.escape_listener = function (event) {
@@ -252,6 +298,13 @@ const mounts_section = {
         document.removeEventListener('keydown', this.escape_listener);
     },
     methods: {
+        // A machine's icon as the Canvas draws it; serviceman's own host as a home computer
+        machine_icon: function (name) {
+            if (name === this.here_value) {
+                return machine_icons.home;
+            }
+            return machine_icons[this.kinds[name]] || machine_icons.server;
+        },
         word_of: function (item) {
             const words = {
                 mounted: 'mounted',

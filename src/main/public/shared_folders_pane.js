@@ -1,5 +1,7 @@
 import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
+import machine_card from './machine_card.js';
+import machine_tile from './machine_tile.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
@@ -32,45 +34,45 @@ const shared_folders_pane = {
     <!-- A new folder, step by step: its name, the first machine it is mounted on and where, Check -->
     <step-frame v-if="(folder_form !== null)" title="New shared folder" :steps="folder_steps" :step="step" :mode="mode" :can_next="folder_ok.ok" :next_title="folder_ok.why" :busy="busy" create_label="Create folder" @step="folder_step_go" @mode="mode = $event" @cancel="folder_form = null" @create="folder_create">
         <template #name>
-            <div class="sf-fields">
-                <input ref="folder_name" v-model.trim="folder_form.name" class="sf-big" placeholder="media" spellcheck="false" aria-label="The new folder's name">
-                <p class="muted">Small letters, digits and hyphens. Its files are kept encrypted in the home, on {{ home_title }}.</p>
+            <div class="sf-field">
+                <label for="sf-new-name">Name</label>
+                <input id="sf-new-name" ref="folder_name" v-model.trim="folder_form.name" class="sf-mono" placeholder="media" spellcheck="false">
+                <p class="sf-hint">small letters, digits and hyphens</p>
             </div>
         </template>
         <template #where>
-            <div class="sf-fields">
-                <div class="machine-cards" role="radiogroup" aria-label="The first machine it is mounted on">
-                    <button v-for="item of folder_machines" :key="item.value" type="button" role="radio" class="machine-card" :class="{on: (item.value === folder_form.remote), away: item.disabled}" :aria-checked="(item.value === folder_form.remote)" :disabled="item.disabled" :title="item.why" @click="folder_form.remote = item.value">
-                        <span class="mc-head"><b>{{ item.label }}</b><span class="dot" :class="item.dot"/></span>
-                        <span class="muted">{{ item.line }}</span>
-                    </button>
-                    <button type="button" class="machine-card" :class="{on: (folder_form.remote === '')}" role="radio" :aria-checked="(folder_form.remote === '')" @click="folder_form.remote = ''">
-                        <b>Not mounted yet</b><span class="muted">mount it later, on its row</span>
-                    </button>
-                </div>
-                <template v-if="(folder_form.remote !== '')">
-                    <div class="sf-grid">
-                        <label for="sf-new-path">Its folder there</label>
-                        <input id="sf-new-path" v-model.trim="folder_form.path" placeholder="/srv/media" spellcheck="false">
-                    </div>
-                    <span class="sf-modes" role="group" aria-label="Mode">
-                        <button type="button" class="chip" :class="{on: (folder_form.mode === 'rw')}" @click="folder_form.mode = 'rw'">read and write</button>
-                        <button type="button" class="chip" :class="{on: (folder_form.mode === 'ro')}" @click="folder_form.mode = 'ro'">read only</button>
-                    </span>
-                    <p class="muted">The same folder on every machine that mounts it; a path that holds files is refused, the folder would hide them.</p>
-                </template>
+            <div class="machine-cards" role="radiogroup" aria-label="The first machine it is mounted on">
+                <machine-tile v-for="item of folder_machines" :key="item.value" :item="item" :on="(item.value === folder_form.remote)" :disabled="item.disabled" :title="item.why" @click="folder_form.remote = item.value"/>
+                <button type="button" role="radio" class="machine-card" :class="{on: (folder_form.remote === '')}" :aria-checked="(folder_form.remote === '')" @click="folder_form.remote = ''">
+                    <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg></span>
+                    <b>Not mounted yet</b><span class="muted">mount it later, on its row</span>
+                </button>
             </div>
+            <template v-if="(folder_form.remote !== '')">
+                <div class="sf-field">
+                    <label for="sf-new-path">Its folder on {{ folder_form.remote }}</label>
+                    <input id="sf-new-path" v-model.trim="folder_form.path" class="sf-mono" placeholder="/srv/media" spellcheck="false">
+                    <p class="sf-hint">a path that holds files is refused: the folder would hide them</p>
+                </div>
+                <div class="sf-inline">
+                    <b>On {{ folder_form.remote }} it is</b>
+                    <span class="seg" role="radiogroup" aria-label="Mode">
+                        <button type="button" role="radio" :class="{on: (folder_form.mode === 'rw')}" :aria-checked="(folder_form.mode === 'rw')" @click="folder_form.mode = 'rw'">read and write</button>
+                        <button type="button" role="radio" :class="{on: (folder_form.mode === 'ro')}" :aria-checked="(folder_form.mode === 'ro')" @click="folder_form.mode = 'ro'">read only</button>
+                    </span>
+                </div>
+            </template>
         </template>
         <template #check>
             <div class="check-rows">
-                <div class="check-row"><span class="cr-text"><span class="muted">Name</span><span>{{ folder_form.name }}</span></span><button type="button" class="link" @click="step = 0">Change</button></div>
-                <div class="check-row"><span class="cr-text"><span class="muted">Mounted on</span><span>{{ folder_where_text }}</span></span><button type="button" class="link" @click="step = 1">Change</button></div>
+                <div class="check-row"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="cr-text"><span class="mono">{{ folder_form.name }}</span><span class="muted">kept encrypted in the home, on {{ home_title }}</span></span><button type="button" class="link" @click="step = 0">Change</button></div>
+                <div class="check-row"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg><span class="cr-text"><span>{{ (folder_form.remote === '') ? 'Not mounted yet' : ('Mounted on ' + folder_form.remote) }}</span><span v-if="(folder_form.remote !== '')" class="muted">{{ folder_form.path || '…' }}, {{ (folder_form.mode === 'rw') ? 'read and write' : 'read only' }}</span></span><button type="button" class="link" @click="step = 1">Change</button></div>
             </div>
         </template>
         <template #summary>
-            <div class="sum-head"><b>{{ folder_form.name || 'no name yet' }}</b></div>
+            <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span class="mono">{{ folder_form.name || 'no name yet' }}</span></p>
             <p class="sum-line"><span>kept encrypted in the home, on {{ home_title }}</span></p>
-            <p class="sum-line muted"><span>{{ folder_where_text }}</span></p>
+            <p class="sum-line"><span>{{ folder_where_text }}</span></p>
         </template>
         <template #note>
             <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
@@ -176,9 +178,9 @@ const shared_folders_pane = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'machine-tile': machine_tile, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill, 'step-frame': step_frame},
     props: ['state'],
-    emits: ['remote', 'changed'],
+    emits: ['changed', 'form', 'remote'],
     data: function () {
         return {
             SHARED_ICON: CATEGORIES.find(v => v.key === 'shared-folders').icon,
@@ -200,11 +202,15 @@ const shared_folders_pane = {
         };
     },
     computed: {
+        // The form open, as the crumbs name it after the category; '' when none is
+        form_crumb: function () {
+            return (this.folder_form === null) ? '' : 'New shared folder';
+        },
         folder_steps: function () {
             return [
-                {key: 'name', name: 'Name', question: 'What is it called?', answer: this.folder_form.name},
-                {key: 'where', name: 'Where it lives', question: 'Which machine has it first?', answer: (this.folder_form.remote === '') ? 'not mounted yet' : this.folder_form.remote},
-                {key: 'check', name: 'Check', question: 'Check, then create', answer: ''},
+                {key: 'name', name: 'Name', question: 'What is it called?', says: `Its files are kept encrypted in the home, on ${this.home_title}.`, answer: this.folder_form.name},
+                {key: 'where', name: 'Where it lives', question: 'Which machine has it first?', says: 'Every machine that mounts it sees the same folder.', answer: (this.folder_form.remote === '') ? 'not mounted yet' : this.folder_form.remote},
+                {key: 'check', name: 'Check', question: 'Check, then create', says: '', answer: ''},
             ];
         },
         folder_ok: function () {
@@ -220,9 +226,20 @@ const shared_folders_pane = {
         // The machines it can be mounted on first, each said with how it stands
         folder_machines: function () {
             const machines = (this.view === null) ? [] : this.view.machines;
+            const remotes = ((this.state === undefined) || (this.state === null)) ? [] : this.state.remotes;
+            const services = ((this.state === undefined) || (this.state === null)) ? [] : this.state.services;
+            const canvas = ((this.state === undefined) || (this.state === null) || (this.state.canvas === undefined) || (this.state.canvas === null)) ? [] : this.state.canvas.machines;
+            const kinds = Object.fromEntries(canvas.map(v => [v.name, v.kind]));
             return machines.map(function (item) {
+                const remote = remotes.find(v => v.name === item.name) || {name: item.name, title: item.title, phase: item.phase, left_at: null, machine: null};
+                const card = machine_card(remote, kinds[item.name], services.filter(v => (v.remotes || []).includes(item.name)).length, true);
                 const why = (item.phase !== 'online') ? 'offline' : ((item.mount_why === null) ? '' : item.mount_why);
-                return {value: item.name, label: item.title, dot: (item.phase === 'online') ? 'running' : 'stopped', line: (why === '') ? 'online' : why, why, disabled: (why !== '')};
+                if ((why !== '') && (item.phase === 'online')) {
+                    card.lines = [card.lines[0], why];
+                    card.meter = null;
+                    card.away = true;
+                }
+                return Object.assign(card, {why, disabled: (why !== '')});
             });
         },
         folder_where_text: function () {
@@ -298,6 +315,15 @@ const shared_folders_pane = {
             }
             return out;
         },
+    },
+    watch: {
+        // The crumbs name the form while it is open
+        form_crumb: function (title) {
+            this.$emit('form', title);
+        },
+    },
+    beforeUnmount: function () {
+        this.$emit('form', '');
     },
     mounted: function () {
         this.refresh();

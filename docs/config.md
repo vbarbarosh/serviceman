@@ -14,16 +14,20 @@ missing image, a hostname written twice, a duration nobody can read.
 
 ## Edit from the control page
 
-Services are created and reshaped on the control page itself. **New service** asks one
-question a screen, the steps on top keeping each answer, a click on one going back to it, and
-**One page** beside **Step by step** puts every question on one page with a summary of what
-**Create** makes; the switch keeps every answer. **What** is a tile each: Docker image, App
-folder, Program, Folder of files, Database (which opens [Databases](databases.md)), App on a
-socket, Already running. Then where it comes from (the image, the folder, the line that runs
-it, the socket, or where it answers already), the **Machine** for what runs on one, a card each
-with how it stands and its free memory, and **Add a machine**, which opens New remote and comes
-back with that machine picked; the **Address** and who may open it, anyone or signed in behind
-a wall; and **Check**, a row per answer with **Change**, and the rest at serviceman's defaults.
+Services are created and reshaped on the control page itself. **New service** stands in a card of
+its own, as every form that makes something does: one question a screen with a line under it, the
+steps in a band above keeping each answer, a click on one going back to it, and **Back**, **Show
+serviceman.json** and **Next** in a bar at its foot, with why **Next** waits beside it. **One
+page** beside **Step by step** puts every question on one page with what **Create** makes beside
+them; the switch keeps every answer. **What** is a tile each: Docker image, App folder, Program,
+Folder of files, Database (which opens [Databases](databases.md)), App on a socket, Already
+running. Then where it comes from (the image, the folder, the line that runs it, the socket, or
+where it answers already), the **Machine** for what runs on one, a tile each with whether it is
+online, what it is, how many services it runs and its free memory of all, with a meter of it, and
+**Add a machine**, which opens New remote and comes back with that machine picked; the
+**Address** and who may open it, anyone or signed in behind a wall; and **Check**, a row per
+answer with **Change**, and the rest at serviceman's defaults. A **Create** serviceman refuses
+says why in red on Check, nothing written, and the button becomes **Create again**.
 **A docker image** asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. **An app folder** asks for the app's folder
 on this computer, or a `.zip` of it: **A folder…** or **A .zip…**, or either dropped on the
