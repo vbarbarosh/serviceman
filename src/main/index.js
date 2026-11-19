@@ -22,7 +22,6 @@ const log_event = require('./src/helpers/log_event');
 const log_stdout_time_from_env = require('./src/helpers/log_stdout_time_from_env');
 const log_trunk = require('./src/helpers/log_trunk');
 const log_within = require('./src/helpers/log_within');
-const log_words = require('../helpers/log_words');
 const logline_sweep = require('./src/helpers/logline_sweep');
 const mounts_tell = require('./src/helpers/mounts_tell');
 const path = require('path');
@@ -307,32 +306,21 @@ function policy_text(service)
 
 function watch_signals(app)
 {
-    let stop = null;
+    let leaving = false;
     function bye(signal) {
-        if (stop !== null) {
-            // The second signal is an order, not a request: this end stops where it stands, and
-            // says what it left
-            const left = (stop.stopping.length === 0) ? '' : `, not waiting for ${stop.stopping.join(', ')}`;
-            log_within(app.log_group, function () {
-                end_error(app, signal, stop, `a second signal${left}`);
-            });
+        // A second signal while the last lines are written does not wait for them
+        if (leaving) {
             process.exit(1);
-            return;
         }
-        // The end of the process belongs to the group the start of it is in
+        leaving = true;
+        // The end of the process belongs to the group the start of it is in. Its programs and
+        // containers run on; the counters keep when each came up, for the next one to take back.
         log_within(app.log_group, function () {
-            stop = serviceman_stop(app, signal);
-            stop.promise.then(function (failed) {
-                counters_save(app);
-                forward_totals_save(app);
-                if (failed.length === 0) {
-                    log_event(app, 'serviceman_end_ok', `signal=${signal} took=${format_seconds(Date.now() - stop.time0)} containers="left running"`);
-                }
-                else {
-                    end_error(app, signal, stop, failed.join('; '));
-                }
-                leave(app);
-            });
+            const stop = serviceman_stop(app, signal);
+            counters_save(app);
+            forward_totals_save(app);
+            log_event(app, 'serviceman_end_ok', `signal=${signal} took=${format_seconds(Date.now() - stop.time0)} containers="left running" programs="left running"`);
+            leave(app);
         });
     }
     for (const signal of SIGNALS) {
@@ -340,12 +328,6 @@ function watch_signals(app)
             bye(signal);
         });
     }
-}
-
-// It left with a program not stopped: one that would not, or one a second signal left behind
-function end_error(app, signal, stop, reason)
-{
-    log_event(app, 'serviceman_end_error', `signal=${signal} took=${format_seconds(Date.now() - stop.time0)} ${log_words({reason})}`);
 }
 
 // A disk that is full or read-only costs the counters, not the process

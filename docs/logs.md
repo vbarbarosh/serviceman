@@ -183,24 +183,20 @@ tried is not:
     [2026-08-21T10:55:23.155Z][cv6jqwrvnzwz][group_spawn] parent=c1847u2jmc0t
     [2026-08-21T10:55:23.155Z][cv6jqwrvnzwz][remote_refused] from=127.0.0.1 reason=unknown_token
 
-**Going down.** On Ctrl-C, or a signal like it, the first line comes at once and names the
-programs it stops; while it waits on them, a line every half a second says which are left. The
-containers are left running, and the file is flushed before the process leaves, so the last
-lines are always there. Here one program ignores its SIGTERM and is given 1.2 s to stop:
+**Going down.** On Ctrl-C, or a signal like it, serviceman stops nothing it started: the
+first line names the programs it leaves running on their machines, and the containers are left
+running too. The file is flushed before the process leaves, so the last lines are always there:
 
-    [2026-11-15T21:57:30.263Z][cqvbjuetzp5d][serviceman_signal] signal=SIGINT stopping=1:["chain"]
-    [2026-11-15T21:57:30.264Z][cg8upzvssb89][group_spawn] parent=cqvbjuetzp5d
-    [2026-11-15T21:57:30.264Z][cg8upzvssb89][service_stop_begin] service=chain instance=1 reason="serviceman stops"
-    [2026-11-15T21:57:30.267Z][cnmfozrnhc4v][program_end] remote=vps1 service=chain slot=1 how=SIGTERM
-    [2026-11-15T21:57:30.764Z][cqvbjuetzp5d][serviceman_tick] 0.501s stopping=1:["chain"]
-    [2026-11-15T21:57:31.265Z][cqvbjuetzp5d][serviceman_tick] 1.003s stopping=1:["chain"]
-    [2026-11-15T21:57:31.526Z][c9aisw0sxh79][program_killed] 1.259s service=chain pid=7825 note="it was asked to stop and did not"
-    [2026-11-15T21:57:31.526Z][c9aisw0sxh79][agent_call_ok] remote=vps1 method=program_stop service=chain slot=1 took=1.261s
-    [2026-11-15T21:57:31.527Z][cg8upzvssb89][service_stop_end_ok] 1.263s service=chain instance=1
-    [2026-11-15T21:57:31.529Z][cqvbjuetzp5d][serviceman_end_ok] signal=SIGINT took=1.267s containers="left running"
+    [2026-11-19T19:46:20.740Z][cmax6k0csq5n][serviceman_signal] signal=SIGINT programs_left=1:["llm"]
+    [2026-11-19T19:46:20.746Z][cmax6k0csq5n][serviceman_end_ok] signal=SIGINT took=0.006s containers="left running" programs="left running"
 
-A second Ctrl-C does not wait: `serviceman_end_error` says which programs it left, and the
-process goes.
+The next serviceman takes the program back when its agent dials in, as old as it was, with no
+port to answer on:
+
+    [2026-11-19T19:46:32.862Z][c8zkmbyfarea][agent_call_ok] remote=vps1 method=program_probe service=llm slot=1 running=true took=0.000s
+    [2026-11-19T19:46:32.862Z][cjzxfn8t6nkz][service_adopt_ok] service=llm instance=1 remote=vps1 upstream=none
+
+A second Ctrl-C while the last lines are written does not wait for them.
 
 Each run is copied out of the log as it was written: the coming up and the visits are one, the
 stop another; only the path of the config is shortened, because the real one was a scratch
@@ -223,10 +219,8 @@ folder.
 | `serviceman_closed`      | The control page answers this machine only.                   |
 | `serviceman_exposed`     | `control.exposed` is on, and what that means.                 |
 | `serviceman_error`       | serviceman broke on a request; the reason is in the words.    |
-| `serviceman_signal`      | A signal came, Ctrl-C or one like it: the programs it stops, at once. |
-| `serviceman_tick`        | Every half a second while it stops: how long so far, and the programs still stopping. |
-| `serviceman_end_ok`      | It stopped on a signal, how long the stop `took=`, and the containers were left running. |
-| `serviceman_end_error`   | A program would not stop, or a second signal did not wait for it; it left anyway, and says why. |
+| `serviceman_signal`      | A signal came, Ctrl-C or one like it: the programs it leaves running. |
+| `serviceman_end_ok`      | It stopped on a signal, how long it `took=`; its containers and programs were left running. |
 | `group_spawn`            | A group began, and the group it came from.                    |
 
 ### Visitors
@@ -263,7 +257,7 @@ folder.
 | `service_stop_begin`      | An instance is stopping, and why.                           |
 | `service_stop_end_ok`     | It stopped.                                                 |
 | `service_stop_end_error`  | It would not stop.                                          |
-| `service_adopt_ok`        | It was already running and was kept, not started twice.     |
+| `service_adopt_ok`        | It was already running and was kept, not started twice; `upstream=none` for a program with no port. |
 | `program_killed`          | A program was asked to stop, did not, and was killed.       |
 | `container_killed`        | A container took its whole stop timeout, so docker killed it. |
 | `secret_written`          | A secret was kept, by name. Never the value.                |

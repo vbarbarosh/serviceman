@@ -330,6 +330,52 @@ test('a service stopped by hand stays stopped through a save of its definition a
     }
 });
 
+// A program with no port answers nothing, yet it runs: a save of its definition finds it running
+// and leaves it so, the same process, as old as it was, not started again
+test('a program with no port, found running by a save of its definition, keeps its process and the time it came up', async function () {
+    const definition = {name: 'quiet', type: 'shell', remote: 'vps1', command: `${process.execPath} -e "setInterval(() => null, 1000)"`, policy: {start: 'always'}};
+    const running = await serviceman_start([definition]);
+    try {
+        await running.agent_start();
+        await wait_until(() => service_phase(running.app.service_by_name.quiet) === 'running');
+        const before = running.app.service_by_name.quiet.state.instances[0];
+        const pid = before.pid;
+        const started_at = Date.now() - 3600000;
+        before.started_at = started_at;
+        const starts = running.app.log_lines.filter(v => /\[service_start_begin\] service=quiet /.test(v)).length;
+
+        await app_apply_config(running.app, config_from_json({
+            listen: {host: '127.0.0.1', port: 0},
+            control: {host: 'serviceman.localhost', port: 0},
+            remotes: [{name: 'vps1', token: TOKEN}],
+            services: [Object.assign({}, definition, {command: `${definition.command} --ctx-size 262144`})],
+        }, __dirname));
+        await timers.setTimeout(300);
+        const service = running.app.service_by_name.quiet;
+        assert.strictEqual(service_phase(service), 'running');
+        assert.strictEqual(running.app.log_lines.filter(v => /\[service_start_begin\] service=quiet /.test(v)).length, starts, 'nothing was started: it was found running');
+        assert.ok(running.app.log_lines.some(v => /\[service_adopt_ok\] service=quiet instance=1 remote=vps1 upstream=none/.test(v)));
+        assert.strictEqual(service.state.instances[0].pid, pid, 'the same process');
+        assert.strictEqual(service.state.instances[0].started_at, started_at, 'as old as it was');
+        assert.strictEqual(service.state.instances[0].upstream, null, 'and nothing to send a request to');
+
+        // Its link drops and its agent dials in again, as after a serviceman restart: found
+        // running there, and kept
+        const remote = running.app.remote_by_name.vps1;
+        remote.state.socket.destroy();
+        await wait_until(() => remote.state.phase === 'offline');
+        await wait_until(() => remote.state.phase === 'online', 15000);
+        await wait_until(() => service_phase(service) === 'running');
+        await timers.setTimeout(300);
+        assert.strictEqual(running.app.log_lines.filter(v => /\[service_start_begin\] service=quiet /.test(v)).length, starts, 'nothing was started when it dialled in');
+        assert.strictEqual(service.state.instances[0].pid, pid, 'the same process again');
+    }
+    finally {
+        await service_stop(running.app, running.app.service_by_name.quiet, 'the test is over').catch(() => null);
+        await running.close();
+    }
+});
+
 test('a machine whose definition changed carries its services again once its agent is back', async function () {
     const service_json = {name: 'whoami', type: 'docker', remote: 'vps1', publish: {host: 'whoami.test', port: 8080}, image: 'demo/whoami'};
     const running = await serviceman_start([service_json]);

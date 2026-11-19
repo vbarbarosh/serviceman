@@ -40,12 +40,14 @@ async function service_probe(app, service)
         // Reached through the link of the machine it was found on — the pool it had was for
         // wherever it ran before, or for nowhere
         agent_reset(app, service, instance);
-        log_event(app, 'service_adopt_ok', {service: service.name, instance: instance.slot, remote: found.remote.name, upstream: `${found.upstream.host}:${found.upstream.port}`});
+        log_event(app, 'service_adopt_ok', {service: service.name, instance: instance.slot, remote: found.remote.name, upstream: (found.upstream === null) ? 'none' : `${found.upstream.host}:${found.upstream.port}`});
     }
 }
 
 // A container of this instance may be on any machine the service is allowed to run on; the
 // first one that has it keeps it, and that is where the instance now lives
+// Where it runs, {remote, upstream}, upstream null for a program with no port; null when it
+// runs nowhere
 async function found_anywhere(app, service, instance)
 {
     for (const remote of remote_candidates(app, service)) {
@@ -53,25 +55,24 @@ async function found_anywhere(app, service, instance)
             continue;
         }
         const upstream = await driver_probe(app, remote, service, instance);
-        if (upstream !== null) {
+        if (upstream !== false) {
             return {remote, upstream};
         }
     }
     return null;
 }
 
-function driver_probe(app, remote, service, instance)
+// Where it answers on that machine, null for a program with no port; false when it is not there
+async function driver_probe(app, remote, service, instance)
 {
-    if (service.type === 'docker') {
-        return docker_probe(app, remote, service, instance.slot);
-    }
-    if ((service.type === 'shell') && (service.image !== null)) {
-        return docker_probe(app, remote, service, instance.slot);
+    if ((service.type === 'docker') || ((service.type === 'shell') && (service.image !== null))) {
+        const upstream = await docker_probe(app, remote, service, instance.slot);
+        return (upstream === null) ? false : upstream;
     }
     if (service.type === 'shell') {
         return shell_probe_on(app, remote, service, instance);
     }
-    return Promise.resolve(null);
+    return false;
 }
 
 module.exports = service_probe;
