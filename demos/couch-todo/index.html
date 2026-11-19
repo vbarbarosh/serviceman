@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Todo</title>
+<!--
+    A todo list in one file, kept in a store for each user: everything it saves goes to /_couch on
+    its own address, where the agent at the machine's door hands each signed-in user a CouchDB
+    database of their own. No server code, no password, no user name in it: who the user is comes
+    from the wall in front of the app. docs/databases.md, A store for each user, says how to run it.
+-->
+<style>
+:root {
+    --bg: #ffffff;
+    --panel: #f4f5f7;
+    --fg: #1b1d21;
+    --muted: #6b7280;
+    --line: #dfe2e6;
+    --bad: #c2410c;
+    --accent: #2f6fed;
+    --ok: #15803d;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #171a1f;
+        --panel: #1f242c;
+        --fg: #e8eaed;
+        --muted: #939aa4;
+        --line: #2a3140;
+        --bad: #f0846a;
+        --accent: #6ea0ff;
+        --ok: #4ade80;
+    }
+}
+body {
+    max-width: 36rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px system-ui, sans-serif;
+}
+h1 {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+}
+form {
+    display: flex;
+    gap: .5rem;
+}
+input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: .55rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+button {
+    padding: .5rem .9rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+}
+button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+ul {
+    margin: 1rem 0 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    list-style: none;
+}
+li {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    padding: .55rem .7rem;
+    border-bottom: 1px solid var(--line);
+}
+li:last-child {
+    border-bottom: 0;
+}
+li span {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+li.done span {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+li button {
+    padding: .15rem .5rem;
+    color: var(--muted);
+}
+.says {
+    margin: .8rem 0 0;
+    color: var(--muted);
+}
+.says.bad {
+    color: var(--bad);
+}
+</style>
+</head>
+<body>
+<h1>Todo</h1>
+<form id="add">
+    <input id="text" type="text" placeholder="What is to be done?" autocomplete="off" aria-label="What is to be done">
+    <button class="primary" type="submit">Add</button>
+</form>
+<ul id="list" hidden></ul>
+<p id="says" class="says">reading your list…</p>
+<script>
+// The store, at /_couch on this app's own address: CouchDB's own API, on a database of this user's
+// alone. /_couch is the database; /_couch/<id> a document in it.
+const STORE = '/_couch';
+
+// One request to the store: its answer as JSON, or an Error with what the store said
+async function store(method, path, body)
+{
+    const answer = await fetch(STORE + path, {method, headers: {'content-type': 'application/json'}, body: (body === undefined) ? undefined : JSON.stringify(body)});
+    const kind = answer.headers.get('content-type') || '';
+    if (kind.includes('application/json') === false) {
+        throw new Error('not signed in: open this page again to sign in');
+    }
+    const out = await answer.json();
+    if (answer.ok === false) {
+        throw new Error(`${out.error}: ${out.reason}`);
+    }
+    return out;
+}
+
+// The todos, oldest first: every document of this user's that is one
+async function todos_read()
+{
+    const all = await store('GET', '/_all_docs?include_docs=true');
+    return all.rows.map(v => v.doc).filter(v => v.type === 'todo').sort((a, b) => a.at.localeCompare(b.at));
+}
+
+async function show()
+{
+    try {
+        const items = await todos_read();
+        const list = document.getElementById('list');
+        list.replaceChildren(...items.map(row_of));
+        list.hidden = (items.length === 0);
+        say((items.length === 0) ? 'Nothing to do yet.' : `${items.filter(v => v.done === false).length} left of ${items.length}.`, false);
+    }
+    catch (error) {
+        say(error.message, true);
+    }
+}
+
+function row_of(todo)
+{
+    const row = document.createElement('li');
+    row.className = todo.done ? 'done' : '';
+    const done = document.createElement('input');
+    done.type = 'checkbox';
+    done.checked = todo.done;
+    done.setAttribute('aria-label', 'Done');
+    done.addEventListener('change', () => act(() => store('PUT', `/${encodeURIComponent(todo._id)}`, Object.assign({}, todo, {done: done.checked}))));
+    const text = document.createElement('span');
+    text.textContent = todo.text;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Delete';
+    remove.addEventListener('click', () => act(() => store('DELETE', `/${encodeURIComponent(todo._id)}?rev=${encodeURIComponent(todo._rev)}`)));
+    row.append(done, text, remove);
+    return row;
+}
+
+// A change, then the list as the store has it now
+async function act(change)
+{
+    try {
+        await change();
+    }
+    catch (error) {
+        say(error.message, true);
+    }
+    await show();
+}
+
+function say(text, bad)
+{
+    const says = document.getElementById('says');
+    says.textContent = text;
+    says.className = bad ? 'says bad' : 'says';
+}
+
+document.getElementById('add').addEventListener('submit', function (event) {
+    event.preventDefault();
+    const input = document.getElementById('text');
+    const text = input.value.trim();
+    if (text === '') {
+        return;
+    }
+    input.value = '';
+    // POST to the database makes a document with an id of CouchDB's own
+    act(() => store('POST', '', {type: 'todo', text, done: false, at: new Date().toISOString()}));
+});
+
+// Another tab, or another device of the same user, changes the list: _changes answers once
+// something changed since the last sequence it said, or after a minute with nothing
+async function follow()
+{
+    let since = 'now';
+    for (;;) {
+        try {
+            const changed = await store('GET', `/_changes?feed=longpoll&timeout=60000&since=${encodeURIComponent(since)}`);
+            since = changed.last_seq;
+            if (changed.results.length > 0) {
+                await show();
+            }
+        }
+        catch {
+            await new Promise(done => setTimeout(done, 5000));
+        }
+    }
+}
+
+show();
+follow();
+</script>
+</body>
+</html>

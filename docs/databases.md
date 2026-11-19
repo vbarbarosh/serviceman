@@ -212,6 +212,50 @@ comes in at that machine's door, behind a wall; a name with no wall, or a CouchD
 machine, leaves `/_couch` to the app. The door tables are sent again when the CouchDB comes up or
 fails. `tests/door_route.test.js` holds it.
 
+#### Its API
+
+`/_couch` is the user's database, and everything under it is CouchDB's own API on that database
+([CouchDB's docs](https://docs.couchdb.org/en/stable/api/database/index.html)). A page sends JSON
+with `content-type: application/json`; the answers are JSON.
+
+| Request                                         | What it does                                                    |
+|-------------------------------------------------|-----------------------------------------------------------------|
+| `GET /_couch`                                   | the database: how many documents, its size                      |
+| `POST /_couch` and a document                   | saves it under an id CouchDB makes: `{ok, id, rev}`             |
+| `PUT /_couch/<id>` and a document               | saves it under that id; changing one needs its `_rev`           |
+| `GET /_couch/<id>`                              | one document, with its `_id` and `_rev`                         |
+| `DELETE /_couch/<id>?rev=<rev>`                 | deletes it                                                      |
+| `GET /_couch/_all_docs?include_docs=true`       | every document, in `rows[].doc`                                 |
+| `POST /_couch/_find` and `{selector}`           | the documents a query picks: `{"selector": {"done": false}}`    |
+| `POST /_couch/_bulk_docs` and `{docs: […]}`     | many saved, changed or deleted at once                          |
+| `PUT /_couch/<id>/<file>?rev=<rev>` and its bytes | a file kept on a document; `GET` the same path reads it back  |
+| `GET /_couch/_changes?feed=longpoll&since=now`  | waits until something changes: another tab, another device      |
+
+A change that loses a race answers 409: read the document again, and save it with its new `_rev`.
+A page that is not signed in any more gets the wall's sign-in page instead of JSON; it can say so
+and send the user to sign in again.
+
+#### A todo list in one file
+
+[demos/couch-todo/index.html](../demos/couch-todo/index.html) is a whole app in one page, with no
+server code: it lists the user's todos, adds one with `POST`, ticks one with `PUT` and its `_rev`,
+deletes one with `DELETE`, and follows `_changes` so a second tab sees what the first did. Its
+store, as it reads them all:
+
+```js
+async function todos_read()
+{
+    const all = await fetch('/_couch/_all_docs?include_docs=true').then(v => v.json());
+    return all.rows.map(v => v.doc).filter(v => v.type === 'todo');
+}
+```
+
+To run it: drop `index.html` on **Apps**, give the page a wall in its **Settings** (Sign-in), and
+pick a CouchDB in its **Data** tab with **+ Store for each user**. Then give it a public address on
+the machine that CouchDB runs on (its page, **Public addresses**): the store is answered at that
+machine's door, and only there. Each user who signs in gets a list of their own; two users never
+see each other's.
+
 ## Remove
 
 **Remove…**, on a database's page, removes its server: it names the databases beside it that go

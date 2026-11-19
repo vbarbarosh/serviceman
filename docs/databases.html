@@ -946,6 +946,78 @@ in is sent to sign in, and everything else on the name is the app&#39;s. It is a
 comes in at that machine&#39;s door, behind a wall; a name with no wall, or a CouchDB on another
 machine, leaves <code>/_couch</code> to the app. The door tables are sent again when the CouchDB comes up or
 fails. <code>tests/door_route.test.js</code> holds it.</p>
+<h4 id="its-api"><a class="anchor" href="#its-api" aria-hidden="true" tabindex="-1">#</a>Its API</h4>
+<p><code>/_couch</code> is the user&#39;s database, and everything under it is CouchDB&#39;s own API on that database
+(<a href="https://docs.couchdb.org/en/stable/api/database/index.html">CouchDB&#39;s docs</a>). A page sends JSON
+with <code>content-type: application/json</code>; the answers are JSON.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Request</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET /_couch</code></td>
+<td>the database: how many documents, its size</td>
+</tr>
+<tr>
+<td><code>POST /_couch</code> and a document</td>
+<td>saves it under an id CouchDB makes: <code>{ok, id, rev}</code></td>
+</tr>
+<tr>
+<td><code>PUT /_couch/&lt;id&gt;</code> and a document</td>
+<td>saves it under that id; changing one needs its <code>_rev</code></td>
+</tr>
+<tr>
+<td><code>GET /_couch/&lt;id&gt;</code></td>
+<td>one document, with its <code>_id</code> and <code>_rev</code></td>
+</tr>
+<tr>
+<td><code>DELETE /_couch/&lt;id&gt;?rev=&lt;rev&gt;</code></td>
+<td>deletes it</td>
+</tr>
+<tr>
+<td><code>GET /_couch/_all_docs?include_docs=true</code></td>
+<td>every document, in <code>rows[].doc</code></td>
+</tr>
+<tr>
+<td><code>POST /_couch/_find</code> and <code>{selector}</code></td>
+<td>the documents a query picks: <code>{&quot;selector&quot;: {&quot;done&quot;: false}}</code></td>
+</tr>
+<tr>
+<td><code>POST /_couch/_bulk_docs</code> and <code>{docs: […]}</code></td>
+<td>many saved, changed or deleted at once</td>
+</tr>
+<tr>
+<td><code>PUT /_couch/&lt;id&gt;/&lt;file&gt;?rev=&lt;rev&gt;</code> and its bytes</td>
+<td>a file kept on a document; <code>GET</code> the same path reads it back</td>
+</tr>
+<tr>
+<td><code>GET /_couch/_changes?feed=longpoll&amp;since=now</code></td>
+<td>waits until something changes: another tab, another device</td>
+</tr>
+</tbody></table>
+</div>
+<p>A change that loses a race answers 409: read the document again, and save it with its new <code>_rev</code>.
+A page that is not signed in any more gets the wall&#39;s sign-in page instead of JSON; it can say so
+and send the user to sign in again.</p>
+<h4 id="a-todo-list-in-one-file"><a class="anchor" href="#a-todo-list-in-one-file" aria-hidden="true" tabindex="-1">#</a>A todo list in one file</h4>
+<p><a href="https://github.com/vbarbarosh/serviceman/blob/main/demos/couch-todo/index.html">demos/couch-todo/index.html</a> is a whole app in one page, with no
+server code: it lists the user&#39;s todos, adds one with <code>POST</code>, ticks one with <code>PUT</code> and its <code>_rev</code>,
+deletes one with <code>DELETE</code>, and follows <code>_changes</code> so a second tab sees what the first did. Its
+store, as it reads them all:</p>
+<pre><code class="language-js">async function todos_read()
+{
+    const all = await fetch(&#39;/_couch/_all_docs?include_docs=true&#39;).then(v =&gt; v.json());
+    return all.rows.map(v =&gt; v.doc).filter(v =&gt; v.type === &#39;todo&#39;);
+}
+</code></pre>
+<p>To run it: drop <code>index.html</code> on <strong>Apps</strong>, give the page a wall in its <strong>Settings</strong> (Sign-in), and
+pick a CouchDB in its <strong>Data</strong> tab with <strong>+ Store for each user</strong>. Then give it a public address on
+the machine that CouchDB runs on (its page, <strong>Public addresses</strong>): the store is answered at that
+machine&#39;s door, and only there. Each user who signs in gets a list of their own; two users never
+see each other&#39;s.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server&#39;s name typed again, then takes its container and
