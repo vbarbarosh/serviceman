@@ -1,3 +1,4 @@
+import data_table from './data_table.js';
 import secret_name_said from './secret_name_said.js';
 import secret_write from './secret_write.js';
 
@@ -9,66 +10,57 @@ import secret_write from './secret_write.js';
 // a page and back.
 const secrets_form = {
     template: `
-<article id="detail" class="form">
-    <h1>Secrets</h1>
-    <p class="muted">Kept beside what serviceman writes about itself, readable by nobody else, and never in the config. A program asks for one by name — <code>secrets credentials</code> — and gets the one its own service holds.</p>
-
-    <h2>The library</h2>
-    <p class="muted">Written down once, to be copied into the services that need it. Nothing reads these directly.</p>
-    <dl v-if="(global.length > 0)" class="secrets-kept">
-        <template v-for="item of global" :key="item.name">
-            <dt>{{ item.name }}</dt>
-            <dd>
-                <span class="muted">{{ item.length }} characters · {{ users_text(item.name) }}</span>
-                <template v-if="(going !== item.name)">
-                    <button type="button" @click="going = item.name">Take it away…</button>
-                </template>
-                <template v-else>
-                    <span>Forget {{ item.name }}? Services holding a copy keep theirs.</span>
-                    <button type="button" class="danger" :disabled="busy" @click="drop(null, item.name)">Forget it</button>
-                    <button type="button" @click="going = ''">Keep it</button>
-                </template>
-            </dd>
-        </template>
-    </dl>
-    <p v-else class="muted">Nothing here yet.</p>
-    <div class="grid">
-        <label>Name</label>
-        <div>
-            <input v-model.trim="name" placeholder="google-oauth" :class="{wrong: (name_said !== '')}" spellcheck="false">
-            <p v-if="(name_said !== '')" class="bad">{{ name_said }}</p>
-        </div>
-        <label>Value</label>
-        <div>
-            <textarea v-model="value" rows="3" placeholder='{"web": {"client_id": "…", "client_secret": "…"}}' spellcheck="false"></textarea>
+<article id="detail" class="list form">
+    <div class="list-head">
+        <h1>Secrets</h1>
+        <span class="muted">{{ (global.length + services.length) }}</span>
+        <div class="list-acts">
+            <button type="button" class="primary" :disabled="adding" @click="add_begin">+ New secret</button>
         </div>
     </div>
-    <div class="actions">
-        <button type="button" :disabled="(busy || name === '' || value === '' || name_said !== '')" @click="save"><span v-if="keeping" class="spin"/>{{ keeping ? 'keeping…' : 'Keep it' }}</button>
-        <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
+    <p class="muted">Kept beside what serviceman writes about itself, readable by nobody else, and never in the config. A program asks for one by name — <code>secrets credentials</code> — and gets the one its own service holds. The library is written down once, to be copied into the services that need it; a service's own is made on its page, and private to it.</p>
+    <div v-if="adding" class="card list-new">
+        <div class="grid">
+            <label for="secret-name">Name</label>
+            <div>
+                <input id="secret-name" ref="name" v-model.trim="name" placeholder="google-oauth" :class="{wrong: (name_said !== '')}" spellcheck="false">
+                <p v-if="(name_said !== '')" class="bad">{{ name_said }}</p>
+            </div>
+            <label for="secret-value">Value</label>
+            <div>
+                <textarea id="secret-value" v-model="value" rows="3" placeholder='{"web": {"client_id": "…", "client_secret": "…"}}' spellcheck="false"></textarea>
+            </div>
+        </div>
+        <div class="row-of">
+            <button type="button" class="primary" :disabled="(busy || name === '' || value === '' || name_said !== '')" @click="save"><span v-if="keeping" class="spin"/>{{ keeping ? 'keeping…' : 'Keep it in the library' }}</button>
+            <button type="button" :disabled="busy" @click="adding = false">Cancel</button>
+        </div>
     </div>
-
-    <h2>Held by services</h2>
-    <p class="muted">Made on a service's own page, and private to it. Two services may both hold a <code>token</code>; they are not the same token.</p>
-    <dl v-if="(services.length > 0)" class="secrets-kept">
-        <template v-for="item of services" :key="(item.service + '.' + item.name)">
-            <dt>{{ item.service }}</dt>
-            <dd>
-                <code>{{ item.name }}</code> <span class="muted">{{ item.length }} characters</span>
-                <template v-if="(going !== item.service + '.' + item.name)">
-                    <button type="button" @click="going = item.service + '.' + item.name">Take it away…</button>
-                </template>
-                <template v-else>
-                    <span>Forget it? {{ item.service }} will not find it any more.</span>
-                    <button type="button" class="danger" :disabled="busy" @click="drop(item.service, item.name)">Forget it</button>
-                    <button type="button" @click="going = ''">Keep it</button>
-                </template>
-            </dd>
+    <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
+    <div class="list-tools">
+        <input v-model.trim="filter" type="search" placeholder="find a secret" aria-label="Find a secret by its name or its service" spellcheck="false">
+        <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
+            {{ chip.label }}
+            <span class="muted">{{ chip.count }}</span>
+        </button>
+    </div>
+    <data-table :columns="columns" :rows="rows" row_key="key" actions_label="" :actions_fold="9" :empty="empty_text">
+        <template #cell="{row, column}">
+            <span v-if="(column.key === 'name')" class="row-of">
+                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
+                <code>{{ row.name }}</code>
+            </span>
+            <span v-else-if="(column.key === 'kept')" :class="{muted: (row.service === null)}">{{ (row.service === null) ? 'the library' : row.service }}</span>
+            <span v-else-if="(column.key === 'length')">{{ row.length }} characters</span>
+            <span v-else-if="(column.key === 'users')" class="muted">{{ row.users }}</span>
         </template>
-    </dl>
-    <p v-else class="muted">None yet — a service's page is where they are made.</p>
+        <template #actions="{row, ask}">
+            <button type="button" class="danger" :disabled="busy" @click="ask(row.question, 'Forget it', () => drop(row.service, row.name))">Take it away…</button>
+        </template>
+    </data-table>
 </article>
 `,
+    components: {'data-table': data_table},
     emits: [],
     data: function () {
         return {
@@ -76,8 +68,10 @@ const secrets_form = {
             services: [],
             name: '',
             value: '',
-            // The one whose "Take it away" has been pressed and not yet answered for
-            going: '',
+            // The library's form is open, for one more secret
+            adding: false,
+            filter: '',
+            show: 'all',
             busy: false,
             // While Keep it is on its way to the door, which its button then says
             keeping: false,
@@ -89,6 +83,31 @@ const secrets_form = {
         // What the door would say to the name as it stands, said under its box before it is asked
         name_said: function () {
             return secret_name_said(this.name);
+        },
+        chips: function () {
+            return [
+                {value: 'all', label: 'All', count: this.global.length + this.services.length},
+                {value: 'library', label: 'The library', count: this.global.length},
+                {value: 'services', label: 'Held by services', count: this.services.length},
+            ];
+        },
+        columns: function () {
+            return [
+                {key: 'name', label: 'Name', wraps: true},
+                {key: 'kept', label: 'Kept by', fold: 2},
+                {key: 'length', label: 'Length', fold: 1, align: 'right'},
+                {key: 'users', label: 'Copies', fold: 3, hide: v => (v.users === '')},
+            ];
+        },
+        // The library first, then each service's own, as the chips and the filter leave them
+        rows: function () {
+            const wanted = this.filter.toLowerCase();
+            const library = (this.show === 'services') ? [] : this.global.map(v => ({key: `library ${v.name}`, name: v.name, service: null, length: v.length, users: this.users_text(v.name), question: `Forget ${v.name}? Services holding a copy keep theirs.`}));
+            const own = (this.show === 'library') ? [] : this.services.map(v => ({key: `${v.service} ${v.name}`, name: v.name, service: v.service, length: v.length, users: '', question: `Forget it? ${v.service} will not find it any more.`}));
+            return library.concat(own).filter(v => (wanted === '') || `${v.name} ${v.service || ''}`.toLowerCase().includes(wanted));
+        },
+        empty_text: function () {
+            return ((this.global.length + this.services.length) === 0) ? 'None yet: + New secret writes one into the library; a service\'s page makes one of its own.' : 'Nothing matches.';
         },
     },
     methods: {
@@ -111,6 +130,10 @@ const secrets_form = {
         },
         // The boxes are emptied for the next one only when the door has this one: what it did
         // not take stays as it was typed, to be put right
+        add_begin: function () {
+            this.adding = true;
+            this.$nextTick(() => this.$refs.name.focus());
+        },
         save: async function () {
             this.keeping = true;
             const kept = await this.write({name: this.name, value: this.value}, `${this.name} is kept`);
@@ -118,11 +141,11 @@ const secrets_form = {
             if (kept) {
                 this.name = '';
                 this.value = '';
+                this.adding = false;
             }
         },
         drop: async function (service, name) {
             await this.write({service, name, value: ''}, `${name} is gone`);
-            this.going = '';
         },
         // Answers with whether the door did it; what it said instead is the note
         write: async function (body, said) {

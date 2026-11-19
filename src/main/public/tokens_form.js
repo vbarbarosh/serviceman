@@ -1,3 +1,4 @@
+import data_table from './data_table.js';
 import format_ms_ago from './format_ms_ago.js';
 import format_token_section from './format_token_section.js';
 import secret_hidden from './secret_hidden.js';
@@ -42,38 +43,36 @@ function aside_text(loaded)
 // edited in place, the token staying the same.
 const tokens_form = {
     template: `
-<article id="detail" class="form">
-    <h1>Tokens</h1>
+<article id="detail" class="list form">
+    <div class="list-head">
+        <h1>Tokens</h1>
+        <span class="muted">{{ tokens.length }}</span>
+        <div class="list-acts">
+            <button type="button" class="primary" @click="new_begin">+ New token</button>
+        </div>
+    </div>
     <p class="muted">Each one lets an agent or a program do what you give it below with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the secrets, another machine, the config but the forwards its forwards right writes between its machines and the apps of files its apps right sends, or a service but the one its versions right sends a new version to.</p>
     <p class="muted tk-row">
         <span>This page is signed in with the owner's token, which <code>bin/owner-token</code> prints.<template v-if="(owner_token_file !== null)"> Should it leak, delete <code>{{ owner_token_file }}</code> and restart serviceman: a new one is made, and every page signs in again.</template></span>
         <button type="button" @click="sign_out">Sign out</button>
     </p>
 
-    <dl v-if="(tokens.length > 0)">
-        <template v-for="item of tokens" :key="item.id">
-            <dt>{{ item.label }}</dt>
-            <dd class="tk-row">
-                <span class="muted">{{ machines_text(item) }}<template v-for="part of sections_of(item)" :key="part.value"> · {{ part.said }}<template v-if="((part.value === 'files') && (item.folders.length > 0))"> in <code>{{ item.folders.join(', ') }}</code></template><template v-if="((part.value === 'apps') && (item.services.length > 0))">{{ (part.level === 'fine') ? '' : ', versions' }} of <code>{{ item.services.join(', ') }}</code></template><template v-if="((part.value === 'apps') && item.apps_own)">, only the apps it makes<template v-if="(item.apps.length > 0)">: <code>{{ item.apps.join(', ') }}</code></template><template v-else>, none yet</template></template></template> · {{ used_text(item) }}</span>
-                <template v-if="(asking.id !== item.id)">
-                    <button type="button" :disabled="busy" @click="edit_open(item)">Edit…</button>
-                    <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'rotate'}">Rotate…</button>
-                    <button type="button" :disabled="busy" @click="asking = {id: item.id, what: 'revoke'}">Revoke…</button>
-                </template>
-                <template v-else-if="(asking.what === 'rotate')">
-                    <span>Rotate {{ item.label }}? It gets a new value with the same rights, and the one it has now stops working at once.</span>
-                    <button type="button" class="primary" :disabled="busy" @click="rotate(item)">Rotate</button>
-                    <button type="button" @click="asking = {id: '', what: ''}">Keep it</button>
-                </template>
-                <template v-else>
-                    <span>Revoke {{ item.label }}? It stops working at once: whoever uses it is refused, what it holds open is cut, and the forwards it asked for are set aside.</span>
-                    <button type="button" class="danger" :disabled="busy" @click="revoke(item)">Revoke</button>
-                    <button type="button" @click="asking = {id: '', what: ''}">Keep it</button>
-                </template>
-            </dd>
+    <data-table :columns="columns" :rows="tokens" row_key="id" actions_label="" :actions_fold="9" empty="None yet: + New token makes one, for an agent or a program.">
+        <template #cell="{row, column}">
+            <span v-if="(column.key === 'label')" class="row-of">
+                <svg class="dt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/></svg>
+                <b>{{ row.label }}</b>
+            </span>
+            <span v-else-if="(column.key === 'machines')">{{ machines_text(row) }}</span>
+            <span v-else-if="(column.key === 'rights')" class="muted"><template v-for="(part, index) of sections_of(row)" :key="part.value">{{ (index > 0) ? ' · ' : '' }}{{ part.said }}<template v-if="((part.value === 'files') && (row.folders.length > 0))"> in <code>{{ row.folders.join(', ') }}</code></template><template v-if="((part.value === 'apps') && (row.services.length > 0))">{{ (part.level === 'fine') ? '' : ', versions' }} of <code>{{ row.services.join(', ') }}</code></template><template v-if="((part.value === 'apps') && row.apps_own)">, only the apps it makes<template v-if="(row.apps.length > 0)">: <code>{{ row.apps.join(', ') }}</code></template><template v-else>, none yet</template></template></template></span>
+            <span v-else-if="(column.key === 'used')" class="muted">{{ used_text(row) }}</span>
         </template>
-    </dl>
-    <p v-else class="muted">None yet.</p>
+        <template #actions="{row, ask}">
+            <button type="button" :disabled="busy" @click="edit_open(row)">Edit…</button>
+            <button type="button" :disabled="busy" @click="ask('Rotate ' + row.label + '? It gets a new value with the same rights, and the one it has now stops working at once.', 'Rotate', () => rotate(row))">Rotate…</button>
+            <button type="button" class="danger" :disabled="busy" @click="ask('Revoke ' + row.label + '? It stops working at once: whoever uses it is refused, what it holds open is cut, and the forwards it asked for are set aside.', 'Revoke', () => revoke(row))">Revoke…</button>
+        </template>
+    </data-table>
 
     <h2 ref="form">{{ (editing === null) ? 'A new token' : ('Edit ' + editing.label) }}</h2>
     <p v-if="(editing !== null)" class="muted">The token stays the same: whoever holds it goes on with what is given here from the next request.</p>
@@ -146,6 +145,7 @@ const tokens_form = {
     </div>
 </article>
 `,
+    components: {'data-table': data_table},
     emits: [],
     data: function () {
         return {
@@ -173,14 +173,20 @@ const tokens_form = {
             // The token just made or rotated, the one time it can be copied: {label, token}
             made: null,
             copied: '',
-            // The question a token's button asked and is not answered yet: {id, what}
-            asking: {id: '', what: ''},
             busy: false,
             bad: false,
             note: '',
         };
     },
     computed: {
+        columns: function () {
+            return [
+                {key: 'label', label: 'Label', wraps: true},
+                {key: 'machines', label: 'Machines', fold: 3},
+                {key: 'rights', label: 'Rights', fold: 2, wraps: true},
+                {key: 'used', label: 'Used', fold: 1},
+            ];
+        },
         folders_list: function () {
             return this.folders.split('\n').map(v => v.trim()).filter(v => (v !== ''));
         },
@@ -279,6 +285,12 @@ const tokens_form = {
             }
             return `used ${format_ms_ago(Date.now() - Date.parse(item.used_at))}`;
         },
+        // A new token's form, empty, the page at it and its label to type
+        new_begin: function () {
+            this.form_reset();
+            this.made = null;
+            this.$nextTick(() => this.$refs.form.scrollIntoView({behavior: 'smooth', block: 'start'}));
+        },
         // The form takes the token's fields, and the page goes to it
         edit_open: function (item) {
             this.editing = item;
@@ -326,7 +338,6 @@ const tokens_form = {
             if (loaded === null) {
                 return;
             }
-            this.asking = {id: '', what: ''};
             this.made = {label: loaded.item.label, token: loaded.token};
             this.copied = '';
             this.note = '';
@@ -338,7 +349,6 @@ const tokens_form = {
             if (loaded === null) {
                 return;
             }
-            this.asking = {id: '', what: ''};
             this.note = `${item.label} is revoked${aside_text(loaded)}`;
             if ((this.editing !== null) && (this.editing.id === item.id)) {
                 this.form_reset();

@@ -14,7 +14,7 @@ missing image, a hostname written twice, a duration nobody can read.
 
 ## Edit from the control page
 
-Services are created and reshaped on the control page itself. **+ Add service** is a short
+Services are created and reshaped on the control page itself. **+ New service** is a short
 form for the three common kinds. **A docker image** asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. **An app folder** asks for the app's folder
 on this computer, or a `.zip` of it: **A folder…** or **A .zip…**, or either dropped on the
@@ -149,7 +149,7 @@ agent's link; the agent says where that socket is.
 
 A remote is a machine that carries services — a VPS, or the very machine serviceman runs on.
 It runs the agent, which dials this host and waits for orders; serviceman itself starts nothing
-and runs no docker. **+ Add remote** on the control page writes this block for you. serviceman
+and runs no docker. **+ New remote** on the control page writes this block for you. serviceman
 never dials out, so the machine needs no open port, no public address and no key of yours.
 [Remotes](remotes.md) has the whole story — installing the agent, a systemd unit, and what the
 token buys.

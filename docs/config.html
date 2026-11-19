@@ -730,7 +730,7 @@ node src/main data/serviceman.json --check   # read the config, report what is w
 <p><code>--check</code> refuses a config that would only fail at the first request: an unknown type, a
 missing image, a hostname written twice, a duration nobody can read.</p>
 <h2 id="edit-from-the-control-page"><a class="anchor" href="#edit-from-the-control-page" aria-hidden="true" tabindex="-1">#</a>Edit from the control page</h2>
-<p>Services are created and reshaped on the control page itself. <strong>+ Add service</strong> is a short
+<p>Services are created and reshaped on the control page itself. <strong>+ New service</strong> is a short
 form for the three common kinds. <strong>A docker image</strong> asks for the image; the name comes from it
 and the port defaults to the one the image names, or 80. <strong>An app folder</strong> asks for the app&#39;s folder
 on this computer, or a <code>.zip</code> of it: <strong>A folder…</strong> or <strong>A .zip…</strong>, or either dropped on the
@@ -924,7 +924,7 @@ agent&#39;s link; the agent says where that socket is.</p>
 <h2 id="remotes"><a class="anchor" href="#remotes" aria-hidden="true" tabindex="-1">#</a>Remotes</h2>
 <p>A remote is a machine that carries services — a VPS, or the very machine serviceman runs on.
 It runs the agent, which dials this host and waits for orders; serviceman itself starts nothing
-and runs no docker. <strong>+ Add remote</strong> on the control page writes this block for you. serviceman
+and runs no docker. <strong>+ New remote</strong> on the control page writes this block for you. serviceman
 never dials out, so the machine needs no open port, no public address and no key of yours.
 <a href="remotes.html">Remotes</a> has the whole story — installing the agent, a systemd unit, and what the
 token buys.</p>
