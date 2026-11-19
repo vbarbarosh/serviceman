@@ -7330,6 +7330,109 @@ button.st-pill.problem-where {
     color: var(--bad);
 }
 
+/* Doors, as drawn: the names as a table card, the row that adds one joined to its foot, and How
+   doors work folded at the end */
+.doors .rule-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: -1px;
+    padding: 12px 14px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.doors-names > .dt-card {
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.doors .rule-add input,
+.doors .rule-add select {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--fg);
+    font: inherit;
+}
+
+.doors .rule-add input {
+    flex: 1 1 14rem;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.doors .rule-add select {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.doors .rule-add input:focus,
+.doors .rule-add select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.doors .rule-add > button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+}
+
+.doors .rule-add-note {
+    flex-basis: 100%;
+}
+
+.doors-how {
+    margin-top: 18px;
+    padding: 0;
+}
+
+.doors-how > summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 14px 18px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.doors-how > summary::-webkit-details-marker {
+    display: none;
+}
+
+.doors-how > summary svg {
+    flex: none;
+    color: var(--link);
+}
+
+.doors-how > summary .muted {
+    margin-left: auto;
+}
+
+.doors-how-body {
+    padding: 0 18px 16px;
+}
+
+@media (max-width: 600px) {
+    .doors .rule-add > *,
+    .doors .rule-add > select,
+    .doors .rule-add > input {
+        flex: 1 1 100%;
+    }
+
+    .doors-how > summary .muted {
+        margin-left: 0;
+        flex-basis: 100%;
+    }
+}
+
 /* Security, as drawn: the numbers to mend red, to look at orange; a pill in every cell */
 .security-tiles {
     margin-bottom: 18px;

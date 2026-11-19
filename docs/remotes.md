@@ -829,7 +829,7 @@ count as the service being in use: serviceman does not stop as idle what a door 
 peers on its tailnet addresses, port `7303` (`--peer-port`, `SERVICEMAN_PEER_PORT`; `0` turns it
 off), and answers only a caller holding the token serviceman gave it, and only for the services
 that run on it. The **Doors** page says, for each machine, whether it routes by itself and holds
-the latest table.
+the latest table, under **How doors work** at its foot.
 
 **A board's port is a door of its own,** on `127.0.0.1` alone, at each board published on the
 machine ([App boards](config.md#app-boards)): it routes by the same table, the board's names in
@@ -872,7 +872,10 @@ server {
 
 **A door answers the names it was given, and none at all by default.** A rule is a name and
 the service that takes it, written on the machine's own entry. A service's page lists its
-public addresses and adds, switches and removes them; the **Doors** page has every machine's:
+public addresses and adds, switches and removes them; the **Doors** page has every machine's,
+a table card of names with the machine, the service, the wall in front and how each stands (it
+answers, its machine is offline, the machine has no door yet, or it is set aside), what needs
+you first, and the row that adds one at its foot:
 
 ```json
 {"name": "laptop", "token": "0c0f…a91b", "inbound": {"echo.example.com": "echo", "*.example.com": "site"}}

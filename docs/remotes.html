@@ -1567,7 +1567,7 @@ count as the service being in use: serviceman does not stop as idle what a door 
 peers on its tailnet addresses, port <code>7303</code> (<code>--peer-port</code>, <code>SERVICEMAN_PEER_PORT</code>; <code>0</code> turns it
 off), and answers only a caller holding the token serviceman gave it, and only for the services
 that run on it. The <strong>Doors</strong> page says, for each machine, whether it routes by itself and holds
-the latest table.</p>
+the latest table, under <strong>How doors work</strong> at its foot.</p>
 <p><strong>A board&#39;s port is a door of its own,</strong> on <code>127.0.0.1</code> alone, at each board published on the
 machine (<a href="config.html#app-boards">App boards</a>): it routes by the same table, the board&#39;s names in
 it, and is open whenever a board is there, door asked for or not.</p>
@@ -1604,7 +1604,10 @@ server {
 </code></pre>
 <p><strong>A door answers the names it was given, and none at all by default.</strong> A rule is a name and
 the service that takes it, written on the machine&#39;s own entry. A service&#39;s page lists its
-public addresses and adds, switches and removes them; the <strong>Doors</strong> page has every machine&#39;s:</p>
+public addresses and adds, switches and removes them; the <strong>Doors</strong> page has every machine&#39;s,
+a table card of names with the machine, the service, the wall in front and how each stands (it
+answers, its machine is offline, the machine has no door yet, or it is set aside), what needs
+you first, and the row that adds one at its foot:</p>
 <pre><code class="language-json">{&quot;name&quot;: &quot;laptop&quot;, &quot;token&quot;: &quot;0c0f…a91b&quot;, &quot;inbound&quot;: {&quot;echo.example.com&quot;: &quot;echo&quot;, &quot;*.example.com&quot;: &quot;site&quot;}}
 </code></pre>
 <p>The name is not the service&#39;s own address: <code>echo</code> goes on publishing whatever it publishes,
