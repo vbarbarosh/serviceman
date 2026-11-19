@@ -2,6 +2,7 @@ import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import logline_days from './logline_days.js';
 import logline_stage from './logline_stage.js';
+import page_head from './page_head.js';
 
 // Logline: where every line of every remote flows. Not a service like the rest — the one place
 // the fleet's logs end up — so it has a page of its own: how it stands, how each remote's
@@ -9,8 +10,11 @@ import logline_stage from './logline_stage.js';
 const logline_pane = {
     template: `
 <article id="detail" class="logline">
-    <h1>Logline</h1>
-    <p class="muted">Where every line of every remote flows. Each remote sends its own lines straight to Logline and keeps them while it cannot; serviceman only says where Logline is and hands each remote its token.</p>
+    <page-head category="logline">
+        <template #how>
+            <p>Where every line of every remote flows. Each remote sends its own lines straight to Logline and keeps them while it cannot; serviceman only says where Logline is and hands each remote its token.</p>
+        </template>
+    </page-head>
     <div class="card svc-status">
         <div class="row-of svc-state">
             <span class="pill" :class="head.pill">{{ head.text }}</span>
@@ -101,7 +105,7 @@ const logline_pane = {
     </div>
 </article>
 `,
-    components: {'data-table': data_table, 'logline-days': logline_days},
+    components: {'data-table': data_table, 'logline-days': logline_days, 'page-head': page_head},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {

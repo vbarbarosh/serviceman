@@ -1,4 +1,5 @@
 import data_table from './data_table.js';
+import page_head from './page_head.js';
 import secret_name_said from './secret_name_said.js';
 import secret_write from './secret_write.js';
 import state_read from './state_read.js';
@@ -56,14 +57,14 @@ const secrets_form = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Secrets</h1>
-        <span class="muted">{{ (global.length + services.length) }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" :disabled="adding" @click="add_begin">+ New secret</button>
-        </div>
-    </div>
-    <p class="muted">Kept beside what serviceman writes about itself, readable by nobody else, and never in the config. A program asks for one by name — <code>secrets credentials</code> — and gets the one its own service holds. The library is written down once, to be copied into the services that need it; a service's own is made on its page, and private to it.</p>
+    <page-head category="secrets" :count="(global.length + services.length)">
+        <template #acts>
+            <button type="button" class="primary" :disabled="adding" @click="add_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New secret</button>
+        </template>
+        <template #how>
+            <p>Kept beside what serviceman writes about itself, readable by nobody else, and never in the config. A program asks for one by name — <code>secrets credentials</code> — and gets the one its own service holds. The library is written down once, to be copied into the services that need it; a service's own is made on its page, and private to it.</p>
+        </template>
+    </page-head>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="find a secret" aria-label="Find a secret by its name or its service" spellcheck="false">
@@ -89,7 +90,7 @@ const secrets_form = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
     emits: [],
     data: function () {
         return {

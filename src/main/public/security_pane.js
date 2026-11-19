@@ -1,5 +1,6 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import page_head from './page_head.js';
 
 // The dot of each state, as Health draws a check
 const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
@@ -26,13 +27,16 @@ const COLUMNS = [
 const security_pane = {
     template: `
 <article id="detail" class="list security">
-    <div class="list-head">
-        <h1>Security</h1>
-        <span :class="summary.state">{{ summary.text }}</span>
-        <span class="muted security-checked" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
-        <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
-    </div>
-    <p class="muted">Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported; the critical CVEs that hit it, as Ubuntu's own list says them. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
+    <page-head category="security">
+        <template #state><span v-if="(summary.text !== '')" class="page-head-count" :class="summary.state">{{ summary.text }}</span></template>
+        <template #acts>
+            <span class="page-head-when" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
+            <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
+        </template>
+        <template #how>
+            <p>Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported; the critical CVEs that hit it, as Ubuntu's own list says them. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
+        </template>
+    </page-head>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
     <data-table :columns="COLUMNS" :rows="rows" row_key="remote" :row_class="row_class" :more="more" empty="No machines yet: a machine is looked at once its agent dials in.">
         <template #cell="{row, column, more}">
@@ -57,7 +61,7 @@ const security_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head},
     props: ['state'],
     emits: ['remote', 'tab'],
     data: function () {
@@ -92,7 +96,7 @@ const security_pane = {
                 items.push(`${counts.warn} to look at`);
             }
             if (items.length === 0) {
-                return {state: 'ok-text', text: 'Nothing found'};
+                return {state: 'run', text: 'Nothing found'};
             }
             return {state: (counts.bad > 0) ? 'bad' : 'warn', text: items.join(' · ')};
         },

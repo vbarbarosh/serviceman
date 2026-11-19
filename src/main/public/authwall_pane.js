@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import page_head from './page_head.js';
 import walls_of from './walls_of.js';
 
 // The wall a fleet starts with, and the first word of the name of a wall made for a team
@@ -14,8 +15,11 @@ const WALL_NAME = 'authwall';
 const authwall_pane = {
     template: `
 <article id="detail">
-    <h1>Authwall</h1>
-    <p class="muted">How visitors sign in. An app behind a wall (its Settings, on Apps) asks it at every address it has; a door asks the wall <code>/auth/sidecar</code> before anything behind a name is touched: a yes carries the request on with <code>X-Auth-User</code>, a no sends the visitor to <code>/auth/sign-in</code>, and a wall that cannot be asked lets nothing through. Each team may have a wall of its own, with its own users. Who may pass is the wall's own business; serviceman writes nothing into it.</p>
+    <page-head category="authwall">
+        <template #how>
+            <p>How visitors sign in. An app behind a wall (its Settings, on Apps) asks it at every address it has; a door asks the wall <code>/auth/sidecar</code> before anything behind a name is touched: a yes carries the request on with <code>X-Auth-User</code>, a no sends the visitor to <code>/auth/sign-in</code>, and a wall that cannot be asked lets nothing through. Each team may have a wall of its own, with its own users. Who may pass is the wall's own business; serviceman writes nothing into it.</p>
+        </template>
+    </page-head>
     <div v-if="(walls.length === 0)" class="card svc-status">
         <div class="row-of svc-state">
             <span class="pill">None yet</span>
@@ -111,7 +115,7 @@ const authwall_pane = {
     <p :class="(bad ? 'bad' : 'muted')">{{ note_below }} <template v-if="(note_below === '')">A name is given to a door on the <button type="button" class="link" @click="$emit('doors')">Doors</button> page.</template></p>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head},
     props: {
         state: {type: Object, required: true},
         // Opened from a list of walls, its last option: the form for a new wall is open at once

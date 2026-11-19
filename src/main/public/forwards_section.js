@@ -7,6 +7,7 @@ import forward_here_parse from './forward_here_parse.js';
 import forward_now_said from './forward_now_said.js';
 import forward_state from './forward_state.js';
 import forwards_write from './forwards_write.js';
+import page_head from './page_head.js';
 import step_frame from './step_frame.js';
 
 // A port or a socket of one machine, brought to another: `from` is where the service is, `to`
@@ -57,14 +58,14 @@ const forwards_section = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Forwards</h1>
-        <span class="muted">{{ forwards.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" :disabled="making" @click="begin">+ Add forward</button>
-        </div>
-    </div>
-    <p class="muted">A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection goes straight to the agent of the machine on the left, over the tailnet, and on to the service there; serviceman carries none of it. An agent too old for that, or a machine whose agent cannot be reached that way, rides both machines' links through serviceman instead. No ssh and no key: the agents are already there. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
+    <page-head category="forwards" :count="forwards.length">
+        <template #acts>
+            <button type="button" class="primary" :disabled="making" @click="begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New forward</button>
+        </template>
+        <template #how>
+            <p>A port or a socket file of one machine, brought to another, as <code>ssh -L</code> brings one: <code>vps1 → laptop</code> is a service on vps1 that shows up on the laptop. The machine on the right listens — a socket only the agent's user may open, or a port on its loopback — and each connection goes straight to the agent of the machine on the left, over the tailnet, and on to the service there; serviceman carries none of it. An agent too old for that, or a machine whose agent cannot be reached that way, rides both machines' links through serviceman instead. No ssh and no key: the agents are already there. When both are one machine, an app of this host opened on the laptop by <code>localhost</code> say, its agent joins the two itself. While a link is down the socket stays, and a connection to it is closed at once. It may show up on this host, where serviceman runs, with no agent: serviceman listens itself, and a socket lands in its state dir, <code>{{ state_folder }}/</code>.</p>
+        </template>
+    </page-head>
     <data-table :columns="columns" :rows="forwards" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'label')">{{ row.label }}<span v-if="(row.by !== null)" class="muted" :title="by_title(row.by)"> · by {{ row.by.label }}<template v-if="row.by.revoked"> (revoked)</template></span><span v-if="(row.service !== null)" class="muted" title="It brings the port of this program over, and goes with it: renamed and removed with it, changed on its page"> · part of {{ row.service }}</span></template>
@@ -85,7 +86,7 @@ const forwards_section = {
     </template>
 </div>
 `,
-    components: {'step-frame': step_frame, 'data-table': data_table, 'forward-state': forward_state},
+    components: {'data-table': data_table, 'forward-state': forward_state, 'page-head': page_head, 'step-frame': step_frame},
     props: ['state'],
     emits: [],
     data: function () {

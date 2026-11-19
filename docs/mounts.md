@@ -5,7 +5,7 @@ A mount is a folder of one machine, seen on another: `~/Pictures` of the laptop 
 it is mounted on reads it, and writes it too when the mount is read-write, as any folder of its
 own; the files stay where they are.
 
-The page is **Mounts**, on All categories beside Shared folders. **+ Mount…** asks step by step, or on one
+The page is **Mounts**, on All categories beside Shared folders. **New mount** asks step by step, or on one
 page: **From**, the machine the folder is on and the folder; **To**, the machine it is mounted on
 and where, and the mode, read-only or read-write; **Check**, with a label of its own. Each mount is a row: where it stands, what is wrong with it, what went through it.
 A row's actions (a click on a row opens them where the table has no room) set it aside and back

@@ -12,7 +12,7 @@ database's page, at `/databases/<server>/<database>`.
 
 ## New database
 
-**+ New database** opens a form of five steps, step by step or on one page, as New service
+**New database** opens a form of five steps, step by step or on one page, as New service
 does; it opens at `/databases/new`, from **Database** in New service's first step, from **+ New
 database here** on a machine's Databases tab (that machine picked), and from **New database…**
 in an app's Data tab (that app ticked).

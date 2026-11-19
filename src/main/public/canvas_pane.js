@@ -1,4 +1,5 @@
 import machine_drawing from './machine_drawing.js';
+import page_head from './page_head.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
 
@@ -29,11 +30,9 @@ const LIGHTS = [
 const canvas_pane = {
     template: `
 <article id="detail" class="list canvas-pane">
-    <div class="list-head">
-        <h1>Canvas</h1>
-        <span class="muted">{{ counts }}</span>
-        <span v-if="(note !== '')" class="bad">{{ note }}</span>
-    </div>
+    <page-head category="canvas" :count="machines.length">
+        <template #state><span v-if="(note !== '')" class="page-head-count bad">{{ note }}</span></template>
+    </page-head>
     <p class="muted canvas-legend">
         <span v-for="item of LIGHTS" :key="item.light"><svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true"><circle r="4.6" :class="['canvas-light', item.light]"/></svg>{{ item.said }}</span>
         <span><svg viewBox="-9 -9 18 18" width="16" height="16" aria-hidden="true"><circle r="3.6" class="canvas-light green"/><circle r="7" class="canvas-ring still"/></svg>work going on</span>
@@ -65,7 +64,7 @@ const canvas_pane = {
     </div>
 </article>
 `,
-    components: {'machine-drawing': machine_drawing},
+    components: {'machine-drawing': machine_drawing, 'page-head': page_head},
     props: ['state'],
     emits: ['remote'],
     data: function () {
@@ -110,21 +109,6 @@ const canvas_pane = {
                 }
                 return out;
             });
-        },
-        counts: function () {
-            const total = this.machines.length;
-            const away = this.machines.filter(v => (v.light === 'dark')).length;
-            const said = [`${total} ${(total === 1) ? 'machine' : 'machines'}`];
-            if (away > 0) {
-                said.push(`${away} away`);
-            }
-            for (const [light, words] of [['red', 'something failed'], ['amber', 'something to look at']]) {
-                const count = this.machines.filter(v => (v.light === light)).length;
-                if (count > 0) {
-                    said.push(`${count} with ${words}`);
-                }
-            }
-            return said.join(' · ');
         },
     },
     watch: {

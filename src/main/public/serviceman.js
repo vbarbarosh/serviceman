@@ -42,6 +42,7 @@ import mounts_section from './mounts_section.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
 import page_crumbs from './page_crumbs.js';
+import page_head from './page_head.js';
 import program_place from './program_place.js';
 import program_shell from './program_shell.js';
 import remote_databases from './remote_databases.js';
@@ -329,6 +330,7 @@ const service_logs = {
 const config_editor = {
     template: `
 <div id="editor">
+    <page-head category="config"/>
     <div class="ace" ref="ace"/>
     <footer>
         <button type="button" :disabled="busy" @click="check">Check</button>
@@ -339,6 +341,7 @@ const config_editor = {
     </footer>
 </div>
 `,
+    components: {'page-head': page_head},
     // seek: the text the cursor is put on once the config is loaded, '"apps"' for the apps
     // domain; '' for the top
     props: ['theme', 'seek'],
@@ -2093,7 +2096,7 @@ const app = {
         <article v-else-if="forwards_open" id="detail" class="form"><forwards-section :state="state"/></article>
         <article v-else-if="mounts_open" id="detail" class="form"><mounts-section :state="state"/></article>
         <article v-else-if="boards_open" id="detail" class="form"><boards-pane :state="state" @saved="poll"/></article>
-        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @new_database="databases_show(Object.assign({page: 'new'}, $event))" @select="select_named" @saved="poll" @walls="wall_new"/></article>
+        <article v-else-if="apps_open" id="detail" class="form"><apps-pane :key="('apps-' + (apps_settings_of || ''))" :state="state" :open="apps_settings_of" @create="create" @new_database="databases_show(Object.assign({page: 'new'}, $event))" @select="select_named" @saved="poll" @walls="wall_new"/></article>
         <tailscale-pane v-else-if="tailscale_open" :state="state" @saved="poll"/>
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>

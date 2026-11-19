@@ -5,6 +5,7 @@ import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
 import machine_icons from './machine_icons.js';
+import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
@@ -17,15 +18,13 @@ import tailnet_name_of from './tailnet_name_of.js';
 const remotes_pane = {
     template: `
 <article id="detail" class="list">
-    <div class="list-head">
-        <h1>Remotes</h1>
-        <span class="muted">{{ remotes.length }}</span>
-        <div class="list-acts">
+    <page-head category="remotes" :count="remotes.length">
+        <template #acts>
             <button v-if="(apt_open === false)" type="button" :disabled="(apt_count === 0)" :title="((apt_count === 0) ? 'Nothing waits to be installed on the machines shown' : 'apt-get update and upgrade on each of them, at once')" @click="apt_open = true">{{ ((apt_count === 0) ? 'No updates' : ('Install updates on ' + apt_count)) }}</button>
             <button type="button" @click="$emit('join')">{{ state.join === null ? 'Let machines join' : 'Machines may join' }}</button>
-            <button type="button" class="primary" @click="$emit('create')">+ New remote</button>
-        </div>
-    </div>
+            <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button>
+        </template>
+    </page-head>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="find a machine" aria-label="Find a machine by its name, hostname, tailnet name or tag" spellcheck="false">
         <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
@@ -74,7 +73,7 @@ const remotes_pane = {
     </data-table>
 </article>
 `,
-    components: {'apt-all-section': apt_all_section, 'data-table': data_table},
+    components: {'apt-all-section': apt_all_section, 'data-table': data_table, 'page-head': page_head},
     props: ['state', 'answering'],
     emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
     data: function () {

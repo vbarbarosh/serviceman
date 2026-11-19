@@ -1,5 +1,6 @@
 import CATEGORIES from './categories.js';
 import format_ms_ago from './format_ms_ago.js';
+import page_head from './page_head.js';
 
 // How many items a big tile draws one mark each for; past it, one bar split by share
 const MARKS_MAX = 48;
@@ -15,10 +16,7 @@ const MARK_ORDER = ['run', 'busy', 'bad', 'idle', 'accent'];
 const categories_pane = {
     template: `
 <article id="detail" class="list categories">
-    <div class="list-head">
-        <h1>All categories</h1>
-        <span class="muted">{{ count }}</span>
-    </div>
+    <page-head category="categories" :count="count"/>
     <template v-if="(needs.length > 0)">
         <h2 class="cat-label" :class="needs_kind">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>
@@ -71,6 +69,7 @@ const categories_pane = {
     </div>
 </article>
 `,
+    components: {'page-head': page_head},
     emits: ['pick'],
     props: {
         // What each category says on its right, {key: {text, state, title}}, as the first

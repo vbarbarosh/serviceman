@@ -730,7 +730,7 @@ node src/main data/serviceman.json --check   # read the config, report what is w
 <p><code>--check</code> refuses a config that would only fail at the first request: an unknown type, a
 missing image, a hostname written twice, a duration nobody can read.</p>
 <h2 id="edit-from-the-control-page"><a class="anchor" href="#edit-from-the-control-page" aria-hidden="true" tabindex="-1">#</a>Edit from the control page</h2>
-<p>Services are created and reshaped on the control page itself. <strong>+ New service</strong> asks one
+<p>Services are created and reshaped on the control page itself. <strong>New service</strong> asks one
 question a screen, the steps on top keeping each answer, a click on one going back to it, and
 <strong>One page</strong> beside <strong>Step by step</strong> puts every question on one page with a summary of what
 <strong>Create</strong> makes; the switch keeps every answer. <strong>What</strong> is a tile each: Docker image, App
@@ -938,7 +938,7 @@ agent&#39;s link; the agent says where that socket is.</p>
 <h2 id="remotes"><a class="anchor" href="#remotes" aria-hidden="true" tabindex="-1">#</a>Remotes</h2>
 <p>A remote is a machine that carries services — a VPS, or the very machine serviceman runs on.
 It runs the agent, which dials this host and waits for orders; serviceman itself starts nothing
-and runs no docker. <strong>+ New remote</strong> on the control page writes this block for you. serviceman
+and runs no docker. <strong>New remote</strong> on the control page writes this block for you. serviceman
 never dials out, so the machine needs no open port, no public address and no key of yours.
 <a href="remotes.html">Remotes</a> has the whole story — installing the agent, a systemd unit, and what the
 token buys.</p>
@@ -2481,7 +2481,7 @@ comes off them.</li>
 <h2 id="load-tests"><a class="anchor" href="#load-tests" aria-hidden="true" tabindex="-1">#</a>Load tests</h2>
 <p>A load test sends <a href="https://k6.io/">k6</a> at a service: a number of users asking for one address
 for a while. The <strong>Load tests</strong> page makes them, runs them and keeps what each run measured; this
-is the list it writes. <strong>+ New test</strong> asks step by step, or on one page: <strong>Target</strong>, the service
+is the list it writes. <strong>New test</strong> asks step by step, or on one page: <strong>Target</strong>, the service
 and its address; <strong>Load</strong>, the users, for how long, and the machine it runs from; <strong>Passes when</strong>,
 the 95th percentile and the share of errors; <strong>Check</strong>, with its name.</p>
 <pre><code class="language-json">&quot;load_tests&quot;: [

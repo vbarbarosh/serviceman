@@ -1,4 +1,5 @@
 import agent_current from './agent_current.js';
+import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
 import remote_state_text from './remote_state_text.js';
 
@@ -18,10 +19,7 @@ const MAP_COLUMNS = [
 const map_pane = {
     template: `
 <article id="detail" class="list map-pane">
-    <div class="list-head">
-        <h1>Map</h1>
-        <span class="muted">{{ graph.counts.address }} addresses · {{ graph.counts.service }} services · {{ graph.counts.machine }} machines</span>
-    </div>
+    <page-head category="map"/>
     <p class="muted map-legend">
         <span><i class="map-key run"></i>runs there now</span>
         <span><i class="map-key may"></i>may run there</span>
@@ -59,6 +57,7 @@ const map_pane = {
     </div>
 </article>
 `,
+    components: {'page-head': page_head},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
@@ -240,8 +239,7 @@ function map_graph(state)
             edges.push({key: `m:${remote.name}>l:`, from: `m:${remote.name}`, to: 'l:', kind: 'logs'});
         }
     }
-    const counts = {address: addresses.length, service: services.length, machine: remotes.length + 1};
-    return {nodes, edges, counts};
+    return {nodes, edges};
 }
 
 // The machines a service that is not running may run on

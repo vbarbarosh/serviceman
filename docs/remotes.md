@@ -15,7 +15,7 @@ dialled. The visitor sees no difference.
 
 ## Add a remote
 
-**+ New remote** on the control page asks two things, step by step or on one page. **Name**: its
+**New remote** on the control page asks two things, step by step or on one page. **Name**: its
 name, its tags as chips (a service can ask for `#eu` instead of a name) and a title for the page;
 **Next** makes the token for you and writes it to the config. **Connect**: the two lines to run on
 that machine, the agent fetched and started with this host's address and its token, **Copy** beside
@@ -968,7 +968,7 @@ client reads any 502, 503, 504 or 52x as "not reachable now".
 
 A forward makes a port of one machine show up on another, the way `ssh -L` does, with no ssh:
 the machines' agents carry it. `from` is where the service is, `to` where it shows up. The
-**Forwards** page's **+ Add forward** asks for them step by step, or on one page: **From**, the
+**Forwards** page's **New forward** asks for them step by step, or on one page: **From**, the
 machine and its port, address or socket; **To**, where it comes out; **Check**, with a label. A
 Loki on vps1's loopback, as a socket file on the laptop:
 

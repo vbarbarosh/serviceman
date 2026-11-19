@@ -7,6 +7,7 @@ import app_socket_add from './app_socket_add.js';
 import apps_search from './apps_search.js';
 import format_bytes from './format_bytes.js';
 import https_off_note from './https_off_note.js';
+import page_head from './page_head.js';
 import to_clipboard from './to_clipboard.js';
 import wall_select from './wall_select.js';
 import walls_of from './walls_of.js';
@@ -36,10 +37,14 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 const apps_pane = {
     template: `
 <section class="apps-pane">
-    <div class="list-head">
-        <h1>Apps <span class="muted">{{ apps.length }}</span></h1>
-    </div>
-    <p class="muted">Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once; one .php file runs on a machine you pick. An app folder is made with + New service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
+    <page-head category="apps" :count="apps.length">
+        <template #acts>
+            <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button>
+        </template>
+        <template #how>
+            <p>Every service, a card each that opens it: a page serviceman serves, an app folder, a program on a socket file, a docker image, a program, something already running. A page goes in here: drop its zip, its folder or one .html page, and it answers at an address of its own at once; one .php file runs on a machine you pick. An app folder is made with + New service; dropped on the card of a page or an app folder, a zip or a folder is its new version.</p>
+        </template>
+    </page-head>
     <div v-if="(page_links.length > 0)" class="app-page">
         <b>Every app on one page:</b>
         <span v-for="link of page_links" :key="link.href" class="app-page-link">
@@ -125,8 +130,8 @@ const apps_pane = {
     <app-settings v-if="(settings !== null)" :folder="state_folder" :app="settings" :host="host_of(settings)" :tailnet="tailnet_of(settings.name)" :https_off="https_off" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" @close="settings = null" @saved="$emit('saved')" @more="more" @new_database="$emit('new_database', $event)" @walls="$emit('walls')"/>
 </section>
 `,
-    components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'wall-select': wall_select},
-    emits: ['new_database', 'select', 'saved', 'walls'],
+    components: {'app-file-browser-add': app_file_browser_add, 'app-php-add': app_php_add, 'app-settings': app_settings, 'app-socket-add': app_socket_add, 'https-off-note': https_off_note, 'page-head': page_head, 'wall-select': wall_select},
+    emits: ['create', 'new_database', 'select', 'saved', 'walls'],
     props: {
         state: {type: Object, required: true},
         // The app whose Settings window opens at once (Addresses' "set in"), null for none

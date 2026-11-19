@@ -3,6 +3,7 @@ import format_ms from './format_ms.js';
 import is_name_in_title from './is_name_in_title.js';
 import logline_link from './logline_link.js';
 import logs_link from './logs_link.js';
+import page_head from './page_head.js';
 import service_kind from './service_kind.js';
 import service_state_word from './service_state_word.js';
 
@@ -11,13 +12,9 @@ import service_state_word from './service_state_word.js';
 const services_pane = {
     template: `
 <article id="detail" class="list">
-    <div class="list-head">
-        <h1>Services</h1>
-        <span class="muted">{{ services.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" @click="$emit('create')">+ New service</button>
-        </div>
-    </div>
+    <page-head category="services" :count="services.length">
+        <template #acts><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New service</button></template>
+    </page-head>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="find a service" aria-label="Find a service by its name, address, image or machine" spellcheck="false">
         <button v-if="(place !== null)" type="button" class="chip on" title="Show the services of every machine again" @click="$emit('only', null)">on {{ place.title }} ×</button>
@@ -49,7 +46,7 @@ const services_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table, 'logs-link': logs_link},
+    components: {'data-table': data_table, 'logs-link': logs_link, 'page-head': page_head},
     // remote: the one machine the list is narrowed to, or null for all of them
     props: ['state', 'remote'],
     emits: ['create', 'only', 'select'],

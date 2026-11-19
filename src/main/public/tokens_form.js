@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import format_ms_ago from './format_ms_ago.js';
 import format_token_section from './format_token_section.js';
+import page_head from './page_head.js';
 import secret_hidden from './secret_hidden.js';
 import step_frame from './step_frame.js';
 import to_clipboard from './to_clipboard.js';
@@ -114,14 +115,14 @@ const tokens_form = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Tokens</h1>
-        <span class="muted">{{ tokens.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" @click="new_begin">+ New token</button>
-        </div>
-    </div>
-    <p class="muted">Each one lets an agent or a program do what you give it below with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the secrets, another machine, the config but the forwards its forwards right writes between its machines and the apps of files its apps right sends, or a service but the one its versions right sends a new version to.</p>
+    <page-head category="tokens" :count="tokens.length">
+        <template #acts>
+            <button type="button" class="primary" @click="new_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New token</button>
+        </template>
+        <template #how>
+            <p>Each one lets an agent or a program do what you give it below with the machines it names, through the control socket, with <code>Authorization: Bearer &lt;token&gt;</code>. It never touches the secrets, another machine, the config but the forwards its forwards right writes between its machines and the apps of files its apps right sends, or a service but the one its versions right sends a new version to.</p>
+        </template>
+    </page-head>
     <p class="muted tk-row">
         <span>This page is signed in with the owner's token, which <code>bin/owner-token</code> prints.<template v-if="(owner_token_file !== null)"> Should it leak, delete <code>{{ owner_token_file }}</code> and restart serviceman: a new one is made, and every page signs in again.</template></span>
         <button type="button" @click="sign_out">Sign out</button>
@@ -164,7 +165,7 @@ const tokens_form = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
     emits: [],
     data: function () {
         return {

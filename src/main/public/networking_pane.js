@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
+import page_head from './page_head.js';
 
 // Every machine's door, and what comes in through it.
 //
@@ -14,8 +15,14 @@ import door_rules_write from './door_rules_write.js';
 const networking_pane = {
     template: `
 <article id="detail" class="form">
-    <h1>Doors</h1>
-    <p class="muted">Whatever connects to <code>http.sock</code> beside a machine's agent is answered by that agent: it asks the wall in front of the name, and only on a yes carries the request to the service — on its own machine, or through the agent of the machine the service runs on, over the tailnet. serviceman writes each machine the table it routes by and is in none of it: with serviceman down, the doors go on answering. Only what a table cannot route — a service serviceman answers itself — still goes through serviceman.</p>
+    <page-head category="doors" :count="rules.length" how_label="How doors work">
+        <template #acts>
+            <button type="button" class="primary" @click="add_focus"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a door name</button>
+        </template>
+        <template #how>
+            <p>Whatever connects to <code>http.sock</code> beside a machine's agent is answered by that agent: it asks the wall in front of the name, and only on a yes carries the request to the service — on its own machine, or through the agent of the machine the service runs on, over the tailnet. serviceman writes each machine the table it routes by and is in none of it: with serviceman down, the doors go on answering. Only what a table cannot route — a service serviceman answers itself — still goes through serviceman.</p>
+        </template>
+    </page-head>
     <h2>What the doors answer</h2>
     <p class="muted">A name, and the service that takes it. The service keeps its own address as well — this is a name it also answers to, on that machine's front. <code>*.example.com</code> stands for every name under it, and answered by <code>*</code> each of those names is answered by the app whose own address it is: one rule for every app under a domain. A machine with no rule serves nothing, and the control page is not reachable through a door at all.</p>
     <p class="muted"><b>Behind</b> is a service asked before anything else is touched — an authwall. The door asks it <code>/auth/sidecar</code>, carries its <code>X-Auth-User</code> to the service on a yes, and on a no sends the visitor to <code>/auth/sign-in</code> on the name they asked for; a wall that cannot be asked lets nothing through. One wall stands in front of as many names as point at it, and serviceman writes nothing into it: whose email may pass is the wall's own business.</p>
@@ -33,7 +40,7 @@ const networking_pane = {
         </template>
     </data-table>
     <div class="rule-add">
-        <select v-model="fresh.machine">
+        <select ref="fresh_machine" v-model="fresh.machine" aria-label="The machine whose door answers the name">
             <option value="">which machine</option>
             <option v-for="item of machine_options" :key="item.value" :value="item.value">{{ item.label }}</option>
         </select>
@@ -67,7 +74,7 @@ bin/restart</pre>
     <p class="muted">Then point that machine's web server at the file, keeping the <code>Host</code> header as it came — the door answers by that name and nothing else.</p>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head},
     props: ['state'],
     emits: [],
     data: function () {
@@ -128,6 +135,11 @@ bin/restart</pre>
         },
     },
     methods: {
+        // Add a door name, in the head: the row that adds one, at the foot of the table
+        add_focus: function () {
+            this.$refs.fresh_machine.scrollIntoView({block: 'center'});
+            this.$refs.fresh_machine.focus();
+        },
         known: function (name) {
             return (name === '*') || this.services.some(v => v.name === name);
         },

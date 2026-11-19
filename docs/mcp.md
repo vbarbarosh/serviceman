@@ -86,7 +86,7 @@ its own.
 
 ## The token
 
-On serviceman's page, **Tokens**, **+ New token**, step by step: **Who for**, a label that says
+On serviceman's page, **Tokens**, **New token**, step by step: **Who for**, a label that says
 whose it is (`the box of the notes project`); **Rights**, **Machines** set to none, and under
 **Apps** its **fine ▸** with the right **apps** alone ticked and **only the apps it makes** under
 it, as it is for a new token; **Where**, no machine; then **Check**, and **Make the token**. **Apps** set to write would give it `versions` too, of no use to a box

@@ -1,3 +1,4 @@
+import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
 
 const RE_NAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -15,11 +16,14 @@ const PORT_DEFAULT = 3000;
 export default {
     template: `
 <section class="boards-pane">
-    <div class="list-head">
-        <h1>Boards <span class="muted">{{ boards.length }}</span></h1>
-        <button type="button" class="primary" :disabled="busy" @click="board_add">+ New board</button>
-    </div>
-    <p class="muted">A page of apps you put together, published on a machine: there its agent answers it on 127.0.0.1 and nowhere else, at the board's name under .localhost, and each app on it at its own, straight to where the app runs. Drag an app from the palette onto a board; drag it within the board to move it, back to the palette to take it off.</p>
+    <page-head category="boards" :count="boards.length">
+        <template #acts>
+            <button type="button" class="primary" :disabled="busy" @click="board_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New board</button>
+        </template>
+        <template #how>
+            <p>A page of apps you put together, published on a machine: there its agent answers it on 127.0.0.1 and nowhere else, at the board's name under .localhost, and each app on it at its own, straight to where the app runs. Drag an app from the palette onto a board; drag it within the board to move it, back to the palette to take it off.</p>
+        </template>
+    </page-head>
     <p v-if="(note !== '')" class="boards-note" :class="{bad: bad}" role="status">{{ note }}</p>
     <div class="boards-layout">
         <aside class="boards-palette" :class="{over: (over !== null) && (over.board === null)}" aria-label="Every app" data-palette="1">
@@ -63,6 +67,7 @@ export default {
     <div v-if="(dragged !== null)" class="board-ghost" :style="{left: (ghost.x + 'px'), top: (ghost.y + 'px'), '--hue': hue_of(dragged.name)}" aria-hidden="true"><span class="board-tile">{{ letter_of(app_of(dragged.name)) }}</span><span>{{ title_of(dragged.name) }}</span></div>
 </section>
 `,
+    components: {'page-head': page_head},
     emits: ['saved'],
     props: {
         state: {type: Object, required: true},

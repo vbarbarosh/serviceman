@@ -1,4 +1,5 @@
 import data_table from './data_table.js';
+import page_head from './page_head.js';
 import step_frame from './step_frame.js';
 
 // How often an open pane asks how the mounts stand: a mount on its way lands within seconds
@@ -73,14 +74,14 @@ const shared_folders_pane = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Shared folders</h1>
-        <span class="muted">{{ folders_count }}</span>
-        <div class="list-acts">
-            <button v-if="home_ready" type="button" class="primary" :disabled="(folder_form !== null)" @click="folder_form_begin">+ New folder</button>
-        </div>
-    </div>
-    <p class="muted">A folder that is the same on every machine that mounts it, each at a path of its own, read-write or read-only. The files are encrypted on each machine before they leave it; their names stay in Redis on the home.</p>
+    <page-head category="shared-folders" :count="folders_count">
+        <template #acts>
+            <button type="button" class="primary" :disabled="((home_ready === false) || (folder_form !== null))" :title="(home_ready ? '' : 'A shared folder needs its home first: set it up below')" @click="folder_form_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New shared folder</button>
+        </template>
+        <template #how>
+            <p>A folder that is the same on every machine that mounts it, each at a path of its own, read-write or read-only. The files are encrypted on each machine before they leave it; their names stay in Redis on the home.</p>
+        </template>
+    </page-head>
     <div class="card sf-card sf-home">
         <template v-if="(view === null)">
             <p class="muted"><span v-if="(load_error === '')" class="spin"/>{{ (load_error === '') ? 'reading…' : load_error }}</p>
@@ -174,7 +175,7 @@ const shared_folders_pane = {
     </template>
 </article>
 `,
-    components: {'step-frame': step_frame, 'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
     props: ['state'],
     emits: ['remote', 'changed'],
     data: function () {

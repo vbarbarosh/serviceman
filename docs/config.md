@@ -14,7 +14,7 @@ missing image, a hostname written twice, a duration nobody can read.
 
 ## Edit from the control page
 
-Services are created and reshaped on the control page itself. **+ New service** asks one
+Services are created and reshaped on the control page itself. **New service** asks one
 question a screen, the steps on top keeping each answer, a click on one going back to it, and
 **One page** beside **Step by step** puts every question on one page with a summary of what
 **Create** makes; the switch keeps every answer. **What** is a tile each: Docker image, App
@@ -163,7 +163,7 @@ agent's link; the agent says where that socket is.
 
 A remote is a machine that carries services — a VPS, or the very machine serviceman runs on.
 It runs the agent, which dials this host and waits for orders; serviceman itself starts nothing
-and runs no docker. **+ New remote** on the control page writes this block for you. serviceman
+and runs no docker. **New remote** on the control page writes this block for you. serviceman
 never dials out, so the machine needs no open port, no public address and no key of yours.
 [Remotes](remotes.md) has the whole story — installing the agent, a systemd unit, and what the
 token buys.
@@ -1629,7 +1629,7 @@ publishes it there. Each change is saved at once. A program reads the list with
 
 A load test sends [k6](https://k6.io/) at a service: a number of users asking for one address
 for a while. The **Load tests** page makes them, runs them and keeps what each run measured; this
-is the list it writes. **+ New test** asks step by step, or on one page: **Target**, the service
+is the list it writes. **New test** asks step by step, or on one page: **Target**, the service
 and its address; **Load**, the users, for how long, and the machine it runs from; **Passes when**,
 the 95th percentile and the share of errors; **Check**, with its name.
 

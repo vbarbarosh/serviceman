@@ -1,5 +1,6 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import page_head from './page_head.js';
 
 // The dot of each state, as Services draws a service: a filled disc is alive, an empty ring has
 // nothing to say
@@ -12,12 +13,15 @@ const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
 const health_pane = {
     template: `
 <article id="detail" class="list health">
-    <div class="list-head">
-        <h1>Health</h1>
-        <span :class="summary.state">{{ summary.text }}</span>
-        <span class="muted health-checked" :title="checked_title"><span v-if="((health === null) || (health.checked_at === null))" class="spin"/>{{ checked_text }}</span>
-    </div>
-    <p class="muted">Looked at every minute: whether each machine is here and has room, its agent, updates, Docker and firewall, and what the Security page last found there; whether each service answers the way a visitor's request reaches it; whether Logline takes every machine's lines; whether each forward listens. A problem shows once it is seen twice in a row, and goes once it is mended.</p>
+    <page-head category="health">
+        <template #state><span v-if="(summary.text !== '')" class="page-head-count" :class="summary.state">{{ summary.text }}</span></template>
+        <template #acts>
+            <span class="page-head-when" :title="checked_title"><span v-if="((health === null) || (health.checked_at === null))" class="spin"/>{{ checked_text }}</span>
+        </template>
+        <template #how>
+            <p>Looked at every minute: whether each machine is here and has room, its agent, updates, Docker and firewall, and what the Security page last found there; whether each service answers the way a visitor's request reaches it; whether Logline takes every machine's lines; whether each forward listens. A problem shows once it is seen twice in a row, and goes once it is mended.</p>
+        </template>
+    </page-head>
     <section v-for="item of problems" :key="item.key" class="card problem">
         <div class="problem-head">
             <span class="dot" :class="((item.level === 'warn') ? 'stopping' : 'failed')"/>
@@ -51,7 +55,7 @@ const health_pane = {
     </section>
 </article>
 `,
-    components: {'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head},
     props: ['state'],
     emits: ['remote', 'security', 'select'],
     computed: {
@@ -89,7 +93,7 @@ const health_pane = {
                 return {state: 'muted', text: 'Nothing set up yet'};
             }
             if (items.length === 0) {
-                return {state: 'ok-text', text: 'Everything works'};
+                return {state: 'run', text: 'Everything works'};
             }
             return {state: (counts.bad > 0) ? 'bad' : 'warn', text: items.join(' · ')};
         },

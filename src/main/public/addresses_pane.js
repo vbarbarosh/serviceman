@@ -2,6 +2,7 @@ import data_table from './data_table.js';
 import door_rule_value from './door_rule_value.js';
 import door_rules_write from './door_rules_write.js';
 import https_off_note from './https_off_note.js';
+import page_head from './page_head.js';
 
 // How often the ways are asked again while the page is open: serviceman keeps each lookup as long
 const WAYS_EVERY_MS = 30000;
@@ -20,13 +21,11 @@ const SET_IN_WORDS = {settings: 'Settings', apps: 'Apps', config: 'Config', door
 const addresses_pane = {
     template: `
 <article id="detail" class="list">
-    <div class="list-head">
-        <h1>Addresses</h1>
-        <span class="muted">{{ rows_all.length }}</span>
-        <div class="list-acts">
+    <page-head category="addresses" :count="rows_all.length">
+        <template #acts>
             <button type="button" @click="$emit('doors')">Doors and door names</button>
-        </div>
-    </div>
+        </template>
+    </page-head>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="filter by name or service" spellcheck="false">
         <button v-if="(place_title !== null)" type="button" class="chip on" title="Show every address again" @click="$emit('only', null)">the door of {{ place_title }} ×</button>
@@ -67,7 +66,7 @@ const addresses_pane = {
     <p v-if="(note !== '')" class="bad">{{ note }}</p>
 </article>
 `,
-    components: {'data-table': data_table, 'https-off-note': https_off_note},
+    components: {'data-table': data_table, 'https-off-note': https_off_note, 'page-head': page_head},
     // remote: the one machine whose door names the list is narrowed to, or null for every address
     props: ['state', 'remote'],
     emits: ['apps', 'config', 'doors', 'only', 'select', 'settings'],

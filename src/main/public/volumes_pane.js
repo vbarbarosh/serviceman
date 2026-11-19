@@ -1,4 +1,5 @@
 import data_table from './data_table.js';
+import page_head from './page_head.js';
 import volumes from 'volumes/volumes.js';
 
 // What survives a restart, and where it lives. There is no register apart from the services: a
@@ -7,11 +8,11 @@ import volumes from 'volumes/volumes.js';
 const volumes_pane = {
     template: `
 <article id="detail" class="list">
-    <div class="list-head">
-        <h1>Storage</h1>
-        <span class="muted">{{ volumes.length }}</span>
-    </div>
-    <p class="muted">Folders that survive a restart. A folder lives on one machine, so the service that keeps it runs there only. A service's own settings are where a path is added.</p>
+    <page-head category="storage" :count="volumes.length">
+        <template #how>
+            <p>Folders that survive a restart. A folder lives on one machine, so the service that keeps it runs there only. A service's own settings are where a path is added.</p>
+        </template>
+    </page-head>
     <div class="list-tools">
         <input v-model.trim="filter" type="search" placeholder="filter by folder, service, machine" spellcheck="false">
         <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="$emit('only', (chip.value === '' ? null : chip.value))">
@@ -35,7 +36,7 @@ const volumes_pane = {
     <volumes :machines="volume_machines"/>
 </article>
 `,
-    components: {'data-table': data_table, volumes},
+    components: {'data-table': data_table, 'page-head': page_head, volumes},
     // remote: the one machine the list is narrowed to, or null for all of them; the chips set it
     props: ['state', 'remote'],
     emits: ['only', 'remote', 'select'],

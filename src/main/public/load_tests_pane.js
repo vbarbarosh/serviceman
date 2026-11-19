@@ -1,5 +1,6 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
+import page_head from './page_head.js';
 import step_frame from './step_frame.js';
 
 // Load tests: k6 sent at a service. A test is a number of users asking for one address for a
@@ -84,14 +85,14 @@ const load_tests_pane = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Load tests</h1>
-        <span class="muted">{{ tests.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" :disabled="(form !== null)" @click="form_begin(null)">+ New test</button>
-        </div>
-    </div>
-    <p class="muted">A test sends <a href="https://k6.io/" target="_blank" rel="noopener">k6</a> at a service: a number of users asking for one address for a while. k6 runs once, as the <code>grafana/k6</code> container on the remote you pick, and is removed afterwards. A sleeping service is woken first, so its start is not counted as a slow answer.</p>
+    <page-head category="load-tests" :count="tests.length">
+        <template #acts>
+            <button type="button" class="primary" :disabled="(form !== null)" @click="form_begin(null)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New test</button>
+        </template>
+        <template #how>
+            <p>A test sends <a href="https://k6.io/" target="_blank" rel="noopener">k6</a> at a service: a number of users asking for one address for a while. k6 runs once, as the <code>grafana/k6</code> container on the remote you pick, and is removed afterwards. A sleeping service is woken first, so its start is not counted as a slow answer.</p>
+        </template>
+    </page-head>
     <data-table :columns="test_columns" :rows="tests" row_key="name" :chosen="v => (v.name === picked_name)" :on_row="v => (picked = v.name)" actions_label="Run">
         <template #cell="{row, column}">
             <b v-if="(column.key === 'name')">{{ row.name }}</b>
@@ -175,7 +176,7 @@ const load_tests_pane = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'step-frame': step_frame},
+    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {

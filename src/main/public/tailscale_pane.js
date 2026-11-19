@@ -1,6 +1,7 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import overview_card from './overview_card.js';
+import page_head from './page_head.js';
 
 // What tailscale's BackendState means for serviceman, in a visitor's words, and its dot
 const STATES = {
@@ -30,14 +31,15 @@ const COLUMNS = [
 const tailscale_pane = {
     template: `
 <article id="detail" class="list tailscale">
-    <div class="list-head">
-        <h1>Tailscale</h1>
-        <span v-if="(view !== null)"><span class="dot" :class="said.dot"></span> {{ said.text }}</span>
-        <div class="list-acts">
+    <page-head category="tailscale">
+        <template #state><span v-if="(view !== null)" class="page-head-count"><span class="dot" :class="said.dot"/> {{ said.text }}</span></template>
+        <template #acts>
             <button type="button" :disabled="loading" @click="load">{{ (loading ? 'Asking…' : 'Refresh') }}</button>
-        </div>
-    </div>
-    <p class="muted">What serviceman does with tailscale in its image: its name and address on the tailnet, the certificate for https on the apps' own ports, the apps' names it answers on the tailnet, the way out to the tailnet, and each call it made to tailscale.</p>
+        </template>
+        <template #how>
+            <p>What serviceman does with tailscale in its image: its name and address on the tailnet, the certificate for https on the apps' own ports, the apps' names it answers on the tailnet, the way out to the tailnet, and each call it made to tailscale.</p>
+        </template>
+    </page-head>
     <p v-if="(error !== '')" class="bad">{{ error }}</p>
     <template v-if="(view !== null)">
         <p v-if="(view.here === false)" class="card tailscale-say">No tailscale here: serviceman runs outside its image, so it has no name on a tailnet, no certificate and no apps' names there. In its image tailscale comes with it.</p>
@@ -95,7 +97,7 @@ const tailscale_pane = {
     </template>
 </article>
 `,
-    components: {'data-table': data_table, 'overview-card': overview_card},
+    components: {'data-table': data_table, 'overview-card': overview_card, 'page-head': page_head},
     props: {
         state: {type: Object, required: true},
     },

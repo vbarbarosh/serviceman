@@ -26,6 +26,11 @@
     --busy-soft: color-mix(in srgb, var(--busy) 16%, transparent);
     --busy-text: var(--busy);
     --bad-soft: color-mix(in srgb, var(--bad) 14%, transparent);
+    --panel-2: color-mix(in srgb, var(--fg) 4%, var(--panel));
+    --run-edge: color-mix(in srgb, var(--run) 40%, var(--panel));
+    --busy-edge: color-mix(in srgb, var(--busy) 45%, var(--panel));
+    --bad-edge: color-mix(in srgb, var(--bad) 40%, var(--panel));
+    --accent-edge: color-mix(in srgb, var(--accent) 40%, var(--panel));
     --overlay: color-mix(in srgb, #000 40%, transparent);
     --shadow-pop: 0 8px 28px rgba(0, 0, 0, .18);
     --shadow-up: 0 -4px 16px rgba(0, 0, 0, .12);
@@ -65,6 +70,7 @@
     --bad-soft: #3b1f22;
     --bad-edge: #6b2e33;
     --accent-edge: #1d5b80;
+    --panel-2: #26252a;
     --overlay: rgba(0, 0, 0, .6);
     --shadow-pop: 0 4px 16px rgba(0, 0, 0, .4);
     --shadow-up: 0 -4px 16px rgba(0, 0, 0, .4);
@@ -356,7 +362,7 @@ main > section {
 
 article {
     overflow: auto;
-    padding: 1rem 1.25rem;
+    padding: 28px 32px 48px;
 }
 
 .muted {
@@ -1452,8 +1458,19 @@ pre {
 
 #editor {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto 1fr auto;
     min-height: 0;
+}
+
+#editor > .page-head {
+    margin: 0;
+    padding: 28px 32px 20px;
+}
+
+@media (max-width: 600px) {
+    #editor > .page-head {
+        padding: 16px 12px 14px;
+    }
 }
 
 #editor .ace {
@@ -2095,8 +2112,7 @@ kbd {
 article.list {
     display: flex;
     flex-direction: column;
-    gap: .9rem;
-    padding: 1.25rem 1.5rem;
+    gap: 18px;
 }
 
 /* Each part keeps its own height: a card that scrolls sideways would otherwise be squeezed
@@ -2118,6 +2134,208 @@ article.list > p {
 .list-head h1 {
     margin: 0;
     font-size: 1.3rem;
+}
+
+/* The kit: every page is drawn from it. Everything sits in a card, framed, 6 px, a band of its
+   own on top when it has a title; nothing lies straight on the olive page but the page head */
+.card-head {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    min-height: 50px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+    background: var(--panel-2);
+}
+
+.card-head h2 {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.card-head > h2 + * {
+    margin-left: auto;
+}
+
+.card-body {
+    padding: 18px;
+}
+
+/* A page's head: the category's icon in a tile, its name 26 px with a count chip, one line of
+   what the page is, the actions on the right, the primary last */
+.page-head {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin: 0 0 20px;
+}
+
+article.list > .page-head,
+article.list > .page-how {
+    margin-bottom: 6px;
+}
+
+.page-head-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--accent-edge);
+    border-radius: 6px;
+    background: var(--sel);
+    color: var(--link);
+}
+
+.page-head-text {
+    min-width: 0;
+}
+
+.page-head h1 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 0;
+    font-size: 26px;
+    line-height: 1.15;
+}
+
+.page-head-count {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.page-head-count.bad {
+    border-color: var(--bad-edge);
+    background: var(--bad-soft);
+    color: var(--bad);
+}
+
+.page-head-count.warn {
+    border-color: var(--busy-edge);
+    background: var(--busy-soft);
+    color: var(--busy-text);
+}
+
+.page-head-count.run {
+    border-color: var(--run-edge);
+    background: var(--run-soft);
+    color: var(--run);
+}
+
+.page-head-says {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+
+button.link.page-head-how {
+    margin-left: 6px;
+}
+
+.page-head-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.page-head-acts > button {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.page-head-acts > button:not(.primary) {
+    background: var(--panel-2);
+}
+
+/* When it last looked, beside the button that looks again */
+.page-head-when {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* What How it works opens: the page's longer words, in a card under the head */
+.page-how-body {
+    color: var(--muted);
+}
+
+.page-how-body > p:first-child {
+    margin-top: 0;
+}
+
+.page-how-body > p:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+    article {
+        padding: 16px 12px 32px;
+    }
+
+    .page-head {
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 14px;
+    }
+
+    .page-head-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .page-head-text {
+        flex: 1;
+    }
+
+    .page-head h1 {
+        font-size: 22px;
+    }
+
+    .page-head-says {
+        font-size: 14px;
+    }
+
+    .page-head-acts {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .page-head-acts > button {
+        flex: 1;
+    }
+
+    /* As drawn: the primary alone, full width; a page with no primary keeps what it has */
+    .page-head-acts:has(> .primary) > button:not(.primary) {
+        display: none;
+    }
 }
 
 /* The frame of a create form: title and the switch, the steps on top, one question, a bar at
@@ -2595,8 +2813,8 @@ input.sf-big {
     text-transform: uppercase;
 }
 
-/* Right under the title, nearer: the page's own gap is most of the way */
-.list-head + .cat-label {
+/* Right under the head, nearer: the page's own gap is most of the way */
+.page-head + .cat-label {
     margin-top: .5rem;
 }
 
@@ -4969,19 +5187,6 @@ article.rf .actions {
     overflow-wrap: anywhere;
 }
 
-.health .list-head {
-    flex-wrap: wrap;
-}
-
-.health .health-checked {
-    margin-left: auto;
-    white-space: nowrap;
-}
-
-.health .ok-text {
-    color: var(--run);
-}
-
 .health-area h2 {
     margin: 1.2rem 0 .5rem;
     color: var(--muted);
@@ -5142,11 +5347,6 @@ article.rf .actions {
 
 .databases .db-comma {
     color: var(--muted);
-}
-
-/* + New database stays one button on a phone */
-.databases .list-acts button {
-    white-space: nowrap;
 }
 
 /* New database: the line under the machines, an app's variable on its card, and the URL the
@@ -5673,12 +5873,6 @@ article.rf .actions {
 
 /* The Tailscale page: its state beside its name, a dot and the words; a notice when tailscale
    is not there or waits for a sign-in; the cards, then the calls */
-.tailscale .list-head > span {
-    display: inline-flex;
-    gap: .4rem;
-    align-items: center;
-}
-
 .tailscale .tailscale-say {
     margin: .8rem 0;
     padding: .8rem 1rem;

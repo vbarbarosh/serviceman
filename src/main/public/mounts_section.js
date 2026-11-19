@@ -2,6 +2,7 @@ import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms_ago from './format_ms_ago.js';
 import mounts_write from './mounts_write.js';
+import page_head from './page_head.js';
 import step_frame from './step_frame.js';
 
 // A folder of one machine, mounted on another: `from` is where the folder is, `to` where it
@@ -54,14 +55,14 @@ const mounts_section = {
         </template>
     </step-frame>
     <template v-else>
-    <div class="list-head">
-        <h1>Mounts</h1>
-        <span class="muted">{{ mounts.length }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary" :disabled="making" @click="begin">+ Mount…</button>
-        </div>
-    </div>
-    <p class="muted">A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder straight through the agent of the machine on the left, over the tailnet; an agent too old for that, or one that cannot be reached that way, goes over both machines' links through serviceman instead. No ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
+    <page-head category="mounts" :count="mounts.length">
+        <template #acts>
+            <button type="button" class="primary" :disabled="making" @click="begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New mount</button>
+        </template>
+        <template #how>
+            <p>A folder of one machine, mounted on another: <code>laptop · ~/Pictures → vps1 · /mnt/photos</code>. The machine on the right mounts it with sshfs, which speaks to the folder straight through the agent of the machine on the left, over the tailnet; an agent too old for that, or one that cannot be reached that way, goes over both machines' links through serviceman instead. No ssh and no key. It sees that folder and nothing outside it, read-only or read-write as you pick. The folder may be serviceman's own state dir, <code>{{ state_folder }}/</code>. The machine that mounts needs the agent's root half (<code>sudo bin/install-root</code> in the agent's folder); sshfs is installed there when it is missing.</p>
+        </template>
+    </page-head>
     <data-table :columns="columns" :rows="mounts" row_key="label" :row_class="v => (v.off ? 'off' : [])" actions_label="On">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'label')">{{ row.label }}</template>
@@ -82,7 +83,7 @@ const mounts_section = {
     </template>
 </div>
 `,
-    components: {'step-frame': step_frame, 'data-table': data_table},
+    components: {'data-table': data_table, 'page-head': page_head, 'step-frame': step_frame},
     props: ['state'],
     emits: [],
     data: function () {

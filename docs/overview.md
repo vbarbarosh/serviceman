@@ -113,7 +113,7 @@ the service itself stays up.
 `serviceman.localhost` (and a second port of its own) serves a small Vue page. It shows every
 service, its state, its addresses, its policy and its instances, and it does the work:
 
-- **+ New service** — one question a screen, or all of them on one page: what it is, where it
+- **New service** — one question a screen, or all of them on one page: what it is, where it
   comes from, the machine, its address and who may open it, then Check. The name and the port
   come from the image when left empty, and an address with a path strips its prefix. The rest
   — storage, policy, copies — stays on serviceman's defaults until changed on Check.
@@ -131,6 +131,9 @@ service, its state, its addresses, its policy and its instances, and it does the
   address, kind and state. A filter and the state chips narrow it; the name in the header
   brings it back. **Addresses** lists every name that reaches a service, with who opens it and
   whether it does.
+- **The head** — under the crumbs, every category's page opens with its icon, its name and
+  count, one line of what it is, and its buttons on the right, the main one last. **How it
+  works** opens the rest of what the page has to say, in a card under the head.
 - **The crumbs** — on top of every page, where you are: `Remotes ▾ › vps1 › Settings`. The
   first is a menu of the categories, Services, Databases, Remotes, Addresses, Shared folders,
   Secrets and Tokens, each with its count, then **All categories**: what needs you first, a

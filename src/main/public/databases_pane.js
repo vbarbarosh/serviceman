@@ -3,6 +3,7 @@ import database_cell from './database_cell.js';
 import database_new from './database_new.js';
 import database_rows from './database_rows.js';
 import database_state from './database_state.js';
+import page_head from './page_head.js';
 
 // How often an open pane asks how the servers stand: one coming up says each step within seconds
 const REFRESH_MS = 3000;
@@ -62,13 +63,11 @@ const databases_pane = {
         </template>
     </template>
     <template v-else>
-        <div class="list-head">
-            <h1>Databases</h1>
-            <span class="muted">{{ databases_count }}</span>
-            <div class="list-acts">
-                <button type="button" class="primary" @click="$emit('place', {page: 'new'})">+ New database</button>
-            </div>
-        </div>
+        <page-head category="databases" :count="databases_count">
+            <template #acts>
+                <button type="button" class="primary" @click="$emit('place', {page: 'new'})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database</button>
+            </template>
+        </page-head>
         <div class="list-tools">
             <input v-model.trim="filter" type="search" placeholder="find a database" aria-label="Find a database by its name, engine, machine or app" spellcheck="false">
             <button v-for="chip of chips" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" @click="show = chip.value">
@@ -87,6 +86,7 @@ const databases_pane = {
     components: {
         'data-table': data_table,
         'database-new': database_new,
+        'page-head': page_head,
         'table-cell': database_cell,
     },
     // place: what is open, null for the table; {page: 'new', restore, given, remote} for New
