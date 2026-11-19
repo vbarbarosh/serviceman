@@ -1700,7 +1700,7 @@ const service_page = {
     <service-overview v-if="(tab_now === 'overview')" :view="view" :original="original" :remotes="remotes" :port="port" :forwards="brought" @logs="$emit('tab', 'logs')" @remote="$emit('remote', $event)" @settings="settings_at($event)"/>
     <!-- Its settings, a card each, edited and saved in place; Remove last; then the names a
          machine's door answers for it, and a new version from a script -->
-    <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" @saved="saved" @walls="$emit('walls')">
+    <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" :stands="stands" @restart="$emit('restart', view)" @saved="saved" @walls="$emit('walls')">
         <template #after>
             <service-doors :view="view" :remotes="remotes" :names="names"/>
             <service-script v-if="(view.app_folder !== null)" :view="view"/>
@@ -1784,6 +1784,23 @@ const service_page = {
                 return 'going';
             }
             return 'stopped';
+        },
+        // How it stands, for what a card's Save does to it: up (running or on its way), stopped,
+        // asleep (it starts at a visit), failed, away (its machine), served (nothing to start)
+        stands: function () {
+            if (this.driven === false) {
+                return 'served';
+            }
+            if (this.machine_away || (this.view.phase === 'lost')) {
+                return 'away';
+            }
+            if ((this.view.phase === 'running') || (this.view.phase === 'starting') || (this.view.doing !== null)) {
+                return 'up';
+            }
+            if (this.view.phase === 'failed') {
+                return 'failed';
+            }
+            return (this.view.policy.start === 'always') ? 'stopped' : 'asleep';
         },
         // Its tabs: Overview, Logs, Settings, Files, Shell, those it has
         tabs: function () {

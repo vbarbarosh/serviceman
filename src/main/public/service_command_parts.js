@@ -40,13 +40,24 @@ function service_command_parts(line)
     return {group, lead, program: (words.length === 0) ? '' : words[0], options};
 }
 
-// The words of a command line, as a shell splits them: quotes keep their spaces and are taken off
+// The words of a command line, as a shell splits them: quotes keep their spaces and are taken
+// off, and a backslash outside them keeps the character after it ('\'' is a quote in quotes)
 function words_of(line)
 {
     const out = [];
     let word = null;
     let quote = null;
+    let escaped = false;
     for (const c of String(line)) {
+        if (escaped) {
+            word = (word === null) ? c : (word + c);
+            escaped = false;
+            continue;
+        }
+        if ((c === '\\') && (quote === null)) {
+            escaped = true;
+            continue;
+        }
         if (quote !== null) {
             if (c === quote) {
                 quote = null;

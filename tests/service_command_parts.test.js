@@ -29,3 +29,9 @@ test('an empty line is nothing to read', async function () {
     const parts = await parts_of('');
     assert.deepStrictEqual(parts, {group: '', lead: '', program: '', options: []});
 });
+
+test('a quote inside a group\'s quoted line, written \'\\\'\', is read as a quote', async function () {
+    const parts = await parts_of('sg video -c \'ffmpeg -vf "text=\'\\\'\'hi\'\\\'\'"\'');
+    assert.strictEqual(parts.group, 'video');
+    assert.deepStrictEqual(parts.options, [{flag: '-vf', value: 'text=\'hi\''}]);
+});

@@ -7,6 +7,7 @@ import app_setup_text from './app_setup_text.js';
 import app_zip_read from './app_zip_read.js';
 import brought_from_forwards from './brought_from_forwards.js';
 import brought_said from './brought_said.js';
+import code_lines from './code_lines.js';
 import copy_progress from 'file_manager/copy_progress.js';
 import docker_run_parse from './docker_run_parse.js';
 import format_bytes from './format_bytes.js';
@@ -15,6 +16,10 @@ import machine_card from './machine_card.js';
 import machine_tile from './machine_tile.js';
 import secret_name_said from './secret_name_said.js';
 import secret_rows_write from './secret_rows_write.js';
+import service_command_diff from './service_command_diff.js';
+import service_command_join from './service_command_join.js';
+import service_command_lines from './service_command_lines.js';
+import service_command_parts from './service_command_parts.js';
 import service_from_form from './service_from_form.js';
 import service_kind from './service_kind.js';
 import settled from './settled.js';
@@ -113,15 +118,19 @@ const IDLE_STEPS = ['2m', '10m', '1h'];
 // A service is read top to bottom in these cards, on its page and while it is made. `must` is
 // what a new one cannot do without; the rest open closed, on serviceman's defaults.
 const SECTIONS = [
-    {id: 'name', title: 'Name', kinds: ['docker', 'shell', 'external', 'files'], must: true},
-    {id: 'runs', title: 'What runs', kinds: ['docker', 'shell', 'external', 'files'], must: true},
-    {id: 'where', title: 'Where it runs', kinds: ['docker', 'shell', 'external'], must: true},
-    {id: 'address', title: 'Addresses', kinds: ['docker', 'shell', 'external', 'files'], must: true},
-    {id: 'ports', title: 'Its port on another machine', kinds: ['shell'], must: false},
-    {id: 'keep', title: 'Storage and secrets', kinds: ['docker', 'shell'], must: false},
-    {id: 'policy', title: 'When it runs', kinds: ['docker', 'shell'], must: false},
-    {id: 'scale', title: 'Copies', kinds: ['docker'], must: false},
+    {id: 'name', title: 'Name', kinds: ['docker', 'shell', 'external', 'files'], must: true, icon: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>'},
+    {id: 'runs', title: 'What runs', kinds: ['docker', 'shell', 'external', 'files'], must: true, icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>'},
+    {id: 'where', title: 'Where it runs', kinds: ['docker', 'shell', 'external'], must: true, icon: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/>'},
+    {id: 'address', title: 'Addresses', kinds: ['docker', 'shell', 'external', 'files'], must: true, icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>'},
+    {id: 'ports', title: 'Its port on another machine', kinds: ['shell'], must: false, icon: '<path d="M4 12h16M14 6l6 6-6 6"/>'},
+    {id: 'keep', title: 'Storage and secrets', kinds: ['docker', 'shell'], must: false, icon: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/>'},
+    {id: 'policy', title: 'When it runs', kinds: ['docker', 'shell'], must: false, icon: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'},
+    {id: 'scale', title: 'Copies', kinds: ['docker'], must: false, icon: '<rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M4 16V5.5A1.5 1.5 0 0 1 5.5 4H16"/>'},
 ];
+
+// A service's cards in its Settings tab, as drawn: what runs first, over two columns, then where
+// and when, its name, its addresses, its port elsewhere, its storage, its copies
+const SETTINGS_ORDER = ['runs', 'where', 'policy', 'name', 'address', 'ports', 'keep', 'scale'];
 
 // What each card changes in the model: an open card is marked changed while any of them differs
 // from what is saved, and Cancel puts it back
@@ -139,7 +148,7 @@ const SECTION_FIELDS = {
 // Which card each thing that can be wrong is in
 const SECTION_PROBLEMS = {
     name: ['name'],
-    runs: ['port', 'command', 'upstream', 'socket'],
+    runs: ['port', 'command', 'group', 'upstream', 'socket'],
     where: ['places'],
     address: ['hosts'],
     ports: ['brought'],
@@ -405,8 +414,8 @@ const service_form = {
     <div class="svc-cards" :class="{grid: (creating === false)}">
     <div v-for="section of (simple ? [] : sections)" :key="section.id" class="card svc-sec" :class="{open: section.open, wrong: section.wrong, changed: section.changed, dim: ((creating === false) && (editing !== '') && (section.open === false))}" :id="('svc-' + section.id)">
         <div class="svc-head">
-            <b>{{ section.title }}</b>
-            <span v-if="section.changed" class="tag svc-changed">changed</span>
+            <b><svg v-if="(creating === false)" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="section.icon"/>{{ section.title }}</b>
+            <span v-if="section.changed" class="tag svc-changed">{{ (section.open && (creating === false)) ? ((foot_changes.length === 1) ? '1 change' : (foot_changes.length + ' changes')) : 'changed' }}</span>
             <span v-if="(section.open === false)" class="svc-sum">
                 <span v-for="line of section.summary.lines" :key="line">{{ line }}</span>
                 <span v-if="section.changed" class="muted">was {{ section.was }}</span>
@@ -473,7 +482,65 @@ const service_form = {
                     <p class="muted">Off for an image that must be pid 1 itself — one built on s6-overlay.</p>
                 </div>
             </template>
-            <template v-if="(section.id === 'runs' && m.type === 'shell')">
+            <!-- A program's What runs, as drawn: its command an option a line, its folder and
+                 its group beside each other, the rest folded in a row that says what it holds -->
+            <div v-if="((section.id === 'runs') && (m.type === 'shell') && (creating === false) && (cmd !== null))" class="svc-run-edit">
+                <b class="svc-run-label">The command, an option a line</b>
+                <code-lines :text="cmd.text" :marks="cmd_diff.marks" :lead="((cmd.group === '') ? '' : ('sg ' + cmd.group + ' -c \\''))" :tail="((cmd.group === '') ? '' : '\\'')" label="The command, an option a line" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
+                <p v-if="problems.command" class="bad">{{ problems.command }}</p>
+                <p v-else-if="cmd.script" class="muted">Run through <code>/bin/sh</code>. It was written as a script, so its lines stay lines.</p>
+                <p v-else class="muted">Run through <code>/bin/sh</code>. One line or many: Save joins them with spaces, into one line.</p>
+                <div class="svc-run-pair">
+                    <label>Its folder<input v-model.trim="m.cwd" placeholder="a folder of serviceman's own" spellcheck="false"></label>
+                    <label>Runs as the group<input :value="cmd.group" :class="{wrong: problems.group}" placeholder="none — optional" spellcheck="false" @input="cmd_group($event.target.value)"></label>
+                </div>
+                <p v-if="problems.group" class="bad">{{ problems.group }}</p>
+                <div class="svc-fold" :class="{open: (fold_open || (problems.port !== undefined))}">
+                    <button type="button" class="svc-fold-head" :aria-expanded="(fold_open || (problems.port !== undefined))" @click="fold_open = (fold_open === false)">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                        <b>Image, lines and variables</b>
+                        <span class="muted">{{ fold_says }}</span>
+                    </button>
+                    <div v-if="(fold_open || (problems.port !== undefined))" class="grid svc-body">
+                        <label>Port</label>
+                        <div>
+                            <input v-model.trim="m.port" placeholder="none" class="short" :class="{wrong: problems.port}" spellcheck="false">
+                            <p v-if="problems.port" class="bad">{{ problems.port }}</p>
+                            <p v-else class="muted">Only when it serves HTTP. Empty for a program that serves a socket, a tunnel or nothing; it then starts with serviceman and stays up.</p>
+                        </div>
+                        <label>Image</label>
+                        <div>
+                            <input v-model.trim="m.image" placeholder="node:26-alpine — optional" spellcheck="false">
+                            <p class="muted">Where its lines run, with the folder at <code>/app</code>. Empty runs them on the machine itself.</p>
+                        </div>
+                        <template v-if="(m.image !== '')">
+                            <label>User</label>
+                            <div><input v-model.trim="m.user" placeholder="node:node — optional" spellcheck="false"></div>
+                        </template>
+                        <label>Install</label>
+                        <div>
+                            <input v-model.trim="m.install" placeholder="git clone https://github.com/you/app . && npm install — optional" spellcheck="false">
+                            <p class="muted">Run once in the folder, before the first start.</p>
+                        </div>
+                        <label>Update</label>
+                        <div><input v-model.trim="m.update" placeholder="git pull && npm install — optional" spellcheck="false"></div>
+                        <label>Before stop</label>
+                        <div><input v-model.trim="m.stop" placeholder="bin/flush — optional" spellcheck="false"></div>
+                        <label>Uninstall</label>
+                        <div><input v-model.trim="m.uninstall" placeholder="dropdb my_app — optional" spellcheck="false"></div>
+                        <label>Environment</label>
+                        <div>
+                            <div v-for="row of m.env" :key="row.key" class="line pair">
+                                <input v-model.trim="row.name" placeholder="NAME" class="name-field" spellcheck="false">
+                                <input v-model.trim="row.value" placeholder="value" spellcheck="false">
+                                <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
+                            </div>
+                            <button type="button" @click="row_add(m.env, {name: '', value: ''})">+ variable</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template v-if="((section.id === 'runs') && (m.type === 'shell') && creating)">
                 <label>Command</label>
                 <div>
                     <input v-model.trim="m.command" placeholder="node server.js" :class="{wrong: problems.command}" spellcheck="false">
@@ -748,17 +815,34 @@ const service_form = {
                 </template>
             </template>
         </div>
+        <!-- The open card's foot: the change alone, what Save does to it as it stands now, and the
+             Saves that fit: a running one is saved and restarted, or saved for later -->
         <div v-if="(section.open && section.last && creating === false)" class="svc-foot">
-            <button type="button" class="primary" :disabled="busy" @click="section_save_one"><span v-if="busy" class="spin"/>{{ busy ? 'saving…' : 'Save' }}</button>
-            <button type="button" :disabled="busy" @click="section_cancel">Cancel</button>
-            <span :class="(bad ? 'bad' : 'muted')">{{ foot_says }}</span>
+            <div class="svc-foot-says">
+                <p v-if="(foot_changes.length === 0)" class="muted">Nothing changed yet</p>
+                <p v-else class="svc-foot-change"><b>{{ (foot_changes.length === 1) ? '1 change' : (foot_changes.length + ' changes') }}:</b> <code v-for="item of foot_changes.slice(0, 3)" :key="item">{{ item }}</code><span v-if="(foot_changes.length > 3)">and {{ foot_changes.length - 3 }} more</span></p>
+                <p v-if="(foot_says !== '')" :class="(bad ? 'bad' : 'muted')"><svg v-if="((bad === false) && (save_way.icon !== ''))" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" v-html="save_way.icon"/>{{ foot_says }}</p>
+            </div>
+            <div class="svc-foot-acts">
+                <button type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} serviceman.json</button>
+                <button type="button" :disabled="busy" @click="section_cancel">Cancel</button>
+                <template v-if="save_way.restart">
+                    <button type="button" :disabled="(busy || (foot_changes.length === 0))" @click="section_save_one(false)"><span v-if="(saving === 'later')" class="spin"/>{{ (saving === 'later') ? 'saving…' : 'Save, restart later' }}</button>
+                    <button type="button" class="primary" :disabled="(busy || (foot_changes.length === 0))" @click="section_save_one(true)"><span v-if="(saving === 'restart')" class="spin"/>{{ (saving === 'restart') ? 'saving…' : 'Save and restart' }}</button>
+                </template>
+                <button v-else type="button" class="primary" :disabled="(busy || (foot_changes.length === 0))" @click="section_save_one(false)"><span v-if="(saving === 'later')" class="spin"/>{{ (saving === 'later') ? 'saving…' : 'Save' }}</button>
+            </div>
         </div>
+        <pre v-if="(section.open && section.last && (creating === false) && json_open)" class="tail svc-card-json">{{ config_text }}</pre>
     </div>
     </div>
+    <!-- What the page holding this puts under the cards, before Remove: the names a machine's
+         door answers for it, a new version from a script -->
+    <slot name="after"/>
     <div v-if="(creating === false)" class="card svc-sec svc-remove" :class="{dim: (editing !== '')}">
         <div class="svc-head">
-            <b>Remove</b>
-            <span v-if="(removing === false)" class="svc-sum"><span>Takes {{ model.name }} out of the config{{ forwards_gone }}. Anything running keeps running.</span></span>
+            <b><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Remove {{ model.name }}</b>
+            <span v-if="(removing === false)" class="svc-sum"><span>Takes it out of serviceman{{ forwards_gone }}; anything running keeps running.</span></span>
             <span v-else class="svc-sum"><span class="svc-warn">Forget {{ model.name }}{{ forwards_gone }}? Anything running keeps running; nothing will start it again.</span></span>
             <span class="list-right">
                 <button v-if="(removing === false)" type="button" class="danger" :disabled="(editing !== '')" @click="removing = true">Remove…</button>
@@ -769,9 +853,6 @@ const service_form = {
             </span>
         </div>
     </div>
-    <!-- What the page holding this puts under the cards: the names a machine's door answers for
-         it, a new version from a script -->
-    <slot name="after"/>
     <copy-progress v-if="(creating && (files_copy !== null))" :copy="files_copy"/>
     <div v-if="(creating && (simple === false))" class="svc-create">
         <button type="button" class="primary" :disabled="busy" @click="create"><span v-if="busy" class="spin"/>{{ busy ? 'creating…' : 'Create service' }}</button>
@@ -779,13 +860,14 @@ const service_form = {
         <span v-if="(problem_count > 0)" class="bad">{{ problem_count === 1 ? 'One thing to fix' : problem_count + ' things to fix' }}</span>
         <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
-    <div v-if="(((creating && simple) === false) || json_open)" ref="json" class="svc-json" :class="{framed: (creating && simple)}">
+    <!-- A service that exists shows it in the foot of the card being edited -->
+    <div v-if="(creating && ((simple === false) || json_open))" ref="json" class="svc-json" :class="{framed: simple}">
         <button v-if="((creating && simple) === false)" type="button" class="link" @click="json_toggle">{{ json_open ? 'Hide' : 'Show' }} what {{ creating ? 'Create' : 'Save' }} writes to serviceman.json</button>
         <pre v-if="json_open" class="tail">{{ config_text }}</pre>
     </div>
 </article>
 `,
-    components: {'copy-progress': copy_progress, duration, 'machine-tile': machine_tile, snip: snippet, 'step-frame': step_frame, 'wall-select': wall_select},
+    components: {'code-lines': code_lines, 'copy-progress': copy_progress, duration, 'machine-tile': machine_tile, snip: snippet, 'step-frame': step_frame, 'wall-select': wall_select},
     // folder: the one serviceman keeps its own things in, as its owner sees it (data); walls:
     // walls_of(state), for the Sign-in list
     // tied: the config file's forwards that are part of the service, as the file has them;
@@ -795,8 +877,11 @@ const service_form = {
     // kinds: how the Canvas draws each machine, by its name; counts: how many services each runs
     // start: what a service's cards open at, when its head or its Overview led there: a card's
     // id ('name' for Rename, 'runs' for Edit of what runs, 'address' for Add), or 'remove'
-    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts', 'start'],
-    emits: ['close', 'databases', 'machine', 'saved', 'walls'],
+    // stands: how a service that exists stands now, for what its card's Save does to it: up,
+    // stopped, asleep, failed, away (its machine) or served (nothing serviceman starts); '' when
+    // nobody says
+    props: ['remotes', 'names', 'walls', 'original', 'source', 'remote', 'control', 'port', 'redir', 'ports_taken', 'folder', 'tied', 'forward_labels', 'restore', 'kinds', 'counts', 'start', 'stands'],
+    emits: ['close', 'databases', 'machine', 'restart', 'saved', 'walls'],
     data: function () {
         const source = (this.source === undefined) ? null : this.source;
         const model = form_from_service((this.original === null) ? source : this.original);
@@ -839,6 +924,13 @@ const service_form = {
             draft: null,
             // The card open on a service that exists, one at a time
             editing: '',
+            // A program's command as its open What runs card edits it, {group, text, script}
+            // (service_command_lines, its lines joined by \n); null while that card is closed
+            cmd: null,
+            // Whether that card's row of image, lines and variables is unfolded
+            fold_open: false,
+            // Which Save of the open card is under way: 'later' or 'restart'
+            saving: '',
             // What waited for Save when that card was opened, for its Cancel to put back
             snapshot: null,
             // The optional cards opened while making one
@@ -1018,7 +1110,10 @@ const service_form = {
                 const title = ((item.id === 'runs') && (this.m.type === 'files')) ? 'What it serves' : item.title;
                 const changed = (this.creating === false) && this.changed_ids.includes(item.id);
                 const was = changed ? this.summary_of(item.id, this.model).lines[0] : '';
-                out.push({id: item.id, title, must: item.must, open, wrong, last: false, changed, was, summary: this.summary_of(item.id, this.m)});
+                out.push({id: item.id, title, icon: item.icon, must: item.must, open, wrong, last: false, changed, was, summary: this.summary_of(item.id, this.m)});
+            }
+            if (this.creating === false) {
+                out.sort((a, b) => SETTINGS_ORDER.indexOf(a.id) - SETTINGS_ORDER.indexOf(b.id));
             }
             // Save and Cancel go under the last card open: a new kind opens several at once
             const opened = out.filter(v => v.open);
@@ -1040,19 +1135,49 @@ const service_form = {
             }
             return out;
         },
-        // What Save does, in a line: the card written at once, and the service taking it at its
-        // next start, never started by the save; on another machine, what it kept stays where it was
-        save_says: function () {
+        // What Save does to it, by how it stands, for the open card's foot: a line, its icon, and
+        // whether a restart is offered with the save. Save starts nothing stopped and restarts
+        // nothing running. What runs, where it runs and what it keeps are taken at its next
+        // start; its name, its addresses, its port elsewhere, its policy and its copies at once,
+        // a new name by stopping it and starting it again under that name.
+        save_way: function () {
             const name = this.model.name;
-            if (this.changed_ids.includes('where') && (this.model.volumes.length > 0)) {
-                return `Save writes it now. ${name} runs on ${this.place_text(this.draft.places[0].text)} from its next start; what it kept stays on ${this.place_text(this.model.places[0].text)}.`;
+            // Before anything is changed, the card open says which Saves it offers, so they do not
+            // change under the first key pressed
+            const ids = (this.changed_ids.length > 0) ? this.changed_ids : (this.kind_changing ? ['name', 'runs', 'where'] : [this.editing]);
+            const stands = ((typeof this.stands === 'string') && (this.stands !== '')) ? this.stands : 'unknown';
+            const icons = {up: '<path d="M8 5.5l11 6.5-11 6.5z"/>', still: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>', now: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'};
+            const kept = (ids.includes('where') && (this.model.volumes.length > 0)) ? `; what it kept stays on ${this.place_text(this.model.places[0].text)}` : '';
+            // A new name: the old one stops, and the new one starts as its policy says
+            if ((this.draft !== null) && (this.draft.name !== this.model.name)) {
+                const to = this.draft.name;
+                const sleeps = (this.model.start !== 'always');
+                const again = {
+                    up: sleeps ? `${name} stops; the next visit starts it as ${to}` : `${name} stops, and starts again as ${to}`,
+                    stopped: `${name} is stopped: it stays stopped, as ${to}`,
+                    asleep: `${name} is asleep: the next visit starts it as ${to}`,
+                }[stands];
+                return {says: `${(again === undefined) ? `${name} is ${to} from now on` : again}.`, icon: (stands === 'up') ? icons.up : icons.still, restart: false};
             }
-            if (this.changed_ids.includes('where')) {
-                return `Save writes it now. ${name} runs on ${this.place_text(this.draft.places[0].text)} from its next start.`;
+            const later = ids.some(v => ['runs', 'where', 'keep'].includes(v)) || this.kind_changing;
+            if ((later === false) || (stands === 'served')) {
+                return {says: (stands === 'up') ? `${name} takes it at once, and keeps running.` : `${name} takes it at once.`, icon: icons.now, restart: false};
             }
-            return `Save writes it now; ${name} takes it at its next start.`;
+            const where = ids.includes('where') ? ` on ${this.place_text(this.draft.places[0].text)}` : '';
+            if (stands === 'up') {
+                const old = ids.includes('where') ? `on ${this.place_text(this.model.places[0].text)}` : (((this.model.type === 'shell') && ids.includes('runs')) ? 'the old command' : 'as it was');
+                return {says: `${name} runs ${old} until it restarts${where.replace(/^ on/, ', then on')}${kept}.`, icon: icons.up, restart: (this.kind_changing === false)};
+            }
+            const says = {
+                stopped: `${name} is stopped: it stays stopped, and runs this${where} at its next Start${kept}.`,
+                asleep: `${name} is asleep: the next visit starts it with this${where}${kept}.`,
+                failed: `${name} failed: it runs this${where} at its next start${kept}.`,
+                away: `Its machine is away: ${name} runs this${where} at its next start${kept}.`,
+            }[stands];
+            return {says: (says === undefined) ? `${name} runs this${where} at its next start${kept}.` : says, icon: icons.still, restart: false};
         },
-        // Under the open card's Save: what to put right, what went wrong, or what Save does
+        // Under the open card's Save: what to put right, what went wrong, or what Save does to
+        // the change; nothing while nothing is changed
         foot_says: function () {
             if (this.tried && (this.problems_here().length > 0)) {
                 return 'Something here is to be put right first';
@@ -1060,7 +1185,91 @@ const service_form = {
             if (this.note !== '') {
                 return this.note;
             }
-            return this.save_says;
+            return (this.foot_changes.length === 0) ? '' : this.save_way.says;
+        },
+        // The change of the open card alone, as its foot says it: a program's command a line at a
+        // time (--ctx-size 65536 → 262144), anything else as its card says it, was → now
+        foot_changes: function () {
+            const out = [];
+            for (const id of this.changed_ids) {
+                if ((id === 'runs') && (this.cmd !== null)) {
+                    out.push(...this.runs_changes);
+                    continue;
+                }
+                const count = out.length;
+                const was = this.summary_of(id, this.model).lines;
+                const now = this.summary_of(id, this.m).lines;
+                for (let i = 0; i < Math.max(was.length, now.length); i++) {
+                    if (was[i] !== now[i]) {
+                        out.push(`${(was[i] === undefined) ? 'none' : was[i]} → ${(now[i] === undefined) ? 'none' : now[i]}`);
+                    }
+                }
+                if (out.length === count) {
+                    out.push(`${SECTIONS.find(v => v.id === id).title.toLowerCase()} changed`);
+                }
+            }
+            return out;
+        },
+        // A program's What runs, changed: its command a line at a time, then what is beside it
+        runs_changes: function () {
+            const was = this.model;
+            const now = this.m;
+            const out = this.cmd_diff.changes.map(v => v.text);
+            const before = service_command_lines(was.command);
+            if (before.group !== this.cmd.group) {
+                out.push(`group ${none_said(before.group)} → ${none_said(this.cmd.group)}`);
+            }
+            for (const [field, label] of [['cwd', 'folder'], ['port', 'port'], ['image', 'image'], ['user', 'user']]) {
+                if (was[field] !== now[field]) {
+                    out.push(`${label} ${none_said(was[field])} → ${none_said(now[field])}`);
+                }
+            }
+            for (const [field, label] of [['install', 'install'], ['update', 'update'], ['stop', 'before stop'], ['uninstall', 'uninstall']]) {
+                if (was[field] !== now[field]) {
+                    out.push(`${label} line ${(was[field] === '') ? 'added' : ((now[field] === '') ? 'taken out' : 'changed')}`);
+                }
+            }
+            if (JSON.stringify(was.env.map(v => [v.name, v.value])) !== JSON.stringify(now.env.map(v => [v.name, v.value]))) {
+                out.push('variables changed');
+            }
+            // A command written again the same way changed nothing that shows: say it all the same
+            if ((out.length === 0) && (was.command !== now.command)) {
+                out.push('the command, written anew');
+            }
+            return out;
+        },
+        // A program's command as saved, in the lines its card shows
+        cmd_before: function () {
+            return service_command_lines(this.model.command);
+        },
+        // Each line of the open card's command marked against the saved one, and its changes
+        cmd_diff: function () {
+            if (this.cmd === null) {
+                return {marks: [], changes: []};
+            }
+            return service_command_diff(this.cmd_before.lines, this.cmd.text.split('\n'));
+        },
+        // Whether a program's What runs is open on a service that exists: its command is then
+        // edited an option a line
+        cmd_open: function () {
+            return (this.creating === false) && (this.m.type === 'shell') && ((this.editing === 'runs') || this.kind_changing);
+        },
+        // The folded row of a program's What runs, in a line: what it holds, or none of it
+        fold_says: function () {
+            const m = this.m;
+            const lines = [['install', m.install], ['update', m.update], ['before stop', m.stop], ['uninstall', m.uninstall]].filter(v => v[1] !== '').map(v => v[0]);
+            const env = m.env.filter(v => v.name !== '').length;
+            if ((m.port === '') && (m.image === '') && (lines.length === 0) && (env === 0)) {
+                return 'none: on the machine itself, no install or update lines, no variables';
+            }
+            const parts = [];
+            if (m.port !== '') {
+                parts.push(`port ${m.port}`);
+            }
+            parts.push((m.image === '') ? 'on the machine itself' : `in ${m.image}`);
+            parts.push((lines.length === 0) ? 'no install or update lines' : `${lines.join(', ')} ${(lines.length === 1) ? 'line' : 'lines'}`);
+            parts.push((env === 0) ? 'no variables' : `${env} ${(env === 1) ? 'variable' : 'variables'}`);
+            return parts.join(', ');
         },
         // The kind is being changed in the Name card: what the new kind needs is asked in the
         // same save, since a kind with nothing said about what runs is not a service at all
@@ -1245,6 +1454,18 @@ const service_form = {
             if (this.tried && (model.type === 'shell') && (this.model_now().command === '')) {
                 out.command = 'A program needs the line that runs it.';
             }
+            // Its card's lines are joined into one on Save: a # would make every line after it
+            // a comment, and a group is a word of its own in sg <group> -c
+            if ((this.cmd !== null) && (this.cmd.script === false)) {
+                const lines = this.cmd.text.split('\n').map(v => v.trim()).filter(v => v !== '');
+                const at = lines.findIndex(v => (/['"]/.test(v) === false) && /(^|\s)#/.test(v));
+                if ((at !== -1) && (at < lines.length - 1)) {
+                    out.command = `Line ${at + 1} has a # in it: once Save joins the lines into one, everything after it is a comment. Take it out, or put that line last.`;
+                }
+                if ((this.cmd.group !== '') && (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(this.cmd.group) === false)) {
+                    out.group = 'A group is one word: letters, digits, -, _ and .';
+                }
+            }
             if ((model.type === 'shell') && this.simple && this.creating && (this.what === 'app')) {
                 if (this.tried && (this.app_files === null)) {
                     out.cwd = 'Pick the app: its folder, or a .zip of it.';
@@ -1290,6 +1511,16 @@ const service_form = {
         },
     },
     watch: {
+        // A program's What runs opened: its command read into the lines its card edits; closed,
+        // they are let go, and read again from what is saved at its next Edit
+        cmd_open: {
+            immediate: true,
+            handler: function (open) {
+                const lines = open ? service_command_lines(this.m.command) : null;
+                this.cmd = open ? {group: lines.group, text: lines.lines.join('\n'), script: lines.script} : null;
+                this.fold_open = false;
+            },
+        },
         // While a new one is made, the machine given by default follows the kind: something
         // already running starts on this host, a proxy (the short form's) in serviceman's own
         // data/ folder unless the form was opened from a machine's page, a container or a
@@ -1409,6 +1640,12 @@ const service_form = {
             }
             if ((id === 'runs') && (model.type === 'shell')) {
                 lines.push((model.command === '') ? 'no command yet' : model.command);
+                // Its folder, its group and how many options, as the Overview reads them
+                const parts = service_command_parts(model.command);
+                const facts = [(model.cwd === '') ? '' : `in ${model.cwd}`, (parts.group === '') ? '' : `as the group ${parts.group}`, (parts.options.length === 0) ? '' : `${parts.options.length} ${(parts.options.length === 1) ? 'option' : 'options'}`].filter(v => v !== '');
+                if (facts.length > 0) {
+                    lines.push(facts.join(' · '));
+                }
                 if (model.port !== '') {
                     lines.push(`port ${model.port}`);
                 }
@@ -1937,13 +2174,38 @@ const service_form = {
             return app_files_send(this.app_files, place, folder, v => this.report(v, false), this.files_copy);
         },
         // The open card's Save: written at once, one press for one change; the card stays open,
-        // saying why, when something in it is to be put right or the write is refused
-        section_save_one: async function () {
+        // saying why, when something in it is to be put right or the write is refused. With
+        // restart, the service is restarted once the save landed, to run what was saved.
+        section_save_one: async function (restart) {
             this.tried = true;
             if (this.problems_here().length > 0) {
                 return;
             }
-            await this.section_save();
+            this.saving = restart ? 'restart' : 'later';
+            try {
+                if ((await this.section_save()) && restart) {
+                    this.$emit('restart');
+                }
+            }
+            finally {
+                this.saving = '';
+            }
+        },
+        // A program's command typed into its card, an option a line: the lines are joined as
+        // serviceman.json keeps them; written back the way it was saved, it is the saved one
+        cmd_text: function (text) {
+            this.cmd.text = text;
+            this.cmd_write();
+        },
+        cmd_group: function (group) {
+            this.cmd.group = group.trim();
+            this.cmd_write();
+        },
+        cmd_write: function () {
+            const before = this.cmd_before;
+            const joined = service_command_join(this.cmd.group, this.cmd.text.split('\n'), this.cmd.script);
+            const same = (joined === service_command_join(before.group, before.lines, before.script));
+            this.m.command = same ? this.model.command : joined;
         },
         // Nothing waiting for Save is no draft at all: the cards show what is saved
         draft_settle: function () {
@@ -1951,13 +2213,14 @@ const service_form = {
                 this.draft = null;
             }
         },
-        // The service written as the cards say it; a card with something wrong opens to be put right
+        // The service written as the cards say it; a card with something wrong opens to be put
+        // right. Whether it was written.
         section_save: async function () {
             this.tried = true;
             const wrong = this.sections.find(v => v.wrong);
             if (wrong !== undefined) {
                 this.section_open(wrong.id);
-                return;
+                return false;
             }
             const model = this.model_now();
             const ok = await this.write('PUT', `/api/v1/services/${encodeURIComponent(this.original.name)}`, model, this.forwards_written(model));
@@ -1969,6 +2232,7 @@ const service_form = {
                 this.tried = false;
                 this.$emit('saved', model.name);
             }
+            return ok;
         },
         // Sends the service and its secrets, and the forwards that are part of it when the save
         // writes them (null leaves them as they are). A save whose answer never came back is
@@ -2045,7 +2309,8 @@ const service_form = {
             }
             const self = this;
             this.$nextTick(function () {
-                self.$refs.json.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+                const found = self.creating ? self.$refs.json : self.$el.querySelector('.svc-card-json');
+                found.scrollIntoView({block: 'nearest', behavior: 'smooth'});
             });
         },
         report: function (note, bad) {
@@ -2495,6 +2760,12 @@ function plural_words(count, one, many)
 function number_or_text(text)
 {
     return /^\d+$/.test(text) ? parseInt(text, 10) : text;
+}
+
+// A value as a change says it: an empty one is none
+function none_said(value)
+{
+    return (value === '') ? 'none' : value;
 }
 
 export default service_form;

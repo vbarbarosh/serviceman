@@ -56,14 +56,24 @@ page reads how it runs on its **Overview**: how long it is up, its last start (o
 once it has an address), how many starts failed in a row, its machine's CPU, memory and disk,
 what runs with each option as a chip (**Copy** takes the whole line, **Edit** opens its card),
 its newest lines and its addresses; nothing there is set. It has the same cards under its
-**Settings** tab, in a grid, each with **Edit** — addresses, image, storage, environment,
-the whole policy. **Edit** opens that card across the top, the others stepping back; **Keep
-this** closes it on the change, marked **changed** with **Undo**, and **Cancel** puts it back.
-What waits is listed in a bar at the foot, old → new a card each, with what Save does, **Undo
-all** and **Save**, which writes the config file once and applies it at once; only the
-fields you fill land in the file. What no card shows (`run_args`, `args`, `argv`, a key
-written by hand) stays in the file as it was; **Show what Save writes to serviceman.json**,
-under the cards, shows the whole entry before you save. A service made another kind loses
+**Settings** tab, four a row, **What runs** over two, each with **Edit** — addresses, image,
+storage, environment, the whole policy. **Edit** opens that card across the top, the others
+stepping back. A program's **What runs** shows its command an option a line, numbered, with
+`sg <group> -c '` and its `'` as fixed lines around them when it runs as a group (**Runs as
+the group**, beside **Its folder**); a line changed is marked with what it was, and Save
+joins the lines with single spaces, so the file keeps one line (a command written over
+several lines is a script, and keeps them). Its port, image, install and update lines and
+variables are folded in a row that says what it holds. The card's foot says its change alone
+(`--ctx-size 65536 → 262144`) and what Save does to the service as it stands now: a save
+writes the config file and applies it at once, starts nothing stopped and restarts nothing
+running. What runs, where it runs and what it keeps are taken at its next start: a running
+one offers **Save, restart later** and **Save and restart**, which restarts it once on what
+was saved, and a stopped one stays stopped and runs it at its next Start. Its addresses, its
+policy and its copies are taken at once; a new name stops it and starts it again under that
+name. **Cancel** puts the card back. **Show serviceman.json**, in the same foot, shows the
+whole entry before you save; only the fields you fill land in the file, and what no card
+shows (`run_args`, `args`, `argv`, a key written by hand) stays in the file as it was. A
+service made another kind loses
 what the kind it was alone reads (`run_args` and `args`, or `argv`), and a line typed into a
 program's **Command** takes the place of its `argv`. **Remove…**, the last card, takes a
 service out of the config — anything running keeps running.

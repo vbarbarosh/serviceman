@@ -4436,9 +4436,58 @@ button.link.page-head-how {
 
 .svc-cards.grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-    gap: .75rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
     align-items: stretch;
+}
+
+/* A service's Settings, as drawn: a card per setting, four a row, What runs over two; each with
+   its icon, its title and Edit on top, what it is set to under them; Remove last, a row of its own */
+.svc-cards.grid #svc-runs:not(.open) {
+    grid-column: span 2;
+}
+
+.svc-cards.grid .svc-sec .svc-head > b,
+.svc-remove .svc-head > b {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 15px;
+}
+
+.svc-cards.grid .svc-sec .svc-head > b svg,
+.svc-remove .svc-head > b svg {
+    flex: none;
+    color: var(--link);
+}
+
+.svc-cards.grid .svc-sec:not(.open) .list-right button {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+}
+
+.svc-cards.grid .svc-sec:not(.open) .svc-sum {
+    margin-top: 6px;
+}
+
+.svc-cards.grid #svc-runs:not(.open) .svc-sum > span:first-child {
+    display: -webkit-box;
+    overflow: hidden;
+    font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+@media (max-width: 600px) {
+    .svc-cards.grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .svc-cards.grid #svc-runs:not(.open) {
+        grid-column: auto;
+    }
 }
 
 /* A card at rest in the grid: its title and its buttons on top, what it says under them */
@@ -4487,6 +4536,311 @@ button.link.page-head-how {
     background: var(--busy-soft);
     color: var(--busy-text);
     font-weight: 600;
+}
+
+/* An open card's title: its change tag right beside it, as drawn */
+.svc-cards.grid .svc-sec.open .svc-head > b {
+    width: auto;
+}
+
+/* A program's What runs opened, as drawn: its command an option a line in a numbered box, its
+   folder and its group side by side, the rest folded in a row that says what it holds */
+.form .svc-run-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.svc-run-label {
+    font-size: 14px;
+}
+
+.form .svc-run-edit > p {
+    margin: 0;
+}
+
+.svc-run-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 6px;
+}
+
+.svc-run-pair label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.form .svc-run-pair input {
+    max-width: none;
+    height: 38px;
+    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* The lines are drawn behind a textarea whose own letters are see-through: the same font, the
+   same padding, the same wrapping, so a mark stands on its line however long the line is */
+.code-lines {
+    --cl-gutter: 52px;
+    --cl-font: 13.5px/24px ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--code);
+    transition: border-color .12s ease;
+}
+
+.code-lines:focus-within {
+    border-color: var(--accent);
+}
+
+.code-lines.wrong {
+    border-color: var(--bad);
+}
+
+.cl-fixed {
+    padding: 6px 12px 0 calc(var(--cl-gutter) - 10px);
+    color: var(--muted);
+    font: var(--cl-font);
+    white-space: pre;
+    user-select: none;
+}
+
+.cl-fixed:last-child {
+    padding-top: 0;
+    padding-bottom: 6px;
+}
+
+.cl-body {
+    position: relative;
+}
+
+.cl-back {
+    padding: 6px 0;
+}
+
+.cl-row {
+    display: grid;
+    grid-template-columns: var(--cl-gutter) minmax(0, 1fr);
+    font: var(--cl-font);
+}
+
+.cl-row.marked {
+    background: var(--busy-soft);
+    box-shadow: inset 3px 0 var(--busy);
+}
+
+.cl-num {
+    padding-right: 14px;
+    color: var(--muted);
+    text-align: right;
+    opacity: .75;
+    user-select: none;
+}
+
+.cl-text {
+    padding-right: 12px;
+    color: var(--fg);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.cl-text.first {
+    color: var(--link);
+}
+
+.cl-text.empty {
+    color: var(--muted);
+}
+
+/* "was 65536" right after its line: no width of its own, so the line wraps as the textarea's */
+.cl-was {
+    display: inline-block;
+    width: 0;
+    color: var(--busy-text);
+    font: 12px/24px system-ui, sans-serif;
+    text-indent: 16px;
+    white-space: nowrap;
+}
+
+.code-lines .cl-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    margin: 0;
+    padding: 6px 12px 6px var(--cl-gutter);
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--fg);
+    font: var(--cl-font);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    resize: none;
+    -webkit-text-fill-color: transparent;
+}
+
+.code-lines .cl-input:focus {
+    outline: none;
+}
+
+.code-lines .cl-input::selection {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.svc-fold {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+}
+
+.svc-fold > .svc-fold-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+}
+
+.svc-fold > .svc-fold-head:hover {
+    background: var(--hover);
+}
+
+.svc-fold-head svg {
+    align-self: center;
+    flex: none;
+    color: var(--muted);
+    transform: rotate(-90deg);
+    transition: transform .12s ease;
+}
+
+.svc-fold.open .svc-fold-head svg {
+    transform: none;
+}
+
+.svc-fold-head .muted {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.form .svc-fold .svc-body {
+    padding: 4px 16px 16px;
+}
+
+/* The open card's foot: the change and what Save does on the left, the Saves on the right */
+.svc-cards .svc-foot {
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding: 14px 20px;
+    background: var(--panel-2);
+}
+
+.svc-foot-says {
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.svc-foot-says p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    align-items: center;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.svc-foot-says p + p {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    margin-top: 4px;
+    font-size: 13px;
+}
+
+/* The state's mark stays beside the first line of what Save does, however it wraps */
+.svc-foot-says svg {
+    flex: none;
+    margin-top: 4px;
+}
+
+.svc-foot-change b {
+    color: var(--busy-text);
+}
+
+.svc-foot-change code {
+    margin-right: 8px;
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+}
+
+.svc-foot-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.svc-foot-acts > button:not(.link) {
+    height: 38px;
+    padding: 0 16px;
+}
+
+.svc-foot-acts > .link {
+    margin-right: 6px;
+}
+
+.svc-card-json {
+    max-height: 24rem;
+    margin: 0 20px 16px;
+    overflow: auto;
+}
+
+@media (max-width: 600px) {
+    .svc-run-pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .code-lines {
+        --cl-gutter: 40px;
+        --cl-font: 12.5px/22px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .cl-was {
+        font-size: 11px;
+        line-height: 22px;
+        text-indent: 10px;
+    }
+
+    .svc-cards .svc-foot {
+        padding: 12px 14px;
+    }
+
+    .svc-foot-acts {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .svc-foot-acts > .link {
+        flex-basis: 100%;
+        text-align: left;
+    }
+
+    .svc-foot-acts > button:not(.link) {
+        flex: 1 1 auto;
+    }
 }
 
 /* All categories: what needs you as cards on top, what you have as four tiles, everything else as
