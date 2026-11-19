@@ -250,7 +250,7 @@ A folder of one machine, mounted on another, read-only or read-write: `from` is 
 is, `to` where it shows up. sshfs on `to` speaks SFTP straight to the agent of `from`, over the
 tailnet (through serviceman when the two agents cannot reach each other), to the folder, which
 shows it and nothing outside it. No ssh and no key.
-**Mounts** in the rail writes this list for you; [Mounts](mounts.md) says how it works.
+**Mounts**, on All categories, writes this list for you; [Mounts](mounts.md) says how it works.
 
 ```json
 "mounts": [
@@ -814,7 +814,7 @@ itself, **never in the config** — and they are made on the control page, not i
 
 **A secret made on a service's page is that service's own.** Nothing else can read it, and it
 cannot be reused elsewhere: two services may both hold a `token`, and they are not the same
-token. The **Secrets** row in the rail holds a *library* beside them — values written down once,
+token. The **Secrets** page, in the first crumb's menu, holds a *library* beside them — values written down once,
 to be copied into as many services as need them. Copying happens on the host: a value that is
 kept here never goes out to a page and back.
 
@@ -1488,7 +1488,7 @@ tailnet link. A machine with an agent opens them by localhost through a board
 published on it ([App boards](#app-boards)); a device with no agent, a phone, opens none. Set on,
 they have their ports again.
 
-**The Tailscale page,** in the rail, shows everything serviceman does with tailscale in its image:
+**The Tailscale page,** on All categories, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale's version, or the link to
 sign this machine in while tailscale waits for one; the switch above, while the apps are on the
 tailnet; the certificate, for which name and until when, or why there is none and what mends it;
@@ -1585,7 +1585,7 @@ secure context, so it has the microphone, the camera and the clipboard with no c
 | `apps`     | Services by name, in the order the board shows them.                           |
 | `port`     | Where its agent answers it, on `127.0.0.1`: `3000` unless said.                |
 
-**Boards**, in the rail, is where they are made: every app is a cell in a palette, dragged onto
+**Boards**, on All categories, is where they are made: every app is a cell in a palette, dragged onto
 a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
 publishes it there. Each change is saved at once. A program reads the list with
 `GET /api/v1/boards` and writes it back whole with `PUT /api/v1/boards`, the owner's token alone.

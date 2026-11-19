@@ -307,7 +307,7 @@ test('the control page lists the services and starts and stops them', async func
 
         // The page answers on the addresses it has, and a mistyped one is a 404 — not the
         // front page opening whatever it opens first
-        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/secrets', '/storage', '/logline', '/authwall', '/load-tests']) {
+        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/secrets', '/storage', '/logline', '/authwall', '/load-tests', '/categories']) {
             const opened = await fetch_host({port: running.control_port, host: '127.0.0.1', path: known});
             assert.strictEqual(opened.status, 200, known);
             assert.match(opened.body, /<title>serviceman<\/title>/, known);

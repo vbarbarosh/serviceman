@@ -177,47 +177,181 @@ header .muted {
 
 main {
     display: grid;
-    grid-template-columns: 17rem 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
-}
-
-nav {
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-    border-right: 1px solid var(--line);
-    background: var(--bar);
-}
-
-nav .row {
-    flex: none;
-    background: var(--bar);
-}
-
-nav .row:not(.on):hover {
-    background: var(--bar-hover);
-}
-
-/* Empty space between the services and the two rows that stay at the foot of the rail */
-.rail-gap {
-    flex: 1;
-    min-height: 1rem;
-    border-bottom: 1px solid var(--line);
-}
-
-.row.foot .name {
-    flex: 1;
-}
-
-.row.foot svg {
-    flex: none;
-    color: var(--muted);
 }
 
 section {
     display: grid;
     grid-template-rows: 1fr;
     min-height: 0;
+}
+
+/* The page under the header: the crumbs on top, the open page under them */
+main > section {
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+/* Where you are, on top of every page: the category and its menu, then each step down */
+.crumbs-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .45rem;
+    align-items: center;
+    min-width: 0;
+    padding: .55rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--bar);
+}
+
+.crumb-first {
+    position: relative;
+    flex: none;
+}
+
+/* The first crumb stands alone, with space around it: slightly rounded */
+.crumb-pick {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    padding: .3rem .6rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.crumb-pick svg {
+    flex: none;
+    color: var(--link);
+}
+
+.crumb-pick .crumb-caret {
+    color: var(--muted);
+    transition: transform .12s ease;
+}
+
+.crumb-pick.open .crumb-caret {
+    transform: rotate(180deg);
+}
+
+/* A click beside the open menu closes it: the whole page under it, unseen */
+.crumb-back,
+.crumb-back:hover {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: default;
+}
+
+/* The menu is a panel standing apart, 6 px; its lines touch one another, square */
+.crumb-menu {
+    position: absolute;
+    top: calc(100% + .35rem);
+    left: 0;
+    z-index: 41;
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    min-width: 16rem;
+    max-width: calc(100vw - 2.5rem);
+    padding: .3rem 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+
+.crumb-item {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    min-width: 0;
+    padding: .45rem .9rem;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+}
+
+.crumb-item:hover {
+    background: var(--hover);
+}
+
+.crumb-item.on {
+    background: var(--sel);
+}
+
+.crumb-item svg {
+    flex: none;
+    color: var(--muted);
+}
+
+.crumb-item.on svg {
+    color: var(--link);
+}
+
+.crumb-item .crumb-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crumb-count {
+    flex: none;
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The open category when the menu does not list it: first, set off from the seven */
+.crumb-item.apart {
+    margin-bottom: .3rem;
+    box-shadow: 0 1px 0 var(--line);
+}
+
+.crumb-all {
+    margin-top: .3rem;
+    box-shadow: 0 -1px 0 var(--line);
+}
+
+.crumb-step {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.crumb-sep {
+    flex: none;
+    color: var(--muted);
+}
+
+/* A crumb on the way back up, and the last one, where you are: a long name is cut, whole in
+   the item's own header under it */
+.crumb-link,
+.crumb-here {
+    min-width: 0;
+    max-width: min(24rem, 60vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crumb-link {
+    padding: .15rem .3rem;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--link);
+}
+
+.crumb-link:hover {
+    background: var(--hover);
+    text-decoration: underline;
 }
 
 article {
@@ -1046,17 +1180,13 @@ a.tag:hover {
     background: var(--bar);
 }
 
-/* A nav, but not the rail: the bare nav rule above would stack it and draw the rail's edge */
 .tabbar .tabs {
     position: relative;
-    flex-direction: row;
+    display: flex;
     flex-wrap: wrap;
     /* Tabs that wrap to a second row sit right under the first, not a tab's height away */
     gap: 0 1.4rem;
     margin: 0;
-    overflow: visible;
-    border-right: 0;
-    background: none;
 }
 
 /* Not a pill: flat words on the bar's own rule; the underline is the tabink below */
@@ -1790,14 +1920,6 @@ button.danger:hover {
     color: var(--muted);
 }
 
-.rail-head {
-    padding: .8rem .75rem .3rem;
-    border-bottom: 1px solid var(--line);
-    color: var(--muted);
-    font-size: .8rem;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-}
 
 .row-of {
     display: flex;
@@ -1942,89 +2064,6 @@ kbd {
     font: .75rem ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.row.kind svg {
-    flex: none;
-    color: var(--muted);
-}
-
-.row.kind.on svg {
-    color: var(--link);
-}
-
-.row.kind .bad {
-    font-size: .85rem;
-}
-
-.row.kind.open .name {
-    color: var(--link);
-    font-weight: 600;
-}
-
-/* A kind whose items are listed under it: its row, then the arrow that folds the list away,
-   one line across the rail, the selected colour over both */
-nav .rail-kind {
-    flex: none;
-    display: flex;
-    align-items: stretch;
-    border-bottom: 1px solid var(--line);
-    background: var(--bar);
-}
-
-nav .rail-kind > .row {
-    flex: 1 1 auto;
-    min-width: 0;
-    border-bottom: 0;
-}
-
-nav .rail-kind.on {
-    background: var(--sel);
-}
-
-.rail-fold {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: color .12s ease, background .12s ease;
-}
-
-.rail-fold:hover {
-    background: var(--bar-hover);
-    color: var(--fg);
-}
-
-.rail-fold svg {
-    transition: transform .12s ease;
-}
-
-.rail-fold.folded svg {
-    transform: rotate(-90deg);
-}
-
-/* The items of the open kind, one step in, with a guide line down their left */
-.rail-tree {
-    flex: none;
-    padding: .2rem 0;
-    border-bottom: 1px solid var(--line);
-    background: linear-gradient(var(--line), var(--line)) no-repeat 1.2rem .4rem / 1px calc(100% - .8rem);
-}
-
-.rail-tree .row {
-    padding: .28rem .75rem .28rem 2.1rem;
-    border-bottom: 0;
-    font-size: .9rem;
-}
-
-.rail-tree .row code {
-    font-size: .85rem;
-}
 
 /* A kind's own page: title and count, its buttons, a filter with chips, then one table */
 article.list {
@@ -2053,6 +2092,73 @@ article.list > p {
 .list-head h1 {
     margin: 0;
     font-size: 1.3rem;
+}
+
+/* All categories: a group a block, its tiles side by side, each standing alone, 6 px */
+.cat-group {
+    margin-top: 1.4rem;
+}
+
+.cat-group h2 {
+    margin: 0 0 .6rem;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.cat-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: .75rem;
+}
+
+.cat-tile {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    min-width: 0;
+    padding: .8rem .9rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    text-align: left;
+}
+
+.cat-tile.on {
+    border-color: var(--accent);
+}
+
+.cat-head {
+    display: flex;
+    gap: .55rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.cat-head svg {
+    flex: none;
+    color: var(--link);
+}
+
+.cat-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cat-count {
+    flex: none;
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.cat-says {
+    font-size: .88rem;
+    line-height: 1.35;
 }
 
 .list-acts {
@@ -2504,50 +2610,6 @@ button.tag:hover {
     color: var(--busy-text);
 }
 
-/* A machine in the rail that runs an older agent than this host serves */
-.row .agent-behind {
-    flex: none;
-    color: var(--busy-text);
-}
-
-/* A machine's numbers beside its name in the rail, a small bar each, filled from its foot:
-   CPU, memory and disk, as its Overview's tiles tick them. Faint while it does not answer,
-   for they are what it said last. */
-.rail-gauges {
-    flex: none;
-    display: flex;
-    gap: 3px;
-}
-
-.rail-gauges.stale {
-    opacity: .45;
-}
-
-.rail-gauge {
-    position: relative;
-    width: 6px;
-    height: 14px;
-    border-radius: 2px;
-    background: var(--line);
-    overflow: hidden;
-}
-
-.rail-gauge i {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    background: var(--accent);
-    transition: height .3s ease;
-}
-
-.rail-gauge.filling i {
-    background: var(--busy);
-}
-
-.rail-gauge.full i {
-    background: var(--bad);
-}
 
 .bars {
     display: grid;
@@ -2691,34 +2753,10 @@ button.palette-hit.on {
     font-size: .85rem;
 }
 
-/* A phone: the rail becomes a strip of kinds across the top, and the find box keeps its icon */
+/* A phone: the crumbs keep their gutter, and the find box keeps its icon */
 @media (max-width: 40rem) {
-    main {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto minmax(0, 1fr);
-    }
-
-    nav#rail {
-        flex-direction: row;
-        overflow-x: auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-    }
-
-    nav#rail .row {
-        width: auto;
-        border-bottom: 0;
-        white-space: nowrap;
-    }
-
-    nav#rail .rail-gap,
-    nav#rail .rail-tree,
-    nav#rail .rail-fold {
-        display: none;
-    }
-
-    nav#rail .rail-kind {
-        border-bottom: 0;
+    .crumbs-bar {
+        padding: .5rem 1rem;
     }
 
     #find {
@@ -2991,12 +3029,6 @@ article.ov-pane {
     align-items: center;
     color: var(--muted);
     font-size: .85rem;
-}
-
-/* The tick in a tile's corner: its number beside every machine in the rail */
-.ov-label .ov-rail {
-    margin: 0 0 0 auto;
-    cursor: pointer;
 }
 
 .ov-tile b {

@@ -13,10 +13,12 @@ import apps_pane from './apps_pane.js';
 import authwall_pane from './authwall_pane.js';
 import boards_pane from './boards_pane.js';
 import canvas_pane from './canvas_pane.js';
+import categories_pane from './categories_pane.js';
 import config_read from './config_read.js';
 import config_tokens_back from './config_tokens_back.js';
 import config_tokens_hidden from './config_tokens_hidden.js';
 import copy_progress from 'file_manager/copy_progress.js';
+import crumbs_bar from './crumbs_bar.js';
 import data_table from './data_table.js';
 import databases_pane from './databases_pane.js';
 import file_manager from 'file_manager/file_manager.js';
@@ -37,10 +39,9 @@ import map_pane from './map_pane.js';
 import mounts_section from './mounts_section.js';
 import networking_pane from './networking_pane.js';
 import overview_icons from './overview_icons.js';
+import page_crumbs from './page_crumbs.js';
 import program_place from './program_place.js';
 import program_shell from './program_shell.js';
-import rail_fold from './rail_fold.js';
-import rail_gauges from './rail_gauges.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
 import remote_dot from './remote_dot.js';
@@ -73,6 +74,32 @@ import walls_of from './walls_of.js';
 import {createApp} from 'vue';
 
 const POLL_MS = 1000;
+// The method that opens each category, by its key in categories.js
+const CATEGORY_SHOW = {
+    'services': 'home_show',
+    'apps': 'apps_show',
+    'databases': 'databases_show',
+    'boards': 'boards_show',
+    'remotes': 'remotes_show',
+    'storage': 'volumes_show',
+    'shared-folders': 'shared_show',
+    'mounts': 'mounts_show',
+    'forwards': 'forwards_show',
+    'addresses': 'addresses_show',
+    'doors': 'networking_show',
+    'tailscale': 'tailscale_show',
+    'authwall': 'authwall_show',
+    'secrets': 'secrets_show',
+    'tokens': 'tokens_show',
+    'health': 'health_show',
+    'security': 'security_show',
+    'logline': 'logline_show',
+    'load-tests': 'load_tests_show',
+    'canvas': 'canvas_show',
+    'map': 'map_show',
+    'config': 'editor_show',
+    'categories': 'categories_show',
+};
 
 // A machine with no node cannot run the agent, and the whole of node it needs is one file.
 // The archive is unpacked as it arrives and only bin/node is kept, in ~/bin; the install line
@@ -1389,8 +1416,6 @@ const remote_page = {
     template: `
 <div id="page">
     <div class="crumbs">
-        <button type="button" class="link" @click="$emit('list')">Remotes</button>
-        <span class="muted">›</span>
         <span class="dot" :class="remote_dot(view)" :title="unanswered_said"/>
         <b>{{ view.title || view.name }}</b>
         <code v-if="name_shown" class="muted">{{ view.name }}</code>
@@ -1465,7 +1490,7 @@ const remote_page = {
          a form half filled, a shell mid-session. Another machine is another page, so its
          panes start fresh. -->
     <keep-alive :max="10">
-    <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" :rail="rail" @rail="$emit('rail', $event)" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
+    <remote-overview v-if="(tab_now === 'overview')" :view="view" :services="services" :served="served" :logline="logline" @select="$emit('select', $event)" @tab="$emit('tab', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
     <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
     <article v-else-if="(tab_now === 'settings')" id="detail"><p class="muted">reading the config…</p></article>
@@ -1488,8 +1513,8 @@ const remote_page = {
 </div>
 `,
     components: {'agent-pill': agent_pill, ink: tabink, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
-    props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'rail'],
-    emits: ['create', 'files_path', 'list', 'logline', 'rail', 'saved', 'select', 'service', 'tab'],
+    props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path'],
+    emits: ['create', 'files_path', 'logline', 'saved', 'select', 'service', 'tab'],
     data: function () {
         return {original: null, edit_key: 0};
     },
@@ -1647,15 +1672,10 @@ const service_page = {
     template: `
 <div id="page">
     <div class="crumbs">
-        <button type="button" class="link" @click="$emit('list')">Services</button>
-        <template v-if="(place !== null)">
-            <span class="muted">›</span>
-            <button type="button" class="link" @click="$emit('remote', place.name)">{{ place.title }}</button>
-        </template>
-        <span class="muted">›</span>
         <span class="dot" :class="(view.doing === null ? view.phase : 'starting')"/>
         <b>{{ view.title || view.name }}</b>
         <code v-if="name_shown" class="muted">{{ view.name }}</code>
+        <span v-if="(place !== null)" class="muted">on <button type="button" class="link" @click="$emit('remote', place.name)">{{ place.title }}</button></span>
         <div class="acts crumb-acts">
             <template v-if="driven">
                 <button type="button" :disabled="(waiting || view.phase === 'running')" @click="$emit('start', view)">
@@ -1768,7 +1788,7 @@ const service_page = {
     components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-script': service_script, 'service-shell': service_shell, 'service-status': service_status},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
-    emits: ['clone', 'forwards', 'list', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
+    emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
         // tied: the config's forwards that are part of it, as the file has them; forward_labels:
@@ -1985,166 +2005,10 @@ const app = {
     </button>
 </div>
 <main v-if="(state !== null)">
-    <!-- One row per kind of thing, never one per thing: the rail stays the same length however
-         many services there are, and each row is always where it was -->
-    <nav id="rail" ref="rail">
-        <button type="button" class="row kind" :class="{on: (kind_now === 'health'), open: (kind_now === 'health')}" title="How everything is: machines, services, logs, forwards" @click="health_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg>
-            <span class="name">Health</span>
-            <span :class="health_tally.state" :title="health_tally.title">{{ health_tally.text }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'security'), open: (kind_now === 'security')}" title="What each machine leaves open to harm: ports, firewall, ssh, updates, its release" @click="security_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
-            <span class="name">Security</span>
-            <span :class="security_tally.state" :title="security_tally.title">{{ security_tally.text }}</span>
-        </button>
-        <div class="rail-kind" :class="{on: (kind_now === 'services' && selected_name === null)}">
-            <button type="button" class="row kind" :class="{on: (kind_now === 'services' && selected_name === null), open: (kind_now === 'services')}" @click="home_show">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>
-                <span class="name">Services</span>
-                <span class="muted">{{ state.services.length }}</span>
-            </button>
-            <rail-fold v-if="(kind_now === 'services' && state.services.length > 0)" :folded="rail_folded.includes('services')" what="services" @toggle="rail_fold_toggle('services')"/>
-        </div>
-        <!-- The open kind shows what is in it, one step in, under its own row, unless its arrow
-             folded that away -->
-        <div v-if="(kind_now === 'services' && state.services.length > 0 && rail_folded.includes('services') === false)" class="rail-tree">
-            <button v-for="view of rail_services" :key="view.name" type="button" class="row" :class="{on: (view.name === selected_name)}" :title="view.name" @click="select(view)">
-                <dot :phase="(view.doing === null ? view.phase : 'starting')"/>
-                <span class="name">{{ view.title || view.name }}</span>
-            </button>
-        </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'apps'), open: (kind_now === 'apps')}" title="Every service as a card that opens it; drop a zip or a page, get a link" @click="apps_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>
-            <span class="name">Apps</span>
-            <span class="muted">{{ apps_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'boards'), open: (kind_now === 'boards')}" title="A page of apps put together by dragging, published on a machine by localhost" @click="boards_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="6" y="7" width="5" height="4" rx="1"/><rect x="13" y="7" width="5" height="4" rx="1"/><path d="M6 15h12"/></svg>
-            <span class="name">Boards</span>
-            <span class="muted">{{ boards_count }}</span>
-        </button>
-        <div class="rail-kind" :class="{on: (kind_now === 'remotes' && remote_name === null)}">
-            <button type="button" class="row kind" :class="{on: (kind_now === 'remotes' && remote_name === null), open: (kind_now === 'remotes')}" @click="remotes_show">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-                <span class="name">Remotes</span>
-                <span :class="(remotes_offline > 0 ? 'bad' : 'muted')">{{ remotes_offline > 0 ? remotes_offline + ' offline' : state.remotes.length }}</span>
-            </button>
-            <rail-fold v-if="(kind_now === 'remotes' && state.remotes.length > 0)" :folded="rail_folded.includes('remotes')" what="machines" @toggle="rail_fold_toggle('remotes')"/>
-        </div>
-        <div v-if="(kind_now === 'remotes' && state.remotes.length > 0 && rail_folded.includes('remotes') === false)" class="rail-tree">
-            <button v-for="item of rail_remotes" :key="item.name" type="button" class="row" :class="{on: (item.name === remote_name)}" :title="item.name" @click="remote_select(item)">
-                <dot :phase="remote_dot(item)" :title="remote_unanswered_said(item)"/>
-                <span class="name">{{ item.title || item.name }}</span>
-                <svg v-if="(agent_current(item, state.agent_built) === false)" class="agent-behind" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" aria-label="runs an older agent"><title>Runs an older agent than this host serves</title><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-                <span v-if="(rail_gauges_of[item.name] !== null)" class="rail-gauges" :class="{stale: rail_gauges_of[item.name].stale}" :title="rail_gauges_of[item.name].title" role="img" :aria-label="rail_gauges_of[item.name].title">
-                    <span v-for="gauge of rail_gauges_of[item.name].gauges" :key="gauge.key" class="rail-gauge" :class="gauge.level"><i :style="{height: gauge.height}"></i></span>
-                </span>
-            </button>
-        </div>
-        <div class="rail-kind" :class="{on: (kind_now === 'addresses')}">
-            <button type="button" class="row kind" :class="{on: (kind_now === 'addresses'), open: (kind_now === 'addresses')}" @click="addresses_show">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
-                <span class="name">Addresses</span>
-                <span class="muted">{{ addresses_count }}</span>
-            </button>
-            <rail-fold v-if="(kind_now === 'addresses' && rail_addresses.length > 0)" :folded="rail_folded.includes('addresses')" what="addresses" @toggle="rail_fold_toggle('addresses')"/>
-        </div>
-        <div v-if="(kind_now === 'addresses' && rail_addresses.length > 0 && rail_folded.includes('addresses') === false)" class="rail-tree">
-            <button v-for="item of rail_addresses" :key="item.key" type="button" class="row" :title="('goes to ' + item.service)" @click="select_named(item.service)">
-                <span class="name"><code>{{ item.address }}</code></span>
-            </button>
-        </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'doors'), open: (kind_now === 'doors')}" title="The public names machines' doors answer, and what stands in front of them" @click="networking_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="1"/></svg>
-            <span class="name">Doors</span>
-            <span class="muted">{{ doors_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'forwards'), open: (kind_now === 'forwards')}" title="A port or a socket of one machine, brought to another" @click="forwards_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="6" height="8" rx="1"/><rect x="16" y="8" width="6" height="8" rx="1"/><path d="M8 12h7M12 9l3 3-3 3"/></svg>
-            <span class="name">Forwards</span>
-            <span class="muted">{{ forwards_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'tailscale'), open: (kind_now === 'tailscale')}" title="What serviceman does with tailscale: its name on the tailnet, the certificate, the apps' names, every call" @click="tailscale_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
-            <span class="name">Tailscale</span>
-        </button>
-        <div class="rail-kind" :class="{on: (kind_now === 'storage')}">
-            <button type="button" class="row kind" :class="{on: (kind_now === 'storage'), open: (kind_now === 'storage')}" @click="volumes_show">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-                <span class="name">Storage</span>
-                <span class="muted">{{ volumes_count }}</span>
-            </button>
-            <rail-fold v-if="(kind_now === 'storage' && rail_folders.length > 0)" :folded="rail_folded.includes('storage')" what="folders" @toggle="rail_fold_toggle('storage')"/>
-        </div>
-        <div v-if="(kind_now === 'storage' && rail_folders.length > 0 && rail_folded.includes('storage') === false)" class="rail-tree">
-            <button v-for="item of rail_folders" :key="item.key" type="button" class="row" :title="item.title" @click="select_named(item.service)">
-                <span class="name"><code>{{ item.name }}</code></span>
-            </button>
-        </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'shared-folders'), open: (kind_now === 'shared-folders')}" title="One folder, the same on every machine that mounts it" @click="shared_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M8 13h8M12 10v6"/></svg>
-            <span class="name">Shared folders</span>
-            <span class="muted">{{ shared_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'databases'), open: (kind_now === 'databases')}" title="Database servers on your machines, for the apps to pick" @click="databases_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></svg>
-            <span class="name">Databases</span>
-            <span class="muted">{{ databases_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'mounts'), open: (kind_now === 'mounts')}" title="A folder of one machine, mounted on another" @click="mounts_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5A1.5 1.5 0 0 1 3.5 6H7l1.5 1.5H10V16H2z"/><path d="M14 9.5A1.5 1.5 0 0 1 15.5 8H19l1.5 1.5H22V18h-8z"/><path d="M10 12h3M11.5 10.5L13 12l-1.5 1.5"/></svg>
-            <span class="name">Mounts</span>
-            <span class="muted">{{ mounts_count }}</span>
-        </button>
-        <div class="rail-kind" :class="{on: (kind_now === 'secrets')}">
-            <button type="button" class="row kind" :class="{on: (kind_now === 'secrets'), open: (kind_now === 'secrets')}" @click="secrets_show">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg>
-                <span class="name">Secrets</span>
-                <span class="muted">{{ secrets_count }}</span>
-            </button>
-            <rail-fold v-if="(kind_now === 'secrets' && secret_names.length > 0)" :folded="rail_folded.includes('secrets')" what="secrets" @toggle="rail_fold_toggle('secrets')"/>
-        </div>
-        <div v-if="(kind_now === 'secrets' && secret_names.length > 0 && rail_folded.includes('secrets') === false)" class="rail-tree">
-            <button v-for="name of rail_secrets" :key="name" type="button" class="row" @click="secrets_show">
-                <span class="name"><code>{{ name }}</code></span>
-            </button>
-        </div>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'tokens'), open: (kind_now === 'tokens')}" title="Who else may read this serviceman: a token for each agent, the machines it sees" @click="tokens_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/></svg>
-            <span class="name">Tokens</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'logline'), open: (kind_now === 'logline')}" title="Where every line of every machine flows" @click="logline_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/><path d="M17 15v6M14.5 18.5L17 21l2.5-2.5"/></svg>
-            <span class="name">Logline</span>
-            <span class="muted" :title="(logline_count + ' of ' + state.remotes.length + ' remotes send their logs')">{{ state.logline === null || state.logline === undefined ? 'not set' : logline_count + ' sending' }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'authwall'), open: (kind_now === 'authwall')}" title="How visitors sign in: the wall a door asks first" @click="authwall_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
-            <span class="name">Authwall</span>
-            <span class="muted" :title="(guarded_count + ' door names and apps behind a wall')">{{ guarded_count }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'load-tests'), open: (kind_now === 'load-tests')}" title="k6 sent at a service: how it holds up under many users" @click="load_tests_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><path d="M4 20h16"/></svg>
-            <span class="name">Load tests</span>
-            <span class="muted">{{ (state.load_tests === undefined) ? 0 : state.load_tests.length }}</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'canvas'), open: (kind_now === 'canvas')}" title="Every machine on one canvas, drawn as what it is, with one light: how it stands" @click="canvas_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="11" height="8" rx="1.5"/><path d="M7 12v3M5 15h5"/><rect x="16" y="6" width="5" height="12" rx="1.2"/><circle cx="18.5" cy="9" r="0.8" fill="currentColor"/></svg>
-            <span class="name">Canvas</span>
-        </button>
-        <button type="button" class="row kind" :class="{on: (kind_now === 'map'), open: (kind_now === 'map')}" @click="map_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7.2 6.5c5 .5 5 4.5 9.6 5.2M7.2 17.5c5-.5 5-4.5 9.6-5.2"/></svg>
-            <span class="name">Map</span>
-        </button>
-        <div class="rail-gap"/>
-        <button type="button" class="row foot" :class="{on: editor_open}" @click="editor_show">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/></svg>
-            <span class="name">Config</span>
-        </button>
-    </nav>
     <section>
+        <crumbs-bar :category="kind_now" :trail="crumbs_trail" :tallies="tallies" @go="crumb_go" @open="counts_read" @pick="category_show"/>
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
+        <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" @changed="shared_count_read" @remote="remote_select_named"/>
         <databases-pane v-else-if="databases_open" @changed="databases_count_read" @select="select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
@@ -2168,14 +2032,14 @@ const app = {
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" @close="remote_form_open = false" @saved="remote_saved"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" @close="form_open = false" @saved="form_saved" @walls="wall_new"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :rail="rail_numbers" @files_path="remote_files_paths[selected_remote.name] = $event" @rail="rail_number_pick" @create="create" @list="remotes_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @list="home_show" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @service="service_settings"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'config-editor': config_editor, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'rail-fold': rail_fold, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
     data: function () {
         return {
             state: null,
@@ -2184,10 +2048,6 @@ const app = {
             busy: {},
             theme: document.documentElement.dataset.theme,
             skin: storage_get('serviceman.skin') || '',
-            // The numbers beside each machine in the rail, as its Overview's tiles tick them
-            rail_numbers: rail_numbers_read(),
-            // The kinds whose list under their row is folded away, kept in this browser
-            rail_folded: rail_folded_read(),
             skins: [],
             skin_menu: false,
             // The problems the bar was closed on, as problem_seen_key; read once, kept on close
@@ -2211,7 +2071,7 @@ const app = {
             terminal_last: null,
             // The next address replaces the current one in the history instead of adding a step
             route_replace: false,
-            // Bumped on every click in the rail, so the pane is built again and its fields
+            // Bumped on every machine opened, so the pane is built again and its fields
             // start from what serviceman knows — even when the same machine is picked twice
             remote_key: 0,
             // The same, for the two forms: opening one twice must not show what the last one
@@ -2248,11 +2108,12 @@ const app = {
             addresses_open: false,
             map_open: false,
             canvas_open: false,
+            categories_open: false,
+            // The category All categories was opened from, outlined there
+            categories_from: '',
+            tokens_count: '',
             // The one machine Services, Storage or Addresses is narrowed to, from its card
             list_remote: null,
-            // What the rail's Storage and Secrets rows hold, read with their counts
-            volumes: [],
-            secret_names: [],
             // The Ctrl K box, over whatever is open
             find_open: false,
 
@@ -2345,6 +2206,9 @@ const app = {
             if (this.editor_open) {
                 return '/config';
             }
+            if (this.categories_open) {
+                return '/categories';
+            }
             const only = (this.list_remote === null) ? '' : `?remote=${encodeURIComponent(this.list_remote)}`;
             if (this.volumes_open) {
                 return `/storage${only}`;
@@ -2428,11 +2292,14 @@ const app = {
             }
             return (only === '') ? '/' : `/services${only}`;
         },
-        // The row of the rail that holds what is open: a service page is under Services, the
-        // door rules under Addresses, a machine and its forms under Remotes
+        // The category the first crumb names for what is open: a service page is under Services,
+        // a machine and its forms under Remotes, a key of categories.js or 'categories'
         kind_now: function () {
             if (this.editor_open) {
                 return 'config';
+            }
+            if (this.categories_open) {
+                return 'categories';
             }
             if (this.volumes_open) {
                 return 'storage';
@@ -2496,12 +2363,51 @@ const app = {
             }
             return 'services';
         },
-        // The rail's trees read in the order of the names they show: title where there is one,
-        // numbers as numbers, so speedtest/phone comes before speedtest/server and item2 before item10
-        rail_services: function () {
-            return this.state.services.slice().sort((a, b) => rail_compare(a.title || a.name, b.title || b.name));
+        // The crumbs after the first, from the category down to what is open
+        crumbs_trail: function () {
+            if (this.form_open) {
+                return page_crumbs({page: 'new-service', name: '', title: '', tab: ''});
+            }
+            if (this.remote_form_open) {
+                return page_crumbs({page: 'new-remote', name: '', title: '', tab: ''});
+            }
+            if (this.join_form_open) {
+                return page_crumbs({page: 'join', name: '', title: '', tab: ''});
+            }
+            if ((this.kind_now === 'remotes') && (this.selected_remote !== null)) {
+                return page_crumbs({page: 'remote', name: this.selected_remote.name, title: this.selected_remote.title || '', tab: this.remote_tab_now});
+            }
+            if ((this.kind_now === 'services') && (this.selected !== null)) {
+                return page_crumbs({page: 'service', name: this.selected.name, title: this.selected.title || '', tab: this.service_tab_now});
+            }
+            return [];
         },
-        // Every name a machine's door answers, on every machine
+        // What each category says beside its name, in the first crumb's menu and on All
+        // categories: a count, or a word where a count says too little
+        tallies: function () {
+            const offline = this.remotes_offline;
+            const load_tests = (this.state.load_tests === undefined) ? 0 : this.state.load_tests.length;
+            return {
+                health: this.health_tally,
+                security: this.security_tally,
+                services: tally(this.state.services.length),
+                apps: tally(this.apps_count),
+                databases: tally(this.databases_count),
+                boards: tally(this.boards_count),
+                remotes: (offline > 0) ? {text: `${offline} offline`, state: 'bad', title: `${offline} of ${this.state.remotes.length} not linked now`} : tally(this.state.remotes.length),
+                storage: tally(this.volumes_count),
+                'shared-folders': tally(this.shared_count),
+                mounts: tally(this.mounts_count),
+                forwards: tally(this.forwards_count),
+                addresses: tally(this.addresses_count),
+                doors: tally(this.doors_count),
+                authwall: {text: String(this.guarded_count), state: 'muted', title: `${this.guarded_count} door names and apps behind a wall`},
+                secrets: tally(this.secrets_count),
+                tokens: tally(this.tokens_count),
+                logline: {text: ((this.state.logline === null) || (this.state.logline === undefined)) ? 'not set' : `${this.logline_count} sending`, state: 'muted', title: `${this.logline_count} of ${this.state.remotes.length} remotes send their logs`},
+                'load-tests': tally(load_tests),
+            };
+        },
         // Machines whose lines go to Logline
         logline_count: function () {
             return this.state.remotes.filter(v => v.logline.logs === 'all').length;
@@ -2536,61 +2442,9 @@ const app = {
         doors_count: function () {
             return this.state.remotes.reduce((sum, remote) => sum + Object.keys((remote.inbound === undefined) ? {} : remote.inbound).length, 0);
         },
-        rail_remotes: function () {
-            return this.state.remotes.slice().sort((a, b) => rail_compare(a.title || a.name, b.title || b.name));
-        },
-        // Each machine's bars in the rail by its name, null for one that shows none
-        rail_gauges_of: function () {
-            const out = {};
-            for (const item of this.state.remotes) {
-                out[item.name] = rail_gauges(item, this.rail_numbers);
-            }
-            return out;
-        },
-        rail_secrets: function () {
-            return this.secret_names.slice().sort(rail_compare);
-        },
-        // The addresses under the rail's Addresses row, by name; each opens the service it reaches
-        rail_addresses: function () {
-            const out = [];
-            for (const service of this.state.services) {
-                for (const host of service.publish.hosts) {
-                    out.push({key: `${service.name} ${host}`, address: host, service: service.name});
-                }
-            }
-            // Each app's own port, as Addresses names it: on serviceman's name on the tailnet
-            for (const name of Object.keys(this.app_ports)) {
-                out.push({key: `port ${name}`, address: `${(this.tailnet_name === null) ? '' : this.tailnet_name}:${this.app_ports[name].port}`, service: name});
-            }
-            for (const remote of this.state.remotes) {
-                const rule_by_host = (remote.inbound === undefined) ? {} : remote.inbound;
-                for (const host of Object.keys(rule_by_host)) {
-                    out.push({key: `${remote.name} ${host}`, address: host, service: rule_by_host[host].service});
-                }
-            }
-            out.sort((a, b) => rail_compare(a.address, b.address));
-            return out;
-        },
         // Each app's own port, {app: {port, error}}; none from a serviceman before them
         app_ports: function () {
             return ((this.state.app_ports === undefined) || (this.state.app_ports === null)) ? {} : this.state.app_ports;
-        },
-        // The folders under Storage; each opens the service that keeps it
-        rail_folders: function () {
-            const out = [];
-            for (const item of this.volumes) {
-                if (item.used_by.length === 0) {
-                    continue;
-                }
-                out.push({key: `${item.machine}/${item.name}`, name: item.name, service: item.used_by[0].service, title: `on ${item.machine} · kept for ${item.used_by.map(v => v.service).join(', ')}`});
-            }
-            out.sort((a, b) => rail_compare(a.name, b.name));
-            return out;
-        },
-        // The item picked in the rail's tree, so it can be brought into view when it is not.
-        // The rail is drawn with the first status, so that counts as a change too.
-        rail_picked: function () {
-            return `${(this.state === null) ? '' : 'drawn'} ${this.kind_now} ${this.selected_name} ${this.remote_name}`;
         },
         remotes_offline: function () {
             return this.state.remotes.filter(v => v.phase !== 'online').length;
@@ -2648,23 +2502,6 @@ const app = {
         },
     },
     watch: {
-        // A picked item that is out of the rail's view is scrolled to the middle of it; one that
-        // is in view stays where it is, so the rail does not jump under the pointer
-        rail_picked: function () {
-            const self = this;
-            this.$nextTick(function () {
-                const rail = self.$refs.rail;
-                const on = (rail === undefined) ? null : rail.querySelector('.rail-tree .row.on');
-                if (on === null) {
-                    return;
-                }
-                const box = rail.getBoundingClientRect();
-                const row = on.getBoundingClientRect();
-                if ((row.top < box.top) || (row.bottom > box.bottom)) {
-                    on.scrollIntoView({block: 'center'});
-                }
-            });
-        },
         // The address follows what is open. It is written here rather than at each of the
         // fourteen places that open something, and it is only ever a mirror of them: nothing
         // reads it back except a reload, the back button, and a link somebody was sent.
@@ -2690,10 +2527,6 @@ const app = {
     },
     methods: {
         phase_short,
-        // What the rail says on the right of a row
-        rail_text: function (view) {
-            return phase_short(view);
-        },
         // A fresh link has no number yet, so it is not given one
         latency_text: function (view) {
             if (view.phase !== 'online') {
@@ -2757,6 +2590,11 @@ const app = {
             }
             if (route.kind === 'config') {
                 this.editor_open = true;
+                return;
+            }
+            if (route.kind === 'categories') {
+                this.categories_open = true;
+                this.counts_read();
                 return;
             }
             if (route.kind === 'storage') {
@@ -2854,10 +2692,6 @@ const app = {
                 }
                 this.state = loaded;
                 this.answering = true;
-                this.secrets_count_read();
-                this.volumes_count_read();
-                this.shared_count_read();
-                this.databases_count_read();
                 this.route_settle();
             }
             catch {
@@ -2909,7 +2743,7 @@ const app = {
             this.panes_close();
             this.databases_open = true;
         },
-        // The servers as kept: the machines are not asked for the rail's count
+        // The servers as kept: the machines are not asked for a count
         databases_count_read: async function () {
             try {
                 const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
@@ -2920,12 +2754,12 @@ const app = {
                 this.databases_count = '';
             }
         },
-        // The folders as kept: the machines are not asked for the rail's count
+        // The folders as kept: the machines are not asked for a count
         shared_count_read: async function () {
             try {
                 const answer = await fetch('/api/v1/shared-folders?live=0', {cache: 'no-store'});
                 const body = await answer.json();
-                this.shared_count = (body.home === null) ? 'none' : String(body.folders.length);
+                this.shared_count = String(body.folders.length);
             }
             catch {
                 this.shared_count = '';
@@ -2935,12 +2769,10 @@ const app = {
             try {
                 const answer = await fetch('/api/v1/volumes', {cache: 'no-store'});
                 const body = await answer.json();
-                this.volumes_count = (body.volumes.length === 0) ? 'none' : String(body.volumes.length);
-                this.volumes = body.volumes;
+                this.volumes_count = String(body.volumes.length);
             }
             catch {
                 this.volumes_count = '';
-                this.volumes = [];
             }
         },
         secrets_show: function () {
@@ -3105,17 +2937,34 @@ const app = {
             this.selected_name = null;
             this.remote_name = null;
         },
+        // The library's secrets, the values written down once for any service to be given
         secrets_count_read: async function () {
             try {
                 const answer = await fetch('/api/v1/secrets', {cache: 'no-store'});
                 const body = await answer.json();
-                this.secrets_count = (body.secrets.length === 0) ? 'none' : String(body.secrets.length);
-                this.secret_names = body.secrets.map(v => v.name);
+                this.secrets_count = String(body.global.length);
             }
             catch {
                 this.secrets_count = '';
-                this.secret_names = [];
             }
+        },
+        tokens_count_read: async function () {
+            try {
+                const answer = await fetch('/api/v1/tokens', {cache: 'no-store'});
+                const body = await answer.json();
+                this.tokens_count = String(body.tokens.length);
+            }
+            catch {
+                this.tokens_count = '';
+            }
+        },
+        // The counts that are not in the status, read as the menu or All categories opens
+        counts_read: function () {
+            this.secrets_count_read();
+            this.tokens_count_read();
+            this.volumes_count_read();
+            this.shared_count_read();
+            this.databases_count_read();
         },
         join_open: async function () {
             const loaded = await config_read();
@@ -3154,6 +3003,7 @@ const app = {
             this.addresses_open = false;
             this.map_open = false;
             this.canvas_open = false;
+            this.categories_open = false;
             this.list_remote = null;
         },
         tab_pick: function (tab) {
@@ -3282,16 +3132,30 @@ const app = {
             this.selected_name = name;
             this.remote_name = null;
         },
-        // A tick on a machine's Overview tile shows that number beside every machine in the rail
-        // A kind's list folded away or back, the page shown staying as it is
-        rail_fold_toggle: function (kind) {
-            this.rail_folded = this.rail_folded.includes(kind) ? this.rail_folded.filter(v => v !== kind) : this.rail_folded.concat([kind]);
-            storage_set('serviceman.rail_folded', JSON.stringify(this.rail_folded));
+        // All categories, the category it was opened from outlined
+        categories_show: function () {
+            const from = this.kind_now;
+            this.panes_close();
+            this.categories_from = from;
+            this.categories_open = true;
+            this.counts_read();
         },
-        rail_number_pick: function (pick) {
-            const others = this.rail_numbers.filter(v => (v !== pick.key));
-            this.rail_numbers = pick.on ? [...others, pick.key] : others;
-            storage_set('serviceman.rail_numbers', JSON.stringify(this.rail_numbers));
+        // A category picked in the first crumb's menu or on All categories
+        category_show: function (key) {
+            const method = CATEGORY_SHOW[key];
+            if (method !== undefined) {
+                this[method]();
+            }
+        },
+        // A crumb between the first and the last: the item it names, on its first tab
+        crumb_go: function (to) {
+            if (to.page === 'service') {
+                this.service_tab = to.tab;
+                return;
+            }
+            if (to.page === 'remote') {
+                this.remote_tab = to.tab;
+            }
         },
         theme_toggle: function () {
             this.theme = (this.theme === 'dark') ? 'light' : 'dark';
@@ -3431,10 +3295,10 @@ function policy_text(view)
     return items.join(' · ');
 }
 
-// Names the way a person sorts them: case aside, and the digits in them as numbers
-function rail_compare(a, b)
+// A count as a category says it beside its name: '' while it is not read yet
+function tally(count)
 {
-    return a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'});
+    return {text: String(count), state: 'muted', title: ''};
 }
 
 function plural(count, one, many)
@@ -3483,32 +3347,6 @@ function icon_html(name)
 function problem_seen_key(problem)
 {
     return `${problem.key} ${problem.since}`;
-}
-
-// The numbers ticked for the rail in this browser: CPU and memory until one is ticked or
-// unticked, and the same for anything unreadable
-function rail_numbers_read()
-{
-    try {
-        const kept = JSON.parse(storage_get('serviceman.rail_numbers'));
-        return Array.isArray(kept) ? kept.filter(v => ['cpu', 'memory', 'disk'].includes(v)) : ['cpu', 'memory'];
-    }
-    catch {
-        return ['cpu', 'memory'];
-    }
-}
-
-// The kinds of the rail whose list is folded away, kept in this browser; anything unreadable is
-// none, every list shown
-function rail_folded_read()
-{
-    try {
-        const kept = JSON.parse(storage_get('serviceman.rail_folded'));
-        return Array.isArray(kept) ? kept.filter(v => ['services', 'remotes', 'addresses', 'storage', 'secrets'].includes(v)) : [];
-    }
-    catch {
-        return [];
-    }
 }
 
 // The problems the bar was closed on, kept in this browser; anything unreadable is none

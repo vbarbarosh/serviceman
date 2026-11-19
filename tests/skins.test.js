@@ -20,7 +20,7 @@ test('the skins on disk are listed, and their files are served from the skins fo
         const skins = JSON.parse(listed.body).skins;
         assert.deepStrictEqual(skins.map(v => v.name), ['ledger']);
         for (const skin of skins) {
-            assert.strictEqual(skin.layout, 'rail', `${skin.name} names the one layout the page implements`);
+            assert.strictEqual(skin.layout, 'crumbs', `${skin.name} names the one layout the page implements`);
             assert.strictEqual((typeof skin.title === 'string') && (skin.title !== ''), true);
             assert.strictEqual(skin.cover, true, `${skin.name} ships its covers for the picker`);
             const css = await fetch_host({port: control_port, host: '127.0.0.1', path: `/skins/${skin.name}/skin.css`});

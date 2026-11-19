@@ -4,7 +4,7 @@ A shared folder is one folder, the same on every machine that mounts it. Each ma
 a path of its own, `/srv/media` on one and `/var/www/site/media` on another, read-write here and
 read-only there. A file written on one is there when another opens it.
 
-The page is **Shared folders** in the rail. It has three parts: the home, the folders, and a
+The page is **Shared folders**, in the first crumb's menu. It has three parts: the home, the folders, and a
 row per machine under each folder.
 
 ## The home

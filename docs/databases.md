@@ -4,7 +4,7 @@ A database server on one of your machines, brought up by serviceman in docker, a
 data kept there. An app picks one of its databases in its **Data** tab and finds it in
 `DATABASE_URL` at every start, as a user of its own; an Adminer given one opens on it, logged in.
 
-The page is **Databases** in the rail: each server, its machine and how it stands, and a row per
+The page is **Databases**, in the first crumb's menu: each server, its machine and how it stands, and a row per
 database in it, with its tables, its size and the apps that picked it.
 
 ## A server

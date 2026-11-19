@@ -1074,7 +1074,7 @@ may not carry it: its forward would reach an address beyond the machine, and is 
 is, <code>to</code> where it shows up. sshfs on <code>to</code> speaks SFTP straight to the agent of <code>from</code>, over the
 tailnet (through serviceman when the two agents cannot reach each other), to the folder, which
 shows it and nothing outside it. No ssh and no key.
-<strong>Mounts</strong> in the rail writes this list for you; <a href="mounts.html">Mounts</a> says how it works.</p>
+<strong>Mounts</strong>, on All categories, writes this list for you; <a href="mounts.html">Mounts</a> says how it works.</p>
 <pre><code class="language-json">&quot;mounts&quot;: [
     {&quot;label&quot;: &quot;photos&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;laptop&quot;, &quot;path&quot;: &quot;~/Pictures&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;path&quot;: &quot;/mnt/photos&quot;}, &quot;mode&quot;: &quot;ro&quot;},
     {&quot;label&quot;: &quot;serviceman&#39;s data&quot;, &quot;from&quot;: {&quot;here&quot;: true, &quot;path&quot;: &quot;.&quot;}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;path&quot;: &quot;/mnt/serviceman&quot;}, &quot;mode&quot;: &quot;ro&quot;}
@@ -1666,7 +1666,7 @@ and which services keep what in it.</p>
 itself, <strong>never in the config</strong> — and they are made on the control page, not in a file.</p>
 <p><strong>A secret made on a service&#39;s page is that service&#39;s own.</strong> Nothing else can read it, and it
 cannot be reused elsewhere: two services may both hold a <code>token</code>, and they are not the same
-token. The <strong>Secrets</strong> row in the rail holds a <em>library</em> beside them — values written down once,
+token. The <strong>Secrets</strong> page, in the first crumb&#39;s menu, holds a <em>library</em> beside them — values written down once,
 to be copied into as many services as need them. Copying happens on the host: a value that is
 kept here never goes out to a page and back.</p>
 <p>At start, the secrets of a service are put on the machine that runs it — <code>600</code>, in the agent&#39;s
@@ -2341,7 +2341,7 @@ of none missing and the Tailscale page says none is wanted, and Apps and Address
 tailnet link. A machine with an agent opens them by localhost through a board
 published on it (<a href="#app-boards">App boards</a>); a device with no agent, a phone, opens none. Set on,
 they have their ports again.</p>
-<p><strong>The Tailscale page,</strong> in the rail, shows everything serviceman does with tailscale in its image:
+<p><strong>The Tailscale page,</strong> on All categories, shows everything serviceman does with tailscale in its image:
 its name and address on the tailnet, the tailnet and MagicDNS, tailscale&#39;s version, or the link to
 sign this machine in while tailscale waits for one; the switch above, while the apps are on the
 tailnet; the certificate, for which name and until when, or why there is none and what mends it;
@@ -2439,7 +2439,7 @@ secure context, so it has the microphone, the camera and the clipboard with no c
 </tr>
 </tbody></table>
 </div>
-<p><strong>Boards</strong>, in the rail, is where they are made: every app is a cell in a palette, dragged onto
+<p><strong>Boards</strong>, on All categories, is where they are made: every app is a cell in a palette, dragged onto
 a board, moved in it, or dragged back to the palette to come off; a machine clicked under a board
 publishes it there. Each change is saved at once. A program reads the list with
 <code>GET /api/v1/boards</code> and writes it back whole with <code>PUT /api/v1/boards</code>, the owner&#39;s token alone.</p>

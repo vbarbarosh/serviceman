@@ -1,4 +1,4 @@
-/* Ledger: the classic structure on warm paper — IBM Plex, dotted leaders in the rail, ruled
+/* Ledger: the classic structure on warm paper — IBM Plex, dotted leaders in the categories, ruled
    fact rows, small-caps labels. Falls back to the system faces when the fonts cannot load. Its
    colours are the light theme's; in the dark theme it keeps its faces and takes the page's. */
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
@@ -40,17 +40,13 @@ header .brand {
     font-weight: 600;
 }
 
-nav .row {
-    padding: .45rem .9rem;
-}
-
-/* The rail reads as a ledger: name, a dotted leader, the figure at the right edge */
-nav .row .name {
+/* The first crumb's menu reads as a ledger: name, a dotted leader, the figure at the right edge */
+.crumb-item .crumb-name {
     display: flex;
     align-items: baseline;
 }
 
-nav .row .name:not(:last-child)::after {
+.crumb-item .crumb-name:not(:last-child)::after {
     content: "";
     flex: 1;
     margin: 0 .1rem 0 .6rem;
@@ -58,17 +54,13 @@ nav .row .name:not(:last-child)::after {
     transform: translateY(-4px);
 }
 
-nav .row > .muted {
+.crumb-count,
+.cat-count {
     font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .78rem;
 }
 
-nav .dot {
-    width: .5rem;
-    height: .5rem;
-}
-
-.rail-head {
+.cat-group h2 {
     letter-spacing: .12em;
     font-size: .68rem;
 }

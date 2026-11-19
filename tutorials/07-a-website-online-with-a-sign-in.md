@@ -24,7 +24,7 @@ every address the site has.
 
 ### Put the site on the Apps page {#give-it-the-site}
 
-1. Open **Apps** in the sidebar.
+1. Open **Apps**: the first crumb, **All categories…**, then **Apps**.
 2. Click the card at the top, **Drop a .zip, a folder or an .html page here**, and pick the zip
    of your site. Dropping the zip on the card works the same.
 3. The zip has its `index.html` at the top, or in its one folder: that is the page a visitor
@@ -45,8 +45,8 @@ every address the site has.
 1. On the site's card, click **Settings**.
 2. Under **Sign-in**, choose **behind authwall**. The line under it says "every visitor signs in
    first, at every address".
-3. Click **Save**. A lock appears before the site's address on its card, and the sidebar's
-   **Authwall** counts one more app.
+3. Click **Save**. A lock appears before the site's address on its card, and the
+   **Authwall** tile on All categories counts one more app.
 
 authwall is already set up here: setting it up is [its own tutorial](00-authwall.md).
 

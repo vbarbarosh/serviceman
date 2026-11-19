@@ -1,7 +1,7 @@
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 
-// The dot of each state, as the rail draws a service: a filled disc is alive, an empty ring has
+// The dot of each state, as Services draws a service: a filled disc is alive, an empty ring has
 // nothing to say
 const DOT_OF = {ok: 'running', warn: 'stopping', bad: 'failed', none: ''};
 

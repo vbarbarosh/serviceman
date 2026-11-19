@@ -1001,11 +1001,6 @@ from 80%, red from 92%), and for its battery and the link; its history, then car
 machine, its agent, its services, its updates and its logs, each with a link to the tab that
 does more with it, and its raw state folded away at the end.
 It is <code>src/main/public/remote_overview.js</code>.</p>
-<p>The CPU, Memory and Disk tiles each have a tick in their corner: a number ticked shows beside
-every machine in the rail, as a small bar filled from its foot, in the tiles&#39; colours, the
-numbers in words when pointed at. CPU and memory are ticked until you choose; the choice is
-this browser&#39;s. A machine that is away shows none, one that does not answer shows them faint,
-as what it said last, and a number it does not say is an empty bar.</p>
 <p><strong>History</strong> is the machine&#39;s charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one <code>/</code> is on), disk I/O, network, open tcp
 connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on
 its own disk, under <code>metrics/</code> in its folder, whether serviceman is there or not: a line every
@@ -1166,7 +1161,7 @@ ufw runs as root: in the machine&#39;s root half where it has one, else as <code
 needs a sudoers line naming ufw. A machine without ufw says so; a root half older than the
 firewall says it is updating. The module is <code>modules/firewall</code>, and its README has the API.</p>
 <h2 id="its-security"><a class="anchor" href="#its-security" aria-hidden="true" tabindex="-1">#</a>Its security</h2>
-<p>The <strong>Security</strong> page, under Health in the rail, says what each machine leaves open to harm: a
+<p>The <strong>Security</strong> page, on All categories beside Health, says what each machine leaves open to harm: a
 row per machine, a column per check, the worst first, red where something is to be mended,
 orange where it wants a look, grey where there is nothing to say, and why. A click on a row
 shows what stands behind each check, and mends it with a click where the machine&#39;s root half
@@ -1334,14 +1329,14 @@ with keys it holds. The work is the machine&#39;s root half&#39;s, and a key tra
 socket file, the same machine, a page loaded from this machine&#39;s <code>localhost</code> or the tailnet. The
 module is <code>modules/volumes</code>, and its README has the API.</p>
 <h2 id="when-something-is-wrong"><a class="anchor" href="#when-something-is-wrong" aria-hidden="true" tabindex="-1">#</a>When something is wrong</h2>
-<p>Every minute serviceman looks at everything it runs and knows, and the <strong>Health</strong> page, first
-in the rail, shows what it found: one row per thing (a machine, a service, Logline and each
+<p>Every minute serviceman looks at everything it runs and knows, and the <strong>Health</strong> page, on All
+categories, shows what it found: one row per thing (a machine, a service, Logline and each
 machine&#39;s lines, a forward), and one check per thing it does, green when it works, orange when
 it works but wants a look, red when it does not, grey when there is nothing to say yet. What is
 wrong comes first, one card each: where it is, since when, why, and what mends it; a red bar
 under the page&#39;s header says so on every page and opens it. Its <strong>×</strong> puts it away once the
-problems are seen, in this browser; a problem not seen yet brings it back, and the Health row
-of the rail stays red meanwhile. A problem shows once it is seen
+problems are seen, in this browser; a problem not seen yet brings it back, and Health&#39;s tile on
+All categories stays red meanwhile. A problem shows once it is seen
 twice in a row, so a blip of a second is not one, and leaves on its own once it is mended. Each
 is written to the log too, <code>problem_begin</code> and <code>problem_end</code> (<a href="logs.html">The log</a>).</p>
 <div class="table-wrap"><table>

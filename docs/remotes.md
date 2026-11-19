@@ -335,12 +335,6 @@ machine, its agent, its services, its updates and its logs, each with a link to 
 does more with it, and its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
-The CPU, Memory and Disk tiles each have a tick in their corner: a number ticked shows beside
-every machine in the rail, as a small bar filled from its foot, in the tiles' colours, the
-numbers in words when pointed at. CPU and memory are ticked until you choose; the choice is
-this browser's. A machine that is away shows none, one that does not answer shows them faint,
-as what it said last, and a number it does not say is an empty bar.
-
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
 connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
@@ -522,7 +516,7 @@ firewall says it is updating. The module is `modules/firewall`, and its README h
 
 ## Its security
 
-The **Security** page, under Health in the rail, says what each machine leaves open to harm: a
+The **Security** page, on All categories beside Health, says what each machine leaves open to harm: a
 row per machine, a column per check, the worst first, red where something is to be mended,
 orange where it wants a look, grey where there is nothing to say, and why. A click on a row
 shows what stands behind each check, and mends it with a click where the machine's root half
@@ -647,14 +641,14 @@ module is `modules/volumes`, and its README has the API.
 
 ## When something is wrong
 
-Every minute serviceman looks at everything it runs and knows, and the **Health** page, first
-in the rail, shows what it found: one row per thing (a machine, a service, Logline and each
+Every minute serviceman looks at everything it runs and knows, and the **Health** page, on All
+categories, shows what it found: one row per thing (a machine, a service, Logline and each
 machine's lines, a forward), and one check per thing it does, green when it works, orange when
 it works but wants a look, red when it does not, grey when there is nothing to say yet. What is
 wrong comes first, one card each: where it is, since when, why, and what mends it; a red bar
 under the page's header says so on every page and opens it. Its **×** puts it away once the
-problems are seen, in this browser; a problem not seen yet brings it back, and the Health row
-of the rail stays red meanwhile. A problem shows once it is seen
+problems are seen, in this browser; a problem not seen yet brings it back, and Health's tile on
+All categories stays red meanwhile. A problem shows once it is seen
 twice in a row, so a blip of a second is not one, and leaves on its own once it is mended. Each
 is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)).
 

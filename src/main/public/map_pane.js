@@ -263,7 +263,7 @@ function service_places(service, remotes)
     return (names.length === 0) ? [''] : names;
 }
 
-// The dot a service's phase is drawn with, as the rail draws it; a resting one is the empty ring
+// The dot a service's phase is drawn with, as Services draws it; a resting one is the empty ring
 function service_dot(phase)
 {
     return ['running', 'starting', 'stopping', 'failed', 'lost'].includes(phase) ? phase : 'stopped';

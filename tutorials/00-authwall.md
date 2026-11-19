@@ -51,5 +51,5 @@ docker; nothing called `authwall` yet.
 ### 6. ready
 
 - **Do:** open **Apps**, **Settings** on any app.
-- **See:** its **Sign-in** list, **behind authwall · family** in it, and **Authwall** in the sidebar.
+- **See:** its **Sign-in** list, **behind authwall · family** in it, and **Authwall** on All categories.
 - **Say:** Now every app's Settings can put it behind authwall. The tutorials after this one start here.

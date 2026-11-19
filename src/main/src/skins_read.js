@@ -17,7 +17,7 @@ async function skins_read(skins_root)
     for (const name of names.sort()) {
         try {
             const json = JSON.parse(await fs.promises.readFile(path.join(skins_root, name, 'skin.json'), 'utf8'));
-            out.push({name, title: String(json.title || name), layout: String(json.layout || 'rail'), cover: await cover_there(skins_root, name)});
+            out.push({name, title: String(json.title || name), layout: String(json.layout || 'crumbs'), cover: await cover_there(skins_root, name)});
         }
         catch {
         }

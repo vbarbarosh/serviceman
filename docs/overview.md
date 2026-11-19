@@ -115,9 +115,13 @@ service, its state, its addresses, its policy and its instances, and it does the
   `control.shell: false` takes the shells away.
 - **The front page** — every service, one row each, under the machine it runs on: its
   address, kind and state. A filter and the state chips narrow it; the name in the header
-  brings it back. The rail holds one row per kind — Services, Remotes, Addresses, Storage,
-  Secrets — and **Addresses** lists every name that reaches a service, with who opens it and
+  brings it back. **Addresses** lists every name that reaches a service, with who opens it and
   whether it does.
+- **The crumbs** — on top of every page, where you are: `Remotes ▾ › vps1 › Settings`. The
+  first is a menu of the categories, Services, Databases, Remotes, Addresses, Shared folders,
+  Secrets and Tokens, each with its count, then **All categories**: a tile for each of the 22,
+  with what it is for. Every other crumb goes back up to it; the address follows them, so a
+  reload or a link lands on the same place.
 - **Map** — all of it as one picture: every address to the service that answers it, every
   service to the machine it runs on (a solid line where it runs now, a dashed one where it
   may), and every machine to Logline where it sends its logs. Pointing at anything lights up
