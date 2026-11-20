@@ -6,6 +6,7 @@ const config_from_json = require('../src/main/src/helpers/config_from_json');
 const containers_kill = require('./containers_kill');
 const docker_api_start = require('./fixtures/docker_api_start');
 const fetch_host = require('./fetch_host');
+const free_port = require('./free_port');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -652,18 +653,6 @@ function fetch_direct(port)
     });
 }
 
-function free_port()
-{
-    return new Promise(function (resolve) {
-        const server = require('net').createServer();
-        server.listen(0, '127.0.0.1', function () {
-            const port = server.address().port;
-            server.close(function () {
-                resolve(port);
-            });
-        });
-    });
-}
 
 async function serviceman_start(services, remotes)
 {

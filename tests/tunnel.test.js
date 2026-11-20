@@ -3,9 +3,9 @@ const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
 const crypto = require('crypto');
+const free_port = require('./free_port');
 const fs = require('fs');
 const http = require('http');
-const net = require('net');
 const os = require('os');
 const path = require('path');
 const server_start = require('../src/main/src/helpers/server_start');
@@ -232,18 +232,6 @@ function hash(buffer)
     return crypto.createHash('sha1').update(buffer).digest('hex');
 }
 
-function free_port()
-{
-    return new Promise(function (resolve) {
-        const server = net.createServer();
-        server.listen(0, '127.0.0.1', function () {
-            const port = server.address().port;
-            server.close(function () {
-                resolve(port);
-            });
-        });
-    });
-}
 
 async function wait_until(ready, timeout_ms)
 {

@@ -8,6 +8,7 @@ const databases_write = require('../src/main/src/helpers/databases_write');
 const docker_api_start = require('./fixtures/docker_api_start');
 const docker_spec_hash = require('../src/main/src/helpers/docker_spec_hash');
 const fetch_host = require('./fetch_host');
+const free_port = require('./free_port');
 const fs = require('fs');
 const http = require('http');
 const image_prepull_start = require('../src/main/src/helpers/image_prepull_start');
@@ -3437,15 +3438,3 @@ function pid_alive(pid)
     }
 }
 
-function free_port()
-{
-    return new Promise(function (resolve) {
-        const server = net.createServer();
-        server.listen(0, '127.0.0.1', function () {
-            const port = server.address().port;
-            server.close(function () {
-                resolve(port);
-            });
-        });
-    });
-}
