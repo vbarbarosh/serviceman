@@ -159,7 +159,7 @@ const file_manager = {
         </template>
         <template v-else>
             <input v-model.trim="filter" type="search" placeholder="filter this folder" spellcheck="false">
-            <button type="button" class="chip" :class="{on: show_dot_files}" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files">dot files <span class="muted">{{ dot_count }}</span></button>
+            <button type="button" class="chip" :class="{on: show_dot_files}" :aria-pressed="(show_dot_files ? 'true' : 'false')" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files"><span class="chip-check" aria-hidden="true"></span>dot files <span class="muted">{{ dot_count }}</span></button>
             <span class="list-right">
                 <button type="button" :disabled="(offline || path === null)" @click="mode_open('folder')">+ New folder</button>
                 <button type="button" :disabled="(offline || path === null)" title="A whole folder, its inner folders too; or drop it on the list" @click="$refs.folder_picker.click()">Upload folder</button>
@@ -257,7 +257,7 @@ const file_manager = {
                     <select v-model="language" aria-label="Language" :disabled="(open_file.state !== 'ready')">
                         <option v-for="item of LANGUAGES" :key="item.value" :value="item.value">{{ item.label }}</option>
                     </select>
-                    <button type="button" class="chip" :class="{on: wrap}" title="Wrap long lines" @click="wrap = !wrap">wrap</button>
+                    <button type="button" class="chip" :class="{on: wrap}" :aria-pressed="(wrap ? 'true' : 'false')" title="Wrap long lines" @click="wrap = !wrap"><span class="chip-check" aria-hidden="true"></span>wrap</button>
                     <a class="button" :href="file_url(open_file)" target="_blank" rel="noreferrer">Open in a tab</a>
                     <button type="button" class="primary" :disabled="(dirty === false || saving || offline)" title="Ctrl+S" @click="save(false)"><span v-if="saving" class="spin"/>{{ saving ? 'saving…' : 'Save' }}</button>
                     <button type="button" @click="file_close">Close</button>

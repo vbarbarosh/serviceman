@@ -16,7 +16,7 @@ const disks = {
         <template #tools="{items}">
             <span>{{ summary_of(items) }}</span>
             <button v-if="(usage_disk === null && items.some(v => v.disk))" type="button" title="Count what the folders of the main disk hold, biggest first" @click="usage_disk = main_disk(items)">What takes the space</button>
-            <button type="button" class="chip" :class="{on: show_all}" :title="(show_all ? 'Show the disks alone' : 'Show tmpfs, overlay and loop mounts too')" @click="show_all = (show_all === false)">everything mounted <span class="muted">{{ items.length }}</span></button>
+            <button type="button" class="chip" :class="{on: show_all}" :aria-pressed="(show_all ? 'true' : 'false')" :title="(show_all ? 'Show the disks alone' : 'Show tmpfs, overlay and loop mounts too')" @click="show_all = (show_all === false)"><span class="chip-check" aria-hidden="true"></span>everything mounted <span class="muted">{{ items.length }}</span></button>
         </template>
         <template #cell-mounts="{item, more}">
             <code>{{ item.mounts[0] }}</code>

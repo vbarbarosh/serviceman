@@ -5653,6 +5653,21 @@ button.chip {
     font-size: .9rem;
 }
 
+/* A chip that turns something on or off: a checkbox on its left, ticked while it is on */
+.chip-check {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 3px;
+    background: var(--panel);
+}
+
+.chip.on .chip-check {
+    border-color: var(--accent);
+    background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
+
 /* A machine's terminals as a terminal app has them: flat tabs, the open one outlined, × on
    each and + after them, on a line of their own above the terminal */
 .term-tabs {
