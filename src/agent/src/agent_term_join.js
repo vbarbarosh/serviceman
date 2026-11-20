@@ -3,18 +3,23 @@ const agent_term_read = require('./agent_term_read');
 const agent_term_start = require('./agent_term_start');
 const fs = require('fs');
 const net = require('net');
+const term_size_valid = require('../../helpers/term_size_valid');
 
 // Joins the terminal `name` kept on this machine, starting its holder first when none runs it.
 // It answers like the socket a tunnelled stream usually is: the holder's bytes come out as
-// data, the history first; destroying it leaves the terminal, which keeps running.
+// data, the history first; destroying it leaves the terminal, which keeps running. A join that
+// names no size leaves a running terminal at its own: it changes only on a joiner's own
+// resize, so a short join (a read, a line typed) does not draw it again at 80×24 and back.
 //
-//     target = {name, cols, rows}
+//     target = {name, cols, rows}   cols and rows may be left out
 function agent_term_join(target)
 {
     const out = new EventEmitter();
     const waiting = [];
-    // The size asked for last: a resize while the holder is still starting is applied once it is up
+    // The size asked for last: a resize while the holder is still starting is applied once it is
+    // up; a new terminal starts at 80×24 when none is named
     const size = {cols: target.cols || 80, rows: target.rows || 24};
+    let sized = term_size_valid(target.cols, target.rows);
     let socket = null;
     out.destroyed = false;
     out.setNoDelay = function () {};
@@ -50,6 +55,7 @@ function agent_term_join(target)
     out.resize = function (cols, rows) {
         size.cols = cols;
         size.rows = rows;
+        sized = true;
         if (socket !== null) {
             size_write(target.name, cols, rows);
         }
@@ -67,7 +73,9 @@ function agent_term_join(target)
             out.destroyed = true;
             out.emit('close');
         });
-        size_write(target.name, size.cols, size.rows);
+        if (sized) {
+            size_write(target.name, size.cols, size.rows);
+        }
         for (const chunk of waiting.splice(0)) {
             socket.write(chunk);
         }

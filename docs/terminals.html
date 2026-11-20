@@ -767,7 +767,10 @@ before 1.27.3, its shell gone and a job still holding the terminal on, is ended 
 both ways, <code>{&quot;stream&quot;: &quot;s_…&quot;, &quot;url&quot;: &quot;/api/v1/streams/s_…&quot;}</code>; open a websocket at that <code>url</code>,
 with the same token, within a minute. A stream is joined once: ask again to join again. The
 older door, a websocket on <code>/api/v1/shell?remote=&lt;remote&gt;&amp;term=&lt;name&gt;</code>, joins the same way and
-stays.</p>
+stays. Either takes a size on its URL, <code>&amp;cols=120&amp;rows=40</code> (whole numbers from 1 to 4096): a new
+terminal starts at it, a running one takes it. Without one a running terminal keeps its own size
+until the joiner sends a resize, so a short join (a read, a line typed) does not draw it again at
+80×24 and back; a new one starts at 80×24.</p>
 <ul>
 <li>A name that is not running is made. Names are letters, digits, <code>-</code> and <code>_</code>.</li>
 <li>The first message is text, json: <code>{&quot;type&quot;: &quot;note&quot;, &quot;text&quot;: &quot;the terminal work on laptop: …&quot;, &quot;ok&quot;: true}</code>.</li>
@@ -787,8 +790,8 @@ and stays holds the terminal, for everyone joined to it, until it reads again or
 closes; serviceman cuts the socket of a reader that takes nothing at all for 20 seconds. To
 be rid of that wait, end the terminal and open a new one.</li>
 <li>Send text messages, json: <code>{&quot;type&quot;: &quot;input&quot;, &quot;data&quot;: &quot;ls\r&quot;}</code> types (Enter is <code>\r</code>), and
-<code>{&quot;type&quot;: &quot;resize&quot;, &quot;cols&quot;: 120, &quot;rows&quot;: 40}</code> sets the size. Send a resize first: a new
-terminal starts at 80×24. A message that is not one of these, input that is not text, or a
+<code>{&quot;type&quot;: &quot;resize&quot;, &quot;cols&quot;: 120, &quot;rows&quot;: 40}</code> sets the size: the first one is what a join
+with no size on its URL needs to send, and until it does the terminal keeps its own. A message that is not one of these, input that is not text, or a
 size no terminal has (whole numbers from 1 to 4096) is dropped.</li>
 <li>Closing the socket leaves the terminal running. It ends when its shell ends (someone types
 <code>exit</code> in it, or ends it as above), however many jobs the shell left holding the terminal

@@ -6,15 +6,21 @@ const ws = require('ws');
 // as `data` (a Buffer, escapes and all, for xterm or a real tty to draw); `note` is the line
 // serviceman says first; `close` is the terminal gone or the socket closed. `token` is the
 // owner's, sent as Authorization: Bearer: without it serviceman closes the socket at once, and
-// `error` says "socket hang up".
+// `error` says "socket hang up". `cols` and `rows` go on the URL: a new terminal starts at that
+// size, a running one takes it; without them a running terminal keeps its own size, so a short
+// join (a read, a line typed) does not draw it again at 80×24.
 //
-//     options = {url, token, remote, name, cols, rows}
+//     options = {url, token, remote, name, cols, rows}   cols and rows may be left out
 //     out.write(text)          types into the terminal
 //     out.resize(cols, rows)   the terminal takes this size
 //     out.close()              leaves the terminal, which keeps running
 function terminal_connect(options)
 {
     const url = new URL(`/api/v1/shell?remote=${encodeURIComponent(options.remote)}&term=${encodeURIComponent(options.name)}`, options.url);
+    if ((options.cols !== undefined) && (options.rows !== undefined)) {
+        url.searchParams.set('cols', String(options.cols));
+        url.searchParams.set('rows', String(options.rows));
+    }
     url.protocol = (url.protocol === 'https:') ? 'wss:' : 'ws:';
     const headers = {};
     if ((typeof options.token === 'string') && (options.token !== '')) {
@@ -32,7 +38,6 @@ function terminal_connect(options)
         socket.close();
     };
     socket.on('open', function () {
-        out.resize(options.cols || 80, options.rows || 24);
         out.emit('open');
     });
     // The terminal's bytes come binary; serviceman's own words come as json text

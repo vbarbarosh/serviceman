@@ -57,7 +57,10 @@ before 1.27.3, its shell gone and a job still holding the terminal on, is ended 
 both ways, `{"stream": "s_…", "url": "/api/v1/streams/s_…"}`; open a websocket at that `url`,
 with the same token, within a minute. A stream is joined once: ask again to join again. The
 older door, a websocket on `/api/v1/shell?remote=<remote>&term=<name>`, joins the same way and
-stays.
+stays. Either takes a size on its URL, `&cols=120&rows=40` (whole numbers from 1 to 4096): a new
+terminal starts at it, a running one takes it. Without one a running terminal keeps its own size
+until the joiner sends a resize, so a short join (a read, a line typed) does not draw it again at
+80×24 and back; a new one starts at 80×24.
 
 - A name that is not running is made. Names are letters, digits, `-` and `_`.
 - The first message is text, json: `{"type": "note", "text": "the terminal work on laptop: …", "ok": true}`.
@@ -77,8 +80,8 @@ stays.
   closes; serviceman cuts the socket of a reader that takes nothing at all for 20 seconds. To
   be rid of that wait, end the terminal and open a new one.
 - Send text messages, json: `{"type": "input", "data": "ls\r"}` types (Enter is `\r`), and
-  `{"type": "resize", "cols": 120, "rows": 40}` sets the size. Send a resize first: a new
-  terminal starts at 80×24. A message that is not one of these, input that is not text, or a
+  `{"type": "resize", "cols": 120, "rows": 40}` sets the size: the first one is what a join
+  with no size on its URL needs to send, and until it does the terminal keeps its own. A message that is not one of these, input that is not text, or a
   size no terminal has (whole numbers from 1 to 4096) is dropped.
 - Closing the socket leaves the terminal running. It ends when its shell ends (someone types
   `exit` in it, or ends it as above), however many jobs the shell left holding the terminal

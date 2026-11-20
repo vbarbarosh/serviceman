@@ -17,6 +17,7 @@ const remote_can = require('../helpers/remote_can');
 const remote_from_instance = require('../helpers/remote_from_instance');
 const streams_of = require('../helpers/streams_of');
 const term_name_valid = require('../../../helpers/term_name_valid');
+const term_size_valid = require('../../../helpers/term_size_valid');
 const terminal_attach = require('../../../../modules/terminal/server/terminal_attach');
 const terminal_guard = require('../../../../modules/terminal/server/terminal_guard');
 const terminal_refuse = require('../../../../modules/terminal/server/terminal_refuse');
@@ -94,13 +95,13 @@ function handle_control_upgrade(app, req, socket, head)
             const container = url.searchParams.get('container');
             let promise;
             if (joined !== null) {
-                promise = machine_join(app, client, joined.join.remote, joined.join.term);
+                promise = machine_join(app, client, joined.join.remote, joined.join.term, url_size(url));
             }
             else if (machine === null) {
                 promise = shell_join(app, client, url.searchParams.get('service'), parseInt(url.searchParams.get('slot') || '1', 10));
             }
             else if (container === null) {
-                promise = machine_join(app, client, machine, url.searchParams.get('term'));
+                promise = machine_join(app, client, machine, url.searchParams.get('term'), url_size(url));
             }
             else {
                 promise = container_join(app, client, machine, container);
@@ -221,7 +222,11 @@ async function container_join(app, client, name, container)
 // A terminal on the machine itself, as the user its agent runs as: the same door the
 // container shell uses, with a pty at the far end instead of docker. With `term` it joins that
 // terminal kept running on the machine, made when there is none, and leaving it leaves it running.
-async function machine_join(app, client, name, term)
+// `cols` and `rows` on the URL give the size it opens at; a kept terminal joined without them
+// keeps its own until the joiner sends a resize, and a new one starts at 80×24.
+//
+//     size   {cols, rows}, or null for none named
+async function machine_join(app, client, name, term, size)
 {
     const remote = app.remote_by_name[name];
     if (remote === undefined) {
@@ -242,7 +247,14 @@ async function machine_join(app, client, name, term)
     if ((term !== null) && (term_name_valid(term) === false)) {
         throw new Error(`a terminal name is letters, digits, - and _, at most 64 of them: ${JSON.stringify(term)}`);
     }
-    const stream = tunnel_open(remote, {shell: (term === null) ? {cols: 80, rows: 24} : {cols: 80, rows: 24, term}});
+    const shell = (size === null) ? {} : {cols: size.cols, rows: size.rows};
+    if (term === null) {
+        Object.assign(shell, {cols: 80, rows: 24}, size);
+    }
+    else {
+        shell.term = term;
+    }
+    const stream = tunnel_open(remote, {shell});
     if (term === null) {
         log_event(app, 'shell_begin', {remote: remote.name, container: 'none — the machine itself'});
     }
@@ -261,6 +273,14 @@ async function machine_join(app, client, name, term)
             log_event(app, 'shell_end_ok', {remote: remote.name});
         }),
     });
+}
+
+// The size a join names on its URL, `?cols=120&rows=40`, or null for none or one no terminal has
+function url_size(url)
+{
+    const cols = Number(url.searchParams.get('cols'));
+    const rows = Number(url.searchParams.get('rows'));
+    return term_size_valid(cols, rows) ? {cols, rows} : null;
 }
 
 module.exports = handle_control_upgrade;

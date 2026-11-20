@@ -1,5 +1,6 @@
 const agent_machine_shell = require('../src/agent/src/agent_machine_shell');
 const agent_term_end = require('../src/agent/src/agent_term_end');
+const agent_term_join = require('../src/agent/src/agent_term_join');
 const agent_term_read = require('../src/agent/src/agent_term_read');
 const agent_term_signal = require('../src/agent/src/agent_term_signal');
 const agent_term_start = require('../src/agent/src/agent_term_start');
@@ -58,6 +59,40 @@ time.sleep(60)
     assert.strictEqual(agent_term_read('old'), null);
     assert.deepStrictEqual(fs.readdirSync(path.dirname(base)), []);
 });
+
+// Every join set a running terminal to 80×24 until its page sent a resize, so each short join
+// (a read, a line typed) drew the program again small and back, into its history too. A join
+// that names no size now leaves the terminal at its own; one that names it, or a resize, sets it.
+test('a join that names no size leaves a running terminal at its own size', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('sized', 120, 40, {}, dir);
+    t.after(() => agent_term_end({name: 'sized'}));
+    const first = join_reading(t, {name: 'sized'});
+    first.join.write('stty size\n');
+    await until(() => (sizes_said(first.heard).length === 1), 5000, 'the size it started at');
+    assert.deepStrictEqual(sizes_said(first.heard), ['40 120']);
+    const named = join_reading(t, {name: 'sized', cols: 100, rows: 30});
+    named.join.write('stty size\n');
+    await until(() => (sizes_said(named.heard).length === 2), 5000, 'the size a join named');
+    assert.deepStrictEqual(sizes_said(named.heard), ['40 120', '30 100'], 'its history first, then the size it named');
+    const plain = join_reading(t, {name: 'sized'});
+    plain.join.write('stty size\n');
+    await until(() => (sizes_said(plain.heard).length === 3), 5000, 'the size a join that names none finds');
+    assert.deepStrictEqual(sizes_said(plain.heard), ['40 120', '30 100', '30 100'], 'kept as it was');
+    plain.join.resize(90, 20);
+    plain.join.write('stty size\n');
+    await until(() => (sizes_said(plain.heard).length === 4), 5000, 'the size of a joiner\'s own resize');
+    assert.strictEqual(sizes_said(plain.heard)[3], '20 90');
+});
+
+// What `stty size` answered in a terminal's output, in order: "rows cols" each, on a line of its
+// own once the escapes are taken out (the shell's title, its bracketed paste, systemd's marks
+// around each command)
+function sizes_said(heard)
+{
+    const text = heard.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+    return [...text.matchAll(/(?:^|[\r\n])([0-9]+ [0-9]+)\r\n/g)].map(v => v[1]);
+}
 
 // A page left open on a laptop asleep is joined and reads nothing. The holder waited to write
 // to it, and meanwhile passed nothing on, took nothing typed and answered no join: the build in
@@ -303,6 +338,17 @@ function agent_dir(t)
         fs.rmSync(dir, {recursive: true, force: true});
     });
     return dir;
+}
+
+// One joined to a kept terminal as a tunnelled stream is (agent_term_join), left after the test:
+// what it heard
+function join_reading(t, target)
+{
+    const out = {join: agent_term_join(target), heard: ''};
+    t.after(() => out.join.destroy());
+    out.join.on('data', v => out.heard += v.toString('utf8'));
+    out.join.on('error', function () {});
+    return out;
 }
 
 // One joined to a kept terminal by its socket, left after the test: what it heard, and whether

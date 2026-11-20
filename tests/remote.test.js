@@ -1583,6 +1583,10 @@ test('a terminal kept on a machine outlives its page and its agent, and its tab 
         let again = '';
         second.on('data', v => again += v.toString('utf8'));
         await wait_until(() => again.includes('kept-42'), 8000);
+        // Joined with no size, it keeps its own: 30 100 again, never 24 80
+        second.write('stty size\r');
+        await wait_until(() => (again.split('30 100').length >= 3), 8000);
+        assert.strictEqual(again.includes('24 80'), false, 'a join that names no size does not set 80×24');
 
         // Its tab's ×: the shell is hung up, whoever had it open sees it close, and it is gone
         const closed = new Promise(v => second.on('close', v));
