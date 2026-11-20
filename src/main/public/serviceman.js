@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
@@ -83,6 +84,8 @@ import walls_of from './walls_of.js';
 import {createApp} from 'vue';
 
 const POLL_MS = 1000;
+// Config's mark, the pencil, for the editor card's head
+const CONFIG_ICON = CATEGORIES.find(v => (v.key === 'config')).icon;
 // The method that opens each category, by its key in categories.js
 const CATEGORY_SHOW = {
     'services': 'home_show',
@@ -145,18 +148,28 @@ const service_logs = {
     },
 };
 
+// serviceman.json in a code editor, framed in a card as the kit draws it: its head the file's
+// path and whether the text is still what the file holds; under it the editor; at its foot Check
+// and Load again on the left, Close and Save on the right, and between them what the last of
+// them came back with
 const config_editor = {
     template: `
 <div id="editor">
-    <page-head category="config"/>
-    <div class="ace" ref="ace"/>
-    <footer>
-        <button type="button" :disabled="busy" @click="check">Check</button>
-        <button type="button" :disabled="busy" @click="save">Save</button>
-        <button type="button" :disabled="busy" @click="load">Load again</button>
-        <button type="button" @click="$emit('close')">Close</button>
-        <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
-    </footer>
+    <page-head category="config" more="Tokens show as dots; type over them to change one."/>
+    <section class="card editor-card">
+        <div class="card-head">
+            <h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="CONFIG_ICON"/><code class="editor-path" :title="path"><bdi>{{ (path === '') ? 'serviceman.json' : path }}</bdi></code></h2>
+            <span class="editor-changed" :class="{warn: changed}">{{ (hash === null) ? '' : (changed ? 'changed, not saved' : 'unchanged') }}</span>
+        </div>
+        <div class="ace" ref="ace"/>
+        <footer>
+            <button type="button" :disabled="busy" @click="check">Check</button>
+            <button type="button" :disabled="busy" @click="load">Load again</button>
+            <span v-if="(busy || (note !== ''))" class="editor-note" :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
+            <button type="button" class="editor-close" @click="$emit('close')">Close</button>
+            <button type="button" class="primary" :disabled="busy" @click="save">Save</button>
+        </footer>
+    </section>
 </div>
 `,
     components: {'page-head': page_head},
@@ -166,7 +179,9 @@ const config_editor = {
     emits: ['close', 'saved'],
     data: function () {
         // kept: each token the editor draws as dots, and what it stands for (config_tokens_hidden)
-        return {hash: null, note: '', bad: false, busy: false, kept: []};
+        // path: the file, as serviceman names it; base: the text as the file holds it, tokens as
+        // dots; changed: whether the editor holds anything else
+        return {CONFIG_ICON, hash: null, path: '', base: '', changed: false, note: '', bad: false, busy: false, kept: []};
     },
     watch: {
         theme: function (value) {
@@ -183,6 +198,7 @@ const config_editor = {
                     return;
                 }
                 this.hash = loaded.hash;
+                this.path = loaded.path;
                 this.show(loaded.text);
                 this.ace.moveCursorTo(0, 0);
                 this.ace.scrollToLine(0);
@@ -190,7 +206,7 @@ const config_editor = {
                 if ((typeof this.seek === 'string') && (this.seek !== '')) {
                     this.ace.find(this.seek, {caseSensitive: true, wholeWord: false, regExp: false});
                 }
-                this.report(this.kept_text(loaded.path), false);
+                this.report('', false);
                 this.ace.focus();
             }
             catch {
@@ -244,24 +260,23 @@ const config_editor = {
             this.bad = bad;
         },
         // The text in the editor with every token as dots, the cursor and the scroll where they
-        // were
+        // were; from here on it is what the file holds
         show: function (text) {
             const hidden = config_tokens_hidden(text);
             this.kept = hidden.kept;
-            if (hidden.text === this.ace.getValue()) {
-                return;
+            this.base = hidden.text;
+            if (hidden.text !== this.ace.getValue()) {
+                const cursor = this.ace.getCursorPosition();
+                const top = this.ace.session.getScrollTop();
+                this.ace.setValue(hidden.text, -1);
+                this.ace.moveCursorToPosition(cursor);
+                this.ace.session.setScrollTop(top);
             }
-            const cursor = this.ace.getCursorPosition();
-            const top = this.ace.session.getScrollTop();
-            this.ace.setValue(hidden.text, -1);
-            this.ace.moveCursorToPosition(cursor);
-            this.ace.session.setScrollTop(top);
+            this.changed = false;
         },
-        kept_text: function (path) {
-            if (this.kept.length === 0) {
-                return path;
-            }
-            return `${path} · tokens as dots, kept as they are on Save; to change one, type over its dots`;
+        // With every change typed: whether the text still is what the file holds
+        changed_check: function () {
+            this.changed = (this.ace.getValue() !== this.base);
         },
     },
     mounted: function () {
@@ -279,6 +294,7 @@ const config_editor = {
             bindKey: {win: 'Ctrl-S', mac: 'Cmd-S'},
             exec: () => this.save(),
         });
+        this.ace.on('change', this.changed_check);
         this.load();
     },
     unmounted: function () {
@@ -2100,7 +2116,7 @@ const app = {
         <authwall-pane v-else-if="authwall_open" :key="('authwall-' + authwall_new)" :state="state" :creating="(authwall_new > 0)" @create="create" @doors="networking_show" @saved="poll" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @form="pane_form = $event" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
-        <canvas-pane v-else-if="canvas_open" :state="state" @remote="remote_select_named"/>
+        <canvas-pane v-else-if="canvas_open" :state="state" @create="remote_new" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @create="create" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
         <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>

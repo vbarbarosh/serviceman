@@ -13,7 +13,7 @@ const page_head = {
     <span class="page-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="item.icon"/></span>
     <div class="page-head-text">
         <h1>{{ item.name }}<span v-if="(count !== null)" class="page-head-count">{{ count }}</span><slot name="state"/></h1>
-        <p class="page-head-says">{{ item.says }}.<button v-if="$slots.how" type="button" class="link page-head-how" :aria-expanded="String(how_open)" @click="how_open = !how_open">{{ how_label }}</button></p>
+        <p class="page-head-says">{{ says }}<button v-if="$slots.how" type="button" class="link page-head-how" :aria-expanded="String(how_open)" @click="how_open = !how_open">{{ how_label }}</button></p>
     </div>
     <div v-if="$slots.acts" class="page-head-acts"><slot name="acts"/></div>
 </div>
@@ -32,6 +32,9 @@ const page_head = {
         count: {type: [Number, String], default: null},
         // The words of the link that opens the rest: How it works, How doors work
         how_label: {type: String, default: 'How it works'},
+        // A sentence after the line, for this page alone: what to do on it, as the menus' line
+        // never says (Map: Point at anything…); '' for none
+        more: {type: String, default: ''},
     },
     data: function () {
         return {how_open: false};
@@ -40,6 +43,10 @@ const page_head = {
         item: function () {
             const found = CATEGORIES.find(v => v.key === this.category);
             return (found === undefined) ? ALL : found;
+        },
+        // The line under the name, and this page's sentence after it
+        says: function () {
+            return (this.more === '') ? `${this.item.says}.` : `${this.item.says}. ${this.more}`;
         },
     },
 };

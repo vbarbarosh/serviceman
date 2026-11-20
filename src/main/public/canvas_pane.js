@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import machine_drawing from './machine_drawing.js';
 import page_head from './page_head.js';
 import storage_get from './storage_get.js';
@@ -7,6 +8,9 @@ import storage_set from './storage_set.js';
 const CELL = {width: 200, height: 230};
 // How wide a name may be under its drawing, in canvas units: a longer one is cut with an ellipsis
 const NAME_WIDTH = 172;
+// A board narrower than this, a phone's, places at most two machines to a row, as drawn, so that
+// Fit keeps them big enough to read
+const NARROW_PX = 600;
 // How far the canvas zooms out and in
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
@@ -21,54 +25,69 @@ const LIGHTS = [
     {light: 'dark', said: 'away'},
 ];
 
-// Every machine on one canvas, drawn as what it is: a server, a laptop or a home computer, as
-// its Settings say; its name under it, and one light: green when all is well, amber when its
-// Health or Security has something to look at, red when something on it failed, dark while it
-// is away. A blue dashed ring turns around the light while work runs on it. The canvas moves
-// with a drag and zooms with the wheel, a pinch, + and −, and Fit; a machine dragged stays where
-// it is put, for every page; a click opens it.
+// The canvas's mark, for its empty card
+const CANVAS_ICON = CATEGORIES.find(v => (v.key === 'canvas')).icon;
+
+// Every machine on one canvas, in a card that takes the rest of the page, drawn as what it is:
+// a server, a laptop or a home computer, as its Settings say; its name under it, a word of how
+// it stands under that, and one light: green when all is well, amber when its Health or
+// Security has something to look at, red when something on it failed, dark while it is away.
+// A blue dashed ring turns around the light while work runs on it; the card's head says what
+// each means. The canvas moves with a drag and zooms with the wheel, a pinch, + and −, and Fit;
+// a machine dragged stays where it is put, for every page; a click opens it.
 const canvas_pane = {
     template: `
 <article id="detail" class="list canvas-pane">
     <page-head category="canvas" :count="machines.length">
         <template #state><span v-if="(note !== '')" class="page-head-count bad">{{ note }}</span></template>
     </page-head>
-    <p class="muted canvas-legend">
-        <span v-for="item of LIGHTS" :key="item.light"><svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true"><circle r="4.6" :class="['canvas-light', item.light]"/></svg>{{ item.said }}</span>
-        <span><svg viewBox="-9 -9 18 18" width="16" height="16" aria-hidden="true"><circle r="3.6" class="canvas-light green"/><circle r="7" class="canvas-ring still"/></svg>work going on</span>
-    </p>
-    <p v-if="(machines.length === 0)" class="muted">No machines yet: Remotes adds one, and it shows here.</p>
-    <div v-else ref="board" class="canvas-board" :class="{panning: (panning !== null)}" @pointerdown="press_board" @pointermove="pointer_move" @pointerup="pointer_up" @pointercancel="pointer_up" @wheel.prevent="wheel">
-        <svg class="canvas-svg" :width="size.width" :height="size.height" :viewBox="('0 0 ' + size.width + ' ' + size.height)">
-            <defs>
-                <pattern id="canvas-dots" :width="(24 * zoom)" :height="(24 * zoom)" patternUnits="userSpaceOnUse" :x="pan.x" :y="pan.y"><circle cx="1.5" cy="1.5" r="1.2" class="canvas-dot"/></pattern>
-            </defs>
-            <rect :width="size.width" :height="size.height" fill="url(#canvas-dots)"/>
-            <text ref="measure" class="canvas-name" visibility="hidden" aria-hidden="true"></text>
-            <g :transform="('translate(' + pan.x + ' ' + pan.y + ') scale(' + zoom + ')')">
-                <g v-for="item of placed" :key="item.name" class="canvas-machine" :class="{dragged: ((drag !== null) && (drag.name === item.name))}" :transform="('translate(' + item.x + ' ' + item.y + ')')" tabindex="0" role="button" :aria-label="(item.title + ': ' + said_of(item))" @pointerdown.stop="press_machine(item, $event)" @keydown.enter="$emit('remote', item.name)">
-                    <title>{{ item.title }}: {{ said_of(item) }}</title>
-                    <rect class="canvas-hit" x="0" y="-10" :width="CELL.width - 20" :height="CELL.height - 10" rx="14"/>
-                    <g transform="translate(20 0) scale(1.4)"><machine-drawing :kind="item.kind" :light="item.light" :work="item.work"/></g>
-                    <text :x="((CELL.width - 20) / 2)" y="158" class="canvas-name" text-anchor="middle">{{ name_short(item.title) }}</text>
-                    <text v-if="(item.light === 'dark')" :x="((CELL.width - 20) / 2)" y="176" class="canvas-away" text-anchor="middle">away</text>
-                </g>
-            </g>
-        </svg>
-        <div class="canvas-zoom" @pointerdown.stop>
-            <button type="button" title="Zoom out" aria-label="Zoom out" @click="zoom_by(1/1.25)">−</button>
-            <span>{{ Math.round(zoom * 100) }}%</span>
-            <button type="button" title="Zoom in" aria-label="Zoom in" @click="zoom_by(1.25)">+</button>
-            <button type="button" title="Every machine in view" @click="fit">Fit</button>
+    <section class="card canvas-card" :class="{empty: (machines.length === 0)}">
+        <div v-if="(machines.length === 0)" class="dt-empty-big">
+            <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CANVAS_ICON"/></span>
+            <h3>No machines yet</h3>
+            <p>A machine whose agent dials in shows here, drawn as what it is, with its light.</p>
+            <button type="button" class="primary" @click="$emit('create')">New remote</button>
         </div>
-    </div>
+        <template v-else>
+            <div class="card-head canvas-legend muted">
+                <span v-for="item of LIGHTS" :key="item.light"><svg viewBox="-8 -8 16 16" width="14" height="14" aria-hidden="true"><circle r="4.6" :class="['canvas-light', item.light]"/></svg>{{ item.said }}</span>
+                <span><svg viewBox="-9 -9 18 18" width="16" height="16" aria-hidden="true"><circle r="3.6" class="canvas-light green"/><circle r="7" class="canvas-ring still"/></svg>work going on</span>
+            </div>
+            <div ref="board" class="canvas-board" :class="{panning: (panning !== null)}" @pointerdown="press_board" @pointermove="pointer_move" @pointerup="pointer_up" @pointercancel="pointer_up" @wheel.prevent="wheel">
+                <svg class="canvas-svg" :width="size.width" :height="size.height" :viewBox="('0 0 ' + size.width + ' ' + size.height)">
+                    <defs>
+                        <pattern id="canvas-dots" :width="(24 * zoom)" :height="(24 * zoom)" patternUnits="userSpaceOnUse" :x="pan.x" :y="pan.y"><circle cx="1.5" cy="1.5" r="1.2" class="canvas-dot"/></pattern>
+                    </defs>
+                    <rect :width="size.width" :height="size.height" fill="url(#canvas-dots)"/>
+                    <text ref="measure" class="canvas-name" visibility="hidden" aria-hidden="true"></text>
+                    <text ref="measure_said" class="canvas-said" visibility="hidden" aria-hidden="true"></text>
+                    <g :transform="('translate(' + pan.x + ' ' + pan.y + ') scale(' + zoom + ')')">
+                        <g v-for="item of placed" :key="item.name" class="canvas-machine" :class="{dragged: ((drag !== null) && (drag.name === item.name))}" :transform="('translate(' + item.x + ' ' + item.y + ')')" tabindex="0" role="button" :aria-label="(item.title + ': ' + said_of(item))" @pointerdown.stop="press_machine(item, $event)" @keydown.enter="$emit('remote', item.name)">
+                            <title>{{ item.title }}: {{ said_of(item) }}</title>
+                            <rect class="canvas-hit" x="0" y="-10" :width="CELL.width - 20" :height="CELL.height - 10" rx="14"/>
+                            <g transform="translate(20 0) scale(1.4)"><machine-drawing :kind="item.kind" :light="item.light" :work="item.work"/></g>
+                            <text :x="((CELL.width - 20) / 2)" y="158" class="canvas-name" text-anchor="middle">{{ name_short(item.title) }}</text>
+                            <text :x="((CELL.width - 20) / 2)" y="178" class="canvas-said" :class="item.light" text-anchor="middle">{{ said_short(item) }}</text>
+                        </g>
+                    </g>
+                </svg>
+                <div class="canvas-zoom" @pointerdown.stop>
+                    <button type="button" title="Zoom out" aria-label="Zoom out" @click="zoom_by(1/1.25)">−</button>
+                    <span>{{ Math.round(zoom * 100) }}%</span>
+                    <button type="button" title="Zoom in" aria-label="Zoom in" @click="zoom_by(1.25)">+</button>
+                    <button type="button" title="Every machine in view" @click="fit">Fit</button>
+                </div>
+            </div>
+        </template>
+    </section>
 </article>
 `,
     components: {'machine-drawing': machine_drawing, 'page-head': page_head},
     props: ['state'],
-    emits: ['remote'],
+    emits: ['create', 'remote'],
     data: function () {
         return {
+            CANVAS_ICON,
             CELL,
             LIGHTS,
             zoom: 1,
@@ -85,9 +104,11 @@ const canvas_pane = {
             note: '',
             observer: null,
             fitted: false,
-            // Each name as it fits under its drawing, by the whole name; and what they were
-            // measured with, so that they are measured again only when the names or the font change
+            // Each name as it fits under its drawing, by the whole name, and each line of how a
+            // machine stands, by the whole line; and what they were measured with, so that they
+            // are measured again only when the names, the lines or the font change
             shown: {},
+            shown_said: {},
             shown_with: '',
         };
     },
@@ -97,9 +118,10 @@ const canvas_pane = {
         },
         // Every machine where it stands: where it was put, or, never put anywhere, in its own place
         // of a grid of all of them in their order, so a machine dragged away leaves every other one
-        // where it was
+        // where it was; on a narrow board, two to a row
         placed: function () {
-            const columns = Math.max(1, Math.min(5, Math.ceil(Math.sqrt(this.machines.length))));
+            const most = ((this.size.width > 0) && (this.size.width < NARROW_PX)) ? 2 : 5;
+            const columns = Math.max(1, Math.min(most, Math.ceil(Math.sqrt(this.machines.length))));
             const moved = this.moved;
             return this.machines.map(function (item, i) {
                 const out = Object.assign({}, item, (moved[item.name] === undefined) ? {} : moved[item.name]);
@@ -132,16 +154,27 @@ const canvas_pane = {
         name_short: function (name) {
             return (this.shown[name] === undefined) ? name : this.shown[name];
         },
-        // Every name measured in the font it is drawn in and cut to its width; again when a name
-        // changes, when a skin brings another font, and once a font has loaded
+        // How a machine stands, in the few words under its name, as drawn: all is well; the one
+        // thing to look at or to mend, cut to the drawing's width; how many when there are more;
+        // away. Every reason is whole in its tooltip.
+        said_short: function (item) {
+            const said = said_line(item);
+            return (this.shown_said[said] === undefined) ? said : this.shown_said[said];
+        },
+        // Every name and every line under one measured in the font it is drawn in and cut to its
+        // width; again when one changes, when a skin brings another font, and once a font has
+        // loaded
         names_fit: function () {
             const measure = this.$refs.measure;
-            if ((measure === undefined) || (measure === null)) {
+            const measure_said = this.$refs.measure_said;
+            if ((measure === undefined) || (measure === null) || (measure_said === undefined) || (measure_said === null)) {
                 return;
             }
             const style = getComputedStyle(measure);
+            const style_said = getComputedStyle(measure_said);
             const titles = this.machines.map(v => v.title);
-            const with_what = [style.fontFamily, style.fontSize, style.fontWeight].concat(titles).join('\n');
+            const lines = this.machines.map(said_line);
+            const with_what = [style.fontFamily, style.fontSize, style.fontWeight, style_said.fontSize, style_said.fontWeight].concat(titles, lines).join('\n');
             if (with_what === this.shown_with) {
                 return;
             }
@@ -149,8 +182,14 @@ const canvas_pane = {
             for (const title of titles) {
                 shown[title] = text_fit(measure, title, NAME_WIDTH);
             }
+            const shown_said = {};
+            for (const line of lines) {
+                shown_said[line] = text_fit(measure_said, line, NAME_WIDTH);
+            }
             measure.textContent = '';
+            measure_said.textContent = '';
             this.shown = shown;
+            this.shown_said = shown_said;
             this.shown_with = with_what;
         },
         fonts_loaded: function () {
@@ -326,6 +365,22 @@ const canvas_pane = {
         document.fonts.removeEventListener('loadingdone', this.fonts_loaded);
     },
 };
+
+// The words under a machine's name before they are cut to its width: all is well, the one
+// reason there is, how many there are, or away
+function said_line(item)
+{
+    if (item.light === 'dark') {
+        return 'away';
+    }
+    if (item.said.length === 0) {
+        return 'all is well';
+    }
+    if (item.said.length === 1) {
+        return item.said[0];
+    }
+    return (item.light === 'red') ? `${item.said.length} to mend` : `${item.said.length} to look at`;
+}
 
 // The text whole when it fits the width, else as much of it as fits with an ellipsis, as an SVG
 // text element in the same font measures it

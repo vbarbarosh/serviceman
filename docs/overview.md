@@ -145,16 +145,19 @@ service, its state, its addresses, its policy and its instances, and it does the
   Remotes, Addresses and Apps as four big tiles, a mark for each in the colour of its state;
   then the other categories as short lists in their groups. Every other crumb goes back up to
   it; the address follows them, so a reload or a link lands on the same place.
-- **Map** — all of it as one picture: every address to the service that answers it, every
-  service to the machine it runs on (a solid line where it runs now, a dashed one where it
-  may), and every machine to Logline where it sends its logs. Pointing at anything lights up
-  what it is joined to; clicking opens it. It is at `/map`.
+- **Map** — all of it as one picture, in a card that counts its addresses, services and
+  machines: every address to the service that answers it, every service to the machine it runs
+  on (a solid line where it runs now, a dashed one where it may), and every machine to Logline
+  where it sends its logs. Pointing at anything lights up what it is joined to; clicking opens
+  it. On a phone the columns stand one under the other, without the lines. It is at `/map`.
 - **Canvas** — every machine on one canvas, drawn as what it is: a server, a laptop or a home
-  computer, as its Settings' **Drawn as** says (a server until set). Each has its name and one
-  light: green when all is well, amber when its row on Health (Security's looks among them)
-  has something to look at, red when something there or a service on it failed, dark while it
-  is away. A blue dashed ring turns around the light while work runs on it: a service starting,
-  stopping or pulling there, apt installing, a Docker long action, a mend. Drag to move around,
+  computer, as its Settings' **Drawn as** says (a server until set). Each has its name, a few
+  words under it (all is well, the one thing to look at or to mend, how many there are, or
+  away; every reason in its tooltip) and one light: green when all is well, amber when its row
+  on Health (Security's looks among them) has something to look at, red when something there or
+  a service on it failed, dark while it is away. A blue dashed ring turns around the light
+  while work runs on it: a service starting, stopping or pulling there, apt installing, a
+  Docker long action, a mend. On a phone the machines stand two to a row. Drag to move around,
   the wheel, a pinch, **+** and **−** to zoom, **Fit** for every machine in view; a machine
   dragged stays where it is put, for every page (`canvas.json` in the state folder, `PUT
   /api/v1/canvas/machines/<name>` with `{x, y}` or `{kind}`); a click or Enter opens it. It is

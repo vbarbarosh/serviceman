@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import agent_current from './agent_current.js';
 import page_head from './page_head.js';
 import remote_dot from './remote_dot.js';
@@ -12,60 +13,81 @@ const MAP_COLUMNS = [
     {value: 'logline', label: 'Logs'},
 ];
 
-// The whole of what serviceman looks after as one picture: every address to the service that
-// answers it, every service to the machine it runs on — a solid line where it runs now, a
-// dashed one where it may — and every machine to Logline where its lines go. Pointing at
-// anything lights up everything it is joined to; clicking opens it.
+// The map's mark, for its card's head
+const MAP_ICON = CATEGORIES.find(v => (v.key === 'map')).icon;
+
+// The whole of what serviceman looks after as one picture, in a card: every address to the
+// service that answers it, every service to the machine it runs on — a solid line where it runs
+// now, a dashed one where it may — and every machine to Logline where its lines go. Its head
+// counts them, its foot says what the lines and the dots mean. Pointing at anything lights up
+// everything it is joined to; clicking opens it. On a phone the columns stand one under the
+// other, without the lines.
 const map_pane = {
     template: `
 <article id="detail" class="list map-pane">
-    <page-head category="map"/>
-    <p class="muted map-legend">
-        <span><i class="map-key run"></i>runs there now</span>
-        <span><i class="map-key may"></i>may run there</span>
-        <span><i class="map-key logs"></i>sends its logs</span>
-        <span>Point at anything to see what it is joined to; click to open it.</span>
-    </p>
-    <div ref="board" class="map-board" :class="{focused: (focus !== null)}" @mouseleave="focus = null">
-        <svg class="map-edges" :width="size.width" :height="size.height" aria-hidden="true">
-            <path v-for="edge of paths" :key="edge.key" :d="edge.d" :class="[edge.kind, {lit: lit(edge.from) && lit(edge.to)}]"/>
-        </svg>
-        <div v-for="column of columns" :key="column.value" class="map-column">
-            <div class="map-column-head muted">{{ column.label }}</div>
-            <div class="map-nodes">
-                <button
-                    v-for="node of column.nodes"
-                    :key="node.id"
-                    type="button"
-                    class="map-node"
-                    :class="['map-' + node.kind, {lit: lit(node.id), host: node.host}]"
-                    :data-id="node.id"
-                    :title="node.hint"
-                    @mouseenter="focus = node.id"
-                    @focus="focus = node.id"
-                    @click="click_node(node)"
-                >
-                    <span v-if="(node.phase !== null)" class="dot" :class="node.phase"/>
-                    <code v-if="(node.kind === 'address')">{{ node.label }}</code>
-                    <span v-else class="map-label">{{ node.label }}</span>
-                    <span v-if="(node.sub !== '')" class="map-sub muted">{{ node.sub }}</span>
-                    <svg v-if="node.behind" class="agent-behind" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-                </button>
-                <p v-if="(column.nodes.length === 0)" class="muted map-none">none</p>
+    <page-head category="map" more="Point at anything to see what it is joined to; click to open it."/>
+    <section class="card map-card">
+        <div class="card-head">
+            <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="MAP_ICON"/>{{ counts }}</h2>
+        </div>
+        <div ref="board" class="map-board" :class="{focused: (focus !== null)}" @mouseleave="focus = null">
+            <svg class="map-edges" :width="size.width" :height="size.height" aria-hidden="true">
+                <path v-for="edge of paths" :key="edge.key" :d="edge.d" :class="[edge.kind, {lit: lit(edge.from) && lit(edge.to)}]"/>
+            </svg>
+            <div v-for="column of columns" :key="column.value" class="map-column">
+                <div class="map-column-head muted">{{ column.label }}</div>
+                <div class="map-nodes">
+                    <button
+                        v-for="node of column.nodes"
+                        :key="node.id"
+                        type="button"
+                        class="map-node"
+                        :class="['map-' + node.kind, {lit: lit(node.id), host: node.host}]"
+                        :data-id="node.id"
+                        :title="node.hint"
+                        @mouseenter="focus = node.id"
+                        @focus="focus = node.id"
+                        @click="click_node(node)"
+                    >
+                        <span v-if="(node.phase !== null)" class="dot" :class="node.phase"/>
+                        <code v-if="(node.kind === 'address')">{{ node.label }}</code>
+                        <span v-else class="map-label">{{ node.label }}</span>
+                        <span v-if="(node.sub !== '')" class="map-sub muted">{{ node.sub }}</span>
+                        <svg v-if="node.behind" class="agent-behind" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+                    </button>
+                    <p v-if="(column.nodes.length === 0)" class="muted map-none">none</p>
+                </div>
             </div>
         </div>
-    </div>
+        <p class="muted map-legend">
+            <span><i class="map-key run"></i>runs there now</span>
+            <span><i class="map-key may"></i>may run there</span>
+            <span v-if="(columns.length > 3)"><i class="map-key logs"></i>sends its logs</span>
+            <span><span class="dot running"/>well</span>
+            <span><span class="dot failed"/>failed or away</span>
+        </p>
+    </section>
 </article>
 `,
     components: {'page-head': page_head},
     props: ['state'],
     emits: ['remote', 'select'],
     data: function () {
-        return {focus: null, paths: [], size: {width: 0, height: 0}, observer: null};
+        return {MAP_ICON, focus: null, paths: [], size: {width: 0, height: 0}, observer: null};
     },
     computed: {
         graph: function () {
             return map_graph(this.state);
+        },
+        // The head of the card: how many addresses, services and machines it draws, this host
+        // among the machines
+        counts: function () {
+            const nodes = this.graph.nodes;
+            return [
+                count_said(nodes.filter(v => (v.kind === 'address')).length, 'address', 'addresses'),
+                count_said(nodes.filter(v => (v.kind === 'service')).length, 'service', 'services'),
+                count_said(nodes.filter(v => (v.kind === 'machine')).length, 'machine', 'machines'),
+            ].join(' · ');
         },
         columns: function () {
             const out = [];
@@ -265,6 +287,12 @@ function service_places(service, remotes)
 function service_dot(phase)
 {
     return ['running', 'starting', 'stopping', 'failed', 'lost'].includes(phase) ? phase : 'stopped';
+}
+
+// A count with its word: 1 address, 2 addresses
+function count_said(count, one, many)
+{
+    return `${count} ${(count === 1) ? one : many}`;
 }
 
 function name_compare(a, b)

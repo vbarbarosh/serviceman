@@ -2368,21 +2368,69 @@ pre {
     white-space: pre-wrap;
 }
 
+/* Config: the page head, then the editor in a card that takes the rest of the page: the file
+   and whether it changed in its head, Check and Load again on the left of its foot, Close and
+   Save on the right */
 #editor {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
-}
-
-#editor > .page-head {
-    margin: 0;
-    padding: 28px 32px 20px;
+    padding: 28px 32px 32px;
 }
 
 @media (max-width: 600px) {
-    #editor > .page-head {
-        padding: 16px 12px 14px;
+    #editor {
+        padding: 16px 12px 16px;
     }
+}
+
+.editor-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 18rem;
+    overflow: hidden;
+}
+
+/* A long path keeps one line, cut on the left so that the file's name stays, whole in its
+   tooltip; whether it changed keeps its place on the right */
+.editor-card > .card-head {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 10px 18px;
+}
+
+.editor-card > .card-head h2 {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.editor-card > .card-head h2 svg {
+    flex: none;
+    color: var(--link);
+}
+
+.editor-path {
+    min-width: 0;
+    overflow: hidden;
+    direction: rtl;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-changed {
+    flex: none;
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+.editor-changed.warn {
+    color: var(--busy-text);
 }
 
 #editor .ace {
@@ -2392,23 +2440,44 @@ pre {
 #editor footer {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 8px 10px;
     align-items: center;
-    padding: .6rem 1.25rem;
+    min-height: 46px;
+    padding: 8px 14px;
     border-top: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--panel-2);
 }
 
-/* A long note beside them (a path, an error, what the dots are) wraps, and goes under them
-   where the row has no room; the buttons keep their words on one line */
+/* What the last press came back with sits between the two pairs and wraps there, or goes under
+   them where the row has no room; the buttons keep their words on one line */
 #editor footer button {
     flex-shrink: 0;
 }
 
-#editor footer > span {
-    flex: 1 1 16rem;
+#editor footer > .editor-close {
+    margin-left: auto;
+}
+
+#editor footer > .editor-note {
+    flex: 1 1 12rem;
     min-width: 0;
     overflow-wrap: anywhere;
+    font-size: 13.5px;
+}
+
+@media (max-width: 600px) {
+    .editor-card > .card-head {
+        padding: 9px 14px;
+    }
+
+    #editor footer {
+        padding: 8px 10px;
+    }
+
+    #editor footer > .editor-note {
+        order: 1;
+        flex-basis: 100%;
+    }
 }
 
 .form .grid {
@@ -6863,14 +6932,22 @@ article.rf .actions {
     margin: 0;
 }
 
-/* The Map: a column for each kind of thing, the lines between them drawn underneath. Pointing
-   at a node dims everything it is not joined to. */
+/* The Map: a card, its head counting what it draws; a column for each kind of thing, the lines
+   between them drawn underneath, what they mean at its foot. Pointing at a node dims everything
+   it is not joined to. */
+.map-card .card-head h2 svg {
+    flex: none;
+    color: var(--link);
+}
+
 .map-legend {
     display: flex;
     flex-wrap: wrap;
     gap: .3rem 1.2rem;
     align-items: center;
-    margin: .4rem 0 1rem;
+    margin: 0;
+    padding: 2px 18px 16px;
+    font-size: 13.5px;
 }
 
 .map-legend span {
@@ -6894,15 +6971,35 @@ article.rf .actions {
     border-top-color: var(--accent);
 }
 
-/* The columns share the width of the page, a long name ending in an ellipsis; only a page too
-   narrow for even that scrolls sideways */
+/* The columns share the width of the card, a long name ending in an ellipsis; only a card too
+   narrow for even that scrolls sideways, inside itself */
 .map-board {
     position: relative;
     display: grid;
     grid-auto-columns: minmax(9rem, 1fr);
     grid-auto-flow: column;
     gap: 3rem;
-    padding: .2rem 0 1rem;
+    padding: 18px 18px 16px;
+    overflow-x: auto;
+}
+
+/* As drawn for a phone: the columns one under the other, what a visitor types first, and no
+   lines, which would only cross the page */
+@media (max-width: 600px) {
+    .map-board {
+        grid-auto-columns: minmax(0, 1fr);
+        grid-auto-flow: row;
+        gap: 24px;
+        padding: 16px 14px 14px;
+    }
+
+    .map-edges {
+        display: none;
+    }
+
+    .map-legend {
+        padding: 2px 14px 14px;
+    }
 }
 
 .map-edges {
@@ -7751,12 +7848,28 @@ button.st-pill.problem-where {
     white-space: pre-wrap;
 }
 
-/* The Canvas: every machine drawn as what it is, one light each, on a board that pans and zooms */
-.canvas-legend {
+/* The Canvas: every machine drawn as what it is, one light each, on a board that pans and zooms,
+   in a card that takes the rest of the page, what the lights mean in its head */
+/* The card takes what the page leaves, never what its drawing would want: the drawing is sized
+   from the board, and a board sized from the drawing would grow with every look */
+.canvas-pane > .canvas-card {
     display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 26rem;
+    overflow: hidden;
+}
+
+.canvas-pane > .canvas-card.empty {
+    flex: none;
+    min-height: 0;
+}
+
+.card-head.canvas-legend {
     flex-wrap: wrap;
-    gap: .35rem 1.1rem;
-    margin: 0 0 .8rem;
+    gap: 6px 18px;
+    padding: 10px 18px;
+    font-size: 13.5px;
 }
 
 .canvas-legend span {
@@ -7767,10 +7880,8 @@ button.st-pill.problem-where {
 
 .canvas-board {
     position: relative;
-    height: calc(100vh - 15rem);
-    min-height: 26rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    flex: 1;
+    min-height: 0;
     background: var(--panel);
     overflow: hidden;
     touch-action: none;
@@ -7778,11 +7889,25 @@ button.st-pill.problem-where {
     user-select: none;
 }
 
+@media (max-width: 600px) {
+    .canvas-pane > .canvas-card {
+        min-height: 22rem;
+    }
+
+    .card-head.canvas-legend {
+        gap: 4px 14px;
+        padding: 9px 14px;
+    }
+}
+
 .canvas-board.panning {
     cursor: grabbing;
 }
 
 .canvas-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: block;
 }
 
@@ -7874,9 +7999,23 @@ button.st-pill.problem-where {
     font-weight: 500;
 }
 
-.canvas-away {
-    fill: var(--busy);
+/* How it stands, under the name, in its light's colour */
+.canvas-said {
+    fill: var(--muted);
     font-size: 13px;
+    font-weight: 600;
+}
+
+.canvas-said.green {
+    fill: var(--run);
+}
+
+.canvas-said.amber {
+    fill: var(--busy-text);
+}
+
+.canvas-said.red {
+    fill: var(--bad);
 }
 
 /* The one light: green all is well, amber something to look at, red something failed, dark away */
