@@ -86,6 +86,8 @@ import {createApp} from 'vue';
 const POLL_MS = 1000;
 // Config's mark, the pencil, for the editor card's head
 const CONFIG_ICON = CATEGORIES.find(v => (v.key === 'config')).icon;
+// Logline's mark, for a service's Logs tab
+const LOGLINE_ICON = CATEGORIES.find(v => (v.key === 'logline')).icon;
 // The method that opens each category, by its key in categories.js
 const CATEGORY_SHOW = {
     'services': 'home_show',
@@ -119,31 +121,56 @@ const CATEGORY_SHOW = {
 // agent_install_sh.js says why.
 const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
 
-const dot = {
-    template: `<span class="dot" :class="phase"/>`,
-    props: ['phase'],
-};
-
-// The Logs tab of a service: a place kept for what the service itself writes, with nothing in
-// it yet — reading a container's log through the link every two seconds was a log of the log
-// What a service writes is in Logline, with every other line of every machine: this tab is the
-// way to its own, filtered to it
+// The Logs tab of a service: its own lines, live, through Logline's small view of them
+// (`?embed=1`) in a card that takes the rest of the page, in this page's theme. What it writes
+// is in Logline with every other line of every machine; the view is filtered to it, and its
+// Open in Logline ↗ is the way to the whole viewer. Two cases show the way alone: Logline's
+// viewer not set, and a page on https with the viewer on plain http, which a browser does not
+// show in a frame.
 const service_logs = {
     template: `
-<article id="detail" class="logs">
-    <h1><dot :phase="view.phase"/>{{ view.title || view.name }}</h1>
-    <template v-if="(url !== null)">
-        <p class="muted">What this service writes goes to Logline, from the machines that send their logs there.</p>
-        <p><a :href="url" target="_blank" rel="noopener">Its lines in Logline, the last 24 hours ↗</a></p>
-    </template>
-    <p v-else class="muted">What this service writes goes to Logline, from the machines that send their logs there. Where Logline's viewer is is not set, so there is nothing to link to — the Logs tab of a machine has the form for it.</p>
+<article id="detail" class="logs service-logs">
+    <section v-if="(url === null)" class="card">
+        <div class="dt-empty-big">
+            <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="LOGLINE_ICON"/></span>
+            <h3>Logline is not set</h3>
+            <p>What this service writes goes to Logline, from the machines that send their logs there. Where Logline's viewer is is not set, so there is nothing to show here — the Logs tab of a machine has the form for it.</p>
+        </div>
+    </section>
+    <section v-else-if="mixed" class="card">
+        <div class="dt-empty-big">
+            <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="LOGLINE_ICON"/></span>
+            <h3>Its lines open in Logline</h3>
+            <p>This page is on https and Logline's viewer on plain http, which a browser does not show inside a page.</p>
+            <a class="button primary" :href="url" target="_blank" rel="noopener">Its lines in Logline ↗</a>
+        </div>
+    </section>
+    <section v-else class="card logs-card">
+        <iframe class="logs-frame" :src="embed_url" :title="('The lines of ' + (view.title || view.name) + ' in Logline')" referrerpolicy="no-referrer"/>
+    </section>
 </article>
 `,
-    components: {dot},
-    props: ['view', 'logline'],
+    // theme: dark or light, the page's own, which the view is shown in
+    props: ['view', 'logline', 'theme'],
+    data: function () {
+        return {LOGLINE_ICON};
+    },
     computed: {
         url: function () {
             return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
+        },
+        // The same lines, the view alone: no labels, no volume, a find box and the way out
+        embed_url: function () {
+            const url = new URL(this.url);
+            url.searchParams.set('embed', '1');
+            url.searchParams.set('theme', (this.theme === 'light') ? 'light' : 'dark');
+            return url.toString();
+        },
+        // An https page holds no frame on plain http, but on this computer's own names
+        mixed: function () {
+            const url = new URL(this.url);
+            const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || url.hostname.endsWith('.localhost');
+            return (window.location.protocol === 'https:') && (url.protocol === 'http:') && (local === false);
         },
     },
 };
@@ -1728,7 +1755,7 @@ const service_page = {
     <article v-else-if="(tab_now === 'settings')" id="detail" class="list svc">
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
-    <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline"/>
+    <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline" :theme="theme"/>
     <service-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme"/>
     <program-shell v-else-if="(tab_now === 'shell' && view.type === 'shell')" :key="('program-shell-' + view.name)" :view="view" :remotes="remotes" :theme="theme"/>
     <service-shell v-else-if="(tab_now === 'shell')" :key="('shell-' + view.name)" :view="view" :theme="theme"/>
@@ -2129,7 +2156,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane, dot},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane},
     data: function () {
         return {
             state: null,

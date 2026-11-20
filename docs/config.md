@@ -817,6 +817,11 @@ A service's **Logs in Logline** shows the lines of the machines its config names
 machine's token, so a machine cannot put its lines under a service it does not run. A service
 run here, with no machine named, is shown by its name alone.
 
+Its **Logs** tab shows the same lines, live, in the page: Logline's small view of them
+(`embed=1`), with a find box, the lines and **Open in Logline ↗** for the whole viewer, in the
+page's theme. With the viewer not set, the tab says where to set it; on a page served on https
+with the viewer on plain http, which a browser does not show inside a page, the tab links to it.
+
 ### Storage
 
 A program that keeps something names the paths it keeps:

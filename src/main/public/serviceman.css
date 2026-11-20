@@ -2371,6 +2371,40 @@ pre {
 /* Config: the page head, then the editor in a card that takes the rest of the page: the file
    and whether it changed in its head, Check and Load again on the left of its foot, Close and
    Save on the right */
+/* A service's Logs tab: Logline's small view of its lines in a card that takes the rest of the
+   page; the view draws its own bar and its own lines */
+article.service-logs {
+    display: flex;
+    flex-direction: column;
+}
+
+/* The page's stretched row is its last: the pane takes it whether a note stands above or not */
+#page > article.service-logs {
+    grid-row: -2;
+}
+
+.service-logs > .logs-card {
+    display: flex;
+    flex: 1 1 0;
+    min-height: 24rem;
+    overflow: hidden;
+}
+
+.logs-frame {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+@media (max-width: 600px) {
+    .service-logs > .logs-card {
+        min-height: 28rem;
+    }
+}
+
 #editor {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
