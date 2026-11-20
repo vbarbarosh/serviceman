@@ -54,11 +54,12 @@ const security_pane = {
         <template #cell="{row, column, more}">
             <template v-if="(column.key === 'name')">
                 <span class="dt-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg></span>
+                <!-- The name is the machine's title already: the line under it is for a machine
+                     away, or one being looked at, alone -->
                 <span class="dt-name">
                     <button type="button" class="link" :title="('The page of ' + row.name)" @click="$emit('remote', row.remote)">{{ row.name }}</button>
                     <small v-if="(row.phase !== 'online')" class="bad">{{ away_of(row) }}</small>
                     <small v-else-if="row.checking"><span class="spin"/>looking now</small>
-                    <small v-else-if="(title_of(row) !== '')">{{ title_of(row) }}</small>
                 </span>
                 <span v-if="(more && (row.at !== null))" class="dt-detail">looked at {{ format_ms(Math.max(0, state.now - row.at)) }} ago</span>
             </template>
@@ -179,11 +180,6 @@ const security_pane = {
         away_of: function (row) {
             const found = this.state.remotes.find(v => v.name === row.remote);
             return ((found === undefined) || (found.left_at === null) || (found.left_at === undefined)) ? 'offline' : `offline since ${clock_of(found.left_at)}`;
-        },
-        // Under a machine: its title, when it has one of its own
-        title_of: function (row) {
-            const found = this.state.remotes.find(v => v.name === row.remote);
-            return ((found === undefined) || (found.title === undefined) || (found.title === null) || (found.title === found.name)) ? '' : found.title;
         },
         checks_in: function (row, key) {
             return row.checks.filter(v => v.key === key);
