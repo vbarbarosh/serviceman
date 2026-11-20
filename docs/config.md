@@ -392,7 +392,9 @@ A container labelled `logline=off` is left alone: Logline's own four carry it, s
 Logline runs on does not send Logline its own lines back. The agent's own lines go too — what it
 connected to, what it was asked, what went
 wrong — labelled `service=serviceman-agent`, from the moment collection starts, the lines it
-wrote just before that included. How it is kept from losing or repeating a line is in
+wrote just before that included. What a program prints is not the agent's: it goes under its
+service's name, with its stream, as it printed it, the way a container's lines do, so a
+service's Logs tab finds it. How it is kept from losing or repeating a line is in
 `notes/logline.md`.
 
 Folders go besides the containers, set on the same tab: a folder — every file in it — or a

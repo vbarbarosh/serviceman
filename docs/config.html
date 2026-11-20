@@ -1247,7 +1247,9 @@ jq -c .batch spool/refused/38-38.json | curl -sS --data-binary @- \
 Logline runs on does not send Logline its own lines back. The agent&#39;s own lines go too — what it
 connected to, what it was asked, what went
 wrong — labelled <code>service=serviceman-agent</code>, from the moment collection starts, the lines it
-wrote just before that included. How it is kept from losing or repeating a line is in
+wrote just before that included. What a program prints is not the agent&#39;s: it goes under its
+service&#39;s name, with its stream, as it printed it, the way a container&#39;s lines do, so a
+service&#39;s Logs tab finds it. How it is kept from losing or repeating a line is in
 <code>notes/logline.md</code>.</p>
 <p>Folders go besides the containers, set on the same tab: a folder — every file in it — or a
 folder and a pattern, <code>/var/log/nginx/*.log</code>, from <code>/</code> or <code>~/</code>. Files already there when a folder

@@ -10,7 +10,8 @@ const std_line = require('../../helpers/std_line');
 //
 // It goes four ways: to stdout, to the daily file beside the agent, up the link to the host —
 // the machine that asked for the work is the one that wants to watch it happen — and to
-// whatever takes the agent's own lines for Logline, when something does.
+// whatever takes the agent's lines for Logline, when something does, with who said it and for
+// which service: a line a program printed is that service's, not the agent's.
 function agent_say(group, sender, details, service)
 {
     // Free text when the caller writes it itself — a line a command printed is already a line,
@@ -24,7 +25,7 @@ function agent_say(group, sender, details, service)
     agent_log(line);
     told(group, sender, details, service);
     if (sink.fn !== null) {
-        sink.fn(time, tail);
+        sink.fn(time, tail, {sender, details, service});
     }
 }
 

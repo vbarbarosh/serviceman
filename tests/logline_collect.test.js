@@ -7,6 +7,7 @@ const http = require('http');
 const lines_serve = require('../logline/lines/src/lines_serve');
 const os = require('os');
 const path = require('path');
+const proc_start_time = require('../src/agent/src/proc_start_time');
 const test = require('node:test');
 const timers = require('timers/promises');
 
@@ -52,6 +53,26 @@ test('every line a container writes after the floor reaches Logline once, and no
     const begin = own.find(v => v.LogAttributes.sender === 'logline_collect_begin');
     assert.match(begin.Body, /^\[c[0-9a-z]{11}\]\[logline_collect_begin\] floor=/, 'the line without its time, which is beside it');
     assert.deepStrictEqual(begin.ResourceAttributes, {'remote': 'box1', 'host.name': 'testbox'});
+});
+
+// A program prints for its service, not for the agent: what it writes reaches Logline as a
+// container's lines do, under the service's name, each with its stream, as it wrote it; the
+// agent's own word of it stays the agent's
+test('a program\'s own lines reach Logline under its service, each with its stream', async function (t) {
+    const world = await world_make(t);
+    world.program_add('clock', 'i=0; while true; do i=$((i+1)); echo "tick $i"; echo "warn $i" >&2; sleep 0.2; done');
+    world.agent_start(world.docker.now());
+
+    await world.until(() => world.rows().some(v => v.Body.startsWith('tick')) && world.rows().some(v => v.Body.startsWith('warn')));
+    const tick = world.rows().find(v => v.Body.startsWith('tick'));
+    assert.match(tick.Body, /^tick \d+$/, 'the line as the program wrote it');
+    assert.strictEqual(tick.ServiceName, 'clock');
+    assert.strictEqual(tick.LogAttributes['log.iostream'], 'stdout');
+    assert.deepStrictEqual(tick.ResourceAttributes, {'remote': 'box1', 'host.name': 'testbox'});
+    assert.strictEqual(world.rows().find(v => v.Body.startsWith('warn')).LogAttributes['log.iostream'], 'stderr');
+    assert.strictEqual(world.rows().every(v => v.ServiceName === 'clock'), true, 'nothing else under a service');
+    await world.until(() => world.own().some(v => v.LogAttributes.sender === 'program_adopted'));
+    assert.strictEqual(world.own().some(v => /tick|warn/.test(v.Body)), false, 'none of them among the agent\'s own');
 });
 
 test('killed at any moment, and with Logline away for a while, the agent loses no line and sends none twice', async function (t) {
@@ -221,6 +242,22 @@ async function world_make(t, env)
                 agent.stdout.resume();
             }
             agent.stderr.resume();
+        },
+        // A program an agent before this one started, written down as it writes one: the agent
+        // takes it back, and follows what it prints from there on
+        program_add: function (name, script) {
+            const programs = path.join(agent_dir, 'programs');
+            fs.mkdirSync(programs, {recursive: true});
+            const base = path.join(programs, `${name}.1`);
+            const stdout = fs.openSync(`${base}.out`, 'a');
+            const stderr = fs.openSync(`${base}.err`, 'a');
+            const child = child_process.spawn('sh', ['-c', script], {detached: true, stdio: ['ignore', stdout, stderr]});
+            fs.closeSync(stdout);
+            fs.closeSync(stderr);
+            child.unref();
+            t.after(() => process.kill(-child.pid, 'SIGKILL'));
+            const record = {name, slot: 1, pid: child.pid, started: proc_start_time(child.pid), cwd: null, dir, argv: ['sh', '-c', script], group: 'cprogram0000'};
+            fs.writeFileSync(`${base}.json`, JSON.stringify(record));
         },
         agent_kill: function () {
             agent.kill('SIGKILL');

@@ -29,16 +29,34 @@ const state = {collect: null, files: null, dirs: null, ship: null, spool: null, 
 // waits here, and goes in once it has; a machine switched off lets it go.
 const EARLY_LINES = 1000;
 const OWN_SERVICE = 'serviceman-agent';
+// What a program prints is not the agent's: it is its service's, as a container's lines are —
+// under the service's name, with its stream, as the program wrote it
+const PROGRAM_STREAMS = {program_stdout: 'stdout', program_stderr: 'stderr'};
 
-agent_say.sink_set(function (time, tail) {
+agent_say.sink_set(function (time, tail, said) {
+    const item = line_item(time, tail, said);
     if (state.collect !== null) {
-        own_keep(time, tail);
+        line_keep(item);
         return;
     }
     if ((state.decided === false) && (state.early.length < EARLY_LINES)) {
-        state.early.push({time, tail});
+        state.early.push(item);
     }
 });
+
+// A line as the spool will take it: one of a program's own, or one of the agent's
+//
+//     said    {sender, details, service} as agent_say had them; undefined for a line of the
+//             agent's own with nothing beside it
+//     ->      {time, line, service, stream}: stream null for one of the agent's own
+function line_item(time, tail, said)
+{
+    const stream = ((said === undefined) || (said === null)) ? undefined : PROGRAM_STREAMS[said.sender];
+    if ((stream !== undefined) && (typeof said.service === 'string') && (typeof said.details === 'string')) {
+        return {time, line: said.details, service: said.service, stream};
+    }
+    return {time, line: tail, service: OWN_SERVICE, stream: null};
+}
 
 function agent_logline(options)
 {
@@ -88,7 +106,7 @@ async function apply(options)
     state.collect = logline_collect({socket, spool: state.spool, floor, host: options.machine, say});
     files_start(options, settings);
     for (const item of state.early) {
-        own_keep(item.time, item.tail);
+        line_keep(item);
     }
     state.early = [];
     state.decided = true;
@@ -96,11 +114,12 @@ async function apply(options)
     say('logline_collect_begin', {floor: settings.floor, docker: socket, cap: state.spool.stats().cap_bytes, endpoint: settings.endpoint, dirs: settings.dirs.map(v => v.path)});
 }
 
-// One of the agent's own lines, into the spool. A burst of them is synced once, right after:
-// they cannot be read again from anywhere the way a container's can.
-function own_keep(time, tail)
+// One of the agent's lines, its own or a program's, into the spool. A burst of them is synced
+// once, right after: they cannot be read again from anywhere the way a container's can.
+function line_keep(item)
 {
-    state.spool.append({src: 'agent', at: time, time, labels: {host: state.host, service: OWN_SERVICE}, line: tail});
+    const labels = (item.stream === null) ? {host: state.host, service: item.service} : {host: state.host, service: item.service, stream: item.stream};
+    state.spool.append({src: 'agent', at: item.time, time: item.time, labels, line: item.line});
     if (state.flush_asked === false) {
         state.flush_asked = true;
         setImmediate(function () {
