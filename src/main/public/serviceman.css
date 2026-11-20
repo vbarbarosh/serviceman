@@ -1614,6 +1614,55 @@ ul.tried {
     font-weight: 500;
 }
 
+/* A fact's last hour, in place of its bar: the line in the accent over the area under it, a dot
+   on the newest point; grey and with no dot for a machine that is away */
+.item-facts .spark {
+    position: relative;
+    display: block;
+    width: 120px;
+    height: 30px;
+    margin-top: 6px;
+}
+
+.item-facts .spark svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.item-facts .spark-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.item-facts .spark-area {
+    fill: var(--accent);
+    fill-opacity: .3;
+    stroke: none;
+}
+
+.item-facts .spark.dim .spark-line {
+    stroke: var(--muted);
+}
+
+.item-facts .spark.dim .spark-area {
+    fill: var(--muted);
+    fill-opacity: .16;
+}
+
+.item-facts .spark-dot {
+    position: absolute;
+    width: 5.5px;
+    height: 5.5px;
+    margin: -2.75px 0 0 -2.75px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
 .item-facts dd small.mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -1659,7 +1708,8 @@ ul.tried {
         padding-left: 0;
     }
 
-    .item-facts .meter {
+    .item-facts .meter,
+    .item-facts .spark {
         width: 100%;
     }
 }

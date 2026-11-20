@@ -1319,6 +1319,10 @@ const REMOTE_TABS = [
     {key: 'install', label: 'Install', main: false, online: false, icon: '<path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/>'},
 ];
 
+// How often a machine's head reads its last hour again: the machine writes a line every half
+// minute
+const HOUR_EVERY_MS = 30000;
+
 const remote_page = {
     template: `
 <div id="page">
@@ -1412,8 +1416,10 @@ const remote_page = {
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
     emits: ['create', 'databases', 'files_path', 'logline', 'saved', 'select', 'select_named', 'service', 'tab'],
     data: function () {
-        // menu_open: its ⋯; more_open: the tabs under More ▾; copied: the note's Copy, said a moment
-        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false};
+        // menu_open: its ⋯; more_open: the tabs under More ▾; copied: the note's Copy, said a moment;
+        // hour: its last hour as History reads it, for its head's small charts: undefined while
+        // read, null for none
+        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false, hour: undefined};
     },
     computed: {
         icon: function () {
@@ -1435,9 +1441,10 @@ const remote_page = {
             }
             return {tone: 'bad', text: `offline · ${format_ms(Date.now() - this.view.left_at)}`};
         },
-        // Its CPU, memory and disk for its head; away, the last it said
+        // Its CPU, memory and disk for its head, each its last hour as a small chart; away, the
+        // last it said and the hour before it went
         head_facts: function () {
-            return remote_facts(this.view);
+            return remote_facts(this.view, this.hour);
         },
         // The line under its name: its title, its system and its cores
         line_parts: function () {
@@ -1520,11 +1527,17 @@ const remote_page = {
                 }
             },
         },
+        // A machine that comes back is charted at once, not at the next half minute
+        'view.phase': function () {
+            this.hour_load();
+        },
         // How many databases it holds, for its tab, read as kept: the machine is asked only for
-        // a server never read
+        // a server never read; and its last hour, for its head
         'view.name': {
             immediate: true,
             handler: async function (name) {
+                this.hour = undefined;
+                this.hour_load();
                 try {
                     const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
                     this.databases_count = (await answer.json()).servers.filter(v => v.remote === name).reduce((sum, v) => sum + v.databases.length, 0);
@@ -1554,10 +1567,40 @@ const remote_page = {
     unmounted: function () {
         document.removeEventListener('click', this.menus_away);
         document.removeEventListener('keydown', this.menus_away);
+        // A read still on its way lands nowhere and arms no timer
+        this.hour_asked = (this.hour_asked || 0) + 1;
+        clearTimeout(this.hour_timer);
     },
     methods: {
         format_ms,
         remote_dot,
+        // Its last hour, as History's 1h, read again every half minute with the head's numbers:
+        // only the newest ask lands, so another machine opened meanwhile keeps its own. A machine
+        // whose agent is too old for charts, or never read while away, keeps its bars; a machine
+        // slow to answer (502), or serviceman not answering, keeps the charts it has.
+        hour_load: async function () {
+            clearTimeout(this.hour_timer);
+            const name = this.view.name;
+            const asked = this.hour_asked = (this.hour_asked || 0) + 1;
+            let hour = (this.hour === undefined) ? null : this.hour;
+            try {
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(name)}/metrics?range=1h`, {cache: 'no-store'});
+                if (answer.ok) {
+                    hour = await answer.json();
+                }
+                else if (answer.status !== 502) {
+                    hour = null;
+                }
+            }
+            catch {
+                // serviceman did not answer: the hour shown stays
+            }
+            if ((asked !== this.hour_asked) || (name !== this.view.name)) {
+                return;
+            }
+            this.hour = hour;
+            this.hour_timer = setTimeout(() => this.hour_load(), HOUR_EVERY_MS);
+        },
         menu_pick: function (then) {
             this.menu_open = false;
             then();

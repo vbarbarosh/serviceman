@@ -1,13 +1,59 @@
 import clock_of from './clock_of.js';
+import head_spark from './head_spark.js';
 import machine_shares from './machine_shares.js';
+import share_of from './share_of.js';
+
+// The three a head charts, each a share in % of a point of History's numbers
+const CHARTED = {
+    CPU: v => share_of(v.cpu, 1),
+    Memory: v => share_of(v.mem, v.mem_total),
+    Disk: v => share_of(v.disk, v.disk_total),
+};
+
+// How near to when a machine went the hour kept for it must end to be drawn as its last: the
+// hour is kept as last read, which may be days before
+const AWAY_KEPT_MS = 5*60000;
 
 // A machine's CPU, Memory and Disk as its head's facts: online, each with its bar, Memory and
 // Disk said out of how much; away, the last numbers serviceman has, dim and with no bar, CPU
-// with when it said it. None while it never said a number.
+// with when it said it. None while it never said a number. Given the last hour as History reads
+// it, each draws that hour as a small chart in place of its bar; away, the hour before it went,
+// when serviceman read it then.
 //
 //     view      a remote of the status: {phase, left_at, machine: {cpu_busy, mem, disk}}
-//     ->        [{label: 'Memory', value: '35%', small: 'of 8 GB', share: 0.35, dim: false}, …]
-function remote_facts(view)
+//     hour      History's answer for 1h: {from, to, step_ms, points}; null for none, the bars;
+//               undefined while it is read, a chart's room left empty so the head does not jump
+//     ->        [{label: 'Memory', value: '35%', small: 'of 8 GB', share: 0.35, dim: false,
+//                 spark: null or head_spark's}, …]
+function remote_facts(view, hour)
+{
+    return facts_of(view).map(function (fact) {
+        if (hour === undefined) {
+            return Object.assign(fact, {spark: {line: '', area: '', last: null, least: null, most: null}});
+        }
+        const spark = (hour_drawn(view, hour) === false) ? null : head_spark(hour, CHARTED[fact.label]);
+        if (spark === null) {
+            return Object.assign(fact, {spark: null});
+        }
+        const when = fact.dim ? `the hour before ${clock_of(hour.to)}` : 'the last hour';
+        const span = (Math.round(spark.least) === Math.round(spark.most)) ? `${Math.round(spark.most)}%` : `${Math.round(spark.least)} to ${Math.round(spark.most)}%`;
+        return Object.assign(fact, {spark, title: `${fact.label}, ${when}: ${span}`});
+    });
+}
+
+// Whether an hour is drawn: one away is only when it ends where the machine went
+function hour_drawn(view, hour)
+{
+    if (hour === null) {
+        return false;
+    }
+    if (hour.away !== true) {
+        return true;
+    }
+    return (typeof view.left_at === 'number') && (view.left_at - hour.to <= AWAY_KEPT_MS);
+}
+
+function facts_of(view)
 {
     const machine = view.machine;
     if ((machine === null) || (machine === undefined)) {

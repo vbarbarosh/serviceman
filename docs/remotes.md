@@ -347,9 +347,13 @@ for now. The log names the machine and the part, in `remote_link_error`, once a 
 `reason=hello_shape part=resources.mem.total`, `reason=stats_shape part=stats.load`.
 
 A machine's head says how it stands at a glance: how long it is up in its state (`online · up
-41d 3h`), and its CPU, memory and disk between its name and its buttons, each share with a bar
-under it (amber from 80%, red from 92%); while it is away, how long it is down in its state
-(`offline · 3h 11m`) and the last numbers it said, dimmed and with no bar. Its **Overview** tab
+41d 3h`), and its CPU, memory and disk between its name and its buttons, each share with a small
+chart of the last hour under it: History's `1h`, read again every half minute, 0 to 100%, a dot
+on the newest point and a gap where the machine measured nothing. An agent before 1.9 keeps no
+charts, and its head shows a bar instead (amber from 80%, red from 92%). While it is away, the
+head says how long it is down in its state (`offline · 3h 11m`) and the last numbers it said,
+dimmed; the hour before it went is charted in grey only when serviceman read it then, in the
+minutes before it went, since serviceman keeps only the last hour it read. Its **Overview** tab
 shows the services on it, as the Services page's table; its uptime in one row, its history, then
 cards for the machine (its temperature and battery among them), its agent (its link, and **Test
 the link**), its updates and its logs, each with a link to the tab that does more with it, and

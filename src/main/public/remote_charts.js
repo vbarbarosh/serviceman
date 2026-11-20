@@ -1,5 +1,6 @@
 import format_bps from './format_bps.js';
 import overview_icons from './overview_icons.js';
+import share_of from './share_of.js';
 
 // How often an open chart is read again: the machine writes a line every half minute, and
 // servermon, which the ten minutes are read from, a line every second
@@ -320,14 +321,6 @@ function chart_time(at, range)
 function percent_text(value)
 {
     return `${Math.round(value)}%`;
-}
-
-function share_of(value, total)
-{
-    if ((typeof value !== 'number') || (typeof total !== 'number') || (total <= 0)) {
-        return null;
-    }
-    return value/total*100;
 }
 
 function number_of(value)
