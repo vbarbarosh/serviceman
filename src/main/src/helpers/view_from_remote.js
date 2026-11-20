@@ -107,6 +107,8 @@ function machine_of(state)
         // servermon's first line
         uptime_30d: ((stats === null) || (stats.uptime_30d === undefined)) ? null : stats.uptime_30d,
         updates: ((stats === null) || (stats.updates === undefined)) ? null : stats.updates,
+        // A restart asked from the page: where it stands, and how it ended
+        restart: (state.restart === null) ? null : Object.assign({}, state.restart),
         // The door on that machine: where it is and who may knock, as the file says right now.
         // null is no door — an agent from before them, or one whose link is not up.
         door: ((stats === null) || (stats.door === undefined)) ? null : stats.door,

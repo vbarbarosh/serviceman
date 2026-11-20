@@ -493,6 +493,8 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `shared_tell_error`       | Telling it failed, and why; tried again every minute, said once per reason. |
 | `root_shared_keep_line`   | On a machine: the root half's minute mounted, unmounted or started something. |
 | `root_shared_keep_error`  | On a machine: a mount or the home failed, and why; said once per reason. |
+| `machine_restart`         | On a machine: the root half is restarting it, the host answered first; `by=` with what. |
+| `machine_restart_error`   | On a machine: that command failed after the answer, and why; the host says the machine is still up. |
 | `root_apt_lists_fetched`  | On a machine: the root half fetched apt's package lists, older than 6 hours; `took_ms=`, `age_ms=` how old they were. |
 | `root_apt_lists_error`    | On a machine: that fetch failed; `code=` apt's, `reason=` its errors; said once per reason, tried again an hour on. |
 
@@ -538,6 +540,12 @@ list, in a bar under its header and first on its Health page.
 | `security_view_error`    | No checks could be made of what a machine's look found, and why: said once, its row says the same until the next look, and the other machines keep theirs. |
 | `security_mended`        | A click on the Security page mended a machine: `mend=` what (`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`). |
 | `security_mend_error`    | That mend failed, and why (sshd refused the file, no root half…); its check says the same. |
+| `machine_restart_asked`  | A machine was asked to restart from the page (a kernel card's or its Updates' **Restart**). |
+| `machine_restart_going`  | Its root half answered and is restarting it: `by=` with what (`systemctl reboot`, `shutdown -r now`). |
+| `machine_restart_down`   | Its link went: it is down, and has ten minutes to dial in again. |
+| `machine_restart_back`   | Its agent dialled in on a new boot: `down_ms=` how long it was away; a Security look follows at once. |
+| `machine_restart_error`  | The restart ended without the machine back, and why: refused, still up on the same boot three minutes on, or not back in ten. |
+| `machine_restart_look_error` | The look after it broke, and why; the restart is over all the same. |
 | `vulnerabilities_seen`   | The problems bar was closed on new critical CVEs: `remotes=` whose are seen now, for every page. |
 | `apt_containers_ok`      | After an upgrade, everything that ran before runs again; `started=` names the ones serviceman started. |
 | `apt_containers_down`    | After an upgrade, `down=` names what ran before and cannot start now; the upgrade's own lines say why. |

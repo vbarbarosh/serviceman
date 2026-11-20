@@ -58,6 +58,8 @@ import remote_shell from './remote_shell.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
 import remote_vulnerabilities from './remote_vulnerabilities.js';
 import remotes_pane from './remotes_pane.js';
+import restart_said from './restart_said.js';
+import restart_window from './restart_window.js';
 import secrets_form from './secrets_form.js';
 import security_pane from './security_pane.js';
 import service_doors from './service_doors.js';
@@ -532,7 +534,9 @@ const remote_configure = {
             <p v-if="(updates === null)" class="muted">This machine says nothing about updates — it is not an ubuntu with update-notifier on it.</p>
             <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
             <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, then <code>apt-get upgrade</code>, answering its questions as a person would and keeping every config file you changed.</p>
-            <p v-if="(updates !== null && updates.reboot)" class="muted">An installed update wants the machine restarted.</p>
+            <p v-if="((updates !== null) && updates.reboot && ((restart_line() === null) || (restart_line().underway === false)))" class="muted">An installed update wants the machine restarted. <button type="button" class="cfg-act" :disabled="offline" @click="restart_open = true">Restart {{ view.name }}…</button></p>
+            <p v-if="(restart_line() !== null)" :class="((restart_line().tone === '') ? 'muted' : restart_line().tone)"><span v-if="restart_line().underway" class="spin"/>{{ restart_line().text }}</p>
+            <restart-window v-if="restart_open" :remote="view.name" :title="view.name" why="an installed update wants the machine restarted" :now="Date.now()" @close="restart_open = false"/>
             <p v-if="(apt.phase === 'looking')" class="muted"><span class="spin"/>No answer from serviceman: looking whether the install began…</p>
             <p v-else-if="(answering === false && apt.phase !== 'running')" class="muted">serviceman is not answering: Install them waits until it is back.</p>
             <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
@@ -580,7 +584,7 @@ const remote_configure = {
     </section>
 </article>
 `,
-    components: {snip: snippet},
+    components: {'restart-window': restart_window, snip: snippet},
     props: ['view', 'served', 'answering'],
     data: function () {
         return {
@@ -590,6 +594,8 @@ const remote_configure = {
             shooting: false,
             shot_tried: [],
             apt: {phase: 'idle', lines: [], error: null},
+            // Whether the window that asks before a restart is open
+            restart_open: false,
             cancelling: false,
             apt_timer: null,
             // The stream of the run being followed, and what lets it go when the page does
@@ -692,6 +698,10 @@ const remote_configure = {
         },
     },
     methods: {
+        // The machine's restart, as the Updates part says it, or null
+        restart_line: function () {
+            return restart_said((this.view.restart === undefined) ? null : this.view.restart, Date.now());
+        },
         plural,
         icon: icon_html,
         // The agent fetches the file the host serves and starts again with it, so the link

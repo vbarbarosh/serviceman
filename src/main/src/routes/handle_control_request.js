@@ -69,6 +69,8 @@ const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
+const machine_restart = require('../helpers/machine_restart');
+const machine_restart_facts = require('../helpers/machine_restart_facts');
 const mcp_bundle = require('../../../mcp/bundler/mcp_bundle');
 const module_mount_of = require('../helpers/module_mount_of');
 const module_route = require('../helpers/module_route');
@@ -175,6 +177,7 @@ const RE_STREAM = /^\/api\/v1\/streams\/([^/]+)$/;
 const RE_REMOTE_TERMINALS = /^\/api\/v1\/remotes\/([^/]+)\/terminals(\/.*)?$/;
 const RE_REMOTE_METRICS = /^\/api\/v1\/remotes\/([^/]+)\/metrics$/;
 const RE_REMOTE_UPTIME = /^\/api\/v1\/remotes\/([^/]+)\/uptime$/;
+const RE_REMOTE_RESTART = /^\/api\/v1\/remotes\/([^/]+)\/restart$/;
 const RE_REMOTE_PORTS = /^\/api\/v1\/remotes\/([^/]+)\/ports$/;
 const RE_REMOTE_DISKS = /^\/api\/v1\/remotes\/([^/]+)\/disks(\/.*)?$/;
 const RE_REMOTE_VULNERABILITIES = /^\/api\/v1\/remotes\/([^/]+)\/vulnerabilities(\/.*)?$/;
@@ -576,6 +579,15 @@ async function control_answer(app, req, res)
     const remote_metrics = RE_REMOTE_METRICS.exec(url.pathname);
     if ((remote_metrics !== null) && (req.method === 'GET')) {
         await handle_remote_metrics(app, res, route_param(remote_metrics[1]), url.searchParams.get('range'));
+        return;
+    }
+    const remote_restart = RE_REMOTE_RESTART.exec(url.pathname);
+    if ((remote_restart !== null) && (req.method === 'GET')) {
+        await handle_remote_restart_facts(app, res, route_param(remote_restart[1]));
+        return;
+    }
+    if ((remote_restart !== null) && (req.method === 'POST')) {
+        await handle_remote_restart(app, res, route_param(remote_restart[1]));
         return;
     }
     const remote_uptime = RE_REMOTE_UPTIME.exec(url.pathname);
@@ -1699,6 +1711,68 @@ async function handle_remote_metrics(app, res, name, range)
 // The machine's uptime by day, counted by its agent from servermon's lines: for each day, how
 // long was known and how long of it the machine was down, with the stretches. The last answer is
 // kept here and shown while the machine is away, with `away: true`, as the charts are.
+// The machine restarted, as from its root half: refused while it is away, where its agent or
+// root half cannot, and while another machine's restart is not over, for two machines that
+// serve the same thing are never to be down at once. The answer comes once its agent says the
+// machine is going down; machine_restart follows it from there, in the status.
+async function handle_remote_restart(app, res, name)
+{
+    const refused = restart_refusal(app, app.remote_by_name[name], name);
+    if (refused !== null) {
+        send_json(res, refused.status, {error: refused.error});
+        return;
+    }
+    try {
+        send_json(res, 200, {remote: name, restart: await machine_restart(app, app.remote_by_name[name])});
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+    }
+}
+
+// What a restart of the machine would touch, for the window that asks first, and why it would
+// be refused now, or null
+async function handle_remote_restart_facts(app, res, name)
+{
+    const remote = app.remote_by_name[name];
+    if (remote === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(name)}`});
+        return;
+    }
+    const refused = restart_refusal(app, remote, name);
+    if ((refused !== null) && (remote.state.phase !== 'online')) {
+        send_json(res, refused.status, {error: refused.error});
+        return;
+    }
+    const facts = await machine_restart_facts(app, remote);
+    send_json(res, 200, Object.assign({remote: name, refused: (refused === null) ? null : refused.error}, facts));
+}
+
+// Why a machine may not be restarted now, {status, error}, or null
+function restart_refusal(app, remote, name)
+{
+    if (remote === undefined) {
+        return {status: 404, error: `no remote named ${JSON.stringify(name)}`};
+    }
+    if (remote.state.phase !== 'online') {
+        return {status: 409, error: `${name} is not connected`};
+    }
+    if (remote_can(remote, 'machine_restart') === false) {
+        return {status: 400, error: `the agent on ${name} is from before restarting machines; it is asked to update, and can once it has`};
+    }
+    if (remote_can(remote, 'root') === false) {
+        return {status: 400, error: `${name} has no root agent, and only it restarts a machine: its page says how to install it, or its Shell restarts it by hand, sudo reboot`};
+    }
+    const busy = machine_restart.busy(app);
+    if (busy === name) {
+        return {status: 409, error: `${name} is restarting already`};
+    }
+    if (busy !== null) {
+        return {status: 409, error: `${busy} is restarting: one machine at a time, this one once it is back`};
+    }
+    return null;
+}
+
 async function handle_remote_uptime(app, res, name, days_text)
 {
     const remote = app.remote_by_name[name];
@@ -3426,6 +3500,8 @@ function view_from_problem(problem)
         fix: problem.fix,
         // The page that mends it, {text, href}, null where nothing does
         link: (problem.link === undefined) ? null : problem.link,
+        // What its card mends it with, a click away: 'restart' (the machine), or null
+        mend: (problem.mend === 'restart') ? 'restart' : null,
         // warn: something to look at that holds nothing back yet; bad otherwise
         level: (problem.level === 'warn') ? 'warn' : 'bad',
         since: (problem.since === null) ? problem.first_seen : problem.since,

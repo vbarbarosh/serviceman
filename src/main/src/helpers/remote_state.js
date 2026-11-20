@@ -46,6 +46,9 @@ function remote_state()
         // The upgrade running on that machine, if one is: its lines as they arrive, and how it
         // ended. Asked for by hand, cancelled by hand, kept until the next one is asked for.
         apt: {phase: 'idle', lines: [], started_at: null, ended_at: null, error: null, containers: null},
+        // A restart asked from the page, followed until the machine is back (machine_restart)
+        restart: null,
+        restart_timer: null,
         // What it was last told about Logline on this link, the moment its collection began
         // there, and why the last telling failed. A telling in flight is here too, so two never
         // overlap.

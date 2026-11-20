@@ -692,7 +692,7 @@ img {
 <li><a href="config.html">Config</a></li>
 <li><a href="how-it-works.html">How it works</a></li>
 <li><a href="logs.html">The log</a></li>
-<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-vulnerabilities">Its vulnerabilities</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#testing-its-link">Testing its link</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
+<li class="current"><a href="remotes.html" aria-current="page">Remotes</a><ul class="toc"><li><a href="#add-a-remote">Add a remote</a></li><li><a href="#put-the-agent-on-the-machine">Put the agent on the machine</a></li><li><a href="#what-the-installer-leaves-on-the-machine">What the installer leaves on the machine</a></li><li><a href="#newer-agents-find-their-way-over">Newer agents find their way over</a></li><li><a href="#keep-it-up">Keep it up</a></li><li><a href="#a-kind-of-machine-not-one-machine">A kind of machine, not one machine</a></li><li><a href="#a-machine-that-adds-itself">A machine that adds itself</a></li><li><a href="#run-a-service-there">Run a service there</a></li><li><a href="#what-the-host-knows-about-a-remote">What the host knows about a remote</a></li><li><a href="#its-updates">Its updates</a></li><li><a href="#a-restart-from-the-page">A restart from the page</a></li><li><a href="#its-ports-and-its-firewall">Its ports and its firewall</a></li><li><a href="#its-security">Its security</a></li><li><a href="#its-vulnerabilities">Its vulnerabilities</a></li><li><a href="#its-encrypted-volumes">Its encrypted volumes</a></li><li><a href="#when-something-is-wrong">When something is wrong</a></li><li><a href="#when-the-machine-is-away">When the machine is away</a></li><li><a href="#testing-its-link">Testing its link</a></li><li><a href="#dialling-in-over-a-socket-file">Dialling in over a socket file</a></li><li><a href="#reaching-this-host">Reaching this host</a></li><li><a href="#a-machine-that-takes-the-traffic">A machine that takes the traffic</a></li><li><a href="#a-port-or-a-socket-from-one-machine-to-another">A port or a socket from one machine to another</a></li><li><a href="#through-a-reverse-proxy">Through a reverse proxy</a></li><li><a href="#what-the-token-buys">What the token buys</a></li><li><a href="#not-built-yet">Not built yet</a></li></ul></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
 <li><a href="databases.html">Databases</a></li>
 <li><a href="mounts.html">Mounts</a></li>
@@ -1141,13 +1141,33 @@ rows it was following stay as last seen, <strong>not followed</strong>, and each
 what it has now. A machine&#39;s own <strong>Install them</strong>, on its Configure tab, waits and looks the same
 way.</p>
 <p>After an upgrade, every container that ran before it runs again: the ones Docker does not bring
-back, serviceman starts. A machine that wants a restart says so; nothing restarts it.</p>
+back, serviceman starts. A machine that wants a restart says so, with <strong>Restart <name>…</strong> beside
+it (<a href="#a-restart-from-the-page">A restart from the page</a>); nothing restarts it by itself.</p>
 <p>The calls, for a script: <code>POST /api/v1/apt-upgrade</code> with <code>{&quot;remotes&quot;: [&quot;vps1&quot;, &quot;vps2&quot;]}</code>
 starts them and answers which started, which waits (<code>held</code>) and which were left out and why;
 <code>GET /api/v1/apt-upgrade</code> is a row per machine; <code>POST /api/v1/apt-cancel</code> stops them. One
 machine&#39;s are the Packages module&#39;s: <code>POST /api/v1/remotes/&lt;name&gt;/packages/upgrade</code> starts it
 and answers the stream of its lines, <code>{stream, url}</code>, read at <code>url</code> as it goes; <code>GET</code> at the
 same address is where it stands, and <code>POST …/packages/cancel</code> stops it.</p>
+<h2 id="a-restart-from-the-page"><a class="anchor" href="#a-restart-from-the-page" aria-hidden="true" tabindex="-1">#</a>A restart from the page</h2>
+<p>A machine whose fixed kernel waits for a restart is a red card on Health, and one whose installed
+update wants a restart says so in its Configure tab: both offer <strong>Restart <name>…</strong>. It asks
+first, in a window, with what serviceman reads of the machine as it opens: why, how long its last
+restart kept it away (its uptime), what comes back by itself (its agent, the containers whose
+restart policy is <code>always</code> or <code>unless-stopped</code>, the ones of serviceman&#39;s services), what ends
+(containers with no policy, <code>on-failure</code> ones unless they ended with an error, kept terminals,
+whatever nothing starts at boot), and whether serviceman itself runs there, which then goes away
+with it. <strong>Restart now</strong> asks the machine&#39;s root half, which answers, then runs <code>systemctl reboot</code> (or <code>shutdown -r now</code>) a second later; a machine with no root half, or an agent from
+before it, is refused with how to do it by hand.</p>
+<p>The card follows it: going down, restarting, back after how long, then a Security look at once,
+so the card goes as soon as the fixed kernel runs. One machine restarts at a time, the next button
+greyed until the last machine is back, so two that serve the same thing are never down together. A
+machine still up on the same boot three minutes on, or not back in ten, is said so on the card,
+in red; a link that drops on its own is no restart.</p>
+<p><code>GET /api/v1/remotes/&lt;name&gt;/restart</code> is what the window says, with <code>refused</code> the reason a restart
+cannot be asked now; <code>POST</code> at the same address asks for it and answers once the machine said it
+is going down. Where the restart stands is the status&#39;s <code>remotes[].restart</code>, <code>{phase, asked_at, by, down_at, back_at, ended_at, error}</code>, <code>phase</code> one of <code>asking</code>, <code>going</code>, <code>down</code>, <code>back</code>, <code>done</code>
+and <code>error</code>. The owner&#39;s token alone may ask it.</p>
 <h2 id="its-ports-and-its-firewall"><a class="anchor" href="#its-ports-and-its-firewall" aria-hidden="true" tabindex="-1">#</a>Its ports and its firewall</h2>
 <p>The <strong>Firewall</strong> tab of a remote is what the machine listens on and what its firewall, ufw,
 lets through. (It was two tabs, Ports and Firewall; an old <code>/ports</code> address opens it.)</p>

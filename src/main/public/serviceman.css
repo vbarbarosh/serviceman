@@ -7563,6 +7563,39 @@ button.st-pill.problem-where {
     overflow-wrap: anywhere;
 }
 
+/* The click that mends it, beside the words that say how: Restart, and the restart under way */
+.problem-fix > button.problem-act {
+    margin: 0 8px 0 4px;
+}
+
+.problem-restart {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    margin-right: 8px;
+}
+
+/* The window that asks before a machine is restarted: wider than a row's, its labels wider too */
+.dt-whole.restart-window {
+    width: min(46rem, 100%);
+}
+
+.restart-window .restart-facts {
+    grid-template-columns: 8rem minmax(0, 1fr);
+}
+
+/* On a phone each label stands above what it says */
+@media (max-width: 600px) {
+    .restart-window .restart-facts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .restart-window .restart-facts > dd {
+        margin-bottom: .55rem;
+    }
+}
+
 .health-tables {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

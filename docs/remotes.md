@@ -489,7 +489,8 @@ what it has now. A machine's own **Install them**, on its Configure tab, waits a
 way.
 
 After an upgrade, every container that ran before it runs again: the ones Docker does not bring
-back, serviceman starts. A machine that wants a restart says so; nothing restarts it.
+back, serviceman starts. A machine that wants a restart says so, with **Restart <name>…** beside
+it ([A restart from the page](#a-restart-from-the-page)); nothing restarts it by itself.
 
 The calls, for a script: `POST /api/v1/apt-upgrade` with `{"remotes": ["vps1", "vps2"]}`
 starts them and answers which started, which waits (`held`) and which were left out and why;
@@ -497,6 +498,31 @@ starts them and answers which started, which waits (`held`) and which were left 
 machine's are the Packages module's: `POST /api/v1/remotes/<name>/packages/upgrade` starts it
 and answers the stream of its lines, `{stream, url}`, read at `url` as it goes; `GET` at the
 same address is where it stands, and `POST …/packages/cancel` stops it.
+
+## A restart from the page
+
+A machine whose fixed kernel waits for a restart is a red card on Health, and one whose installed
+update wants a restart says so in its Configure tab: both offer **Restart <name>…**. It asks
+first, in a window, with what serviceman reads of the machine as it opens: why, how long its last
+restart kept it away (its uptime), what comes back by itself (its agent, the containers whose
+restart policy is `always` or `unless-stopped`, the ones of serviceman's services), what ends
+(containers with no policy, `on-failure` ones unless they ended with an error, kept terminals,
+whatever nothing starts at boot), and whether serviceman itself runs there, which then goes away
+with it. **Restart now** asks the machine's root half, which answers, then runs `systemctl
+reboot` (or `shutdown -r now`) a second later; a machine with no root half, or an agent from
+before it, is refused with how to do it by hand.
+
+The card follows it: going down, restarting, back after how long, then a Security look at once,
+so the card goes as soon as the fixed kernel runs. One machine restarts at a time, the next button
+greyed until the last machine is back, so two that serve the same thing are never down together. A
+machine still up on the same boot three minutes on, or not back in ten, is said so on the card,
+in red; a link that drops on its own is no restart.
+
+`GET /api/v1/remotes/<name>/restart` is what the window says, with `refused` the reason a restart
+cannot be asked now; `POST` at the same address asks for it and answers once the machine said it
+is going down. Where the restart stands is the status's `remotes[].restart`, `{phase, asked_at,
+by, down_at, back_at, ended_at, error}`, `phase` one of `asking`, `going`, `down`, `back`, `done`
+and `error`. The owner's token alone may ask it.
 
 ## Its ports and its firewall
 

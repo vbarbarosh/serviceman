@@ -20,6 +20,7 @@ const log_ids_valid = require('../../../helpers/log_ids_valid');
 const log_line = require('./log_line');
 const log_scope = require('./log_scope');
 const logline_tell = require('./logline_tell');
+const machine_restart = require('./machine_restart');
 const mounts_counts_apply = require('./mounts_counts_apply');
 const mounts_tell = require('./mounts_tell');
 const program_ended = require('./program_ended');
@@ -170,6 +171,7 @@ function message_read(app, remote, message)
         state.resources = message.resources;
         log_event(app, 'remote_online', Object.assign({remote: remote.name, from: state.address, agent: message.agent, tags: remote_tags(remote)}, machine_words(message.resources)));
         stats_keep(app, remote, message.stats);
+        machine_restart.online(app, remote, message.stats);
         remotes_update(app);
         measure_now(app, remote);
         services_wake(app, remote);
@@ -454,6 +456,7 @@ function link_gone(app, remote, socket)
     state.gone_reason = null;
     state.socket = null;
     state.phase = 'offline';
+    machine_restart.offline(app, remote);
     state.unanswered_since = null;
     state.left_at = Date.now();
     state.latency_ms = null;

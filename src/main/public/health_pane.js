@@ -3,6 +3,8 @@ import data_table from './data_table.js';
 import format_ms from './format_ms.js';
 import overview_tile from './overview_tile.js';
 import page_head from './page_head.js';
+import restart_said from './restart_said.js';
+import restart_window from './restart_window.js';
 import service_kind from './service_kind.js';
 import state_pill from './state_pill.js';
 
@@ -51,10 +53,18 @@ const health_pane = {
                 <span class="muted problem-since" :title="when(item.since)">for {{ format_ms(Math.max(0, state.now - item.since)) }}</span>
             </div>
             <p class="problem-cause">{{ item.cause }}</p>
-            <p class="problem-fix">{{ item.fix }} <button v-if="(item.service !== null)" type="button" class="link" @click="$emit('select', item.service)">Open {{ item.service }} →</button><button v-else-if="(item.remote !== null)" type="button" class="link" @click="$emit('remote', item.remote)">Open {{ item.remote }} →</button></p>
+            <p class="problem-fix">
+                <span v-if="restart_underway(item)" class="problem-restart"><span class="spin"/><b>{{ restart_line(item).text }}</b></span>
+                <template v-else>{{ item.fix }}</template>
+                <!-- A restart mends it: the button asks first, in a window, what goes down -->
+                <button v-if="((item.mend === 'restart') && (restart_underway(item) === false))" type="button" class="primary problem-act" :disabled="(restart_busy !== null)" :title="((restart_busy === null) ? '' : (restart_busy + ' is restarting: one machine at a time'))" @click="restart_open = item">Restart {{ item.remote }}…</button>
+                <button v-if="(item.service !== null)" type="button" class="link" @click="$emit('select', item.service)">Open {{ item.service }} →</button><button v-else-if="(item.remote !== null)" type="button" class="link" @click="$emit('remote', item.remote)">Open {{ item.remote }} →</button>
+            </p>
+            <p v-if="((item.mend === 'restart') && (restart_line(item) !== null) && (restart_underway(item) === false))" class="problem-link"><span :class="restart_line(item).tone">{{ restart_line(item).text }}</span></p>
             <p v-if="(item.link !== null)" class="problem-link"><a :href="item.link.href" target="_blank" rel="noopener">{{ item.link.text }} ↗</a></p>
         </div>
     </section>
+    <restart-window v-if="(restart_open !== null)" :remote="restart_open.remote" :title="restart_open.remote" :why="restart_open.cause" :now="state.now" @close="restart_open = null"/>
     <!-- Each kind as a table card, Machines and Services side by side; a row's ⋯ shows every check -->
     <div class="health-tables">
         <data-table v-for="area of areas" :key="area.key" framed :title="area.title" :columns="columns_of(area)" :rows="rows_of(area)" :row_key="row_key" :row_class="row_class" :limit="((area.key === 'services') ? 5 : null)" :foot="foot_of(area)" :empty="empty_text(area.key)" :more="more" :opens="row_opens(area)">
@@ -88,15 +98,21 @@ const health_pane = {
     </div>
 </article>
 `,
-    components: {'data-table': data_table, 'overview-tile': overview_tile, 'page-head': page_head, 'state-pill': state_pill},
+    components: {'data-table': data_table, 'overview-tile': overview_tile, 'page-head': page_head, 'restart-window': restart_window, 'state-pill': state_pill},
     props: ['state'],
     emits: ['remote', 'security', 'select'],
     data: function () {
-        return {checking: false};
+        // restart_open: the problem whose Restart window is open, or null
+        return {checking: false, restart_open: null};
     },
     computed: {
         problems: function () {
             return (this.state.problems === undefined) ? [] : this.state.problems;
+        },
+        // The machine whose restart is under way, by name, or null: the others wait for it
+        restart_busy: function () {
+            const found = (this.state.remotes || []).find(v => restart_said.underway(v.restart));
+            return (found === undefined) ? null : found.name;
         },
         health: function () {
             return (this.state.health === undefined) ? null : this.state.health;
@@ -241,6 +257,15 @@ const health_pane = {
             return '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/>';
         },
         // The line under a row's name: since when a machine is not linked, and nothing else
+        // A problem's machine's restart, as its card says it, or null
+        restart_line: function (item) {
+            const found = (item.remote === null) ? undefined : (this.state.remotes || []).find(v => v.name === item.remote);
+            return (found === undefined) ? null : restart_said(found.restart, this.state.now);
+        },
+        restart_underway: function (item) {
+            const line = this.restart_line(item);
+            return (line !== null) && line.underway;
+        },
         line_of: function (key, row) {
             if ((key !== 'machines') || (row.remote === null)) {
                 return '';

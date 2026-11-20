@@ -9,7 +9,8 @@ const NAMED = 3;
 // them. A new one whose fix is out is said once, as the fix. One with no fix that was seen
 // already is no problem: the Security page keeps it, orange.
 //
-//     out   [{key, kind, remote, subject, cause, fix, since}]
+//     out   [{key, kind, remote, subject, cause, fix, since, mend}]; mend is 'restart' where a
+//           restart of the machine mends it, null otherwise
 function problems_of_vulnerabilities(app, remote)
 {
     const look = app.security.seen.get(remote.name);
@@ -45,6 +46,8 @@ function problems_of_vulnerabilities(app, remote)
             cause: (fixable.length === 1) ? fixable[0].fix : `${named(fixable)}.`,
             fix: restart_only ? 'Restart the machine, when it may: the kernel installed with the fix runs from then on.' : 'Install its updates: Install updates on Remotes, or its Configure tab; a fixed kernel then wants a restart.',
             since: Math.min(...fixable.map(v => v.fix_at || v.found_at)),
+            // What mends it with a click: a restart into the kernel installed, from its card
+            mend: restart_only ? 'restart' : null,
         });
     }
     return out;
