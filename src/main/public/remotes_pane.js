@@ -46,9 +46,9 @@ const remotes_pane = {
                 <span class="dt-ph-label">{{ bar_of(row, column.key).label }}</span>
                 <span class="meter" :class="bar_of(row, column.key).level"><i :style="{width: (Math.max(2, bar_of(row, column.key).percent) + '%')}"/></span>
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).percent }}%</button>
-                <span v-else>{{ bar_of(row, column.key).percent }}%<span v-if="((column.key === 'cpu') && (row.cores !== null))" class="muted"> of {{ row.cores }}</span></span>
+                <span v-else>{{ bar_of(row, column.key).percent }}%</span>
             </span>
-            <span v-else-if="((column.key === 'cpu') || (column.key === 'memory') || (column.key === 'disk'))" class="muted"><span class="dt-ph-label">{{ ((column.key === 'cpu') ? 'CPU' : ((column.key === 'memory') ? 'Memory' : 'Disk')) }}</span>—<template v-if="((column.key === 'cpu') && (row.cores !== null))"> of {{ row.cores }}</template></span>
+            <span v-else-if="((column.key === 'cpu') || (column.key === 'memory') || (column.key === 'disk'))" class="muted"><span class="dt-ph-label">{{ ((column.key === 'cpu') ? 'CPU' : ((column.key === 'memory') ? 'Memory' : 'Disk')) }}</span>—</span>
             <!-- Its services open their own list, holding only what this machine carries -->
             <template v-else-if="(column.key === 'services')">
                 <button v-if="(row.services > 0)" type="button" class="link" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
@@ -180,10 +180,8 @@ const remotes_pane = {
                 notes: (online ? [] : [this.away_text(remote, services)]).concat(troubles),
                 bars,
                 services: services.length,
-                // What it is: its system and its cores, as it said them last
+                // What it is: its system, as it said it last
                 system: (machine === null) ? '' : (machine.os || machine.platform || ''),
-                // Its cores, which its CPU's share is out of
-                cores: ((machine === null) || (machine.cpu === undefined) || (machine.cpu === null)) ? null : machine.cpu.count,
             }, said);
         },
         // The line under its name and its pill: away, red, with what waits for it; something
@@ -221,12 +219,14 @@ const remotes_pane = {
         },
         bars_of: function (machine) {
             const out = [];
-            // How busy the cores are, as the machine measures it; the load average is beside it,
-            // for it counts what waits on disk too and is not a share of the cores
+            // How busy the cores are, as the machine measures it: the percent alone in the cell,
+            // and how many cores on hover; the load average is beside it, for it counts what
+            // waits on disk too and is not a share of the cores
             if ((machine.cpu_busy !== undefined) && (machine.cpu_busy !== null)) {
                 const busy = Math.round(machine.cpu_busy*100);
+                const cores = ((machine.cpu === undefined) || (machine.cpu === null) || (machine.cpu.count === undefined)) ? '' : ` of ${machine.cpu.count} ${(machine.cpu.count === 1) ? 'core' : 'cores'}`;
                 const load = (machine.load === null) ? '' : ` · load ${machine.load.toFixed(2)}`;
-                out.push({key: 'cpu', label: 'CPU', percent: busy, level: share_level(busy/100), text: `${busy}% busy${load}`});
+                out.push({key: 'cpu', label: 'CPU', percent: busy, level: share_level(busy/100), text: `${busy}% busy${cores}${load}`});
             }
             // Free memory it does not say (no stats yet, servermon silent) is no bar, as with CPU
             if ((machine.mem.total > 0) && (machine.mem.free !== null)) {
