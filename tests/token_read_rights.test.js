@@ -167,7 +167,7 @@ test('the page\'s sections hold every right once, read the reads alone and say a
     assert.throws(() => token_section_set([], terminals, 'read'), /Terminals cannot be set to read/);
 
     // Said in the token's row: a level, or the rights it has of a section given a choice
-    assert.deepStrictEqual(token_sections.map(v => format_token_section(v, ['status', 'metrics', 'files', 'apps', 'forwards_read'])), ['machines: status, metrics', 'files write', '', 'apps: apps', 'forwards read']);
+    assert.deepStrictEqual(token_sections.map(v => format_token_section(v, ['status', 'metrics', 'files', 'apps', 'forwards_read'])), ['remotes: status, metrics', 'files write', '', 'apps: apps', 'forwards read']);
 });
 
 test('the form\'s All: read only sets each section to read and Terminals to none; a tick of its own makes a section a choice', async function () {
