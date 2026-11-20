@@ -8630,13 +8630,16 @@ section.apps-pane {
     transition: border-color .12s ease, background .12s ease;
 }
 
-/* An app that broke is edged red on top, one starting or stopping orange */
+/* An app that broke is edged red on top, one starting or stopping orange; a card with one side
+   thicker than the others is square */
 .apps-pane .app-cells > li.app-bad {
     border-color: var(--bad-edge);
+    border-radius: 0;
     box-shadow: inset 0 3px 0 var(--bad);
 }
 
 .apps-pane .app-cells > li.app-warn {
+    border-radius: 0;
     box-shadow: inset 0 3px 0 var(--busy);
 }
 
