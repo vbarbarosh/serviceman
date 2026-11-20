@@ -91,9 +91,8 @@ service out of the config — anything running keeps running.
 
 Everything in this file has a place on that page: **Runs on** is a list of machines and
 `#tags` in the order they are tried, **Follow the load** turns the autoscaler on under
-**Copies**, the checkbox beside the image fetches it before the first visit, a remote's **Tags**
-sit in its form, and **Let machines join** on the Remotes page holds the join token and the tags a
-machine may claim.
+**Copies**, and the checkbox beside the image fetches it before the first visit. A remote's tags
+and the join token are written here alone, for now: the page shows neither.
 
 For the edge cases the pencil opens the config file in a code editor. Its head names the
 file and says whether the text is still what the file holds: unchanged, or changed, not saved.

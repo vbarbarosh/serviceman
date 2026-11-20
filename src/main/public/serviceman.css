@@ -7100,62 +7100,6 @@ article.rf h1 + p {
     margin: 0;
 }
 
-/* New remote: its tags as chips with × in a field of their own, a tag typed after them */
-.rf-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    min-width: 0;
-    min-height: 44px;
-    padding: 6px 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    background: var(--code);
-}
-
-.rf-tags:focus-within {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.rf-tags.off {
-    opacity: .6;
-}
-
-.rf-tags .tag,
-.sf-here .tag {
-    display: inline-flex;
-    gap: .2rem;
-    align-items: center;
-    padding: .1rem .45rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    background: var(--panel-2);
-    color: var(--fg);
-    font-size: 13.5px;
-}
-
-.rf-tag-x {
-    padding: 0 .15rem;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    line-height: 1;
-}
-
-.step-frame input.rf-tag-new:not([type=checkbox]):not([type=radio]) {
-    flex: 1;
-    width: auto;
-    min-width: 6rem;
-    height: 30px;
-    padding: 0 4px;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    font-size: 15px;
-}
-
 .rf-card {
     display: flex;
     flex-direction: column;

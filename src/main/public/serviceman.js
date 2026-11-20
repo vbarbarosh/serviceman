@@ -1339,7 +1339,6 @@ const remote_page = {
                 </div>
                 <div class="item-line">
                     <span v-for="part of line_parts" :key="part">{{ part }}</span>
-                    <span v-for="tag of view.tags" :key="tag" class="tag" :title="(view.tags_declared.includes(tag) ? 'The machine declared it itself, with --tag' : 'Given in the config')">#{{ tag }}{{ view.tags_declared.includes(tag) ? '*' : '' }}</span>
                     <span v-if="(seen_said !== '')">{{ seen_said }}</span>
                 </div>
             </div>

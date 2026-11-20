@@ -731,8 +731,8 @@ container runs on the remote, and every request rides back through the link the 
 dialled. The visitor sees no difference.</p>
 <h2 id="add-a-remote"><a class="anchor" href="#add-a-remote" aria-hidden="true" tabindex="-1">#</a>Add a remote</h2>
 <p><strong>New remote</strong> on the control page asks in three steps, step by step or on one page. <strong>Name</strong>:
-its name, its tags as chips (a service can ask for <code>#eu</code> instead of a name) and a title for the
-page; <strong>Next</strong> makes the token for you and writes it to the config. <strong>Connect</strong>: the two lines to
+its name and a title for the page (its tags, which a service can ask for as <code>#eu</code> instead of a
+name, are written in the config, for now); <strong>Next</strong> makes the token for you and writes it to the config. <strong>Connect</strong>: the two lines to
 run on that machine, the agent fetched and started with this host&#39;s address and its token, each
 numbered with a <strong>Copy</strong> of its own, the token cut short where it is shown; the page waits, live,
 until that agent dials in, and moves on by itself to <strong>Connected</strong>: the machine online, and what it
@@ -982,8 +982,8 @@ opens a stream to the docker socket over there and runs the exec through it.</p>
 Nothing is placed for you, and nothing moves on its own: a service runs where you write it.</p>
 <h2 id="what-the-host-knows-about-a-remote"><a class="anchor" href="#what-the-host-knows-about-a-remote" aria-hidden="true" tabindex="-1">#</a>What the host knows about a remote</h2>
 <p><strong>Its page</strong> opens from its row under <strong>Remotes</strong>, with its head in a card: its icon, its name
-and how it stands (<code>online</code>), a line of what it is (its title, its system, its cores, its tags,
-its agent or when it was last seen), <strong>Shell</strong> and <strong>+ Service here</strong>, or <strong>Install the agent</strong>
+and how it stands (<code>online</code>), a line of what it is (its title, its system, its cores, its agent
+or when it was last seen), <strong>Shell</strong> and <strong>+ Service here</strong>, or <strong>Install the agent</strong>
 while it is away, and <strong>⋯</strong> for Logs in Logline ↗ and its Settings. Its tabs are in the card&#39;s
 foot, six of them: <strong>Overview</strong>, <strong>Services</strong> (what it carries, the table of the Services page,
 a row each that opens the service), <strong>Databases</strong> (the databases on it, a row each that opens its

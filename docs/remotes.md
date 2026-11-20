@@ -16,8 +16,8 @@ dialled. The visitor sees no difference.
 ## Add a remote
 
 **New remote** on the control page asks in three steps, step by step or on one page. **Name**:
-its name, its tags as chips (a service can ask for `#eu` instead of a name) and a title for the
-page; **Next** makes the token for you and writes it to the config. **Connect**: the two lines to
+its name and a title for the page (its tags, which a service can ask for as `#eu` instead of a
+name, are written in the config, for now); **Next** makes the token for you and writes it to the config. **Connect**: the two lines to
 run on that machine, the agent fetched and started with this host's address and its token, each
 numbered with a **Copy** of its own, the token cut short where it is shown; the page waits, live,
 until that agent dials in, and moves on by itself to **Connected**: the machine online, and what it
@@ -312,8 +312,8 @@ Nothing is placed for you, and nothing moves on its own: a service runs where yo
 ## What the host knows about a remote
 
 **Its page** opens from its row under **Remotes**, with its head in a card: its icon, its name
-and how it stands (`online`), a line of what it is (its title, its system, its cores, its tags,
-its agent or when it was last seen), **Shell** and **+ Service here**, or **Install the agent**
+and how it stands (`online`), a line of what it is (its title, its system, its cores, its agent
+or when it was last seen), **Shell** and **+ Service here**, or **Install the agent**
 while it is away, and **⋯** for Logs in Logline ↗ and its Settings. Its tabs are in the card's
 foot, six of them: **Overview**, **Services** (what it carries, the table of the Services page,
 a row each that opens the service), **Databases** (the databases on it, a row each that opens its

@@ -39,14 +39,6 @@ const remote_form = {
                     <p v-else class="sf-hint">small letters, digits, <code>-</code> and <code>_</code></p>
                 </div>
                 <div class="sf-field">
-                    <label for="rf-tag-new">Tags</label>
-                    <div class="rf-tags" :class="{off: (saved_name !== null)}">
-                        <span v-for="tag of tags_list" :key="tag" class="tag">#{{ tag }}<button v-if="(saved_name === null)" type="button" class="rf-tag-x" :aria-label="('Take #' + tag + ' away')" @click="tag_drop(tag)">×</button></span>
-                        <input v-if="(saved_name === null)" id="rf-tag-new" v-model.trim="tag_typed" class="rf-tag-new" placeholder="+ tag" spellcheck="false" @keydown.enter.prevent="tag_add" @keydown.space.prevent="tag_add" @keydown.,.prevent="tag_add" @blur="tag_add">
-                    </div>
-                    <p class="sf-hint">a service can ask for <code>#{{ tags_list[0] || 'eu' }}</code> instead of a name</p>
-                </div>
-                <div class="sf-field">
                     <label for="rf-title-new">Title on this page</label>
                     <input id="rf-title-new" v-model.trim="model.title" placeholder="Hetzner, Falkenstein" :disabled="(saved_name !== null)" spellcheck="false">
                     <p class="sf-hint">optional</p>
@@ -74,7 +66,7 @@ const remote_form = {
                     <span class="sf-here-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
                     <span>
                         <span class="sf-here-name">{{ saved_name }}<state-pill tone="run" text="online"/></span>
-                        <span class="muted"><span v-if="(model.title !== '')">{{ model.title }} ·</span><span v-for="tag of tags_list" :key="tag" class="tag">#{{ tag }}</span><span>{{ joined_ago }}</span></span>
+                        <span class="muted"><span v-if="(model.title !== '')">{{ model.title }} ·</span><span>{{ joined_ago }}</span></span>
                     </span>
                 </div>
                 <div class="sf-specs">
@@ -88,7 +80,6 @@ const remote_form = {
         </template>
         <template #summary>
             <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg><span class="mono">{{ model.name || 'no name yet' }}</span></p>
-            <p v-if="(tags_list.length > 0)" class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg><span>{{ tags_list.map(v => ('#' + v)).join(' ') }}</span></p>
             <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>a token of its own</span></p>
             <p class="sum-line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>{{ (joined !== null) ? 'connected' : ((saved_name === null) ? 'not made yet' : 'not connected yet') }}</span></p>
         </template>
@@ -115,11 +106,6 @@ const remote_form = {
             </div>
             <label for="rf-title">Title</label>
             <div><input id="rf-title" v-model.trim="model.title" placeholder="shown on this page — optional" spellcheck="false"></div>
-            <label for="rf-tags">Tags</label>
-            <div>
-                <input id="rf-tags" v-model.trim="model.tags" placeholder="gpu, eu — optional" spellcheck="false">
-                <p class="muted">What this machine <em>is</em>. A service can ask for <code>#gpu</code> instead of a name, and every machine carrying the tag will do. The machine may add more with <code>--tag</code> when it connects; those are not written here.</p>
-            </div>
         </div>
     </section>
     <!-- How it is drawn on the Canvas: not the config's, so a click keeps it at once -->
@@ -198,6 +184,7 @@ const remote_form = {
                 name: (this.original === null) ? '' : this.original.name || '',
                 title: (this.original === null) ? '' : this.original.title || '',
                 token: (this.original === null) ? token_make() : this.original.token || '',
+                // No longer set here, for now: carried so saving this form keeps the ones it has
                 tags: (this.original === null) ? '' : (this.original.tags || []).join(', '),
                 machine: (this.original === null) ? null : this.original.machine || null,
                 // Not edited here — the Logs tab switches it. Carried so saving this form does not
@@ -220,11 +207,10 @@ const remote_form = {
             copied: false,
             // The line of Connect just copied
             copied_line: null,
-            // A new one: the step open, how the form is shown, the tag being typed; its name once
-            // it is kept, and what its agent said once it dialled in
+            // A new one: the step open, how the form is shown; its name once it is kept, and what
+            // its agent said once it dialled in
             step: 0,
             mode: 'steps',
-            tag_typed: '',
             saved_name: null,
             joined: null,
             join_timer: null,
@@ -279,9 +265,6 @@ const remote_form = {
             }
             return {ok: true, why: ''};
         },
-        tags_list: function () {
-            return this.model.tags.split(',').map(v => v.trim().toLowerCase()).filter(v => v !== '');
-        },
         create_label: function () {
             if (this.saved_name === null) {
                 return 'Create remote';
@@ -303,17 +286,6 @@ const remote_form = {
         },
     },
     methods: {
-        tag_add: function () {
-            const typed = this.tag_typed.replace(/^#/, '').replace(/,/g, '').trim().toLowerCase();
-            this.tag_typed = '';
-            if ((typed === '') || this.tags_list.includes(typed)) {
-                return;
-            }
-            this.model.tags = this.tags_list.concat([typed]).join(', ');
-        },
-        tag_drop: function (tag) {
-            this.model.tags = this.tags_list.filter(v => v !== tag).join(', ');
-        },
         // Next from its name keeps it, with its token, so its agent can dial in; Connected is
         // reached once it has
         step_go: async function (index) {

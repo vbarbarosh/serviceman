@@ -15,16 +15,16 @@ import share_level from './share_level.js';
 import state_pill from './state_pill.js';
 import tailnet_name_of from './tailnet_name_of.js';
 
-// Every machine, a row each, in one table: its tags, what it is, how full its memory and disks
-// are, what it carries, and how it stands, with an update tag when its agent is behind. A click
-// on a row opens the machine; what is wrong with one is said under its row.
+// Every machine, a row each, in one table: what it is, how full its memory and disks are, what
+// it carries, and how it stands, with an update tag when its agent is behind. A click on a row
+// opens the machine; what is wrong with one is said under its row. Tags and letting machines
+// join are not shown, for now: a machine keeps its tags, and a service still asks for them.
 const remotes_pane = {
     template: `
 <article id="detail" class="list">
     <page-head category="remotes" :count="remotes.length">
         <template #acts>
             <button v-if="(apt_open === false)" type="button" :disabled="(apt_count === 0)" :title="((apt_count === 0) ? 'Nothing waits to be installed on the machines shown' : 'apt-get update and upgrade on each of them, at once')" @click="apt_open = true">{{ ((apt_count === 0) ? 'No updates' : ('Install updates on ' + apt_count)) }}</button>
-            <button type="button" @click="$emit('join')">{{ state.join === null ? 'Let machines join' : 'Machines may join' }}</button>
             <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button>
         </template>
     </page-head>
@@ -43,9 +43,6 @@ const remotes_pane = {
         <template #empty_act><button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button></template>
         <template #cell="{row, column}">
             <name-cell v-if="(column.key === 'name')" :icon="row.icon" :name="row.name" :line="row.line" :tone="row.tone"/>
-            <span v-else-if="((column.key === 'tags') && (row.tags.length > 0))" class="row-of">
-                <span v-for="tag of row.tags" :key="tag" class="tag">#{{ tag }}</span>
-            </span>
             <span v-else-if="((column.key === 'system') && (row.system !== ''))">{{ row.system }}</span>
             <span v-else-if="(bar_of(row, column.key) !== null)" class="load" :title="bar_of(row, column.key).text">
                 <span class="dt-ph-label">{{ bar_of(row, column.key).label }}</span>
@@ -137,12 +134,11 @@ const remotes_pane = {
                 return (remote.phase === 'online') && (machine !== null) && (machine.can !== null) && machine.can.includes('apt') && (machine.updates !== null) && (machine.updates.pending > 0);
             }).length;
         },
-        // Name and state never fold; the rest fold where the pane is narrow, the tags first. On
-        // a phone the tags and the system share a line, memory and disk a line each
+        // Name and state never fold; the rest fold where the pane is narrow, the system first. On
+        // a phone the system has a line, memory and disk a line each
         columns: function () {
             return [
                 {key: 'name', label: 'Name'},
-                {key: 'tags', label: 'Tags', fold: 1, hide: v => (v.tags.length === 0)},
                 {key: 'system', label: 'System', fold: 2, hide: v => (v.system === '')},
                 {key: 'memory', label: 'Memory', fold: 4, phone: 'row'},
                 {key: 'disk', label: 'Disk', fold: 3, phone: 'row'},
