@@ -370,6 +370,8 @@ minute, and they would bury the rest.
 | `mount_socket_close`      | A mount taken out of the config stopped listening.          |
 | `peer_stream`             | Another machine's agent asked this one for a forward or a mount, straight, by its name; `refused` and why when it is not one serviceman wrote here, or the token is not this machine's. |
 | `peer_stream_error`       | The service it leads to refused, or broke off, and why.     |
+| `root_stuck`              | The machine's root half took a ping and answered nothing in 5 s: its one thread has stopped. Every job asks it again first and fails at once while it stays so; `bin/status` says `root stuck`. |
+| `root_back`               | The root half answers again.                                |
 
 What an agent says about sending its machine's lines to Logline:
 

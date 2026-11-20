@@ -11,6 +11,13 @@ const path = require('path');
 const timers = require('timers/promises');
 
 const RUN_TIMEOUT_MS = 900000;
+// How long a mounted folder is given to answer a stat, and how its look says it is dead
+const ALIVE_MS = 5000;
+const ALIVE_DEAD = 3;
+const ALIVE_SCRIPT = `try { require('fs').statSync(process.argv[1]); } catch (error) { process.exit((error.code === 'ENOTCONN') ? ${ALIVE_DEAD} : 0); }`;
+
+// The looks at a folder still waiting, by the folder: one that never ends is a stuck mount
+const looks = new Map();
 const DOWNLOAD_TIMEOUT_MS = 300000;
 const REDIRECTS_MOST = 5;
 const RSA_BITS = 2048;
@@ -114,16 +121,92 @@ async function mounts()
     return mounts_read('/proc/self/mountinfo');
 }
 
-// Whether a mounted folder answers: a FUSE mount whose program died says ENOTCONN to everything
+// Whether a mounted folder answers: a FUSE mount whose program died says ENOTCONN to everything,
+// and one whose program stalls (an sshfs whose connection went quiet) says nothing at all, a
+// stat of it waiting in the kernel beyond any signal. So it is looked at from a child process
+// given ALIVE_MS: this half has one thread, every machine's jobs on it, and a stat of its own
+// would stop them all. A look still waiting from before is the answer itself: no second child
+// is sent after it.
 async function folder_alive(dir)
 {
-    try {
-        fs.statSync(dir);
-        return true;
+    if (looks.has(dir)) {
+        return false;
     }
-    catch (error) {
-        return error.code !== 'ENOTCONN';
+    const look = new Promise(function (resolve) {
+        const child = child_process.spawn(process.execPath, ['-e', ALIVE_SCRIPT, dir], {stdio: 'ignore'});
+        const timer = setTimeout(function () {
+            child.kill('SIGKILL');
+            resolve(false);
+        }, ALIVE_MS);
+        child.on('error', function () {
+            clearTimeout(timer);
+            looks.delete(dir);
+            resolve(true);
+        });
+        child.on('exit', function (code) {
+            clearTimeout(timer);
+            looks.delete(dir);
+            resolve(code !== ALIVE_DEAD);
+        });
+    });
+    looks.set(dir, look);
+    return await look;
+}
+
+// A FUSE mount that does not answer, cut off: every request waiting on it ends with ENOTCONN,
+// the processes stuck in them go on, and its program finds its device closed and ends — what a
+// kill -9 of the stalled sshfs does by hand. The kernel's own switch for it is the mount's file
+// under /sys/fs/fuse/connections, named by its device; the program itself is killed as well,
+// for a machine that has no fusectl mounted. Whether anything was cut.
+async function fuse_abort(point)
+{
+    const found = mounts_read('/proc/self/mountinfo').find(v => v.point === point);
+    if (found === undefined) {
+        return false;
     }
+    let cut = false;
+    const [major, minor] = found.dev.split(':');
+    if (major === '0') {
+        try {
+            fs.writeFileSync(`/sys/fs/fuse/connections/${minor}/abort`, '1');
+            cut = true;
+        }
+        catch {
+            // No fusectl, or the connection is gone already
+        }
+    }
+    for (const pid of fuse_programs(point)) {
+        try {
+            process.kill(pid, 'SIGKILL');
+            cut = true;
+        }
+        catch {
+            // It ended on its own
+        }
+    }
+    return cut;
+}
+
+// The programs serving a mount: those whose arguments name its point, sshfs or juicefs
+function fuse_programs(point)
+{
+    const out = [];
+    for (const name of fs.readdirSync('/proc')) {
+        if (/^\d+$/.test(name) === false) {
+            continue;
+        }
+        let argv = [];
+        try {
+            argv = fs.readFileSync(`/proc/${name}/cmdline`, 'utf8').split('\0');
+        }
+        catch {
+            continue;
+        }
+        if (['sshfs', 'juicefs'].includes(path.basename(argv[0])) && argv.includes(point)) {
+            out.push(Number(name));
+        }
+    }
+    return out;
 }
 
 async function users_of(target, source)
@@ -250,6 +333,7 @@ module.exports = {
     file_remove,
     file_write,
     folder_alive,
+    fuse_abort,
     folder_give,
     folder_make,
     folder_names,

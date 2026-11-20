@@ -1,5 +1,9 @@
+const agent_disk_list = require('../src/agent/src/agent_disk_list');
 const assert = require('assert');
 const disk_list_from_df = require('../src/agent/src/disk_list_from_df');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const test = require('node:test');
 
 test('a ZFS pool is one disk: its datasets added up, the room left counted once', function () {
@@ -88,4 +92,27 @@ test('a df that cannot count inodes still gives the space', function () {
     const items = disk_list_from_df(space, '');
     assert.strictEqual(items[0].total, 1000*1024);
     assert.strictEqual(items[0].inodes_total, null);
+});
+
+// A dead sshfs makes df end with 1 though it printed every other mount: the machine's Disks tab
+// lists those, and leaves out the one it could not read
+test('one mount df cannot read leaves out that one, not the whole list', async function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'df-'));
+    fs.writeFileSync(path.join(dir, 'df'), [
+        '#!/bin/sh',
+        'case "$1" in',
+        '-PkT) echo "Filesystem Type 1024-blocks Used Available Capacity Mounted on"; echo "/dev/sda1 ext4 1000 500 500 50% /";;',
+        '-PiT) echo "Filesystem Type Inodes IUsed IFree IUse% Mounted on"; echo "/dev/sda1 ext4 100 40 60 40% /";;',
+        'esac',
+        'echo "df: /mnt/photos: Transport endpoint is not connected" >&2',
+        'exit 1',
+    ].join('\n'), {mode: 0o755});
+    const was = process.env.PATH;
+    process.env.PATH = `${dir}:${was}`;
+    t.after(function () {
+        process.env.PATH = was;
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+    const answer = await agent_disk_list();
+    assert.deepStrictEqual(answer.items.map(v => [v.mounts, v.total, v.inodes_total]), [[['/'], 1000*1024, 100]]);
 });

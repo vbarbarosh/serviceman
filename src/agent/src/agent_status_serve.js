@@ -20,9 +20,9 @@ function agent_status_serve(status, options)
         });
         // The root half is asked for here rather than remembered: one installed a minute ago
         // is one this answer should already know about
-        const promise = agent_root_there(options);
-        promise.then(function (there) {
-            status.root = there;
+        const promise = agent_root_there.state(options);
+        promise.then(function (state) {
+            status.root = state;
             socket.end(agent_status(status));
         });
     });

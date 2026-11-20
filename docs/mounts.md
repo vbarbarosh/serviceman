@@ -70,6 +70,13 @@ machine's root. Mount the part that is needed (`logs`, not `.`) when that is eno
 A mounted row whose folder's machine is away says so: the folder answers nothing until it is
 back.
 
+The root half looks at each mount every minute from a process of its own, given 5 seconds: an
+sshfs that stalls makes anything that touches its folder wait in the kernel, beyond any signal,
+and the root half has one thread for every machine's work. A mount that does not answer in time,
+or whose sshfs died, is cut off (its FUSE connection aborted and its sshfs killed, so nothing
+stays stuck in it), taken off lazily and mounted again: its row says it stopped answering until
+then.
+
 ## What it needs
 
 - The agent, 1.38 or newer, on both machines; on `to` only, for a folder of serviceman's own.

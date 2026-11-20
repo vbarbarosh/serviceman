@@ -33,8 +33,11 @@ function agent_status(status, at)
 // up without this one being restarted.
 function root_text(status)
 {
-    if (status.root === true) {
+    if (status.root === 'answers') {
         return `root answers at ${status.root_socket}`;
+    }
+    if (status.root === 'stuck') {
+        return `root stuck — it took a ping at ${status.root_socket} and did not answer; sudo systemctl status serviceman-agent-root`;
     }
     return `root none — nothing answers at ${status.root_socket}`;
 }

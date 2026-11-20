@@ -107,7 +107,11 @@ async function mount_make(ctx, kept, item)
                 return Object.assign(item_words(item), {state: 'busy', error: `${item.path} is in use; it changes once nothing holds it`, users, now: (was === undefined) ? null : was.mode});
             }
         }
-        // An sshfs that died answers nothing, not even a close: it is taken off lazily
+        // An sshfs that died or stalls answers nothing, not even a close: it is cut off, so
+        // nothing stays stuck in it, and taken off lazily
+        if (alive === false) {
+            await ctx.system.fuse_abort(item.path);
+        }
         const gone = await ctx.system.run(alive ? ['umount', item.path] : ['umount', '-l', item.path]);
         if (gone.code !== 0) {
             return Object.assign(item_words(item), {state: 'error', error: `umount ${item.path}: ${last_line(gone)}`});
@@ -202,6 +206,9 @@ async function mount_leave(ctx, kept, point)
         return;
     }
     ctx.say('stdout', `unmounting ${point}`);
+    if (alive === false) {
+        await ctx.system.fuse_abort(point);
+    }
     const answer = await ctx.system.run(alive ? ['umount', point] : ['umount', '-l', point]);
     if (answer.code === 0) {
         delete kept.mounted[point];

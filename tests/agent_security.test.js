@@ -315,6 +315,11 @@ async function root_make(t, base, answer)
                 return;
             }
             const job = JSON.parse(rest.slice(0, rest.indexOf('\n')));
+            // A ping first, as a real root half answers it
+            if (job.method === 'ping') {
+                conn.end(`${JSON.stringify({type: 'reply', ok: true, value: {at: Date.now()}})}\n`);
+                return;
+            }
             asked.push(job.method);
             conn.end(`${JSON.stringify(await answer(job))}\n`);
         });

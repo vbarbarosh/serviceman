@@ -87,6 +87,11 @@ test('a count is the root half\'s where there is one, and says so', async functi
                 return;
             }
             const job = JSON.parse(rest.slice(0, rest.indexOf('\n')));
+            // A ping first, as a real root half answers it
+            if (job.method === 'ping') {
+                conn.end(`${JSON.stringify({type: 'reply', ok: true, value: {at: Date.now()}})}\n`);
+                return;
+            }
             asked.push(job.method);
             const value = await agent_disk_usage.root(job.params, function (stream, text) {
                 conn.write(`${JSON.stringify({type: 'line', stream, text})}\n`);
@@ -201,6 +206,10 @@ test('a root half from before whole trees still counts each folder opened', asyn
                 return;
             }
             const job = JSON.parse(rest.slice(0, rest.indexOf('\n')));
+            if (job.method === 'ping') {
+                conn.end(`${JSON.stringify({type: 'reply', ok: true, value: {at: Date.now()}})}\n`);
+                return;
+            }
             asked.push(job.params.path);
             // What an older root half did with the same ask: depth was not a word it knew
             const value = await agent_disk_usage.root({path: job.params.path, deleted: job.params.deleted}, function (stream, text) {

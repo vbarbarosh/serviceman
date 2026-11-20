@@ -30,7 +30,7 @@ test('a table is mounted with sshfs dialling the pipe in place of ssh, read-only
     assert.strictEqual(machine.ran.filter(v => v[0] === '/usr/bin/sshfs').length, 2);
 });
 
-test('an sshfs that died is mounted again at the next minute', async function () {
+test('an sshfs that died is cut off and mounted again at the next minute', async function () {
     const machine = machine_fake();
     const table = {mounts: [{label: 'photos', path: '/mnt/photos', mode: 'ro', socket: SOCKET}]};
     await agent_mounts(OPTIONS, {action: 'apply', table}, null, machine.system);
@@ -39,6 +39,7 @@ test('an sshfs that died is mounted again at the next minute', async function ()
     assert.strictEqual(status.items[0].state, 'error');
     const kept = await agent_mounts(OPTIONS, {action: 'keep'}, null, machine.system);
     assert.strictEqual(kept.items[0].state, 'mounted');
+    assert.deepStrictEqual(machine.aborted, ['/mnt/photos']);
     assert.ok(machine.ran.some(v => v.join(' ') === 'umount -l /mnt/photos'));
     assert.strictEqual(machine.ran.filter(v => v[0] === '/usr/bin/sshfs').length, 2);
 });
@@ -148,6 +149,10 @@ function machine_fake(over)
         },
         mounts: async () => machine.mounts.slice(),
         folder_alive: async v => (machine.dead.includes(v) === false),
+        fuse_abort: async function (point) {
+            machine.aborted = (machine.aborted || []).concat(point);
+            return true;
+        },
         users_of: async v => (machine.users[v] || []),
     };
     return machine;

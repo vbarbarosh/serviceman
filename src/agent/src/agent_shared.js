@@ -160,7 +160,11 @@ async function mount_make(ctx, kept, item)
                 return Object.assign(item_words(item), {state: 'busy', error: `${item.path} is in use; it changes once nothing holds it`, users, now: (was === undefined) ? null : was.mode});
             }
         }
-        // A mount whose program died is taken off lazily: it answers nothing, not even a close
+        // A mount whose program died or stalls answers nothing, not even a close: it is cut off,
+        // so nothing stays stuck in it, and taken off lazily
+        if (alive === false) {
+            await ctx.system.fuse_abort(item.path);
+        }
         const gone = await ctx.system.run(alive ? ['umount', item.path] : ['umount', '-l', item.path]);
         if (gone.code !== 0) {
             return Object.assign(item_words(item), {state: 'error', error: `umount ${item.path}: ${last_line(gone)}`});
@@ -415,6 +419,7 @@ async function all_mount(ctx, access)
         return;
     }
     if (found !== undefined) {
+        await ctx.system.fuse_abort(ctx.files.all);
         await ctx.system.run(['umount', '-l', ctx.files.all]);
     }
     const binary = await juicefs_ensure(ctx);

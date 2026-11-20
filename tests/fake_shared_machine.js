@@ -144,6 +144,10 @@ function fake_shared_machine(over)
         },
         mounts: async () => machine.mounts.slice(),
         folder_alive: async v => (machine.dead.includes(v) === false),
+        fuse_abort: async function (point) {
+            machine.aborted = (machine.aborted || []).concat(point);
+            return true;
+        },
         users_of: async v => (machine.users[v] || []),
         room_of: async () => ({used: 1024**3, free: 9*1024**3}),
         arch: async () => machine.arch,

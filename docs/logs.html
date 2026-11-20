@@ -1389,6 +1389,14 @@ minute, and they would bury the rest.</p>
 <td><code>peer_stream_error</code></td>
 <td>The service it leads to refused, or broke off, and why.</td>
 </tr>
+<tr>
+<td><code>root_stuck</code></td>
+<td>The machine&#39;s root half took a ping and answered nothing in 5 s: its one thread has stopped. Every job asks it again first and fails at once while it stays so; <code>bin/status</code> says <code>root stuck</code>.</td>
+</tr>
+<tr>
+<td><code>root_back</code></td>
+<td>The root half answers again.</td>
+</tr>
 </tbody></table>
 </div>
 <p>What an agent says about sending its machine&#39;s lines to Logline:</p>
