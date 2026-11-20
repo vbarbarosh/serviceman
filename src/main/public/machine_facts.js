@@ -30,11 +30,11 @@ function percent(share)
     return `${Math.round(share*100)}%`;
 }
 
-// Gigabytes, whole from ten up: 41, 6.2
+// Gigabytes, whole from ten up and with no ".0": 41, 8, 6.2
 function gb(bytes)
 {
     const n = bytes/(1024*1024*1024);
-    return (n >= 10) ? String(Math.round(n)) : n.toFixed(1);
+    return (n >= 10) ? String(Math.round(n)) : String(Number(n.toFixed(1)));
 }
 
 export default machine_facts;
