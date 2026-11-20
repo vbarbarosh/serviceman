@@ -2071,7 +2071,8 @@ was in it, because a query can carry a visitor&#39;s password. <code>control_tok
 <code>control_change</code> keep theirs: they are calls to serviceman&#39;s own API by the owner or a token
 let in, whose query is a folder or a machine (<code>path=/home/user/navplace</code>), never a secret.</li>
 <li><strong>No bodies and no headers.</strong> What a service and its visitor say to each other is theirs.</li>
-<li><strong>No reads of the control page.</strong> It polls every second; only what it <em>changes</em> is written.</li>
+<li><strong>No reads of the control page.</strong> It polls every second; only what it <em>changes</em> is written.
+A service&#39;s <strong>Logs</strong> tab, which reads its lines from Logline every 3 seconds, writes none either.</li>
 </ul>
 <h2 id="where-the-lines-go"><a class="anchor" href="#where-the-lines-go" aria-hidden="true" tabindex="-1">#</a>Where the lines go</h2>
 <p><code>data/logs/&lt;yyyymmdd&gt;.log</code>, next to the config, one file a day. The file is closed and flushed

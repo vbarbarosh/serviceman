@@ -595,6 +595,7 @@ list, in a bar under its header and first on its Health page.
   let in, whose query is a folder or a machine (`path=/home/user/navplace`), never a secret.
 - **No bodies and no headers.** What a service and its visitor say to each other is theirs.
 - **No reads of the control page.** It polls every second; only what it *changes* is written.
+  A service's **Logs** tab, which reads its lines from Logline every 3 seconds, writes none either.
 
 ## Where the lines go
 

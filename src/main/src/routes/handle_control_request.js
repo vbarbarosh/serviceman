@@ -100,6 +100,7 @@ const send_json = require('../helpers/send_json');
 const serve_static_file = require('../helpers/serve_static_file');
 const service_ensure_running = require('../helpers/service_ensure_running');
 const service_image_pull = require('../helpers/service_image_pull');
+const service_lines = require('../helpers/service_lines');
 const service_reinstall = require('../helpers/service_reinstall');
 const service_rename_ties = require('../helpers/service_rename_ties');
 const service_replace = require('../helpers/service_replace');
@@ -202,6 +203,7 @@ const UFW_TIMEOUT_MS = 40000;
 // Making a volume copies the plain files in, which takes as long as they are big
 const VOLUME_TIMEOUT_MS = 600000;
 const RE_SERVICE = /^\/api\/v1\/services\/([^/]+)$/;
+const RE_SERVICE_LINES = /^\/api\/v1\/services\/([^/]+)\/lines$/;
 const RE_CANVAS_MACHINE = /^\/api\/v1\/canvas\/machines\/([^/]+)$/;
 const RE_LOAD_TEST = /^\/api\/v1\/load-tests\/([^/]+)$/;
 const RE_LOAD_TEST_DO = /^\/api\/v1\/load-tests\/([^/]+)\/(run|stop)$/;
@@ -675,6 +677,11 @@ async function control_answer(app, req, res)
     }
     if ((load_test_path !== null) && (req.method === 'DELETE')) {
         await load_test_delete(app, res, route_param(load_test_path[1]));
+        return;
+    }
+    const service_lines_path = RE_SERVICE_LINES.exec(url.pathname);
+    if ((service_lines_path !== null) && (req.method === 'GET')) {
+        await service_lines_send(app, res, route_param(service_lines_path[1]), url.searchParams.get('find') || '');
         return;
     }
     const service_path = RE_SERVICE.exec(url.pathname);
@@ -2597,6 +2604,29 @@ async function apps_settings_update(app, req, res)
         }
         return null;
     }, 400);
+}
+
+// GET /api/v1/services/<name>/lines?find=
+// The lines the service wrote in the last day, read from Logline (service_lines): its Logs tab.
+// 409 while the config does not say where Logline's viewer is; 502 when Logline does not answer.
+async function service_lines_send(app, res, name, find)
+{
+    const service = app.service_by_name[name];
+    if (service === undefined) {
+        send_json(res, 404, {error: `no service named ${JSON.stringify(name)}`});
+        return;
+    }
+    const logline = app.config.logline;
+    if ((logline === null) || (logline === undefined) || (logline.ui === null) || (logline.ui === undefined)) {
+        send_json(res, 409, {error: 'Where Logline\'s viewer is is not set: a machine\'s Logs tab has the form for it'});
+        return;
+    }
+    try {
+        send_json(res, 200, await service_lines(logline, {name, remotes: service.remotes || []}, find.slice(0, 200)));
+    }
+    catch (error) {
+        send_json(res, 502, {error: error.message});
+    }
 }
 
 // POST /api/v1/services (body)

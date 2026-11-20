@@ -13,6 +13,7 @@
     --idle: #9aa1ab;
     --busy: #d38b12;
     --bad: #c0392b;
+    --stderr: #c2185b;
     /* The roles the light theme draws with the tokens above, named so the dark one can tell them
        apart: as they are, a skin's own colours reach them too */
     --bar: var(--panel);
@@ -53,6 +54,7 @@
     --idle: #bab8ab;
     --busy: #ff8400;
     --bad: #ff6b6b;
+    --stderr: #ff7eb6;
     --bar: #302f26;
     --bar-hover: #49483d;
     --sel: #16364d;
@@ -2499,8 +2501,8 @@ pre {
 /* Config: the page head, then the editor in a card that takes the rest of the page: the file
    and whether it changed in its head, Check and Load again on the left of its foot, Close and
    Save on the right */
-/* A service's Logs tab: Logline's small view of its lines in a card that takes the rest of the
-   page; the view draws its own bar and its own lines */
+/* A service's Logs tab: its lines of the last day in a card that takes the rest of the page, its
+   tools on top, its rows scrolling inside it, a line under them that says what the colours are */
 article.service-logs {
     display: flex;
     flex-direction: column;
@@ -2527,25 +2529,141 @@ article.service-logs {
     }
 }
 
-.service-logs > .logs-card {
+.service-logs > .lines-card {
     display: flex;
     flex: 1 1 0;
+    flex-direction: column;
     min-height: 24rem;
     overflow: hidden;
 }
 
-.logs-frame {
-    flex: 1;
-    width: 100%;
-    min-height: 0;
+/* Its tools are a table's: the find box of .dt-tools, then live, the count and the way to
+   Logline on the right */
+.lines-tools {
+    flex-wrap: nowrap;
+}
+
+/* Live: a dot and a word, green while new lines come in, grey once stopped */
+.lines-live {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    height: 36px;
+    padding: 0 4px;
     border: 0;
-    border-radius: 6px;
-    background: var(--panel);
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.lines-live.on {
+    color: var(--run);
+}
+
+.lines-count {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The whole viewer, a link as the page's addresses are: no line under it until pointed at */
+.lines-open {
+    color: var(--link);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.lines-open:hover {
+    text-decoration: underline;
+}
+
+.lines-note {
+    margin: 0;
+    padding: 16px;
+}
+
+/* Logline failed: a band across the card, over the lines it gave last, in both themes (the dark
+   one makes any other red message a tag) */
+.service-logs > .lines-card > p.lines-note.bad {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--bad-soft);
+}
+
+.lines {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 6px 0;
+    background: var(--code);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+
+/* A line: its time, then its words, wrapping under themselves; an edge on its left when it
+   says error (red) or warn (amber) */
+.line {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 14px;
+    padding: 1px 16px 1px 13px;
+    border-left: 3px solid transparent;
+}
+
+.line.line-error {
+    border-left-color: var(--bad);
+}
+
+.line.line-warn {
+    border-left-color: var(--busy);
+}
+
+.line-time {
+    color: var(--muted);
+}
+
+.line-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.line-text.stderr {
+    color: var(--stderr);
+}
+
+.lines-foot {
+    margin: 0;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
 }
 
 @media (max-width: 600px) {
-    .service-logs > .logs-card {
+    .service-logs > .lines-card {
         min-height: 28rem;
+    }
+
+    .lines-tools {
+        flex-wrap: wrap;
+    }
+
+    /* Live, the count and the way to Logline on one line under the find box; the foot says the
+       24 hours */
+    .lines-span {
+        display: none;
+    }
+
+    .line {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        padding: 3px 12px 3px 9px;
     }
 }
 

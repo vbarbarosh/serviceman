@@ -34,6 +34,7 @@ import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
 import item_facts from './item_facts.js';
 import join_form from './join_form.js';
+import line_row from './line_row.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
 import logline_pane from './logline_pane.js';
@@ -91,6 +92,8 @@ import walls_of from './walls_of.js';
 import {createApp} from 'vue';
 
 const POLL_MS = 1000;
+// How often a service's Logs tab asks for its new lines while it is live
+const LINES_EVERY_MS = 3000;
 // Config's mark, the pencil, for the editor card's head
 const CONFIG_ICON = CATEGORIES.find(v => (v.key === 'config')).icon;
 // Logline's mark, for a service's Logs tab
@@ -128,12 +131,11 @@ const CATEGORY_SHOW = {
 // agent_install_sh.js says why.
 const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
 
-// The Logs tab of a service: its own lines, live, through Logline's small view of them
-// (`?embed=1`) in a card that takes the rest of the page, in this page's theme. What it writes
-// is in Logline with every other line of every machine; the view is filtered to it, and its
-// Open in Logline ↗ is the way to the whole viewer. Two cases show the way alone: Logline's
-// viewer not set, and a page on https with the viewer on plain http, which a browser does not
-// show in a frame.
+// A service's Logs tab: the lines it wrote in the last day, read from Logline by serviceman
+// (service_lines), a row each, oldest first and the newest at the foot, as its viewer shows
+// them; a find in them, live while it is on, and Logline's viewer one click away for the rest:
+// other days, its labels, its groups. What it wrote to stderr is pink, and a line that says
+// "error" or "warn" has a red or amber edge.
 const service_logs = {
     template: `
 <article id="detail" class="logs service-logs">
@@ -144,40 +146,123 @@ const service_logs = {
             <p>What this service writes goes to Logline, from the machines that send their logs there. Where Logline's viewer is is not set, so there is nothing to show here — the Logs tab of a machine has the form for it.</p>
         </div>
     </section>
-    <section v-else-if="mixed" class="card">
-        <div class="dt-empty-big">
-            <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="LOGLINE_ICON"/></span>
-            <h3>Its lines open in Logline</h3>
-            <p>This page is on https and Logline's viewer on plain http, which a browser does not show inside a page.</p>
-            <a class="button primary" :href="url" target="_blank" rel="noopener">Its lines in Logline ↗</a>
+    <section v-else class="card lines-card">
+        <div class="dt-tools lines-tools">
+            <input v-model="find" type="search" placeholder="Find in its lines" :aria-label="('Find in the lines of ' + name)" spellcheck="false" @input="find_typed">
+            <button type="button" class="lines-live" :class="{on: live}" :aria-pressed="String(live)" :title="(live ? 'New lines come in every 3 seconds: a click stops them' : 'Stopped: a click brings new lines in again')" @click="live_toggle"><span class="dot" :class="(live ? 'running' : '')"/>{{ live ? 'live' : 'stopped' }}</button>
+            <span class="muted lines-count">{{ count_text }}<span v-if="(rows !== null)" class="lines-span"> · the last 24 hours</span></span>
+            <a class="lines-open" :href="url" target="_blank" rel="noopener">Open in Logline ↗</a>
         </div>
-    </section>
-    <section v-else class="card logs-card">
-        <iframe class="logs-frame" :src="embed_url" :title="('The lines of ' + (view.title || view.name) + ' in Logline')" referrerpolicy="no-referrer"/>
+        <p v-if="(error !== '')" class="bad lines-note">{{ error }}{{ (rows === null) ? '' : ' The lines below are the last it gave.' }}</p>
+        <p v-if="(rows === null)" v-show="(error === '')" class="muted lines-note"><span class="spin"/>reading its lines from Logline…</p>
+        <p v-else-if="(rows.length === 0)" class="muted lines-note">{{ (find.trim() === '') ? ('No line from ' + name + ' in the last 24 hours.') : ('No line of the last 24 hours holds “' + find.trim() + '”.') }}</p>
+        <div v-else ref="lines" class="lines" role="log" :aria-label="('The lines of ' + name)" @scroll="scrolled">
+            <div v-for="(row, i) of rows" :key="i" class="line" :class="row.kind">
+                <span class="line-time" :title="row.when">{{ row.time }}</span>
+                <span class="line-text" :class="{stderr: row.stderr}">{{ row.text }}</span>
+            </div>
+        </div>
+        <p v-if="((rows !== null) && (rows.length > 0))" class="muted lines-foot">{{ foot_text }} · pink: its stderr · a red or amber edge: “error” or “warn” in the line</p>
     </section>
 </article>
 `,
-    // theme: dark or light, the page's own, which the view is shown in
+    // theme: dark or light, the page's own; kept for the page's call, the rows follow the page
     props: ['view', 'logline', 'theme'],
     data: function () {
-        return {LOGLINE_ICON};
+        // rows: null until Logline first answers; at_end: whether the list is scrolled to its
+        // foot, where new lines keep it
+        // again: a read was asked while one was on its way, and goes once that one is back
+        return {LOGLINE_ICON, find: '', live: true, rows: null, total: 0, error: '', at_end: true, timer: null, typed: null, asking: false, again: false};
     },
     computed: {
+        name: function () {
+            return this.view.title || this.view.name;
+        },
         url: function () {
             return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
         },
-        // The same lines, the view alone: no labels, no volume, a find box and the way out
-        embed_url: function () {
-            const url = new URL(this.url);
-            url.searchParams.set('embed', '1');
-            url.searchParams.set('theme', (this.theme === 'light') ? 'light' : 'dark');
-            return url.toString();
+        count_text: function () {
+            if (this.rows === null) {
+                return '';
+            }
+            const shown = this.rows.length;
+            return (this.total > shown) ? `${shown} of ${this.total.toLocaleString('en-US')} lines` : `${shown} ${(shown === 1) ? 'line' : 'lines'}`;
         },
-        // An https page holds no frame on plain http, but on this computer's own names
-        mixed: function () {
-            const url = new URL(this.url);
-            const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || url.hostname.endsWith('.localhost');
-            return (window.location.protocol === 'https:') && (url.protocol === 'http:') && (local === false);
+        foot_text: function () {
+            const shown = (this.rows === null) ? 0 : this.rows.length;
+            return `${shown} ${(shown === 1) ? 'line' : 'lines'} from the last 24 hours, as ${this.name} wrote them`;
+        },
+    },
+    mounted: function () {
+        if (this.url !== null) {
+            this.read();
+            this.timer = setInterval(this.tick, LINES_EVERY_MS);
+        }
+    },
+    unmounted: function () {
+        clearInterval(this.timer);
+        clearTimeout(this.typed);
+    },
+    methods: {
+        // Live: the lines read again every few seconds, while the page is in front
+        tick: function () {
+            if (this.live && (document.visibilityState === 'visible')) {
+                this.read();
+            }
+        },
+        live_toggle: function () {
+            this.live = !this.live;
+            if (this.live) {
+                this.read();
+            }
+        },
+        // A find is asked once the typing stops
+        find_typed: function () {
+            clearTimeout(this.typed);
+            this.typed = setTimeout(this.read, 300);
+        },
+        scrolled: function () {
+            const box = this.$refs.lines;
+            if (!box) {
+                return;
+            }
+            this.at_end = (box.scrollHeight - box.scrollTop - box.clientHeight) < 24;
+        },
+        read: async function () {
+            if (this.asking) {
+                this.again = true;
+                return;
+            }
+            this.asking = true;
+            this.again = false;
+            try {
+                const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/lines?find=${encodeURIComponent(this.find.trim())}`, {cache: 'no-store'});
+                const body = await answer.json();
+                if (answer.ok === false) {
+                    throw new Error(body.error || `serviceman answered ${answer.status}`);
+                }
+                this.error = '';
+                this.total = body.total;
+                this.rows = body.lines.map(line_row);
+            }
+            catch (error) {
+                this.error = error.message;
+            }
+            // A note that comes or goes above the lines takes their room: the foot stays in view
+            if (this.at_end) {
+                this.$nextTick(this.to_end);
+            }
+            this.asking = false;
+            if (this.again) {
+                this.read();
+            }
+        },
+        to_end: function () {
+            // The list is not there while no line is shown
+            const box = this.$refs.lines;
+            if (box) {
+                box.scrollTop = box.scrollHeight;
+            }
         },
     },
 };

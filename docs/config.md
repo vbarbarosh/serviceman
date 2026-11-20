@@ -821,10 +821,19 @@ A service's **Logs in Logline** shows the lines of the machines its config names
 machine's token, so a machine cannot put its lines under a service it does not run. A service
 run here, with no machine named, is shown by its name alone.
 
-Its **Logs** tab shows the same lines, live, in the page: Logline's small view of them
-(`embed=1`), with a find box, the lines and **Open in Logline ↗** for the whole viewer, in the
-page's theme. With the viewer not set, the tab says where to set it; on a page served on https
-with the viewer on plain http, which a browser does not show inside a page, the tab links to it.
+Its **Logs** tab shows the same lines in the page, a row each: its time, and its words as they
+were written. A line that came on stderr is pink; one that says "error" has a red edge on its
+left, one that says "warn" or "warning" an amber one. Above them, a find box (any case), **live**
+(new lines every 3 seconds while the page is in front; a click stops them), how many lines the
+last 24 hours hold, and **Open in Logline ↗** for the whole viewer. It shows the last 500; the
+count says when there are more.
+
+serviceman reads them itself, from the viewer's `/clickhouse`, the read-only way the viewer's own
+page reads them; what was typed in the find box goes as a parameter, never into the query. It
+asks from where it runs, through tailscale's proxy in its image, as it asks Logline for tokens. A
+viewer serviceman cannot reach, or one behind a wall that sends it on to a sign-in, is said in the
+tab over the last lines it gave; **Open in Logline ↗** still opens the viewer in the browser.
+With the viewer not set, the tab says where to set it.
 
 ### Storage
 
