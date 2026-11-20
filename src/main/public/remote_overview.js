@@ -207,7 +207,7 @@ const remote_overview = {
             return logline_link(this.logline, 'remote', this.view.name);
         },
         raw: function () {
-            return JSON.stringify(this.view, null, 2);
+            return JSON.stringify(this.view, null, 4);
         },
     },
     methods: {
