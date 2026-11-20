@@ -2,6 +2,7 @@ const agent_apt = require('./agent_apt');
 const agent_apt_lists_at = require('./agent_apt_lists_at');
 const agent_built = require('./agent_built');
 const agent_disk_usage = require('./agent_disk_usage');
+const agent_machine_restart = require('./agent_machine_restart');
 const agent_mounts = require('./agent_mounts');
 const agent_port_list = require('./agent_port_list');
 const agent_root_refresh = require('./agent_root_refresh');
@@ -267,7 +268,7 @@ function job_run(state, options, socket, job, group)
         line_send(socket, stream, text);
     }
     agent_say(group, 'root_job_begin', {method: job.method});
-    const promise = method_run(state, options, job, say);
+    const promise = method_run(state, options, job, say, group);
     promise.then(function (value) {
         agent_say(group, 'root_job_end_ok', {method: job.method});
         reply(socket, true, value, undefined);
@@ -277,7 +278,7 @@ function job_run(state, options, socket, job, group)
     });
 }
 
-async function method_run(state, options, job, say)
+async function method_run(state, options, job, say, group)
 {
     const method = String(job.method);
     job.params = ((job.params === undefined) || (job.params === null)) ? {} : job.params;
@@ -331,6 +332,11 @@ async function method_run(state, options, job, say)
         // What the Security page mends with a click: ssh's passwords off or on again, automatic
         // updates on; each judged by sshd or apt before it holds
         return await agent_security_mend(state, options, job.params);
+    }
+    if (method === 'machine_restart') {
+        // The machine restarted into whatever was installed last, a kernel above all: the answer
+        // first, the reboot a second on
+        return await agent_machine_restart(options, group);
     }
     if (method === 'volume') {
         return await agent_volume(options, job.params, say);

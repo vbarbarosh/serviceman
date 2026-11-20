@@ -543,6 +543,16 @@ async function method_run(options, state, method, params, say, group)
             throw new Error('a click mends this only through the root agent, and this machine has none; its page says how to install it, or its Shell does it by hand');
         });
     }
+    if (method === 'machine_restart') {
+        // Root's alone, like the mends: a sudo here would ask for a password nobody is there
+        // to type, and a machine without a root half is restarted by hand
+        return await agent_root_or(options, 'machine_restart', {}, undefined, function (why) {
+            if (why.root_old === true) {
+                throw new Error('the root half on this machine is from before restarting machines; it updates itself within half a minute — ask again then');
+            }
+            throw new Error('a click restarts this machine only through the root agent, and this machine has none: its page says how to install it, or its Shell restarts it by hand, sudo reboot');
+        });
+    }
     if (method === 'apt_upgrade') {
         // The root half of this machine does it where there is one; here, with sudo, where
         // there is not
