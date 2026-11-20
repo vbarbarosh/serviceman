@@ -472,19 +472,28 @@ itself once they are older than 6 hours (looking every ten minutes; after a fetc
 an hour later), and marks a fetch that went well as apt marks its daily one, in
 `/var/lib/apt/periodic/update-success-stamp`. A machine with no root half, or whose fetch
 fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
-Security page, its Overview, its Configure tab and the rows of **Install updates on N** no
+Security page, its Overview, its Configure tab and the rows of **Updates** no
 longer say **up to date** there but **lists 9 days old**, and why. Its Overview says when the
 lists were fetched (**Lists**), and its Configure tab offers **Fetch the lists and install**:
 Install fetches them first in any case.
 
-**Install updates on N**, at the top of **Remotes**, does the same on every machine the list
-shows that has something waiting: the filter and the chips narrow it, and each machine can be
-unticked. They all start at once, each its own apt, with a row each for how it goes and its last
-line; a row opens the machine's Configure tab with every line. The machine serviceman itself
+**Updates**, at the top of **Remotes**, opens a page of its own, `/remotes/updates`: a row per
+machine with what apt has waiting there (`12 to install · 3 security`, `up to date`, `wants a
+restart`, `lists 9 days old`, `offline`), its system, how many packages are held back and how
+long ago its lists were fetched, with its own **Find a machine** and chips (To install, Up to
+date, Needs you, Offline). Every machine with something to install is ticked at first, and each
+can be unticked; one that Install cannot take has a dashed box, and what helps there instead
+stands at the end of its row: **Restart <name>…**, or **Fetch and install** on its Configure
+tab. **Install on N** does on every machine ticked what Install them does on one. They all
+start at once, each its own apt, and the page shows a row each for how it goes and what apt said
+last; a row opens the machine's Configure tab with every line. The machine serviceman itself
 runs on waits until the others end, then runs alone: an upgrade of Docker there restarts
 serviceman in the middle of it. serviceman finds that machine by its own container in the
-machine's `docker ps`. **Cancel all** stops what runs and what waits. The runs are serviceman's,
-not the page's: a closed page stops nothing, and the list shows them again when opened.
+machine's `docker ps`, as its last Security look found it before Install, so its row says
+**goes last, alone**, and again when Install is pressed. **Cancel all** stops what runs and what
+waits; once every row has ended, **Back to the list** shows the page as it opens. The runs are
+serviceman's, not the page's: a page left stops nothing, and Updates shows them again when
+opened.
 
 While serviceman is not answering, a restart most often, **Install** waits for it, and the list
 says so. A press it never answered is looked into once it is back: the install is shown if it

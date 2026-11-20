@@ -6,14 +6,15 @@ import CATEGORIES, {ALL} from './categories.js';
 // the head, never a paragraph above the page.
 //
 //     slots   acts: the page's buttons; state: a chip in place of the count; how: the text
-//             How it works opens
+//             How it works opens; says: the line, for a page whose line has more than words
+//             (Updates: its commands in mono)
 const page_head = {
     template: `
 <div class="page-head">
-    <span class="page-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="item.icon"/></span>
+    <span class="page-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="((icon === '') ? item.icon : icon)"/></span>
     <div class="page-head-text">
-        <h1>{{ item.name }}<span v-if="(count !== null)" class="page-head-count">{{ count }}</span><slot name="state"/></h1>
-        <p class="page-head-says">{{ says }}<button v-if="$slots.how" type="button" class="link page-head-how" :aria-expanded="String(how_open)" @click="how_open = !how_open">{{ how_label }}</button></p>
+        <h1>{{ ((title === '') ? item.name : title) }}<span v-if="(count !== null)" class="page-head-count">{{ count }}</span><slot name="state"/></h1>
+        <p class="page-head-says"><slot name="says">{{ says }}</slot><button v-if="$slots.how" type="button" class="link page-head-how" :aria-expanded="String(how_open)" @click="how_open = !how_open">{{ how_label }}</button></p>
     </div>
     <div v-if="$slots.acts" class="page-head-acts"><slot name="acts"/></div>
 </div>
@@ -35,6 +36,10 @@ const page_head = {
         // A sentence after the line, for this page alone: what to do on it, as the menus' line
         // never says (Map: Point at anything…); '' for none
         more: {type: String, default: ''},
+        // A page under the category, not the category itself (Updates under Remotes): its own
+        // name and icon (the inside of a 24x24 stroked svg); '' for the category's
+        title: {type: String, default: ''},
+        icon: {type: String, default: ''},
     },
     data: function () {
         return {how_open: false};

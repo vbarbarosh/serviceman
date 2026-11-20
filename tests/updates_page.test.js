@@ -12,7 +12,7 @@ const timers = require('timers/promises');
 
 const PUBLIC = path.join(__dirname, '..', 'src', 'main', 'public');
 
-// Install pressed on Remotes while serviceman was restarting said "the answer never came back",
+// Install pressed on Updates while serviceman was restarting said "the answer never came back",
 // and nothing more: not why, not whether anything was installed, not what to do. Now the press
 // is looked into once serviceman is back, and what came of it is said.
 test('Install pressed while serviceman is away says, once it is back, that nothing began', async function () {
@@ -77,7 +77,7 @@ test('an install serviceman no longer has after a restart leaves its rows as las
 
         running.app.apt_all = null;
         await section.read();
-        assert.deepStrictEqual({forgotten: section.forgotten, ended: section.ended, phases: section.batch.remotes.map(v => `${v.name} ${v.phase}`), summary: section.summary}, {forgotten: true, ended: true, phases: ['laptop lost', 'vps1 ok'], summary: '1 done · 1 not followed'});
+        assert.deepStrictEqual({forgotten: section.forgotten, ended: section.ended, phases: section.batch.remotes.map(v => `${v.name} ${v.phase}`), foot: section.run_foot.map(v => v.text)}, {forgotten: true, ended: true, phases: ['laptop lost', 'vps1 ok'], foot: ['Installed on 2', '1 done', '1 not followed', 'a row opens its machine\'s Configure tab, with every line']});
     }
     finally {
         section.closed = true;
@@ -108,11 +108,23 @@ test('serviceman away for three minutes is said so, and not taken for an answer'
     }
 });
 
-// The section as vue drives it: its data, props, methods and computed values on one object
+// A machine online with these updates, as the status says it; more: fields put over it
+function online(updates, more)
+{
+    return Object.assign({name: 'vps1', title: 'Hetzner, Falkenstein', phase: 'online', agent_version: '1.40.0', agent_built: null, left_at: null, machine: {os: 'Debian 12', can: ['apt'], updates}}, more);
+}
+
+// What a row says: its pill and its tone, its chip, whether it ticks, what helps there
+function said(row)
+{
+    return [row.pill, row.pill_tone, row.group, row.able, row.act];
+}
+
+// The page as vue drives it: its data, props, methods and computed values on one object
 async function section_of(props)
 {
-    const section = (await import(path.join(PUBLIC, 'apt_all_section.js'))).default;
-    const out = Object.assign(section.data(), props, {remotes: [], $emit: function () {}});
+    const section = (await import(path.join(PUBLIC, 'updates_page.js'))).default;
+    const out = Object.assign(section.data(), props, {state: {remotes: [], canvas: null, agent_built: null}, $emit: function () {}});
     for (const [name, method] of Object.entries(section.methods)) {
         out[name] = method.bind(out);
     }
@@ -124,7 +136,7 @@ async function section_of(props)
 
 async function serviceman_start()
 {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-updates-'));
     const config = config_from_json({
         listen: {host: '127.0.0.1', port: 0},
         control: {host: 'serviceman.localhost', port: 0},
@@ -154,3 +166,30 @@ async function port_away()
     await new Promise(v => away.close(v));
     return port;
 }
+
+// Each machine as the list draws it: what waits, whether Install can take it, and what helps
+// where it cannot
+test('a row says what waits on its machine, and whether Install can take it', async function () {
+    const {updates_row} = await import(path.join(PUBLIC, 'updates_page.js'));
+    const now = Date.UTC(2026, 10, 20, 12, 0);
+    const hour = 3600000;
+    assert.deepStrictEqual(said(updates_row(online({pending: 12, security: 3, held: 0, reboot: false, lists_at: now - 3*hour}), null, 'server', now)), ['12 to install · 3 security', 'bad', 'install', true, null]);
+    assert.deepStrictEqual(said(updates_row(online({pending: 4, security: 0, held: 2, reboot: false, lists_at: now - 2*hour}), null, 'server', now)), ['4 to install', 'acc', 'install', true, null]);
+    assert.deepStrictEqual(said(updates_row(online({pending: 0, security: 0, held: 11, reboot: false, lists_at: now - hour}), null, 'server', now)), ['up to date', 'run', 'current', false, null]);
+    assert.deepStrictEqual(said(updates_row(online({pending: 0, security: 0, held: null, reboot: true, lists_at: now - 5*hour}), null, 'server', now)), ['wants a restart', 'busy', 'needs', false, 'restart']);
+    assert.deepStrictEqual(said(updates_row(online({pending: 0, security: 0, held: null, reboot: false, lists_at: now - 9*24*hour}), null, 'server', now)), ['lists 9 days old', 'busy', 'needs', false, 'fetch']);
+    const away = updates_row(online(null, {phase: 'offline', left_at: now - hour}), null, 'server', now);
+    assert.deepStrictEqual(said(away).concat([away.tone, away.lists, away.held]), ['offline', 'bad', 'offline', false, null, 'bad', '—', null]);
+    const old = updates_row(online(null, {machine: {os: 'Debian 12', can: [], updates: null}}), null, 'server', now);
+    assert.deepStrictEqual(said(old).concat([old.line]), ['not said', 'idle', 'needs', false, null, 'its agent is from before updates']);
+});
+
+// The machine serviceman runs on goes last, alone: its row says so before Install is pressed
+test('the machine serviceman runs on says it goes last, alone', async function () {
+    const {updates_row} = await import(path.join(PUBLIC, 'updates_page.js'));
+    const now = Date.now();
+    const remote = {name: 'laptop', title: 'this computer', phase: 'online', agent_version: '1.40.0', left_at: null, serviceman_here: true, machine: {os: 'Ubuntu 24.04', can: ['apt'], updates: {pending: 4, security: 0, held: 2, reboot: false, lists_at: now}}};
+    const row = updates_row(remote, null, 'laptop', now);
+    assert.deepStrictEqual([row.line, row.own, row.able], ['this computer · goes last, alone', true, true]);
+    assert.strictEqual(updates_row(Object.assign({}, remote, {title: 'laptop'}), null, 'laptop', now).line, 'goes last, alone', 'a title that is its name is not said twice');
+});

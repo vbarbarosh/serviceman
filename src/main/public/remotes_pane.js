@@ -1,6 +1,5 @@
 import CATEGORIES from './categories.js';
 import agent_current from './agent_current.js';
-import apt_all_section from './apt_all_section.js';
 import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import format_bytes from './format_bytes.js';
@@ -24,11 +23,10 @@ const remotes_pane = {
 <article id="detail" class="list">
     <page-head category="remotes" :count="remotes.length">
         <template #acts>
-            <button v-if="(apt_open === false)" type="button" :disabled="(apt_count === 0)" :title="((apt_count === 0) ? 'Nothing waits to be installed on the machines shown' : 'apt-get update and upgrade on each of them, at once')" @click="apt_open = true">{{ ((apt_count === 0) ? 'No updates' : ('Install updates on ' + apt_count)) }}</button>
+            <button type="button" title="What apt has waiting on each machine, and Install" @click="$emit('updates')">Updates</button>
             <button type="button" class="primary" @click="$emit('create')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New remote</button>
         </template>
     </page-head>
-    <apt-all-section v-if="apt_open" :remotes="shown" :answering="answering" @close="apt_open = false" @configure="$emit('configure', $event)"/>
     <data-table class="machines-table" :columns="columns" :rows="cards" row_key="name" :row_class="(row => ((row.tone === '') ? [] : ('dt-' + row.tone)))" :on_row="(row => $emit('select', row.name))" :opens="(row => (row.notes.length > 0))" :marks="false" framed :total="remotes.length" :foot="foot" :empty_icon="REMOTES_ICON" empty_title="No machines yet" empty="A machine joins when its agent dials in: one line to run on it, and it shows up here with its memory, disk and services.">
         <template #tools>
             <input v-model.trim="filter" type="search" placeholder="Find a machine" aria-label="Find a machine by its name, hostname, tailnet name or tag" spellcheck="false">
@@ -73,11 +71,11 @@ const remotes_pane = {
     </data-table>
 </article>
 `,
-    components: {'apt-all-section': apt_all_section, 'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
+    components: {'data-table': data_table, 'name-cell': name_cell, 'page-head': page_head, 'state-pill': state_pill},
     props: ['state', 'answering'],
-    emits: ['configure', 'create', 'disks', 'doors', 'folders', 'join', 'select', 'services'],
+    emits: ['create', 'disks', 'doors', 'folders', 'join', 'select', 'services', 'updates'],
     data: function () {
-        return {filter: '', show: 'all', apt_open: false, REMOTES_ICON: CATEGORIES.find(v => v.key === 'remotes').icon};
+        return {filter: '', show: 'all', REMOTES_ICON: CATEGORIES.find(v => v.key === 'remotes').icon};
     },
     computed: {
         remotes: function () {
@@ -126,13 +124,6 @@ const remotes_pane = {
         },
         cards: function () {
             return this.shown.map(v => this.card_of(v, (v.machine === undefined) ? null : v.machine));
-        },
-        // The machines shown with something to install that can be asked to install it now
-        apt_count: function () {
-            return this.shown.filter(function (remote) {
-                const machine = (remote.machine === undefined) ? null : remote.machine;
-                return (remote.phase === 'online') && (machine !== null) && (machine.can !== null) && machine.can.includes('apt') && (machine.updates !== null) && (machine.updates.pending > 0);
-            }).length;
         },
         // Name and state never fold; the rest fold where the pane is narrow, the system first. On
         // a phone the system has a line, CPU, memory and disk a line each
@@ -265,21 +256,6 @@ const remotes_pane = {
             const names = services.map(v => v.title || v.name).join(', ');
             return `${seen} Waiting for it: ${names}.`;
         },
-        // Machines being upgraded from here a moment ago are still being upgraded: their rows
-        // are shown again, rather than a button to start them
-        apt_running_find: async function () {
-            try {
-                const answer = await fetch('/api/v1/apt-upgrade', {cache: 'no-store'});
-                const batch = (await answer.json()).batch;
-                this.apt_open = this.apt_open || ((batch !== null) && (batch.ended_at === null));
-            }
-            catch {
-                // The button is there to start them; the rows show once it is pressed
-            }
-        },
-    },
-    created: function () {
-        this.apt_running_find();
     },
 };
 

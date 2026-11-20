@@ -308,7 +308,7 @@ test('the control page lists the services and starts and stops them', async func
 
         // The page answers on the addresses it has, and a mistyped one is a 404 — not the
         // front page opening whatever it opens first
-        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/secrets', '/storage', '/logline', '/authwall', '/load-tests', '/categories', '/databases/new']) {
+        for (const known of ['/services/one', '/services/one/settings', '/services/new', '/remotes/vps1/files', '/remotes/vps1/shell/work-2', '/remotes/updates', '/secrets', '/storage', '/logline', '/authwall', '/load-tests', '/categories', '/databases/new']) {
             const opened = await fetch_host({port: running.control_port, host: '127.0.0.1', path: known});
             assert.strictEqual(opened.status, 200, known);
             assert.match(opened.body, /<title>serviceman<\/title>/, known);
@@ -334,7 +334,7 @@ test('the control page lists the services and starts and stops them', async func
             assert.strictEqual(opened.status, 200, known);
             assert.match(opened.body, /<title>serviceman<\/title>/, known);
         }
-        for (const wrong of ['/nothing-here', '/routes', '/log', '/services/ghost', '/services/one/nothing', '/remotes/ghost', '/services/one/settings/more', '/remotes/vps1/files/more', '/remotes/ghost/shell/work', '/remotes/vps1/shell/a.b', '/remotes/vps1/shell/work/more']) {
+        for (const wrong of ['/nothing-here', '/routes', '/log', '/services/ghost', '/services/one/nothing', '/remotes/ghost', '/services/one/settings/more', '/remotes/vps1/files/more', '/remotes/ghost/shell/work', '/remotes/vps1/shell/a.b', '/remotes/vps1/shell/work/more', '/remotes/updates/files']) {
             const missing = await fetch_host({port: running.control_port, host: '127.0.0.1', path: wrong});
             assert.strictEqual(missing.status, 404, wrong);
             assert.match(missing.body, /No such page/, wrong);

@@ -1126,18 +1126,26 @@ itself once they are older than 6 hours (looking every ten minutes; after a fetc
 an hour later), and marks a fetch that went well as apt marks its daily one, in
 <code>/var/lib/apt/periodic/update-success-stamp</code>. A machine with no root half, or whose fetch
 fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
-Security page, its Overview, its Configure tab and the rows of <strong>Install updates on N</strong> no
+Security page, its Overview, its Configure tab and the rows of <strong>Updates</strong> no
 longer say <strong>up to date</strong> there but <strong>lists 9 days old</strong>, and why. Its Overview says when the
 lists were fetched (<strong>Lists</strong>), and its Configure tab offers <strong>Fetch the lists and install</strong>:
 Install fetches them first in any case.</p>
-<p><strong>Install updates on N</strong>, at the top of <strong>Remotes</strong>, does the same on every machine the list
-shows that has something waiting: the filter and the chips narrow it, and each machine can be
-unticked. They all start at once, each its own apt, with a row each for how it goes and its last
-line; a row opens the machine&#39;s Configure tab with every line. The machine serviceman itself
+<p><strong>Updates</strong>, at the top of <strong>Remotes</strong>, opens a page of its own, <code>/remotes/updates</code>: a row per
+machine with what apt has waiting there (<code>12 to install · 3 security</code>, <code>up to date</code>, <code>wants a restart</code>, <code>lists 9 days old</code>, <code>offline</code>), its system, how many packages are held back and how
+long ago its lists were fetched, with its own <strong>Find a machine</strong> and chips (To install, Up to
+date, Needs you, Offline). Every machine with something to install is ticked at first, and each
+can be unticked; one that Install cannot take has a dashed box, and what helps there instead
+stands at the end of its row: <strong>Restart <name>…</strong>, or <strong>Fetch and install</strong> on its Configure
+tab. <strong>Install on N</strong> does on every machine ticked what Install them does on one. They all
+start at once, each its own apt, and the page shows a row each for how it goes and what apt said
+last; a row opens the machine&#39;s Configure tab with every line. The machine serviceman itself
 runs on waits until the others end, then runs alone: an upgrade of Docker there restarts
 serviceman in the middle of it. serviceman finds that machine by its own container in the
-machine&#39;s <code>docker ps</code>. <strong>Cancel all</strong> stops what runs and what waits. The runs are serviceman&#39;s,
-not the page&#39;s: a closed page stops nothing, and the list shows them again when opened.</p>
+machine&#39;s <code>docker ps</code>, as its last Security look found it before Install, so its row says
+<strong>goes last, alone</strong>, and again when Install is pressed. <strong>Cancel all</strong> stops what runs and what
+waits; once every row has ended, <strong>Back to the list</strong> shows the page as it opens. The runs are
+serviceman&#39;s, not the page&#39;s: a page left stops nothing, and Updates shows them again when
+opened.</p>
 <p>While serviceman is not answering, a restart most often, <strong>Install</strong> waits for it, and the list
 says so. A press it never answered is looked into once it is back: the install is shown if it
 began, and <strong>Not started</strong> is said, with <strong>Install</strong> to press again, if it did not. serviceman

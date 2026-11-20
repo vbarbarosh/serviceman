@@ -451,7 +451,7 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `apt_begin`            | Updates began to be installed on the machine.                    |
 | `apt_end_ok`           | They are installed; `lines=` how many apt printed.               |
 | `apt_end_error`        | apt failed or was cancelled; `reason=` its last line.            |
-| `apt_all_begin`        | Install updates on N was pressed: `remotes=` the machines, `held=` the one serviceman runs on, which goes last. |
+| `apt_all_begin`        | Install on N was pressed on Updates: `remotes=` the machines, `held=` the one serviceman runs on, which goes last. |
 | `apt_all_end`          | Every one of them ended: `ok=` and `failed=` how many.          |
 | `apt_all_error`        | Running them broke, and why.                                     |
 | `apt_cancel_error`     | Cancel all could not reach a machine to stop its run.            |

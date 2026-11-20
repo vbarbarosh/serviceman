@@ -50,6 +50,9 @@ import {Comment} from 'vue';
 //     actions_label, actions_fold   the actions column's header, and when it folds (0: first)
 //     sort       {key, down}: the column sorted by, emitting sort(key) on a header's click
 //     selected   the keys of the rows ticked, a box on each row, emitting selected(keys)
+//     tickable   (row) => whether its box ticks: one that cannot is a dashed box (Updates: a
+//                machine Install cannot take); tick_all false for no box in the header
+//                that ticks them all
 //     framed     the kit's table card: the tools on top (slot tools), a band of headers, a ⋯ at
 //                the end of each row that has more, opening it in the window with its actions,
 //                a footer of counts (foot), fifty rows and Show 50 more past them
@@ -92,7 +95,7 @@ const data_table = {
         <table class="data-table" :class="{'dt-bare': (head === false), 'dt-framed': framed}">
             <thead>
                 <tr>
-                    <th v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick every row" :checked="all_ticked" @change="tick_all($event.target.checked)"></th>
+                    <th v-if="(selected !== undefined)" class="dt-tick"><input v-if="tick_all" type="checkbox" aria-label="Tick every row" :checked="all_ticked" @change="tick_every($event.target.checked)"></th>
                     <th v-for="column of columns_shown" :key="column.key" :data-fold="fold_name(column)" :class="{wraps: (column.wraps === true), 'dt-right': (column.align === 'right')}">
                         <button v-if="(column.sort === true)" type="button" class="dt-sort" :class="{on: sorted_by(column)}" @click="$emit('sort', column.key)">{{ column.label }}<span v-if="sorted_by(column)">{{ (sort.down ? ' ↓' : ' ↑') }}</span></button>
                         <template v-else>{{ column.label }}</template>
@@ -107,7 +110,7 @@ const data_table = {
                         <td :colspan="span_of(fold.folded)"><slot name="group_head" :group="group(row)" :rows="rows.filter(v => (group(v) === group(row)))">{{ group(row) }}</slot></td>
                     </tr>
                     <tr :class="row_classes(row, fold.folded)" @click="row_click(row, fold.folded, $event)">
-                        <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" aria-label="Tick this row" :checked="selected.includes(key_of(row))" @change="tick(row, $event.target.checked)"></td>
+                        <td v-if="(selected !== undefined)" class="dt-tick"><input type="checkbox" :aria-label="(tickable_of(row) ? 'Tick this row' : 'Cannot be ticked')" :disabled="(tickable_of(row) === false)" :checked="(tickable_of(row) && selected.includes(key_of(row)))" @change="tick(row, $event.target.checked)"></td>
                         <template v-for="(column, i) of columns_shown" :key="column.key">
                         <td v-if="(spread_over(row).includes(column.key) === false)" :data-fold="fold_name(column)" :data-spread="spread_of(row, column)" :colspan="spread_span(row, column)" :class="[cell_classes(column, i), {'dt-note': note_of(row, column)}]" :style="((i === 0) ? indent_of(row) : null)">
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -188,6 +191,8 @@ const data_table = {
         actions_fold: {type: Number, default: 0},
         sort: {type: Object, default: null},
         selected: {type: Array, default: undefined},
+        tickable: {type: Function, default: null},
+        tick_all: {type: Boolean, default: true},
         framed: {type: Boolean, default: false},
         total: {type: Number, default: null},
         empty_title: {type: String, default: ''},
@@ -274,7 +279,8 @@ const data_table = {
             return (this.whole === null) ? null : (this.rows.find(v => this.key_of(v) === this.whole) || null);
         },
         all_ticked: function () {
-            return (this.rows.length > 0) && this.rows.every(v => this.selected.includes(this.key_of(v)));
+            const rows = this.rows.filter(v => this.tickable_of(v));
+            return (rows.length > 0) && rows.every(v => this.selected.includes(this.key_of(v)));
         },
     },
     methods: {
@@ -395,8 +401,11 @@ const data_table = {
             const rest = this.selected.filter(v => v !== key);
             this.$emit('selected', on ? rest.concat([key]) : rest);
         },
-        tick_all: function (on) {
-            this.$emit('selected', on ? this.rows.map(v => this.key_of(v)) : []);
+        tick_every: function (on) {
+            this.$emit('selected', on ? this.rows.filter(v => this.tickable_of(v)).map(v => this.key_of(v)) : []);
+        },
+        tickable_of: function (row) {
+            return (this.tickable === null) || this.tickable(row);
         },
         // A question in a row's actions: yes does it, Cancel puts the actions back
         ask: function (row, question, yes, action) {

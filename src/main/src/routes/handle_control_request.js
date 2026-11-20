@@ -107,6 +107,7 @@ const service_restart = require('../helpers/service_restart');
 const service_stop = require('../helpers/service_stop');
 const service_try_again = require('../helpers/service_try_again');
 const service_zip_replace = require('../helpers/service_zip_replace');
+const serviceman_here = require('../helpers/serviceman_here');
 const services_held = require('../helpers/services_held');
 const skins_read = require('../skins_read');
 const socket_pending = require('../helpers/socket_pending');
@@ -778,6 +779,10 @@ function page_known(app, pathname)
         return named && ((parts[2] === undefined) || SERVICE_TABS.includes(parts[2]));
     }
     if (parts[0] === 'remotes') {
+        // Updates, a page of its own under Remotes, with no tabs
+        if ((parts[1] === 'updates') && (parts[2] === undefined)) {
+            return true;
+        }
         const named = (parts[1] === 'new') || (app.remote_by_name[parts[1]] !== undefined);
         return named && ((parts[2] === undefined) || REMOTE_TABS.includes(parts[2]));
     }
@@ -3543,9 +3548,11 @@ function state_from_app(app)
     for (const service of app.services) {
         services.push(Object.assign(view_from_service(service, now), {held: held.has(service.name)}));
     }
+    // Each machine as the page draws it, and whether serviceman itself runs there, which the
+    // Updates page says before Install: that machine goes last, alone
     const remotes = [];
     for (const remote of app.remotes) {
-        remotes.push(view_from_remote(remote, now, app.config.logline));
+        remotes.push(Object.assign(view_from_remote(remote, now, app.config.logline), {serviceman_here: serviceman_here(app, remote)}));
     }
     const logline = (app.config.logline === null) ? null : {
         endpoint: app.config.logline.endpoint,

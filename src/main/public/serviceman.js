@@ -85,6 +85,7 @@ import tailscale_pane from './tailscale_pane.js';
 import to_clipboard from './to_clipboard.js';
 import tokens_form from './tokens_form.js';
 import updates_lists from './updates_lists.js';
+import updates_page from './updates_page.js';
 import volumes_pane from './volumes_pane.js';
 import walls_of from './walls_of.js';
 import {createApp} from 'vue';
@@ -2246,7 +2247,8 @@ const app = {
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @create="remote_new" @remote="remote_select_named"/>
         <addresses-pane v-else-if="addresses_open" :state="state" :remote="list_remote" @create="create" @doors="networking_show" @only="list_remote = $event" @select="select_named" @settings="service_settings" @apps="apps_settings_show" @config="editor_seek_show"/>
-        <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @configure="remote_configure_show" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote"/>
+        <updates-page v-else-if="updates_open" :state="state" :answering="answering" @configure="remote_configure_show"/>
+        <remotes-pane v-else-if="remotes_open" :state="state" :answering="answering" @create="remote_new" @disks="remote_disks_show" @doors="addresses_of_remote" @folders="volumes_of_remote" @join="join_open" @select="remote_select_named" @services="services_of_remote" @updates="updates_show"/>
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" :kinds="kind_by_remote" :counts="service_counts" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
@@ -2257,7 +2259,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'volumes-pane': volumes_pane},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'updates-page': updates_page, 'volumes-pane': volumes_pane},
     data: function () {
         return {
             state: null,
@@ -2330,6 +2332,8 @@ const app = {
             apps_settings_of: null,
             networking_key: 0,
             remotes_open: false,
+            // Updates, the page under Remotes (/remotes/updates)
+            updates_open: false,
             addresses_open: false,
             map_open: false,
             canvas_open: false,
@@ -2494,6 +2498,9 @@ const app = {
             if (this.canvas_open) {
                 return '/canvas';
             }
+            if (this.updates_open) {
+                return '/remotes/updates';
+            }
             if (this.remotes_open) {
                 return '/remotes';
             }
@@ -2589,7 +2596,7 @@ const app = {
             if (this.form_open) {
                 return 'services';
             }
-            if (this.remotes_open || this.join_form_open || this.remote_form_open || (this.remote_name !== null)) {
+            if (this.remotes_open || this.updates_open || this.join_form_open || this.remote_form_open || (this.remote_name !== null)) {
                 return 'remotes';
             }
             return 'services';
@@ -2619,6 +2626,9 @@ const app = {
             }
             if (this.join_form_open) {
                 return page_crumbs({page: 'join', name: '', title: '', tab: ''});
+            }
+            if (this.updates_open) {
+                return page_crumbs({page: 'updates', name: '', title: '', tab: ''});
             }
             if (this.databases_open && (this.database_place !== null)) {
                 const place = this.database_place;
@@ -2835,6 +2845,10 @@ const app = {
                 }
                 if (route.name === 'new') {
                     this.remote_new();
+                    return;
+                }
+                if (route.name === 'updates') {
+                    this.updates_open = true;
                     return;
                 }
                 this.remote_name = route.name;
@@ -3135,6 +3149,13 @@ const app = {
             this.selected_name = null;
             this.remotes_open = true;
         },
+        // Updates, from the button in Remotes' head: a page of its own, Back returning to Remotes
+        updates_show: function () {
+            this.panes_close();
+            this.remote_name = null;
+            this.selected_name = null;
+            this.updates_open = true;
+        },
         addresses_show: function () {
             this.panes_close();
             this.addresses_open = true;
@@ -3273,6 +3294,7 @@ const app = {
             this.authwall_open = false;
             this.load_tests_open = false;
             this.remotes_open = false;
+            this.updates_open = false;
             this.addresses_open = false;
             this.map_open = false;
             this.canvas_open = false;
