@@ -7497,6 +7497,11 @@ button.st-pill.problem-where {
     margin-top: 4px;
 }
 
+/* A last card alone on its row (Forwards) takes the whole row */
+.health-tables > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
 .health-tables .dt-name {
     display: inline-flex;
     flex-direction: column;

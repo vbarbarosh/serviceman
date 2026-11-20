@@ -147,13 +147,13 @@ const forwards_section = {
                 {key: 'to', label: 'To', fold: 5},
                 {key: 'through', label: 'Through', fold: 3, phone: 'hide'},
                 {key: 'speed', label: 'Speed', fold: 4, phone: 'hide'},
-                {key: 'now', label: 'State', phone: 'state'},
+                {key: 'now', label: 'Status', phone: 'state'},
             ];
         },
         chips: function () {
             return [
                 {value: 'all', label: 'All', dot: null, count: this.forwards.length},
-                {value: 'on', label: 'Listening', dot: 'running', count: this.forwards.filter(v => (this.said_of(v).dot === 'running')).length},
+                {value: 'on', label: 'Active', dot: 'running', count: this.forwards.filter(v => (this.said_of(v).dot === 'running')).length},
                 {value: 'bad', label: 'Needs you', dot: 'failed', count: this.forwards.filter(v => this.said_of(v).bad).length},
             ];
         },

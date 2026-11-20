@@ -108,10 +108,23 @@ test('nothing set up is said, not counted as broken', function () {
 });
 
 test('a forward that cannot listen is red, one set aside is grey', function () {
-    const forwards = [{label: 'loki', state: 'ready', problem: null}, {label: 'db', state: 'cannot_listen', problem: 'vps1 cannot listen: EADDRINUSE'}, {label: 'old', state: 'aside', problem: 'set aside'}];
+    const ends = {from: {remote: 'vps1', socket: null, host: null, port: 3100}, to: {remote: null, here: true, socket: null, host: null, port: 3100}};
+    const forwards = [{label: 'loki', state: 'ready', problem: null}, {label: 'db', state: 'cannot_listen', problem: 'vps1 cannot listen: EADDRINUSE'}, {label: 'old', state: 'aside', problem: 'set aside'}].map(v => Object.assign({}, ends, v));
     const rows = area(health_from_views(views({forwards}), seen({})), 'forwards').rows;
     assert.deepStrictEqual(rows.map(v => v.state), ['ok', 'bad', 'none']);
-    assert.strictEqual(rows[1].checks[0].detail, 'vps1 cannot listen: EADDRINUSE');
+    assert.deepStrictEqual(rows[0].checks.map(v => [v.label, v.text]), [['From → to', 'vps1 :3100 → this host :3100'], ['Status', 'active']]);
+    assert.strictEqual(rows[1].checks[1].detail, 'vps1 cannot listen: EADDRINUSE');
+});
+
+// Each end as the Forwards page writes it, each machine by its title where it has one
+test('a forward says from where to where: a socket file, :port or host:port, by the machines\' titles', function () {
+    const forwards = [
+        {label: 'logline', state: 'ready', problem: null, from: {remote: 'vps1', socket: null, host: null, port: 8123}, to: {remote: 'laptop', here: false, socket: 'logline.sock', host: null, port: null}},
+        {label: 'db', state: 'ready', problem: null, from: {remote: 'vps2', socket: null, host: '10.0.0.5', port: 5432}, to: {remote: 'laptop', here: false, socket: null, host: null, port: 5432}},
+    ];
+    const remotes = [remote('vps1', {title: 'web.one'}), remote('vps2'), remote('laptop')];
+    const rows = area(health_from_views(views({forwards, remotes}), seen({})), 'forwards').rows;
+    assert.deepStrictEqual(rows.map(v => v.checks[0].text), ['web.one :8123 → laptop logline.sock', 'vps2 10.0.0.5:5432 → laptop :5432']);
 });
 
 function views(over)

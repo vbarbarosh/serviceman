@@ -14,7 +14,7 @@ const SHOWN = {machines: ['Link', 'Agent', 'Disk'], services: ['State', 'Answers
 const HEADS = {Disk: 'Room'};
 
 // The columns a state pill says, not a word: how a machine is linked, how a service stands
-const PILLS = ['Link', 'State'];
+const PILLS = ['Link', 'State', 'Status'];
 
 // The tone of each state, as a pill draws it
 const TONES = {ok: 'run', warn: 'busy', bad: 'bad', none: 'idle'};
@@ -290,7 +290,7 @@ const health_pane = {
                 }
             }
             const shown = (SHOWN[area.key] === undefined) ? labels : SHOWN[area.key].filter(v => labels.includes(v));
-            return [{key: 'name', label: this.name_head(area.key), wraps: true}].concat(shown.map((v, index) => ({key: v, label: (HEADS[v] === undefined) ? v : HEADS[v], fold: (shown.length - index), phone: (PILLS.includes(v) ? 'state' : 'line')})));
+            return [{key: 'name', label: this.name_head(area.key), wraps: true}].concat(shown.map((v, index) => ({key: v, label: (HEADS[v] === undefined) ? v : HEADS[v], fold: (PILLS.includes(v) ? null : (shown.length - index)), phone: (PILLS.includes(v) ? 'state' : 'line')})));
         },
         checks_in: function (row, label) {
             return row.checks.filter(v => v.label === label);

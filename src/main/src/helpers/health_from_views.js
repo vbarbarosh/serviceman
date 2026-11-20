@@ -26,7 +26,7 @@ function health_from_views(views, seen)
         {key: 'services', title: 'Services', rows: views.services.map(v => service_row(v, seen, problems))},
         {key: 'logline', title: 'Logline', rows: [logline_row(views, seen)]},
         {key: 'lines', title: 'Lines per machine', rows: lines_rows(views, problems)},
-        {key: 'forwards', title: 'Forwards', rows: views.forwards.map(forward_row)},
+        {key: 'forwards', title: 'Forwards', rows: views.forwards.map(v => forward_row(v, views.remotes))},
     ];
     const counts = {bad: 0, warn: 0, none: 0, ok: 0};
     for (const area of areas) {
@@ -317,11 +317,29 @@ function lines_checks(remote, now, problems)
     return out;
 }
 
-function forward_row(forward)
+function forward_row(forward, remotes)
 {
     const state = (forward.state === 'ready') ? 'ok' : (['aside', 'telling'].includes(forward.state) ? 'none' : 'bad');
-    const text = (forward.state === 'ready') ? 'ready' : forward.state.replace(/_/g, ' ');
-    return row(`forward:${forward.label}`, forward.label, {}, [check('state', 'State', state, text, forward.problem)]);
+    const text = (forward.state === 'ready') ? 'active' : forward.state.replace(/_/g, ' ');
+    const where = `${machine_title(remotes, forward.from.remote)} ${end_text(forward.from)} → ${forward.to.here ? 'this host' : machine_title(remotes, forward.to.remote)} ${end_text(forward.to)}`;
+    return row(`forward:${forward.label}`, forward.label, {}, [check('where', 'From → to', 'none', where, null), check('state', 'Status', state, text, forward.problem)]);
+}
+
+// A machine as the page names it: its title, or its name where it has none
+function machine_title(remotes, name)
+{
+    const found = remotes.find(v => v.name === name);
+    return ((found === undefined) || (typeof found.title !== 'string') || (found.title === '')) ? name : found.title;
+}
+
+// One end of a forward as the Forwards page writes it: its socket file, :port on the loopback,
+// or host:port
+function end_text(end)
+{
+    if ((typeof end.socket === 'string') && (end.socket !== '')) {
+        return end.socket;
+    }
+    return ((typeof end.host === 'string') && (end.host !== '')) ? `${end.host}:${end.port}` : `:${end.port}`;
 }
 
 // What one of the minute's asks found; not asked yet is nothing to say

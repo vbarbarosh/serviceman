@@ -8,7 +8,7 @@
 function forward_now_said(forward, remotes)
 {
     const words = {
-        ready: 'ready',
+        ready: 'active',
         aside: 'set aside',
         old_agent: 'agent too old',
         telling: 'starting',
