@@ -9171,57 +9171,23 @@ section.apps-pane {
     min-width: 12rem;
 }
 
-/* Authwall: the walls as cards side by side, the one looked at marked; a long name wraps inside
-   its card */
-.wall-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-    gap: .6rem;
-    margin: 1rem 0 0;
+/* Addresses: a door's name put behind a wall, in its window beside On and Off */
+.behind-pick {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: 12px;
 }
 
-.wall-card {
-    display: flex;
-    align-items: flex-start;
-    gap: .6rem;
-    min-width: 0;
-    padding: .65rem .8rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
+.behind-pick select {
+    width: auto;
+    min-width: 9rem;
+    padding: .3rem .6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
     background: var(--panel);
     color: var(--fg);
-    text-align: left;
-    cursor: pointer;
-    transition: background .12s ease, border-color .12s ease;
-}
-
-.wall-card:hover {
-    background: var(--hover);
-}
-
-.wall-card.on {
-    border-color: var(--accent);
-    background: var(--sel);
-}
-
-.wall-card .wall-lock {
-    flex: none;
-    color: var(--run);
-}
-
-.wall-card-words {
-    display: grid;
-    gap: .1rem;
-    min-width: 0;
-}
-
-.wall-card-words code {
-    overflow-wrap: anywhere;
-}
-
-/* The wall looked at, under the button or the form that makes another */
-.wall-status {
-    margin-top: 1rem;
+    font: inherit;
 }
 
 /* A wall for another team: a label column beside its fields, one column on a phone */

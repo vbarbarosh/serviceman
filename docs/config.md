@@ -536,8 +536,10 @@ before anything of the service is touched, even whether it is up; a no sends the
 A door's rule may name a wall too: a service with its own asks its own, once, in place of the
 rule's. On **Apps** it is the **Sign-in** list in an app's **Settings**, and the same list is
 **Sign-in** in the **Addresses** card of any service's page: open, or behind one of the walls
-there are; an app behind one has a lock before its address, and the **Authwall** page lists it
-with every address it has.
+there are; an app behind one has a lock before its address. A door's name is put behind a wall
+in its row on the **Addresses** page: **Behind**, in the window its ⋯ opens. The **Authwall**
+page is one table of the walls: each wall, what it guards (every app, its services, its names),
+the machine it runs on, and how it stands.
 
 ### A wall per team
 

@@ -2242,7 +2242,7 @@ const app = {
         <health-pane v-else-if="health_open" :state="state" @remote="remote_select_named" @security="security_show" @select="select_named"/>
         <security-pane v-else-if="security_open" :state="state" @remote="remote_select_named" @tab="remote_tab_show"/>
         <logline-pane v-else-if="logline_open" :state="state" @remote="remote_logs_show" @select="select_named"/>
-        <authwall-pane v-else-if="authwall_open" :key="('authwall-' + authwall_new)" :state="state" :creating="(authwall_new > 0)" @create="create" @doors="networking_show" @saved="poll" @select="select_named"/>
+        <authwall-pane v-else-if="authwall_open" :key="('authwall-' + authwall_new)" :state="state" :creating="(authwall_new > 0)" @create="create" @remote="remote_select_named" @saved="poll" @select="select_named"/>
         <load-tests-pane v-else-if="load_tests_open" :state="state" @form="pane_form = $event" @remote="remote_select_named" @select="select_named"/>
         <map-pane v-else-if="map_open" :state="state" @remote="remote_select_named" @select="select_named"/>
         <canvas-pane v-else-if="canvas_open" :state="state" @create="remote_new" @remote="remote_select_named"/>

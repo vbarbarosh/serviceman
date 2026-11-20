@@ -6,6 +6,7 @@ import https_off_note from './https_off_note.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
+import walls_of from './walls_of.js';
 
 // How often the ways are asked again while the page is open: serviceman keeps each lookup as long
 const WAYS_EVERY_MS = 30000;
@@ -59,12 +60,20 @@ const addresses_pane = {
             </template>
             <state-pill v-else-if="(column.key === 'on')" :tone="on_of(row).tone" :text="on_of(row).text"/>
         </template>
-        <!-- A door's name is answered or set aside, in its window: serviceman's own always are -->
+        <!-- A door's name is answered or set aside, and put behind a wall, in its window:
+             serviceman's own always are answered -->
         <template #actions="{row}">
             <span class="seg" :title="('Whether the door of ' + row.remote + ' answers this name')">
                 <button type="button" :class="{on: (row.off === false)}" :disabled="busy" @click="turn(row, true)">On</button>
                 <button type="button" :class="{on: row.off}" :disabled="busy" @click="turn(row, false)">Off</button>
             </span>
+            <label v-if="(row.kind === 'door')" class="behind-pick" :title="((row.service_auth === null) ? 'The wall its door asks before this name is answered' : (row.service_title + ' stands behind ' + row.service_auth + ' at every address: its Settings, on Apps'))">
+                Behind
+                <select :value="((row.rule_auth === null) ? '' : row.rule_auth)" :disabled="(busy || (row.service_auth !== null))" @change="guard(row, (($event.target.value === '') ? null : $event.target.value))">
+                    <option value="">nothing</option>
+                    <option v-for="item of walls" :key="item.name" :value="item.name">{{ item.name }}</option>
+                </select>
+            </label>
         </template>
     </data-table>
     <p v-if="(note !== '')" class="bad">{{ note }}</p>
@@ -155,7 +164,12 @@ const addresses_pane = {
                     const service = service_by_name[rule.service] || null;
                     // The wall the service stands behind at every address comes before the rule's
                     const behind = ((service !== null) && (service.auth !== null)) ? service.auth : rule.auth;
-                    out.push(this.row_of('door', `door ${remote.name} ${host}`, host, `https://${host}/`, '', service, remote, behind, rule.off));
+                    const row = this.row_of('door', `door ${remote.name} ${host}`, host, `https://${host}/`, '', service, remote, behind, rule.off);
+                    // Its own wall, as its rule writes it, and the one its service stands behind
+                    // everywhere, which comes first
+                    row.rule_auth = ((rule.auth === undefined) || (rule.auth === null)) ? null : rule.auth;
+                    row.service_auth = ((service === null) || (service.auth === null) || (service.auth === undefined)) ? null : service.auth;
+                    out.push(row);
                 }
             }
             out.sort((a, b) => a.address.localeCompare(b.address));
@@ -163,6 +177,10 @@ const addresses_pane = {
         },
         keys: function () {
             return this.rows_all.map(v => v.key).join('\n');
+        },
+        // The walls a door's name may be put behind, as the Authwall page lists them
+        walls: function () {
+            return walls_of(this.state);
         },
         // The apps, as the Apps page lists them: where their names are set
         app_names: function () {
@@ -208,7 +226,20 @@ const addresses_pane = {
             this.busy = true;
             this.note = '';
             const problem = await door_rules_write(row.remote, function (inbound) {
-                inbound[row.address] = door_rule_value(row.service, on === false, row.behind);
+                inbound[row.address] = door_rule_value(row.service, on === false, row.rule_auth);
+            });
+            this.busy = false;
+            this.note = (problem === null) ? '' : problem;
+        },
+        // A wall put in front of a door's name, or taken away; the name keeps everything else
+        guard: async function (row, auth) {
+            if (row.rule_auth === auth) {
+                return;
+            }
+            this.busy = true;
+            this.note = '';
+            const problem = await door_rules_write(row.remote, function (inbound) {
+                inbound[row.address] = door_rule_value(row.service, row.off, auth);
             });
             this.busy = false;
             this.note = (problem === null) ? '' : problem;
