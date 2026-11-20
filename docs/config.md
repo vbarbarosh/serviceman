@@ -63,15 +63,17 @@ and when, the starts in a row, whether serviceman stopped trying), stopping badl
 head says how it runs: how long it is up, in its state, then its requests once it has an
 address, and the CPU, memory and disk of the machine it runs on, the whole machine's, each with
 its bar. Its **Overview** shows what runs with each option as a chip (**Copy** takes the whole
-line, **Edit** opens its card), its newest lines and its addresses; nothing there is set. It has the same cards under its
-**Settings** tab, four a row, **What runs** over two, each with **Edit** — addresses, image,
-storage, environment, the whole policy. **Edit** opens that card across the top, the others
-stepping back. A program's **What runs** shows its command an option a line, numbered, with
-`sg <group> -c '` and its `'` as fixed lines around them when it runs as a group (**Runs as
-the group**, beside **Its folder**); a line changed is marked with what it was, and Save
-joins the lines with single spaces, so the file keeps one line (a command written over
-several lines is a script, and keeps them). Its port, image, install and update lines and
-variables are folded in a row that says what it holds. The card's foot says its change alone
+line, **Edit** opens its card), its newest lines and its addresses; nothing there is set. It has
+the same cards under its **Settings** tab, four a row, **What runs** over two, each with
+**Edit** — addresses, image, storage, environment, the whole policy. **Edit** opens that card
+across the top, the others stepping back. A program's **What runs** shows its command, numbered,
+with `sg <group> -c '` and its `'` as fixed lines around it when it runs as a group (**Runs as
+the group**, beside **Its folder**). The command is one shell expression that `/bin/sh -c` runs
+as it is written: a command written over several lines shows as it is, and one written on one
+line shows an option a line, each line but the last ending in ` \`, which the shell reads as that
+same one line. A line changed is marked with what it was, and Save keeps the lines as they are,
+never joined: a command not changed stays as the file has it. Its port, image, install and update
+lines and variables are folded in a row that says what it holds. The card's foot says its change alone
 (`--ctx-size 65536 → 262144`) and what Save does to the service as it stands now: a save
 writes the config file and applies it at once, starts nothing stopped and restarts nothing
 running. What runs, where it runs and what it keeps are taken at its next start: a running

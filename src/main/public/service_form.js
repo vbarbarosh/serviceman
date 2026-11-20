@@ -482,14 +482,14 @@ const service_form = {
                     <p class="muted">Off for an image that must be pid 1 itself — one built on s6-overlay.</p>
                 </div>
             </template>
-            <!-- A program's What runs, as drawn: its command an option a line, its folder and
-                 its group beside each other, the rest folded in a row that says what it holds -->
+            <!-- A program's What runs, as drawn: its command, one shell expression as it is
+                 written, its folder and its group beside each other, the rest folded in a row
+                 that says what it holds -->
             <div v-if="((section.id === 'runs') && (m.type === 'shell') && (creating === false) && (cmd !== null))" class="svc-run-edit">
-                <b class="svc-run-label">The command, an option a line</b>
-                <code-lines :text="cmd.text" :marks="cmd_diff.marks" :lead="((cmd.group === '') ? '' : ('sg ' + cmd.group + ' -c \\''))" :tail="((cmd.group === '') ? '' : '\\'')" label="The command, an option a line" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
+                <b class="svc-run-label">The command</b>
+                <code-lines :text="cmd.text" :marks="cmd_diff.marks" :lead="((cmd.group === '') ? '' : ('sg ' + cmd.group + ' -c \\''))" :tail="((cmd.group === '') ? '' : '\\'')" label="The command" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
                 <p v-if="problems.command" class="bad">{{ problems.command }}</p>
-                <p v-else-if="cmd.script" class="muted">Run through <code>/bin/sh</code>. It was written as a script, so its lines stay lines.</p>
-                <p v-else class="muted">Run through <code>/bin/sh</code>. One line or many: Save joins them with spaces, into one line.</p>
+                <p v-else class="muted">Run by <code>/bin/sh -c</code> as written: a whole shell expression, on one line or many.</p>
                 <div class="svc-run-pair">
                     <label>Its folder<input v-model.trim="m.cwd" placeholder="a folder of serviceman's own" spellcheck="false"></label>
                     <label>Runs as the group<input :value="cmd.group" :class="{wrong: problems.group}" placeholder="none — optional" spellcheck="false" @input="cmd_group($event.target.value)"></label>
@@ -924,7 +924,7 @@ const service_form = {
             draft: null,
             // The card open on a service that exists, one at a time
             editing: '',
-            // A program's command as its open What runs card edits it, {group, text, script}
+            // A program's command as its open What runs card edits it, {group, text}
             // (service_command_lines, its lines joined by \n); null while that card is closed
             cmd: null,
             // Whether that card's row of image, lines and variables is unfolded
@@ -1250,7 +1250,7 @@ const service_form = {
             return service_command_diff(this.cmd_before.lines, this.cmd.text.split('\n'));
         },
         // Whether a program's What runs is open on a service that exists: its command is then
-        // edited an option a line
+        // edited as it is written
         cmd_open: function () {
             return (this.creating === false) && (this.m.type === 'shell') && ((this.editing === 'runs') || this.kind_changing);
         },
@@ -1454,13 +1454,13 @@ const service_form = {
             if (this.tried && (model.type === 'shell') && (this.model_now().command === '')) {
                 out.command = 'A program needs the line that runs it.';
             }
-            // Its card's lines are joined into one on Save: a # would make every line after it
-            // a comment, and a group is a word of its own in sg <group> -c
-            if ((this.cmd !== null) && (this.cmd.script === false)) {
-                const lines = this.cmd.text.split('\n').map(v => v.trim()).filter(v => v !== '');
-                const at = lines.findIndex(v => (/['"]/.test(v) === false) && /(^|\s)#/.test(v));
-                if ((at !== -1) && (at < lines.length - 1)) {
-                    out.command = `Line ${at + 1} has a # in it: once Save joins the lines into one, everything after it is a comment. Take it out, or put that line last.`;
+            // A line that ends in \ goes on in the next: a # on it makes a comment of the rest of
+            // the command, the lines after it too. A group is a word of its own in sg <group> -c
+            if (this.cmd !== null) {
+                const lines = this.cmd.text.split('\n');
+                const at = lines.findIndex(v => /\\\s*$/.test(v) && (/['"]/.test(v) === false) && /(^|\s)#/.test(v));
+                if (at !== -1) {
+                    out.command = `Line ${at + 1} has a # in it and goes on in the next: everything after the # is a comment, the lines after it too. Take it out, or end the line there.`;
                 }
                 if ((this.cmd.group !== '') && (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(this.cmd.group) === false)) {
                     out.group = 'A group is one word: letters, digits, -, _ and .';
@@ -1517,7 +1517,7 @@ const service_form = {
             immediate: true,
             handler: function (open) {
                 const lines = open ? service_command_lines(this.m.command) : null;
-                this.cmd = open ? {group: lines.group, text: lines.lines.join('\n'), script: lines.script} : null;
+                this.cmd = open ? {group: lines.group, text: lines.lines.join('\n')} : null;
                 this.fold_open = false;
             },
         },
@@ -2191,7 +2191,7 @@ const service_form = {
                 this.saving = '';
             }
         },
-        // A program's command typed into its card, an option a line: the lines are joined as
+        // A program's command typed into its card: its lines are kept as they are written, as
         // serviceman.json keeps them; written back the way it was saved, it is the saved one
         cmd_text: function (text) {
             this.cmd.text = text;
@@ -2203,8 +2203,8 @@ const service_form = {
         },
         cmd_write: function () {
             const before = this.cmd_before;
-            const joined = service_command_join(this.cmd.group, this.cmd.text.split('\n'), this.cmd.script);
-            const same = (joined === service_command_join(before.group, before.lines, before.script));
+            const joined = service_command_join(this.cmd.group, this.cmd.text.split('\n'));
+            const same = (joined === service_command_join(before.group, before.lines));
             this.m.command = same ? this.model.command : joined;
         },
         // Nothing waiting for Save is no draft at all: the cards show what is saved

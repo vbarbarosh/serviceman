@@ -1,11 +1,11 @@
-// A program's command as its card edits it: the group it runs as when it is
-// `sg <group> -c '…'`, and the line inside it, the program on a line of its own and each option
-// with its value on the next, indented. A command that was written over several lines is a
-// script, whose own lines are kept as they are: `script` says so.
+// A program's command as its card edits it: the group it runs as when it is `sg <group> -c '…'`,
+// and the shell expression inside it as lines. A command written over several lines is shown as
+// written. A command on one line is shown an option a line, every line but the last ending in
+// ` \`, which the shell reads as that same one line.
 //
 //     command   'sg render -c \'./llama-server -m bolt.gguf --jinja\''
 //
-//     {group: 'render', lines: ['./llama-server', '  -m bolt.gguf', '  --jinja'], script: false}
+//     {group: 'render', lines: ['./llama-server \\', '  -m bolt.gguf \\', '  --jinja']}
 function service_command_lines(command)
 {
     const text = String(command);
@@ -13,7 +13,7 @@ function service_command_lines(command)
     const group = (found === null) ? '' : found[1];
     const inner = (found === null) ? text : found[2].replaceAll('\'\\\'\'', '\'');
     if (inner.trim().includes('\n')) {
-        return {group, lines: inner.trim().split('\n'), script: true};
+        return {group, lines: inner.replace(/^\s*\n/, '').trimEnd().split('\n')};
     }
     const lines = [];
     for (const word of words_of(inner)) {
@@ -26,7 +26,7 @@ function service_command_lines(command)
         }
         lines[lines.length - 1] += ` ${word}`;
     }
-    return {group, lines, script: false};
+    return {group, lines: lines.map((v, i) => (i < lines.length - 1) ? `${v} \\` : v)};
 }
 
 // The words of a line as they are written, quotes and all: a word ends at a space outside

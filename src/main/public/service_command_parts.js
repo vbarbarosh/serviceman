@@ -41,7 +41,8 @@ function service_command_parts(line)
 }
 
 // The words of a command line, as a shell splits them: quotes keep their spaces and are taken
-// off, and a backslash outside them keeps the character after it ('\'' is a quote in quotes)
+// off, and a backslash outside them keeps the character after it ('\'' is a quote in quotes),
+// or, at a line's end, carries the line on to the next
 function words_of(line)
 {
     const out = [];
@@ -49,6 +50,11 @@ function words_of(line)
     let quote = null;
     let escaped = false;
     for (const c of String(line)) {
+        // A backslash at a line's end carries the line on to the next, and is nothing itself
+        if (escaped && (c === '\n')) {
+            escaped = false;
+            continue;
+        }
         if (escaped) {
             word = (word === null) ? c : (word + c);
             escaped = false;

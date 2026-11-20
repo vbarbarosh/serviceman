@@ -35,3 +35,8 @@ test('a quote inside a group\'s quoted line, written \'\\\'\', is read as a quot
     assert.strictEqual(parts.group, 'video');
     assert.deepStrictEqual(parts.options, [{flag: '-vf', value: 'text=\'hi\''}]);
 });
+
+test('a command carried over several lines by backslashes is read as its one line', async function () {
+    const read = await parts_of('sg render -c \'./llama-server \\\n  -m bolt.gguf \\\n  --jinja\'');
+    assert.deepStrictEqual(read, {group: 'render', lead: 'sg render -c', program: './llama-server', options: [{flag: '-m', value: 'bolt.gguf'}, {flag: '--jinja', value: ''}]});
+});

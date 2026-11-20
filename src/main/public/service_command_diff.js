@@ -10,11 +10,12 @@
 //      changes: [{kind: 'changed', text: '--ctx-size 65536 → 262144'},
 //                {kind: 'new', text: '+ --temp 1.0'}, {kind: 'gone', text: '− --jinja'}]}
 //
-// An empty line is marked with the kind '' and is no change.
+// An empty line is marked with the kind '' and is no change. The ` \` that carries a line on to
+// the next is no part of what it says: `--jinja \` and `--jinja` are the same option.
 function service_command_diff(before, after)
 {
-    const old = before.map(v => v.trim()).filter(v => v !== '');
-    const now = after.map(v => v.trim());
+    const old = before.map(bare_of).filter(v => v !== '');
+    const now = after.map(bare_of);
     const kept = [];
     for (const [i, line] of now.entries()) {
         if (line !== '') {
@@ -50,6 +51,12 @@ function service_command_diff(before, after)
         }
     }
     return {marks, changes};
+}
+
+// A line as it is compared: without the spaces around it, nor the backslash that carries it on
+function bare_of(line)
+{
+    return line.trim().replace(/\s*\\$/, '');
 }
 
 // What pairs two versions of a line: its option, or being the program; '' for the program, whose
