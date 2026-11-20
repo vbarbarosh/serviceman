@@ -240,7 +240,7 @@ const health_pane = {
             }
             return '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/>';
         },
-        // The line under a row's name: since when a machine is not linked, or its title
+        // The line under a row's name: since when a machine is not linked, and nothing else
         line_of: function (key, row) {
             if ((key !== 'machines') || (row.remote === null)) {
                 return '';
@@ -249,10 +249,11 @@ const health_pane = {
             if (found === undefined) {
                 return '';
             }
+            // The row's name is the machine's title already: the line is for a machine away alone
             if ((row.state === 'bad') && (found.phase !== 'online') && (found.left_at !== null) && (found.left_at !== undefined)) {
                 return `not linked since ${clock_of(found.left_at)}`;
             }
-            return ((found.title === undefined) || (found.title === null) || (found.title === found.name)) ? '' : found.title;
+            return '';
         },
         pill_of: function (label) {
             return PILLS.includes(label);
