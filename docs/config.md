@@ -67,8 +67,9 @@ line, **Edit** opens its card), its newest lines and its addresses; nothing ther
 the same cards under its **Settings** tab, four a row, **What runs** over two, each with
 **Edit** — addresses, image, storage, environment, the whole policy. **Edit** opens that card
 across the top, the others stepping back. A program's **What runs** shows its command, numbered,
-with `sg <group> -c '` and its `'` as fixed lines around it when it runs as a group (**Runs as
-the group**, beside **Its folder**). The command is one shell expression that `/bin/sh -c` runs
+with **Its folder** and **Runs as the user** beside it: the user its machine's agent runs as,
+shown and not set, since a program runs as its agent does (one run through `sg <group> -c '…'`
+shows that as part of its command). The command is one shell expression that `/bin/sh -c` runs
 as it is written: a command written over several lines shows as it is, and one written on one
 line shows an option a line, each line but the last ending in ` \`, which the shell reads as that
 same one line. A line changed is marked with what it was, and Save keeps the lines as they are,

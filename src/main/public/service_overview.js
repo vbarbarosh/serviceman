@@ -1,3 +1,4 @@
+import program_place from './program_place.js';
 import service_command_parts from './service_command_parts.js';
 import to_clipboard from './to_clipboard.js';
 
@@ -82,6 +83,11 @@ const service_overview = {
         driven: function () {
             return (this.view.type === 'docker') || (this.view.type === 'shell');
         },
+        // The user a program runs as on its machine: its agent's own; '' while it has not said
+        run_user: function () {
+            const found = program_place(this.view, this.remotes || []).remote;
+            return ((found === null) || (found.machine === null) || (found.machine === undefined) || (typeof found.machine.user !== 'string')) ? '' : found.machine.user;
+        },
         // What runs, readable: its facts in a line, the program on a line of its own, each
         // option with its value as a chip; line is what Copy takes
         runs: function () {
@@ -94,8 +100,8 @@ const service_overview = {
                 if ((view.folder !== null) && (view.folder !== undefined)) {
                     facts.push({text: 'in ', code: view.folder});
                 }
-                if (parts.group !== '') {
-                    facts.push({text: 'as the group ', code: parts.group});
+                if (this.run_user !== '') {
+                    facts.push({text: 'as the user ', code: this.run_user});
                 }
                 facts.push({text: 'on the machine itself, no image', code: ''});
                 facts.push({text: (parts.options.length === 1) ? '1 option' : `${parts.options.length} options`, code: ''});

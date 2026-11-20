@@ -4908,6 +4908,13 @@ button.link.page-head-how {
     font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Runs as the user: the agent's own, shown and not set */
+.form .svc-run-pair input[readonly] {
+    border-style: dashed;
+    background: var(--panel-2);
+    color: var(--muted);
+}
+
 /* The lines are drawn behind a textarea whose own letters are see-through: the same font, the
    same padding, the same wrapping, so a mark stands on its line however long the line is */
 .code-lines {

@@ -12,12 +12,12 @@ const DRAWN = 'sg render -c \'./vk/llama-b12535/llama-server -m bolt.gguf --ctx-
 
 // A program's What runs edits its command as it is written: one on a line is shown an option a
 // line, each carried on to the next by a backslash, and Save keeps lines as they are
-test('a command on one line is its group and an option a line, each carried on by a backslash', async function () {
+test('a command on one line is an option a line, each carried on by a backslash, sg around them as written', async function () {
     const service_command_lines = await public_default('service_command_lines');
     const service_command_join = await public_default('service_command_join');
     const read = service_command_lines(DRAWN);
-    assert.deepStrictEqual(read, {group: 'render', lines: ['./vk/llama-b12535/llama-server \\', '  -m bolt.gguf \\', '  --ctx-size 65536 \\', '  --jinja \\', '  --temp -1 \\', '  --host 127.0.0.1']});
-    assert.strictEqual(service_command_join(read.group, read.lines), 'sg render -c \'./vk/llama-b12535/llama-server \\\n  -m bolt.gguf \\\n  --ctx-size 65536 \\\n  --jinja \\\n  --temp -1 \\\n  --host 127.0.0.1\'');
+    assert.deepStrictEqual(read, {lines: ['sg render -c \'./vk/llama-b12535/llama-server \\', '  -m bolt.gguf \\', '  --ctx-size 65536 \\', '  --jinja \\', '  --temp -1 \\', '  --host 127.0.0.1\'']});
+    assert.strictEqual(service_command_join(read.lines), 'sg render -c \'./vk/llama-b12535/llama-server \\\n  -m bolt.gguf \\\n  --ctx-size 65536 \\\n  --jinja \\\n  --temp -1 \\\n  --host 127.0.0.1\'');
 });
 
 test('the shell reads the lines carried on by a backslash as the one line they were', async function () {
@@ -25,38 +25,39 @@ test('the shell reads the lines carried on by a backslash as the one line they w
     const service_command_join = await public_default('service_command_join');
     const line = 'printf \'%s|\' ./server -m \'bolt model.gguf\' --ctx-size 65536 --jinja';
     const read = service_command_lines(line);
-    const joined = service_command_join(read.group, read.lines);
+    const joined = service_command_join(read.lines);
     assert.notStrictEqual(joined, line);
     assert.strictEqual(child_process.execFileSync('/bin/sh', ['-c', joined], {encoding: 'utf8'}), child_process.execFileSync('/bin/sh', ['-c', line], {encoding: 'utf8'}));
 });
 
 test('typed lines are kept as they are written, never joined; blank lines around them and spaces at their ends go', async function () {
     const service_command_join = await public_default('service_command_join');
-    assert.strictEqual(service_command_join('', ['', 'node server.js \\', '   --port 8080  ', '']), 'node server.js \\\n   --port 8080');
-    assert.strictEqual(service_command_join('', ['cd app', 'node server.js']), 'cd app\nnode server.js');
-    assert.strictEqual(service_command_join('render', ['', '']), '');
+    assert.strictEqual(service_command_join(['', 'node server.js \\', '   --port 8080  ', '']), 'node server.js \\\n   --port 8080');
+    assert.strictEqual(service_command_join(['cd app', 'node server.js']), 'cd app\nnode server.js');
+    assert.strictEqual(service_command_join(['', '']), '');
 });
 
-test('a quote inside a group\'s command is kept, and reads back the same', async function () {
+test('a quote inside sg\'s quoted command is kept as written, and reads back the same', async function () {
     const service_command_lines = await public_default('service_command_lines');
     const service_command_join = await public_default('service_command_join');
-    const command = service_command_join('video', ['ffmpeg \\', '  -i in.mp4 \\', '  -vf "drawtext=text=\'hi there\'"']);
-    assert.strictEqual(command, 'sg video -c \'ffmpeg \\\n  -i in.mp4 \\\n  -vf "drawtext=text=\'\\\'\'hi there\'\\\'\'"\'');
-    assert.deepStrictEqual(service_command_lines(command), {group: 'video', lines: ['ffmpeg \\', '  -i in.mp4 \\', '  -vf "drawtext=text=\'hi there\'"']});
+    const command = 'sg video -c \'ffmpeg -i in.mp4 -vf "drawtext=text=\'\\\'\'hi there\'\\\'\'"\'';
+    const read = service_command_lines(command);
+    assert.deepStrictEqual(read, {lines: ['sg video -c \'ffmpeg \\', '  -i in.mp4 \\', '  -vf "drawtext=text=\'\\\'\'hi there\'\\\'\'"\'']});
+    assert.strictEqual(service_command_lines(service_command_join(read.lines)).lines.join('\n'), read.lines.join('\n'));
 });
 
 test('a command written over several lines is shown as it is written', async function () {
     const service_command_lines = await public_default('service_command_lines');
     const service_command_join = await public_default('service_command_join');
     const read = service_command_lines('set -e\n  npm install\nnode server.js\n');
-    assert.deepStrictEqual(read, {group: '', lines: ['set -e', '  npm install', 'node server.js']});
-    assert.strictEqual(service_command_join('', read.lines), 'set -e\n  npm install\nnode server.js');
+    assert.deepStrictEqual(read, {lines: ['set -e', '  npm install', 'node server.js']});
+    assert.strictEqual(service_command_join(read.lines), 'set -e\n  npm install\nnode server.js');
 });
 
 test('a plain line and what joins two commands each start a line', async function () {
     const service_command_lines = await public_default('service_command_lines');
     assert.deepStrictEqual(service_command_lines('cd app && node server.js --port=8080 | tee log').lines, ['cd app \\', '  && node server.js \\', '  --port=8080 \\', '  | tee log']);
-    assert.deepStrictEqual(service_command_lines(''), {group: '', lines: []});
+    assert.deepStrictEqual(service_command_lines(''), {lines: []});
 });
 
 // The open card marks a changed line with what it was, and its foot says the change alone

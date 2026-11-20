@@ -148,7 +148,7 @@ const SECTION_FIELDS = {
 // Which card each thing that can be wrong is in
 const SECTION_PROBLEMS = {
     name: ['name'],
-    runs: ['port', 'command', 'group', 'upstream', 'socket'],
+    runs: ['port', 'command', 'upstream', 'socket'],
     where: ['places'],
     address: ['hosts'],
     ports: ['brought'],
@@ -483,18 +483,17 @@ const service_form = {
                 </div>
             </template>
             <!-- A program's What runs, as drawn: its command, one shell expression as it is
-                 written, its folder and its group beside each other, the rest folded in a row
-                 that says what it holds -->
+                 written, its folder and the user it runs as beside each other, the rest folded
+                 in a row that says what it holds -->
             <div v-if="((section.id === 'runs') && (m.type === 'shell') && (creating === false) && (cmd !== null))" class="svc-run-edit">
                 <b class="svc-run-label">The command</b>
-                <code-lines :text="cmd.text" :marks="cmd_diff.marks" :lead="((cmd.group === '') ? '' : ('sg ' + cmd.group + ' -c \\''))" :tail="((cmd.group === '') ? '' : '\\'')" label="The command" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
+                <code-lines :text="cmd.text" :marks="cmd_diff.marks" label="The command" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
                 <p v-if="problems.command" class="bad">{{ problems.command }}</p>
                 <p v-else class="muted">Run by <code>/bin/sh -c</code> as written: a whole shell expression, on one line or many.</p>
                 <div class="svc-run-pair">
                     <label>Its folder<input v-model.trim="m.cwd" placeholder="a folder of serviceman's own" spellcheck="false"></label>
-                    <label>Runs as the group<input :value="cmd.group" :class="{wrong: problems.group}" placeholder="none — optional" spellcheck="false" @input="cmd_group($event.target.value)"></label>
+                    <label>Runs as the user<input :value="run_user" readonly placeholder="the agent's own, once it has dialled in" title="The user the machine's agent runs as: a program runs as it"></label>
                 </div>
-                <p v-if="problems.group" class="bad">{{ problems.group }}</p>
                 <div class="svc-fold" :class="{open: (fold_open || (problems.port !== undefined))}">
                     <button type="button" class="svc-fold-head" :aria-expanded="(fold_open || (problems.port !== undefined))" @click="fold_open = (fold_open === false)">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -924,7 +923,7 @@ const service_form = {
             draft: null,
             // The card open on a service that exists, one at a time
             editing: '',
-            // A program's command as its open What runs card edits it, {group, text}
+            // A program's command as its open What runs card edits it, {text}
             // (service_command_lines, its lines joined by \n); null while that card is closed
             cmd: null,
             // Whether that card's row of image, lines and variables is unfolded
@@ -1215,10 +1214,6 @@ const service_form = {
             const was = this.model;
             const now = this.m;
             const out = this.cmd_diff.changes.map(v => v.text);
-            const before = service_command_lines(was.command);
-            if (before.group !== this.cmd.group) {
-                out.push(`group ${none_said(before.group)} → ${none_said(this.cmd.group)}`);
-            }
             for (const [field, label] of [['cwd', 'folder'], ['port', 'port'], ['image', 'image'], ['user', 'user']]) {
                 if (was[field] !== now[field]) {
                     out.push(`${label} ${none_said(was[field])} → ${none_said(now[field])}`);
@@ -1345,6 +1340,11 @@ const service_form = {
             }
             return name_free(name_from_image(this.m.image), this.names || []);
         },
+        // The user a program runs as on its machine: its agent's own; '' while it has not said
+        run_user: function () {
+            const found = this.remotes.find(v => v.name === this.m.places[0].text);
+            return ((found === undefined) || (found.machine === null) || (found.machine === undefined) || (typeof found.machine.user !== 'string')) ? '' : found.machine.user;
+        },
         // Where the machine's agent keeps everything it installs, null while it has not said
         app_home: function () {
             const found = this.remotes.find(v => v.name === this.m.places[0].text);
@@ -1455,15 +1455,12 @@ const service_form = {
                 out.command = 'A program needs the line that runs it.';
             }
             // A line that ends in \ goes on in the next: a # on it makes a comment of the rest of
-            // the command, the lines after it too. A group is a word of its own in sg <group> -c
+            // the command, the lines after it too
             if (this.cmd !== null) {
                 const lines = this.cmd.text.split('\n');
                 const at = lines.findIndex(v => /\\\s*$/.test(v) && (/['"]/.test(v) === false) && /(^|\s)#/.test(v));
                 if (at !== -1) {
                     out.command = `Line ${at + 1} has a # in it and goes on in the next: everything after the # is a comment, the lines after it too. Take it out, or end the line there.`;
-                }
-                if ((this.cmd.group !== '') && (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(this.cmd.group) === false)) {
-                    out.group = 'A group is one word: letters, digits, -, _ and .';
                 }
             }
             if ((model.type === 'shell') && this.simple && this.creating && (this.what === 'app')) {
@@ -1517,7 +1514,7 @@ const service_form = {
             immediate: true,
             handler: function (open) {
                 const lines = open ? service_command_lines(this.m.command) : null;
-                this.cmd = open ? {group: lines.group, text: lines.lines.join('\n')} : null;
+                this.cmd = open ? {text: lines.lines.join('\n')} : null;
                 this.fold_open = false;
             },
         },
@@ -1640,9 +1637,9 @@ const service_form = {
             }
             if ((id === 'runs') && (model.type === 'shell')) {
                 lines.push((model.command === '') ? 'no command yet' : model.command);
-                // Its folder, its group and how many options, as the Overview reads them
+                // Its folder, the user it runs as and how many options, as the Overview reads them
                 const parts = service_command_parts(model.command);
-                const facts = [(model.cwd === '') ? '' : `in ${model.cwd}`, (parts.group === '') ? '' : `as the group ${parts.group}`, (parts.options.length === 0) ? '' : `${parts.options.length} ${(parts.options.length === 1) ? 'option' : 'options'}`].filter(v => v !== '');
+                const facts = [(model.cwd === '') ? '' : `in ${model.cwd}`, (this.run_user === '') ? '' : `as the user ${this.run_user}`, (parts.options.length === 0) ? '' : `${parts.options.length} ${(parts.options.length === 1) ? 'option' : 'options'}`].filter(v => v !== '');
                 if (facts.length > 0) {
                     lines.push(facts.join(' · '));
                 }
@@ -2197,14 +2194,10 @@ const service_form = {
             this.cmd.text = text;
             this.cmd_write();
         },
-        cmd_group: function (group) {
-            this.cmd.group = group.trim();
-            this.cmd_write();
-        },
         cmd_write: function () {
             const before = this.cmd_before;
-            const joined = service_command_join(this.cmd.group, this.cmd.text.split('\n'));
-            const same = (joined === service_command_join(before.group, before.lines));
+            const joined = service_command_join(this.cmd.text.split('\n'));
+            const same = (joined === service_command_join(before.lines));
             this.m.command = same ? this.model.command : joined;
         },
         // Nothing waiting for Save is no draft at all: the cards show what is saved
