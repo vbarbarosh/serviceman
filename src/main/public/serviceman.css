@@ -739,6 +739,13 @@ button:disabled:hover {
     background: var(--sel);
 }
 
+/* A chip under the pointer or the keyboard comes above both neighbours, so its edge shows whole */
+.dt-chips > button.chip:hover,
+.dt-chips > button.chip:focus-visible {
+    position: relative;
+    z-index: 2;
+}
+
 .dt-chips > button.chip .muted {
     font-weight: 500;
 }
