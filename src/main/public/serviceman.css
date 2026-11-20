@@ -84,6 +84,14 @@
     accent-color: var(--accent);
 }
 
+/* The light theme's own: the browser draws its scrollbars, boxes and lists light, a thumb of a
+   grey that shows on white, when the sun switches it */
+:root[data-theme="light"] {
+    color-scheme: light;
+    scrollbar-color: #c3c9d0 transparent;
+    accent-color: var(--accent);
+}
+
 * {
     box-sizing: border-box;
 }

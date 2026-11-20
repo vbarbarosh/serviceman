@@ -48,9 +48,9 @@ const remotes_pane = {
                 <span class="dt-ph-label">{{ bar_of(row, column.key).label }}</span>
                 <span class="meter" :class="bar_of(row, column.key).level"><i :style="{width: (Math.max(2, bar_of(row, column.key).percent) + '%')}"/></span>
                 <button v-if="bar_of(row, column.key).disks" type="button" class="link" title="Every disk of this machine, with its inodes" @click="$emit('disks', row.name)">{{ bar_of(row, column.key).percent }}%</button>
-                <span v-else>{{ bar_of(row, column.key).percent }}%</span>
+                <span v-else>{{ bar_of(row, column.key).percent }}%<span v-if="((column.key === 'cpu') && (row.cores !== null))" class="muted"> of {{ row.cores }}</span></span>
             </span>
-            <span v-else-if="((column.key === 'memory') || (column.key === 'disk'))" class="muted"><span class="dt-ph-label">{{ ((column.key === 'memory') ? 'Memory' : 'Disk') }}</span>—</span>
+            <span v-else-if="((column.key === 'cpu') || (column.key === 'memory') || (column.key === 'disk'))" class="muted"><span class="dt-ph-label">{{ ((column.key === 'cpu') ? 'CPU' : ((column.key === 'memory') ? 'Memory' : 'Disk')) }}</span>—<template v-if="((column.key === 'cpu') && (row.cores !== null))"> of {{ row.cores }}</template></span>
             <!-- Its services open their own list, holding only what this machine carries -->
             <template v-else-if="(column.key === 'services')">
                 <button v-if="(row.services > 0)" type="button" class="link" title="Only the services on this machine" @click="$emit('services', row.name)">{{ row.services }}</button>
@@ -135,14 +135,15 @@ const remotes_pane = {
             }).length;
         },
         // Name and state never fold; the rest fold where the pane is narrow, the system first. On
-        // a phone the system has a line, memory and disk a line each
+        // a phone the system has a line, CPU, memory and disk a line each
         columns: function () {
             return [
                 {key: 'name', label: 'Name'},
                 {key: 'system', label: 'System', fold: 2, hide: v => (v.system === '')},
-                {key: 'memory', label: 'Memory', fold: 4, phone: 'row'},
-                {key: 'disk', label: 'Disk', fold: 3, phone: 'row'},
-                {key: 'services', label: 'Services', fold: 5, align: 'right', phone: 'hide'},
+                {key: 'cpu', label: 'CPU', fold: 3, phone: 'row'},
+                {key: 'memory', label: 'Memory', fold: 5, phone: 'row'},
+                {key: 'disk', label: 'Disk', fold: 4, phone: 'row'},
+                {key: 'services', label: 'Services', fold: 6, align: 'right', phone: 'hide'},
                 {key: 'state', label: 'State', phone: 'state'},
             ];
         },
@@ -189,7 +190,9 @@ const remotes_pane = {
                 bars,
                 services: services.length,
                 // What it is: its system and its cores, as it said them last
-                system: (machine === null) ? '' : [machine.os || machine.platform || '', (machine.cpu === undefined) ? '' : `${machine.cpu.count} CPU`].filter(v => v !== '').join(', '),
+                system: (machine === null) ? '' : (machine.os || machine.platform || ''),
+                // Its cores, which its CPU's share is out of
+                cores: ((machine === null) || (machine.cpu === undefined) || (machine.cpu === null)) ? null : machine.cpu.count,
             }, said);
         },
         // The line under its name and its pill: away, red, with what waits for it; something
