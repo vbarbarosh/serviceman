@@ -113,6 +113,10 @@ const data_table = {
                             <button v-if="((i === 0) && (branch !== null) && (branch(row) !== null))" type="button" class="dt-branch" :class="branch(row)" :aria-label="((branch(row) === 'open') ? 'Close the branch' : 'Open the branch')" @click="$emit('branch', row)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
                             <span v-else-if="((i === 0) && (branch !== null))" class="dt-branch-none"></span>
                             <slot name="cell" :row="row" :column="column" :more="false">{{ row[column.key] }}</slot>
+                            <!-- On a phone's card the row's state stands top right, over the name's
+                                 line: an unseen copy of it here keeps the name clear of it, however
+                                 wide its words -->
+                            <span v-if="((i === 0) && (state_column !== null))" class="dt-ph-spacer" aria-hidden="true"><slot name="cell" :row="row" :column="state_column" :more="false">{{ row[state_column.key] }}</slot></span>
                         </td>
                         </template>
                         <td v-if="(has_actions && (framed === false) && (spread_over(row).includes('actions') === false))" data-fold="actions" class="dt-actions">
@@ -248,6 +252,10 @@ const data_table = {
         },
         // The columns with something to say in a row: one empty in every row, or taken over by a
         // spread cell in every row, is left out, its header too, rather than stand as a bare header
+        // The column a phone's card draws top right, as the row's state; null for none
+        state_column: function () {
+            return this.framed ? (this.columns_shown.find(v => v.phone === 'state') || null) : null;
+        },
         columns_shown: function () {
             return this.columns.filter(v => this.rows.some(vv => said(v, vv) && (this.spread_over(vv).includes(v.key) === false)));
         },

@@ -943,6 +943,11 @@ button.dt-menu[aria-expanded="true"] {
     min-width: 0;
 }
 
+/* A phone's card keeps it beside its name only: wider, it is not drawn */
+.dt-ph-spacer {
+    display: none;
+}
+
 .dt-name-main,
 .dt-name-line {
     max-width: 320px;
@@ -1120,9 +1125,24 @@ a.dt-address:hover {
         box-shadow: none;
     }
 
+    /* The name, and an unseen copy of the state at its end: the name gives up what the state
+       takes, however wide its words, and is cut with … before it */
     .fold-room > table.dt-framed > tbody > tr > td.dt-ph-name {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
         margin-bottom: 6px;
-        padding-right: 110px;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-name > * {
+        min-width: 0;
+    }
+
+    .fold-room > table.dt-framed > tbody > tr > td.dt-ph-name > .dt-ph-spacer {
+        display: block;
+        flex: none;
+        margin-left: auto;
+        visibility: hidden;
     }
 
     .fold-room > table.dt-framed > tbody > tr > td.dt-ph-state {
