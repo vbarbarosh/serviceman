@@ -49,6 +49,24 @@ test('the lines show the moment they land, while the volume and the labels are s
     assert.strictEqual(page.app.labelCatalog[0].name, 'service');
 });
 
+// A page that holds the viewer in a frame, `?embed=1`, gets the lines alone: their volume and
+// their labels are never asked for, and the address the viewer writes back stays the small view,
+// in the theme the page asked for
+test('the small view asks for the lines alone, and its address stays the small view', async function () {
+    const page = page_start('?embed=1&theme=light&label=service:clock&range=24h');
+    assert.strictEqual(page.app.embed, true);
+    const search = page.app.runSearch();
+    assert.deepStrictEqual(page.parts(), ['rows']);
+    assert.deepStrictEqual(plain(page.app.loading), {rows: true, volume: false, labels: false});
+    page.answer('rows', [row_json('2026-11-01 10:59:00.000000000', 'tick 1')]);
+    assert.strictEqual(await search, true);
+    assert.deepStrictEqual(page.parts(), ['rows'], 'nothing more once the lines are in');
+    page.sync();
+    const written = new URL(page.urls[page.urls.length - 1]).searchParams;
+    assert.strictEqual(written.get('embed'), '1');
+    assert.strictEqual(written.get('theme'), 'light');
+});
+
 test('a range picked again lets go of every request of the older one', async function () {
     const page = page_start();
     const older = page.app.runSearch();
@@ -109,13 +127,16 @@ test('a live poll is one at a time, and one a new range overtook changes nothing
 });
 
 // The page's app as Vue would make it: its data, its methods, its computed values as getters
-function page_start()
+// The page as opened on an address: `search` its query, `?embed=1&…`; every address it writes
+// back is in `urls`
+function page_start(search = '')
 {
     const calls = [];
+    const urls = [];
     let options = null;
     const window = {
-        location: {search: '', href: 'http://127.0.0.1/', pathname: '/'},
-        history: {replaceState: function () {}},
+        location: {search, href: `http://127.0.0.1/${search}`, pathname: '/'},
+        history: {replaceState: (state, title, url) => urls.push(String(url))},
         addEventListener: function () {},
         removeEventListener: function () {},
         setTimeout,
@@ -139,6 +160,7 @@ function page_start()
         fetch: function (url, init) {
             return clickhouse_fake(calls, url, init);
         },
+        URL,
         URLSearchParams,
         AbortController,
         performance,
@@ -159,6 +181,7 @@ function page_start()
     for (const [name, fn] of Object.entries(options.methods)) {
         app[name] = fn.bind(app);
     }
+    const sync = app.syncUrlState;
     app.syncUrlState = function () {};
     app.scrollAfterSearch = function () {};
     app.showToast = function () {};
@@ -169,6 +192,9 @@ function page_start()
     const out = {
         app,
         calls,
+        urls,
+        // The address written back as a search that landed writes it
+        sync,
         parts: () => calls.map(v => v.part),
         answer: (part, rows) => calls.find(v => (v.part === part) && !v.done).answer(rows),
         fail: (part, text) => calls.find(v => (v.part === part) && !v.done).fail(text),

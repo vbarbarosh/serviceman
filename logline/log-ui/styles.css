@@ -102,6 +102,88 @@ button { color: inherit; }
 
 .log-panel { grid-column: 2; grid-row: 4; }
 
+/* The small view (`?embed=1`): a slim bar, then the lines; the rest of the viewer stays away,
+   and the page is as narrow as the frame that holds it */
+html.embed body { min-width: 0; }
+
+.app-shell.embed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.app-shell.embed > .topbar,
+.app-shell.embed > .labels-panel,
+.app-shell.embed > .filter-panel,
+.app-shell.embed > .chart-panel {
+    display: none;
+}
+
+.app-shell.embed > .log-panel { grid-column: 1; grid-row: 2; }
+
+/* One service's lines: no column saying which, and no hint of the viewer's selection */
+.app-shell.embed .log-header,
+.app-shell.embed .log-row {
+    grid-template-columns: 26px 168px minmax(0, 1fr);
+}
+
+.app-shell.embed .log-service,
+.app-shell.embed .log-head-service,
+.app-shell.embed .log-header small {
+    display: none;
+}
+
+.embed-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    min-width: 0;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--topbar);
+}
+
+.embed-bar input.embed-find {
+    flex: 0 1 260px;
+    width: auto;
+    min-width: 120px;
+    height: 32px;
+}
+
+.embed-state {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.embed-state i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+
+.embed-state.live i { background: var(--accent); }
+
+.embed-status {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.embed-open {
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
 .topbar {
     display: flex;
     align-items: center;

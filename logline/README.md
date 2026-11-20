@@ -273,6 +273,11 @@ Open <http://localhost:8081> for the compact workflow-oriented UI. It provides:
   and `to=` for times. Labels alone open the last hour, following live:
   `http://localhost:8081/?label=remote:laptop&range=24h` is everything from the
   machine `laptop` over the last day. serviceman's pages link here this way
+- a small view for another page to hold in a frame: `embed=1` beside the same
+  filters gives the lines alone, live, with a slim bar of a find box and
+  **Open in Logline ↗**; no labels, volume or disk are asked for. `theme=dark`
+  or `theme=light` picks its theme over the one saved. serviceman's Logs tab of a
+  service holds it this way
 - URL-backed search state and a **Copy link** action that preserves the applied
   expression, selected labels, absolute date range, investigation scope, and
   opened log entry;

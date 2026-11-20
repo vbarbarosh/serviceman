@@ -6,8 +6,13 @@
         <title>Logline</title>
         <script>
             try {
+                // A page that holds the viewer in a frame (`?embed=1`) says its own theme:
+                // `?theme=light`; the frame is as narrow as that page makes it
+                const params = new URLSearchParams(window.location.search);
+                document.documentElement.classList.toggle('embed', params.get('embed') === '1');
+                const asked = params.get('theme');
                 const saved = localStorage.getItem('logline-theme');
-                const light = (saved ? saved === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches);
+                const light = ((asked === 'light') || (asked === 'dark')) ? (asked === 'light') : (saved ? saved === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches);
                 document.documentElement.dataset.theme = (light ? 'light' : 'dark');
             }
             catch {
@@ -18,7 +23,7 @@
     </head>
     <body>
         <div id="app" v-cloak>
-            <main class="app-shell">
+            <main class="app-shell" :class="{embed}">
                 <header class="topbar">
                     <div class="brand">
                         <span class="brand-mark" aria-hidden="true"></span>
@@ -88,6 +93,21 @@
                             </span>
                         </label>
                     </div>
+                </header>
+
+                <header v-if="embed" class="embed-bar">
+                    <input
+                        v-model="termsInput"
+                        type="text"
+                        class="embed-find"
+                        spellcheck="false"
+                        placeholder="Find in these lines"
+                        aria-label="Find in these lines"
+                        @input="scheduleSearch"
+                    >
+                    <span class="embed-state" :class="{live: followLive}"><i aria-hidden="true"></i>{{ (followLive ? 'live' : 'paused') }}</span>
+                    <span class="embed-status">{{ (searching ? 'Querying…' : queryStatus) }}</span>
+                    <a class="embed-open" href="/" target="_blank" rel="noopener" @click="embedOpen">Open in Logline ↗</a>
                 </header>
 
                 <aside class="labels-panel" aria-label="Labels">
@@ -312,7 +332,7 @@
                         ></button>
                         <template v-if="!pickedCount">
                             <span aria-hidden="true">Time</span>
-                            <span aria-hidden="true">Service</span>
+                            <span class="log-head-service" aria-hidden="true">Service</span>
                             <span aria-hidden="true">Message <small>· drag to select lines · Ctrl toggles · Shift adds</small></span>
                         </template>
                         <div v-else class="pick-bar" role="toolbar" aria-label="Selected lines">

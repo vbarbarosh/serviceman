@@ -177,6 +177,10 @@
                 ignoreEmptyEnabled: storedBoolean('logline-ignore-empty', false),
                 refreshSeconds: storedRefreshSeconds(),
                 lightTheme: document.documentElement.dataset.theme === 'light',
+                // `?embed=1`: the lines alone, for another page to hold in a frame (a service's
+                // Logs tab): no labels, no volume, no disk, a slim bar with a find box and the
+                // way to the whole viewer
+                embed: new URLSearchParams(window.location.search).get('embed') === '1',
                 activeRange: '1h',
                 relativeRanges: RELATIVE_RANGES,
                 calendarRanges: CALENDAR_RANGES,
@@ -510,8 +514,10 @@
             window.addEventListener('click', this.closeRange);
             this.resetLiveTimer();
             this.runSearch();
-            this.refreshDisk();
-            this.diskTimer = window.setInterval(this.refreshDisk, DISK_REFRESH_SECONDS*1000);
+            if (!this.embed) {
+                this.refreshDisk();
+                this.diskTimer = window.setInterval(this.refreshDisk, DISK_REFRESH_SECONDS*1000);
+            }
         },
 
         beforeUnmount: function () {
@@ -735,9 +741,26 @@
                     }
                 }
 
+                // The small view stays small, in the theme the page holding it asked for
+                if (this.embed) {
+                    params.set('embed', '1');
+                    const theme = new URLSearchParams(window.location.search).get('theme');
+                    if (theme) {
+                        params.set('theme', theme);
+                    }
+                }
+
                 const url = new URL(window.location.href);
                 url.search = params.toString();
                 window.history.replaceState(null, '', url);
+            },
+
+            // The small view's way to the whole viewer: the same search, in a tab of its own
+            embedOpen: function (event) {
+                const params = new URLSearchParams(window.location.search);
+                params.delete('embed');
+                params.delete('theme');
+                event.currentTarget.href = `${window.location.pathname}?${params.toString()}`;
             },
 
             restoreSelectionFromUrl: async function (filters = this.active) {
@@ -1507,7 +1530,7 @@
                 // The volume of the new range, empty until it is counted: never the old one's bars
                 this.histogram = [];
                 this.bucketSeconds = this.chooseBucket(filters.from, filters.to);
-                this.loading = {rows: true, volume: true, labels: true};
+                this.loading = {rows: true, volume: !this.embed, labels: !this.embed};
                 this.loadErrors = {rows: '', volume: '', labels: ''};
                 this.loadingSince = Date.now();
                 this.clockStart();
@@ -1518,8 +1541,9 @@
                 this.queryStatus = 'Querying…';
                 const time0 = performance.now();
                 const rows = this.queryRows(filters, {signal: controller.signal}).then(this.rowsLanded.bind(this, generation, filters), this.searchPartFailed.bind(this, generation, 'rows'));
-                const volume = this.queryHistogram(filters, controller.signal).then(this.volumeLanded.bind(this, generation), this.searchPartFailed.bind(this, generation, 'volume'));
-                const labels = this.queryLabels(filters, controller.signal).then(this.labelsLanded.bind(this, generation, labelGeneration), this.searchPartFailed.bind(this, generation, 'labels'));
+                // The small view shows the lines alone: their volume and their labels are not asked for
+                const volume = this.embed ? Promise.resolve() : this.queryHistogram(filters, controller.signal).then(this.volumeLanded.bind(this, generation), this.searchPartFailed.bind(this, generation, 'volume'));
+                const labels = this.embed ? Promise.resolve() : this.queryLabels(filters, controller.signal).then(this.labelsLanded.bind(this, generation, labelGeneration), this.searchPartFailed.bind(this, generation, 'labels'));
                 const [succeeded] = await Promise.all([rows, volume, labels]);
                 if (generation !== this.requestGeneration) {
                     return false;
@@ -1691,7 +1715,7 @@
                         this.queryStatus = `${additions.length} new · ${this.formatCount(this.rows.length)} loaded`;
                     }
                     this.pollCount += 1;
-                    if (this.pollCount % 4 === 0) {
+                    if (!this.embed && (this.pollCount % 4 === 0)) {
                         const [histogram] = await Promise.all([
                             this.queryHistogram(nextFilters, signal),
                             this.refreshLabels(),
