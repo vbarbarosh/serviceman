@@ -11,6 +11,9 @@ const ENTRY = 'agent/index';
 // Modules that are a file of another part as text, for the agent to write out on its machine:
 // the key, and the file from src/ it holds
 const TEXTS = {'agent/src/agent_servermon_text': 'servermon/servermon.js'};
+// Packages the agent carries as their own code, so a machine needs no npm install: the key of the
+// module that requires one, and the package
+const PACKAGES = {'agent/src/agent_xterm_headless': '@xterm/headless', 'agent/src/agent_xterm_serialize': '@xterm/addon-serialize'};
 const VERSION = agent_version.version;
 // The file the version itself is kept in, which the fingerprint of the sources leaves out
 const VERSION_KEY = 'agent/version.json';
@@ -33,12 +36,16 @@ function built_at(sources)
     return agent_built_at([...Object.keys(sources).map(bundle_file_from_key), ...Object.values(TEXTS).map(v => path.resolve(__dirname, '..', '..', v))]);
 }
 
-// Every module the agent reaches, the texts of TEXTS written in as the modules that hold them
+// Every module the agent reaches, the texts of TEXTS written in as the modules that hold them,
+// and the code of each package of PACKAGES in place of the module that requires it
 function sources_read()
 {
     const made = {};
     for (const key of Object.keys(TEXTS)) {
         made[key] = `module.exports = ${JSON.stringify(fs.readFileSync(path.resolve(__dirname, '..', '..', TEXTS[key]), 'utf8'))};`;
+    }
+    for (const key of Object.keys(PACKAGES)) {
+        made[key] = fs.readFileSync(require.resolve(PACKAGES[key]), 'utf8');
     }
     return bundle_sources_read(ENTRY, made);
 }

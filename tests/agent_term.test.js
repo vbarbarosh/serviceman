@@ -1,6 +1,8 @@
+const agent_bundle = require('../src/agent/bundler/agent_bundle');
 const agent_machine_shell = require('../src/agent/src/agent_machine_shell');
 const agent_term_end = require('../src/agent/src/agent_term_end');
 const agent_term_join = require('../src/agent/src/agent_term_join');
+const agent_term_keeper_start = require('../src/agent/src/agent_term_keeper_start');
 const agent_term_read = require('../src/agent/src/agent_term_read');
 const agent_term_signal = require('../src/agent/src/agent_term_signal');
 const agent_term_start = require('../src/agent/src/agent_term_start');
@@ -12,6 +14,8 @@ const os = require('os');
 const path = require('path');
 const pty_spawn = require('../src/web-terminal/src/pty_spawn');
 const test = require('node:test');
+
+const {Terminal} = require('@xterm/headless');
 
 // The shell is left with a job in the background, which holds the terminal on, and exits: the
 // terminal ends with the shell, as a window does, its last words passed on, and the job runs on
@@ -94,6 +98,56 @@ function sizes_said(heard)
     return [...text.matchAll(/(?:^|[\r\n])([0-9]+ [0-9]+)\r\n/g)].map(v => v[1]);
 }
 
+// A program that draws by moves (an inline one, as Claude Code's classic screen) draws a frame
+// over itself, moving up by the rows it took at its width. Its bytes replayed into a terminal of
+// another width land wrong: rows above the frame are drawn over. The keeper drew every byte at
+// the size it was printed at, so a join is handed the screen as it stands.
+test('a join is handed the screen as it stands, drawn by the machine\'s keeper', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('drawn', 80, 24, {}, dir);
+    t.after(() => agent_term_end({name: 'drawn'}));
+    const first = await frames_drawn(t, 'drawn');
+    const later = join_reading(t, {name: 'drawn'});
+    await until(() => later.heard.includes('frame 5'), 5000, 'the screen of a later join');
+    const screen = await screen_of(later.heard, 160, 30);
+    assert.ok(screen.includes('line 28') && screen.includes('line 29'), 'the rows above the frame are there');
+    assert.strictEqual(screen.split('> frame').length - 1, 1, 'one frame, the last');
+    assert.strictEqual(later.heard.includes('> frame 0'), false, 'the screen, not the bytes as printed');
+    first.join.write('q');
+});
+
+test('a holder whose keeper is gone hands a join the history as printed, as before', async function (t) {
+    const dir = agent_dir(t);
+    await agent_term_start('alone', 80, 24, {}, dir);
+    t.after(() => agent_term_end({name: 'alone'}));
+    const first = await frames_drawn(t, 'alone');
+    process.kill(keeper_pid(agent_term_keeper_start.socket_path()), 'SIGKILL');
+    await until(() => (keeper_pid(agent_term_keeper_start.socket_path()) === null), 5000, 'the end of the keeper');
+    fs.rmSync(agent_term_keeper_start.socket_path(), {force: true});
+    const later = join_reading(t, {name: 'alone'});
+    await until(() => later.heard.includes('frame 5'), 5000, 'the history of a later join');
+    assert.ok(later.heard.includes('> frame 0'), 'the bytes as printed, every frame');
+    first.join.write('q');
+});
+
+test('the agent\'s one file carries the keeper: a screen asked for is answered', async function (t) {
+    const dir = agent_dir(t);
+    const file = path.join(dir, 'agent.js');
+    fs.writeFileSync(file, agent_bundle());
+    const socket_path = path.join(dir, 'keeper.sock');
+    const keeper = child_process.spawn(process.execPath, [file, '--term-keeper', socket_path], {stdio: 'ignore'});
+    t.after(() => keeper.kill('SIGKILL'));
+    await until(() => fs.existsSync(socket_path), 5000, 'the keeper\'s socket');
+    const socket = net.connect({path: socket_path});
+    t.after(() => socket.destroy());
+    let answer = Buffer.alloc(0);
+    socket.on('data', v => answer = Buffer.concat([answer, v]));
+    socket.write(Buffer.concat([frame('H', JSON.stringify({name: 'x', cols: 20, rows: 4})), frame('D', 'one\r\ntwo\x1b[1A\rTWO'), frame('Q', '')]));
+    await until(() => (answer.length >= 5) && (answer.length >= 5 + answer.readUInt32BE(1)), 5000, 'the screen');
+    assert.strictEqual(String.fromCharCode(answer[0]), 'A');
+    assert.strictEqual(await screen_of(answer.subarray(5).toString('utf8'), 20, 4), 'TWO\ntwo');
+});
+
 // A page left open on a laptop asleep is joined and reads nothing. The holder waited to write
 // to it, and meanwhile passed nothing on, took nothing typed and answered no join: the build in
 // that terminal stood still. It waits for no reader: the dark one falls further behind than the
@@ -123,19 +177,19 @@ test('a kept terminal goes on while one joined to it reads nothing: the rest get
     await until(() => third.heard.includes('typed-42\r\n'), 5000, 'the history for a third join');
 
     // The dark one has not read that it was let go: a key it presses is not lost. Then it
-    // reads again, to the end of its socket. Joined again it has the last megabyte, from the
-    // start of a line to the last thing printed
+    // reads again, to the end of its socket. Joined again it has the screen as it stands and
+    // the 1000 lines above it, whole and in order, up to the last thing printed
     dark.socket.write('echo late-$((40+2))\n');
     await until(() => healthy.heard.includes('late-42\r\n'), 5000, 'what the reader let go typed');
     dark.socket.resume();
     await until(() => dark.closed, 5000, 'the end of the socket of the reader let go');
     assert.strictEqual(dark.heard.includes('end-42\r\n'), false);
     const again = reader_join(t, found);
-    await until(() => again.heard.includes('late-42\r\n'), 5000, 'the history for the reader let go');
-    const replayed = again.heard.slice(0, again.heard.indexOf('end-42\r\n')).split('\r\n');
-    const first = 30001 - (replayed.length - 1);
-    assert.ok((again.heard.length <= (1 << 20)) && (again.heard.length > (1 << 20) - 1024), `a megabyte of history: ${again.heard.length}`);
-    assert.strictEqual(replayed.findIndex((v, i) => (i < replayed.length - 1) && (v.startsWith(`line ${first + i} of the build`) === false)), -1, 'whole lines, in order');
+    await until(() => again.heard.includes('late-42'), 5000, 'the screen for the reader let go');
+    const built = again.heard.split(/\r?\n/).map(v => v.match(/line ([0-9]+) of the build/)).filter(v => v !== null).map(v => parseInt(v[1], 10));
+    assert.ok(built.length > 900, `the lines above the screen: ${built.length}`);
+    assert.deepStrictEqual(built, built.map((v, i) => built[0] + i), 'whole lines, in order');
+    assert.strictEqual(built[built.length - 1], 30000, 'up to the last one printed');
 });
 
 // More typed than a pty takes, into a program that reads nothing: the holder waited to write
@@ -338,6 +392,72 @@ function agent_dir(t)
         fs.rmSync(dir, {recursive: true, force: true});
     });
     return dir;
+}
+
+// A terminal running frames_by_moves: three frames drawn at 80 columns, then three at 160, the
+// size a join of its own asked for; that join, joined still
+async function frames_drawn(t, name)
+{
+    const first = join_reading(t, {name});
+    first.join.write(`node ${path.join(__dirname, 'fixtures', 'frames_by_moves.js')}\n`);
+    await until(() => first.heard.includes('line 29'), 5000, 'the program\'s lines');
+    for (let i = 0; i < 6; i++) {
+        if (i === 3) {
+            first.join.resize(160, 30);
+            await new Promise(v => setTimeout(v, 300));
+        }
+        first.join.write(' ');
+        await until(() => first.heard.includes(`frame ${i}`), 5000, `frame ${i}`);
+    }
+    return first;
+}
+
+// What a terminal of this size shows, the lines above its screen too, once these bytes are drawn
+function screen_of(bytes, cols, rows)
+{
+    return new Promise(function (resolve) {
+        const terminal = new Terminal({cols, rows, scrollback: 1000, allowProposedApi: true});
+        terminal.write(bytes, function () {
+            const buffer = terminal.buffer.active;
+            const lines = [];
+            for (let i = 0; i < buffer.length; i++) {
+                lines.push(buffer.getLine(i).translateToString(true));
+            }
+            terminal.dispose();
+            resolve(lines.join('\n').replace(/\n+$/, ''));
+        });
+    });
+}
+
+// A frame to the keeper: its kind, its payload's length, its payload
+function frame(kind, payload)
+{
+    const body = Buffer.from(payload, 'utf8');
+    const head = Buffer.alloc(5);
+    head.write(kind, 0);
+    head.writeUInt32BE(body.length, 1);
+    return Buffer.concat([head, body]);
+}
+
+// The pid of the keeper at this socket, or null when none runs
+function keeper_pid(socket_path)
+{
+    for (const entry of fs.readdirSync('/proc')) {
+        if (/^[0-9]+$/.test(entry) === false) {
+            continue;
+        }
+        let cmdline;
+        try {
+            cmdline = fs.readFileSync(`/proc/${entry}/cmdline`, 'utf8').split('\0');
+        }
+        catch {
+            continue;
+        }
+        if (cmdline.includes('--term-keeper') && cmdline.includes(socket_path) && (process_gone(parseInt(entry, 10)) === false)) {
+            return parseInt(entry, 10);
+        }
+    }
+    return null;
 }
 
 // One joined to a kept terminal as a tunnelled stream is (agent_term_join), left after the test:

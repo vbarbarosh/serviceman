@@ -2,8 +2,19 @@
 
 The terminals of a machine's Shell tab are plain shells kept running on that machine: a small
 holder process the agent starts owns each one, and outlives the page, serviceman and the agent
-itself. It keeps the last megabyte the shell printed and hands it to whoever joins, so the
-terminal that draws it scrolls back through it. There is no tmux: no status bar, no modes.
+itself. Whoever joins is handed the screen as it stands and up to 1000 lines above it, so the
+terminal that draws it shows what the program shows and scrolls back through it. There is no
+tmux: no status bar, no modes.
+
+That screen is kept by the machine's keeper, one process beside the holders
+(`node serviceman-agent.js --term-keeper`), started with the first terminal and outliving the
+agent as the holders do: each holder sends it every byte its shell prints and every size it
+takes, and it draws them in a terminal of its own with no window, so a program that draws by
+moves (an inline one, Claude Code's classic screen) comes out as it is. It takes about 60 MB, and
+about 10 MB a terminal for its screen and its 1000 lines, and ends a minute after the last
+terminal. Without it (a terminal started by an agent before it, or a keeper that ended), a join
+is handed the last megabyte the shell printed, as printed: drawn at the sizes it had then and
+cut mid-drawing, such a program's screen comes out garbled until it draws itself again.
 
 Any program on the machine serviceman runs on can list them, join one, type into it and leave
 it running, through the same doors the page uses. A working client is in
@@ -65,14 +76,13 @@ until the joiner sends a resize, so a short join (a read, a line typed) does not
 - A name that is not running is made. Names are letters, digits, `-` and `_`.
 - The first message is text, json: `{"type": "note", "text": "the terminal work on laptop: …", "ok": true}`.
 - Every message after it is binary: the terminal's bytes, escapes and all, for xterm.js or a
-  real tty to draw. The first of them is the history, so a terminal joined again shows what
-  it printed before, and scrolls back through it.
+  real tty to draw. The first of them is the screen as it stands with the lines above it, so a
+  terminal joined again shows what it printed before, and scrolls back through it.
 - Read what comes. The terminal waits for no reader: its program prints on and the others
   joined to it read on, whatever one reader does. A reader that reads slower than the terminal
   prints is kept up to a megabyte behind, with nothing dropped; one further behind is let go,
   a page left open on a laptop asleep too: it is sent no more, and its socket closes once it
-  has read what was on the way. Join again and the first bytes are the history, the last
-  megabyte. The Shell tab does so by itself. What a reader types is taken until its socket
+  has read what was on the way. Join again and the first bytes are the screen as it stands. The Shell tab does so by itself. What a reader types is taken until its socket
   closes, so a Ctrl-C from one that is behind still stops the program.
 - A terminal keeps the holder it was started with until its shell ends, whatever its agent is
   updated to meanwhile. In one started by an agent before 1.33.15 a reader that stops reading

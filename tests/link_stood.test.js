@@ -69,7 +69,7 @@ test('the way to a machine creeps when what was sent to it half a minute ago is 
 // stopped also has bytes that fell behind, and that may be said first, before they stood long.
 test('a link whose way to the machine stood is reset, and the agent dials a fresh one', async function (t) {
     // The agent's own rule kept out of the way, so serviceman's is what acts
-    const running = await link_proxy_rig(t, {pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
+    const running = await link_proxy_rig(t, {agent_update: false, pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
     await stand_and_recover(running);
     assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it (stood|fell behind)" waited=\S+ file=big\.tar sent=\d+ taken=\d+ late=\d+ still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
 });
@@ -84,7 +84,7 @@ test('a link whose way to the machine crept is reset, and the agent dials a fres
     t.after(function () {
         process.env.SERVICEMAN_STOOD_MS = stood_ms;
     });
-    const running = await link_proxy_rig(t, {pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
+    const running = await link_proxy_rig(t, {agent_update: false, pass_reset: true, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
     await stand_and_recover(running, v => v.creep(48*1024));
     assert.ok(running.app.log_lines.some(v => /\[remote_dropped\] remote=vps1 reason="the way to it fell behind" waited=\S+ file=big\.tar sent=\d+ taken=\d+ late=[1-9]\d* still=\S+ then="its agent dials in again"/.test(v)), running.app.log_lines.filter(v => v.includes('remote_dropped')).join('\n'));
 });
@@ -99,12 +99,12 @@ test('a call waits seconds behind a file on a slow link, and the link is kept', 
     t.after(function () {
         process.env.SERVICEMAN_STOOD_MS = stood_ms;
     });
-    const running = await link_proxy_rig(t, {down: 128*1024, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
+    const running = await link_proxy_rig(t, {agent_update: false, down: 128*1024, agent_env: {SERVICEMAN_STOOD_MS: '60000'}});
     const remote = running.app.remote_by_name.vps1;
     const first = remote.state.socket;
-    // A new link carries serviceman's own agent, offered, and a megabyte to time the link: at
-    // this speed they take the way for 13 s, and the call is timed once they are through
-    await wait_until(() => running.app.log_lines.some(v => v.includes('[remote_update_refused]')), 20000);
+    // A new link carries a megabyte to time it, 8 s at this speed, and the call is timed once
+    // that is through; no update is offered (agent_update: false), so what the link carries
+    // does not grow with the agent file
     await wait_until(() => remote.state.throughput_bps !== null, 20000);
     const upload = upload_start(running, 20*1024*1024);
     const clock = setInterval(function () {
@@ -128,7 +128,7 @@ test('a call waits seconds behind a file on a slow link, and the link is kept', 
 // What stands between the two may let the reset through no better than the bytes: the agent,
 // with a file coming in and nothing heard from the host, dials fresh by itself
 test('an agent that hears nothing while a file comes in dials fresh, the reset never reaching it', async function (t) {
-    const running = await link_proxy_rig(t, {pass_reset: false});
+    const running = await link_proxy_rig(t, {agent_update: false, pass_reset: false});
     await stand_and_recover(running);
     await wait_until(() => running.agent_said.includes('[agent_host_stood]'), 10000);
 });

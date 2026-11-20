@@ -1,5 +1,6 @@
 const agent_child_env = require('./agent_child_env');
 const agent_term_holder_py = require('./agent_term_holder_py');
+const agent_term_keeper_start = require('./agent_term_keeper_start');
 const agent_term_read = require('./agent_term_read');
 const agent_terms_dir = require('./agent_terms_dir');
 const child_process = require('child_process');
@@ -36,9 +37,12 @@ async function agent_term_start(name, cols, rows, env, cwd)
     const base = path.join(agent_terms_dir(), name);
     fs.mkdirSync(path.dirname(base), {recursive: true, mode: 0o700});
     const shell = process.env.SHELL || '/bin/bash';
+    // The keeper of the machine's screens, up first so the holder sends it every byte from the
+    // first; none, and the holder goes on without it
+    const keeper = await agent_term_keeper_start();
     const child = child_process.spawn('python3', ['-c', agent_term_holder_py, base, String(cols), String(rows), shell, '-l'], {
         cwd: dir,
-        env: agent_child_env({TERM: 'xterm-256color'}, env),
+        env: Object.assign(agent_child_env({TERM: 'xterm-256color'}, env), {SERVICEMAN_TERM_KEEPER: (keeper === null) ? '' : keeper}),
         detached: true,
         stdio: 'ignore',
     });

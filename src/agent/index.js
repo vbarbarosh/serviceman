@@ -133,6 +133,14 @@ async function main()
         agent_pipe(argv[1]);
         return;
     }
+    if (argv[0] === '--term-keeper') {
+        // Not an agent this time: the keeper of the screens of the terminals kept on this
+        // machine, at the socket given (agent_term_keeper_start). Asked for here alone: the
+        // terminal it draws in weighs on a process, and an agent loaded with it took bytes off
+        // a slow link seconds late
+        await require('./src/agent_term_keeper')(argv[1]);
+        return;
+    }
     if (argv.includes('--status')) {
         // Not an agent this time: the one that is running is asked, and what it says is printed
         process.exitCode = await agent_status_ask();

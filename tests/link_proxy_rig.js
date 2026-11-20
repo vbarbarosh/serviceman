@@ -16,14 +16,16 @@ const HELD_PIECES = 16;
 // carry nothing toward the agent, its way back working, the way a link stood on 2026-10-29, and
 // `creep(rate)` makes carry `rate` bytes a second toward it, the way one crept on 2026-11-04.
 // `pass_reset` decides whether a link serviceman resets is reset at the agent's end too, or left
-// hanging there; `agent_env` is what the agent is started with besides.
+// hanging there; `agent_env` is what the agent is started with besides; `agent_update: false`
+// offers the agent no update, as with an agent that is up to date, so the agent file, a
+// megabyte that grows with the agent, is not on the link a test times.
 // {app, control_port, links, agent_said}: each link the agent dialled, the last one now, as
 // {carried, stand()}; what the agent printed.
 async function link_proxy_rig(t, options)
 {
     const down = (options.down === undefined) ? 1024*1024 : options.down;
     const up = (options.up === undefined) ? 1024*1024 : options.up;
-    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'vps1', token: TOKEN}], services: []}, __dirname);
+    const config = config_from_json({listen: {host: '127.0.0.1', port: 0}, control: {host: 'serviceman.localhost', port: 0}, remotes: [{name: 'vps1', token: TOKEN}], services: [], agent_update: (options.agent_update !== false)}, __dirname);
     const app = app_from_config(config);
     const servers = await server_start(app);
     const control_port = servers.control.address().port;

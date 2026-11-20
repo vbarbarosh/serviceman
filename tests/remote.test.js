@@ -1886,8 +1886,9 @@ test('a folder of thousands of names is listed whole through a reader that makes
 });
 
 // htop and bash ask the terminal questions (its kind, its colours, its modes). Replayed on a
-// join, xterm would answer them again into the shell, where they show as typed text: the
-// history comes back without them, and with everything else
+// join, xterm would answer them again into the shell, where they show as typed text: the screen
+// comes back without them, and with everything else, its colours too, however the screen's keeper
+// writes them
 test('a terminal joined again gets its history without the questions programs asked', async function () {
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
     const agent = agent_start(running.control_port, TOKEN);
@@ -1910,7 +1911,7 @@ test('a terminal joined again gets its history without the questions programs as
         await wait_until(() => replay.includes('green-marker'), 5000);
         assert.strictEqual(replay.includes('\x1b[c'), false);
         assert.strictEqual(replay.includes('\x1b]11;?'), false);
-        assert.ok(replay.includes('\x1b[01;32mgreen-marker'), 'colours stay');
+        assert.ok(/\x1b\[(?:01;32|1;32|32;1)mgreen-marker/.test(replay), 'colours stay');
         second.close();
     }
     finally {
