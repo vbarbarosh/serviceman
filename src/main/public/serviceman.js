@@ -1584,10 +1584,12 @@ const remote_page = {
     },
 };
 
-// A service's files: a program's are its folder on its machine, that machine's file manager
-// opened there; a docker service's are inside its container, found by the name serviceman gave it
+// A service's files: a program's are its working directory on its machine, that machine's file
+// manager opened there under a line that says so; a docker service's are inside its container,
+// found by the name serviceman gave it
 const service_files = {
     template: `
+<p v-if="(view.type === 'shell' && place.remote !== null)" class="muted svc-files-lead">Its working directory on {{ place.remote.name }}{{ (agent_user === '') ? '' : (', as ' + agent_user) }}: what it runs, and what it writes.</p>
 <remote-files v-if="(view.type === 'shell' && place.remote !== null)" :view="place.remote" :remotes="remotes" :control="control" :theme="theme" :start="place.folder"/>
 <article v-else-if="(view.type === 'shell')" id="detail" class="list fm">
     <p class="muted">{{ place.why }}</p>
@@ -1605,6 +1607,11 @@ const service_files = {
     computed: {
         place: function () {
             return program_place(this.view, this.remotes);
+        },
+        // The user the program runs as on its machine: the agent's own; '' while it is not known
+        agent_user: function () {
+            const machine = this.place.remote.machine;
+            return ((machine === null) || (machine === undefined) || (typeof machine.user !== 'string')) ? '' : machine.user;
         },
         // The first copy running, and the machine it runs on
         running: function () {

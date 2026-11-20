@@ -483,15 +483,15 @@ const service_form = {
                 </div>
             </template>
             <!-- A program's What runs, as drawn: its command, one shell expression as it is
-                 written, its folder and the user it runs as beside each other, the rest folded
-                 in a row that says what it holds -->
+                 written, its working directory and the user it runs as beside each other, the
+                 rest folded in a row that says what it holds -->
             <div v-if="((section.id === 'runs') && (m.type === 'shell') && (creating === false) && (cmd !== null))" class="svc-run-edit">
                 <b class="svc-run-label">The command</b>
                 <code-lines :text="cmd.text" :marks="cmd_diff.marks" label="The command" placeholder="node server.js" :class="{wrong: problems.command}" @update:text="cmd_text"/>
                 <p v-if="problems.command" class="bad">{{ problems.command }}</p>
                 <p v-else class="muted">Run by <code>/bin/sh -c</code> as written: a whole shell expression, on one line or many.</p>
                 <div class="svc-run-pair">
-                    <label>Its folder<input v-model.trim="m.cwd" placeholder="a folder of serviceman's own" spellcheck="false"></label>
+                    <label>Working directory<input v-model.trim="m.cwd" placeholder="a folder of serviceman's own" spellcheck="false"></label>
                     <label>Runs as the user<input :value="run_user" readonly placeholder="the agent's own, once it has dialled in" title="The user the machine's agent runs as: a program runs as it"></label>
                 </div>
                 <div class="svc-fold" :class="{open: (fold_open || (problems.port !== undefined))}">
@@ -1214,7 +1214,7 @@ const service_form = {
             const was = this.model;
             const now = this.m;
             const out = this.cmd_diff.changes.map(v => v.text);
-            for (const [field, label] of [['cwd', 'folder'], ['port', 'port'], ['image', 'image'], ['user', 'user']]) {
+            for (const [field, label] of [['cwd', 'working directory'], ['port', 'port'], ['image', 'image'], ['user', 'user']]) {
                 if (was[field] !== now[field]) {
                     out.push(`${label} ${none_said(was[field])} → ${none_said(now[field])}`);
                 }
@@ -1637,7 +1637,8 @@ const service_form = {
             }
             if ((id === 'runs') && (model.type === 'shell')) {
                 lines.push((model.command === '') ? 'no command yet' : model.command);
-                // Its folder, the user it runs as and how many options, as the Overview reads them
+                // Its working directory, the user it runs as and how many options, as the Overview
+                // reads them
                 const parts = service_command_parts(model.command);
                 const facts = [(model.cwd === '') ? '' : `in ${model.cwd}`, (this.run_user === '') ? '' : `as the user ${this.run_user}`, (parts.options.length === 0) ? '' : `${parts.options.length} ${(parts.options.length === 1) ? 'option' : 'options'}`].filter(v => v !== '');
                 if (facts.length > 0) {

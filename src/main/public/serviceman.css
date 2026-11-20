@@ -2506,6 +2506,22 @@ article.service-logs {
     grid-row: -2;
 }
 
+/* A program's Files: the line over them takes the row the pane would, and the pane the last */
+.svc-files-lead {
+    margin: 16px 32px 0;
+    font-size: 14px;
+}
+
+#page > .svc-files-lead ~ #detail {
+    grid-row: -2;
+}
+
+@media (max-width: 600px) {
+    .svc-files-lead {
+        margin: 12px 12px 0;
+    }
+}
+
 .service-logs > .logs-card {
     display: flex;
     flex: 1 1 0;
