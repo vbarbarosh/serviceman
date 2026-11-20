@@ -329,7 +329,6 @@ const database_new = {
         // The rest, as serviceman does it today
         rest_cards: function () {
             return [
-                {id: 'backups', title: 'Backups', text: 'none yet', note: 'serviceman makes none yet'},
                 {id: 'reach', title: 'Reached from', text: 'its machine only', note: 'its apps there; nothing outside'},
                 {id: 'adminer', title: 'Adminer', text: 'to look inside', note: (this.m.engine === 'couchdb') ? 'CouchDB has its own, Fauxton' : 'an app on Apps, given it'},
             ];

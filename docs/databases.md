@@ -30,7 +30,7 @@ in an app's Data tab (that app ticked).
    start, its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`.
 4. **Check:** its name, up to 32 small letters, digits and `_`, a letter first (a sample and a
    CouchDB name it themselves); a row per answer, each with **Change**; the rest as it is today:
-   no backups, reached from its machine only, Adminer as an app.
+   reached from its machine only, Adminer as an app.
 
 **Create database** puts it in a server of that engine and version already up on that machine;
 with none, it brings one up first, named after its engine and the first number free
