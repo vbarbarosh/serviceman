@@ -561,10 +561,9 @@ firewall says it is updating. The module is `modules/firewall`, and its README h
 ## Its security
 
 The **Security** page, on All categories beside Health, says what each machine leaves open to harm.
-Four tiles count what is to mend and where, what to look at and of what kind, the checks that
-pass, and the machines looked at. Then a table card: a row per machine, a column per check, each
-cell a pill, red where something is to be mended, orange where it wants a look, grey where
-there is nothing to say; a find box and the chips All, To mend and To look at narrow it. A click on a row
+It opens with its table card: a row per machine, a column per check, each cell a pill, red
+where something is to be mended, orange where it wants a look, grey where there is nothing to
+say; a find box and the chips All, To mend and To look at narrow it. A click on a row
 shows what stands behind each check, and mends it with a click where the machine's root half
 can (below), else opens the tab of the machine's page that mends it.
 Each machine is looked over once an hour, as soon as it connects, and on **Check again**, which

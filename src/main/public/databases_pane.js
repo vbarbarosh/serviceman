@@ -28,7 +28,13 @@ const databases_pane = {
             <h1>{{ open_title }}</h1>
             <span class="pill" :class="state_of(open_server).pill"><span class="dot" :class="state_of(open_server).dot"/>{{ state_of(open_server).word }}</span>
             <span class="tag">{{ engine_text(open_server) }}</span>
-            <span class="muted">on {{ open_server.title }}</span>
+            <span class="muted">in {{ open_server.name }} on {{ open_server.title }}</span>
+            <dl class="item-facts">
+                <div v-for="fact of open_facts" :key="fact.label" :title="fact.title">
+                    <dt>{{ fact.label }}</dt>
+                    <dd>{{ fact.value }}<small v-if="(fact.small !== '')" class="mono">{{ fact.small }}</small></dd>
+                </div>
+            </dl>
             <div class="acts crumb-acts">
                 <button v-if="(open_server.phase === 'failed')" type="button" :disabled="(busy || (open_server.online === false))" :title="(open_server.online ? 'Again where it was, with the password its data was made with' : (open_server.title + ' is offline'))" @click="again(open_server)">Bring it up again</button>
                 <button type="button" :disabled="((removing !== null) || (open_server.phase === 'removing'))" @click="remove_begin(open_server)">Remove…</button>
@@ -44,13 +50,6 @@ const databases_pane = {
             </div>
         </div>
         <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
-        <div class="ov-tiles">
-            <div v-for="tile of open_tiles" :key="tile.label" class="card ov-tile">
-                <span class="ov-label">{{ tile.label }}</span>
-                <b>{{ tile.value }}</b>
-                <small class="muted" :title="tile.note">{{ tile.note }}</small>
-            </div>
-        </div>
         <h2 class="db-sub">Given to</h2>
         <data-table :columns="app_columns" :rows="open_apps" row_key="name" :on_row="(row => $emit('select', row.name))" :marks="false" :empty="open_apps_empty">
             <template #cell="{row, column}">
@@ -199,15 +198,16 @@ const databases_pane = {
         other_rows: function () {
             return this.rows.filter(v => (v.server === this.open_server.name) && (v.database !== '') && (v.database !== this.place.database));
         },
-        open_tiles: function () {
+        // What its tiles said, in its head: its size, its tables (a CouchDB's users), and where
+        // it is reached from; its server is named in the line beside its engine
+        open_facts: function () {
             const server = this.open_server;
             const database = this.open_database;
             const couch = (server.engine === 'couchdb');
             const out = [];
-            out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), note: (database === null) ? 'no database in it' : 'its data, on its machine'});
-            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), note: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
-            out.push({label: 'Server', value: server.name, note: `${this.engine_text(server)}, on ${server.title}`});
-            out.push({label: 'Reached from', value: 'its machine', note: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} there`});
+            out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), small: '', title: (database === null) ? 'no database in it' : `its data, on ${server.title}`});
+            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
+            out.push({label: 'Reached from', value: 'its machine', small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, title: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} on ${server.title}, nothing outside it`});
             return out;
         },
         open_apps: function () {

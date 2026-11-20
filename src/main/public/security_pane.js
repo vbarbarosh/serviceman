@@ -1,7 +1,6 @@
 import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import format_ms from './format_ms.js';
-import overview_tile from './overview_tile.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
 
@@ -41,11 +40,6 @@ const security_pane = {
         </template>
     </page-head>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
-    <!-- At a glance, as drawn: what is to mend and where, what to look at, what passes, and
-         how many machines were looked at -->
-    <div v-if="(rows.length > 0)" class="ov-tiles security-tiles">
-        <overview-tile v-for="tile of tiles" :key="tile.label" :icon="tile.icon" :label="tile.label" :value="null" :note="tile.note" :tone="tile.tone">{{ tile.value }}<small v-if="(tile.all !== null)">/ {{ tile.all }}</small></overview-tile>
-    </div>
     <data-table :columns="COLUMNS" :rows="rows_shown" row_key="remote" :row_class="row_class" :more="more" framed :total="rows.length" :foot="foot" empty_icon="&lt;path d=&quot;M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z&quot;/&gt;" empty_title="No machines yet" empty="A machine is looked at once its agent dials in.">
         <template #tools>
             <input v-model.trim="filter" type="search" placeholder="Find a machine" aria-label="Find a machine by its name" spellcheck="false">
@@ -83,7 +77,7 @@ const security_pane = {
     </data-table>
 </article>
 `,
-    components: {'data-table': data_table, 'overview-tile': overview_tile, 'page-head': page_head, 'state-pill': state_pill},
+    components: {'data-table': data_table, 'page-head': page_head, 'state-pill': state_pill},
     props: ['state'],
     emits: ['remote', 'tab'],
     data: function () {
@@ -109,24 +103,6 @@ const security_pane = {
         },
         chips: function () {
             return [{value: 'all', label: 'All', phase: null, count: this.rows.length}, {value: 'bad', label: 'To mend', phase: 'failed', count: this.state_count('bad')}, {value: 'warn', label: 'To look at', phase: 'stopping', count: this.state_count('warn')}];
-        },
-        // The four tiles, as drawn: what is to mend and where, what to look at and of what kind,
-        // what passes, and how many machines were looked at
-        tiles: function () {
-            const checks = [].concat(...this.rows.map(v => v.checks.map(vv => Object.assign({remote: v.name}, vv))));
-            const bad = checks.filter(v => v.state === 'bad');
-            const warn = checks.filter(v => v.state === 'warn');
-            const ok = checks.filter(v => v.state === 'ok');
-            const where = Array.from(new Set(bad.map(v => v.remote)));
-            const kinds = Array.from(new Set(warn.map(v => COLUMNS.find(vv => vv.key === v.key).label.toLowerCase())));
-            const looked = this.rows.filter(v => v.checks.length > 0);
-            const away = this.rows.filter(v => v.phase !== 'online');
-            return [
-                {icon: 'lock', label: 'To mend', value: bad.length, all: null, note: (bad.length === 0) ? 'nothing' : ((where.length === 1) ? `all on ${where[0]}` : `on ${where.length} machines`), tone: (bad.length === 0) ? '' : 'mend'},
-                {icon: 'warning', label: 'To look at', value: warn.length, all: null, note: (warn.length === 0) ? 'nothing' : kinds.slice(0, 2).join(', '), tone: (warn.length === 0) ? '' : 'look'},
-                {icon: 'tag', label: 'Fine', value: ok.length, all: null, note: 'checks that pass', tone: ''},
-                {icon: 'monitor', label: 'Looked at', value: looked.length, all: this.rows.length, note: (away.length === 0) ? 'every machine' : `${away[0].name} offline${(away.length > 1) ? ` and ${away.length - 1} more` : ''}`, tone: ''},
-            ];
         },
         // The footer: how many machines, to mend, to look at, not looked at
         foot: function () {

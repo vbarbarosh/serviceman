@@ -59,11 +59,11 @@ runs, Start when it is stopped). When that wants a word, a note under the head s
 lines), stopped by you (when, how long it ran, that only Start starts it), failed (how it ended
 and when, the starts in a row, whether serviceman stopped trying), stopping badly over and over
 (how many times since when, the next try, how it ended the last time) and its machine offline
-(since when). A new version or an image on its way is shown there too, with its bar. The
-page reads how it runs on its **Overview**: how long it is up, its last start (or its requests,
-once it has an address), how many starts failed in a row, its machine's CPU, memory and disk,
-what runs with each option as a chip (**Copy** takes the whole line, **Edit** opens its card),
-its newest lines and its addresses; nothing there is set. It has the same cards under its
+(since when). A new version or an image on its way is shown there too, with its bar. Its
+head says how it runs: how long it is up, in its state, then its requests once it has an
+address, and the CPU, memory and disk of the machine it runs on, the whole machine's, each with
+its bar. Its **Overview** shows what runs with each option as a chip (**Copy** takes the whole
+line, **Edit** opens its card), its newest lines and its addresses; nothing there is set. It has the same cards under its
 **Settings** tab, four a row, **What runs** over two, each with **Edit** — addresses, image,
 storage, environment, the whole policy. **Edit** opens that card across the top, the others
 stepping back. A program's **What runs** shows its command an option a line, numbered, with

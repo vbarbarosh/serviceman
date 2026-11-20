@@ -20,6 +20,7 @@ import config_read from './config_read.js';
 import config_tokens_back from './config_tokens_back.js';
 import config_tokens_hidden from './config_tokens_hidden.js';
 import copy_progress from 'file_manager/copy_progress.js';
+import count_words from './count_words.js';
 import crumbs_bar from './crumbs_bar.js';
 import data_table from './data_table.js';
 import databases_pane from './databases_pane.js';
@@ -36,6 +37,7 @@ import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
 import logline_pane from './logline_pane.js';
 import logline_stage from './logline_stage.js';
+import machine_facts from './machine_facts.js';
 import machine_icons from './machine_icons.js';
 import map_pane from './map_pane.js';
 import mounts_section from './mounts_section.js';
@@ -1690,6 +1692,15 @@ const service_page = {
                     <span v-if="(view.title && (view.title !== view.name))">{{ view.title }}</span>
                 </div>
             </div>
+            <!-- What its tiles said, in the head's empty part: its requests, its copies, its
+                 machine's bars; on a phone, a row under the buttons -->
+            <dl v-if="(head_facts.length > 0)" class="item-facts">
+                <div v-for="fact of head_facts" :key="fact.label" :title="fact.title">
+                    <dt>{{ fact.label }}</dt>
+                    <dd>{{ fact.value }}<small v-if="(fact.small !== '')">{{ fact.small }}</small></dd>
+                    <span v-if="(fact.share !== null)" class="meter"><i :style="{width: (Math.round(fact.share*100) + '%')}"/></span>
+                </div>
+            </dl>
             <div class="item-acts">
                 <template v-if="(acts === 'running')">
                     <button type="button" :disabled="waiting" @click="$emit('stop', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button>
@@ -1825,6 +1836,28 @@ const service_page = {
         restarting: function () {
             const first = (this.view.instances.length === 0) ? null : this.view.instances[0];
             return (first !== null) && (first.restarts > 0) && ((first.next_try_ms !== null) || (this.view.phase === 'starting'));
+        },
+        // What its Overview's tiles said, in its head: the requests a service with an address
+        // served, its copies when it may have several, and the bars of the machine it runs on,
+        // the whole machine's. Its time up is in its pill, its failed starts in its note.
+        head_facts: function () {
+            const view = this.view;
+            const out = [];
+            if (view.publish.hosts.length > 0) {
+                const inflight = (view.inflight > 0) ? `${view.inflight} in flight` : 'served';
+                out.push({label: 'Requests', value: count_words(view.requests), small: inflight, share: null, title: `${view.requests} served since serviceman began counting`});
+            }
+            if (this.driven && (view.policy.instances.max > 1)) {
+                out.push({label: 'Copies', value: `${view.instances_running} of ${view.policy.instances.max}`, small: '', share: null, title: 'running now, of the most it may have'});
+            }
+            // The machine a copy runs on, or the first it may run on while none does
+            const on = view.instances.find(v => (typeof v.remote === 'string') && (v.remote !== ''));
+            const name = (on !== undefined) ? on.remote : ((this.place === null) ? null : this.place.name);
+            if (this.driven && (name !== null)) {
+                const title = `${name}, the whole machine`;
+                out.push(...machine_facts(this.remotes.find(v => v.name === name)).map(v => Object.assign({title}, v)));
+            }
+            return out;
         },
         // How it stands, once, with its time: running · up 58s, stopped, failed, restarting ·
         // 3rd time, waits for its machine

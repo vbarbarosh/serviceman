@@ -1,33 +1,16 @@
-import clock_of from './clock_of.js';
-import format_ms from './format_ms.js';
-import machine_shares from './machine_shares.js';
-import overview_icons from './overview_icons.js';
 import service_command_parts from './service_command_parts.js';
-import size_words from './size_words.js';
 import to_clipboard from './to_clipboard.js';
 
 // How many of the lines it said the Overview shows, the newest
 const LINES_SHOWN = 6;
 
-// A service's Overview, as drawn: four tiles (how long it is up, its last start or its requests,
-// how often it failed to start and what it does then, and its machine's numbers), then what runs,
-// readable, with Copy and Edit; its newest lines; and its addresses, or that it has none. Nothing
-// to set is here: its settings are their own tab, and Edit or Add leads there.
+// A service's Overview, as drawn: what runs, readable, with Copy and Edit; its newest lines; and
+// its addresses, or that it has none. How long it is up and its machine's numbers are in the head
+// above it, its failed starts in the note there. Nothing to set is here: its settings are their
+// own tab, and Edit or Add leads there.
 const service_overview = {
     template: `
 <article id="detail" class="list svc-ov">
-    <div class="ov-tiles">
-        <div v-for="tile of tiles" :key="tile.label" class="card ov-tile" :class="(tile.tone === '') ? '' : ('ov-' + tile.tone)">
-            <span class="ov-label"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icons[tile.icon]"/>{{ tile.label }}</span>
-            <b>{{ tile.text }}<small v-if="(tile.unit !== '')">{{ tile.unit }}</small></b>
-            <small class="muted">{{ tile.note }}</small>
-        </div>
-        <div v-if="(machine !== null)" class="card ov-tile svc-machine">
-            <span class="ov-label"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icons.server"/>{{ machine.name }}</span>
-            <span v-for="row of machine.rows" :key="row.label" class="svc-meter-row"><span>{{ row.label }}</span><span class="meter"><i :style="{width: (Math.round(row.share*100) + '%')}"/></span><span>{{ Math.round(row.share*100) }}%</span></span>
-            <small class="muted">{{ machine.note }}</small>
-        </div>
-    </div>
     <div class="svc-ov-grid">
         <section class="card svc-runs">
             <div class="card-head">
@@ -91,62 +74,13 @@ const service_overview = {
     },
     computed: {
         icons: function () {
-            return Object.assign({}, overview_icons, {
-                server: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/>',
+            return {
                 globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
-                bolt: '<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>',
-                again: '<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/>',
-            });
+            };
         },
-        // Whether it runs, so it has a time up, a last start and its own lines
+        // Whether it runs, so it has its own lines
         driven: function () {
             return (this.view.type === 'docker') || (this.view.type === 'shell');
-        },
-        // Up for, its last start or its requests, its failed starts: each {label, icon, text,
-        // unit, note, tone}
-        tiles: function () {
-            const view = this.view;
-            const out = [];
-            if (this.driven) {
-                if ((view.phase === 'running') && (view.uptime_ms !== null)) {
-                    const up = parts_of(view.uptime_ms);
-                    // Several copies at once: how many run of how many it may have
-                    const copies = (view.policy.instances.max > 1) ? ` · ${view.instances_running} of ${view.policy.instances.max} copies` : '';
-                    out.push({label: 'Up for', icon: 'clock', text: up.n, unit: up.unit, note: `${(view.started_at === null) ? '' : `since ${clock_of(view.started_at)}`}${copies}`, tone: ''});
-                }
-                else {
-                    out.push({label: 'Up for', icon: 'clock', text: '—', unit: '', note: ((view.stopped_at === null) || (view.stopped_at === undefined)) ? 'not running' : `stopped since ${clock_of(view.stopped_at)}`, tone: 'off'});
-                }
-            }
-            if (view.publish.hosts.length > 0) {
-                out.push({label: 'Requests', icon: 'link', text: count_words(view.requests), unit: '', note: `served · ${view.inflight} in flight${(view.queue > 0) ? ` · ${view.queue} waiting` : ''}`, tone: ''});
-            }
-            else if (this.driven) {
-                const took = (view.cold_start_ms === null) ? null : parts_of(view.cold_start_ms);
-                out.push({label: 'Last start', icon: 'bolt', text: (took === null) ? '—' : took.n, unit: (took === null) ? '' : took.unit, note: (took === null) ? 'not started since serviceman began' : 'from Start to running', tone: (took === null) ? 'off' : ''});
-            }
-            if (this.driven) {
-                out.push({label: 'Failed starts', icon: 'again', text: String(view.failures || 0), unit: '', note: `in a row · ${restart_said(view.policy.restart)}`, tone: ((view.failures || 0) > 0) ? 'bad' : ''});
-            }
-            return out;
-        },
-        // Its machine's numbers, the whole machine's, labelled so; null with none to show
-        machine: function () {
-            if ((this.driven === false) || (this.view.remotes.length === 0)) {
-                return null;
-            }
-            const remote = (this.remotes || []).find(v => v.name === this.view.remotes[0]);
-            if ((remote === undefined) || (remote.phase !== 'online') || (remote.machine === null) || (remote.machine === undefined)) {
-                return null;
-            }
-            const shares = machine_shares(remote.machine);
-            const rows = [{label: 'CPU', share: shares.cpu}, {label: 'Memory', share: shares.memory}, {label: 'Disk', share: shares.disk}].filter(v => v.share !== null);
-            if (rows.length === 0) {
-                return null;
-            }
-            const mem = remote.machine.mem;
-            const note = ((mem.free === null) || (mem.total === null)) ? 'the whole machine' : `the whole machine: ${size_words(mem.total - mem.free)} of ${size_words(mem.total)} memory`;
-            return {name: remote.name, rows, note};
         },
         // What runs, readable: its facts in a line, the program on a line of its own, each
         // option with its value as a chip; line is what Copy takes
@@ -250,37 +184,5 @@ const service_overview = {
         },
     },
 };
-
-// A time as a tile says it, its number and its unit apart: {n: '58', unit: 's'}
-function parts_of(ms)
-{
-    const said = format_ms(ms);
-    const found = /^([\d.]+)\s*([a-zµ]+)(.*)$/i.exec(said);
-    return (found === null) ? {n: said, unit: ''} : {n: found[1], unit: `${found[2]}${found[3]}`};
-}
-
-// A count as a tile says it: 4100 is 4.1k
-function count_words(n)
-{
-    if (n >= 1000000) {
-        return `${(n/1000000).toFixed(1)}M`;
-    }
-    if (n >= 1000) {
-        return `${(n/1000).toFixed(1)}k`;
-    }
-    return String(n);
-}
-
-// What it does when it stops badly, in words
-function restart_said(restart)
-{
-    if ((restart === 'no') || (restart === false) || (restart === null)) {
-        return 'it stays stopped when it stops badly';
-    }
-    if (restart === 'always') {
-        return 'it restarts whenever it stops';
-    }
-    return 'it restarts when it stops badly';
-}
 
 export default service_overview;

@@ -57,9 +57,10 @@ link:
 
 ## A database's page
 
-Its name, how it stands, its engine and its machine; its size, its tables, its server and where
-it is reached from; the apps given it and the variable each finds it in, each a link to its
-service; the databases beside it in its server. **Remove…** is there (below).
+Its head: its name, how it stands, its engine, its server and its machine, then its size, its
+tables and where it is reached from; under it, the apps given it and the variable each finds it
+in, each a link to its service; the databases beside it in its server. **Remove…** is there
+(below).
 
 ## The passwords
 

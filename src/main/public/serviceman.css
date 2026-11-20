@@ -1488,6 +1488,7 @@ ul.tried {
    line of what it is, the actions on the right, and the tabs in the card's foot, at most six,
    the rest under More ▾ */
 .item-card {
+    container: item-card / inline-size;
     min-width: 0;
     margin: 28px 32px 0;
     border: 1px solid var(--line);
@@ -1552,6 +1553,86 @@ ul.tried {
     flex: none;
     gap: 8px;
     align-items: center;
+}
+
+/* What a page's tiles said, in its head's empty part between the name and the buttons: a label
+   over a value, a bar under the ones that have one */
+.item-facts {
+    display: flex;
+    flex: none;
+    margin: 0 0 0 auto;
+}
+
+.item-facts > div {
+    min-width: 0;
+    padding: 2px 22px;
+    border-left: 1px solid var(--line);
+}
+
+.item-facts > div:first-child {
+    border-left: 0;
+}
+
+.item-facts dt {
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.item-facts dd {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 650;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.item-facts dd small {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.item-facts .meter {
+    display: block;
+    width: 120px;
+    max-width: none;
+    height: 6px;
+    margin: 7px 0 0;
+}
+
+/* In a head of a row of its own (a database's), they stand just before its buttons */
+.item-facts + .crumb-acts {
+    margin-left: 6px;
+}
+
+/* A head too narrow for them beside the name: the facts take a row of their own under it */
+@container item-card (max-width: 72rem) {
+    .item-top {
+        flex-wrap: wrap;
+    }
+
+    .item-facts {
+        order: 3;
+        width: 100%;
+        margin: 0;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .item-facts > div {
+        flex: 1;
+        padding: 0 12px;
+    }
+
+    .item-facts > div:first-child {
+        padding-left: 0;
+    }
+
+    .item-facts .meter {
+        width: 100%;
+    }
 }
 
 .item-acts > button,
@@ -1769,6 +1850,27 @@ ul.tried {
         display: none;
     }
 
+    .item-facts dd small {
+        display: none;
+    }
+
+    .item-head .item-facts {
+        order: 3;
+        width: 100%;
+        margin: 0;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .item-head .item-facts > div {
+        flex: 1;
+        padding: 0 12px;
+    }
+
+    .item-head .item-facts > div:first-child {
+        padding-left: 0;
+    }
+
     .item-card .tabbar {
         overflow: hidden;
         padding: 0 6px;
@@ -1928,24 +2030,6 @@ ul.tried {
     font-size: 13.5px;
 }
 
-.svc-machine .svc-meter-row {
-    display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr) 2.8rem;
-    gap: 10px;
-    align-items: center;
-    font-size: 13.5px;
-}
-
-.svc-machine .svc-meter-row > span:last-child {
-    text-align: right;
-}
-
-.svc-machine .meter {
-    height: 6px;
-    max-width: none;
-    margin: 0;
-}
-
 /* The note under a service's head, when how it stands wants a word: its icon, why, the lines it
    said in a box of their own, and the one way on at the right; edged and tinted by its tone */
 .card.svc-note {
@@ -2062,10 +2146,6 @@ ul.tried {
     .svc-note > button {
         margin-left: 32px;
     }
-}
-
-.svc-ov .ov-tile small {
-    white-space: normal;
 }
 
 @media (max-width: 600px) {
@@ -7737,26 +7817,7 @@ button.st-pill.problem-where {
     }
 }
 
-/* Security, as drawn: the numbers to mend red, to look at orange; a pill in every cell */
-.security-tiles {
-    margin-bottom: 18px;
-}
-
-.security-tiles .ov-tile b small {
-    margin-left: 4px;
-    color: var(--muted);
-    font-size: 15px;
-    font-weight: 400;
-}
-
-.security-tiles .ov-mend b {
-    color: var(--bad);
-}
-
-.security-tiles .ov-look b {
-    color: var(--busy-text);
-}
-
+/* Security, as drawn: a pill in every cell */
 .security .dt-name {
     display: inline-flex;
     flex-direction: column;
@@ -8017,16 +8078,6 @@ button.st-pill.problem-where {
 .databases .db-sub {
     margin: 1.4rem 0 .5rem;
     font-size: 1rem;
-}
-
-.databases .ov-tiles {
-    margin-top: 1rem;
-}
-
-.databases .ov-tile b {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /* The apps of a row wrap in their cell, each a link to its service */
