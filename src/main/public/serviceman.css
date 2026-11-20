@@ -1681,15 +1681,28 @@ ul.tried {
 
 /* Something wrong with the item, said under its head: a red note card, its action at its end */
 .item-note {
+    --edge: var(--bad);
+    position: relative;
     display: flex;
     gap: 14px;
     align-items: center;
     margin: 18px 32px 0;
-    padding: 14px 18px;
+    padding: 14px 18px 14px 21px;
     border: 1px solid var(--bad-edge);
-    border-left: 4px solid var(--bad);
-    border-radius: 6px;
+    border-radius: 0;
     background: var(--bad-soft);
+}
+
+/* The coloured edge, a bar over the frame's left side from its top line to its bottom one, so
+   its corners meet at right angles */
+.item-note::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 4px;
+    background: var(--edge);
 }
 
 .item-note > svg {
@@ -1936,30 +1949,44 @@ ul.tried {
 /* The note under a service's head, when how it stands wants a word: its icon, why, the lines it
    said in a box of their own, and the one way on at the right; edged and tinted by its tone */
 .card.svc-note {
+    --edge: var(--idle);
+    position: relative;
     display: flex;
     gap: 14px;
     align-items: flex-start;
     min-width: 0;
     margin: 16px 32px 0;
-    padding: 16px 18px;
-    border-left: 4px solid var(--idle);
+    padding: 16px 18px 16px 21px;
+    border-radius: 0;
+}
+
+/* The coloured edge, a bar over the frame's left side from its top line to its bottom one, so
+   its corners meet at right angles */
+.card.svc-note::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 4px;
+    background: var(--edge);
 }
 
 .card.svc-note-acc {
+    --edge: var(--accent);
     border-color: var(--accent-edge);
-    border-left-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 14%, var(--panel));
 }
 
 .card.svc-note-bad {
+    --edge: var(--bad);
     border-color: var(--bad-edge);
-    border-left-color: var(--bad);
     background: var(--bad-soft);
 }
 
 .card.svc-note-busy {
+    --edge: var(--busy);
     border-color: var(--busy-edge);
-    border-left-color: var(--busy);
     background: var(--busy-soft);
 }
 
@@ -2029,7 +2056,7 @@ ul.tried {
     .card.svc-note {
         flex-wrap: wrap;
         margin: 12px 12px 0;
-        padding: 14px;
+        padding: 14px 14px 14px 17px;
     }
 
     .svc-note > button {
@@ -5087,22 +5114,35 @@ button.link.page-head-how {
 }
 
 .cat-card {
+    --edge: var(--bad);
+    position: relative;
     display: flex;
     gap: 1.1rem;
     align-items: flex-start;
     min-width: 0;
-    padding: 1rem 1.2rem;
+    padding: 1rem 1.2rem 1rem calc(1.2rem + 3px);
     border: 1px solid var(--bad-edge);
-    border-left: 4px solid var(--bad);
-    border-radius: 6px;
+    border-radius: 0;
     background: var(--bad-soft);
     color: var(--fg);
     text-align: left;
 }
 
+/* The coloured edge, a bar over the frame's left side from its top line to its bottom one, so
+   its corners meet at right angles */
+.cat-card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 4px;
+    background: var(--edge);
+}
+
 .cat-card.warn {
+    --edge: var(--busy);
     border-color: var(--busy-edge);
-    border-left-color: var(--busy);
     background: var(--busy-soft);
 }
 
@@ -5150,16 +5190,29 @@ button.link.page-head-how {
 }
 
 .cat-well {
+    --edge: var(--run);
+    position: relative;
     display: flex;
     gap: .5rem;
     align-items: center;
     margin-top: .5rem;
-    padding: .7rem 1rem;
+    padding: .7rem 1rem .7rem calc(1rem + 3px);
     border: 1px solid var(--run-edge);
-    border-left: 4px solid var(--run);
-    border-radius: 6px;
+    border-radius: 0;
     background: var(--run-soft);
     color: var(--run);
+}
+
+/* The coloured edge, a bar over the frame's left side from its top line to its bottom one, so
+   its corners meet at right angles */
+.cat-well::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 4px;
+    background: var(--edge);
 }
 
 .cat-bigs {
@@ -7425,19 +7478,33 @@ article.rf .actions {
 }
 
 .card.problem {
+    --edge: var(--bad);
+    position: relative;
     display: flex;
     gap: 14px;
     align-items: flex-start;
     margin-bottom: 14px;
-    padding: 16px 18px;
+    padding: 16px 18px 16px 21px;
     border-color: var(--bad-edge);
-    border-left: 4px solid var(--bad);
+    border-radius: 0;
     background: var(--bad-soft);
 }
 
+/* The coloured edge, a bar over the frame's left side from its top line to its bottom one, so
+   its corners meet at right angles */
+.card.problem::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 4px;
+    background: var(--edge);
+}
+
 .card.problem.problem-warn {
+    --edge: var(--busy);
     border-color: var(--busy-edge);
-    border-left-color: var(--busy);
     background: var(--busy-soft);
 }
 
