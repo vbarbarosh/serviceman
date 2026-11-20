@@ -5322,10 +5322,71 @@ button.link.page-head-how {
     }
 }
 
+/* As drawn for a phone: the tiles two to a row, a little smaller, and the groups two to a row */
 @media (max-width: 640px) {
-    .cat-bigs,
+    .cat-card {
+        gap: .9rem;
+        padding: .85rem 1rem;
+    }
+
+    .cat-card-count {
+        min-width: 1.6rem;
+        font-size: 42px;
+    }
+
+    .cat-bigs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .cat-big {
+        gap: .45rem;
+        padding: 12px;
+    }
+
+    .cat-big-count {
+        font-size: 38px;
+    }
+
+    .cat-marks {
+        gap: 4px;
+    }
+
+    .cat-mark {
+        width: 10px;
+        height: 10px;
+    }
+
+    .cat-bar {
+        height: 10px;
+    }
+
+    .cat-big-line {
+        font-size: 13.5px;
+    }
+
     .cat-lists {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem 10px;
+    }
+
+    /* A half-width row keeps its name whole: a tally too long for the room ("12 to look at")
+       goes under it, on the right */
+    .cat-row {
+        flex-wrap: wrap;
+        gap: 2px .45rem;
+        height: auto;
+        min-height: 46px;
+        padding: 6px .55rem;
+    }
+
+    .cat-row-name {
+        flex: 1 1 auto;
+    }
+
+    .cat-row-tally {
+        margin-left: auto;
+        font-size: .72rem;
     }
 }
 

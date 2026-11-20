@@ -143,8 +143,9 @@ service, its state, its addresses, its policy and its instances, and it does the
   card for each category in trouble with its count big and what it is about (services that
   failed, by name, among them; one whose machine is away is the Remotes card's); then Services,
   Remotes, Addresses and Apps as four big tiles, a mark for each in the colour of its state;
-  then the other categories as short lists in their groups. Every other crumb goes back up to
-  it; the address follows them, so a reload or a link lands on the same place.
+  then the other categories as short lists in their groups. On a phone the tiles and the groups
+  stand two to a row. Every other crumb goes back up to it; the address follows them, so a
+  reload or a link lands on the same place.
 - **Map** — all of it as one picture, in a card that counts its addresses, services and
   machines: every address to the service that answers it, every service to the machine it runs
   on (a solid line where it runs now, a dashed one where it may), and every machine to Logline
