@@ -222,7 +222,7 @@ const load_tests_pane = {
                 {key: 'service', label: 'Target', fold: 3},
                 {key: 'remote', label: 'Run from', fold: 1},
                 {key: 'load', label: 'Load', fold: 2, phone: 'hide'},
-                {key: 'last', label: 'State', phone: 'state'},
+                {key: 'last', label: 'Status', phone: 'state'},
             ];
         },
         // The footer: how many tests, running, and failed last time

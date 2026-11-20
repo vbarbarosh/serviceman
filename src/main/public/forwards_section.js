@@ -106,8 +106,8 @@ const forwards_section = {
         <template #empty_act><button type="button" class="primary" :disabled="making" @click="begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New forward</button></template>
         <template #cell="{row, column}">
             <name-cell v-if="(column.key === 'label')" :icon="FORWARDS_ICON" :name="row.label" :line="line_of(row)" :tone="(said_of(row).bad ? 'bad' : '')"/>
-            <template v-else-if="(column.key === 'from')"><b>{{ title_of(row.from.remote) }}</b> <code>{{ end_text(row.from) }}</code></template>
-            <template v-else-if="(column.key === 'to')"><b>{{ place_of(row.to) }}</b> <code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
+            <template v-else-if="(column.key === 'from')"><b>{{ title_of(row.from.remote) }}</b>{{ port_alone(row.from) ? ':' : ' ' }}<code>{{ end_text(row.from) }}</code></template>
+            <template v-else-if="(column.key === 'to')"><b>{{ place_of(row.to) }}</b>{{ port_alone(row.to) ? ':' : ' ' }}<code :title="(row.at === null ? '' : row.at)">{{ landed_text(row.to) }}</code></template>
             <template v-else-if="(column.key === 'speed')"><span class="fwd-speed" :class="{muted: idle(row)}">{{ speed_text(row) }}</span> <svg class="fwd-spark" viewBox="0 0 80 18" width="56" height="18" preserveAspectRatio="none" :aria-label="('the last ' + history_minutes(row) + ' minutes')"><polyline class="back" :points="spark(row, row.history_back)"/><polyline class="sent" :points="spark(row, row.history_sent)"/></svg></template>
             <span v-else-if="(column.key === 'through')" class="muted">{{ through_text(row) }}</span>
             <state-pill v-else-if="(column.key === 'now')" :tone="pill_of(row)" :text="said_of(row).word"/>
@@ -384,6 +384,11 @@ const forwards_section = {
                 return `${this.state_folder}/${forward_end.socket}`;
             }
             return this.end_text(Object.assign({socket: null, host: null}, forward_end));
+        },
+        // An end that is a port alone on its machine, written vps1:5432, the colon in the
+        // page's own font; an address or a socket stands a space apart
+        port_alone: function (forward_end) {
+            return ((forward_end.socket === null) || (forward_end.socket === undefined)) && ((forward_end.host === null) || (forward_end.host === undefined));
         },
         end_text: function (forward_end) {
             if (forward_end.socket !== null) {

@@ -296,7 +296,7 @@ const shared_folders_pane = {
             return [
                 {key: 'name', label: 'Name'},
                 {key: 'mounts', label: 'Mounted on', fold: 1, phone: 'row'},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ];
         },
         // The footer: how many folders, mounted where, and how many need a look

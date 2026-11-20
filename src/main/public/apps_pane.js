@@ -31,7 +31,7 @@ const STATE_WORDS = {running: 'running', starting: 'starting', stopping: 'stoppi
 const APP_COLUMNS = [
     {key: 'name', label: 'Name'},
     {key: 'address', label: 'Address', fold: 1, phone: 'row'},
-    {key: 'state', label: 'State', phone: 'state'},
+    {key: 'state', label: 'Status', phone: 'state'},
 ];
 
 // The small apps: the ones of files serviceman serves, the ones that run from a folder of their

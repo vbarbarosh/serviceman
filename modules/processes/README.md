@@ -26,7 +26,7 @@ serviceman is the first host: its Processes tab of a machine is this component, 
 
 ## Read when asked
 
-The list is read when the component opens and when Read again is pressed, never on a clock: a
+The list is read when the component opens and when Refresh is pressed, never on a clock: a
 table this long, read again every second, would be a machine talking about itself all day, and
 a tree that moves under the hand is one nobody can read. The folds are kept, by pid, across a
 read that brings the same tree back.
@@ -74,12 +74,12 @@ The page half: the host serves `ui/` and maps it in its import map:
 
 `cores` is how many the machine has: the processes' CPU together is a share of them all.
 `connected_at` changes each time the machine dials back in, and a read that failed while it was
-away is read again then. `offline` greys Read again.
+away is read again then. `offline` greys Refresh.
 
 The host page gives the colours and the classes the component shares with it: `list-tools`,
 `list-right`, `seg`, `load`, `meter`, `muted`, `bad`; its list is the page's `items_view.js`,
 imported from beside it, which draws the columns the manifest names (see
-[the shape every module has](../../README.md#modules)) and has the filter, Read again, the copy
+[the shape every module has](../../README.md#modules)) and has the filter, Refresh, the copy
 button, the tree and its folds.
 
 ## In serviceman

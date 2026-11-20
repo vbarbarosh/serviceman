@@ -144,7 +144,7 @@ const remotes_pane = {
                 {key: 'memory', label: 'Memory', fold: 5, phone: 'row'},
                 {key: 'disk', label: 'Disk', fold: 4, phone: 'row'},
                 {key: 'services', label: 'Services', fold: 6, align: 'right', phone: 'hide'},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ];
         },
         // How the Canvas draws each machine, by its name

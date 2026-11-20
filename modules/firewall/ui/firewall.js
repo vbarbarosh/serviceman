@@ -47,12 +47,12 @@ const firewall = {
 <article class="fw">
     <div v-if="(state === null)" class="fw-first">
         <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ (note === '' ? 'Asking the machine for its firewall…' : note) }}</span>
-        <button v-if="bad" type="button" :disabled="(busy || offline)" @click="read">Read again</button>
+        <button v-if="bad" type="button" :disabled="(busy || offline)" @click="read">Refresh</button>
     </div>
     <div v-else-if="(state.installed === false)" class="card fw-card">
         <b>ufw is not on this machine.</b>
         <p class="muted">Install it in its Shell, then read again: <code>sudo apt-get install ufw</code></p>
-        <div><button type="button" :disabled="offline" @click="read">Read again</button></div>
+        <div><button type="button" :disabled="offline" @click="read">Refresh</button></div>
     </div>
     <template v-else>
         <div class="list-head">
@@ -62,7 +62,7 @@ const firewall = {
             <span v-if="(note !== '')" class="fw-cut" :class="(bad ? 'bad' : 'muted')" :title="note"><span v-if="busy" class="spin"/>{{ note }}</span>
             <div class="list-acts">
                 <button type="button" :class="{primary: (state.active === false)}" :disabled="(busy || offline)" @click="switch_to(state.active ? 'disable' : 'enable')">{{ (state.active ? 'Turn off' : 'Turn on') }}</button>
-                <button type="button" :disabled="(busy || offline)" @click="read">Read again</button>
+                <button type="button" :disabled="(busy || offline)" @click="read">Refresh</button>
             </div>
         </div>
         <!-- Turning it on with nothing to let ssh in closes ssh; the host says what still reaches it -->

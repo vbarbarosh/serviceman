@@ -129,7 +129,7 @@ const logline_pane = {
         columns: function () {
             return [
                 {key: 'name', label: 'Remote', wraps: true},
-                {key: 'stage', label: 'Its logs'},
+                {key: 'stage', label: 'Status'},
                 {key: 'sent', label: 'Sent', fold: 1, hide: v => (v.sent === '')},
                 {key: 'waiting', label: 'Waiting', fold: 2, hide: v => (v.waiting === '')},
                 {key: 'last', label: 'Last sent'},

@@ -413,7 +413,7 @@ on that machine, as the tree it is: each one under the one that started it. It s
 first level open, and a click on a process opens the ones it started, or closes them, and shows
 it whole in a window over the page: its full command, its parent and every number. Typing in its box keeps the processes whose command, user or pid match, with the ones
 above them dimmed so each keeps its place in the tree; **List** lists them heaviest CPU first
-instead, and a column's header sorts by it, RSS for the heaviest in memory. It is `ps` run over there when the pane opens and when **Read again**
+instead, and a column's header sorts by it, RSS for the heaviest in memory. It is `ps` run over there when the pane opens and when **Refresh**
 is pressed, never on a clock. The ports it listens on are in the **Firewall** tab, below.
 
 **Disks** is every filesystem mounted there, from `df`, and **What takes the space** counts
@@ -537,7 +537,7 @@ lets through. (It was two tabs, Ports and Firewall; an old `/ports` address open
 
 **The ports** are everything the machine is listening on — tcp and udp, v4 and v6 — with what
 is holding each socket, one row per port and holder, read with `ss` when the tab opens and when
-**Read again** is pressed. Each says who its address lets reach it: the internet (a public
+**Refresh** is pressed. Each says who its address lets reach it: the internet (a public
 address, or every address of a machine that has a public one), a network (a private range,
 link-local, or the tailnet's `100.64.0.0/10`), or this machine only (loopback). Beside it, what
 the firewall does to it: let in by a rule, kept out by a rule or by the default, or, while the
@@ -572,7 +572,7 @@ where something is to be mended, orange where it wants a look, grey where there 
 say; a find box and the chips All, To mend and To look at narrow it. A click on a row
 shows what stands behind each check, and mends it with a click where the machine's root half
 can (below), else opens the tab of the machine's page that mends it.
-Each machine is looked over once an hour, as soon as it connects, and on **Check again**, which
+Each machine is looked over once an hour, as soon as it connects, and on **Refresh**, which
 looks at every connected machine at once. A machine that is away keeps its last look, faded.
 Health has a Security column that leads there; nothing here counts as a problem.
 
@@ -620,7 +620,7 @@ it does it, the check as the look after it finds it:
 A machine with no root half, or an agent from before 1.30.0, has no button: its check says how
 to do it by hand and opens the tab that does.
 
-`GET /api/v1/security` is the page as JSON; `POST /api/v1/security/check` is Check again, and
+`GET /api/v1/security` is the page as JSON; `POST /api/v1/security/check` is Refresh, and
 answers the machines being looked at; `POST /api/v1/security/mend` `{"remote", "mend"}`
 (`ssh_passwords_off`, `ssh_passwords_on`, `auto_updates_on`) is a click, one at a time a
 machine, and answers once the machine has been looked at again.

@@ -128,7 +128,7 @@ export default {
                 {key: 'apps', label: 'Apps', fold: 2},
                 {key: 'machines', label: 'Published on', fold: 3},
                 {key: 'address', label: 'Address', fold: 1, phone: 'row'},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ];
         },
         // Every board as its row says it

@@ -15,7 +15,7 @@ serviceman is the first host: its Disks tab of a machine is this component, and 
 run over there by the machine's agent. **What takes the space**, on the list or on a disk's row,
 counts that disk's folders and shows them biggest first, each with its share; a click on a folder
 opens the folders inside it, from the same count: the machine keeps what its one walk found in
-every folder, for an hour after it was last asked for, and **Count again** walks the disk anew. Above them it says what the count cannot see: the
+every folder, for an hour after it was last asked for, and **Refresh** walks the disk anew. Above them it says what the count cannot see: the
 folders the agent could not read, files deleted but still held open, the space in no folder
 counted, and what docker and the system journal keep. A machine's Overview leads there from its Disk card.
 
@@ -90,7 +90,7 @@ The page half: the host serves `ui/` and maps it in its import map:
     <disks base="/disks" :offline="false" :connected_at="1761164000000"/>
 
 `connected_at` changes each time the machine dials back in, and a read that failed while it was
-away is read again then. `offline` greys Read again.
+away is read again then. `offline` greys Refresh.
 
 The host page gives the colours and the classes the component shares with it: `list-tools`,
 `list-right`, `chip`, `meter` (with `filling` and `full`), `tag`, `muted`, `bad`; its list is

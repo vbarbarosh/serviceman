@@ -78,7 +78,7 @@ The page half: the host serves `ui/` and maps it in its import map:
     <packages base="/packages" :offline="false" :connected_at="1761164000000"/>
 
 `connected_at` changes each time the machine dials back in, and a read that failed while it was
-away is read again then. `offline` greys Read again.
+away is read again then. `offline` greys Refresh.
 
 The host page gives the colours, as `--accent` and `--bad`, and the classes the component shares
 with it: `list-tools`, `list-right`, `chip`, `seg`, `tag`, `muted`, `bad`; its list is the

@@ -13,7 +13,7 @@ import state_pill from './state_pill.js';
 const SHOWN = {machines: ['Link', 'Agent', 'Disk'], services: ['State', 'Answers']};
 
 // How a column is headed when its check's own label is not the drawn one
-const HEADS = {Disk: 'Room'};
+const HEADS = {Disk: 'Room', Link: 'Status', State: 'Status'};
 
 // The columns a state pill says, not a word: how a machine is linked, how a service stands
 const PILLS = ['Link', 'State', 'Status'];

@@ -740,7 +740,7 @@ ui/processes.css              the component&#39;s rules
 tests/processes_serve.test.js the API over a fake read
 </code></pre>
 <h2 id="read-when-asked"><a class="anchor" href="#read-when-asked" aria-hidden="true" tabindex="-1">#</a>Read when asked</h2>
-<p>The list is read when the component opens and when Read again is pressed, never on a clock: a
+<p>The list is read when the component opens and when Refresh is pressed, never on a clock: a
 table this long, read again every second, would be a machine talking about itself all day, and
 a tree that moves under the hand is one nobody can read. The folds are kept, by pid, across a
 read that brings the same tree back.</p>
@@ -792,11 +792,11 @@ import processes from &#39;processes/processes.js&#39;;
 </code></pre>
 <p><code>cores</code> is how many the machine has: the processes&#39; CPU together is a share of them all.
 <code>connected_at</code> changes each time the machine dials back in, and a read that failed while it was
-away is read again then. <code>offline</code> greys Read again.</p>
+away is read again then. <code>offline</code> greys Refresh.</p>
 <p>The host page gives the colours and the classes the component shares with it: <code>list-tools</code>,
 <code>list-right</code>, <code>seg</code>, <code>load</code>, <code>meter</code>, <code>muted</code>, <code>bad</code>; its list is the page&#39;s <code>items_view.js</code>,
 imported from beside it, which draws the columns the manifest names (see
-<a href="../index.html#modules">the shape every module has</a>) and has the filter, Read again, the copy
+<a href="../index.html#modules">the shape every module has</a>) and has the filter, Refresh, the copy
 button, the tree and its folds.</p>
 <h2 id="in-serviceman"><a class="anchor" href="#in-serviceman" aria-hidden="true" tabindex="-1">#</a>In serviceman</h2>
 <ul>

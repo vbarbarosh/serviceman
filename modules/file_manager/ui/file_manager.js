@@ -108,7 +108,7 @@ const file_manager = {
         <button type="button" class="fm-icon" title="Type a path" aria-label="Type a path" :disabled="offline" @click="edit_start">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/></svg>
         </button>
-        <button type="button" class="fm-icon" :title="(open_file === null ? 'Read this folder again' : 'Read this file again')" aria-label="Read again" :disabled="(busy || offline || path === null)" @click="refresh">
+        <button type="button" class="fm-icon" :title="(open_file === null ? 'Refresh this folder' : 'Refresh this file')" aria-label="Refresh" :disabled="(busy || offline || path === null)" @click="refresh">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg>
         </button>
     </div>

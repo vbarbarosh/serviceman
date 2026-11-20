@@ -47,7 +47,7 @@ const docker = {
                     <button v-if="(tab === 'images')" type="button" :disabled="(busy || running_now || offline)" title="Every image no container was made from" @click="pruning = 'images-all'">Prune unused…</button>
                     <button v-if="(tab === 'volumes')" type="button" :disabled="(busy || running_now || offline)" title="Every volume no container mounts, and what is in it" @click="pruning = 'volumes'">Prune unused…</button>
                     <button v-if="(tab === 'networks')" type="button" :disabled="(busy || running_now || offline)" title="Every network no container is on" @click="pruning = 'networks'">Prune unused…</button>
-                    <button type="button" :disabled="(busy || running_now || offline)" @click="tab_read">Read again</button>
+                    <button type="button" :disabled="(busy || running_now || offline)" @click="tab_read">Refresh</button>
                 </template>
             </div>
         </div>

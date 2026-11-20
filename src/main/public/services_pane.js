@@ -97,7 +97,7 @@ const services_pane = {
                 {key: 'what', label: 'What', fold: 1},
                 {key: 'machine', label: 'Remote', fold: 2},
                 {key: 'address', label: 'Address', fold: 3, phone: 'row'},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ].filter(v => (this.embedded === false) || (v.key !== 'machine'));
         },
         // The footer: how many, how many run, sleep, and need a look, of the machine's or all

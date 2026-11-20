@@ -25,7 +25,7 @@ const COLUMNS = [
 // as the last look at it found. A click on a row shows what stands behind each check at the foot
 // of the view, and mends it with a click where its root half can (ssh's passwords, automatic
 // updates), else opens the tab of the machine's page that mends it. Each machine is looked at
-// once an hour and when it connects; Check again looks at every one now.
+// once an hour and when it connects; Refresh looks at every one now.
 const security_pane = {
     template: `
 <article id="detail" class="list security">
@@ -33,10 +33,10 @@ const security_pane = {
         <template #state><span v-if="(summary.text !== '')" class="page-head-count" :class="summary.state">{{ summary.text }}</span></template>
         <template #acts>
             <span class="page-head-when" :title="checked_title"><span v-if="(looking > 0)" class="spin"/>{{ checked_text }}</span>
-            <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/>{{ ((asking || checking) ? 'Checking…' : 'Check again') }}</button>
+            <button type="button" :disabled="(asking || checking)" @click="check_again"><span v-if="(asking || checking)" class="spin"/><svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg>{{ ((asking || checking) ? 'Checking…' : 'Refresh') }}</button>
         </template>
         <template #how>
-            <p>Each machine is looked over once an hour, when it connects and on Check again: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported; the critical CVEs that hit it, as Ubuntu's own list says them. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
+            <p>Each machine is looked over once an hour, when it connects and on Refresh: what the internet gets to, each port knocked from here; its firewall; whether ssh takes passwords; updates, and whether they install themselves; how long its release is supported; the critical CVEs that hit it, as Ubuntu's own list says them. A click on a row says what stands behind each check, and mends it there where the machine's root half can (ssh's passwords, automatic updates), or opens the tab that does.</p>
         </template>
     </page-head>
     <p v-if="(error !== null)" class="alert">{{ error }}</p>
@@ -81,7 +81,7 @@ const security_pane = {
     props: ['state'],
     emits: ['remote', 'tab'],
     data: function () {
-        // asked: Check again was pressed and its looks have not shown in the status yet, so the
+        // asked: Refresh was pressed and its looks have not shown in the status yet, so the
         // button says Checking from the click on, not a second later
         // mends: the mend a click started on each machine, until a look after it shows; the
         // status says it too, for a page opened meanwhile. mend_errors: why one failed, by

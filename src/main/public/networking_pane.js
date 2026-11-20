@@ -115,7 +115,7 @@ bin/restart</pre>
                 {key: 'machine', label: 'Remote', fold: 3},
                 {key: 'service', label: 'Answered by', fold: 4},
                 {key: 'behind', label: 'In front', fold: 2},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ];
         },
         door_columns: function () {

@@ -160,7 +160,7 @@ const databases_pane = {
                 {key: 'machine', label: 'Remote', fold: 3},
                 {key: 'size', label: 'Size', align: 'right', fold: 2, phone: 'hide'},
                 {key: 'apps', label: 'Given to', wraps: true, fold: 5, phone: 'row'},
-                {key: 'state', label: 'State', phone: 'state'},
+                {key: 'state', label: 'Status', phone: 'state'},
             ];
         },
         // The footer: how many, how many run, how many need a look

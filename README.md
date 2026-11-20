@@ -98,7 +98,7 @@ lowest first, `none` what an empty cell says; `search`, the fields a filter look
 `{id, parent}`, the fields that put each item under another; `group`, the field items stand
 together by, each group a branch of the tree with its items under it; `sort`, the order it
 starts in. The page's `items_view.js` draws every module's
-lists from them, the same way everywhere: the filter, Read again and the commands to copy, a
+lists from them, the same way everywhere: the filter, Refresh and the commands to copy, a
 header that sorts, a tree that folds. A module draws a cell itself only where it says more than
 its `as`, and reads its items itself where its commands change them under the hand.
 

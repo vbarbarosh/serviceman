@@ -33,7 +33,7 @@ const remote_databases = {
                 {key: 'engine', label: 'Engine', fold: 3},
                 {key: 'size', label: 'Size', align: 'right', fold: 2},
                 {key: 'apps', label: 'Given to', wraps: true, fold: 4},
-                {key: 'state', label: 'State'},
+                {key: 'state', label: 'Status'},
                 {key: 'detail', label: 'Detail', fold: 1, hide: v => (v.detail === '')},
             ];
         },

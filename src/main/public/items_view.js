@@ -12,14 +12,14 @@ import module_kind from './module_kind.js';
 // gives the columns and how each is shown (as), the field that names an item (key), what it is
 // searched by (search), how it stands as a tree (tree) or in groups (group), and the order it
 // starts in (sort; a tree's is the order of its List). The page draws every module's lists the
-// same way: a filter, Read again, the commands to copy, a header that sorts, a tree that folds,
+// same way: a filter, Refresh, the commands to copy, a header that sorts, a tree that folds,
 // the rest asked for past a screenful.
 //
 // Props
 //     base           the module's GET for the items
 //     items          the items, for a module that reads them and changes them itself (a
 //                    command's row shown at once, before the machine has done it): then this
-//                    reads nothing, and the module has its own Read again
+//                    reads nothing, and the module has its own Refresh
 //     module, kind   whose manifest says what they are, and which of its kinds
 //     offline        the machine is away: nothing to read
 //     connected_at   changes each time the machine dials back in: a read that failed is tried
@@ -79,7 +79,7 @@ const items_view = {
             </span>
             <button v-if="fold_shown" type="button" @click="fold_all">{{ (folded ? 'Unfold all' : 'Fold all') }}</button>
             <template v-if="(items === null)">
-                <button type="button" :disabled="(busy || offline || (kind_now === null))" @click="read">Read again</button>
+                <button type="button" :disabled="(busy || offline || (kind_now === null))" @click="read">Refresh</button>
                 <command-copy :commands="commands"/>
             </template>
         </span>

@@ -26,7 +26,7 @@ const volumes = {
         <h2>Encrypted volumes</h2>
         <span class="muted">{{ items.length }}</span>
         <div class="list-acts">
-            <button type="button" :disabled="reading" @click="read">Read again</button>
+            <button type="button" :disabled="reading" @click="read">Refresh</button>
             <button type="button" class="primary" :disabled="(new_model !== null)" @click="new_show">New volume…</button>
         </div>
     </div>

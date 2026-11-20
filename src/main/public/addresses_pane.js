@@ -90,7 +90,7 @@ const addresses_pane = {
                 {key: 'set_in', label: 'Set in', fold: 3, phone: 'hide'},
                 {key: 'through', label: 'Arrives through', fold: 2, phone: 'hide'},
                 {key: 'behind', label: 'Behind', fold: 1, phone: 'hide'},
-                {key: 'on', label: 'On', phone: 'state'},
+                {key: 'on', label: 'Status', phone: 'state'},
             ];
         },
         // The footer: how many, behind a wall, not opening, and not told

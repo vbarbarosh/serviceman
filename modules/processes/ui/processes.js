@@ -12,7 +12,7 @@ import items_view from '../../items_view.js';
 // closes them, and shows it whole: its full command and every number, which a row has no room
 // for, in a window over the page, so the rows stay where they were clicked; Esc or a click
 // beside it puts it away. ps is run
-// over there when the pane opens and when Read again is pressed — a table this long on a clock
+// over there when the pane opens and when Refresh is pressed — a table this long on a clock
 // would be a machine talking about itself all day, and a tree that moves under the hand is one
 // nobody can read.
 const processes = {

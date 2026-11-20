@@ -173,9 +173,9 @@ test('a knock says answered where something listens, refused where nothing does'
     }
 });
 
-// The whole way: a machine with a root half dials in, Check again looks at it, and the page's
+// The whole way: a machine with a root half dials in, Refresh looks at it, and the page's
 // status carries its six checks, Health a Security column beside the rest
-test('Check again looks at every machine, and the status carries what it found', async function () {
+test('Refresh looks at every machine, and the status carries what it found', async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-security-'));
     const socket = path.join(dir, 'root.sock');
     const ufw = path.join(__dirname, '..', 'modules', 'firewall', 'tests', 'fake_ufw.js');

@@ -4,7 +4,7 @@ import format_bytes from '../../format_bytes.js';
 // share of what the disk uses, and a click on one opens the folders inside it. Counting reads
 // every folder, a minute on a big disk, so a disk is counted once, when asked: the machine
 // keeps what it found in every folder, and a folder opened is answered from that count at
-// once, the count kept from before too, which says when it was made, until Count again. While
+// once, the count kept from before too, which says when it was made, until Refresh. While
 // it is counted, the folders done so far show at once, already to be opened, with a clock and
 // the folders still to come. What the agent could not read is in the tree too: a
 // folder it could not read says so, docker's and the journal's own folders take the size they
@@ -25,7 +25,7 @@ const disk_usage = {
         <h2>What takes the space on <code>{{ root }}</code></h2>
         <span class="muted">{{ format_bytes(disk.used) }} used of {{ format_bytes(disk.total) }}</span>
         <div class="list-right">
-            <button type="button" :disabled="counting" @click="count_again"><span v-if="counting" class="spin"/>{{ counting ? 'Counting…' : 'Count again' }}</button>
+            <button type="button" :disabled="counting" @click="count_again"><span v-if="counting" class="spin"/>{{ counting ? 'Counting…' : 'Refresh' }}</button>
             <button type="button" @click="$emit('close')">Close</button>
         </div>
     </div>

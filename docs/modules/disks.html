@@ -732,7 +732,7 @@ the base, and decides who may ask.</p>
 run over there by the machine&#39;s agent. <strong>What takes the space</strong>, on the list or on a disk&#39;s row,
 counts that disk&#39;s folders and shows them biggest first, each with its share; a click on a folder
 opens the folders inside it, from the same count: the machine keeps what its one walk found in
-every folder, for an hour after it was last asked for, and <strong>Count again</strong> walks the disk anew. Above them it says what the count cannot see: the
+every folder, for an hour after it was last asked for, and <strong>Refresh</strong> walks the disk anew. Above them it says what the count cannot see: the
 folders the agent could not read, files deleted but still held open, the space in no folder
 counted, and what docker and the system journal keep. A machine&#39;s Overview leads there from its Disk card.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
@@ -813,7 +813,7 @@ import disks from &#39;disks/disks.js&#39;;
 &lt;disks base=&quot;/disks&quot; :offline=&quot;false&quot; :connected_at=&quot;1761164000000&quot;/&gt;
 </code></pre>
 <p><code>connected_at</code> changes each time the machine dials back in, and a read that failed while it was
-away is read again then. <code>offline</code> greys Read again.</p>
+away is read again then. <code>offline</code> greys Refresh.</p>
 <p>The host page gives the colours and the classes the component shares with it: <code>list-tools</code>,
 <code>list-right</code>, <code>chip</code>, <code>meter</code> (with <code>filling</code> and <code>full</code>), <code>tag</code>, <code>muted</code>, <code>bad</code>; its list is
 the page&#39;s <code>items_view.js</code>, imported from beside it, which draws the columns the manifest names

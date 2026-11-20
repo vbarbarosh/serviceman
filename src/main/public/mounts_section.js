@@ -148,7 +148,7 @@ const mounts_section = {
                 {key: 'to', label: 'To', fold: 5},
                 {key: 'mode', label: 'Mode', fold: 4, phone: 'hide'},
                 {key: 'through', label: 'Through', fold: 3, phone: 'hide'},
-                {key: 'now', label: 'State', phone: 'state'},
+                {key: 'now', label: 'Status', phone: 'state'},
             ];
         },
         chips: function () {
