@@ -607,7 +607,7 @@ const service_form = {
                 </div>
             </template>
             <template v-if="(section.id === 'where' && m.type === 'external')">
-                <label>Machine</label>
+                <label>Remote</label>
                 <div>
                     <select v-model="m.places[0].text">
                         <option value="">this host — where serviceman runs</option>
@@ -617,7 +617,7 @@ const service_form = {
                 </div>
             </template>
             <template v-if="(section.id === 'where' && m.type !== 'external')">
-                <label>Machines</label>
+                <label>Remotes</label>
                 <div>
                     <div v-for="(row, i) of m.places" :key="row.key" class="line">
                         <span class="muted step">{{ i === 0 ? 'first' : 'then' }}</span>
@@ -1025,7 +1025,7 @@ const service_form = {
             out.push({key: 'source', name: source.name, question: source.question, says: source.says, answer: this.source_answer(now)});
             if (['docker', 'app', 'program'].includes(this.what)) {
                 const says = (this.machine_cards.length === 0) ? NO_MACHINE_SAYS[this.what] : 'A machine whose agent is online; the free memory is now.';
-                out.push({key: 'machine', name: 'Machine', question: 'Where will it run?', says, answer: (now.places[0].text === '') ? '' : now.places[0].text});
+                out.push({key: 'machine', name: 'Remote', question: 'Where will it run?', says, answer: (now.places[0].text === '') ? '' : now.places[0].text});
             }
             const host = now.hosts.find(v => v.text !== '');
             out.push({key: 'address', name: 'Address', question: 'Where will people open it?', says: 'A name a request arrives on; serviceman routes it to this service.', answer: (host === undefined) ? '' : host.text});

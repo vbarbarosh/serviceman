@@ -223,7 +223,7 @@ const tokens_form = {
         columns: function () {
             return [
                 {key: 'label', label: 'Label'},
-                {key: 'machines', label: 'Machines', fold: 3},
+                {key: 'machines', label: 'Remotes', fold: 3},
                 {key: 'rights', label: 'Rights', fold: 2, wraps: true, phone: 'row'},
             ];
         },

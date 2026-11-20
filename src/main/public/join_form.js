@@ -10,7 +10,7 @@ const TOKEN_BYTES = 32;
 const join_form = {
     template: `
 <article id="detail" class="form">
-    <h1>Machines that join by themselves</h1>
+    <h1>Remotes that join by themselves</h1>
     <p class="muted">A machine started with this token adds itself, with a secret of its own, and begins carrying every service that asks for a tag it may claim. Leave it off and only the machines written here can connect.</p>
     <div class="grid">
         <label>Let machines join</label>

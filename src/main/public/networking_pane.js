@@ -112,7 +112,7 @@ bin/restart</pre>
         rule_columns: function () {
             return [
                 {key: 'host', label: 'Name', wraps: true},
-                {key: 'machine', label: 'Machine', fold: 3},
+                {key: 'machine', label: 'Remote', fold: 3},
                 {key: 'service', label: 'Answered by', fold: 4},
                 {key: 'behind', label: 'In front', fold: 2},
                 {key: 'state', label: 'State', phone: 'state'},
@@ -120,7 +120,7 @@ bin/restart</pre>
         },
         door_columns: function () {
             return [
-                {key: 'name', label: 'Machine', wraps: true},
+                {key: 'name', label: 'Remote', wraps: true},
                 {key: 'door', label: 'Door', fold: 3},
                 {key: 'routes', label: 'Routes'},
                 {key: 'streams', label: 'Riding now', fold: 2},

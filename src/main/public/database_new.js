@@ -221,7 +221,7 @@ const database_new = {
         steps: function () {
             return [
                 {key: 'engine', name: 'Engine', question: 'Which database?', says: '', answer: this.engine_text},
-                {key: 'machine', name: 'Machine', question: 'Where will it run?', says: 'Its data is kept on that machine, in a folder of its own.', answer: this.m.remote},
+                {key: 'machine', name: 'Remote', question: 'Where will it run?', says: 'Its data is kept on that machine, in a folder of its own.', answer: this.m.remote},
                 {key: 'given', name: 'Given to', question: 'Which apps get it?', says: `Each gets the database's URL as ${this.env_name} at its next start.`, answer: (this.m.given.length === 0) ? 'none yet' : this.m.given.join(', ')},
                 {key: 'check', name: 'Check', question: (this.mode === 'steps') ? 'Check, then create' : 'Its name', says: '', answer: (this.name_problem === '') ? this.database_name : ''},
             ];

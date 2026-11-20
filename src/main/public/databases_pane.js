@@ -161,7 +161,7 @@ const databases_pane = {
             return [
                 {key: 'name', label: 'Name'},
                 {key: 'engine', label: 'Engine', fold: 4},
-                {key: 'machine', label: 'Machine', fold: 3},
+                {key: 'machine', label: 'Remote', fold: 3},
                 {key: 'size', label: 'Size', align: 'right', fold: 2, phone: 'hide'},
                 {key: 'apps', label: 'Given to', wraps: true, fold: 5, phone: 'row'},
                 {key: 'state', label: 'State', phone: 'state'},

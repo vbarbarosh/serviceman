@@ -10,7 +10,7 @@
 const token_sections = [
     {
         value: 'machines',
-        label: 'Machines',
+        label: 'Remotes',
         said: 'what runs on them, the charts, processes, ports, disks, packages, containers and the CVEs that hit them',
         rights: ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'vulnerabilities'],
         read: ['status', 'metrics', 'processes', 'ports', 'disks', 'packages', 'containers', 'vulnerabilities'],

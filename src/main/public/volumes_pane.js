@@ -63,7 +63,7 @@ const volumes_pane = {
             return [
                 {key: 'name', label: 'Folder'},
                 {key: 'kept', label: 'Kept for', fold: 2, hide: v => (v.used_by.length === 0), phone: 'row'},
-                {key: 'on', label: 'Machine', fold: 3},
+                {key: 'on', label: 'Remote', fold: 3},
             ];
         },
         // The footer: how many folders, on how many machines

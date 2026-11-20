@@ -33,7 +33,7 @@ const volumes = {
     <p class="muted">LUKS in a file on one machine's disk, opened at a folder of that machine. A stolen disk shows one file of random bytes. Visual Agents makes and opens its own with keys it holds; one made here opens with the passphrase you give it.</p>
     <form v-if="(new_model !== null)" class="form card vol-new" @submit.prevent="new_make">
         <div class="grid">
-            <label for="vol-new-machine">Machine</label>
+            <label for="vol-new-machine">Remote</label>
             <div>
                 <select id="vol-new-machine" v-model="new_model.machine" :disabled="(machine_options.length === 0)">
                     <option v-for="option of machine_options" :key="option.value" :value="option.value">{{ option.label }}</option>

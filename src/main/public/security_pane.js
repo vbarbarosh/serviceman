@@ -12,7 +12,7 @@ const TAB_NAMES = {firewall: 'Firewall', docker: 'Docker', shell: 'Shell', confi
 // A check a column, the last folding first on a narrow screen; a machine with nothing to show
 // says why across them
 const COLUMNS = [
-    {key: 'name', label: 'Machine', wraps: true},
+    {key: 'name', label: 'Remote', wraps: true},
     {key: 'open', label: 'Open to the internet', fold: 7, phone: 'row', spread: v => (v.checks.length === 0) ? ['firewall', 'ssh', 'updates', 'auto', 'system', 'vulnerabilities'] : []},
     {key: 'firewall', label: 'Firewall', fold: 4, phone: 'row'},
     {key: 'ssh', label: 'SSH', fold: 5, phone: 'row'},

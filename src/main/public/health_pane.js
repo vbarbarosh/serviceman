@@ -118,7 +118,7 @@ const health_pane = {
             const deaf = forwards.filter(v => v.state === 'bad');
             const logline_on = this.rows_in('logline').some(v => v.checks.some(vv => (vv.key === 'store') && (vv.state !== 'none')));
             return [
-                {icon: 'monitor', label: 'Machines', well: machines.length - away.length, all: machines.length, note: (away.length === 0) ? 'all linked' : `${away[0].name} offline${(away.length > 1) ? ` and ${away.length - 1} more` : ''}`, tone: (away.length === 0) ? '' : 'bad'},
+                {icon: 'monitor', label: 'Remotes', well: machines.length - away.length, all: machines.length, note: (away.length === 0) ? 'all linked' : `${away[0].name} offline${(away.length > 1) ? ` and ${away.length - 1} more` : ''}`, tone: (away.length === 0) ? '' : 'bad'},
                 {icon: 'layers', label: 'Services', well: services.length - failing.length, all: services.length, note: (failing.length === 0) ? 'all answer' : `${failing.length} do not answer`, tone: (failing.length === 0) ? '' : 'bad'},
                 {icon: 'file', label: 'Logs', well: sending.length, all: machines.length, note: logline_on ? 'machines send to Logline' : 'Logline is not set up', tone: ''},
                 {icon: 'arrow', label: 'Forwards', well: forwards.length - deaf.length, all: forwards.length, note: (forwards.length === 0) ? 'none set up' : ((deaf.length === 0) ? 'all listen' : `${deaf.length} do not listen`), tone: (deaf.length === 0) ? '' : 'bad'},
@@ -277,7 +277,7 @@ const health_pane = {
             return 'Nothing to look at.';
         },
         name_head: function (key) {
-            return {machines: 'Machine', services: 'Service', logline: '', lines: 'Machine', forwards: 'Forward'}[key] || '';
+            return {machines: 'Remote', services: 'Service', logline: '', lines: 'Remote', forwards: 'Forward'}[key] || '';
         },
         // The area's columns: the thing's name, then every check's label in the order the rows
         // first name them; the last folds first on a narrow screen

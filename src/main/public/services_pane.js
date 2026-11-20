@@ -95,7 +95,7 @@ const services_pane = {
             return [
                 {key: 'name', label: 'Name'},
                 {key: 'what', label: 'What', fold: 1},
-                {key: 'machine', label: 'Machine', fold: 2},
+                {key: 'machine', label: 'Remote', fold: 2},
                 {key: 'address', label: 'Address', fold: 3, phone: 'row'},
                 {key: 'state', label: 'State', phone: 'state'},
             ].filter(v => (this.embedded === false) || (v.key !== 'machine'));

@@ -22,7 +22,7 @@ function health_from_views(views, seen)
 {
     const problems = new Map(views.problems.map(v => [v.key, v]));
     const areas = [
-        {key: 'machines', title: 'Machines', rows: views.remotes.map(v => machine_row(v, views, seen, problems))},
+        {key: 'machines', title: 'Remotes', rows: views.remotes.map(v => machine_row(v, views, seen, problems))},
         {key: 'services', title: 'Services', rows: views.services.map(v => service_row(v, seen, problems))},
         {key: 'logline', title: 'Logline', rows: [logline_row(views, seen)]},
         {key: 'lines', title: 'Lines per machine', rows: lines_rows(views, problems)},

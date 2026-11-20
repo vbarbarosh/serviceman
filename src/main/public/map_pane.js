@@ -9,7 +9,7 @@ import remote_state_text from './remote_state_text.js';
 const MAP_COLUMNS = [
     {value: 'address', label: 'Addresses'},
     {value: 'service', label: 'Services'},
-    {value: 'machine', label: 'Machines'},
+    {value: 'machine', label: 'Remotes'},
     {value: 'logline', label: 'Logs'},
 ];
 
