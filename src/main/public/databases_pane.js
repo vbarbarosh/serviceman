@@ -4,6 +4,7 @@ import database_cell from './database_cell.js';
 import database_new from './database_new.js';
 import database_rows from './database_rows.js';
 import database_state from './database_state.js';
+import item_facts from './item_facts.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
 import state_pill from './state_pill.js';
@@ -29,12 +30,7 @@ const databases_pane = {
             <span class="pill" :class="state_of(open_server).pill"><span class="dot" :class="state_of(open_server).dot"/>{{ state_of(open_server).word }}</span>
             <span class="tag">{{ engine_text(open_server) }}</span>
             <span class="muted">in {{ open_server.name }} on {{ open_server.title }}</span>
-            <dl class="item-facts">
-                <div v-for="fact of open_facts" :key="fact.label" :title="fact.title">
-                    <dt>{{ fact.label }}</dt>
-                    <dd>{{ fact.value }}<small v-if="(fact.small !== '')" class="mono">{{ fact.small }}</small></dd>
-                </div>
-            </dl>
+            <item-facts :facts="open_facts"/>
             <div class="acts crumb-acts">
                 <button v-if="(open_server.phase === 'failed')" type="button" :disabled="(busy || (open_server.online === false))" :title="(open_server.online ? 'Again where it was, with the password its data was made with' : (open_server.title + ' is offline'))" @click="again(open_server)">Bring it up again</button>
                 <button type="button" :disabled="((removing !== null) || (open_server.phase === 'removing'))" @click="remove_begin(open_server)">Remove…</button>
@@ -95,6 +91,7 @@ const databases_pane = {
     components: {
         'data-table': data_table,
         'database-new': database_new,
+        'item-facts': item_facts,
         'name-cell': name_cell,
         'page-head': page_head,
         'state-pill': state_pill,
@@ -205,9 +202,9 @@ const databases_pane = {
             const database = this.open_database;
             const couch = (server.engine === 'couchdb');
             const out = [];
-            out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), small: '', title: (database === null) ? 'no database in it' : `its data, on ${server.title}`});
-            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
-            out.push({label: 'Reached from', value: 'its machine', small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, title: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} on ${server.title}, nothing outside it`});
+            out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), small: '', share: null, title: (database === null) ? 'no database in it' : `its data, on ${server.title}`});
+            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', share: null, title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
+            out.push({label: 'Reached from', value: 'its machine', small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, share: null, mono: true, title: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} on ${server.title}, nothing outside it`});
             return out;
         },
         open_apps: function () {

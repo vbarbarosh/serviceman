@@ -346,15 +346,17 @@ shape are left out and the link stays: the page shows none, where the last good 
 for now. The log names the machine and the part, in `remote_link_error`, once a link each:
 `reason=hello_shape part=resources.mem.total`, `reason=stats_shape part=stats.load`.
 
-The **Overview** tab shows a machine at a glance: tiles for CPU, memory, disk and how long it is
-up, each share with a bar under it (amber from 80%, red from 92%), then its temperature, its
-battery and the link; while it is away, what each last said and how long it is down, in red.
-Then the services on it, as the Services page's table; its uptime in one row, its history, then
-cards for the machine, its agent, its updates and its logs, each with a link to the tab that does
-more with it, and its raw state folded away at the end.
+A machine's head says how it stands at a glance: how long it is up in its state (`online · up
+41d 3h`), and its CPU, memory and disk between its name and its buttons, each share with a bar
+under it (amber from 80%, red from 92%); while it is away, how long it is down in its state
+(`offline · 3h 11m`) and the last numbers it said, dimmed and with no bar. Its **Overview** tab
+shows the services on it, as the Services page's table; its uptime in one row, its history, then
+cards for the machine (its temperature and battery among them), its agent (its link, and **Test
+the link**), its updates and its logs, each with a link to the tab that does more with it, and
+its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
-**History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk tile is the one `/` is on), disk I/O, network, open tcp
+**History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk in its head is the one `/` is on), disk I/O, network, open tcp
 connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
 30 seconds made from servermon's lines of that half minute, for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
@@ -768,7 +770,7 @@ that has gone becomes stopped, and a service with `"start": "always"` is started
 
 ## Testing its link
 
-**Test the link**, under the Link tile of a machine's Overview, measures the link the way a file
+**Test the link**, on the Agent card of a machine's Overview, measures the link the way a file
 uses it, in about twenty seconds: zeros sent to the machine as fast as it takes them for eight
 seconds, then from it for eight, a quick call asked every quarter second all the while, and the
 counters of both ends' networks read before and after.

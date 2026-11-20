@@ -32,6 +32,7 @@ import format_ms from './format_ms.js';
 import forward_state from './forward_state.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
+import item_facts from './item_facts.js';
 import join_form from './join_form.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
@@ -51,6 +52,7 @@ import remote_databases from './remote_databases.js';
 import remote_disks from './remote_disks.js';
 import remote_docker from './remote_docker.js';
 import remote_dot from './remote_dot.js';
+import remote_facts from './remote_facts.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
 import remote_overview from './remote_overview.js';
@@ -1337,6 +1339,8 @@ const remote_page = {
                     <span v-if="(seen_said !== '')">{{ seen_said }}</span>
                 </div>
             </div>
+            <!-- Its CPU, memory and disk, where its Overview's tiles said them; away, the last -->
+            <item-facts v-if="(head_facts.length > 0)" :facts="head_facts"/>
             <div class="item-acts">
                 <button v-if="(view.phase === 'online')" type="button" class="sec" :class="{on: (tab_now === 'shell')}" title="A terminal on this machine" @click="$emit('tab', 'shell')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Shell</button>
                 <button v-if="(view.phase === 'online')" type="button" class="primary" title="A new service, run on this machine" @click="$emit('create', view.name)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Service here</button>
@@ -1402,7 +1406,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, ink: tabink, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    components: {'agent-pill': agent_pill, ink: tabink, 'item-facts': item_facts, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
@@ -1416,19 +1420,30 @@ const remote_page = {
             return machine_icons[this.kind] || machine_icons.server;
         },
         // How it stands, as a pill: online, not answering, offline
+        // How it stands, with how long: online · up 41d, offline · 3h 11m, not answering · 40s
         state_pill: function () {
             if (this.unanswered_said !== '') {
                 return {tone: 'busy', text: `not answering · ${format_ms(this.view.unanswered.ms)}`};
             }
+            const machine = this.view.machine;
             if (this.view.phase === 'online') {
-                return {tone: 'run', text: 'online'};
+                const up = ((machine === null) || (machine.uptime_ms === null) || (machine.uptime_ms === undefined)) ? '' : ` · up ${format_ms(machine.uptime_ms)}`;
+                return {tone: 'run', text: `online${up}`};
             }
-            return {tone: 'bad', text: (this.view.left_at === null) ? 'not connected' : 'offline'};
+            if (this.view.left_at === null) {
+                return {tone: 'bad', text: 'not connected'};
+            }
+            return {tone: 'bad', text: `offline · ${format_ms(Date.now() - this.view.left_at)}`};
+        },
+        // Its CPU, memory and disk for its head; away, the last it said
+        head_facts: function () {
+            return remote_facts(this.view);
         },
         // The line under its name: its title, its system and its cores
         line_parts: function () {
             const machine = this.view.machine;
-            const what = (machine === null) ? '' : [machine.os || machine.platform || '', ((machine.cpu === undefined) || (machine.cpu === null)) ? '' : `${machine.cpu.count} CPU`].filter(v => v !== '').join(' · ');
+            const cores = ((machine === null) || (machine.cpu === undefined) || (machine.cpu === null)) ? '' : `${machine.cpu.count} ${(machine.cpu.count === 1) ? 'core' : 'cores'}`;
+            const what = (machine === null) ? '' : [machine.os || machine.platform || '', cores].filter(v => v !== '').join(' · ');
             return [(this.view.title && (this.view.title !== this.view.name)) ? this.view.title : '', what].filter(v => v !== '');
         },
         // Its agent while it is linked, or when it was last seen
@@ -1694,13 +1709,7 @@ const service_page = {
             </div>
             <!-- What its tiles said, in the head's empty part: its requests, its copies, its
                  machine's bars; on a phone, a row under the buttons -->
-            <dl v-if="(head_facts.length > 0)" class="item-facts">
-                <div v-for="fact of head_facts" :key="fact.label" :title="fact.title">
-                    <dt>{{ fact.label }}</dt>
-                    <dd>{{ fact.value }}<small v-if="(fact.small !== '')">{{ fact.small }}</small></dd>
-                    <span v-if="(fact.share !== null)" class="meter"><i :style="{width: (Math.round(fact.share*100) + '%')}"/></span>
-                </div>
-            </dl>
+            <item-facts v-if="(head_facts.length > 0)" :facts="head_facts"/>
             <div class="item-acts">
                 <template v-if="(acts === 'running')">
                     <button type="button" :disabled="waiting" @click="$emit('stop', view)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button>
@@ -1783,7 +1792,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tabink, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
+    components: {'copy-progress': copy_progress, ink: tabink, 'item-facts': item_facts, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],

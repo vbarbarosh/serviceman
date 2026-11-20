@@ -1594,6 +1594,15 @@ ul.tried {
     font-weight: 500;
 }
 
+.item-facts dd small.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* The last number known of a machine that is away: dim, with no bar */
+.item-facts dd.dim {
+    color: var(--muted);
+}
+
 .item-facts .meter {
     display: block;
     width: 120px;
