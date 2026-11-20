@@ -2225,7 +2225,7 @@ const app = {
 </div>
 <main v-if="(state !== null)">
     <section>
-        <crumbs-bar :category="kind_now" :trail="crumbs_trail" :tallies="tallies" @go="crumb_go" @open="counts_read" @pick="category_show"/>
+        <crumbs-bar :category="kind_now" :trail="crumbs_trail" @go="crumb_go" @pick="category_show"/>
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" :state="state" :problems="problems" :counts="{addresses: addresses_count, guarded: guarded_count, apps: apps_count, boards: boards_count}" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" :state="state" @form="pane_form = $event" @changed="shared_count_read" @remote="remote_select_named"/>

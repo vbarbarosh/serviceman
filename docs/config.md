@@ -864,7 +864,7 @@ itself, **never in the config** — and they are made on the control page, not i
 
 **A secret made on a service's page is that service's own.** Nothing else can read it, and it
 cannot be reused elsewhere: two services may both hold a `token`, and they are not the same
-token. The **Secrets** page, in the first crumb's menu, holds a *library* beside them — values written down once,
+token. The **Secrets** page, under **All categories**, holds a *library* beside them — values written down once,
 to be copied into as many services as need them. Copying happens on the host: a value that is
 kept here never goes out to a page and back.
 

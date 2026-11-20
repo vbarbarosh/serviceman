@@ -4,7 +4,7 @@ A database on one of your machines, in a server serviceman brings up there in do
 up, its data kept there. An app given it finds it in `DATABASE_URL` at every start, as a user of
 its own; an Adminer given one opens on it, logged in.
 
-The page is **Databases**, in the first crumb's menu: one table, a row a database, with its
+The page is **Databases**, under **All categories**: one table, a row a database, with its
 engine and version, its machine, its size, the apps given it and how it stands. A server with no
 database to show (empty, coming up, failed, its machine away) is a row of its own. A find box
 and the chips **All**, **Running** and **Needs you** narrow it; a click on a row opens the

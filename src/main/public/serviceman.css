@@ -206,7 +206,8 @@ main > section {
     grid-template-rows: auto minmax(0, 1fr);
 }
 
-/* Where you are, on top of every page: the category and its menu, then each step down */
+/* Where you are, on top of every page: All categories and the category, two buttons, then each
+   step down */
 .crumbs-bar {
     display: flex;
     flex-wrap: wrap;
@@ -218,19 +219,22 @@ main > section {
     background: var(--bar);
 }
 
-.crumb-first {
-    position: relative;
-    flex: none;
-}
-
-/* The first crumb stands alone, with space around it: slightly rounded */
+/* The first two crumbs, each a button alone, slightly rounded: the strong line around it turns
+   the accent on hover */
 .crumb-pick {
     display: flex;
+    flex: none;
     gap: .45rem;
     align-items: center;
-    padding: .3rem .6rem;
+    height: 34px;
+    padding: 0 .6rem;
     border-radius: 4px;
+    color: var(--fg);
     font-weight: 600;
+}
+
+.crumb-pick:hover {
+    border-color: var(--accent);
 }
 
 .crumb-pick svg {
@@ -238,98 +242,13 @@ main > section {
     color: var(--link);
 }
 
-.crumb-pick .crumb-caret {
-    color: var(--muted);
-    transition: transform .12s ease;
+/* All categories' grid in the text's colour, in the accent on its own page */
+.crumb-home svg {
+    color: var(--fg);
 }
 
-.crumb-pick.open .crumb-caret {
-    transform: rotate(180deg);
-}
-
-/* A click beside the open menu closes it: the whole page under it, unseen */
-.crumb-back,
-.crumb-back:hover {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    cursor: default;
-}
-
-/* The menu is a panel standing apart, 6 px; its lines touch one another, square */
-.crumb-menu {
-    position: absolute;
-    top: calc(100% + .35rem);
-    left: 0;
-    z-index: 41;
-    display: flex;
-    flex-direction: column;
-    width: max-content;
-    min-width: 16rem;
-    max-width: calc(100vw - 2.5rem);
-    padding: .3rem 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 6px;
-    background: var(--panel);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
-}
-
-.crumb-item {
-    display: flex;
-    gap: .6rem;
-    align-items: center;
-    min-width: 0;
-    padding: .45rem .9rem;
-    border: 0;
-    border-radius: 0;
-    background: none;
-    text-align: left;
-}
-
-.crumb-item:hover {
-    background: var(--hover);
-}
-
-.crumb-item.on {
-    background: var(--sel);
-}
-
-.crumb-item svg {
-    flex: none;
-    color: var(--muted);
-}
-
-.crumb-item.on svg {
+.crumb-home.here svg {
     color: var(--link);
-}
-
-.crumb-item .crumb-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.crumb-count {
-    flex: none;
-    font-size: .85rem;
-    font-variant-numeric: tabular-nums;
-}
-
-/* The open category when the menu does not list it: first, set off from the seven */
-.crumb-item.apart {
-    margin-bottom: .3rem;
-    box-shadow: 0 1px 0 var(--line);
-}
-
-.crumb-all {
-    margin-top: .3rem;
-    box-shadow: 0 -1px 0 var(--line);
 }
 
 .crumb-step {
@@ -6052,6 +5971,17 @@ button.palette-hit.on {
 @media (max-width: 40rem) {
     .crumbs-bar {
         padding: .5rem 1rem;
+    }
+
+    /* All categories, its icon alone in a square, so the trail keeps one line */
+    .crumb-home {
+        justify-content: center;
+        width: 34px;
+        padding: 0;
+    }
+
+    .crumb-home .crumb-name {
+        display: none;
     }
 
     #find {

@@ -137,15 +137,15 @@ service, its state, its addresses, its policy and its instances, and it does the
 - **The head** — under the crumbs, every category's page opens with its icon, its name and
   count, one line of what it is, and its buttons on the right, the main one last. **How it
   works** opens the rest of what the page has to say, in a card under the head.
-- **The crumbs** — on top of every page, where you are: `Remotes ▾ › vps1 › Settings`. The
-  first is a menu of the categories, Services, Databases, Remotes, Addresses, Shared folders,
-  Secrets and Tokens, each with its count, then **All categories**: what needs you first, a
-  card for each category in trouble with its count big and what it is about (services that
-  failed, by name, among them; one whose machine is away is the Remotes card's); then Services,
-  Remotes, Addresses and Apps as four big tiles, a mark for each in the colour of its state;
-  then the other categories as short lists in their groups. On a phone the tiles and the groups
-  stand two to a row. Every other crumb goes back up to it; the address follows them, so a
-  reload or a link lands on the same place.
+- **The crumbs** — on top of every page, where you are: `All categories › Remotes › vps1 ›
+  Settings`. The first two are buttons, with no menu: the category opens its list, and **All
+  categories** opens the page of every category (its icon alone on a phone): what needs you
+  first, a card for each category in trouble with its count big and what it is about (services
+  that failed, by name, among them; one whose machine is away is the Remotes card's); then
+  Services, Remotes, Addresses and Apps as four big tiles, a mark for each in the colour of its
+  state; then the other categories as short lists in their groups. On a phone the tiles and the
+  groups stand two to a row. Every other crumb goes back up to it; the address follows them, so
+  a reload or a link lands on the same place.
 - **Map** — all of it as one picture, in a card that counts its addresses, services and
   machines: every address to the service that answers it, every service to the machine it runs
   on (a solid line where it runs now, a dashed one where it may), and every machine to Logline
