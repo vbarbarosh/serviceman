@@ -2645,9 +2645,252 @@ article.service-logs {
     font-size: 13px;
 }
 
+/* The lines kept, when not all of them: the surroundings of a line, its labels; a chip each,
+   a click lets it go */
+.lines-only {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+}
+
+/* A label as Logline's viewer draws it, its name grey and its value bright; kept: the
+   accent's */
+button.lines-chip {
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+    max-width: 100%;
+    padding: 3px 8px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+button.lines-chip b {
+    color: var(--fg);
+    font-weight: 500;
+}
+
+button.lines-chip.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.lines-chip-x {
+    color: var(--muted);
+}
+
+/* The list, and the line opened beside it, the list's rows one line each then */
+.lines-split {
+    display: grid;
+    flex: 1 1 0;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+}
+
+.lines-split.opened {
+    grid-template-columns: minmax(0, 1fr) 44%;
+}
+
+.lines-split > .lines-note {
+    align-self: start;
+}
+
+.lines-split > .lines {
+    position: relative;
+}
+
+.line {
+    cursor: pointer;
+}
+
+.line:hover {
+    background: var(--hover);
+}
+
+.line.on {
+    background: var(--sel);
+}
+
+/* The line whose surroundings are shown */
+.line.mid {
+    box-shadow: inset 0 0 0 1px var(--accent-edge);
+}
+
+.line:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.lines-split.opened .line-text {
+    overflow: hidden;
+    white-space: pre;
+    text-overflow: ellipsis;
+}
+
+.line-detail {
+    min-width: 0;
+    overflow: auto;
+    padding: 16px 18px;
+    border-left: 1px solid var(--line-strong);
+    background: var(--panel);
+}
+
+.line-detail-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.line-detail-head b {
+    font-size: 17px;
+    overflow-wrap: anywhere;
+}
+
+/* A part's name, small capitals as the viewer's; Copy on the right of Body's */
+.line-k {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 16px 0 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.line-detail-head .line-k {
+    margin: 0 0 4px;
+}
+
+.line-k > button.link {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+button.line-x {
+    flex: none;
+    padding: .15rem .5rem;
+    border-color: transparent;
+    background: none;
+    color: var(--link);
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+
+button.line-x:hover {
+    border-color: var(--line-strong);
+}
+
+.line-detail dl.line-fields {
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 12px 0 0;
+    font-size: 14px;
+}
+
+.line-fields dd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.line-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+button.line-around {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+button.line-around small {
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+button.line-around.on {
+    border-color: var(--accent);
+    background: var(--sel);
+}
+
+.line-detail pre.line-body {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+pre.line-body.stderr {
+    color: var(--stderr);
+}
+
+.line-note {
+    margin: 10px 0 0;
+    font-size: 13px;
+}
+
 @media (max-width: 600px) {
     .service-logs > .lines-card {
         min-height: 28rem;
+    }
+
+    /* The line opened under the list, as the design's phone draws it: its rows keep their
+       wrapping, the list a few of them, the line opened on top, so that its detail shows under
+       it; the card grows by the detail */
+    .service-logs > .lines-card.opened {
+        flex: none;
+    }
+
+    .lines-split.opened {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+    }
+
+    .lines-split.opened > .lines {
+        flex: none;
+        height: 14rem;
+    }
+
+    .lines-split.opened .line-text {
+        overflow: visible;
+        white-space: pre-wrap;
+    }
+
+    .line-detail {
+        overflow: visible;
+        padding: 12px;
+        border-top: 1px solid var(--line-strong);
+        border-left: 0;
+    }
+
+    .line-detail dl.line-fields {
+        grid-template-columns: 88px minmax(0, 1fr);
+    }
+
+    .lines-only {
+        padding: 8px 12px;
     }
 
     .lines-tools {

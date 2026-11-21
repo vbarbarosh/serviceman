@@ -94,6 +94,8 @@ import {createApp} from 'vue';
 const POLL_MS = 1000;
 // How often a service's Logs tab asks for its new lines while it is live
 const LINES_EVERY_MS = 3000;
+// The page's phone width, as serviceman.css's own media queries say it
+const PHONE_QUERY = '(max-width: 600px)';
 // Config's mark, the pencil, for the editor card's head
 const CONFIG_ICON = CATEGORIES.find(v => (v.key === 'config')).icon;
 // Logline's mark, for a service's Logs tab
@@ -134,11 +136,14 @@ const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org
 // A service's Logs tab: the lines it wrote in the last day, read from Logline by serviceman
 // (service_lines), a row each, oldest first and the newest at the foot, as its viewer shows
 // them; a find in them, live while it is on, and Logline's viewer one click away for the rest:
-// other days, its labels, its groups. What it wrote to stderr is pink, and a line that says
-// "error" or "warn" has a red or amber edge.
+// other days, its groups. What it wrote to stderr is pink, and a line that says "error" or
+// "warn" has a red or amber edge. A click on a line opens it beside the list, as the viewer
+// does: its time to the day, its fields, its labels (a click keeps only the lines with one),
+// its surroundings (the lines of 2 minutes either side of it) and its words to copy; the rows
+// are one line each then.
 const service_logs = {
     template: `
-<article id="detail" class="logs service-logs">
+<article id="detail" class="logs service-logs" @keydown.esc="line_close">
     <section v-if="(url === null)" class="card">
         <div class="dt-empty-big">
             <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="LOGLINE_ICON"/></span>
@@ -146,21 +151,54 @@ const service_logs = {
             <p>What this service writes goes to Logline, from the machines that send their logs there. Where Logline's viewer is is not set, so there is nothing to show here — the Logs tab of a machine has the form for it.</p>
         </div>
     </section>
-    <section v-else class="card lines-card">
+    <section v-else class="card lines-card" :class="{opened: (opened !== null)}">
         <div class="dt-tools lines-tools">
             <input v-model="find" type="search" placeholder="Find in its lines" :aria-label="('Find in the lines of ' + name)" spellcheck="false" @input="find_typed">
-            <button type="button" class="lines-live" :class="{on: live}" :aria-pressed="String(live)" :title="(live ? 'New lines come in every 3 seconds: a click stops them' : 'Stopped: a click brings new lines in again')" @click="live_toggle"><span class="dot" :class="(live ? 'running' : '')"/>{{ live ? 'live' : 'stopped' }}</button>
-            <span class="muted lines-count">{{ count_text }}<span v-if="(rows !== null)" class="lines-span"> · the last 24 hours</span></span>
+            <button type="button" class="lines-live" :class="{on: live}" :aria-pressed="String(live)" :title="live_title" @click="live_toggle"><span class="dot" :class="(live ? 'running' : '')"/>{{ live ? 'live' : 'stopped' }}</button>
+            <span class="muted lines-count">{{ count_text }}<span v-if="(rows !== null)" class="lines-span"> · {{ span_text }}</span></span>
             <a class="lines-open" :href="url" target="_blank" rel="noopener">Open in Logline ↗</a>
+        </div>
+        <div v-if="((around !== null) || (labels.length > 0))" class="lines-only">
+            <span class="muted">Only</span>
+            <button v-if="(around !== null)" type="button" class="lines-chip on" title="Back to the last 24 hours, the find and the labels as they were" @click="around_leave">2 minutes either side of <b>{{ around.time }}</b><span class="lines-chip-x" aria-hidden="true">✕</span></button>
+            <button v-for="label of labels" :key="(label.name + '\\u0000' + label.value)" type="button" class="lines-chip on" :title="('Every line again, not only those with ' + label.name + ' ' + label.value)" @click="label_toggle(label.name, label.value)">{{ label.name }} <b>{{ label.value }}</b><span class="lines-chip-x" aria-hidden="true">✕</span></button>
         </div>
         <p v-if="(error !== '')" class="bad lines-note">{{ error }}{{ (rows === null) ? '' : ' The lines below are the last it gave.' }}</p>
         <p v-if="(rows === null)" v-show="(error === '')" class="muted lines-note"><span class="spin"/>reading its lines from Logline…</p>
-        <p v-else-if="(rows.length === 0)" class="muted lines-note">{{ (find.trim() === '') ? ('No line from ' + name + ' in the last 24 hours.') : ('No line of the last 24 hours holds “' + find.trim() + '”.') }}</p>
-        <div v-else ref="lines" class="lines" role="log" :aria-label="('The lines of ' + name)" @scroll="scrolled">
-            <div v-for="(row, i) of rows" :key="i" class="line" :class="row.kind">
-                <span class="line-time" :title="row.when">{{ row.time }}</span>
-                <span class="line-text" :class="{stderr: row.stderr}">{{ row.text }}</span>
+        <div v-else class="lines-split" :class="{opened: (opened !== null)}">
+            <p v-if="(rows.length === 0)" class="muted lines-note">{{ empty_text }}</p>
+            <div v-else ref="lines" class="lines" role="log" :aria-label="('The lines of ' + name)" @scroll="scrolled">
+                <div v-for="(row, i) of rows" :key="i" class="line" :class="[row.kind, {on: ((opened !== null) && (row.key === opened.key)), mid: ((around !== null) && (row.key === around.key))}]" tabindex="0" :title="((opened === null) ? '' : row.text)" @click="line_open(row, $event)" @keydown.enter.prevent="line_open(row, $event)">
+                    <span class="line-time" :title="row.when">{{ row.time }}</span>
+                    <span class="line-text" :class="{stderr: row.stderr}">{{ row.text }}</span>
+                </div>
             </div>
+            <aside v-if="(opened !== null)" ref="detail" class="line-detail" :aria-label="('The line of ' + opened.time + ' opened')">
+                <div class="line-detail-head">
+                    <div>
+                        <div class="line-k">Log detail</div>
+                        <b>{{ name }}</b>
+                    </div>
+                    <button type="button" class="line-x" title="Close it (Esc)" aria-label="Close the line" @click="line_close">✕</button>
+                </div>
+                <dl class="line-fields">
+                    <dt>Time</dt><dd :title="opened.when">{{ opened.day }}, {{ opened.time }}</dd>
+                    <dt>Severity</dt><dd>{{ opened.severity || '—' }}</dd>
+                    <dt>Subject</dt><dd>{{ opened.subject || '—' }}</dd>
+                    <dt>Group</dt><dd>{{ opened.group || '—' }}</dd>
+                    <dt>Parent</dt><dd>{{ opened.parent || '—' }}</dd>
+                </dl>
+                <div class="line-k">Labels · a click filters</div>
+                <div class="line-chips">
+                    <button v-for="(value, label) in opened.labels" :key="label" type="button" class="lines-chip" :class="{on: label_on(label, value)}" :aria-pressed="String(label_on(label, value))" :title="(label_on(label, value) ? ('Every line again, not only those with ' + label + ' ' + value) : ('Only the lines with ' + label + ' ' + value))" @click="label_toggle(label, value)">{{ label }} <b>{{ value }}</b></button>
+                    <span v-if="(Object.keys(opened.labels).length === 0)" class="muted">This line has no labels</span>
+                </div>
+                <div class="line-k">Investigate</div>
+                <button type="button" class="line-around" :class="{on: ((around !== null) && (around.key === opened.key))}" :title="('The lines ' + name + ' wrote from 2 minutes before this one to 2 minutes after it, every one of them')" @click="around_enter(opened)"><b>Surroundings</b><small>2 minutes either side, this service</small></button>
+                <div class="line-k">Body<button type="button" class="link" :title="copy_said" @click="body_copy">{{ copied ? 'Copied' : 'Copy' }}</button></div>
+                <pre class="line-body" :class="{stderr: opened.stderr}">{{ opened.text }}</pre>
+                <p v-if="((opened.group === '') && (opened.subject === ''))" class="muted line-note">Not in the rules’ form, so no group and no subject: only its labels tell it apart</p>
+            </aside>
         </div>
         <p v-if="((rows !== null) && (rows.length > 0))" class="muted lines-foot">{{ foot_text }} · pink: its stderr · a red or amber edge: “error” or “warn” in the line</p>
     </section>
@@ -172,7 +210,12 @@ const service_logs = {
         // rows: null until Logline first answers; at_end: whether the list is scrolled to its
         // foot, where new lines keep it
         // again: a read was asked while one was on its way, and goes once that one is back
-        return {LOGLINE_ICON, find: '', live: true, rows: null, total: 0, error: '', at_end: true, timer: null, typed: null, asking: false, again: false};
+        // opened: the line shown beside the list, kept as it was when opened, whatever the reads
+        // after it bring; labels: [{name, value}], the lines kept are those with every one;
+        // around: the line whose surroundings are shown, null for the last 24 hours; saved_*:
+        // the find, the labels and live as they were before them, given back when they are left
+        // centre: the next read puts the line of `around` in the list's middle
+        return {LOGLINE_ICON, find: '', live: true, rows: null, total: 0, error: '', at_end: true, timer: null, typed: null, asking: false, again: false, opened: null, labels: [], around: null, saved_find: '', saved_labels: [], saved_live: true, centre: false, copied: false, copy_said: 'Copy its words', copy_timer: null};
     },
     computed: {
         name: function () {
@@ -181,6 +224,12 @@ const service_logs = {
         url: function () {
             return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
         },
+        live_title: function () {
+            if (this.around !== null) {
+                return 'Stopped on its surroundings: a click goes back to the last 24 hours, new lines coming in';
+            }
+            return this.live ? 'New lines come in every 3 seconds: a click stops them' : 'Stopped: a click brings new lines in again';
+        },
         count_text: function () {
             if (this.rows === null) {
                 return '';
@@ -188,9 +237,23 @@ const service_logs = {
             const shown = this.rows.length;
             return (this.total > shown) ? `${shown} of ${this.total.toLocaleString('en-US')} lines` : `${shown} ${(shown === 1) ? 'line' : 'lines'}`;
         },
+        span_text: function () {
+            return (this.around === null) ? 'the last 24 hours' : '2 minutes either side';
+        },
         foot_text: function () {
             const shown = (this.rows === null) ? 0 : this.rows.length;
-            return `${shown} ${(shown === 1) ? 'line' : 'lines'} from the last 24 hours, as ${this.name} wrote them`;
+            const span = (this.around === null) ? 'the last 24 hours' : `2 minutes either side of ${this.around.time}`;
+            return `${shown} ${(shown === 1) ? 'line' : 'lines'} from ${span}, as ${this.name} wrote them`;
+        },
+        empty_text: function () {
+            const span = (this.around === null) ? 'the last 24 hours' : `the 2 minutes either side of ${this.around.time}`;
+            const find = this.find.trim();
+            if ((find === '') && (this.labels.length === 0)) {
+                return `No line from ${this.name} in ${span}.`;
+            }
+            const holds = (find === '') ? '' : ` holds “${find}”`;
+            const has = this.labels.map(v => `${v.name} ${v.value}`).join(', ');
+            return `No line of ${span}${holds}${((holds !== '') && (has !== '')) ? ' and' : ''}${(has === '') ? '' : ` has ${has}`}.`;
         },
     },
     mounted: function () {
@@ -202,6 +265,7 @@ const service_logs = {
     unmounted: function () {
         clearInterval(this.timer);
         clearTimeout(this.typed);
+        clearTimeout(this.copy_timer);
     },
     methods: {
         // Live: the lines read again every few seconds, while the page is in front
@@ -210,7 +274,13 @@ const service_logs = {
                 this.read();
             }
         },
+        // Live again from the surroundings goes back to the last 24 hours, where new lines come
         live_toggle: function () {
+            if (this.around !== null) {
+                this.around_leave();
+                this.live = true;
+                return;
+            }
             this.live = !this.live;
             if (this.live) {
                 this.read();
@@ -228,6 +298,103 @@ const service_logs = {
             }
             this.at_end = (box.scrollHeight - box.scrollTop - box.clientHeight) < 24;
         },
+        // On a phone the line opens under the list: the list is brought to the top of the page,
+        // the line opened at the top of the list, its detail right under it. Opened from the
+        // keyboard, the detail takes the focus, past the rows after it (the Enter kept from
+        // pressing its close button too); closed, the row has it again.
+        line_open: function (row, event) {
+            this.row_hold(event.currentTarget);
+            this.opened = row;
+            this.copied = false;
+            this.copy_said = 'Copy its words';
+            if (window.matchMedia(PHONE_QUERY).matches) {
+                this.$nextTick(this.detail_show);
+            }
+            if (event.type === 'keydown') {
+                this.$nextTick(this.detail_focus);
+            }
+        },
+        line_close: function () {
+            const row = this.$refs.lines ? this.$refs.lines.querySelector('.line.on') : null;
+            const focused = (this.$refs.detail !== undefined) && (this.$refs.detail !== null) && this.$refs.detail.contains(document.activeElement);
+            this.row_hold(row);
+            this.opened = null;
+            if (focused && (row !== null)) {
+                row.focus({preventScroll: true});
+            }
+        },
+        detail_focus: function () {
+            if (this.$refs.detail) {
+                this.$refs.detail.querySelector('.line-x').focus();
+            }
+        },
+        detail_show: function () {
+            const box = this.$refs.lines;
+            const row = box ? box.querySelector('.line.on') : null;
+            if (row !== null) {
+                box.scrollTop = row.offsetTop;
+                box.scrollIntoView({block: 'start'});
+            }
+        },
+        // A row clicked stays where it was, under the pointer, while the rows around it change
+        // their height as the detail opens or closes beside them
+        row_hold: function (row) {
+            const box = this.$refs.lines;
+            if (!box || !row) {
+                return;
+            }
+            const before = row.getBoundingClientRect().top;
+            this.$nextTick(function () {
+                box.scrollTop += row.getBoundingClientRect().top - before;
+            });
+        },
+        label_on: function (name, value) {
+            return this.labels.some(v => (v.name === name) && (v.value === value));
+        },
+        // A label on or off; another value of a name already on takes its place, as no line has
+        // two values of one name
+        label_toggle: function (name, value) {
+            if (this.label_on(name, value)) {
+                this.labels = this.labels.filter(v => (v.name !== name) || (v.value !== value));
+            }
+            else {
+                this.labels = this.labels.filter(v => (v.name !== name)).concat([{name, value}]);
+            }
+            this.at_end = true;
+            this.read();
+        },
+        // Surroundings: every line of the 2 minutes either side of this one, the find and the
+        // labels let go, live stopped, the line in the middle of the list
+        around_enter: function (row) {
+            if (this.around === null) {
+                this.saved_find = this.find;
+                this.saved_labels = this.labels;
+                this.saved_live = this.live;
+            }
+            this.around = {key: row.key, time: row.time, time_ms: row.time_ms};
+            this.find = '';
+            this.labels = [];
+            this.live = false;
+            this.centre = true;
+            this.read();
+        },
+        around_leave: function () {
+            this.around = null;
+            this.find = this.saved_find;
+            this.labels = this.saved_labels;
+            this.live = this.saved_live;
+            this.at_end = true;
+            this.read();
+        },
+        body_copy: async function () {
+            this.copied = await to_clipboard(this.opened.text);
+            this.copy_said = this.copied ? 'Copied' : 'The browser would not copy it: select its words and copy them by hand';
+            clearTimeout(this.copy_timer);
+            this.copy_timer = setTimeout(this.copy_reset, 1500);
+        },
+        copy_reset: function () {
+            this.copied = false;
+        },
         read: async function () {
             if (this.asking) {
                 this.again = true;
@@ -235,21 +402,32 @@ const service_logs = {
             }
             this.asking = true;
             this.again = false;
+            const query = new URLSearchParams({find: this.find.trim()});
+            for (const label of this.labels) {
+                query.append('label', `${label.name}:${label.value}`);
+            }
+            if (this.around !== null) {
+                query.set('around', String(this.around.time_ms));
+            }
             try {
-                const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/lines?find=${encodeURIComponent(this.find.trim())}`, {cache: 'no-store'});
+                const answer = await fetch(`/api/v1/services/${encodeURIComponent(this.view.name)}/lines?${query}`, {cache: 'no-store'});
                 const body = await answer.json();
                 if (answer.ok === false) {
                     throw new Error(body.error || `serviceman answered ${answer.status}`);
                 }
                 this.error = '';
                 this.total = body.total;
-                this.rows = body.lines.map(line_row);
+                this.rows = body.lines.map(v => line_row(v, body.label_sets));
             }
             catch (error) {
                 this.error = error.message;
             }
             // A note that comes or goes above the lines takes their room: the foot stays in view
-            if (this.at_end) {
+            if (this.centre && (this.again === false)) {
+                this.centre = false;
+                this.$nextTick(this.to_middle);
+            }
+            else if (this.at_end) {
                 this.$nextTick(this.to_end);
             }
             this.asking = false;
@@ -262,6 +440,15 @@ const service_logs = {
             const box = this.$refs.lines;
             if (box) {
                 box.scrollTop = box.scrollHeight;
+            }
+        },
+        // The line whose surroundings these are, in the middle of the list
+        to_middle: function () {
+            const box = this.$refs.lines;
+            const row = box ? box.querySelector('.line.mid') : null;
+            if (row !== null) {
+                box.scrollTop = row.offsetTop - (box.clientHeight - row.offsetHeight)/2;
+                this.scrolled();
             }
         },
     },

@@ -823,17 +823,25 @@ run here, with no machine named, is shown by its name alone.
 
 Its **Logs** tab shows the same lines in the page, a row each: its time, and its words as they
 were written. A line that came on stderr is pink; one that says "error" has a red edge on its
-left, one that says "warn" or "warning" an amber one. Above them, a find box (any case), **live**
-(new lines every 3 seconds while the page is in front; a click stops them), how many lines the
-last 24 hours hold, and **Open in Logline ↗** for the whole viewer. It shows the last 500; the
-count says when there are more.
+left, one that says "warn" or "warning" an amber one, as does one whose severity says so. Above
+them, a find box (any case), **live** (new lines every 3 seconds while the page is in front; a
+click stops them), how many lines the last 24 hours hold, and **Open in Logline ↗** for the whole
+viewer. It shows the last 500; the count says when there are more.
+
+A click on a line opens it beside the list, as Logline's viewer opens one, and the rows are one
+line each while it is open; on a phone it opens under the list. It shows the line's time to the
+day; its severity, subject, group and parent, read from its words in the rules' form
+(`[<group>][<subject>] … parent=<group>`) when it was not sent with them; its labels, a click on
+one keeping only the lines that have it; **Surroundings**, every line of the 2 minutes either side
+of it, the find and the labels let go and live stopped until its chip over the list is closed,
+which gives them back; and its words, with **Copy**.
 
 serviceman reads them itself, from the viewer's `/clickhouse`, the read-only way the viewer's own
-page reads them; what was typed in the find box goes as a parameter, never into the query. It
-asks from where it runs, through tailscale's proxy in its image, as it asks Logline for tokens. A
-viewer serviceman cannot reach, or one behind a wall that sends it on to a sign-in, is said in the
-tab over the last lines it gave; **Open in Logline ↗** still opens the viewer in the browser.
-With the viewer not set, the tab says where to set it.
+page reads them; the find, the labels and a line's time for Surroundings go as parameters, never
+into the query. It asks from where it runs, through tailscale's proxy in its image, as it asks
+Logline for tokens. A viewer serviceman cannot reach, or one behind a wall that sends it on to a
+sign-in, is said in the tab over the last lines it gave; **Open in Logline ↗** still opens the
+viewer in the browser. With the viewer not set, the tab says where to set it.
 
 ### Storage
 

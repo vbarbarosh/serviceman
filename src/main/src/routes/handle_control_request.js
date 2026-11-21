@@ -204,6 +204,12 @@ const UFW_TIMEOUT_MS = 40000;
 const VOLUME_TIMEOUT_MS = 600000;
 const RE_SERVICE = /^\/api\/v1\/services\/([^/]+)$/;
 const RE_SERVICE_LINES = /^\/api\/v1\/services\/([^/]+)\/lines$/;
+// A label a service's lines are narrowed by, as Logline names its labels: `stream:stderr`
+const RE_LINES_LABEL = /^([A-Za-z0-9_.-]{1,64}):(.*)$/s;
+// A line's time in milliseconds, for its surroundings: 13 digits until the year 2286
+const RE_LINES_AROUND = /^[0-9]{1,15}$/;
+// More labels than a line has are not asked of Logline
+const LINES_LABELS_MAX = 16;
 const RE_CANVAS_MACHINE = /^\/api\/v1\/canvas\/machines\/([^/]+)$/;
 const RE_LOAD_TEST = /^\/api\/v1\/load-tests\/([^/]+)$/;
 const RE_LOAD_TEST_DO = /^\/api\/v1\/load-tests\/([^/]+)\/(run|stop)$/;
@@ -681,7 +687,7 @@ async function control_answer(app, req, res)
     }
     const service_lines_path = RE_SERVICE_LINES.exec(url.pathname);
     if ((service_lines_path !== null) && (req.method === 'GET')) {
-        await service_lines_send(app, res, route_param(service_lines_path[1]), url.searchParams.get('find') || '');
+        await service_lines_send(app, res, route_param(service_lines_path[1]), url.searchParams);
         return;
     }
     const service_path = RE_SERVICE.exec(url.pathname);
@@ -2606,14 +2612,31 @@ async function apps_settings_update(app, req, res)
     }, 400);
 }
 
-// GET /api/v1/services/<name>/lines?find=
+// GET /api/v1/services/<name>/lines?find=&label=<name>:<value>&around=<ms>
 // The lines the service wrote in the last day, read from Logline (service_lines): its Logs tab.
-// 409 while the config does not say where Logline's viewer is; 502 when Logline does not answer.
-async function service_lines_send(app, res, name, find)
+// `label`, given again for each, keeps the lines with every one of them; `around`, a line's time
+// in milliseconds, gives its surroundings instead of the last day. 400 for a label or a time
+// that is not one; 409 while the config does not say where Logline's viewer is; 502 when
+// Logline does not answer.
+async function service_lines_send(app, res, name, query)
 {
     const service = app.service_by_name[name];
     if (service === undefined) {
         send_json(res, 404, {error: `no service named ${JSON.stringify(name)}`});
+        return;
+    }
+    const labels = [];
+    for (const pair of query.getAll('label').slice(0, LINES_LABELS_MAX)) {
+        const found = RE_LINES_LABEL.exec(pair);
+        if (found === null) {
+            send_json(res, 400, {error: `a label is <name>:<value>, its name letters, digits, dots, dashes and underscores: ${JSON.stringify(pair.slice(0, 80))}`});
+            return;
+        }
+        labels.push({name: found[1], value: found[2].slice(0, 200)});
+    }
+    const around = query.get('around');
+    if ((around !== null) && (RE_LINES_AROUND.test(around) === false)) {
+        send_json(res, 400, {error: `around is a line's time in milliseconds: ${JSON.stringify(around.slice(0, 80))}`});
         return;
     }
     const logline = app.config.logline;
@@ -2622,7 +2645,8 @@ async function service_lines_send(app, res, name, find)
         return;
     }
     try {
-        send_json(res, 200, await service_lines(logline, {name, remotes: service.remotes || []}, find.slice(0, 200)));
+        const ask = {find: (query.get('find') || '').slice(0, 200), labels, around_ms: (around === null) ? null : Number(around)};
+        send_json(res, 200, await service_lines(logline, {name, remotes: service.remotes || []}, ask));
     }
     catch (error) {
         send_json(res, 502, {error: error.message});
