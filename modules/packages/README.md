@@ -12,7 +12,7 @@ handler that asks the host to **read** the list. The host gives the read, mounts
 the base, and decides who may ask.
 
 serviceman is the first host: its Packages tab of a machine is this component, and the read is
-`dpkg-query`, `apt-mark` and a dry-run `apt-get upgrade` run over there by the machine's agent.
+`dpkg-query`, `apt-mark` and a dry-run `apt-get full-upgrade` run over there by the machine's agent.
 Installing the updates is not here: it is serviceman's own, on a machine's Configure tab and
 on Remotes.
 

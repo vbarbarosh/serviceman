@@ -1099,7 +1099,7 @@ and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Abov
 <code>/</code>, what docker and the system journal say they keep. A machine&#39;s Overview leads there from its Disk card.</p>
 <p><strong>Packages</strong> is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package&#39;s need, and — from
-<code>apt-get -s upgrade --with-new-pkgs</code>, a dry run that needs no root — the version an upgrade would bring, marked
+<code>apt-get -s full-upgrade</code>, a dry run that needs no root — the version an upgrade would bring, marked
 when it comes from a security archive. Held and half-installed packages say so. The dry run
 reads the lists the last <code>apt-get update</code> left, so &quot;to update&quot; is as fresh as those; the
 Configure tab installs them.</p>
@@ -1108,18 +1108,26 @@ Before it starts, serviceman notes the containers that run; once it is over, it 
 Docker to answer and starts again each one that is not running. What cannot start is named at
 the end of the upgrade&#39;s lines, with Docker&#39;s reason, and on the Health page.</p>
 <h2 id="its-updates"><a class="anchor" href="#its-updates" aria-hidden="true" tabindex="-1">#</a>Its updates</h2>
-<p>A machine&#39;s <strong>Configure</strong> tab says what apt has waiting, and <strong>Install them</strong> runs
-<code>apt-get update</code>, then <code>apt-get upgrade --with-new-pkgs</code> (an update that brings a new package
-with it, a new kernel&#39;s, is installed too; nothing is removed), answering its questions as a person would and keeping
-every config file you changed. Every line apt prints is shown while it runs; <strong>Cancel</strong> stops
-it. A root agent runs <code>apt-get</code>; one that runs as a user runs <code>sudo -n apt-get</code>, so sudo on that
-machine has to let it without a password.</p>
-<p>What is waiting is counted by apt, with the same upgrade as a dry run, so a machine just
+<p>A machine&#39;s <strong>Configure</strong> tab says what apt has waiting, and <strong>Install them</strong> runs what a person
+types to bring a machine up to date:</p>
+<pre><code>apt-get update &amp;&amp; apt-get -y full-upgrade &amp;&amp; snap refresh
+</code></pre>
+<p><code>full-upgrade</code> installs an update that brings a new package with it, a new kernel&#39;s above all,
+and removes a package where an update cannot go in beside it; it answers apt&#39;s questions as a
+person would and keeps every config file you changed. <code>snap refresh</code> runs only where the
+machine has snap (<code>/usr/bin/snap</code>), and only once apt went well; a machine without it, a Debian
+or a container, is upgraded by apt alone. Every line apt and snap print is shown while they
+run; <strong>Cancel</strong> stops them. A root agent runs <code>apt-get</code> and <code>snap</code>; one that runs as a user runs
+<code>sudo -n apt-get</code> and <code>sudo -n /usr/bin/snap</code>, so sudo on that machine has to let both without
+a password: where it lets apt-get alone, apt&#39;s updates go in and Install ends failed at
+<code>snap refresh</code>, with sudo&#39;s reason. The agent&#39;s <code>--apt</code> and <code>--snap</code> name other commands.</p>
+<p>What is waiting is counted by apt, with the same full upgrade as a dry run, so a machine just
 upgraded says nothing waits; it is counted again whenever what is installed, or what apt
-knows of, changes. Ubuntu&#39;s own count, on its login banner, is larger: it counts a full
-upgrade, with what <code>upgrade</code> keeps back. What apt keeps back even so, mostly phased updates
-Ubuntu hands out to a few machines at a time, is shown apart as <strong>held back</strong>: it is not
-waiting on you, and Install does not count it.</p>
+knows of, changes. Ubuntu&#39;s own count, on its login banner, is larger: it counts what apt keeps
+back too. What apt keeps back, mostly phased updates Ubuntu hands out to a few machines at a
+time, is shown apart as <strong>held back</strong>: it is not waiting on you, and Install does not count it.
+Snaps are in no count: snapd refreshes them by itself a few times a day, and Install&#39;s
+<code>snap refresh</code> catches up the rest.</p>
 <p>The count is as fresh as apt&#39;s package lists: an update published after the last
 <code>apt-get update</code> is in no count until the lists are fetched again. The root half fetches them
 itself once they are older than 6 hours (looking every ten minutes; after a fetch that failed,

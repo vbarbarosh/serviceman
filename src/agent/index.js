@@ -65,6 +65,9 @@ to give and none to get wrong.
   --apt     what apt-get is on this machine (env SERVICEMAN_APT). Without one,
             "sudo -n apt-get", or "apt-get" where the agent is root — so a
             sudoers line on that machine may name apt-get and nothing else
+  --snap    what snap is on this machine (env SERVICEMAN_SNAP). Without one,
+            "sudo -n /usr/bin/snap", or "/usr/bin/snap" where the agent is root;
+            none where the machine has no snap. Install runs its refresh after apt
   --ufw     what ufw is on this machine (env SERVICEMAN_UFW). Without one, "sudo -n
             ufw", or "ufw" where the agent is root
   --screenshot
@@ -317,6 +320,7 @@ function options_from_argv(argv)
         docker: text_after(argv, '--docker', env.SERVICEMAN_DOCKER || 'docker'),
         tailscale: text_after(argv, '--tailscale', env.SERVICEMAN_TAILSCALE || 'tailscale'),
         apt: text_after(argv, '--apt', env.SERVICEMAN_APT || ''),
+        snap: text_after(argv, '--snap', env.SERVICEMAN_SNAP || ''),
         ufw: text_after(argv, '--ufw', env.SERVICEMAN_UFW || ''),
         role: text_after(argv, '--role', env.SERVICEMAN_ROLE || ''),
         root_for: text_after(argv, '--for', env.SERVICEMAN_ROOT_FOR || ''),

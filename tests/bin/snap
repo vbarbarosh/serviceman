@@ -1,0 +1,3 @@
+#!/bin/sh
+# A snap stand-in for the tests: `refresh` says what a machine with nothing to refresh says
+echo "All snaps up to date."

@@ -440,7 +440,7 @@ and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Abov
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
-`apt-get -s upgrade --with-new-pkgs`, a dry run that needs no root — the version an upgrade would bring, marked
+`apt-get -s full-upgrade`, a dry run that needs no root — the version an upgrade would bring, marked
 when it comes from a security archive. Held and half-installed packages say so. The dry run
 reads the lists the last `apt-get update` left, so "to update" is as fresh as those; the
 Configure tab installs them.
@@ -452,19 +452,28 @@ the end of the upgrade's lines, with Docker's reason, and on the Health page.
 
 ## Its updates
 
-A machine's **Configure** tab says what apt has waiting, and **Install them** runs
-`apt-get update`, then `apt-get upgrade --with-new-pkgs` (an update that brings a new package
-with it, a new kernel's, is installed too; nothing is removed), answering its questions as a person would and keeping
-every config file you changed. Every line apt prints is shown while it runs; **Cancel** stops
-it. A root agent runs `apt-get`; one that runs as a user runs `sudo -n apt-get`, so sudo on that
-machine has to let it without a password.
+A machine's **Configure** tab says what apt has waiting, and **Install them** runs what a person
+types to bring a machine up to date:
 
-What is waiting is counted by apt, with the same upgrade as a dry run, so a machine just
+    apt-get update && apt-get -y full-upgrade && snap refresh
+
+`full-upgrade` installs an update that brings a new package with it, a new kernel's above all,
+and removes a package where an update cannot go in beside it; it answers apt's questions as a
+person would and keeps every config file you changed. `snap refresh` runs only where the
+machine has snap (`/usr/bin/snap`), and only once apt went well; a machine without it, a Debian
+or a container, is upgraded by apt alone. Every line apt and snap print is shown while they
+run; **Cancel** stops them. A root agent runs `apt-get` and `snap`; one that runs as a user runs
+`sudo -n apt-get` and `sudo -n /usr/bin/snap`, so sudo on that machine has to let both without
+a password: where it lets apt-get alone, apt's updates go in and Install ends failed at
+`snap refresh`, with sudo's reason. The agent's `--apt` and `--snap` name other commands.
+
+What is waiting is counted by apt, with the same full upgrade as a dry run, so a machine just
 upgraded says nothing waits; it is counted again whenever what is installed, or what apt
-knows of, changes. Ubuntu's own count, on its login banner, is larger: it counts a full
-upgrade, with what `upgrade` keeps back. What apt keeps back even so, mostly phased updates
-Ubuntu hands out to a few machines at a time, is shown apart as **held back**: it is not
-waiting on you, and Install does not count it.
+knows of, changes. Ubuntu's own count, on its login banner, is larger: it counts what apt keeps
+back too. What apt keeps back, mostly phased updates Ubuntu hands out to a few machines at a
+time, is shown apart as **held back**: it is not waiting on you, and Install does not count it.
+Snaps are in no count: snapd refreshes them by itself a few times a day, and Install's
+`snap refresh` catches up the rest.
 
 The count is as fresh as apt's package lists: an update published after the last
 `apt-get update` is in no count until the lists are fetched again. The root half fetches them

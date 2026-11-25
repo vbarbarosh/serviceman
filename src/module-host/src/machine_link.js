@@ -68,6 +68,7 @@ function agent_dial(file)
         docker: process.env.SERVICEMAN_DOCKER || 'docker',
         tailscale: process.env.SERVICEMAN_TAILSCALE || 'tailscale',
         apt: process.env.SERVICEMAN_APT || '',
+        snap: process.env.SERVICEMAN_SNAP || '',
         ufw: process.env.UFW || process.env.SERVICEMAN_UFW || '',
         root_socket: process.env.SERVICEMAN_ROOT_SOCKET || '',
         screenshot: '',

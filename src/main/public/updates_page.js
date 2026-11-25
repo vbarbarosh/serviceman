@@ -23,7 +23,7 @@ const updates_page = {
 <article id="detail" class="list updates-page">
     <page-head category="remotes" title="Updates" :icon="UPDATES_ICON" :count="((mode === 'pick') ? waiting_count : null)">
         <template #says>
-            <template v-if="(mode === 'pick')">What apt has waiting on each machine; nothing installs by itself. <code>apt-get update</code>, then <code>apt-get upgrade</code> on every machine ticked, at once, keeping the config files you changed.</template>
+            <template v-if="(mode === 'pick')">What apt has waiting on each machine; nothing installs by itself. <code>apt-get update</code>, <code>apt-get full-upgrade</code>, then <code>snap refresh</code> where it has snap, on every machine ticked, at once, keeping the config files you changed.</template>
             <template v-else-if="ended">Installed on {{ batch.remotes.length }} {{ ((batch.remotes.length === 1) ? 'machine' : 'machines') }}, each its own apt: each row says how it ended.</template>
             <template v-else>Installing on {{ batch.remotes.length }} {{ ((batch.remotes.length === 1) ? 'machine' : 'machines') }}, each its own apt. The runs are serviceman's: leave the page and they go on.</template>
         </template>

@@ -23,7 +23,7 @@ test('updates are counted by apt with the upgrade Install runs, and what it keep
         '1 upgraded, 1 newly installed, 0 to remove and 2 not upgraded.',
     ].join('\n'));
     const before = await agent_updates({apt: `sudo -n ${apt}`});
-    assert.strictEqual(fs.readFileSync(asked, 'utf8').trim(), '-s upgrade --with-new-pkgs', 'the dry run of the upgrade Install runs, without sudo');
+    assert.strictEqual(fs.readFileSync(asked, 'utf8').trim(), '-s full-upgrade', 'the dry run of the full upgrade Install runs, without sudo');
     assert.deepStrictEqual([before.pending, before.security, before.held], [2, 1, 2]);
 
     // Installed: apt is asked again, whatever the time of the files it watches

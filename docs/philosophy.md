@@ -12,7 +12,7 @@ right moment.
 | Shell in a container               | `docker exec -it <container> sh`                         |
 | A terminal kept on a machine       | `socat -,raw,echo=0 UNIX-CONNECT:<agent>/terminals/<name>.sock` joins it |
 | Processes, Ports, Disks, Packages  | `ps`, `ss`, `df`, `dpkg-query`                           |
-| Upgrade packages                   | `apt-get upgrade`                                        |
+| Upgrade packages                   | `apt-get full-upgrade`, `snap refresh`                   |
 | Download a folder                  | `tar -cf -`                                              |
 
 So what it makes is what the command would make: a container that `docker ps` lists, a

@@ -60,7 +60,7 @@ const packages = {
             const out = [
                 {value: 'all', label: 'all', count: items.length, title: 'Every installed package'},
                 {value: 'manual', label: 'by hand', count: items.filter(v => v.manual).length, title: 'Asked for by name; the rest came along as something else needed them'},
-                {value: 'update', label: 'to update', count: items.filter(v => (v.update !== null)).length, title: 'What apt-get upgrade would move on, as of the last apt-get update'},
+                {value: 'update', label: 'to update', count: items.filter(v => (v.update !== null)).length, title: 'What apt-get full-upgrade would move on, as of the last apt-get update'},
             ];
             const held = items.filter(v => v.held).length;
             if (held > 0) {

@@ -729,7 +729,7 @@ that talks to an HTTP API under one base URL. The server half is that API, as on
 handler that asks the host to <strong>read</strong> the list. The host gives the read, mounts the handler at
 the base, and decides who may ask.</p>
 <p>serviceman is the first host: its Packages tab of a machine is this component, and the read is
-<code>dpkg-query</code>, <code>apt-mark</code> and a dry-run <code>apt-get upgrade</code> run over there by the machine&#39;s agent.
+<code>dpkg-query</code>, <code>apt-mark</code> and a dry-run <code>apt-get full-upgrade</code> run over there by the machine&#39;s agent.
 Installing the updates is not here: it is serviceman&#39;s own, on a machine&#39;s Configure tab and
 on Remotes.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>

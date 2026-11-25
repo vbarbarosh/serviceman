@@ -7,11 +7,11 @@ const package_list_from_dpkg = require('./package_list_from_dpkg');
 const FORMAT = '${db:Status-Abbrev}\\t${Package}\\t${Architecture}\\t${Version}\\t${Installed-Size}\\t${Section}\\t${binary:Summary}\\n';
 
 // Every package dpkg has installed on this machine: which were asked for by name and which
-// came along as something else's need, which are held, and which an upgrade would move on.
-// None of it needs root; the dry run reads the lists the last `apt-get update` left.
+// came along as something else's need, which are held, and which Install's full-upgrade would
+// move on. None of it needs root; the dry run reads the lists the last `apt-get update` left.
 async function agent_package_list(options)
 {
-    const argvs = [['dpkg-query', '-W', '-f', FORMAT], ['apt-mark', 'showmanual'], ['apt-mark', 'showhold'], [agent_apt_binary(options), '-s', 'upgrade', '--with-new-pkgs']];
+    const argvs = [['dpkg-query', '-W', '-f', FORMAT], ['apt-mark', 'showmanual'], ['apt-mark', 'showhold'], [agent_apt_binary(options), '-s', 'full-upgrade']];
     const status = await agent_shell(argvs[0]);
     if (status.ok === false) {
         throw new Error(/ENOENT/.test(status.stderr) ? 'this machine has no dpkg: it is not a Debian or an Ubuntu' : `dpkg-query: ${status.stderr}`);

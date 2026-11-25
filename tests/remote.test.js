@@ -692,7 +692,7 @@ test('an agent from before machine shells is not asked for one, and its link sur
 
 test('the updates of a machine are installed on a press, said line by line, and stopped on another', async function () {
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
-    const agent = agent_start(running.control_port, TOKEN, ['--apt', path.join(__dirname, 'bin', 'apt-get')]);
+    const agent = agent_start(running.control_port, TOKEN, ['--apt', path.join(__dirname, 'bin', 'apt-get'), '--snap', path.join(__dirname, 'bin', 'snap')]);
     try {
         const remote = running.app.remote_by_name.ui1;
         await wait_until(() => remote.state.phase === 'online');
@@ -745,7 +745,7 @@ test('the updates of several machines are installed at once, the one serviceman 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
     const docker = await fake_docker_engine(path.join(dir, 'docker.sock'));
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}, {name: 'vps3', token: JOIN_TOKEN}]);
-    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get')];
+    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get'), '--snap', path.join(__dirname, 'bin', 'snap')];
     const first = agent_start(running.control_port, TOKEN, apt);
     // vps2's Docker runs this serviceman: what docker says of its own container's id
     const second = agent_start(running.control_port, TOKEN2, apt, {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
@@ -804,7 +804,7 @@ test('a machine waiting its turn is not started once cancelled, and starts at on
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-apt-all-'));
     const docker = await fake_docker_engine(path.join(dir, 'docker.sock'));
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}, {name: 'vps2', token: TOKEN2}]);
-    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get')];
+    const apt = ['--apt', path.join(__dirname, 'bin', 'apt-get'), '--snap', path.join(__dirname, 'bin', 'snap')];
     const first = agent_start(running.control_port, TOKEN, apt);
     const second = agent_start(running.control_port, TOKEN2, apt, {SERVICEMAN_AGENT_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-agent-')), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
     running.app.own_container = docker.add('serviceman');
@@ -863,7 +863,7 @@ test('a Cancel that comes before the machine was asked to install stops the run,
     });
     await new Promise(v => slow.listen(path.join(dir, 'docker.sock'), v));
     const running = await serviceman_start([{name: 'vps1', token: TOKEN}]);
-    const agent = agent_start(running.control_port, TOKEN, ['--apt', path.join(__dirname, 'bin', 'apt-get')], {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
+    const agent = agent_start(running.control_port, TOKEN, ['--apt', path.join(__dirname, 'bin', 'apt-get'), '--snap', path.join(__dirname, 'bin', 'snap')], {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
     try {
         const vps1 = running.app.remote_by_name.vps1;
         await wait_until(() => vps1.state.phase === 'online');
@@ -894,7 +894,7 @@ test('a machine with a root half does its root work there, and says so', async f
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-root-'));
     const socket = path.join(dir, 'root.sock');
     // The root half: the same file, dialling nowhere, answering that socket alone
-    const root = child_process.spawn(process.execPath, [AGENT, '--role', 'root', '--root-socket', socket, '--apt', path.join(__dirname, 'bin', 'apt-get')], {stdio: ['ignore', 'pipe', 'pipe']});
+    const root = child_process.spawn(process.execPath, [AGENT, '--role', 'root', '--root-socket', socket, '--apt', path.join(__dirname, 'bin', 'apt-get'), '--snap', path.join(__dirname, 'bin', 'snap')], {stdio: ['ignore', 'pipe', 'pipe']});
     root.stdout.resume();
     root.stderr.resume();
     const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);

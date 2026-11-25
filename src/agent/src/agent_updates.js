@@ -8,14 +8,14 @@ const REBOOT_FILE = '/var/run/reboot-required';
 // What changes when packages are installed, and when apt learns of new ones
 const APT_STATE = ['/var/lib/dpkg/status', '/var/lib/apt/lists'];
 
-// What an upgrade would install, as apt counts it: the very upgrade Install runs, so a machine
-// just upgraded says 0. Counting reads the whole package list and costs a second, so it is done
-// again only when that list or what is installed changed.
+// What an upgrade would install, as apt counts it: the very full-upgrade Install runs, so a
+// machine just upgraded says 0. Counting reads the whole package list and costs a second, so it
+// is done again only when that list or what is installed changed. Snaps are not counted: snapd
+// refreshes them by itself, a few times a day, and Install's snap refresh catches up the rest.
 //
-// Ubuntu's login banner file is no use for it: it counts a full upgrade, with what `upgrade`
-// keeps back (phased updates above all), and it is written again at the next login — so it
-// said "19 to install" again right after the 19 were installed. It is read only where apt
-// cannot be asked.
+// Ubuntu's login banner file is no use for it: it counts what apt keeps back too (phased
+// updates above all), and it is written again at the next login — so it said "19 to install"
+// again right after the 19 were installed. It is read only where apt cannot be asked.
 //
 // held: what apt keeps back even so, phased updates Ubuntu hands out a few machines at a time;
 // waiting on Ubuntu, not on anyone here, and not counted as to install.
@@ -51,7 +51,7 @@ async function agent_updates(options)
 // root, so this is safe to run as whoever the agent is.
 async function counts_from_apt(options)
 {
-    const answer = await agent_shell([agent_apt_binary(options), '-s', 'upgrade', '--with-new-pkgs']);
+    const answer = await agent_shell([agent_apt_binary(options), '-s', 'full-upgrade']);
     if (answer.ok === false) {
         return null;
     }

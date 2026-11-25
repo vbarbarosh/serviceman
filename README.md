@@ -20,7 +20,7 @@ of files, an app on a socket file, and a door rule of `*`, whose app serviceman 
 ## Philosophy
 
 serviceman does nothing you could not do by hand. Each thing it does is a command you could
-type on the machine yourself (`docker run`, `docker exec`, `ps`, `apt-get upgrade`), and it
+type on the machine yourself (`docker run`, `docker exec`, `ps`, `apt-get full-upgrade`), and it
 leaves behind what that command would leave: a container, a file, a terminal you can join
 with `socat` over ssh. The ordinary tools always show the same thing the
 page shows. See [Philosophy](docs/philosophy.md).

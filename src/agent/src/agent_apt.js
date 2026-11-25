@@ -11,19 +11,29 @@ const stream_terminal_text = require('../../helpers/stream_terminal_text');
 // What a person would type, with the answers to its questions given in advance: nothing here
 // may stop and wait for a keyboard, because there is nobody at this end of it. A config file
 // the machine's owner changed is kept as it is — apt asking about it is apt asking a person.
-// --with-new-pkgs installs an update that brings a new package with it, a new kernel's above
-// all, which a plain upgrade keeps back for good; nothing is ever removed.
 const ANSWERS = '-y -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef';
+// Where a machine's snap is, when it has one: Ubuntu's, put there by the snapd package
+const SNAP = '/usr/bin/snap';
 const KEEP_LINES = 200;
 const KILL_AFTER_MS = 10000;
 // A fetch of the lists still going after this is stopped: apt's own timeouts are a few
 // minutes a mirror
 const REFRESH_MAX_MS = 10*60*1000;
 
-// Installs what is waiting, saying every line as apt prints it. One run at a time on a
-// machine: two apt-gets at once is a lock fight, not twice the work. A fetch of the lists
-// going on by itself (refresh) is waited for, since Install fetches them again anyway. A
-// Cancel that comes during that wait is meant for this Install, which then never starts.
+// Installs what is waiting, saying every line as apt and snap print it: what a person types to
+// bring a machine up to date,
+//
+//     sudo apt-get update && sudo apt-get -y full-upgrade && sudo snap refresh
+//
+// full-upgrade installs an update that brings a new package with it (a new kernel's above all)
+// and removes a package where an update cannot go in beside it; what apt keeps back even so,
+// phased updates, stays back. snap refresh runs only where the machine has snap, and only once
+// apt went well.
+//
+// One run at a time on a machine: two apt-gets at once is a lock fight, not twice the work. A
+// fetch of the lists going on by itself (refresh) is waited for, since Install fetches them
+// again anyway. A Cancel that comes during that wait is meant for this Install, which then
+// never starts.
 async function agent_apt_upgrade(state, options, say)
 {
     if ((state.apt_refresh !== undefined) && (state.apt_refresh !== null)) {
@@ -38,11 +48,14 @@ async function agent_apt_upgrade(state, options, say)
     if ((state.apt !== undefined) && (state.apt !== null)) {
         return {ok: false, stderr: 'apt is already running on this machine'};
     }
-    // Both apt-gets are run through whatever this machine says apt-get is — `sudo -n apt-get`
-    // where the agent is not root, so a sudoers line may name apt-get and nothing else; a line
-    // that named a shell would be root with extra words.
+    // Both apt-gets are run through whatever this machine says apt-get is, and snap through what
+    // it says snap is — `sudo -n apt-get` and `sudo -n /usr/bin/snap` where the agent is not
+    // root, so a sudoers line may name the two and nothing else; a line that named a shell would
+    // be root with extra words.
     const apt = apt_command(options);
-    const ran = await apt_run(state, `${apt} update && ${apt} ${ANSWERS} upgrade --with-new-pkgs`, say);
+    const snap = snap_command(options);
+    const line = `${apt} update && ${apt} ${ANSWERS} full-upgrade`;
+    const ran = await apt_run(state, (snap === null) ? line : `${line} && ${snap} refresh`, say);
     const cancelled = (state.apt_cancelled === true);
     state.apt_cancelled = false;
     // What is waiting has just changed: the next answer is counted again
@@ -163,6 +176,21 @@ function apt_command(options)
         return options.apt;
     }
     return ((process.getuid !== undefined) && (process.getuid() === 0)) ? 'apt-get' : 'sudo -n apt-get';
+}
+
+// What snap is on this machine: as given, or with sudo in front of it where the agent is not
+// root; null on a machine with no snap (a Debian, a container), whose Install is apt alone. A
+// machine under a folder of its own (apt_root_dir) has snap only where that folder has it.
+function snap_command(options)
+{
+    if ((options !== undefined) && (options.snap !== undefined) && (options.snap !== '')) {
+        return options.snap;
+    }
+    const base = ((options === undefined) || (options.apt_root_dir === undefined)) ? '' : options.apt_root_dir;
+    if (fs.existsSync(path.join(base, SNAP)) === false) {
+        return null;
+    }
+    return ((process.getuid !== undefined) && (process.getuid() === 0)) ? SNAP : `sudo -n ${SNAP}`;
 }
 
 // Stops the run that is going: the whole group, because apt is a shell line that started
