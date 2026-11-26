@@ -23,6 +23,7 @@ import copy_progress from 'file_manager/copy_progress.js';
 import count_words from './count_words.js';
 import crumbs_bar from './crumbs_bar.js';
 import data_table from './data_table.js';
+import database_browse from './database_browse.js';
 import databases_pane from './databases_pane.js';
 import file_manager from 'file_manager/file_manager.js';
 import find_palette from './find_palette.js';
@@ -2380,6 +2381,10 @@ function database_path(place)
         return '/databases/new';
     }
     const database = (place.database === '') ? '' : `/${encodeURIComponent(place.database)}`;
+    if (place.page === 'browse') {
+        const collection = (place.collection === '') ? '' : `?collection=${encodeURIComponent(place.collection)}`;
+        return `/databases/${encodeURIComponent(place.server)}${database}/browse${collection}`;
+    }
     return `/databases/${encodeURIComponent(place.server)}${database}`;
 }
 
@@ -2398,7 +2403,7 @@ function route_from_path(pathname, search)
         return {kind: 'home', name: '', tab: '', item: '', remote};
     }
     if (((parts[0] === 'services') || (parts[0] === 'remotes') || (parts[0] === 'databases')) && (parts.length > 1)) {
-        return {kind: parts[0], name: parts[1], tab: (parts[2] === undefined) ? '' : parts[2], item: (parts[3] === undefined) ? '' : parts[3], remote: null, path: new URLSearchParams(search).get('path')};
+        return {kind: parts[0], name: parts[1], tab: (parts[2] === undefined) ? '' : parts[2], item: (parts[3] === undefined) ? '' : parts[3], remote: null, path: new URLSearchParams(search).get('path'), collection: new URLSearchParams(search).get('collection')};
     }
     return {kind: parts[0], name: '', tab: '', item: '', remote};
 }
@@ -2457,6 +2462,7 @@ const app = {
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" :state="state" :problems="problems" :counts="{addresses: addresses_count, guarded: guarded_count, apps: apps_count, boards: boards_count}" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" :state="state" @form="pane_form = $event" @changed="shared_count_read" @remote="remote_select_named"/>
+        <database-browse v-else-if="(databases_open && (database_place !== null) && (database_place.page === 'browse'))" :place="database_place" :state="state" @place="database_place = $event" @remote="remote_select_named"/>
         <databases-pane v-else-if="databases_open" :place="database_place" :state="state" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add" @remote="remote_select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open" @form="pane_form = $event"/>
@@ -2487,7 +2493,7 @@ const app = {
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'updates-page': updates_page, 'volumes-pane': volumes_pane},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'database-browse': database_browse, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'updates-page': updates_page, 'volumes-pane': volumes_pane},
     data: function () {
         return {
             state: null,
@@ -2860,7 +2866,7 @@ const app = {
             }
             if (this.databases_open && (this.database_place !== null)) {
                 const place = this.database_place;
-                return (place.page === 'new') ? page_crumbs({page: 'new-database', name: '', title: '', tab: ''}) : page_crumbs({page: 'database', name: place.server, title: (place.database === '') ? '' : place.database, tab: ''});
+                return (place.page === 'new') ? page_crumbs({page: 'new-database', name: '', title: '', tab: ''}) : page_crumbs({page: 'database', name: place.server, title: (place.database === '') ? '' : place.database, tab: (place.page === 'browse') ? 'browse' : ''});
             }
             if ((this.kind_now === 'remotes') && (this.selected_remote !== null)) {
                 // Named as its head names it, by its name; its title is on the line under it
@@ -3115,6 +3121,9 @@ const app = {
                 this.databases_open = true;
                 if (route.name === 'new') {
                     this.database_place = {page: 'new'};
+                }
+                else if (route.item === 'browse') {
+                    this.database_place = {page: 'browse', server: route.name, database: route.tab, collection: route.collection || ''};
                 }
                 else if (route.name !== '') {
                     this.database_place = {page: 'database', server: route.name, database: route.tab};
@@ -3726,6 +3735,10 @@ const app = {
         },
         // A crumb between the first and the last: the item it names, on its first tab
         crumb_go: function (to) {
+            if (to.page === 'database') {
+                this.database_place = {page: 'database', server: to.name, database: to.tab};
+                return;
+            }
             if (to.page === 'service') {
                 this.service_tab = to.tab;
                 return;

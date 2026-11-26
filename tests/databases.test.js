@@ -121,6 +121,9 @@ test('a PostgreSQL is brought up filled with a sample, and a database made in it
     assert.match(user, /CREATE DATABASE "notes" OWNER "notes";/);
     assert.match(user, /REVOKE ALL ON DATABASE "notes" FROM PUBLIC;/);
     assert.match(user, /\\connect "notes"\nGRANT ALL ON SCHEMA public TO "notes";/);
+    // Its data is not browsed yet: MongoDB's comes first
+    const browsed = await control(world, 'GET', '/api/v1/databases/postgresql-1/notes/browse/collections');
+    assert.deepStrictEqual([browsed.status, browsed.body.error], [501, 'postgresql-1 is a PostgreSQL: its data is browsed here once its engine is, MongoDB first']);
 
     const kept = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0];
     const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
@@ -240,9 +243,30 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
     const scripts = [...engine.execs.values()].filter(v => v.spec.Cmd[0] === 'sh').map(v => v.spec.Cmd[v.spec.Cmd.length - 1]);
     assert.ok((scripts.length > 0) && scripts.every(v => v.endsWith('.js')), 'mongosh loads a file only when it ends in .js');
 
+    // Its data, browsed: a script run inside its container, in orders, signed in as orders' own
+    // user, its name and password in the exec's env; what is typed goes in as data
+    const collections = await control(world, 'GET', '/api/v1/databases/mongodb-1/orders/browse/collections');
+    assert.deepStrictEqual([collections.status, collections.body.items.map(v => `${v.name} ${v.count}`)], [200, ['items 2']]);
+    const page = await control(world, 'GET', `/api/v1/databases/mongodb-1/orders/browse/documents?${new URLSearchParams({collection: 'items', filter: '{n: {$gt: 1}}', skip: '50'})}`);
+    assert.deepStrictEqual([page.status, page.body.skip, page.body.limit, JSON.parse(page.body.ask.filter)], [200, 50, 50, {n: {$gt: 1}}]);
+    const browsed = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
+    assert.strictEqual(browsed.length, 2);
+    assert.ok(browsed[1].Cmd[2].startsWith('mongosh --quiet --norc \'mongodb://127.0.0.1:27017/orders\' '), browsed[1].Cmd[2]);
+    assert.deepStrictEqual(browsed[1].Env, ['SERVICEMAN_DB_USER=orders', `SERVICEMAN_DB_PASSWORD=${JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].users.orders.password}`]);
+    const refused = [
+        ['/api/v1/databases/mongodb-1/nope/browse/collections', 404, 'mongodb-1 has no database "nope" made by serviceman'],
+        ['/api/v1/databases/mongodb-2/orders/browse', 404, 'no database server called "mongodb-2"'],
+        ['/api/v1/databases/mongodb-1/orders/browse/documents?collection=items&filter=%7Ba%3A%20db.x()%7D', 400, 'the filter: "db.x" is not a value: a query is data, the shell\'s types (ObjectId, ISODate, NumberLong…) and no code, at 5'],
+    ];
+    for (const [asked, status, said] of refused) {
+        const answer = await control(world, 'GET', asked);
+        assert.deepStrictEqual([answer.status, answer.body.error], [status, said], asked);
+    }
+    assert.strictEqual((await control(world, 'POST', '/api/v1/databases/mongodb-1/orders/browse/documents', {})).status, 404, 'no door changes its data yet');
+
     const kept = JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0];
     const secrets = [kept.root, kept.users.orders.password];
-    const answers = JSON.stringify([made.body, up, orders.body]);
+    const answers = JSON.stringify([made.body, up, orders.body, collections.body, page.body]);
     assert.deepStrictEqual(secrets.filter(v => answers.includes(v)), [], 'no password in an answer');
     const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
     assert.deepStrictEqual(secrets.filter(v => cmds.includes(v)), [], 'no password on a command line');

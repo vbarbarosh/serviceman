@@ -7,7 +7,7 @@ const http = require('http');
 // make-believe, MySQL's or PostgreSQL's: a ping answers once the container runs, and SQL run as a
 // file makes the databases its CREATE lines name, drops those its DROP lines name, and answers
 // the list of them; every SQL run is kept, in `sql`. Its MongoDB the same, a mongosh script
-// making the databases its createUser lines are made in. Every request is kept, with its
+// making the databases its createUser lines are made in, and the data browser's answered. Every request is kept, with its
 // body, for the test to read what went where.
 async function fake_database_engine(socket)
 {
@@ -142,7 +142,11 @@ function exec_route(engine, req, res, parts)
         for (const found of sql.matchAll(/getSiblingDB\('([a-z0-9_]+)'\)\.createUser\(/g)) {
             container.databases.add(found[1]);
         }
-        if (sql.includes('listDatabases')) {
+        // The data browser's script, as the database's own user: a collection, and a page of it
+        if (sql.includes('serviceman-answer ')) {
+            printed = `serviceman-answer ${JSON.stringify(browse_answer(sql))}\n`;
+        }
+        else if (sql.includes('listDatabases')) {
             printed = [...container.databases].sort().map(v => `${v}\t3\t8192\n`).join('');
         }
         else if (sql.includes('information_schema.schemata')) {
@@ -161,6 +165,17 @@ function exec_route(engine, req, res, parts)
     head[0] = 1;
     head.writeUInt32BE(data.length, 4);
     res.end((data.length === 0) ? Buffer.alloc(0) : Buffer.concat([head, data]));
+}
+
+// What the data browser's script prints for its MongoDB: one collection of two documents, and a
+// page of them that says back what it was asked
+function browse_answer(sql)
+{
+    if (sql.includes('getCollectionInfos')) {
+        return {ok: [{name: 'items', type: 'collection', count: 2, bytes: 191, storage_bytes: 4096, index_bytes: 4096, indexes: 1}]};
+    }
+    const ask = JSON.parse(/^const ask = (.*);$/m.exec(sql)[1]);
+    return {ok: {items: [{_id: {$oid: '6b08111da665b663b25ba166'}, n: 5}], count: 1, took_ms: 3, cut: false, ask}};
 }
 
 // The files of a ustar archive, by name

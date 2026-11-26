@@ -19,6 +19,7 @@ const SERVES = {
     '/api/v1/remotes/<name>/fs': ['modules/file_manager/server/file_manager_serve.js'],
     '/api/v1/remotes/<name>/terminals': ['modules/terminal/server/terminal_serve.js'],
     '/api/v1/transfers': ['modules/file_manager/server/file_manager_transfers_serve.js'],
+    '/api/v1/databases/<server>/<database>/browse': ['modules/data_browser/server/data_browser_serve.js'],
 };
 
 // What a route says, in the order the tests below write it
@@ -125,6 +126,9 @@ test('a token\'s right to a module is to the doors its manifest gives it, and th
     assert.deepStrictEqual([module_route(whole, 'GET', '').right, module_route(whole, 'POST', '/mkdir').right], [whole.right, whole.right], 'a right given to a whole module is to each of its doors');
     assert.strictEqual(right('GET', '/api/v1/remotes/vps1/firewall'), null);
     assert.strictEqual(right('GET', '/api/v1/transfers'), null);
+    assert.strictEqual(right('GET', '/api/v1/databases/mongodb-1/orders/browse/documents'), null, 'a database\'s data is the owner\'s alone');
+    const browse = module_mount_of('/api/v1/databases/mongodb-1/my%20db/browse/collections');
+    assert.deepStrictEqual([browse.mount.manifest.module, browse.remote, browse.params, browse.tail], ['data_browser', null, {server: 'mongodb-1', database: 'my db'}, '/collections']);
     assert.deepStrictEqual(control_route_right('GET', '/api/v1/remotes/a%20b/disks'), {right: 'disks', said: 'read the disks', under: null, remote: 'a b'});
 });
 

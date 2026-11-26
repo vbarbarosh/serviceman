@@ -97,14 +97,27 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     assert.strictEqual(vm.remove_said, 'Removes its server, mongodb-1, and orders_test with it: its container on vps1 stops and their data goes; shop finds no database at its next start.');
     assert.deepStrictEqual(vm.remove_rows.map(v => `${v.label}: ${v.code}${v.text}`), ['Its container: serviceman-db-mongodb-1 stops and goes', 'Its data: serviceman-db-mongodb-1 volume, 1 KB, goes for good', 'Beside it: orders_test', 'Apps given it: shop: no database at the next start']);
 
+    // Browse: its data, read as its own user, a MongoDB's for now, once it is up and its machine
+    // here
+    const emitted = [];
+    vm.$emit = function (name, value) {
+        emitted.push([name, value]);
+    };
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why], [true, '']);
+    vm.browse_open();
+    assert.deepStrictEqual(emitted, [['place', {page: 'browse', server: 'mongodb-1', database: 'orders', collection: ''}]]);
+
     // Its machine away: Remove waits for it, the apps find it again when it is back
     server.online = false;
+    assert.strictEqual(vm.browse_why, 'vps1 is offline: its data is read when it is back');
     assert.strictEqual(vm.given_foot, '1 app · it finds the database again when vps1 is back');
     assert.match(vm.remove_said, /^Removes its server, mongodb-1, and orders_test with it, once vps1 is back: its container stops/);
     server.online = true;
 
-    // A CouchDB: its admin with its secret, and the apps whose store it is, finding it at /_couch
+    // A CouchDB: its admin with its secret, and the apps whose store it is, finding it at /_couch;
+    // no Browse yet
     Object.assign(server, {engine: 'couchdb', version: '3', stores: ['docs', 'shop']});
+    assert.strictEqual(vm.browse_shown, false);
     server.databases[0].envs = {shop: 'COUCHDB_URL'};
     assert.deepStrictEqual(vm.given_rows.map(v => `${v.name}: ${v.codes.join(' and ')}${v.after}`), ['shop: COUCHDB_URL and COUCHDB_SECRET', 'docs: /_couch a store for each user']);
     assert.strictEqual(vm.given_foot, '2 apps · every user its wall signs in has a database of their own');

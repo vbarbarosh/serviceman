@@ -1,0 +1,11 @@
+{
+    "name": "data_browser",
+    "version": "1.0.0",
+    "private": true,
+    "license": "MIT",
+    "description": "One database's data for a web page: its collections, a page of documents found by a filter, sorted, each shown whole",
+    "main": "server/data_browser_serve.js",
+    "scripts": {
+        "test": "node --test tests/*.test.js"
+    }
+}

@@ -85,6 +85,24 @@ it up again**; its machine away, a red note says so, and its numbers are the las
 when. A server with no database in it yet is a page of its own, with
 **New database in it**, New database opened on its engine and machine.
 
+## Its data, browsed
+
+A MongoDB's page has **Browse** in its head, which opens its data at
+`/databases/<server>/<database>/browse`: the [Data](../modules/data_browser/README.md) module on
+it. Its collections down the left, each with how many documents it holds; a click opens one, its
+documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages. A
+filter finds them, typed as the MongoDB shell types it, `{status: 'active', joined: {$gte:
+ISODate('2025-06-01')}}`; **Sort and fields** opens two more, `{joined: -1}` and `{name: 1,
+email: 1}`, and a click on a header sorts by that key, up, then down, then as found. A click on a
+row shows the document whole, as the shell writes it, with **Copy**. The collection open is in
+the address, `?collection=`, so a reload or a link opens it again.
+
+It reads as the database's own user, inside its server's container, never as root: it sees that
+database and no other. What is typed is read as data, never run: a name that is none of the
+shell's types, `db.dropDatabase()`, is refused, with where it stands. Its machine away, or the
+server not up, Browse is greyed and says why. It reads, for now; PostgreSQL, MySQL and SQLite
+files come to the same page.
+
 ## The passwords
 
 serviceman makes root's password and every user's, and keeps them in `data/databases.json`, mode

@@ -268,7 +268,8 @@ test('the modules say what they hold and do; a door none names is a 404, and a r
     const listed = await call(running, 'GET', '/api/v1/modules', null, running.owner);
     assert.strictEqual(listed.status, 200);
     const modules = JSON.parse(listed.body).modules;
-    assert.deepStrictEqual(modules.map(v => v.module), ['processes', 'disks', 'packages', 'docker', 'firewall', 'volumes', 'vulnerabilities', 'file_manager', 'terminal', 'file_manager']);
+    assert.deepStrictEqual(modules.map(v => v.module), ['processes', 'disks', 'packages', 'docker', 'firewall', 'volumes', 'vulnerabilities', 'file_manager', 'terminal', 'file_manager', 'data_browser']);
+    assert.strictEqual(modules[modules.length - 1].base, '/api/v1/databases/<server>/<database>/browse');
     const docker = modules.find(v => v.module === 'docker');
     assert.strictEqual(docker.base, '/api/v1/remotes/<name>/docker');
     assert.deepStrictEqual(docker.kinds.find(v => v.kind === 'containers').commands.map(v => v.command), ['start', 'stop', 'restart', 'remove']);
@@ -285,7 +286,7 @@ test('the modules say what they hold and do; a door none names is a 404, and a r
         const answer = await call(running, method, asked, null, made.token);
         assert.strictEqual([401, 403].includes(answer.status), false, `${method} ${asked}: ${answer.status} ${answer.body}`);
     }
-    for (const [method, asked] of [['POST', '/api/v1/remotes/vps1/packages/upgrade'], ['GET', '/api/v1/remotes/vps1/packages/upgrade'], ['POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/stop'], ['GET', '/api/v1/modules']]) {
+    for (const [method, asked] of [['POST', '/api/v1/remotes/vps1/packages/upgrade'], ['GET', '/api/v1/remotes/vps1/packages/upgrade'], ['POST', '/api/v1/remotes/vps1/docker/containers/3f2a9c1b7d4e/stop'], ['GET', '/api/v1/modules'], ['GET', '/api/v1/databases/mongodb-1/orders/browse/collections']]) {
         const answer = await call(running, method, asked, null, made.token);
         assert.deepStrictEqual([answer.status, JSON.parse(answer.body).error], [403, 'the token "the notes agent" has no right to this'], `${method} ${asked}`);
     }

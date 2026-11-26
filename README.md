@@ -108,6 +108,8 @@ whatever a manifest does not name, before the module is asked; gives a token onl
 manifest names, door by door; and answers every manifest, with where it is mounted, at
 `GET /api/v1/modules`.
 
+- [Data](modules/data_browser/README.md) — one database's data: its collections, a page of
+  documents found by a filter typed as the shell types it, each shown whole
 - [Disks](modules/disks/README.md) — the disks of a machine: the room and the inodes of every
   filesystem it has mounted
 - [Docker](modules/docker/README.md) — the containers of one machine, its compose projects and

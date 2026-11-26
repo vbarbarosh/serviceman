@@ -1,0 +1,354 @@
+/* The Data browser module's own rules. The host page gives the colours and the classes the
+   module shares with it: card, card-head, primary, link, muted, bad, spin, tag, dt-window,
+   dt-whole, dt-whole-head. */
+
+/* Its collections down the left, the open one's documents on the right; one above the other
+   on a narrow screen */
+.dbr {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.dbr-chip {
+    padding: 0 7px;
+    border-radius: 10px;
+    background: var(--hover);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.dbr-say {
+    margin: 0;
+    padding: 14px 18px;
+}
+
+.dbr-search {
+    display: block;
+    width: calc(100% - 24px);
+    margin: 12px 12px 0;
+}
+
+/* A collection a row: its name cut with … where it is long, its count on the right */
+.dbr-list {
+    max-height: calc(100vh - 16rem);
+    overflow: auto;
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+}
+
+.dbr-list button {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    width: 100%;
+    padding: 7px 18px 7px 15px;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+}
+
+.dbr-list button:hover {
+    background: var(--hover);
+}
+
+.dbr-list button.on {
+    border-left-color: var(--accent);
+    background: var(--sel);
+}
+
+.dbr-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dbr-num {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.dbr-pick {
+    padding: 48px 18px;
+    text-align: center;
+}
+
+.dbr-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.card-head > .dbr-facts {
+    margin-left: auto;
+    font-size: 13px;
+    text-align: right;
+}
+
+/* The filter on a line of its own, its buttons after it; sort and fields under it when asked */
+.dbr-find {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    align-items: end;
+    padding: 14px 18px 0;
+}
+
+.dbr-field {
+    display: grid;
+    gap: 4px;
+    grid-column: 1;
+    font-size: 13px;
+}
+
+.dbr-field > span {
+    color: var(--muted);
+}
+
+.dbr-code {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+}
+
+.dbr-find-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    grid-row: 1;
+    grid-column: 2;
+}
+
+.dbr-error {
+    margin: 10px 18px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+/* Where the page is among all found, how long they took, and the pages */
+.dbr-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: center;
+    padding: 12px 18px;
+    font-size: 13px;
+}
+
+.dbr-range {
+    font-variant-numeric: tabular-nums;
+}
+
+.dbr-cut {
+    color: var(--busy-text);
+}
+
+.dbr-pager {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.dbr-pager button,
+.dbr-doc-acts button:not(.link) {
+    min-width: 2rem;
+}
+
+.dbr-empty {
+    margin: 0;
+    padding: 28px 18px 36px;
+    text-align: center;
+}
+
+/* The documents: a column a key, a row a document, the head kept on top as it scrolls; a cell
+   one line, cut with … at its width, coloured by what it holds */
+.dbr-room {
+    max-height: calc(100vh - 20rem);
+    min-height: 8rem;
+    overflow: auto;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 6px 6px;
+}
+
+.dbr-room.dim {
+    opacity: .6;
+}
+
+.dbr-table {
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+
+.dbr-table th {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.dbr-table th button {
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.dbr-table th button:hover,
+.dbr-table th[aria-sort] button {
+    color: var(--fg);
+}
+
+.dbr-arrow {
+    color: var(--accent);
+}
+
+.dbr-table td {
+    max-width: 18rem;
+    padding: 7px 12px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dbr-table tbody tr {
+    cursor: pointer;
+}
+
+.dbr-table tbody tr:hover,
+.dbr-table tbody tr:focus-visible {
+    outline: none;
+    background: var(--hover);
+}
+
+.dbr-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.dbr-id,
+.dbr-date,
+.dbr-number,
+.dbr-object,
+.dbr-array,
+.dbr-other {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+}
+
+.dbr-id,
+.dbr-object,
+.dbr-array,
+.dbr-other {
+    color: var(--muted);
+}
+
+.dbr-number {
+    font-variant-numeric: tabular-nums;
+}
+
+.dbr-bool {
+    color: var(--link);
+}
+
+.dbr-null {
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* A document whole, as the shell writes it: its head stays, the document scrolls under it */
+.dt-whole.dbr-doc {
+    display: flex;
+    flex-direction: column;
+    width: min(56rem, 100%);
+    overflow: hidden;
+}
+
+.dbr-doc > .dt-whole-head {
+    flex: none;
+}
+
+.dbr-doc-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+}
+
+.dbr-doc-acts {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.dbr-json {
+    flex: 1;
+    min-height: 0;
+    margin: .4rem 0 0;
+    padding: 12px 14px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--code);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+@media (max-width: 720px) {
+    .dbr {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dbr-list {
+        max-height: 12rem;
+    }
+
+    .dbr-find {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dbr-find-acts {
+        grid-row: auto;
+        grid-column: 1;
+    }
+
+    .dbr-room {
+        max-height: none;
+    }
+
+    .card-head > .dbr-facts {
+        display: none;
+    }
+
+    /* A narrow window keeps each line whole and scrolls sideways, as code is read: wrapped, a
+       key and its value would land on lines of their own */
+    .dbr-json {
+        font-size: 12px;
+        white-space: pre;
+        word-break: normal;
+    }
+}

@@ -11,13 +11,17 @@ const FORMS = {'new-service': 'New service', 'new-remote': 'New remote', 'new-da
 //     place   {page, name, title, tab}: page is 'list', 'service', 'remote', 'database',
 //             'new-service', 'new-remote', 'new-database', 'join' or 'updates'; name and title of the
 //             service, machine or database open ('' when none, a title of '' shows the name);
-//             tab its open tab
+//             tab its open tab; a database's is 'browse' when its data is browsed
 //
 //     [{label, to}]   to is {page, name, tab}, or null for the last
 function page_crumbs(place)
 {
     if (FORMS[place.page] !== undefined) {
         return [{label: FORMS[place.page], to: null}];
+    }
+    // A database's data, browsed, is under its page: the database goes back to it
+    if ((place.page === 'database') && (place.tab === 'browse')) {
+        return [{label: (place.title === '') ? place.name : place.title, to: {page: 'database', name: place.name, tab: place.title}}, {label: 'Browse', to: null}];
     }
     if (place.page === 'database') {
         return [{label: (place.title === '') ? place.name : place.title, to: null}];

@@ -72,6 +72,9 @@ const databases_pane = {
                     </div>
                 </div>
                 <item-facts :facts="open_facts"/>
+                <div v-if="browse_shown" class="item-acts">
+                    <button type="button" :disabled="(browse_why !== '')" :title="((browse_why === '') ? 'Its collections and documents, read as its own user' : browse_why)" @click="browse_open"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M9 9.5V20"/></svg>Browse</button>
+                </div>
             </div>
         </div>
         <!-- How it stands when it is not simply up: coming up step by step, failed, its machine away -->
@@ -426,6 +429,18 @@ const databases_pane = {
         server_only: function () {
             return (this.open_database === null) && (this.open_server.phase === 'up') && (this.open_server.online !== false);
         },
+        // Browse, the database's data read as its own user: a MongoDB's for now, and one
+        // serviceman made, which has that user
+        browse_shown: function () {
+            return (this.open_server.engine === 'mongodb') && (this.open_database !== null) && (typeof this.open_database.user === 'string');
+        },
+        // Why Browse cannot open it now; '' when it can
+        browse_why: function () {
+            if (this.open_server.online === false) {
+                return `${this.open_server.title} is offline: its data is read when it is back`;
+            }
+            return (this.open_server.phase === 'up') ? '' : `${this.open_server.name} is not up: its data is read once it is`;
+        },
         open_facts: function () {
             const server = this.open_server;
             const database = this.open_database;
@@ -756,6 +771,9 @@ const databases_pane = {
         },
         row_open: function (row) {
             this.$emit('place', {page: 'database', server: row.server, database: row.database});
+        },
+        browse_open: function () {
+            this.$emit('place', {page: 'browse', server: this.open_server.name, database: this.open_database.name, collection: ''});
         },
         // Made: its page, and what was made said on it
         made: async function (made) {

@@ -54,6 +54,7 @@ const fs_grant_of = require('../helpers/fs_grant_of');
 const fs_grant_read = require('../helpers/fs_grant_read');
 const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
+const handle_database_browse = require('./handle_database_browse');
 const handle_databases = require('./handle_databases');
 const handle_shared_folders = require('./handle_shared_folders');
 const health_from_views = require('../helpers/health_from_views');
@@ -169,6 +170,8 @@ const RE_REMOTE_DOCKER = /^\/api\/v1\/remotes\/([^/]+)\/docker(\/.*)?$/;
 const RE_CONTAINER_FS = /^\/containers\/([0-9a-f]{12,64})\/fs(\/.*)?$/;
 // The Firewall module's API, one machine's firewall and ports under each
 const RE_REMOTE_FIREWALL = /^\/api\/v1\/remotes\/([^/]+)\/firewall(\/.*)?$/;
+// The Data browser module's API, one database's data under each
+const RE_DATABASE_BROWSE = /^\/api\/v1\/databases\/([^/]+)\/([^/]+)\/browse(\/.*)?$/;
 // The Volumes module's API, one machine's encrypted volumes under each
 const RE_REMOTE_VOLUMES = /^\/api\/v1\/remotes\/([^/]+)\/volumes(\/.*)?$/;
 // Copies of files from one machine to another, run here and not by a page
@@ -235,6 +238,7 @@ const MODULE_SITES = {
     file_manager: {name: 'file_manager', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'file_manager', 'ui'), fresh: true},
     terminal: {name: 'terminal', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'terminal', 'ui'), fresh: true},
     firewall: {name: 'firewall', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'firewall', 'ui'), fresh: true},
+    data_browser: {name: 'data_browser', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'data_browser', 'ui'), fresh: true},
     volumes: {name: 'volumes', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'volumes', 'ui'), fresh: true},
     processes: {name: 'processes', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'processes', 'ui'), fresh: true},
     disks: {name: 'disks', type: 'static', root: path.join(__dirname, '..', '..', '..', '..', 'modules', 'disks', 'ui'), fresh: true},
@@ -560,6 +564,11 @@ async function control_answer(app, req, res)
         await handle_docker(app, req, res, route_param(remote_docker[1]), (remote_docker[2] === undefined) ? '' : remote_docker[2]);
         return;
     }
+    const database_browse = RE_DATABASE_BROWSE.exec(url.pathname);
+    if (database_browse !== null) {
+        await handle_database_browse(app, req, res, url, route_param(database_browse[1]), route_param(database_browse[2]), (database_browse[3] === undefined) ? '' : database_browse[3]);
+        return;
+    }
     const remote_firewall = RE_REMOTE_FIREWALL.exec(url.pathname);
     if (remote_firewall !== null) {
         await handle_firewall(app, req, res, route_param(remote_firewall[1]), (remote_firewall[2] === undefined) ? '' : remote_firewall[2]);
@@ -780,9 +789,12 @@ function page_known(app, pathname)
     if (parts.length === 1) {
         return PAGE_PANES.includes(parts[0]);
     }
-    // A machine's Shell tab names the terminal open in it: /remotes/<name>/shell/<terminal>
+    // A machine's Shell tab names the terminal open in it: /remotes/<name>/shell/<terminal>; a
+    // database's data, browsed: /databases/<server>/<database>/browse
     if (parts.length === 4) {
-        return (parts[0] === 'remotes') && (app.remote_by_name[parts[1]] !== undefined) && (parts[2] === 'shell') && term_name_valid(parts[3]);
+        const shell = (parts[0] === 'remotes') && (app.remote_by_name[parts[1]] !== undefined) && (parts[2] === 'shell') && term_name_valid(parts[3]);
+        const browse = (parts[0] === 'databases') && databases_read(app).servers.some(v => v.name === parts[1]) && RE_DATABASE_SHOWN.test(parts[2]) && (parts[3] === 'browse');
+        return shell || browse;
     }
     if (parts.length > 3) {
         return false;

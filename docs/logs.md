@@ -520,6 +520,7 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `database_tls_made`       | A public port's certificate was made, for the addresses `at=`: a client takes the new `<server>-ca.pem`. |
 | `database_firewall`       | A public port's firewall rules were written: `removed=` how many of serviceman's went, `added=` the addresses let in, `active=` whether ufw is on. |
 | `database_firewall_error` | Its firewall could not be told, and why: ufw, or sudo for it, is not there, or the machine is away. |
+| `data_browser_read`       | A page of a database's documents was read with **Browse**, as its own user: `collection=` which, `filtered=` whether a filter was typed, `count=` how many came, `took_ms=` how long the database took. What was typed is not written. |
 
 ### Logline
 
