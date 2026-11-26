@@ -326,8 +326,15 @@ from private Docker networks, has `readonly=1`, and is granted `SELECT` only on
 `default.otel_logs`. No password is stored in `.env`, JavaScript, or nginx. The
 proxy also discards browser-supplied `Authorization` headers.
 
-The page uses the Vue 3 global browser build directly from unpkg. There is no
-Node.js dependency, package install, compilation, or asset build step.
+The page uses the Vue 3 global browser build directly from unpkg, of one
+version and checked by its hash (`integrity`), so a later release or a file
+changed there is never run. There is no Node.js dependency, package install,
+compilation, or asset build step.
+
+Every address the page uses is relative to it: its stylesheet, its script and
+`clickhouse`, where it sends its queries. Another server may serve the three
+files under a path of its own, with `clickhouse` beside them answering as the
+nginx proxy here does: as `log_ui`, with no credential of the browser's.
 
 After changing files in `./log-ui`, the bind mounts make a browser refresh
 sufficient. The nginx config disables caching for the HTML, CSS, and JavaScript.

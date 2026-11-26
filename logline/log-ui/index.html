@@ -19,7 +19,9 @@
                 document.documentElement.dataset.theme = 'dark';
             }
         </script>
-        <link rel="stylesheet" href="/styles.css">
+        <!-- Every address is relative to the page: the viewer works at / of its own nginx as at
+             any path another server gives it -->
+        <link rel="stylesheet" href="styles.css">
     </head>
     <body>
         <div id="app" v-cloak>
@@ -107,7 +109,7 @@
                     >
                     <span class="embed-state" :class="{live: followLive}"><i aria-hidden="true"></i>{{ (followLive ? 'live' : 'paused') }}</span>
                     <span class="embed-status">{{ (searching ? 'Querying…' : queryStatus) }}</span>
-                    <a class="embed-open" href="/" target="_blank" rel="noopener" @click="embedOpen">Open in Logline ↗</a>
+                    <a class="embed-open" href="./" target="_blank" rel="noopener" @click="embedOpen">Open in Logline ↗</a>
                 </header>
 
                 <aside class="labels-panel" aria-label="Labels">
@@ -468,7 +470,9 @@
             <div class="toast" :class="{show: toastVisible}" role="status" aria-live="polite">{{ toastMessage }}</div>
         </div>
 
-        <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js" defer></script>
-        <script src="/app.js" defer></script>
+        <!-- Vue of one version, checked by its hash: a release made later, or a file changed on
+             unpkg, is not run here -->
+        <script src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous" defer></script>
+        <script src="app.js" defer></script>
     </body>
 </html>

@@ -1188,8 +1188,8 @@ alone: no token&#39;s right reaches them.</p>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>
 <p><a href="https://github.com/vbarbarosh/serviceman/tree/main/logline">Logline</a> is where the remotes&#39; logs go: one endpoint, and ClickHouse behind it.
 serviceman says where it is, and asks it for the token each machine sends its lines with.</p>
-<p>It is typed in on any machine&#39;s <strong>Logs</strong> tab, under <strong>Where Logline is</strong> — the endpoint, the
-admin token and the viewer — and written here; the admin token goes to the Secrets library.</p>
+<p>It is typed in on the <strong>Logline</strong> page, under <strong>Where Logline is</strong> — the endpoint, the admin
+token and the viewer — and written here; the admin token goes to the Secrets library.</p>
 <pre><code class="language-json">&quot;logline&quot;: {&quot;endpoint&quot;: &quot;http://logline:3000/lines&quot;, &quot;admin&quot;: &quot;logline&quot;}
 </code></pre>
 <div class="table-wrap"><table>
@@ -1209,10 +1209,27 @@ admin token and the viewer — and written here; the admin token goes to the Sec
 </tr>
 <tr>
 <td><code>ui</code></td>
-<td>Where Logline&#39;s viewer is, such as <code>http://logline:8081/</code>. Optional: the <strong>Logline</strong> button on a machine&#39;s <strong>Logs</strong> tab opens it.</td>
+<td>Where Logline&#39;s viewer is, such as <code>http://logline:8081/</code>. Optional: without it, <strong>Open Logline ↗</strong> and every link to Logline open the viewer the control page serves itself (below).</td>
 </tr>
 </tbody></table>
 </div>
+<p><strong>Logline&#39;s viewer on the control page.</strong> serviceman serves Logline&#39;s own viewer, its three
+files (<code>logline/log-ui</code>) as they are, at <code>/logline/viewer/</code> of the control page, behind its
+sign-in: the owner&#39;s alone, as every route no right names. No token&#39;s right reaches it: the
+viewer reads every machine&#39;s lines, and a token is of its machines. Its page sends its queries to
+<code>/logline/viewer/clickhouse</code> beside it, and serviceman sends each to ClickHouse on Logline&#39;s
+machine (the machine of the service named <code>logline</code>) through the link its agent dialled, to
+<code>127.0.0.1:8123</code> there, as the <code>log_ui</code> user Logline&#39;s own nginx asks with: no password,
+<code>readonly</code>, <code>SELECT</code> on <code>default.otel_logs</code> and the size columns of <code>system.parts</code> and
+<code>system.disks</code> alone, 30 seconds and 4 threads a query. As nginx does, the page&#39;s own headers
+and cookies stay behind; the address goes on with the query&#39;s parameters (<code>param_&lt;name&gt;</code>) and
+<code>default_format</code> and nothing else, so no user, password, role, session or setting is the page&#39;s
+to pick (a 400 says which name was refused); a query is a POST of 1 MB at most. A query the page
+lets go of, a range picked again, closes its way to ClickHouse, and ClickHouse stops it there.
+Logline&#39;s machine not connected, or nothing listening on ClickHouse&#39;s port there, is said in
+the viewer in words, where it says what ClickHouse refused. Its queries are reads, and none is
+written to serviceman&#39;s log. Nothing on Logline&#39;s machine is published for this, and no wall
+stands between serviceman and its lines.</p>
 <p>Logline itself runs on one machine, as a compose project. serviceman carries its files in its
 image and keeps that machine&#39;s copy the same: <strong>Update Logline</strong> on Logline&#39;s page compares
 every file by sha256, puts the ones that differ in the project&#39;s folder, runs
@@ -1715,12 +1732,12 @@ day; its severity, subject, group and parent, read from its words in the rules&#
 one keeping only the lines that have it; <strong>Surroundings</strong>, every line of the 2 minutes either side
 of it, the find and the labels let go and live stopped until its chip over the list is closed,
 which gives them back; and its words, with <strong>Copy</strong>.</p>
-<p>serviceman reads them itself, from the viewer&#39;s <code>/clickhouse</code>, the read-only way the viewer&#39;s own
-page reads them; the find, the labels and a line&#39;s time for Surroundings go as parameters, never
-into the query. It asks from where it runs, through tailscale&#39;s proxy in its image, as it asks
-Logline for tokens. A viewer serviceman cannot reach, or one behind a wall that sends it on to a
-sign-in, is said in the tab over the last lines it gave; <strong>Open in Logline ↗</strong> still opens the
-viewer in the browser. With the viewer not set, the tab says where to set it.</p>
+<p>serviceman reads them itself, from ClickHouse on Logline&#39;s machine, the way the viewer it serves
+reads them (<a href="#logline">Logline</a>): through that machine&#39;s agent, as Logline&#39;s read-only user. The
+find, the labels and a line&#39;s time for Surroundings go as parameters, never into the query.
+Logline&#39;s machine not connected, or ClickHouse not answering there, is said in the tab over the
+last lines it gave. A wall in front of a viewer <code>ui</code> names is no matter: the tab does not ask
+it. With Logline not set, the tab says where to set it.</p>
 <h3 id="storage"><a class="anchor" href="#storage" aria-hidden="true" tabindex="-1">#</a>Storage</h3>
 <p>A program that keeps something names the paths it keeps:</p>
 <pre><code class="language-json">&quot;volumes&quot;: [&quot;:/app/data&quot;]

@@ -901,10 +901,12 @@
             },
 
             clickhouse: async function (sql, params, signal) {
-                const response = await fetch(`/clickhouse?${params.toString()}`, {
+                // Beside the page, wherever it is served; with the page's own cookies, for a
+                // server that signs its visitors in
+                const response = await fetch(`clickhouse?${params.toString()}`, {
                     method: 'POST',
                     signal,
-                    credentials: 'omit',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'text/plain; charset=utf-8'},
                     body: sql,
                 });

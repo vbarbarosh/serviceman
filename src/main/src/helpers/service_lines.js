@@ -1,11 +1,12 @@
-const tailnet_request = require('./tailnet_request');
+const body_bytes_read = require('../body_bytes_read');
+const logline_clickhouse = require('./logline_clickhouse');
 
 // The lines a service wrote in the last day, as its Logs tab shows them: read from Logline the
-// way its own viewer reads them, through the viewer's /clickhouse, the read-only door its page
-// uses. A service's lines carry its name as their service, or serviceman-<name> for those from
-// before the agent said so; from the machines it runs on alone (logline_link says why).
+// way its own viewer reads them, from ClickHouse on Logline's machine as its read-only user
+// (logline_clickhouse), the way the viewer serviceman serves asks. A service's lines carry its
+// name as their service, or serviceman-<name> for those from before the agent said so; from the
+// machines it runs on alone (logline_link says why).
 //
-//     logline   the config's, with the viewer's address in `ui`
 //     service   {name, remotes}
 //     ask       {find, labels, around_ms}:
 //               find        what a line holds, any case; '' for every line
@@ -22,6 +23,8 @@ const tailnet_request = require('./tailnet_request');
 //               small
 const LIMIT = 500;
 const TIMEOUT_MS = 10000;
+// What one answer may hold: 500 lines, and their count, of any length a line may have
+const ANSWER_LIMIT_BYTES = 64*1024*1024;
 const AROUND_MS = 120000;
 // A line's group, subject and parent: its own fields when it was sent with them, otherwise read
 // from its words in the rules' form, `[group_uid][sender] details parent=<uid>`; Logline's viewer
@@ -43,7 +46,7 @@ const RESOURCE_LABEL_NAMES = Object.fromEntries(Object.entries(LABEL_RESOURCE_KE
 // The viewer's order of a line's labels; the others follow by name
 const LABEL_ORDER = ['remote', 'host', 'project', 'service', 'container', 'image', 'stream', 'container_id'];
 
-async function service_lines(logline, service, ask)
+async function service_lines(app, service, ask)
 {
     const params = new URLSearchParams({default_format: 'JSONEachRow', param_name: service.name, param_container: `serviceman-${service.name}`, param_limit: String(LIMIT)});
     const where = [];
@@ -79,7 +82,7 @@ async function service_lines(logline, service, ask)
     // The last day: the newest first, turned around below. Surroundings: the nearest first, put
     // in time's order below.
     const order = (ask.around_ms === null) ? 'Timestamp DESC' : 'abs(toUnixTimestamp64Milli(Timestamp) - {around:Int64}) ASC, Timestamp ASC';
-    const [rows, counted] = await Promise.all([clickhouse(logline, params, `
+    const [rows, counted] = await Promise.all([clickhouse(app, params, `
         SELECT
             toString(Timestamp) AS at,
             toUnixTimestamp64Milli(Timestamp) AS time_ms,
@@ -99,7 +102,7 @@ async function service_lines(logline, service, ask)
             ${order}
         LIMIT
             {limit:UInt32}
-    `), clickhouse(logline, params, `
+    `), clickhouse(app, params, `
         SELECT
             count() AS total
         FROM
@@ -167,32 +170,32 @@ function label_compare(a, b)
     return (a < b) ? -1 : ((a > b) ? 1 : 0);
 }
 
-// The rows a query answers, JSONEachRow; an error says what Logline said, or that it did not.
-// It goes through tailscale's proxy where TAILNET_PROXY names one, as logline_admin_call does:
-// in serviceman's image, the only way out to the tailnet. A wall in front of the viewer lets
-// the page's visitor through, not serviceman: its answer, a way to a sign-in, is said so.
-async function clickhouse(logline, params, sql)
+// The rows a query answers, JSONEachRow; an error says what Logline said, or why it was not
+// asked: its machine away, ClickHouse not answering there (logline_clickhouse)
+async function clickhouse(app, params, sql)
 {
-    const url = new URL('/clickhouse', logline.ui);
-    url.search = params.toString();
-    let answer;
+    const signal = AbortSignal.timeout(TIMEOUT_MS);
+    let status;
+    let text;
     try {
-        answer = await tailnet_request(url, {method: 'POST', headers: {'content-type': 'text/plain; charset=utf-8', 'content-length': Buffer.byteLength(sql)}, body: sql, timeout_ms: TIMEOUT_MS, proxy: process.env.TAILNET_PROXY});
+        const answer = await logline_clickhouse(app, params, Buffer.from(sql), signal);
+        status = answer.statusCode;
+        text = (await body_bytes_read(answer, ANSWER_LIMIT_BYTES)).toString('utf8');
     }
     catch (error) {
-        throw new Error(`Logline does not answer at ${url.origin}: ${error.message}`);
+        if (signal.aborted) {
+            throw new Error(`Logline gave no answer within ${TIMEOUT_MS/1000}s`);
+        }
+        throw error;
     }
-    if ((answer.status >= 300) && (answer.status <= 399)) {
-        throw new Error(`Logline's viewer at ${url.origin} sends serviceman on elsewhere (${answer.status}), to a sign-in most likely: its lines are read past no wall`);
-    }
-    if ((answer.status < 200) || (answer.status > 299)) {
-        throw new Error(`Logline answered ${answer.status}: ${answer.text.replace(/^Code: \d+\. DB::Exception: /, '').trim().slice(0, 300)}`);
+    if ((status < 200) || (status > 299)) {
+        throw new Error(`Logline answered ${status}: ${text.replace(/^Code: \d+\. DB::Exception: /, '').trim().slice(0, 300)}`);
     }
     try {
-        return answer.text.split('\n').filter(v => v.trim() !== '').map(v => JSON.parse(v));
+        return text.split('\n').filter(v => v.trim() !== '').map(v => JSON.parse(v));
     }
     catch {
-        throw new Error(`Logline's viewer at ${url.origin} answered a page, not lines: ${answer.text.trim().slice(0, 80)}`);
+        throw new Error(`Logline answered something that is not lines: ${text.trim().slice(0, 80)}`);
     }
 }
 

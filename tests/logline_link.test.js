@@ -17,7 +17,7 @@ function labels_of(url)
 
 test('a service’s Logline link shows the lines of the machines it runs on and no other’s', async function () {
     const logline_link = await logline_link_of();
-    const logline = {ui: 'https://logs.example.com/'};
+    const logline = {viewer: 'https://logs.example.com/'};
 
     // A machine's own lines: `remote` is the one label Logline writes from the token, so a
     // machine cannot pass for another
@@ -38,5 +38,14 @@ test('a service’s Logline link shows the lines of the machines it runs on and 
     assert.strictEqual(url.origin, 'https://logs.example.com');
     assert.strictEqual(url.searchParams.get('range'), '24h');
     assert.strictEqual(logline_link(null, 'service', 'api', ['vps1']), null);
-    assert.strictEqual(logline_link({ui: ''}, 'service', 'api', ['vps1']), null);
+    assert.strictEqual(logline_link({viewer: ''}, 'service', 'api', ['vps1']), null);
+});
+
+// With no `ui` of its own in the config, the viewer is the one the control page serves, on the
+// control page's own address
+test('a Logline link with no viewer of its own opens the one the control page serves', async function () {
+    const logline_link = await logline_link_of();
+    const url = new URL(logline_link({ui: null, viewer: '/logline/viewer/'}, 'remote', 'vps1'));
+    assert.strictEqual(`${url.origin}${url.pathname}`, 'https://serviceman.example.com/logline/viewer/');
+    assert.deepStrictEqual(labels_of(url.toString()), ['remote:vps1']);
 });

@@ -2,35 +2,23 @@ const docker_exec_connect = require('./docker_exec_connect');
 const engine_json = require('./engine_json');
 const fs = require('fs');
 const logline_files = require('./logline_files');
+const logline_remote = require('./logline_remote');
 const path = require('path');
 
 const LABEL_PROJECT = 'com.docker.compose.project';
 const LABEL_DIR = 'com.docker.compose.project.working_dir';
 const LABEL_FILES = 'com.docker.compose.project.config_files';
 
-// Where Logline runs: the machine of the service named logline, and the folder its compose
-// project was started from, as its containers' labels say. Nothing to write in the config: the
-// service already names the machine, and the project its folder. What is missing is said, in
-// words the page shows.
+// Where Logline runs: the machine of the service named logline (logline_remote), and the folder
+// its compose project was started from, as its containers' labels say. Nothing to write in the
+// config: the service already names the machine, and the project its folder. What is missing
+// is said, in words the page shows.
 //
 //     out   {remote, project, dir, files}, files the compose files in full
 async function logline_place(app)
 {
-    const service = app.service_by_name.logline;
-    if (service === undefined) {
-        throw new Error('no service is named logline: add Logline\'s viewer as an external service named logline, on the machine that runs it');
-    }
-    const name = (Array.isArray(service.remotes) && (service.remotes.length > 0)) ? service.remotes[0] : null;
-    if (name === null) {
-        throw new Error('the service logline names no machine: Logline runs on one, and the service says which');
-    }
-    if (name.startsWith('#')) {
-        throw new Error(`the service logline names a tag, ${name}: Logline runs on one machine, and the service names it`);
-    }
-    const remote = app.remote_by_name[name];
-    if ((remote === undefined) || (remote.state.phase !== 'online')) {
-        throw new Error(`${name}, where Logline runs, is not connected`);
-    }
+    const remote = logline_remote(app);
+    const name = remote.name;
     const project = project_name();
     let connect;
     try {

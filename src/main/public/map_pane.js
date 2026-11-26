@@ -172,8 +172,8 @@ const map_pane = {
                 this.$emit('remote', node.name);
                 return;
             }
-            if ((node.kind === 'logline') && (node.ui !== null)) {
-                window.open(node.ui, '_blank', 'noopener');
+            if ((node.kind === 'logline') && (node.viewer !== null)) {
+                window.open(node.viewer, '_blank', 'noopener');
             }
         },
     },
@@ -255,8 +255,8 @@ function map_graph(state)
     // Logline, where machines send their lines to it
     const sending = remotes.filter(v => (v.logline !== undefined) && (v.logline !== null) && (v.logline.logs === 'all'));
     if (sending.length > 0) {
-        const ui = sending.map(v => v.logline.ui).find(v => (v !== null) && (v !== undefined));
-        nodes.push({id: 'l:', kind: 'logline', name: 'logline', label: 'Logline', sub: (ui === undefined) ? '' : 'open its viewer', phase: null, host: false, behind: false, ui: (ui === undefined) ? null : ui, hint: 'Where the machines send their logs'});
+        const viewer = sending.map(v => v.logline.viewer).find(v => (v !== null) && (v !== undefined));
+        nodes.push({id: 'l:', kind: 'logline', name: 'logline', label: 'Logline', sub: (viewer === undefined) ? '' : 'open its viewer', phase: null, host: false, behind: false, viewer: (viewer === undefined) ? null : viewer, hint: 'Where the machines send their logs'});
         for (const remote of sending) {
             edges.push({key: `m:${remote.name}>l:`, from: `m:${remote.name}`, to: 'l:', kind: 'logs'});
         }

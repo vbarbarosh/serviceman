@@ -8,7 +8,8 @@ const RE_UI = /^https?:\/\/[^\s/]+(\/[^\s?#]*)?$/;
 //     "logline": {"endpoint": "http://logline:3000/lines", "admin": "logline", "ui": "http://logline:8081/"}
 //
 // `admin` names a secret in the Secrets library; the value itself is never in the config.
-// `ui` is where Logline's viewer is, for the page to open; optional.
+// `ui` is where Logline's viewer is, for the page to open; optional: without it the page opens
+// the viewer the control page serves itself (logline_viewer_of).
 function logline_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {

@@ -1,3 +1,4 @@
+const logline_viewer_of = require('./logline_viewer_of');
 const remote_tags = require('./remote_tags');
 const remote_unanswered = require('./remote_unanswered');
 
@@ -47,8 +48,10 @@ function view_from_remote(remote, now, logline)
             logs: (remote.logs === undefined) ? 'off' : remote.logs,
             dirs: (remote.log_dirs === undefined) ? [] : remote.log_dirs,
             endpoint: ((logline === undefined) || (logline === null)) ? null : logline.endpoint,
-            // Where Logline's viewer is, for the page to open; null when the config does not say
+            // Where Logline's viewer is as the config says, null when it does not; and where the
+            // page opens it, the control page's own then (logline_viewer_of)
             ui: ((logline === undefined) || (logline === null)) ? null : logline.ui,
+            viewer: logline_viewer_of(logline),
             told: (state.logline_told !== null) && (state.logline_told !== undefined),
             floor: (state.logline_floor === undefined) ? null : state.logline_floor,
             error: (state.logline_error === undefined) ? null : state.logline_error,

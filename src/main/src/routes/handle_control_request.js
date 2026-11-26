@@ -56,6 +56,7 @@ const fs_host_of = require('../helpers/fs_host_of');
 const handle_control_tokens = require('./handle_control_tokens');
 const handle_database_browse = require('./handle_database_browse');
 const handle_databases = require('./handle_databases');
+const handle_logline_viewer = require('./handle_logline_viewer');
 const handle_shared_folders = require('./handle_shared_folders');
 const health_from_views = require('../helpers/health_from_views');
 const link_test = require('../helpers/link_test');
@@ -70,6 +71,7 @@ const logline_compare = require('../helpers/logline_compare');
 const logline_from_json = require('../helpers/logline_from_json');
 const logline_place = require('../helpers/logline_place');
 const logline_update = require('../helpers/logline_update');
+const logline_viewer_of = require('../helpers/logline_viewer_of');
 const machine_restart = require('../helpers/machine_restart');
 const machine_restart_facts = require('../helpers/machine_restart_facts');
 const mcp_bundle = require('../../../mcp/bundler/mcp_bundle');
@@ -351,8 +353,10 @@ async function control_answer(app, req, res)
     }
     // Every change asked of the control page is written down: what it was, and from where.
     // A HEAD asks, it changes nothing — a player probing a file is not a change. Nor is each
-    // part of a file sent in parts: the file is written down once, when it is in.
-    if ((req.method !== 'GET') && (req.method !== 'HEAD') && (RE_UPLOAD_PART.test(url.pathname) === false)) {
+    // part of a file sent in parts: the file is written down once, when it is in. Nor is a query
+    // of Logline's viewer, a read, every few seconds while it follows: each line about one would
+    // reach Logline, and come back to the viewer as a new line.
+    if ((req.method !== 'GET') && (req.method !== 'HEAD') && (RE_UPLOAD_PART.test(url.pathname) === false) && (url.pathname !== handle_logline_viewer.DOOR)) {
         log_event(app, 'control_change', {client: req.socket.remoteAddress, method: req.method, path: url_logged(req.url)});
     }
     if (url.pathname === '/api/v1/status') {
@@ -741,6 +745,9 @@ async function control_answer(app, req, res)
     const app_file_browser = RE_APP_FILE_BROWSER.exec(url.pathname);
     if (app_file_browser !== null) {
         await handle_app_file_browser(app, req, res, route_param(app_file_browser[1]));
+        return;
+    }
+    if (await handle_logline_viewer(app, req, res, url)) {
         return;
     }
     // The page answers to every address that is not a file, so a door that does not exist has
@@ -2629,8 +2636,8 @@ async function apps_settings_update(app, req, res)
 // The lines the service wrote in the last day, read from Logline (service_lines): its Logs tab.
 // `label`, given again for each, keeps the lines with every one of them; `around`, a line's time
 // in milliseconds, gives its surroundings instead of the last day. 400 for a label or a time
-// that is not one; 409 while the config does not say where Logline's viewer is; 502 when
-// Logline does not answer.
+// that is not one; 409 while the config does not say where Logline is; 503 while Logline's
+// machine is not found or not connected; 502 when Logline does not answer there.
 async function service_lines_send(app, res, name, query)
 {
     const service = app.service_by_name[name];
@@ -2652,17 +2659,16 @@ async function service_lines_send(app, res, name, query)
         send_json(res, 400, {error: `around is a line's time in milliseconds: ${JSON.stringify(around.slice(0, 80))}`});
         return;
     }
-    const logline = app.config.logline;
-    if ((logline === null) || (logline === undefined) || (logline.ui === null) || (logline.ui === undefined)) {
-        send_json(res, 409, {error: 'Where Logline\'s viewer is is not set: a machine\'s Logs tab has the form for it'});
+    if ((app.config.logline === null) || (app.config.logline === undefined)) {
+        send_json(res, 409, {error: 'Where Logline is is not set: the Logline page has the form for it'});
         return;
     }
     try {
         const ask = {find: (query.get('find') || '').slice(0, 200), labels, around_ms: (around === null) ? null : Number(around)};
-        send_json(res, 200, await service_lines(logline, {name, remotes: service.remotes || []}, ask));
+        send_json(res, 200, await service_lines(app, {name, remotes: service.remotes || []}, ask));
     }
     catch (error) {
-        send_json(res, 502, {error: error.message});
+        send_json(res, (error.status === 503) ? 503 : 502, {error: error.message});
     }
 }
 
@@ -3624,6 +3630,7 @@ function state_from_app(app)
     const logline = (app.config.logline === null) ? null : {
         endpoint: app.config.logline.endpoint,
         ui: app.config.logline.ui,
+        viewer: logline_viewer_of(app.config.logline),
         admin: app.config.logline.admin,
         admin_kept: secrets_read(app).global[app.config.logline.admin] !== undefined,
     };

@@ -763,7 +763,7 @@ is written to the log too, `problem_begin` and `problem_end` ([The log](logs.md)
 | A container Docker was meant to keep running, down | Docker cannot start it, it keeps failing, or on-failure gave up; one stopped by hand is not, whatever its exit code. |
 | A running container whose mounted files are gone   | Each bind mount looked for on the machine: it runs on what it holds open, and will not start again after a restart. One the agent may not open (the shared folders' home, root's alone) is not gone, and is asked once a link, not every minute. |
 | Lines Logline does not take                        | What Logline answered the machine last, how long nothing went while lines wait, and how full the machine's store is. |
-| Logline's viewer not answering                     | A request to it, the way Open Logline goes.                                                                          |
+| Logline's viewer not answering                     | A request to it, the way Open Logline goes: the viewer `ui` names; the one the control page serves is not asked.     |
 | A critical CVE, new or with a fix out              | The machine's last Security look against Ubuntu's list: a new one until the bar is closed on it, a fix out until it is in use. [Its vulnerabilities](#its-vulnerabilities). |
 | The apps' own ports without https                  | tailscale's answer to serviceman's last ask for the tailnet's certificate: its reason, what mends it, and a link to Tailscale's DNS page when HTTPS is off for the tailnet ([An app's own port](config.md#an-app-sent-to-serviceman)). Not shown while the Tailscale page has it said there alone. |
 

@@ -1,6 +1,7 @@
 // The address of Logline's viewer showing only the lines of one machine or one service, live
-// over the last day; null where serviceman is not told where the viewer is (`ui` of `logline`
-// in the config).
+// over the last day; null while Logline is not set. `logline` is a view of the config's, its
+// `viewer` where the page opens the viewer: the `ui` of `logline` in the config, or the one the
+// control page serves.
 //
 // A machine's lines carry its name as `remote`. A service's carry its name as `service` — and
 // lines from before the agent said so carry the container's name, serviceman-<name>, which is
@@ -13,10 +14,10 @@
 // are the host's own.
 function logline_link(logline, kind, name, remotes = [])
 {
-    if ((logline === null) || (logline === undefined) || !logline.ui) {
+    if ((logline === null) || (logline === undefined) || !logline.viewer) {
         return null;
     }
-    const url = new URL(logline.ui, window.location.href);
+    const url = new URL(logline.viewer, window.location.href);
     url.searchParams.append('label', `${kind}:${name}`);
     if (kind === 'service') {
         url.searchParams.append('label', `service:serviceman-${name}`);

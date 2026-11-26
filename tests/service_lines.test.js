@@ -1,20 +1,15 @@
-const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
-const config_from_json = require('../src/main/src/helpers/config_from_json');
 const control_route_right = require('../src/main/src/helpers/control_route_right');
 const fetch_host = require('./fetch_host');
-const fs = require('fs');
-const http = require('http');
-const os = require('os');
+const logline_rig = require('./logline_rig');
 const path = require('path');
-const server_start = require('../src/main/src/helpers/server_start');
 const service_lines = require('../src/main/src/helpers/service_lines');
 const test = require('node:test');
 
-// A service's Logs tab reads its lines from Logline's viewer, through its /clickhouse, as the
-// viewer's own page does: what is asked goes as a parameter, never into the query
+// A service's Logs tab reads its lines from ClickHouse on Logline's machine, through its agent,
+// as the viewer's own page does: what is asked goes as a parameter, never into the query
 test('a service\'s lines: the last ones oldest first, how many in all, what is asked a parameter', async function (t) {
-    const viewer = await viewer_start(t, function (asked) {
+    const viewer = await clickhouse_start(t, function (asked) {
         if (asked.sql.includes('count()')) {
             return {status: 200, text: '{"total":"1234"}\n'};
         }
@@ -24,7 +19,7 @@ test('a service\'s lines: the last ones oldest first, how many in all, what is a
         ].map(v => JSON.stringify(v)).join('\n') + '\n'};
     });
     const find = 'it\'s\' OR 1=1 --';
-    const read = await service_lines({ui: viewer.ui}, {name: 'notes', remotes: ['vps1']}, {find, labels: [], around_ms: null});
+    const read = await service_lines(viewer.app, {name: 'notes', remotes: ['vps1']}, {find, labels: [], around_ms: null});
     assert.deepStrictEqual(read, {total: 1234, label_sets: [{remote: 'vps1', service: 'notes', stream: 'stderr'}, {remote: 'vps1', service: 'notes', stream: 'stdout'}], lines: [
         {time_ms: 1700000001000, line: 'error: the request exceeds the context', stream: 'stderr', label_set: 0},
         {time_ms: 1700000002000, line: 'main: model loaded', stream: 'stdout', label_set: 1},
@@ -32,7 +27,8 @@ test('a service\'s lines: the last ones oldest first, how many in all, what is a
     assert.strictEqual(viewer.asked.length, 2, 'the lines and their count');
     for (const asked of viewer.asked) {
         assert.strictEqual(asked.method, 'POST');
-        assert.strictEqual(asked.path, '/clickhouse');
+        assert.strictEqual(asked.path, '/');
+        assert.strictEqual(asked.headers['x-clickhouse-user'], 'log_ui', 'Logline\'s read-only user, as its viewer asks');
         assert.strictEqual(asked.params.get('param_name'), 'notes');
         assert.strictEqual(asked.params.get('param_container'), 'serviceman-notes', 'lines from before the agent named the service');
         assert.strictEqual(asked.params.get('param_remote_0'), 'vps1', 'from the machines it runs on alone');
@@ -45,7 +41,7 @@ test('a service\'s lines: the last ones oldest first, how many in all, what is a
 // What a line's detail shows comes with it: its fields when it has them, and its labels as the
 // viewer names them, each set of them once however many lines share it
 test('a line\'s fields only when it has them, its labels in the viewer\'s names and order, each set once', async function (t) {
-    const viewer = await viewer_start(t, function (asked) {
+    const viewer = await clickhouse_start(t, function (asked) {
         if (asked.sql.includes('count()')) {
             return {status: 200, text: '{"total":"3"}\n'};
         }
@@ -56,7 +52,7 @@ test('a line\'s fields only when it has them, its labels in the viewer\'s names 
             row_of({at: '2026-11-20 14:02:17.000000000', time_ms: '1700000001000', line: 'a', stream: '', resource: {remote: 'vps1'}}),
         ].map(v => JSON.stringify(v)).join('\n') + '\n'};
     });
-    const read = await service_lines({ui: viewer.ui}, {name: 'notes', remotes: ['vps1']}, {find: '', labels: [], around_ms: null});
+    const read = await service_lines(viewer.app, {name: 'notes', remotes: ['vps1']}, {find: '', labels: [], around_ms: null});
     assert.deepStrictEqual(read.label_sets, [
         {remote: 'vps1', service: 'notes'},
         {remote: 'vps1', host: 'vps1', service: 'notes', stream: 'stderr', container_id: 'abc123', constructor: 'x', region: 'eu'},
@@ -73,7 +69,7 @@ test('a line\'s fields only when it has them, its labels in the viewer\'s names 
 // A click on a label keeps the lines with it; Surroundings asks for 2 minutes either side of a
 // line, the nearest first, given back in time's order
 test('the lines with some labels, and a line\'s surroundings, all asked as parameters', async function (t) {
-    const viewer = await viewer_start(t, function (asked) {
+    const viewer = await clickhouse_start(t, function (asked) {
         if (asked.sql.includes('count()')) {
             return {status: 200, text: '{"total":"2"}\n'};
         }
@@ -84,7 +80,7 @@ test('the lines with some labels, and a line\'s surroundings, all asked as param
         ].map(v => JSON.stringify(v)).join('\n') + '\n'};
     });
     const labels = [{name: 'stream', value: 'stderr'}, {name: 'host', value: 'vps1'}, {name: 'region', value: 'eu\' OR 1=1'}, {name: 'toString', value: 'x'}];
-    const read = await service_lines({ui: viewer.ui}, {name: 'notes', remotes: []}, {find: '', labels, around_ms: 1700000000930});
+    const read = await service_lines(viewer.app, {name: 'notes', remotes: []}, {find: '', labels, around_ms: 1700000000930});
     assert.deepStrictEqual(read.lines.map(v => v.line), ['just before', 'the line', 'later'], 'in time\'s order, to the nanosecond');
     for (const asked of viewer.asked) {
         assert.strictEqual(asked.params.get('param_label_0'), 'stderr');
@@ -107,10 +103,10 @@ test('the lines with some labels, and a line\'s surroundings, all asked as param
 });
 
 test('a service\'s lines with no find, on no machine: neither asked of Logline', async function (t) {
-    const viewer = await viewer_start(t, function () {
+    const viewer = await clickhouse_start(t, function () {
         return {status: 200, text: ''};
     });
-    assert.deepStrictEqual(await service_lines({ui: viewer.ui}, {name: 'notes', remotes: []}, ASK_ALL), {total: 0, lines: [], label_sets: []});
+    assert.deepStrictEqual(await service_lines(viewer.app, {name: 'notes', remotes: []}, ASK_ALL), {total: 0, lines: [], label_sets: []});
     for (const asked of viewer.asked) {
         assert.strictEqual(asked.params.has('param_find'), false);
         assert.strictEqual(asked.params.has('param_remote_0'), false);
@@ -119,32 +115,28 @@ test('a service\'s lines with no find, on no machine: neither asked of Logline',
     }
 });
 
-// What the tab says when Logline does not give the lines: what it answered, a wall in front of
-// it, or that nothing answered
-test('Logline\'s refusal, a wall in front of its viewer, a page that is not lines, and no answer', async function (t) {
-    const failing = await viewer_start(t, function () {
+// What the tab says when Logline does not give the lines: what ClickHouse answered, an answer
+// that is not lines, or that nothing answered
+test('Logline\'s refusal, an answer that is not lines, and no answer', async function (t) {
+    const failing = await clickhouse_start(t, function () {
         return {status: 500, text: 'Code: 60. DB::Exception: Table default.otel_logs does not exist. (UNKNOWN_TABLE)'};
     });
-    await assert.rejects(service_lines({ui: failing.ui}, {name: 'notes', remotes: []}, ASK_ALL), {message: 'Logline answered 500: Table default.otel_logs does not exist. (UNKNOWN_TABLE)'});
-    const walled = await viewer_start(t, function () {
-        return {status: 302, text: ''};
-    });
-    await assert.rejects(service_lines({ui: walled.ui}, {name: 'notes', remotes: []}, ASK_ALL), {message: `Logline's viewer at ${new URL(walled.ui).origin} sends serviceman on elsewhere (302), to a sign-in most likely: its lines are read past no wall`});
-    const page = await viewer_start(t, function () {
+    await assert.rejects(service_lines(failing.app, {name: 'notes', remotes: []}, ASK_ALL), {message: 'Logline answered 500: Table default.otel_logs does not exist. (UNKNOWN_TABLE)'});
+    const page = await clickhouse_start(t, function () {
         return {status: 200, text: '<!doctype html><title>Sign in</title>'};
     });
-    await assert.rejects(service_lines({ui: page.ui}, {name: 'notes', remotes: []}, ASK_ALL), /answered a page, not lines: <!doctype html><title>Sign in<\/title>$/);
-    const gone = await viewer_start(t, function () {
+    await assert.rejects(service_lines(page.app, {name: 'notes', remotes: []}, ASK_ALL), /answered something that is not lines: <!doctype html><title>Sign in<\/title>$/);
+    const gone = await clickhouse_start(t, function () {
         return {status: 200, text: ''};
     });
-    await new Promise(v => gone.server.close(v));
-    await assert.rejects(service_lines({ui: gone.ui}, {name: 'notes', remotes: []}, ASK_ALL), /^Error: Logline does not answer at http:\/\/127\.0\.0\.1:\d+: connect ECONNREFUSED/);
+    await gone.clickhouse_stop();
+    await assert.rejects(service_lines(gone.app, {name: 'notes', remotes: []}, ASK_ALL), /^Error: ClickHouse does not answer on server: nothing listens on 127\.0\.0\.1:\d+ there/);
 });
 
 // GET /api/v1/services/<name>/lines: the owner's alone, as every route no right names
-test('the route: a service\'s lines, 404 for no service, 409 with no viewer, 502 when Logline fails', async function (t) {
+test('the route: a service\'s lines, 404 for no service, 409 with Logline not set, 502 when Logline fails', async function (t) {
     let fail = false;
-    const viewer = await viewer_start(t, function (asked) {
+    const viewer = await clickhouse_start(t, function (asked) {
         if (fail) {
             return {status: 500, text: 'Code: 60. DB::Exception: Table default.otel_logs does not exist.'};
         }
@@ -153,10 +145,11 @@ test('the route: a service\'s lines, 404 for no service, 409 with no viewer, 502
         }
         return {status: 200, text: JSON.stringify(row_of({at: '2026-11-20 14:02:17.930000000', time_ms: '1700000000000', line: `found ${asked.params.get('param_find')}`, stream: 'stdout'})) + '\n'};
     });
-    const control = await serviceman_start(t, {endpoint: 'http://127.0.0.1:9/lines', admin: 'logline', ui: viewer.ui});
+    const control = viewer.port;
     const found = await fetch_host({port: control, path: '/api/v1/services/notes/lines?find=error'});
     assert.strictEqual(found.status, 200, found.body);
     assert.deepStrictEqual(JSON.parse(found.body), {total: 1, label_sets: [{remote: 'vps1', service: 'notes', stream: 'stdout'}], lines: [{time_ms: 1700000000000, line: 'found error', stream: 'stdout', label_set: 0}]});
+    assert.strictEqual(viewer.asked[viewer.asked.length - 1].params.get('param_remote_0'), 'server', 'from the machine notes runs on');
     const narrowed = await fetch_host({port: control, path: `/api/v1/services/notes/lines?label=${encodeURIComponent('stream:std:out')}&label=remote:vps1&around=1700000000000`});
     assert.strictEqual(narrowed.status, 200, narrowed.body);
     const narrowed_asked = viewer.asked[viewer.asked.length - 1].params;
@@ -178,9 +171,10 @@ test('the route: a service\'s lines, 404 for no service, 409 with no viewer, 502
     assert.strictEqual(stranger.body.includes('found'), false);
     assert.strictEqual(control_route_right('GET', '/api/v1/services/notes/lines'), null, 'no token but the owner\'s reads lines');
 
-    const bare = await serviceman_start(t, {endpoint: 'http://127.0.0.1:9/lines', admin: 'logline'});
-    const unset = await fetch_host({port: bare, path: '/api/v1/services/notes/lines'});
-    assert.deepStrictEqual([unset.status, JSON.parse(unset.body)], [409, {error: 'Where Logline\'s viewer is is not set: a machine\'s Logs tab has the form for it'}]);
+    const bare = await clickhouse_start(t, () => ({status: 200, text: ''}), null);
+    const unset = await fetch_host({port: bare.port, path: '/api/v1/services/notes/lines'});
+    assert.deepStrictEqual([unset.status, JSON.parse(unset.body)], [409, {error: 'Where Logline is is not set: the Logline page has the form for it'}]);
+    assert.strictEqual(bare.asked.length, 0);
 });
 
 // A line as the tab draws it: its time, its words without a terminal's colours, a red edge for
@@ -212,52 +206,17 @@ function row_of(given)
     return Object.assign({severity: '', subject: '', group_uid: '', parent_group_uid: '', service: 'notes', resource: {remote: 'vps1'}}, given);
 }
 
-// A stand-in for Logline's viewer: each request kept as {method, path, params, sql}, answered
-// as `answer` says
-async function viewer_start(t, answer)
+// serviceman with Logline on its machine, and a stand-in for ClickHouse there (logline_rig):
+// each request kept as {method, path, params, headers, sql}, answered as `answer` says.
+// `logline` is the config's, set unless given.
+async function clickhouse_start(t, answer, logline)
 {
-    const asked = [];
-    const server = http.createServer(function (req, res) {
-        const chunks = [];
-        req.on('data', function (chunk) {
-            chunks.push(chunk);
-        });
-        req.on('end', function () {
-            const url = new URL(req.url, 'http://viewer');
-            const item = {method: req.method, path: url.pathname, params: url.searchParams, sql: Buffer.concat(chunks).toString('utf8')};
-            asked.push(item);
+    return await logline_rig(t, {
+        logline: (logline === undefined) ? {endpoint: 'http://127.0.0.1:9/lines', admin: 'logline'} : logline,
+        clickhouse: function (item, res) {
             const given = answer(item);
-            res.writeHead(given.status, (given.status === 302) ? {location: '/sign-in'} : {'content-type': 'text/plain'});
+            res.writeHead(given.status, {'content-type': 'text/plain'});
             res.end(given.text);
-        });
+        },
     });
-    await new Promise(v => server.listen(0, '127.0.0.1', v));
-    t.after(function () {
-        server.close();
-    });
-    return {server, asked, ui: `http://127.0.0.1:${server.address().port}/`};
-}
-
-// serviceman with one service, notes, and Logline as `logline` says: its control door's port
-async function serviceman_start(t, logline)
-{
-    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'serviceman-lines-'));
-    const before = process.env.SERVICEMAN_STATE_DIR;
-    process.env.SERVICEMAN_STATE_DIR = state;
-    const config = config_from_json({
-        listen: {host: '127.0.0.1', port: 0},
-        control: {host: 'serviceman.localhost', port: 0},
-        logline,
-        services: [{name: 'notes', type: 'files', publish: {host: 'notes.test'}}],
-    }, state);
-    const servers = await server_start(app_from_config(config));
-    t.after(function () {
-        servers.server.close();
-        servers.control.close();
-        servers.server.closeAllConnections();
-        servers.control.closeAllConnections();
-        process.env.SERVICEMAN_STATE_DIR = before;
-        fs.rmSync(state, {recursive: true, force: true});
-    });
-    return servers.control.address().port;
 }

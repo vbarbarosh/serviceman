@@ -21,7 +21,7 @@ const logline_pane = {
             <span class="muted">{{ head.detail }}</span>
         </div>
         <div class="actions">
-            <button v-if="(logline !== null && logline.ui !== null)" type="button" class="primary" @click="viewer_open">Open Logline ↗</button>
+            <button v-if="(logline !== null)" type="button" class="primary" @click="viewer_open">Open Logline ↗</button>
             <button v-if="(service !== null)" type="button" @click="$emit('select', service.name)">Its service page</button>
         </div>
     </div>
@@ -72,7 +72,7 @@ const logline_pane = {
                     <span v-else class="bad">not kept — remotes cannot be given tokens until it is</span>
                 </dd>
                 <dt>Viewer</dt>
-                <dd><code v-if="(logline.ui !== null)">{{ logline.ui }}</code><span v-else class="muted">not set — Open Logline has nowhere to go</span></dd>
+                <dd><code v-if="(logline.ui !== null)">{{ logline.ui }}</code><span v-else class="muted">serviceman's own, at <code>{{ logline.viewer }}</code> of this page</span></dd>
             </dl>
             <div class="actions">
                 <button type="button" @click="edit_begin">Change</button>
@@ -92,8 +92,8 @@ const logline_pane = {
                 </div>
                 <label>Viewer</label>
                 <div>
-                    <input v-model.trim="form.ui" placeholder="http://logline:8081/ — optional" spellcheck="false">
-                    <p class="muted">Where Logline's log viewer is: Open Logline above goes there.</p>
+                    <input v-model.trim="form.ui" placeholder="empty: serviceman's own" spellcheck="false">
+                    <p class="muted">Where Logline's log viewer is: Open Logline above goes there. Empty, it opens the viewer serviceman serves on this page, behind its sign-in, which reads Logline through its machine's agent.</p>
                 </div>
             </div>
             <div class="actions">
@@ -244,7 +244,7 @@ const logline_pane = {
             await this.place_read();
         },
         viewer_open: function () {
-            window.open(this.logline.ui, '_blank', 'noopener');
+            window.open(this.logline.viewer, '_blank', 'noopener');
         },
         // On is one click: nothing is lost by sending. Off is asked on the remote's own tab.
         send: async function (name) {

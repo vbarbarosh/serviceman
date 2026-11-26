@@ -153,7 +153,7 @@ const service_logs = {
         <div class="dt-empty-big">
             <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="LOGLINE_ICON"/></span>
             <h3>Logline is not set</h3>
-            <p>What this service writes goes to Logline, from the machines that send their logs there. Where Logline's viewer is is not set, so there is nothing to show here — the Logs tab of a machine has the form for it.</p>
+            <p>What this service writes goes to Logline, from the machines that send their logs there. Where Logline is is not set, so there is nothing to show here — the Logline page has the form for it.</p>
         </div>
     </section>
     <section v-else class="card lines-card" :class="{opened: (opened !== null)}">
@@ -1268,7 +1268,7 @@ const remote_logline = {
     template: `
 <article id="detail" class="logline">
     <h1>Logs</h1>
-    <p class="muted">Every container's output on this machine, the files of the folders below, and its agent's own log, sent to <button type="button" class="link" :title="(view.logline.ui === null ? 'Where Logline’s viewer is: the ui of logline in serviceman.json' : view.logline.ui)" @click="logline_open">Logline</button> from the moment it is switched on. Nothing from before that moment is sent.</p>
+    <p class="muted">Every container's output on this machine, the files of the folders below, and its agent's own log, sent to <button type="button" class="link" :title="(view.logline.viewer === null ? 'Where Logline is is not set: the Logline page has the form for it' : 'Its lines in Logline’s viewer')" @click="logline_open">Logline</button> from the moment it is switched on. Nothing from before that moment is sent.</p>
     <div class="card svc-status">
         <div class="row-of svc-state">
             <span class="pill" :class="stage.pill">{{ stage.text }}</span>
@@ -1487,13 +1487,13 @@ const remote_logline = {
         },
         // Logline's viewer in a tab of its own, following new lines as they come
         logline_open: function () {
-            const ui = this.view.logline.ui;
-            if (ui === null) {
-                this.report('Logline’s viewer is not set — it is set on the Logline page', true);
+            const viewer = this.view.logline.viewer;
+            if (viewer === null) {
+                this.report('Where Logline is is not set — it is set on the Logline page', true);
                 return;
             }
             // This machine's lines, not every machine's: the tab is about this one
-            window.open(logline_link({ui}, 'remote', this.view.name), '_blank', 'noopener');
+            window.open(logline_link({viewer}, 'remote', this.view.name), '_blank', 'noopener');
         },
         // "2026-09-26 0:41:07 EEST": the moment in this browser's own zone, and which zone
         time_text: function (iso) {
