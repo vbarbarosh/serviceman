@@ -83,6 +83,8 @@ test('a MySQL is brought up filled with a sample, a database made in it, then re
     assert.strictEqual(removed.status, 200, JSON.stringify(removed.body));
     assert.deepStrictEqual(removed.body.servers, []);
     assert.strictEqual(engine.containers.has('serviceman-db-mysql-1'), false);
+    // With the unnamed volumes its image declares, a MongoDB's /data/configdb
+    assert.strictEqual(engine.requests.filter(v => (v.method === 'DELETE') && v.url.includes('/containers/serviceman-db-mysql-1?')).map(v => new URL(v.url, 'http://docker').searchParams.get('v')).join(), '1');
     assert.strictEqual(engine.volumes.has('serviceman-db-mysql-1'), false);
 });
 

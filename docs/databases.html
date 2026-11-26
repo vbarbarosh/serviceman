@@ -1082,7 +1082,8 @@ it, and its answer names them, <code>forwards_removed</code>. A token neither se
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server&#39;s name typed again, then takes its container and
-its volume away, with every database in it. An app that picked one of them stops at its next start, saying
+its volume away, with every database in it, and the unnamed volumes its image declares (a
+MongoDB&#39;s <code>/data/configdb</code>). An app that picked one of them stops at its next start, saying
 so. A machine that is offline keeps them: Remove is refused until it is back.</p>
 <h2 id="for-whoever-runs-it"><a class="anchor" href="#for-whoever-runs-it" aria-hidden="true" tabindex="-1">#</a>For whoever runs it</h2>
 <div class="table-wrap"><table>

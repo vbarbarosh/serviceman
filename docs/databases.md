@@ -335,7 +335,8 @@ it, and its answer names them, `forwards_removed`. A token neither sees them nor
 
 **Remove…**, on a database's page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server's name typed again, then takes its container and
-its volume away, with every database in it. An app that picked one of them stops at its next start, saying
+its volume away, with every database in it, and the unnamed volumes its image declares (a
+MongoDB's `/data/configdb`). An app that picked one of them stops at its next start, saying
 so. A machine that is offline keeps them: Remove is refused until it is back.
 
 ## For whoever runs it

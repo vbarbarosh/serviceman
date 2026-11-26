@@ -263,7 +263,9 @@ async function server_remove(app, res, name)
     if ((remote !== undefined) && (remote.state.phase === 'online')) {
         try {
             const connect = docker_exec_connect(app, remote);
-            const gone = await engine_call(connect, 'DELETE', `/containers/serviceman-db-${name}?force=1`);
+            // v=1: the volumes its image declares beyond the one kept for it go with it, a
+            // MongoDB's /data/configdb, which docker made unnamed
+            const gone = await engine_call(connect, 'DELETE', `/containers/serviceman-db-${name}?force=1&v=1`);
             if ((gone.status !== 204) && (gone.status !== 404)) {
                 throw new Error(engine_said(gone));
             }
