@@ -728,8 +728,12 @@ sorts by that key, up, down, then as found. <strong>Aggregate</strong> makes the
 whole, as the shell writes it, with Copy: what the filter takes back, so a value copied from it
 finds it. The last queries of each collection that ran are kept in the browser, under
 <strong>Recent</strong>, to run again.</p>
-<p>It reads, for now. MongoDB is its first engine; PostgreSQL, MySQL and SQLite files come to the
-same page, their tables as its collections and their rows as its documents.</p>
+<p>It changes documents too: <strong>+ Document</strong> adds one, typed as the shell types it; a document
+shown whole has <strong>Edit</strong>, which reads it again whole by its <code>_id</code> (a page may show some of its
+fields alone, and saving those would drop the rest), and <strong>Delete</strong>, asked before it is done.
+A view&#39;s documents and a pipeline&#39;s results are read alone. MongoDB is its first engine;
+PostgreSQL, MySQL and SQLite files come to the same page, their tables as its collections and
+their rows as its documents.</p>
 <p>It has two halves and knows nothing of where the database is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
 handler given an <strong>adapter</strong>, which says the engine&#39;s words and has the host <strong>run</strong> them in
@@ -788,6 +792,18 @@ serviceman&#39;s is <code>/api/v1/databases/&lt;server&gt;/&lt;database&gt;/brow
 <td><code>GET &lt;base&gt;/aggregate?collection=&amp;pipeline=&amp;skip=&amp;limit=</code></td>
 <td><code>{items, count: null, more, skip, limit, took_ms, cut}</code></td>
 </tr>
+<tr>
+<td><code>POST &lt;base&gt;/documents</code> <code>{collection, document}</code></td>
+<td><code>{id}</code>, 201: the document added, its <code>_id</code> MongoDB&#39;s own when it had none</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/documents/replace</code> <code>{collection, id, document}</code></td>
+<td><code>{id}</code>: put in place of the one of that <code>_id</code>, which stays</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/documents/delete</code> <code>{collection, id}</code></td>
+<td><code>{id}</code>: deleted</td>
+</tr>
 </tbody></table>
 </div>
 <p>A page of documents is 50 unless <code>limit</code> says otherwise, 200 at most. Each comes as relaxed
@@ -799,6 +815,9 @@ of it was left for the next page.</p>
 <p>A pipeline&#39;s page is its stages, then the page&#39;s <code>$skip</code> and one past its <code>$limit</code>: <code>more</code> says
 whether a next page is there, and its results are not counted, which would run it whole again.
 A stage that writes, <code>$out</code> or <code>$merge</code>, is refused: it is read here.</p>
+<p>A document is its text, typed as a filter is; <code>id</code> is the <code>_id</code> as a page answered it, in
+relaxed Extended JSON. One deleted since the page was read is said so, and a document that
+names another <code>_id</code> MongoDB refuses: an <code>_id</code> is for good. A body is 4 MB at most.</p>
 <p>A query that is wrong is answered 400 with what is wrong and where (<code>the filter: a comma or } was expected, at 14</code>), and so is one MongoDB refuses (<code>unknown operator: $foo</code>). A database not
 reached is 502, a machine away 409.</p>
 

@@ -5,9 +5,12 @@ const SKIP_MOST = 1e9;
 // A collection's name as MongoDB takes one, and a query's text, which an address carries
 const NAME_MOST = 255;
 const TEXT_MOST = 8*1024;
+// A document sent to be added or put in place: MongoDB's own most is 16 MB
+const BODY_MOST = 4*1024*1024;
 
-// One database's data, under whatever base the host mounts it at: its collections, and a page
-// of one's documents as a filter finds them. The host gives `adapter`, which says the engine's
+// One database's data, under whatever base the host mounts it at: its collections, a page of
+// one's documents as a filter or a pipeline finds them, and a document added, put in place of
+// another or deleted. The host gives `adapter`, which says the engine's
 // words and runs them in the database as its own user ({engine, collections(), documents(ask)},
 // mongodb_adapter), and `about`, what the page heads it with ({engine, database, server,
 // remote}). Nothing is kept here: each read asks the database.
@@ -20,13 +23,18 @@ const TEXT_MOST = 8*1024;
 //                                {items, count, skip, limit, took_ms, cut}
 //     GET <base>/aggregate?collection=&pipeline=&skip=&limit=
 //                                {items, count: null, more, skip, limit, took_ms, cut}
+//     POST <base>/documents          {collection, document}       {id}: the document added
+//     POST <base>/documents/replace  {collection, id, document}   {id}: put in place of id's
+//     POST <base>/documents/delete   {collection, id}             {id}: deleted
+//
+// A document is its text, typed as the shell types it; an id is the _id as a page answered it.
 async function data_browser_serve(req, res, options)
 {
     const tail = options.tail;
     const log = (options.log === undefined) ? function () {} : options.log;
     try {
-        if (req.method !== 'GET') {
-            send_json(res, 405, {error: 'the data is read here, for now'});
+        if (req.method === 'POST') {
+            await change_serve(req, res, options, log);
             return;
         }
         // GET <base>
@@ -60,6 +68,76 @@ async function data_browser_serve(req, res, options)
     catch (error) {
         send_json(res, (error.status === undefined) ? 502 : error.status, {error: error.message});
     }
+}
+
+// POST <base>/documents (body)
+// POST <base>/documents/replace (body)
+// POST <base>/documents/delete (body)
+// A document added, put in place of the one of its _id, or deleted; what was typed is not
+// written in the log
+async function change_serve(req, res, options, log)
+{
+    const commands = {'/documents': 'insert', '/documents/replace': 'replace', '/documents/delete': 'remove'};
+    const command = commands[options.tail];
+    if (command === undefined) {
+        send_json(res, 404, {error: `no such door: ${options.tail}`});
+        return;
+    }
+    const body = await body_json(req);
+    const ask = {collection: name_read(body.collection)};
+    if (command !== 'insert') {
+        if (body.id === undefined) {
+            throw Object.assign(new Error('id is the _id of the document, as a page answered it'), {status: 400});
+        }
+        ask.id = body.id;
+    }
+    if (command !== 'remove') {
+        ask.document = String((body.document === undefined) ? '' : body.document);
+    }
+    const done = await options.adapter[command](ask);
+    log(`data_browser_${command}`, {collection: ask.collection});
+    send_json(res, (command === 'insert') ? 201 : 200, done);
+}
+
+// A collection's name as asked
+function name_read(value)
+{
+    const out = String((value === undefined) ? '' : value);
+    if ((out === '') || (out.length > NAME_MOST)) {
+        throw Object.assign(new Error('collection names the collection asked of'), {status: 400});
+    }
+    return out;
+}
+
+// The body as JSON. One past the most is read to its end and not kept, so the refusal reaches
+// the page rather than a connection cut in its face.
+function body_json(req)
+{
+    return new Promise(function (resolve, reject) {
+        const chunks = [];
+        let bytes = 0;
+        req.on('data', function (chunk) {
+            bytes += chunk.length;
+            if (bytes <= BODY_MOST) {
+                chunks.push(chunk);
+            }
+        });
+        req.on('end', function () {
+            if (bytes > BODY_MOST) {
+                reject(Object.assign(new Error(`a document is ${BODY_MOST/1024/1024} MB at most here`), {status: 413}));
+                return;
+            }
+            try {
+                // A body that is JSON and no object holds no field: it reads as an empty one
+                const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                resolve(((parsed === null) || (typeof parsed !== 'object')) ? {} : parsed);
+            }
+            catch {
+                reject(Object.assign(new Error('the body is not JSON'), {status: 400}));
+            }
+        });
+        req.on('error', reject);
+    });
 }
 
 // What a page of documents asks, from its query string: the collection, the texts typed (a

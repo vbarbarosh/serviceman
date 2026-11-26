@@ -423,6 +423,87 @@
     word-break: break-all;
 }
 
+/* + Document, at the end of the collection's head */
+.card-head > .dbr-add {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+}
+
+/* What the last change did, under the page until the next query */
+.dbr-said {
+    color: var(--run);
+}
+
+/* Delete, asked in the document's window before it is done */
+.dbr-confirm {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    margin: .4rem 0 0;
+    padding: 10px 12px;
+    border: 1px solid var(--bad-edge);
+    border-radius: 6px;
+    background: var(--bad-soft);
+}
+
+.dbr-confirm-acts {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* A document added or edited: its head and its foot stay, the text between them scrolls */
+.dt-whole.dbr-edit {
+    display: flex;
+    flex-direction: column;
+    width: min(56rem, 100%);
+    height: min(40rem, calc(100vh - 2rem));
+    overflow: hidden;
+}
+
+.dbr-edit > .dt-whole-head,
+.dbr-edit > .dbr-error {
+    flex: none;
+}
+
+.dbr-edit-text {
+    flex: 1;
+    min-height: 8rem;
+    margin: .4rem 0 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--code);
+    color: var(--fg);
+    line-height: 1.5;
+    white-space: pre;
+    overflow-wrap: normal;
+    resize: none;
+}
+
+.dbr-edit > .dbr-error {
+    margin: 10px 0 0;
+}
+
+.dbr-edit-foot {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: center;
+    justify-content: flex-end;
+    padding-top: 12px;
+}
+
+.dbr-edit-foot > span {
+    flex: 1 1 16rem;
+    font-size: 13px;
+}
+
 @media (max-width: 720px) {
     .dbr {
         grid-template-columns: minmax(0, 1fr);

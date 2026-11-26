@@ -829,13 +829,16 @@ filter finds them, typed as the MongoDB shell types it, <code>{status: &#39;acti
 row shows the document whole, as the shell writes it, with <strong>Copy</strong>. <strong>Aggregate</strong>, beside
 Find, runs a pipeline of stages on it, <code>[{$match: {status: &#39;active&#39;}}, {$group: {_id: &#39;$city&#39;, n: {$sum: 1}}}]</code>, a page at a time; a stage that writes (<code>$out</code>, <code>$merge</code>) is refused. A page
 shows as a table or as <strong>JSON</strong>, 20 to 200 to a page, and <strong>Recent</strong> runs one of the
-collection&#39;s last queries again, kept in the browser. The collection open is in the address,
+collection&#39;s last queries again, kept in the browser. <strong>+ Document</strong> adds a document, typed as
+the shell types it; a document shown whole has <strong>Edit</strong>, which reads it again whole, and
+<strong>Delete</strong>, asked before it is done. A view&#39;s documents and a pipeline&#39;s results are read
+alone. The collection open is in the address,
 <code>?collection=</code>, so a reload or a link opens it again.</p>
-<p>It reads as the database&#39;s own user, inside its server&#39;s container, never as root: it sees that
-database and no other. What is typed is read as data, never run: a name that is none of the
+<p>It reads and writes as the database&#39;s own user, inside its server&#39;s container, never as root:
+it sees that database and no other. What is typed is read as data, never run: a name that is none of the
 shell&#39;s types, <code>db.dropDatabase()</code>, is refused, with where it stands. Its machine away, or the
-server not up, Browse is greyed and says why. It reads, for now; PostgreSQL, MySQL and SQLite
-files come to the same page.</p>
+server not up, Browse is greyed and says why. PostgreSQL, MySQL and SQLite files come to the
+same page.</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
 600, beside what it writes about itself: never in the config, never in an answer to the page

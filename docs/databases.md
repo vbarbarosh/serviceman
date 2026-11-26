@@ -98,14 +98,17 @@ row shows the document whole, as the shell writes it, with **Copy**. **Aggregate
 Find, runs a pipeline of stages on it, `[{$match: {status: 'active'}}, {$group: {_id: '$city',
 n: {$sum: 1}}}]`, a page at a time; a stage that writes (`$out`, `$merge`) is refused. A page
 shows as a table or as **JSON**, 20 to 200 to a page, and **Recent** runs one of the
-collection's last queries again, kept in the browser. The collection open is in the address,
+collection's last queries again, kept in the browser. **+ Document** adds a document, typed as
+the shell types it; a document shown whole has **Edit**, which reads it again whole, and
+**Delete**, asked before it is done. A view's documents and a pipeline's results are read
+alone. The collection open is in the address,
 `?collection=`, so a reload or a link opens it again.
 
-It reads as the database's own user, inside its server's container, never as root: it sees that
-database and no other. What is typed is read as data, never run: a name that is none of the
+It reads and writes as the database's own user, inside its server's container, never as root:
+it sees that database and no other. What is typed is read as data, never run: a name that is none of the
 shell's types, `db.dropDatabase()`, is refused, with where it stands. Its machine away, or the
-server not up, Browse is greyed and says why. It reads, for now; PostgreSQL, MySQL and SQLite
-files come to the same page.
+server not up, Browse is greyed and says why. PostgreSQL, MySQL and SQLite files come to the
+same page.
 
 ## The passwords
 

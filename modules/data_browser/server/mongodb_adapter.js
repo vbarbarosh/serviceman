@@ -132,6 +132,37 @@ const AGGREGATE = [
 // The stages that write: a pipeline is read here, and a change is made by its own buttons
 const WRITING_STAGES = ['$out', '$merge'];
 
+// A document added to a collection: answers its _id, MongoDB's own when it had none
+const INSERT = [
+    'answer_print(function () {',
+    '    const done = collection_of(ask.collection).insertOne(EJSON.parse(ask.document, {relaxed: false}));',
+    '    return {id: exact(done.insertedId)};',
+    '});',
+];
+// A document put in place of the one of its _id: one whose _id is not there any more is said
+// so, and one that names another _id MongoDB refuses, an _id being for good
+const REPLACE = [
+    'answer_print(function () {',
+    '    const id = EJSON.parse(ask.id, {relaxed: false});',
+    '    const done = collection_of(ask.collection).replaceOne({_id: id}, EJSON.parse(ask.document, {relaxed: false}));',
+    '    if (done.matchedCount === 0) {',
+    '        throw new Error(\'it is not there any more: deleted since the page was read\');',
+    '    }',
+    '    return {id: exact(id)};',
+    '});',
+];
+// The document of an _id deleted
+const REMOVE = [
+    'answer_print(function () {',
+    '    const id = EJSON.parse(ask.id, {relaxed: false});',
+    '    const done = collection_of(ask.collection).deleteOne({_id: id});',
+    '    if (done.deletedCount === 0) {',
+    '        throw new Error(\'it is not there any more: deleted since the page was read\');',
+    '    }',
+    '    return {id: exact(id)};',
+    '});',
+];
+
 // MongoDB, for the data browser: each ask a mongosh script that `run(script)` runs in the
 // database, signed in as its own user, and answers with what it printed. The ask goes in as
 // data: a filter, a sort and the fields are read by ejson_from_text and parsed by EJSON.parse
@@ -143,6 +174,9 @@ const WRITING_STAGES = ['$out', '$merge'];
 //                                   // {items, count, took_ms, cut}
 //     await adapter.aggregate({collection: 'items', pipeline: "[{$group: {_id: '$city', n: {$sum: 1}}}]", skip: 0, limit: 50})
 //                                   // {items, count: null, more, took_ms, cut}
+//     await adapter.insert({collection: 'items', document: "{name: 'a'}"})                    // {id}
+//     await adapter.replace({collection: 'items', id: {$oid: '6b08…'}, document: "{name: 'b'}"})   // {id}
+//     await adapter.remove({collection: 'items', id: {$oid: '6b08…'}})                         // {id}
 function mongodb_adapter(run)
 {
     return {
@@ -150,7 +184,7 @@ function mongodb_adapter(run)
         collections: function () {
             return answer_read(run, COLLECTIONS, {});
         },
-        documents: function (ask) {
+        documents: async function (ask) {
             const json = {
                 collection: ask.collection,
                 filter: JSON.stringify(text_read(ask.filter, 'filter')),
@@ -164,7 +198,7 @@ function mongodb_adapter(run)
             };
             return answer_read(run, DOCUMENTS, json);
         },
-        aggregate: function (ask) {
+        aggregate: async function (ask) {
             const json = {
                 collection: ask.collection,
                 pipeline: JSON.stringify(pipeline_read(ask.pipeline)),
@@ -174,6 +208,15 @@ function mongodb_adapter(run)
                 page_bytes: PAGE_BYTES,
             };
             return answer_read(run, AGGREGATE, json);
+        },
+        insert: async function (ask) {
+            return answer_read(run, INSERT, {collection: ask.collection, document: JSON.stringify(text_read(ask.document, 'document'))});
+        },
+        replace: async function (ask) {
+            return answer_read(run, REPLACE, {collection: ask.collection, id: JSON.stringify(ask.id), document: JSON.stringify(text_read(ask.document, 'document'))});
+        },
+        remove: async function (ask) {
+            return answer_read(run, REMOVE, {collection: ask.collection, id: JSON.stringify(ask.id)});
         },
     };
 }

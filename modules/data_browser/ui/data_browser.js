@@ -9,7 +9,9 @@ import storage_set from '../../storage_set.js';
 // documents as a table or as JSON, a page at a time, found by a filter typed as the shell types
 // it, in a sort, with the fields asked for, or made by a pipeline of stages. A click on a header
 // sorts by it; a click on a row shows the document whole, as the shell writes it, with Copy. The
-// last queries of each collection are kept in the browser, to run again. The host gives the API, a GET under one
+// last queries of each collection are kept in the browser, to run again. + Document adds one,
+// typed as the shell types it; a document shown whole is edited or deleted from its window, a
+// deletion asked before it is done. A view's documents and a pipeline's results are read alone. The host gives the API, a GET under one
 // base (data_browser_serve), the colours and its usual classes: card, card-head, primary, link,
 // muted, bad, spin, dt-window, dt-whole, dt-whole-head.
 //
@@ -26,6 +28,7 @@ const WORDS = {
         kinds: 'Collections',
         kind: 'collection',
         item: 'document',
+        Item: 'Document',
         items: 'documents',
         filter: '{status: \'active\', at: {$gt: ISODate(\'2026-01-01\')}}',
         sort: '{at: -1}',
@@ -76,6 +79,7 @@ const data_browser = {
             <div class="card-head">
                 <h2 class="dbr-title">{{ open }}</h2>
                 <span class="muted dbr-facts">{{ open_facts }}</span>
+                <button v-if="changeable" type="button" class="dbr-add" :disabled="offline" :title="('Add a ' + words.item + ' to ' + open)" @click="add_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ words.Item }}</button>
             </div>
             <form class="dbr-find" @submit.prevent="find">
                 <div class="dbr-field">
@@ -113,6 +117,7 @@ const data_browser = {
                 <span class="dbr-range"><span v-if="busy" class="spin"/>{{ range_text }}</span>
                 <span v-if="page.cut" class="dbr-cut" title="A page carries 4 MB at most">the rest of this page is over 4 MB: Next shows it</span>
                 <span class="muted dbr-took">{{ took_text }}</span>
+                <span v-if="(said !== '')" class="dbr-said" role="status">{{ said }}</span>
                 <span class="seg dbr-view" role="group" aria-label="Shown as">
                     <button type="button" :class="{on: (view === 'table')}" @click="view = 'table'">Table</button>
                     <button type="button" :class="{on: (view === 'json')}" @click="view = 'json'">JSON</button>
@@ -155,10 +160,37 @@ const data_browser = {
                     <button type="button" :disabled="(picked === 0)" aria-label="The document before" @click="picked--">‹</button>
                     <button type="button" :disabled="(picked === (page.items.length - 1))" aria-label="The next document" @click="picked++">›</button>
                     <button type="button" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
+                    <button v-if="picked_changeable" type="button" :disabled="offline" @click="edit_open">Edit</button>
+                    <button v-if="picked_changeable" type="button" :disabled="(offline || (deleting !== null))" @click="deleting = {busy: false, error: ''}">Delete</button>
                     <button type="button" class="link" @click="picked = null">Close</button>
                 </span>
             </div>
-            <pre class="dbr-json">{{ picked_text }}</pre>
+            <div v-if="(deleting !== null)" class="dbr-confirm" role="alert">
+                <span>Delete this {{ words.item }} from {{ open }}? It goes for good.</span>
+                <span v-if="(deleting.error !== '')" class="bad">{{ deleting.error }}</span>
+                <span class="dbr-confirm-acts">
+                    <button type="button" :disabled="deleting.busy" @click="deleting = null">Cancel</button>
+                    <button type="button" class="danger" :disabled="deleting.busy" @click="delete_save">Delete</button>
+                </span>
+            </div>
+            <pre ref="picked_json" class="dbr-json" tabindex="0">{{ picked_text }}</pre>
+        </div>
+    </div>
+    <!-- A document added or edited: the head and the foot stay, the text between them scrolls -->
+    <div v-if="(editing !== null)" class="dt-window" @click.self="edit_close">
+        <div class="dt-whole dbr-edit" role="dialog" aria-modal="true" :aria-label="edit_title" @keydown.esc="edit_close">
+            <div class="dt-whole-head">
+                <b class="dbr-doc-name">{{ edit_title }}</b>
+                <span class="muted">{{ open }}</span>
+                <button type="button" class="link" @click="edit_close">Close</button>
+            </div>
+            <textarea ref="edit_text" v-model="editing.text" class="dbr-code dbr-edit-text" wrap="off" :aria-label="edit_title" spellcheck="false" autocomplete="off" autocapitalize="off" :disabled="editing.busy" @keydown.ctrl.enter.prevent="edit_save" @keydown.meta.enter.prevent="edit_save"/>
+            <p v-if="(editing.error !== '')" class="bad dbr-error" role="alert">{{ editing.error }}</p>
+            <div class="dbr-edit-foot">
+                <span class="muted">Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). Ctrl+Enter {{ (editing.id === undefined) ? 'adds' : 'saves' }}.</span>
+                <button type="button" :disabled="editing.busy" @click="edit_close">Cancel</button>
+                <button type="button" class="primary" :disabled="(editing.busy || offline)" @click="edit_save">{{ (editing.id === undefined) ? 'Add' : 'Save' }}</button>
+            </div>
         </div>
     </div>
 </article>
@@ -177,6 +209,9 @@ const data_browser = {
         // page: the documents found, {items, count, skip, limit, took_ms, cut} (a pipeline's
         // with more, whether a next page is there), null before; view: table or json
         // picked: the index on the page of the document shown whole, null for none
+        // editing: a document added or edited, {id, text, busy, error}, id undefined when
+        // added; deleting: the one shown whole asked to be deleted, {busy, error}; said: what
+        // the last change did, under the page until the next query
         // recent: the last queries, of every collection, newest first, as kept in the browser
         return {
             about: null,
@@ -200,6 +235,9 @@ const data_browser = {
             error: '',
             picked: null,
             copied: false,
+            editing: null,
+            deleting: null,
+            said: '',
             SEARCH_FROM,
             LIMITS,
         };
@@ -297,6 +335,18 @@ const data_browser = {
             }
             return (this.page.items[this.picked] === undefined) ? null : this.page.items[this.picked];
         },
+        // Its documents can be changed: a collection, not a view
+        changeable: function () {
+            return (this.open_item !== null) && (this.open_item.type !== 'view');
+        },
+        // The document shown whole can be edited and deleted: one of the collection as found,
+        // never a pipeline's result, which is no document of it
+        picked_changeable: function () {
+            return this.changeable && (this.asked.mode === 'find') && (this.picked_item !== null) && (this.picked_item._id !== undefined);
+        },
+        edit_title: function () {
+            return (this.editing.id === undefined) ? `Add a ${this.words.item}` : `Edit ${mongo_text_of(this.editing.id, false)}`;
+        },
         picked_name: function () {
             const id = this.picked_item._id;
             return (id === undefined) ? `A ${this.words.item}` : mongo_text_of(id, false);
@@ -323,10 +373,12 @@ const data_browser = {
         // A document shown whole is where the keys go: Esc puts it away
         picked: function (index) {
             this.copied = false;
+            this.deleting = null;
+            // The document takes the keys, so Page Down scrolls it; Esc reaches the window
             if (index !== null) {
                 this.$nextTick(function () {
-                    if (this.$refs.picked_box !== undefined) {
-                        this.$refs.picked_box.focus({preventScroll: true});
+                    if (this.$refs.picked_json !== undefined) {
+                        this.$refs.picked_json.focus({preventScroll: true});
                     }
                 });
             }
@@ -384,6 +436,7 @@ const data_browser = {
             }
         },
         find: function () {
+            this.said = '';
             this.asked = {mode: this.mode, filter: this.filter.trim(), sort: this.sort.trim(), fields: this.fields.trim(), pipeline: this.pipeline.trim()};
             this.documents_read(0);
         },
@@ -509,6 +562,87 @@ const data_browser = {
             finally {
                 this.busy = false;
             }
+        },
+        add_open: function () {
+            this.editing = {id: undefined, text: '{\n    \n}', busy: false, error: ''};
+            this.edit_focus();
+        },
+        // Edit: the document read again whole by its _id, since a page may show some of its
+        // fields alone, and saving those would drop the rest
+        edit_open: async function () {
+            const id = this.picked_item._id;
+            this.picked = null;
+            this.editing = {id, text: '', busy: true, error: ''};
+            const query = new URLSearchParams({collection: this.open, filter: `{_id: ${mongo_text_of(id, false)}}`, limit: '1'});
+            try {
+                const body = await this.api('GET', `documents?${query}`);
+                if (body.items.length === 0) {
+                    throw new Error('it is not there any more: deleted since the page was read');
+                }
+                this.editing.text = mongo_text_of(body.items[0], true);
+            }
+            catch (error) {
+                this.editing.error = error.message;
+            }
+            this.editing.busy = false;
+            this.edit_focus();
+        },
+        edit_focus: function () {
+            this.$nextTick(function () {
+                if (this.$refs.edit_text !== undefined) {
+                    this.$refs.edit_text.focus({preventScroll: true});
+                }
+            });
+        },
+        edit_close: function () {
+            if ((this.editing !== null) && (this.editing.busy === false)) {
+                this.editing = null;
+            }
+        },
+        edit_save: async function () {
+            const editing = this.editing;
+            const added = (editing.id === undefined);
+            editing.busy = true;
+            editing.error = '';
+            try {
+                const body = added ? {collection: this.open, document: editing.text} : {collection: this.open, id: editing.id, document: editing.text};
+                const done = await this.api('POST', added ? 'documents' : 'documents/replace', body);
+                this.editing = null;
+                this.changed(added ? `Added ${mongo_text_of(done.id, false)}` : `Saved ${mongo_text_of(done.id, false)}`);
+            }
+            catch (error) {
+                editing.busy = false;
+                editing.error = error.message;
+            }
+        },
+        delete_save: async function () {
+            const deleting = this.deleting;
+            deleting.busy = true;
+            deleting.error = '';
+            try {
+                const done = await this.api('POST', 'documents/delete', {collection: this.open, id: this.picked_item._id});
+                this.picked = null;
+                this.changed(`Deleted ${mongo_text_of(done.id, false)}`);
+            }
+            catch (error) {
+                deleting.busy = false;
+                deleting.error = error.message;
+            }
+        },
+        // A change made: said under the page, the page and the counts read again
+        changed: function (said) {
+            this.said = said;
+            this.collections_read();
+            this.documents_read((this.page === null) ? 0 : this.page.skip);
+        },
+        // The module's API: its answer, or what it refused, thrown
+        api: async function (method, door, body) {
+            const answer = await fetch(`${this.base}/${door}`, {method, cache: 'no-store', body: (body === undefined) ? undefined : JSON.stringify(body)});
+            const out = await answer.json().catch(() => ({}));
+            if (answer.ok === false) {
+                throw new Error(out.error || `serviceman answered ${answer.status}`);
+            }
+            return out;
         },
         cells_of: function (item) {
             return this.keys.map(v => Object.assign({key: v}, mongo_cell_of(item[v])));

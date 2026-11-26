@@ -522,6 +522,9 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `database_firewall_error` | Its firewall could not be told, and why: ufw, or sudo for it, is not there, or the machine is away. |
 | `data_browser_read`       | A page of a database's documents was read with **Browse**, as its own user: `collection=` which, `filtered=` whether a filter was typed, `count=` how many came, `took_ms=` how long the database took. What was typed is not written. |
 | `data_browser_aggregate`  | A page of what a pipeline makes of a collection was read with **Browse**: `collection=`, `stages=` whether a pipeline was typed, `count=`, `took_ms=`. The pipeline is not written. |
+| `data_browser_insert`     | A document was added with **Browse**, as the database's own user: `collection=`. The document is not written. |
+| `data_browser_replace`    | A document was edited with **Browse**: `collection=`. Neither the document nor its `_id` is written. |
+| `data_browser_remove`     | A document was deleted with **Browse**: `collection=`. Its `_id` is not written. |
 
 ### Logline
 

@@ -80,8 +80,46 @@ test('collections and a page of documents are read, the ask going in as data', a
     const long = await call(running, '/browse/documents?collection=items&filter=' + 'x'.repeat(9000));
     assert.match(long.body.error, /^the filter is longer than 8 KB$/);
     const changed = await call(running, '/browse/collections', 'POST');
-    assert.strictEqual(changed.status, 405);
+    assert.strictEqual(changed.status, 404);
     assert.strictEqual(scripts.length, 7, 'a refused ask runs nothing');
+});
+
+// A document added, put in place of another and deleted: what is sent goes into the script as
+// data, the id as the page answered it, and every refusal is said
+test('a document is added, put in place of another and deleted, the document typed as the shell types it', async function (t) {
+    const asks = [];
+    const running = await serve(t, function (script) {
+        const ask = JSON.parse(/^const ask = (.*);$/m.exec(script)[1]);
+        asks.push(ask);
+        if (ask.collection === 'gone') {
+            return answer({error: 'it is not there any more: deleted since the page was read', code: null});
+        }
+        return answer({ok: {id: (ask.id === undefined) ? {$oid: '6b08111da665b663b25ba166'} : JSON.parse(ask.id)}});
+    });
+    const added = await call(running, '/browse/documents', 'POST', {collection: 'items', document: '{name: \'a\', at: ISODate(\'2026-11-26\')}'});
+    assert.deepStrictEqual([added.status, added.body], [201, {id: {$oid: '6b08111da665b663b25ba166'}}]);
+    assert.deepStrictEqual(JSON.parse(asks[0].document), {name: 'a', at: {$date: '2026-11-26T00:00:00.000Z'}});
+    const replaced = await call(running, '/browse/documents/replace', 'POST', {collection: 'items', id: {$oid: '6b08111da665b663b25ba166'}, document: '{name: \'b\'}'});
+    assert.deepStrictEqual([replaced.status, JSON.parse(asks[1].id), JSON.parse(asks[1].document)], [200, {$oid: '6b08111da665b663b25ba166'}, {name: 'b'}]);
+    const removed = await call(running, '/browse/documents/delete', 'POST', {collection: 'items', id: 7});
+    assert.deepStrictEqual([removed.status, removed.body, asks[2].document], [200, {id: 7}, undefined]);
+
+    const refusals = [
+        ['/browse/documents', {document: '{}'}, 400, /^collection names the collection asked of$/],
+        ['/browse/documents', {collection: 'items', document: '[1]'}, 400, /^the document is a document in braces/],
+        ['/browse/documents', {collection: 'items', document: '{a: db.x()}'}, 400, /^the document: "db\.x" is not a value/],
+        ['/browse/documents/replace', {collection: 'items', document: '{}'}, 400, /^id is the _id of the document/],
+        ['/browse/documents/delete', {collection: 'items'}, 400, /^id is the _id of the document/],
+        ['/browse/documents/delete', {collection: 'gone', id: 1}, 400, /^it is not there any more/],
+        ['/browse/documents/drop', {collection: 'items'}, 404, /^no such door: \/documents\/drop$/],
+    ];
+    for (const [path, body, status, said] of refusals) {
+        const answered = await call(running, path, 'POST', body);
+        assert.strictEqual(answered.status, status, path);
+        assert.match(answered.body.error, said, path);
+    }
+    const big = await call(running, '/browse/documents', 'POST', {collection: 'items', document: `{a: '${'x'.repeat(5*1024*1024)}'}`});
+    assert.deepStrictEqual([big.status, big.body.error], [413, 'a document is 4 MB at most here']);
 });
 
 test('a database not reached, or a client that printed no answer, is 502', async function (t) {
@@ -111,8 +149,8 @@ async function serve(t, run)
     return {port: server.address().port};
 }
 
-async function call(running, path, method)
+async function call(running, path, method, body)
 {
-    const answered = await fetch(`http://127.0.0.1:${running.port}${path}`, {method: method || 'GET'});
-    return {status: answered.status, body: await answered.json()};
+    const answered = await fetch(`http://127.0.0.1:${running.port}${path}`, {method: method || 'GET', body: (body === undefined) ? undefined : JSON.stringify(body)});
+    return {status: answered.status, body: await answered.json().catch(() => ({error: 'no JSON'}))};
 }

@@ -10,8 +10,12 @@ whole, as the shell writes it, with Copy: what the filter takes back, so a value
 finds it. The last queries of each collection that ran are kept in the browser, under
 **Recent**, to run again.
 
-It reads, for now. MongoDB is its first engine; PostgreSQL, MySQL and SQLite files come to the
-same page, their tables as its collections and their rows as its documents.
+It changes documents too: **+ Document** adds one, typed as the shell types it; a document
+shown whole has **Edit**, which reads it again whole by its `_id` (a page may show some of its
+fields alone, and saving those would drop the rest), and **Delete**, asked before it is done.
+A view's documents and a pipeline's results are read alone. MongoDB is its first engine;
+PostgreSQL, MySQL and SQLite files come to the same page, their tables as its collections and
+their rows as its documents.
 
 It has two halves and knows nothing of where the database is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
@@ -62,6 +66,9 @@ serviceman's is `/api/v1/databases/<server>/<database>/browse`:
 | `GET <base>/collections` | `{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}`, `system.*` left out; a view has no numbers |
 | `GET <base>/documents?collection=&filter=&sort=&fields=&skip=&limit=` | `{items, count, skip, limit, took_ms, cut}` |
 | `GET <base>/aggregate?collection=&pipeline=&skip=&limit=` | `{items, count: null, more, skip, limit, took_ms, cut}` |
+| `POST <base>/documents` `{collection, document}` | `{id}`, 201: the document added, its `_id` MongoDB's own when it had none |
+| `POST <base>/documents/replace` `{collection, id, document}` | `{id}`: put in place of the one of that `_id`, which stays |
+| `POST <base>/documents/delete` `{collection, id}` | `{id}`: deleted |
 
 A page of documents is 50 unless `limit` says otherwise, 200 at most. Each comes as relaxed
 Extended JSON: `{$oid}`, `{$date}`, a 64-bit number past what a double holds whole as
@@ -73,6 +80,10 @@ of it was left for the next page.
 A pipeline's page is its stages, then the page's `$skip` and one past its `$limit`: `more` says
 whether a next page is there, and its results are not counted, which would run it whole again.
 A stage that writes, `$out` or `$merge`, is refused: it is read here.
+
+A document is its text, typed as a filter is; `id` is the `_id` as a page answered it, in
+relaxed Extended JSON. One deleted since the page was read is said so, and a document that
+names another `_id` MongoDB refuses: an `_id` is for good. A body is 4 MB at most.
 
 A query that is wrong is answered 400 with what is wrong and where (`the filter: a comma or }
 was expected, at 14`), and so is one MongoDB refuses (`unknown operator: $foo`). A database not

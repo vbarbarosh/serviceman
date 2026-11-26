@@ -1,7 +1,7 @@
 // What the Data browser module holds and does, for its host to route, check and show: one
-// database, its collections (a SQL database's tables), and a page of the documents (rows) of
-// one of them, as a filter finds them. Read alone for now; no right a token may be given: the
-// database's data is the owner's to see.
+// database, its collections (a SQL database's tables), a page of the documents (rows) of one of
+// them, as a filter or a pipeline finds them, and a document added, put in place of another or
+// deleted. No right a token may be given: the database's data is the owner's.
 const data_browser_manifest = {
     module: 'data_browser',
     title: 'Data',
@@ -31,7 +31,11 @@ const data_browser_manifest = {
             kind: 'documents',
             said: 'a page of one collection\'s documents: ?collection, filter, sort, fields, skip, limit',
             read: {},
-            commands: [],
+            commands: [
+                {command: 'create', on: 'kind', said: 'add a document, typed as the shell types it', body: ['collection', 'document']},
+                {command: 'replace', on: 'kind', said: 'put a document in place of the one of its _id', body: ['collection', 'id', 'document']},
+                {command: 'delete', on: 'kind', said: 'delete the document of an _id', body: ['collection', 'id'], danger: true},
+            ],
         },
         {
             kind: 'aggregate',

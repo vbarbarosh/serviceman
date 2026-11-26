@@ -253,6 +253,7 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
     assert.deepStrictEqual([piped.status, piped.body.limit, JSON.parse(piped.body.ask.pipeline)], [200, 20, [{$group: {_id: '$n'}}]]);
     const browsed = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
     assert.strictEqual(browsed.length, 3);
+    assert.ok(browsed.every(v => v.Env[0] === 'SERVICEMAN_DB_USER=orders'), 'every script as orders\' own user');
     assert.ok(browsed[1].Cmd[2].startsWith('mongosh --quiet --norc \'mongodb://127.0.0.1:27017/orders\' '), browsed[1].Cmd[2]);
     assert.deepStrictEqual(browsed[1].Env, ['SERVICEMAN_DB_USER=orders', `SERVICEMAN_DB_PASSWORD=${JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].users.orders.password}`]);
     const refused = [
@@ -264,7 +265,11 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
         const answer = await control(world, 'GET', asked);
         assert.deepStrictEqual([answer.status, answer.body.error], [status, said], asked);
     }
-    assert.strictEqual((await control(world, 'POST', '/api/v1/databases/mongodb-1/orders/browse/documents', {})).status, 404, 'no door changes its data yet');
+    // A document added, as orders' own user; the doors that are none still 404
+    const added = await control(world, 'POST', '/api/v1/databases/mongodb-1/orders/browse/documents', {collection: 'items', document: '{n: 9}'});
+    assert.strictEqual(added.status, 201, JSON.stringify(added.body));
+    assert.strictEqual(JSON.parse(engine.sql[engine.sql.length - 1].sql.split('\n')[0].slice('const ask = '.length, -1)).document, '{"n":9}');
+    assert.strictEqual((await control(world, 'POST', '/api/v1/databases/mongodb-1/orders/browse/documents/drop', {collection: 'items'})).status, 404);
 
     const kept = JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0];
     const secrets = [kept.root, kept.users.orders.password];

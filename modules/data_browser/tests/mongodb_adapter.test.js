@@ -56,6 +56,24 @@ test('a real MongoDB: its collections, a page of documents, a filter, a sort, th
     assert.deepStrictEqual([last.items.map(v => v.n), last.more], [[119, 1000], false]);
     await assert.rejects(adapter.aggregate({collection: 'items', pipeline: '[{$foo: {}}]', skip: 0, limit: 50}), {status: 400, message: /Unrecognized pipeline stage name: '\$foo'/});
 
+    // A document added, put in place of another, and deleted, each by its _id
+    const added = await adapter.insert({collection: 'items', document: '{n: 2000, name: \'added\', at: ISODate(\'2026-11-26\')}'});
+    assert.strictEqual(typeof added.id.$oid, 'string');
+    const again = await adapter.documents({collection: 'items', filter: `{_id: ObjectId('${added.id.$oid}')}`, sort: '', fields: '{_id: 0}', skip: 0, limit: 50});
+    assert.deepStrictEqual(again.items, [{n: 2000, name: 'added', at: {$date: '2026-11-26T00:00:00Z'}}]);
+    await adapter.replace({collection: 'items', id: added.id, document: '{n: 2001, name: \'changed\'}'});
+    const changed = await adapter.documents({collection: 'items', filter: `{_id: ObjectId('${added.id.$oid}')}`, sort: '', fields: '{_id: 0}', skip: 0, limit: 50});
+    assert.deepStrictEqual(changed.items, [{n: 2001, name: 'changed'}]);
+    await assert.rejects(adapter.replace({collection: 'items', id: added.id, document: '{_id: 7, n: 1}'}), {status: 400, message: /_id/});
+    const own = await adapter.insert({collection: 'items', document: '{_id: NumberLong(\'9007199254740993\'), n: 3000}'});
+    assert.deepStrictEqual(own.id, {$numberLong: '9007199254740993'});
+    await adapter.remove({collection: 'items', id: own.id});
+    await adapter.remove({collection: 'items', id: added.id});
+    await assert.rejects(adapter.remove({collection: 'items', id: added.id}), {status: 400, message: 'it is not there any more: deleted since the page was read'});
+    await assert.rejects(adapter.insert({collection: 'evens', document: '{n: 1}'}), {status: 400, message: /view/});
+    await assert.rejects(adapter.insert({collection: 'items', document: '[1]'}), {status: 400, message: 'the document is a document in braces, {…}'});
+    assert.strictEqual((await adapter.collections()).find(v => v.name === 'items').count, 121, 'as many as before');
+
     await assert.rejects(adapter.documents({collection: 'items', filter: '{n: {$foo: 1}}', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: 'unknown operator: $foo'});
     await assert.rejects(adapter.documents({collection: 'nothing', filter: '', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: `no collection called nothing in ${DATABASE}`});
     // Its own user sees its database alone
