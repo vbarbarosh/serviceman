@@ -796,11 +796,26 @@ link:</p>
 </tbody></table>
 </div>
 <h2 id="a-databases-page"><a class="anchor" href="#a-databases-page" aria-hidden="true" tabindex="-1">#</a>A database&#39;s page</h2>
-<p>Its head: its name, how it stands, its engine, its server and its machine, then its size, its
-tables (a MongoDB&#39;s collections) and where it is reached from; under it, the apps given it and the variable each finds it
-in, each a link to its service; <strong>Reached from</strong>, its own machine and each other one its port
-is brought to (<a href="#its-port-on-another-machine">below</a>), each with <strong>Copy URL</strong>; the databases
-beside it in its server. <strong>Remove…</strong> is there (below).</p>
+<p>Its head: its name, how it stands, its engine, its server and its machine (a link to the
+machine&#39;s page), then its size, its tables (a MongoDB&#39;s collections, a CouchDB&#39;s users) and
+where it is reached from. Under it, two cards side by side, one above the other on a narrow page:</p>
+<ul>
+<li><strong>Given to</strong>: the apps given it, each with its kind and machine, the variable it finds it in
+and how it stands; a CouchDB&#39;s lists the apps whose store for each user it is too, finding it
+at <code>/_couch</code>. <strong>Give it to an app</strong> opens a window of every app: those that reach it to tick,
+on its own machine or, for a program, on a machine its port is
+<a href="#its-port-on-another-machine">brought to</a>, the others greyed, saying why; each one ticked is
+given it as its Data tab gives one (<a href="#an-app-picks-one">below</a>), from its next start.</li>
+<li><strong>How an app reaches it</strong>: the variable it is found in, its user, its URL from a container and
+from its machine (the password as dots), its volume and where in the container it is, and that
+the password stays with serviceman.</li>
+</ul>
+<p>Then <strong>Reached from</strong>, its own machine, each other one its port is brought to and its public
+port, each with <strong>Copy URL</strong>; the databases beside it in its server; and <strong>Remove…</strong>, a strip at
+the foot (<a href="#remove">Remove</a>). Coming up, its steps are listed, the one now turning; failed, a red
+note says why, with <strong>Bring it up again</strong>; its machine away, a red note says so, and its numbers
+are the last read, with when. A server with no database in it yet is a page of its own, with
+<strong>New database in it</strong>, New database opened on its engine and machine.</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
 600, beside what it writes about itself: never in the config, never in an answer to the page
@@ -853,7 +868,8 @@ in New database does.</p>
 <p>In an app&#39;s <strong>Settings</strong> on Apps, its <strong>Data</strong> tab: <strong>+ Database</strong> lists the databases of every
 server, those with a user serviceman made to pick, on the app&#39;s own machine or, for a program,
 on another whose port is <a href="#its-port-on-another-machine">brought to its machine</a>; the others
-greyed, saying why; <strong>New database…</strong> opens New database with the app ticked. The pick is written into the app&#39;s config as <code>databases</code>, each one variable of its
+greyed, saying why; <strong>New database…</strong> opens New database with the app ticked. A database&#39;s own
+page gives it to apps the same way, from <strong>Give it to an app</strong>. The pick is written into the app&#39;s config as <code>databases</code>, each one variable of its
 env:</p>
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;adminer&quot;,
@@ -1124,8 +1140,9 @@ run (no ufw, no sudo) is said on the line too (<code>database_firewall_error</co
 machine&#39;s <strong>Firewall</strong> tab. Its port and who it lets in are changed on its database&#39;s page: an
 edit on <strong>Forwards</strong> keeps its TLS and who it lets in, and tells no firewall.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
-<p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
-too and the apps given them, asks for the server&#39;s name typed again, then takes its container and
+<p><strong>Remove…</strong>, at the foot of a database&#39;s page, removes its server: its window names the
+container and the volume that go, the databases beside it that go too and the apps given them,
+asks for the server&#39;s name typed again, then takes its container and
 its volume away, with every database in it, and the unnamed volumes its image declares (a
 MongoDB&#39;s <code>/data/configdb</code>). An app that picked one of them stops at its next start, saying
 so. A machine that is offline keeps them: Remove is refused until it is back.</p>

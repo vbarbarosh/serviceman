@@ -1,4 +1,4 @@
-import app_data_env_free from './app_data_env_free.js';
+import app_database_give from './app_database_give.js';
 import database_env_given from './database_env_given.js';
 import machine_card from './machine_card.js';
 import machine_icons from './machine_icons.js';
@@ -394,7 +394,7 @@ const database_new = {
                 }
                 for (const app of this.m.given) {
                     this.said = `giving it to ${app}`;
-                    await this.give(app, server.name, database);
+                    await app_database_give(app, server.name, database, this.env_name);
                 }
                 this.said = '';
                 this.$emit('made', {server: server.name, database, given: this.m.given.slice()});
@@ -430,17 +430,6 @@ const database_new = {
         },
         // The app's entry with one more database in it, in the variable named for its engine
         // that no row of its fills yet, written the way its Data tab writes it
-        give: async function (app, server, database) {
-            const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
-            const entry = (JSON.parse(loaded.text).services || []).find(v => v.name === app);
-            if (entry === undefined) {
-                throw new Error(`${app} is not in the config any more`);
-            }
-            const rows = (entry.databases || []).concat(entry.folders || []);
-            const env = app_data_env_free(rows.map(v => v.env), this.env_name);
-            const service = Object.assign({}, entry, {databases: (entry.databases || []).concat([{server, database, env}])});
-            await this.send('PUT', `/api/v1/services/${encodeURIComponent(app)}`, {service});
-        },
         send: async function (method, url, body) {
             const answer = await fetch(url, {method, body: JSON.stringify(body)});
             if (answer.ok === false) {

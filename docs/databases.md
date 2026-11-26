@@ -61,11 +61,26 @@ link:
 
 ## A database's page
 
-Its head: its name, how it stands, its engine, its server and its machine, then its size, its
-tables (a MongoDB's collections) and where it is reached from; under it, the apps given it and the variable each finds it
-in, each a link to its service; **Reached from**, its own machine and each other one its port
-is brought to ([below](#its-port-on-another-machine)), each with **Copy URL**; the databases
-beside it in its server. **Remove…** is there (below).
+Its head: its name, how it stands, its engine, its server and its machine (a link to the
+machine's page), then its size, its tables (a MongoDB's collections, a CouchDB's users) and
+where it is reached from. Under it, two cards side by side, one above the other on a narrow page:
+
+- **Given to**: the apps given it, each with its kind and machine, the variable it finds it in
+  and how it stands; a CouchDB's lists the apps whose store for each user it is too, finding it
+  at `/_couch`. **Give it to an app** opens a window of every app: those that reach it to tick,
+  on its own machine or, for a program, on a machine its port is
+  [brought to](#its-port-on-another-machine), the others greyed, saying why; each one ticked is
+  given it as its Data tab gives one ([below](#an-app-picks-one)), from its next start.
+- **How an app reaches it**: the variable it is found in, its user, its URL from a container and
+  from its machine (the password as dots), its volume and where in the container it is, and that
+  the password stays with serviceman.
+
+Then **Reached from**, its own machine, each other one its port is brought to and its public
+port, each with **Copy URL**; the databases beside it in its server; and **Remove…**, a strip at
+the foot ([Remove](#remove)). Coming up, its steps are listed, the one now turning; failed, a red
+note says why, with **Bring it up again**; its machine away, a red note says so, and its numbers
+are the last read, with when. A server with no database in it yet is a page of its own, with
+**New database in it**, New database opened on its engine and machine.
 
 ## The passwords
 
@@ -109,7 +124,8 @@ in New database does.
 In an app's **Settings** on Apps, its **Data** tab: **+ Database** lists the databases of every
 server, those with a user serviceman made to pick, on the app's own machine or, for a program,
 on another whose port is [brought to its machine](#its-port-on-another-machine); the others
-greyed, saying why; **New database…** opens New database with the app ticked. The pick is written into the app's config as `databases`, each one variable of its
+greyed, saying why; **New database…** opens New database with the app ticked. A database's own
+page gives it to apps the same way, from **Give it to an app**. The pick is written into the app's config as `databases`, each one variable of its
 env:
 
 ```json
@@ -387,8 +403,9 @@ edit on **Forwards** keeps its TLS and who it lets in, and tells no firewall.
 
 ## Remove
 
-**Remove…**, on a database's page, removes its server: it names the databases beside it that go
-too and the apps given them, asks for the server's name typed again, then takes its container and
+**Remove…**, at the foot of a database's page, removes its server: its window names the
+container and the volume that go, the databases beside it that go too and the apps given them,
+asks for the server's name typed again, then takes its container and
 its volume away, with every database in it, and the unnamed volumes its image declares (a
 MongoDB's `/data/configdb`). An app that picked one of them stops at its next start, saying
 so. A machine that is offline keeps them: Remove is refused until it is back.

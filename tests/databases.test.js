@@ -165,6 +165,14 @@ test('a CouchDB is brought up with its admin and its secret, as one row an app p
     assert.strictEqual(refused.status, 409);
     assert.match(refused.body.error, /its databases are made by the app given it, as its admin/);
 
+    // An app whose store for each user it is shows on its page among the apps given it, and the
+    // page knows when its databases were read, for while its machine is away
+    const notes = await control(world, 'POST', '/api/v1/services', {service: {name: 'notes', type: 'external', remote: 'laptop', publish: {host: 'notes.localhost'}, upstream: '127.0.0.1:9', store: {server: 'couch-1'}}});
+    assert.strictEqual(notes.status, 200, JSON.stringify(notes.body));
+    const stored = (await control(world, 'GET', '/api/v1/databases')).body.servers[0];
+    assert.deepStrictEqual(stored.stores, ['notes']);
+    assert.ok((typeof stored.read_at === 'number') && (Date.now() - stored.read_at < 60000), JSON.stringify(stored.read_at));
+
     const said = JSON.stringify(up) + JSON.stringify(refused.body);
     assert.strictEqual(said.includes(kept.root) || said.includes(kept.secret), false, 'neither is ever in an answer');
     const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));

@@ -7,12 +7,13 @@ import share_level from './share_level.js';
 // number known: its chart grey with no dot, and no bar.
 //
 //     facts    [{label: 'Memory', value: '35%', small: 'of 8 GB', share: 0.35, title: '…',
-//               dim: false, mono: false, spark: null or head_spark's, empty while read}, …]
+//               dim: false, mono: false, spark: null or head_spark's, empty while read,
+//               icon: the inside of a 24x24 stroked svg before the label, or none}, …]
 const item_facts = {
     template: `
 <dl class="item-facts">
     <div v-for="fact of facts" :key="fact.label" :title="fact.title">
-        <dt>{{ fact.label }}</dt>
+        <dt><svg v-if="fact.icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="fact.icon"/>{{ fact.label }}</dt>
         <dd :class="{dim: (fact.dim === true)}">{{ fact.value }}<small v-if="(fact.small !== '')" :class="{mono: (fact.mono === true)}">{{ fact.small }}</small></dd>
         <span v-if="((fact.spark !== null) && (fact.spark !== undefined))" class="spark" :class="{dim: (fact.dim === true)}">
             <svg :viewBox="('0 0 ' + SPARK_W + ' ' + SPARK_H)" preserveAspectRatio="none" aria-hidden="true"><path class="spark-area" :d="fact.spark.area"/><path class="spark-line" :d="fact.spark.line"/></svg>

@@ -8442,6 +8442,507 @@ button.st-pill.problem-where {
     outline: 0;
 }
 
+/* A database's page, as the design draws it: the kit's item head, then Given to beside How an app
+   reaches it, two columns that stack on a narrow page; Reached from and the others in its server
+   as cards under them; Remove as a strip at the foot; its windows over the page */
+/* The head inside the page's article: its edges are the cards' under it, not a page's of its own */
+.databases .db-head {
+    margin: 0 0 18px;
+}
+
+/* Its notes take the cards' edges too */
+.databases > .item-note {
+    margin: 0 0 18px;
+}
+
+.databases .db-window-type input {
+    width: 100%;
+    padding: .55rem .7rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--fg);
+    font: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.databases .db-window-type input:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+/* What a row says only when its table has no band of headers: on a narrow page */
+.databases .db-narrow {
+    display: none;
+}
+
+/* A narrow page: each row two lines, its name and how it stands, then where it is found, or its
+   size and who has it; no band of headers */
+@media (max-width: 640px) {
+    .databases .db-table,
+    .databases .db-table tbody {
+        display: block;
+    }
+
+    .databases .db-table thead {
+        display: none;
+    }
+
+    .databases .db-table tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "name status" "rest rest";
+        gap: 6px 12px;
+        align-items: center;
+        padding: 10px 14px;
+        border-top: 1px solid var(--line);
+    }
+
+    .databases .db-table tr:first-child {
+        border-top: 0;
+    }
+
+    .databases .db-table tr > td {
+        height: auto;
+        padding: 0;
+        border: 0;
+    }
+
+    .databases .db-table .db-c-name {
+        grid-area: name;
+    }
+
+    .databases .db-table .db-c-status {
+        grid-area: status;
+    }
+
+    .databases .db-table .db-c-env {
+        grid-area: rest;
+        padding-left: 40px;
+    }
+
+    .databases .db-table tr:has(.db-c-size) {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: "name name status" "size given given";
+        column-gap: 6px;
+    }
+
+    .databases .db-table .db-c-size {
+        grid-area: size;
+        padding-left: 40px;
+        text-align: left;
+    }
+
+    .databases .db-table .db-c-given {
+        grid-area: given;
+    }
+
+    .databases .db-narrow {
+        display: inline;
+    }
+}
+
+/* A URL breaks only where the design lets it: after its @, before its /<database> */
+.databases .db-nw {
+    white-space: nowrap;
+}
+
+.databases > .item-note,
+.databases > .db-steps {
+    margin-bottom: 18px;
+}
+
+.databases .db-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+@container (max-width: 900px) {
+    .databases .db-cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .databases .db-cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.databases .db-reached,
+.databases .db-beside,
+.databases .db-remove {
+    margin-bottom: 18px;
+}
+
+.databases .card-head .link {
+    display: inline-flex;
+    gap: .35rem;
+    align-items: center;
+    margin-left: auto;
+    font-weight: 600;
+}
+
+/* A card's table in the kit's mould: a band of headers in small caps, rows of 44 px */
+.databases .db-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.databases .db-table th {
+    height: 40px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.databases .db-table td {
+    height: 44px;
+    padding: 6px 14px;
+    border-top: 1px solid var(--line);
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-table tr:first-child td {
+    border-top: 0;
+}
+
+.databases .db-table .db-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.databases .db-row-go {
+    cursor: pointer;
+}
+
+.databases .db-row-go:hover {
+    background: var(--hover);
+}
+
+.databases .db-app {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.databases .db-app > span:last-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.databases .db-app small {
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.databases .db-app-tile,
+.databases .db-empty-tile,
+.databases .db-window-tile {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--link);
+}
+
+.databases .db-foot {
+    margin: 0;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    font-size: .9rem;
+}
+
+/* Given to with no app: centred, its tile, why or what one finds, its button */
+.databases .db-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 48px 18px;
+    text-align: center;
+}
+
+.databases .db-empty-tile {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+}
+
+.databases .db-empty button {
+    display: inline-flex;
+    gap: .4rem;
+    align-items: center;
+}
+
+.databases .db-empty p {
+    max-width: 30rem;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* How an app reaches it: a label over each value, a line between them */
+.databases .db-reach-rows {
+    display: block;
+    margin: 0;
+}
+
+.databases .db-reach-rows dt {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+.databases .db-reach-rows dt:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+
+.databases .db-reach-rows dd {
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-reach-rows dd code {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.databases .db-reach-rows dd.dim {
+    color: var(--muted);
+}
+
+.databases .db-reach-rows .db-lock {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: .85rem;
+}
+
+/* Coming up: its steps, the one now turning */
+.databases .db-steps ol {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    list-style: none;
+}
+
+.databases .db-steps li {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-steps li.next {
+    color: var(--muted);
+}
+
+.databases .db-step-mark {
+    display: inline-block;
+    width: 1em;
+    color: var(--run);
+    text-align: center;
+}
+
+.databases .db-steps li.next .db-step-mark {
+    color: var(--muted);
+}
+
+/* Remove at the foot: its name, what it does, its button at the right */
+.databases .db-remove {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    align-items: center;
+    padding: 16px 18px;
+}
+
+.databases .db-remove > span {
+    flex: 1 1 18rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-remove > button {
+    margin-left: auto;
+}
+
+/* Its windows: a head with a tile, a title and a line under it, and ×; rows or a list; a foot
+   with what it does and its buttons */
+.databases .db-window {
+    width: min(720px, calc(100vw - 32px));
+    max-height: calc(100vh - 64px);
+    padding: 0;
+    overflow: auto;
+}
+
+.databases .db-window-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+}
+
+.databases .db-window-head > span:nth-child(2) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-window-head b {
+    font-size: 1.15rem;
+}
+
+.databases .db-window-head small {
+    color: var(--muted);
+}
+
+.databases .db-window-tile {
+    width: 36px;
+    height: 36px;
+}
+
+.databases .db-window-tile.bad {
+    border-color: var(--bad);
+    background: var(--bad-soft);
+    color: var(--bad);
+}
+
+.databases .db-window-x {
+    flex: none;
+    align-self: flex-start;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+.databases .db-window-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+}
+
+.databases .db-window-body p {
+    margin: 0;
+}
+
+.databases .db-window-rows {
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: 0 16px;
+    margin: 0;
+}
+
+.databases .db-window-rows dt,
+.databases .db-window-rows dd {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    overflow-wrap: anywhere;
+}
+
+.databases .db-window-type {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.databases .db-window-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+}
+
+.databases .db-window-foot > :first-child {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* Give it to an app: a row an app, ticked ones lit, greyed ones saying why at the right */
+.databases .db-give-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.databases .db-give {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line);
+    cursor: pointer;
+}
+
+.databases .db-give:first-child {
+    border-top: 0;
+}
+
+.databases .db-give.on {
+    background: var(--sel);
+}
+
+.databases .db-give.off {
+    cursor: default;
+}
+
+.databases .db-give.off > b,
+.databases .db-give.off > .muted {
+    opacity: .7;
+}
+
+.databases .db-give input {
+    width: auto;
+    margin: 0;
+}
+
+.databases .db-give-end {
+    flex: 1 1 10rem;
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
 /* Its public port: TLS green, none amber; what its machine's firewall said under the line; the
    form's check and its addresses, which take what room is left */
 .databases .db-fwd .tag.db-tls-on {

@@ -2457,7 +2457,7 @@ const app = {
         <config-editor v-if="editor_open" :theme="theme" :seek="editor_seek" @close="editor_open = false" @saved="poll"/>
         <categories-pane v-else-if="categories_open" :tallies="tallies" :category="categories_from" :state="state" :problems="problems" :counts="{addresses: addresses_count, guarded: guarded_count, apps: apps_count, boards: boards_count}" @pick="category_show"/>
         <shared-folders-pane v-else-if="shared_open" :state="state" @form="pane_form = $event" @changed="shared_count_read" @remote="remote_select_named"/>
-        <databases-pane v-else-if="databases_open" :place="database_place" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add"/>
+        <databases-pane v-else-if="databases_open" :place="database_place" :state="state" @changed="databases_count_read" @select="select_named" @place="database_place = $event" @machine="machine_add" @remote="remote_select_named"/>
         <volumes-pane v-else-if="volumes_open" :state="state" :remote="list_remote" @only="list_remote = $event" @remote="remote_select_named" @select="select_named"/>
         <secrets-form v-else-if="secrets_open" @form="pane_form = $event"/>
         <tokens-form v-else-if="tokens_open" @form="pane_form = $event"/>

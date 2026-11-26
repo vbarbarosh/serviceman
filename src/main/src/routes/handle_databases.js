@@ -393,6 +393,10 @@ async function view_of(app, live)
             databases: [],
             // Where its port shows up on other machines, and how each stands now
             forwards: forwards_of(app, server.name),
+            // When its databases were read last, what the page shows while its machine is away
+            read_at: app.database_lists.has(server.name) ? app.database_lists.get(server.name).at : null,
+            // A CouchDB's: the apps whose store for each user it is, finding it at /_couch
+            stores: app.services.filter(v => (v.store !== undefined) && (v.store !== null) && (v.store.server === server.name)).map(v => v.name),
         };
         if ((row.phase === 'up') && online) {
             row.databases = await databases_of(app, remote, server, live);
