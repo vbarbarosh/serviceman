@@ -69,17 +69,20 @@ where it is reached from. Under it, two cards side by side, one above the other 
   and how it stands; a CouchDB's lists the apps whose store for each user it is too, finding it
   at `/_couch`. **Give it to an app** opens a window of every app: those that reach it to tick,
   on its own machine or, for a program, on a machine its port is
-  [brought to](#its-port-on-another-machine), the others greyed, saying why; each one ticked is
-  given it as its Data tab gives one ([below](#an-app-picks-one)), from its next start.
+  [brought to](#its-port-on-another-machine), then those given it already, ticked and greyed,
+  with their variable, then the others greyed, saying why; each one ticked is given it as its
+  Data tab gives one ([below](#an-app-picks-one)), from its next start.
 - **How an app reaches it**: the variable it is found in, its user, its URL from a container and
   from its machine (the password as dots), its volume and where in the container it is, and that
   the password stays with serviceman.
 
 Then **Reached from**, its own machine, each other one its port is brought to and its public
-port, each with **Copy URL**; the databases beside it in its server; and **Remove…**, a strip at
-the foot ([Remove](#remove)). Coming up, its steps are listed, the one now turning; failed, a red
-note says why, with **Bring it up again**; its machine away, a red note says so, and its numbers
-are the last read, with when. A server with no database in it yet is a page of its own, with
+port, a line each with how it stands, in a pill (active, starting, set aside, or its machine
+offline), and **Copy URL**; on a phone a line's buttons take a row of their own at its foot. Then
+the databases beside it in its server, and **Remove…**, a strip at the foot ([Remove](#remove)).
+Coming up, its steps are listed, the one now turning; failed, a red note says why, with **Bring
+it up again**; its machine away, a red note says so, and its numbers are the last read, with
+when. A server with no database in it yet is a page of its own, with
 **New database in it**, New database opened on its engine and machine.
 
 ## The passwords
@@ -396,10 +399,10 @@ sign-in, SCRAM, does not send it), but every query and answer is readable on the
 its agent, as root: a rule for each address it lets in, `allow proto tcp from <address> to any
 port 27017`, or one from anywhere, each with the comment `serviceman:<server>:public`; **Change**
 replaces them, **×** and **Remove…** take them out (`database_firewall`). With ufw off nothing is
-written, and the line says the port is open to whoever reaches the machine; ufw that cannot be
-run (no ufw, no sudo) is said on the line too (`database_firewall_error`), the rule left to the
-machine's **Firewall** tab. Its port and who it lets in are changed on its database's page: an
-edit on **Forwards** keeps its TLS and who it lets in, and tells no firewall.
+written, and the line under it, by a shield, says the port is open to whoever reaches the
+machine; ufw that cannot be run (no ufw, no sudo) is said there too (`database_firewall_error`),
+the rule left to the machine's **Firewall** tab. Its port and who it lets in are changed on its
+database's page: an edit on **Forwards** keeps its TLS and who it lets in, and tells no firewall.
 
 ## Remove
 

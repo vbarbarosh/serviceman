@@ -8370,8 +8370,9 @@ button.st-pill.problem-where {
 }
 
 /* A database's page: where its port shows up on other machines, a line each: the machine, the
-   port there, the forward's state and its ×; a line being added has its own Save. Narrow, a
-   line's parts wrap under its machine, the × and the buttons kept at its right */
+   port there, the forward's state in its pill, then its buttons and its ×, at its right; a line
+   being added has its own Save. Narrow, a line's parts wrap under its machine; on a phone its
+   buttons take a row of their own at its foot */
 .databases .db-fwds {
     display: flex;
     flex-direction: column;
@@ -8403,14 +8404,54 @@ button.st-pill.problem-where {
     overflow-wrap: anywhere;
 }
 
-.databases .db-fwd > .line-x,
-.databases .db-fwd-acts {
-    margin-left: auto;
-}
-
 .databases .db-fwd-acts {
     display: inline-flex;
     gap: .5rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+/* A button's icon before its word: Copy URL's, Certificate's */
+.databases .db-fwd-acts > button,
+.databases .db-fwd-acts > a.button {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+}
+
+/* The × of a line: an icon, muted, with no edge until pointed at */
+.databases .db-fwd-acts > button.db-fwd-x {
+    justify-content: center;
+    width: 34px;
+    padding: .3rem 0;
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+}
+
+.databases .db-fwd-acts > button.db-fwd-x:hover {
+    border-color: var(--line-strong);
+    color: var(--fg);
+}
+
+.databases .db-fwd-acts > button.db-fwd-x:disabled:hover {
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+}
+
+@media (max-width: 640px) {
+    .databases .db-fwd-acts {
+        display: flex;
+        flex-basis: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        order: 2;
+    }
+
+    .databases .db-fwd-said {
+        order: 1;
+    }
 }
 
 .databases .db-fwd-at {
@@ -8895,7 +8936,8 @@ button.st-pill.problem-where {
     min-width: 0;
 }
 
-/* Give it to an app: a row an app, ticked ones lit, greyed ones saying why at the right */
+/* Give it to an app: a row an app, ticked ones lit, greyed ones saying why at the right; one that
+   has it already ticked and greyed, its variable too, unlit */
 .databases .db-give-list {
     display: flex;
     flex-direction: column;
@@ -8927,7 +8969,8 @@ button.st-pill.problem-where {
 }
 
 .databases .db-give.off > b,
-.databases .db-give.off > .muted {
+.databases .db-give.off > .muted,
+.databases .db-give.off code {
     opacity: .7;
 }
 
@@ -8943,8 +8986,8 @@ button.st-pill.problem-where {
     overflow-wrap: anywhere;
 }
 
-/* Its public port: TLS green, none amber; what its machine's firewall said under the line; the
-   form's check and its addresses, which take what room is left */
+/* Its public port: TLS green, none amber; what its machine's firewall said under the line, by a
+   shield; the form's check and its addresses, which take what room is left */
 .databases .db-fwd .tag.db-tls-on {
     background: var(--run-soft);
     color: var(--run);
@@ -8956,9 +8999,20 @@ button.st-pill.problem-where {
 }
 
 .databases .db-fwd-said {
+    display: flex;
     flex-basis: 100%;
+    gap: 8px;
+    align-items: center;
     margin: 0;
     overflow-wrap: anywhere;
+}
+
+.databases .db-fwd-said > svg {
+    flex: none;
+}
+
+.databases .db-fwd-said > span {
+    min-width: 0;
 }
 
 .databases .db-fwd-check {

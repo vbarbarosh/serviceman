@@ -2,7 +2,8 @@ const assert = require('assert');
 const test = require('node:test');
 
 // A database's page as the design draws it, read through its own computed parts: who Give it to
-// an app offers it to and why not the others, what How an app reaches it says (a URL breaking only
+// an app offers it to and why not the others, those that have it ticked and fixed, a forward's
+// state as its pill under Reached from, what How an app reaches it says (a URL breaking only
 // after its @ and before its /<database>), a CouchDB's store apps among Given to, what Remove says,
 // and the steps of one coming up.
 test('a database\'s page offers it to the apps that reach it, and says each part as drawn', async function () {
@@ -44,6 +45,45 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     server.forwards[0].off = false;
     vm.giving = {picked: ['thumbs', 'reports'], busy: false, error: ''};
     assert.deepStrictEqual([vm.give_said, vm.give_button], ['thumbs, reports have it from their next start', 'Give it to 2 apps']);
+
+    // An app that has it already: ticked and fixed, after those to tick and before those that
+    // cannot be given it, wherever the status lists it; the others ticked as picked
+    vm.giving = {picked: [], busy: false, error: ''};
+    server.databases[0].envs.mail = 'ORDERS_URL';
+    assert.deepStrictEqual(vm.give_cards.map(v => `${v.name}: ${v.ticked ? 'ticked' : 'unticked'}${v.disabled ? ' fixed' : ''} ${v.env}`), [
+        'thumbs: unticked MONGODB_URL',
+        'reports: unticked MONGODB_URL',
+        'shop: ticked fixed MONGODB_URL',
+        'mail: ticked fixed ORDERS_URL',
+        'box: unticked fixed MONGODB_URL',
+        'docs: unticked fixed MONGODB_URL',
+        'wiki: unticked fixed MONGODB_URL',
+    ]);
+    delete server.databases[0].envs.mail;
+    vm.give_tick('thumbs');
+    vm.give_tick('reports');
+    vm.give_tick('reports');
+    assert.deepStrictEqual(vm.giving.picked, ['thumbs']);
+    assert.deepStrictEqual(vm.give_cards.filter(v => v.ticked).map(v => v.name), ['thumbs', 'shop']);
+    assert.deepStrictEqual([vm.give_said, vm.give_button], ['thumbs has it from its next start', 'Give it to thumbs']);
+    vm.giving = null;
+    assert.deepStrictEqual(vm.give_cards.filter(v => v.ticked).map(v => v.name), ['shop']);
+
+    // A forward's state as its pill says it: active green, its machine offline red, set aside
+    // grey, starting amber; what stands in its way said beside it when the word does not say it
+    const forward = Object.assign({}, server.forwards[0], {from: {remote: 'vps1', port: 41337}});
+    const pills = [['ready', false, null], ['to_offline', false, 'vps2 is offline'], ['aside', true, 'vps2 is offline'], ['telling', false, null], ['cannot_listen', false, 'port 27018 is taken on vps2'], ['link_down', false, null]].map(function ([state, off, problem]) {
+        const pill = vm.forward_pill(Object.assign({}, forward, {state, off, problem}));
+        return `${state}: ${pill.tone} ${pill.text}${(pill.problem === null) ? '' : ` — ${pill.problem}`}`;
+    });
+    assert.deepStrictEqual(pills, [
+        'ready: run active',
+        'to_offline: bad vps2 offline',
+        'aside: idle set aside',
+        'telling: busy starting',
+        'cannot_listen: bad cannot listen — port 27018 is taken on vps2',
+        'link_down: bad vps2 link down',
+    ]);
 
     // Given to, a row an app with its kind, its machine and how it stands
     assert.deepStrictEqual(vm.given_rows.map(v => `${v.name} · ${v.line} · ${v.codes.join(' and ')} · ${v.word} ${v.tone}`), ['shop · App folder · vps2 · MONGODB_URL · running run']);

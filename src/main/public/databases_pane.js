@@ -7,7 +7,7 @@ import database_env_given from './database_env_given.js';
 import database_new from './database_new.js';
 import database_rows from './database_rows.js';
 import database_state from './database_state.js';
-import forward_state from './forward_state.js';
+import forward_now_said from './forward_now_said.js';
 import item_facts from './item_facts.js';
 import name_cell from './name_cell.js';
 import page_head from './page_head.js';
@@ -29,10 +29,14 @@ const ICONS = {
     size: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     tables: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     users: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
-    reached: '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="1"/>',
+    reached: '<circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="5.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/><path d="M7.7 10.9l8.6-4.3M7.7 13.1l8.6 4.3"/>',
     given: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/>',
     reach: '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="1"/>',
     server: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
 };
 // An app's state word as its pill's tone
 const TONES = {running: 'run', served: 'run', answers: 'run', starting: 'busy', stopping: 'busy', failed: 'bad', lost: 'bad', 'machine offline': 'bad'};
@@ -135,9 +139,10 @@ const databases_pane = {
             </section>
         </div>
         <!-- Its port on other machines and on the internet, and the URL with its password for
-             connecting by hand: built since the design file was drawn -->
+             connecting by hand: a line each, how it stands in a pill, its buttons at its right
+             (on a phone, a row of their own at its foot) -->
         <section v-if="(open_server.phase === 'up')" class="card db-reached">
-            <div class="card-head"><h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="ICONS.reached"/>Reached from</h2></div>
+            <div class="card-head"><h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.reached"/>Reached from</h2></div>
             <div class="card-body">
             <div class="db-fwds">
                 <div v-if="(open_server.port !== null)" class="db-fwd">
@@ -145,17 +150,18 @@ const databases_pane = {
                     <code>127.0.0.1:{{ open_server.port }}</code>
                     <span class="muted">its own machine</span>
                     <span class="db-fwd-acts">
-                        <button type="button" :disabled="(copy_why(open_server.remote, null) !== '')" :title="copy_title(open_server.remote, open_server.port, null)" @click="url_copy(open_server.remote)">{{ ((copied === open_server.remote) ? 'Copied' : 'Copy URL') }}</button>
+                        <button type="button" :disabled="(copy_why(open_server.remote, null) !== '')" :title="copy_title(open_server.remote, open_server.port, null)" @click="url_copy(open_server.remote)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.copy"/>{{ ((copied === open_server.remote) ? 'Copied' : 'Copy URL') }}</button>
                     </span>
                 </div>
                 <div v-for="item of machine_forwards" :key="item.label" class="db-fwd">
                     <b>{{ machine_title(item.to.remote) }}</b>
                     <code>{{ end_text(item.to) }}</code>
-                    <forward-state :forward="item" :remotes="remotes_named" :reason="true"/>
+                    <state-pill :tone="forward_pill(item).tone" :text="forward_pill(item).text"/>
+                    <span v-if="(forward_pill(item).problem !== null)" class="bad">{{ forward_pill(item).problem }}</span>
                     <span v-if="(item.apps.length > 0)" class="muted">{{ item.apps.join(', ') }} {{ (item.apps.length === 1) ? 'finds' : 'find' }} it here</span>
                     <span class="db-fwd-acts">
-                        <button v-if="(item.to.socket === null)" type="button" :disabled="(copy_why(item.to.remote, item) !== '')" :title="copy_title(item.to.remote, item.to.port, item)" @click="url_copy(item.to.remote)">{{ ((copied === item.to.remote) ? 'Copied' : 'Copy URL') }}</button>
-                        <button type="button" class="line-x" :disabled="busy" :title="drop_title(item)" :aria-label="('Bring it to ' + machine_title(item.to.remote) + ' no more')" @click="forward_drop(item)">×</button>
+                        <button v-if="(item.to.socket === null)" type="button" :disabled="(copy_why(item.to.remote, item) !== '')" :title="copy_title(item.to.remote, item.to.port, item)" @click="url_copy(item.to.remote)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.copy"/>{{ ((copied === item.to.remote) ? 'Copied' : 'Copy URL') }}</button>
+                        <button type="button" class="db-fwd-x" :disabled="busy" :title="drop_title(item)" :aria-label="('Bring it to ' + machine_title(item.to.remote) + ' no more')" @click="forward_drop(item)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.close"/></button>
                     </span>
                 </div>
                 <div v-if="((public_port !== null) && (opening === null))" class="db-fwd db-fwd-public">
@@ -163,14 +169,15 @@ const databases_pane = {
                     <code>{{ public_port.address || ('its public address on ' + open_server.title) }}:{{ public_port.to.port }}</code>
                     <span class="tag" :class="(public_port.tls ? 'db-tls-on' : 'db-tls-off')">{{ public_port.tls ? 'TLS' : 'no TLS' }}</span>
                     <span class="muted">{{ (public_port.allow.length === 0) ? 'anyone may connect' : ('from ' + public_port.allow.join(', ') + ' alone') }}</span>
-                    <forward-state :forward="public_port" :remotes="remotes_named" :reason="true"/>
+                    <state-pill :tone="forward_pill(public_port).tone" :text="forward_pill(public_port).text"/>
+                    <span v-if="(forward_pill(public_port).problem !== null)" class="bad">{{ forward_pill(public_port).problem }}</span>
                     <span class="db-fwd-acts">
-                        <button type="button" :disabled="(public_copy_why !== '')" :title="public_copy_title" @click="url_copy(null)">{{ ((copied === PUBLIC) ? 'Copied' : 'Copy URL') }}</button>
-                        <a v-if="public_port.tls" class="button" :href="('/api/v1/databases/' + encodeURIComponent(open_server.name) + '/certificate')" :download="(open_server.name + '-ca.pem')" title="Its authority's file: a client checks the server by it (tlsCAFile in the URL)">Certificate</a>
+                        <button type="button" :disabled="(public_copy_why !== '')" :title="public_copy_title" @click="url_copy(null)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.copy"/>{{ ((copied === PUBLIC) ? 'Copied' : 'Copy URL') }}</button>
+                        <a v-if="public_port.tls" class="button" :href="('/api/v1/databases/' + encodeURIComponent(open_server.name) + '/certificate')" :download="(open_server.name + '-ca.pem')" title="Its authority's file: a client checks the server by it (tlsCAFile in the URL)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.download"/>Certificate</a>
                         <button type="button" :disabled="busy" title="Its port, TLS, and who may connect" @click="public_change">Change</button>
-                        <button type="button" class="line-x" :disabled="busy" title="Close its public port: nothing listens for it on the internet any more, and its firewall rule goes" aria-label="Close its public port" @click="forward_drop(public_port)">×</button>
+                        <button type="button" class="db-fwd-x" :disabled="busy" title="Close its public port: nothing listens for it on the internet any more, and its firewall rule goes" aria-label="Close its public port" @click="forward_drop(public_port)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.close"/></button>
                     </span>
-                    <p v-if="(public_port.firewall !== null)" class="muted db-fwd-said">{{ public_port.firewall }}</p>
+                    <p v-if="(public_port.firewall !== null)" class="muted db-fwd-said"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" v-html="ICONS.shield"/><span>{{ public_port.firewall }}</span></p>
                 </div>
                 <div v-if="(adding !== null)" class="db-fwd db-fwd-new">
                     <select ref="adding_remote" v-model="adding.remote" aria-label="The machine it shows up on">
@@ -233,11 +240,12 @@ const databases_pane = {
                 <div class="db-window-body">
                     <p>Each one ticked finds it in its variable at every start, signed in as <code>{{ open_user }}</code>.</p>
                     <div class="db-give-list" role="group" aria-label="The apps">
-                        <label v-for="item of give_cards" :key="item.name" class="db-give" :class="{on: (giving.picked.includes(item.name) || item.has), off: item.disabled}" :title="item.why">
-                            <input v-model="giving.picked" type="checkbox" :value="item.name" :disabled="item.disabled" :aria-label="('Give it to ' + item.name)">
+                        <label v-for="item of give_cards" :key="item.name" class="db-give" :class="{on: (item.ticked && (item.has === false)), off: item.disabled}" :title="item.why">
+                            <input type="checkbox" :checked="item.ticked" :disabled="item.disabled" :aria-label="('Give it to ' + item.name)" @change="give_tick(item.name)">
                             <b>{{ item.name }}</b>
                             <span class="muted">{{ item.line }}</span>
-                            <span class="db-give-end"><code v-if="(giving.picked.includes(item.name) || item.has)">{{ item.env }}</code><span v-else-if="item.disabled" class="muted">{{ item.why }}</span></span>
+                            <span v-if="item.ticked" class="db-give-end"><code>{{ item.env }}</code></span>
+                            <span v-else-if="item.disabled" class="db-give-end"><span class="muted">{{ item.why }}</span></span>
                         </label>
                     </div>
                     <p v-if="(giving.error !== '')" class="bad">{{ giving.error }}</p>
@@ -303,7 +311,6 @@ const databases_pane = {
     components: {
         'data-table': data_table,
         'database-new': database_new,
-        'forward-state': forward_state,
         'item-facts': item_facts,
         'name-cell': name_cell,
         'page-head': page_head,
@@ -623,8 +630,9 @@ const databases_pane = {
             return out;
         },
         // Give it to an app's list: every app, those that reach it to tick (its machine, or a
-        // program on a machine its port is brought to, as the Data tab offers them), the others
-        // saying why not, those that have it already ticked and fixed
+        // program on a machine its port is brought to, as the Data tab offers them), then those
+        // that have it already, ticked and fixed, then the others saying why not; ticked, those
+        // that have it and those picked in the window
         give_cards: function () {
             const server = this.open_server;
             const database = this.open_database;
@@ -632,13 +640,14 @@ const databases_pane = {
             const forwards = server.forwards.filter(v => v.to.host === null);
             const has = (database === null) ? {} : database.envs;
             const env = this.open_env;
+            const picked = (this.giving === null) ? [] : this.giving.picked;
             return services.map(function (service) {
                 const kind = service_kind(service);
                 const machine = ((service.remotes === undefined) || (service.remotes.length === 0)) ? '' : service.remotes[0];
                 const line = `${kind.word} · ${machine || 'serviceman'}`;
-                const out = {name: service.name, line, env: (has[service.name] === undefined) ? env : has[service.name], has: (has[service.name] !== undefined), disabled: false, why: ''};
+                const out = {name: service.name, line, env: (has[service.name] === undefined) ? env : has[service.name], has: (has[service.name] !== undefined), ticked: false, disabled: false, why: ''};
                 if (out.has) {
-                    Object.assign(out, {disabled: true, why: 'has it already'});
+                    Object.assign(out, {ticked: true, disabled: true, why: 'has it already'});
                     return out;
                 }
                 const forward = forwards.find(v => (v.to.remote === machine) && (v.to.port !== null));
@@ -658,9 +667,9 @@ const databases_pane = {
                 else if ((machine !== server.remote) && forward.off) {
                     why = `on ${machine}: its forward there is set aside`;
                 }
-                Object.assign(out, {disabled: (why !== ''), why});
+                Object.assign(out, {ticked: (why === '') && picked.includes(service.name), disabled: (why !== ''), why});
                 return out;
-            }).sort((a, b) => Number(a.disabled) - Number(b.disabled));
+            }).sort((a, b) => give_rank(a) - give_rank(b));
         },
         give_said: function () {
             const picked = this.giving.picked;
@@ -793,6 +802,11 @@ const databases_pane = {
             if ((this.giving !== null) && (this.giving.busy === false)) {
                 this.giving = null;
             }
+        },
+        // An app's box ticked or unticked in Give it to an app: picked, or picked no more
+        give_tick: function (name) {
+            const picked = this.giving.picked;
+            this.giving.picked = picked.includes(name) ? picked.filter(v => v !== name) : picked.concat([name]);
         },
         // Each app ticked given it, one after the other, as its Data tab gives one; the page
         // read again after, and what was done said on it
@@ -961,6 +975,12 @@ const databases_pane = {
                 this.forward_note = error.message;
             }
         },
+        // A forward's state as its line's pill says it: its tone, its word or two, and what
+        // stands in its way in full where the word does not say it all, or null
+        forward_pill: function (forward) {
+            const said = forward_now_said(forward, this.remotes_named);
+            return {tone: {running: 'run', starting: 'busy', failed: 'bad'}[said.dot] || 'idle', text: said.word, problem: said.problem};
+        },
         drop_title: function (item) {
             const where = this.machine_title(item.to.remote);
             if (item.apps.length === 0) {
@@ -1017,6 +1037,16 @@ const databases_pane = {
 function secret_of(env)
 {
     return (/_URL(_\d+)?$/.test(env)) ? env.replace(/_URL(_\d+)?$/, '_SECRET$1') : `${env}_SECRET`;
+}
+
+// Where an app stands in Give it to an app's list: those to tick first, then those that have it
+// already, then those that cannot be given it
+function give_rank(card)
+{
+    if (card.has) {
+        return 1;
+    }
+    return card.disabled ? 2 : 0;
 }
 
 // Text as HTML: what a database's page writes with v-html, a name from a row, never trusted as markup
