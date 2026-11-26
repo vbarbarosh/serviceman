@@ -103,7 +103,7 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     vm.$emit = function (name, value) {
         emitted.push([name, value]);
     };
-    assert.deepStrictEqual([vm.browse_shown, vm.browse_why], [true, '']);
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, '', 'Its collections and documents, read as its own user']);
     vm.browse_open();
     assert.deepStrictEqual(emitted, [['place', {page: 'browse', server: 'mongodb-1', database: 'orders', collection: ''}]]);
 
@@ -127,6 +127,10 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     // Coming up: the step said now turning, those before it done
     Object.assign(server, {engine: 'postgresql', version: '17', sample: 'sakila', phase: 'starting', said: 'fetching Sakila'});
     assert.deepStrictEqual(vm.up_steps.map(v => `${v.state} ${v.text}`), ['done pulling its image', 'done making its container', 'done waiting for PostgreSQL to answer', 'now fetching Sakila', 'next loading Sakila']);
+    // A PostgreSQL's and a MySQL's tables are browsed too, once the server is up
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, 'mongodb-1 is not up: its data is read once it is', 'Its tables and rows, read as its own user']);
+    Object.assign(server, {engine: 'mysql', version: '8.4', phase: 'up'});
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why], [true, '']);
 
     // An empty server: its own head line, Remove its container alone
     Object.assign(server, {engine: 'mongodb', version: '8.0', sample: '', phase: 'up', said: '', databases: []});

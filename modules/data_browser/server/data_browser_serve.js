@@ -10,19 +10,21 @@ const BODY_MOST = 4*1024*1024;
 
 // One database's data, under whatever base the host mounts it at: its collections, a page of
 // one's documents as a filter or a pipeline finds them, and a document added, put in place of
-// another or deleted. The host gives `adapter`, which says the engine's
-// words and runs them in the database as its own user ({engine, collections(), documents(ask)},
-// mongodb_adapter), and `about`, what the page heads it with ({engine, database, server,
-// remote}). Nothing is kept here: each read asks the database.
+// another or deleted. The host gives `adapter`, which says the engine's words and runs them in
+// the database as its own user ({engine, collections(), documents(ask), aggregate(ask), insert,
+// replace, remove}: mongodb_adapter; postgresql_adapter and mysql_adapter, whose tables are the
+// collections and rows the documents, read a SELECT as the pipeline, and change nothing yet),
+// and `about`, what the page heads it with ({engine, database, server, remote}). Nothing is kept
+// here: each read asks the database.
 //
 //     options = {adapter, about, tail, query, log}
 //
 //     GET <base>                 {engine, database, …about}
 //     GET <base>/collections     {items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}
 //     GET <base>/documents?collection=&filter=&sort=&fields=&skip=&limit=
-//                                {items, count, skip, limit, took_ms, cut}
+//                                {items, count, skip, limit, took_ms, cut}, a SQL page with columns and more
 //     GET <base>/aggregate?collection=&pipeline=&skip=&limit=
-//                                {items, count: null, more, skip, limit, took_ms, cut}
+//                                {items, count: null, more, skip, limit, took_ms, cut}, a SQL page with columns
 //     POST <base>/documents          {collection, document}       {id}: the document added
 //     POST <base>/documents/replace  {collection, id, document}   {id}: put in place of id's
 //     POST <base>/documents/delete   {collection, id}             {id}: deleted
@@ -74,7 +76,8 @@ async function data_browser_serve(req, res, options)
 // POST <base>/documents/replace (body)
 // POST <base>/documents/delete (body)
 // A document added, put in place of the one of its _id, or deleted; what was typed is not
-// written in the log
+// written in the log. An engine whose adapter changes nothing yet, a SQL one's rows, is read
+// alone (405).
 async function change_serve(req, res, options, log)
 {
     const commands = {'/documents': 'insert', '/documents/replace': 'replace', '/documents/delete': 'remove'};
@@ -83,7 +86,12 @@ async function change_serve(req, res, options, log)
         send_json(res, 404, {error: `no such door: ${options.tail}`});
         return;
     }
+    // Read to its end first, so the refusal reaches the page rather than a connection cut
     const body = await body_json(req);
+    if (typeof options.adapter[command] !== 'function') {
+        send_json(res, 405, {error: 'its data is read here alone for now: changing it comes in a later step'});
+        return;
+    }
     const ask = {collection: name_read(body.collection)};
     if (command !== 'insert') {
         if (body.id === undefined) {

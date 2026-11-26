@@ -142,8 +142,15 @@ function exec_route(engine, req, res, parts)
         for (const found of sql.matchAll(/getSiblingDB\('([a-z0-9_]+)'\)\.createUser\(/g)) {
             container.databases.add(found[1]);
         }
-        // The data browser's script, as the database's own user: a collection, and a page of it
-        if (sql.includes('serviceman-answer ')) {
+        // The data browser's script, as the database's own user: a collection, and a page of it;
+        // a PostgreSQL's one table, a MySQL's
+        if (sql.includes('SET LOCAL serviceman.ask = ')) {
+            printed = 'serviceman-answer {"ok": [{"name": "note", "type": "table", "count": 2, "estimated": false, "bytes": 8192, "storage_bytes": 16384, "index_bytes": 8192, "indexes": 1}]}\nserviceman-count \n';
+        }
+        else if (sql.includes('@serviceman_types')) {
+            printed = '<?xml version="1.0"?>\n<resultset statement="EXECUTE serviceman_tables">\n  <row>\n\t<field name="name">note</field>\n\t<field name="type">BASE TABLE</field>\n\t<field name="estimate">2</field>\n\t<field name="bytes">16384</field>\n\t<field name="index_bytes">0</field>\n\t<field name="indexes">1</field>\n  </row>\n</resultset>\n';
+        }
+        else if (sql.includes('serviceman-answer ')) {
             printed = `serviceman-answer ${JSON.stringify(browse_answer(sql))}\n`;
         }
         else if (sql.includes('listDatabases')) {
@@ -155,7 +162,7 @@ function exec_route(engine, req, res, parts)
         else if (sql.includes('FROM pg_database')) {
             printed = [...container.databases].sort().map(v => `${v}\t16384\n`).join('');
         }
-        else if (sql.includes("table_schema NOT IN ('pg_catalog'")) {
+        else if (sql.includes("FROM pg_class AS c JOIN pg_namespace")) {
             printed = '2\n';
         }
     }

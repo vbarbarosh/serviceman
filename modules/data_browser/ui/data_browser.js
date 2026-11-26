@@ -2,6 +2,8 @@ import format_bytes from '../../format_bytes.js';
 import format_count from '../../format_count.js';
 import mongo_cell_of from './mongo_cell_of.js';
 import mongo_text_of from './mongo_text_of.js';
+import sql_cell_of from './sql_cell_of.js';
+import sql_text_of from './sql_text_of.js';
 import storage_get from '../../storage_get.js';
 import storage_set from '../../storage_set.js';
 
@@ -11,31 +13,73 @@ import storage_set from '../../storage_set.js';
 // sorts by it; a click on a row shows the document whole, as the shell writes it, with Copy. The
 // last queries of each collection are kept in the browser, to run again. + Document adds one,
 // typed as the shell types it; a document shown whole is edited or deleted from its window, a
-// deletion asked before it is done. A view's documents and a pipeline's results are read alone. The host gives the API, a GET under one
-// base (data_browser_serve), the colours and its usual classes: card, card-head, primary, link,
-// muted, bad, spin, dt-window, dt-whole, dt-whole-head.
+// deletion asked before it is done. A view's documents and a pipeline's results are read alone.
+// A SQL database (PostgreSQL, MySQL) is the same page in its own words: its tables and their
+// rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its own in Query;
+// a row shown whole is its JSON, and its rows are read alone for now. The host gives the API, a
+// GET under one base (data_browser_serve), the colours and its usual classes: card, card-head,
+// primary, link, muted, bad, spin, dt-window, dt-whole, dt-whole-head.
 //
 // Props
 //     base        the module's API, as the host mounts it
 //     offline     the database's machine is away: nothing to read
 //     collection  the collection open, as the address says it; '' for none
+//     engine      the database's engine, when the host knows it, so the words are its own from
+//                 the first paint; else the API's answer says it
 //
 // Emits: collection(name), each time one is opened, for the host to keep in its address
 
-// An engine's words, where they differ from another's
+// An engine's words, where they differ from another's. A SQL engine's tables and rows stand for
+// the collections and documents, a condition for the filter, a SELECT of its own for the
+// pipeline; `quote` is how it quotes a name.
+const SQL_WORDS = {
+    sql: true,
+    kinds: 'Tables',
+    kind: 'table',
+    item: 'row',
+    Item: 'Row',
+    items: 'rows',
+    find_title: 'A condition, and the order and the columns under it',
+    aggregate: 'Query',
+    aggregate_title: 'A SELECT of your own: joins, GROUP BY, functions…',
+    pipeline_word: 'query',
+    Pipeline: 'Query',
+    filter_label: 'Where',
+    sort_label: 'Order by',
+    fields_label: 'Columns',
+    options: 'Order by and columns',
+    filter: 'status = \'active\' AND joined > \'2025-06-01\'',
+    sort: 'joined DESC',
+    fields: 'name, email',
+    sorts_own: 'A query sorts with its own ORDER BY',
+    none: 'No table in it yet.',
+};
 const WORDS = {
     mongodb: {
+        sql: false,
         kinds: 'Collections',
         kind: 'collection',
         item: 'document',
         Item: 'Document',
         items: 'documents',
+        find_title: 'A filter, and a sort and the fields under it',
+        aggregate: 'Aggregate',
+        aggregate_title: 'A pipeline of stages: $match, $group, $sort, $lookup…',
+        pipeline_word: 'pipeline',
+        Pipeline: 'Pipeline',
+        filter_label: 'Filter',
+        sort_label: 'Sort',
+        fields_label: 'Fields',
+        options: 'Sort and fields',
         filter: '{status: \'active\', at: {$gt: ISODate(\'2026-01-01\')}}',
         sort: '{at: -1}',
         fields: '{name: 1, status: 1}',
         pipeline: '[{$match: {status: \'active\'}}, {$group: {_id: \'$city\', n: {$sum: 1}}}]',
+        sorts_own: 'A pipeline sorts with its own $sort',
         none: 'No collection in it yet: MongoDB makes one at an app\'s first write to it.',
     },
+    postgresql: Object.assign({quote: '"'}, SQL_WORDS),
+    mysql: Object.assign({quote: '`'}, SQL_WORDS),
 };
 // A list longer than this gets a box to find a name in
 const SEARCH_FROM = 10;
@@ -64,7 +108,7 @@ const data_browser = {
                 <button type="button" :class="{on: (item.name === open)}" :aria-current="((item.name === open) ? 'true' : null)" :title="collection_title(item)" @click="collection_open(item.name)">
                     <span class="dbr-name">{{ item.name }}</span>
                     <span v-if="(item.type === 'view')" class="tag">view</span>
-                    <span v-else class="muted dbr-num">{{ (item.count === null) ? '' : format_count(item.count) }}</span>
+                    <span v-else class="muted dbr-num">{{ count_short(item) }}</span>
                 </button>
             </li>
         </ul>
@@ -80,34 +124,38 @@ const data_browser = {
                 <h2 class="dbr-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>{{ open }}</h2>
                 <span class="muted dbr-facts">{{ open_facts }}</span>
                 <button v-if="changeable" type="button" class="dbr-add" :disabled="offline" :title="('Add a ' + words.item + ' to ' + open)" @click="add_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ words.Item }}</button>
+                <span v-else-if="(words.sql && (open_item !== null) && (open_item.type !== 'view'))" class="tag dbr-readonly" title="Its rows are added, edited and deleted here in a later step">read only for now</span>
             </div>
             <form class="dbr-find" @submit.prevent="find">
                 <div class="dbr-field">
-                    <span class="dbr-modes" role="tablist" aria-label="How the documents are found">
-                        <button type="button" role="tab" :aria-selected="((mode === 'find') ? 'true' : 'false')" :class="{on: (mode === 'find')}" title="A filter, and a sort and the fields under it" @click="mode = 'find'">Find</button>
-                        <button type="button" role="tab" :aria-selected="((mode === 'aggregate') ? 'true' : 'false')" :class="{on: (mode === 'aggregate')}" title="A pipeline of stages: $match, $group, $sort, $lookup…" @click="mode = 'aggregate'">Aggregate</button>
+                    <span class="dbr-modes" role="tablist" :aria-label="('How the ' + words.items + ' are found')">
+                        <button type="button" role="tab" :aria-selected="((mode === 'find') ? 'true' : 'false')" :class="{on: (mode === 'find')}" :title="words.find_title" @click="mode = 'find'">Find</button>
+                        <button type="button" role="tab" :aria-selected="((mode === 'aggregate') ? 'true' : 'false')" :class="{on: (mode === 'aggregate')}" :title="words.aggregate_title" @click="mode = 'aggregate'">{{ words.aggregate }}</button>
                     </span>
-                    <input v-if="(mode === 'find')" v-model="filter" class="dbr-code" type="text" :placeholder="words.filter" aria-label="Filter" spellcheck="false" autocomplete="off" autocapitalize="off">
-                    <textarea v-else v-model="pipeline" class="dbr-code dbr-pipeline" rows="4" :placeholder="words.pipeline" aria-label="Pipeline" spellcheck="false" autocomplete="off" autocapitalize="off" @keydown.ctrl.enter.prevent="find" @keydown.meta.enter.prevent="find"/>
+                    <span v-if="(mode === 'find')" class="dbr-line">
+                        <code v-if="words.sql" class="dbr-keyword" aria-hidden="true">WHERE</code>
+                        <input v-model="filter" class="dbr-code" type="text" :placeholder="words.filter" :aria-label="words.filter_label" spellcheck="false" autocomplete="off" autocapitalize="off">
+                    </span>
+                    <textarea v-else v-model="pipeline" class="dbr-code dbr-pipeline" rows="4" :placeholder="pipeline_placeholder" :aria-label="words.Pipeline" spellcheck="false" autocomplete="off" autocapitalize="off" @keydown.ctrl.enter.prevent="find" @keydown.meta.enter.prevent="find"/>
                 </div>
                 <div class="dbr-find-acts">
-                    <button type="submit" class="primary" :disabled="offline" :title="((mode === 'find') ? '' : 'Ctrl+Enter in the pipeline runs it too')">{{ (mode === 'find') ? 'Find' : 'Run' }}</button>
+                    <button type="submit" class="primary" :disabled="offline" :title="((mode === 'find') ? '' : ('Ctrl+Enter in the ' + words.pipeline_word + ' runs it too'))">{{ (mode === 'find') ? 'Find' : 'Run' }}</button>
                     <button v-if="asked_any" type="button" @click="reset">Reset</button>
-                    <button v-if="(mode === 'find')" type="button" class="link" :aria-expanded="(options ? 'true' : 'false')" @click="options = !options">{{ options ? 'Hide sort and fields' : 'Sort and fields' }}</button>
+                    <button v-if="(mode === 'find')" type="button" class="link" :aria-expanded="(options ? 'true' : 'false')" @click="options = !options">{{ options ? ('Hide ' + words.options.toLowerCase()) : words.options }}</button>
                     <span v-if="(recent_shown.length > 0)" class="dbr-recent-wrap">
                         <button type="button" class="link" :aria-expanded="(recent_open ? 'true' : 'false')" @click="recent_open = (recent_open === false)">Recent ▾</button>
                         <span v-if="recent_open" class="dbr-recent" role="menu">
-                            <button v-for="(item, index) of recent_shown" :key="index" type="button" role="menuitem" :title="recent_title(item)" @click="recent_run(item)"><span class="dbr-recent-mode">{{ (item.mode === 'find') ? 'find' : 'pipeline' }}</span><code>{{ recent_text(item) }}</code></button>
+                            <button v-for="(item, index) of recent_shown" :key="index" type="button" role="menuitem" :title="recent_title(item)" @click="recent_run(item)"><span class="dbr-recent-mode">{{ (item.mode === 'find') ? 'find' : words.pipeline_word }}</span><code>{{ recent_text(item) }}</code></button>
                         </span>
                     </span>
                 </div>
                 <template v-if="(options && (mode === 'find'))">
                     <label class="dbr-field">
-                        <span>Sort</span>
+                        <span>{{ words.sort_label }}</span>
                         <input v-model="sort" class="dbr-code" type="text" :placeholder="words.sort" spellcheck="false" autocomplete="off" autocapitalize="off">
                     </label>
                     <label class="dbr-field">
-                        <span>Fields</span>
+                        <span>{{ words.fields_label }}</span>
                         <input v-model="fields" class="dbr-code" type="text" :placeholder="words.fields" spellcheck="false" autocomplete="off" autocapitalize="off">
                     </label>
                 </template>
@@ -137,7 +185,7 @@ const data_browser = {
                     <thead>
                         <tr>
                             <th v-for="key of keys" :key="key" :aria-sort="sort_said(key)">
-                                <button type="button" :disabled="(asked.mode !== 'find')" :title="((asked.mode === 'find') ? ('Sort by ' + key) : 'A pipeline sorts with its own $sort')" @click="sort_by(key)">{{ key }}<span class="dbr-arrow">{{ sort_arrow(key) }}</span></button>
+                                <button type="button" :disabled="(asked.mode !== 'find')" :title="((asked.mode === 'find') ? ('Sort by ' + key) : words.sorts_own)" @click="sort_by(key)">{{ key }}<span class="dbr-arrow">{{ sort_arrow(key) }}</span></button>
                             </th>
                         </tr>
                     </thead>
@@ -200,6 +248,7 @@ const data_browser = {
         base: {type: String, required: true},
         offline: {type: Boolean, default: false},
         collection: {type: String, default: ''},
+        engine: {type: String, default: ''},
     },
     data: function () {
         // about: the database as the API heads it, {engine, database, …}, null until read
@@ -244,7 +293,12 @@ const data_browser = {
     },
     computed: {
         words: function () {
-            return WORDS[(this.about === null) ? 'mongodb' : this.about.engine] || WORDS.mongodb;
+            const engine = (this.engine !== '') ? this.engine : ((this.about === null) ? 'mongodb' : this.about.engine);
+            return WORDS[engine] || WORDS.mongodb;
+        },
+        // A SQL query box left empty reads the open table: it says so
+        pipeline_placeholder: function () {
+            return this.words.sql ? `SELECT * FROM ${this.name_quoted(this.open)}` : this.words.pipeline;
         },
         collections_shown: function () {
             const query = this.search.toLowerCase();
@@ -253,13 +307,14 @@ const data_browser = {
         open_item: function () {
             return (this.collections === null) ? null : (this.collections.find(v => v.name === this.open) || null);
         },
-        // Its count, its size and its indexes, as MongoDB keeps them
+        // Its count, its size and its indexes, as its engine keeps them; a count it estimates
+        // said so; a view has none, but a materialized one's
         open_facts: function () {
             const item = this.open_item;
-            if ((item === null) || (item.type === 'view')) {
+            if ((item === null) || ((item.type === 'view') && (item.count === null))) {
                 return (item === null) ? '' : 'a view';
             }
-            const facts = [`${(item.count === null) ? 'many' : item.count.toLocaleString('en-US')} ${(item.count === 1) ? this.words.item : this.words.items}`];
+            const facts = [`${(item.type === 'view') ? 'a view · ' : ''}${this.count_long(item)} ${(item.count === 1) ? this.words.item : this.words.items}`];
             if (item.bytes !== null) {
                 facts.push(format_bytes(item.bytes));
             }
@@ -278,11 +333,14 @@ const data_browser = {
             return this.recent.filter(v => (v.base === this.base) && (v.collection === this.open)).slice(0, RECENT_SHOWN);
         },
         page_text: function () {
-            return mongo_text_of(this.page.items, true);
+            return this.words.sql ? sql_text_of(this.page.items.map(v => this.row_ordered(v)), true) : mongo_text_of(this.page.items, true);
         },
         // The keys of the page's documents, as columns: _id first, then each in the order it
-        // is first met
+        // is first met; a SQL page's columns, as its engine gave them
         keys: function () {
+            if (Array.isArray(this.page.columns)) {
+                return this.page.columns;
+            }
             const met = [];
             for (const item of this.page.items) {
                 for (const key of Object.keys(item)) {
@@ -307,7 +365,7 @@ const data_browser = {
             return `${(this.page.skip + 1).toLocaleString('en-US')}–${(this.page.skip + this.page.items.length).toLocaleString('en-US')} of ${this.count_text}`;
         },
         took_text: function () {
-            return `found in ${this.page.took_ms} ms`;
+            return (typeof this.page.took_ms === 'number') ? `found in ${this.page.took_ms} ms` : '';
         },
         // Where the next page begins; null when this one is the last
         next_skip: function () {
@@ -322,10 +380,10 @@ const data_browser = {
         },
         empty_text: function () {
             if (this.asked.mode === 'aggregate') {
-                return `The pipeline makes no ${this.words.item} of ${this.open}.`;
+                return this.words.sql ? 'The query gives no row.' : `The pipeline makes no ${this.words.item} of ${this.open}.`;
             }
             if (this.asked.filter !== '') {
-                return `No ${this.words.item} matches the filter.`;
+                return `No ${this.words.item} matches the ${this.words.sql ? 'condition' : 'filter'}.`;
             }
             return `${this.open} has no ${this.words.item} yet.`;
         },
@@ -335,9 +393,10 @@ const data_browser = {
             }
             return (this.page.items[this.picked] === undefined) ? null : this.page.items[this.picked];
         },
-        // Its documents can be changed: a collection, not a view
+        // Its documents can be changed: a collection, not a view; a SQL table's rows are read
+        // alone for now
         changeable: function () {
-            return (this.open_item !== null) && (this.open_item.type !== 'view');
+            return (this.words.sql === false) && (this.open_item !== null) && (this.open_item.type !== 'view');
         },
         // The document shown whole can be edited and deleted: one of the collection as found,
         // never a pipeline's result, which is no document of it
@@ -349,10 +408,11 @@ const data_browser = {
         },
         picked_name: function () {
             const id = this.picked_item._id;
-            return (id === undefined) ? `A ${this.words.item}` : mongo_text_of(id, false);
+            return ((id === undefined) || this.words.sql) ? `A ${this.words.item}` : mongo_text_of(id, false);
         },
+        // The document as the shell writes it; a row as its JSON, its columns in order
         picked_text: function () {
-            return mongo_text_of(this.picked_item, true);
+            return this.words.sql ? sql_text_of(this.row_ordered(this.picked_item), true) : mongo_text_of(this.picked_item, true);
         },
     },
     watch: {
@@ -389,7 +449,6 @@ const data_browser = {
         this.load();
     },
     methods: {
-        format_count,
         load: function () {
             if (this.offline) {
                 return;
@@ -484,11 +543,18 @@ const data_browser = {
             if (query.mode === 'aggregate') {
                 return query.pipeline.replace(/\s+/g, ' ');
             }
-            const parts = [query.filter || '{}'].concat((query.sort === '') ? [] : [`sort ${query.sort}`], (query.fields === '') ? [] : [`fields ${query.fields}`]);
+            const words = this.words;
+            const filter = words.sql ? ((query.filter === '') ? 'all rows' : `WHERE ${query.filter}`) : (query.filter || '{}');
+            const parts = [filter].concat((query.sort === '') ? [] : [`${words.sort_label.toLowerCase()} ${query.sort}`], (query.fields === '') ? [] : [`${words.fields_label.toLowerCase()} ${query.fields}`]);
             return parts.join(' · ').replace(/\s+/g, ' ');
         },
         recent_title: function (query) {
-            return (query.mode === 'aggregate') ? query.pipeline : [`filter ${query.filter || '{}'}`, `sort ${query.sort || 'as found'}`, `fields ${query.fields || 'all'}`].join('\n');
+            const words = this.words;
+            if (query.mode === 'aggregate') {
+                return query.pipeline;
+            }
+            const filter = words.sql ? ((query.filter === '') ? 'all rows' : `WHERE ${query.filter}`) : `filter ${query.filter || '{}'}`;
+            return [filter, `${words.sort_label.toLowerCase()} ${query.sort || 'as found'}`, `${words.fields_label.toLowerCase()} ${query.fields || 'all'}`].join('\n');
         },
         page_go: function (step) {
             const skip = (step < 0) ? Math.max(0, this.page.skip - this.page.limit) : this.next_skip;
@@ -496,14 +562,14 @@ const data_browser = {
         },
         // A header clicked: sorted by it, up; again, down; again, as found
         sort_by: function (key) {
-            const name = RE_BARE_KEY.test(key) ? key : JSON.stringify(key);
+            const texts = this.sort_texts(key);
             const direction = this.sort_direction(key);
             this.sort = '';
             if (direction === null) {
-                this.sort = `{${name}: 1}`;
+                this.sort = texts.up;
             }
             if (direction === 1) {
-                this.sort = `{${name}: -1}`;
+                this.sort = texts.down;
             }
             this.find();
         },
@@ -523,11 +589,21 @@ const data_browser = {
         },
         // 1 or -1 when the documents are sorted by this key alone, as a header click sorts
         sort_direction: function (key) {
-            const name = RE_BARE_KEY.test(key) ? key : JSON.stringify(key);
-            if (this.asked.sort === `{${name}: 1}`) {
+            const texts = this.sort_texts(key);
+            if (this.asked.sort === texts.up) {
                 return 1;
             }
-            return (this.asked.sort === `{${name}: -1}`) ? -1 : null;
+            return (this.asked.sort === texts.down) ? -1 : null;
+        },
+        // The sorts a header click types, up and down: `{name: 1}`, or a SQL engine's ORDER BY
+        // of the column, its name quoted
+        sort_texts: function (key) {
+            if (this.words.sql) {
+                const name = this.name_quoted(key);
+                return {up: `${name} ASC`, down: `${name} DESC`};
+            }
+            const name = RE_BARE_KEY.test(key) ? key : JSON.stringify(key);
+            return {up: `{${name}: 1}`, down: `{${name}: -1}`};
         },
         // A page of the open collection, found as last asked: a find's filter, sort and fields,
         // or a pipeline
@@ -645,14 +721,40 @@ const data_browser = {
             return out;
         },
         cells_of: function (item) {
-            return this.keys.map(v => Object.assign({key: v}, mongo_cell_of(item[v])));
+            const cell_of = this.words.sql ? sql_cell_of : mongo_cell_of;
+            return this.keys.map(v => Object.assign({key: v}, cell_of(item[v])));
+        },
+        // A row with its columns in their order, which its object does not keep for a name
+        // that is a number
+        row_ordered: function (item) {
+            return new Map(this.keys.map(v => [v, item[v]]));
+        },
+        // A name as the SQL engine quotes it; a PostgreSQL table of another schema than public
+        // named schema.table, each quoted
+        name_quoted: function (name) {
+            const quote = this.words.quote;
+            const parts = ((quote === '"') && name.includes('.')) ? [name.slice(0, name.indexOf('.')), name.slice(name.indexOf('.') + 1)] : [name];
+            return parts.map(v => `${quote}${v.split(quote).join(quote + quote)}${quote}`).join('.');
+        },
+        // A collection's count at a glance, ~ before one its engine estimates
+        count_short: function (item) {
+            if (item.count === null) {
+                return '';
+            }
+            return `${item.estimated ? '~' : ''}${format_count(item.count)}`;
+        },
+        count_long: function (item) {
+            if (item.count === null) {
+                return 'many';
+            }
+            return `${item.estimated ? 'about ' : ''}${item.count.toLocaleString('en-US')}`;
         },
         collection_title: function (item) {
-            if (item.type === 'view') {
-                return `${item.name}: a view, its documents found by a pipeline`;
+            if ((item.type === 'view') && (item.count === null)) {
+                return this.words.sql ? `${item.name}: a view, its rows found by a query` : `${item.name}: a view, its documents found by a pipeline`;
             }
-            const count = (item.count === null) ? '' : `${item.count.toLocaleString('en-US')} ${(item.count === 1) ? this.words.item : this.words.items}`;
-            return [item.name, count, (item.bytes === null) ? '' : format_bytes(item.bytes)].filter(v => v !== '').join(' · ');
+            const count = (item.count === null) ? '' : `${this.count_long(item)} ${(item.count === 1) ? this.words.item : this.words.items}${item.estimated ? ', as its engine estimates them' : ''}`;
+            return [item.name, (item.type === 'view') ? 'a view' : '', count, (item.bytes === null) ? '' : format_bytes(item.bytes)].filter(v => v !== '').join(' · ');
         },
         copy: async function () {
             try {

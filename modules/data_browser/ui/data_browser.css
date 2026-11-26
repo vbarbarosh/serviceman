@@ -120,8 +120,28 @@
     font-size: 13px;
 }
 
-/* Find or Aggregate, two tabs where the box's label is: the one on in the text's colour,
-   underlined */
+/* The filter's box on its line; a SQL condition after its WHERE */
+.dbr-line {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+}
+
+.dbr-line > input {
+    flex: 1;
+    min-width: 0;
+}
+
+.dbr-keyword {
+    flex: none;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Find or Aggregate (Query), two tabs where the box's label is: the one on in the text's
+   colour, underlined */
 .dbr-modes {
     display: flex;
     gap: 14px;
@@ -423,12 +443,18 @@
     word-break: break-all;
 }
 
-/* + Document, at the end of the collection's head */
+/* + Document, at the end of the collection's head; where a SQL table's rows are read alone for
+   now, that is said there */
 .card-head > .dbr-add {
     display: inline-flex;
     flex: none;
     gap: 6px;
     align-items: center;
+}
+
+.card-head > .dbr-readonly {
+    flex: none;
+    white-space: nowrap;
 }
 
 /* What the last change did, under the page until the next query */

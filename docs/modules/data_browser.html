@@ -706,7 +706,7 @@ img {
 </ul>
 <h2>Modules</h2>
 <ul>
-<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#the-api">The API</a></li></ul></li>
+<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#a-sql-database">A SQL database</a></li><li><a href="#the-api">The API</a></li></ul></li>
 <li><a href="disks.html">Disks</a></li>
 <li><a href="docker.html">Docker</a></li>
 <li><a href="file_manager.html">Files</a></li>
@@ -731,9 +731,12 @@ finds it. The last queries of each collection that ran are kept in the browser, 
 <p>It changes documents too: <strong>+ Document</strong> adds one, typed as the shell types it; a document
 shown whole has <strong>Edit</strong>, which reads it again whole by its <code>_id</code> (a page may show some of its
 fields alone, and saving those would drop the rest), and <strong>Delete</strong>, asked before it is done.
-A view&#39;s documents and a pipeline&#39;s results are read alone. MongoDB is its first engine;
-PostgreSQL, MySQL and SQLite files come to the same page, their tables as its collections and
-their rows as its documents.</p>
+A view&#39;s documents and a pipeline&#39;s results are read alone.</p>
+<p>PostgreSQL and MySQL come to the same page in their own words: their tables are its
+collections, their rows its documents (<a href="#a-sql-database">A SQL database</a>). <strong>Find</strong> finds rows
+by a condition typed after <code>WHERE</code>, with <strong>Order by</strong> and <strong>Columns</strong> under it, and <strong>Query</strong>,
+where Aggregate is, runs a <code>SELECT</code> typed whole. A row shown whole is its JSON, with Copy. Their
+rows are read alone for now: changing them comes in a step of its own. SQLite files come later.</p>
 <p>It has two halves and knows nothing of where the database is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
 handler given an <strong>adapter</strong>, which says the engine&#39;s words and has the host <strong>run</strong> them in
@@ -748,13 +751,22 @@ may be given.</p>
 server/data_browser_manifest.js  its kinds of items
 server/mongodb_adapter.js        MongoDB&#39;s: each ask a mongosh script, given run(script)
 server/ejson_from_text.js        a query as typed, read as data, into Extended JSON
+server/postgresql_adapter.js     PostgreSQL&#39;s: each ask a psql script, given run(script)
+server/mysql_adapter.js          MySQL&#39;s: each ask a mysql script, given run(script)
+server/sql_part_from_text.js     a condition, an order, columns or a query as typed
+server/ejson_from_json.js        a SQL engine&#39;s JSON, its numbers kept whole
+server/ejson_number_from_text.js a number as an engine wrote it, kept whole
+server/items_from_rows.js        rows as objects keyed by column, a name met twice kept
 ui/data_browser.js               the component
 ui/data_browser.css              the component&#39;s rules
 ui/mongo_text_of.js              a value as the shell writes it, for the document&#39;s window
 ui/mongo_cell_of.js              a value on one line, for a cell
 ui/mongo_type_of.js              which of the shell&#39;s types a value is
-tests/                           the API over a fake adapter, the reading and writing of
-                                 queries; MONGO_URL runs the adapter on a real MongoDB
+ui/sql_text_of.js                a SQL row as JSON, its numbers with their digits
+ui/sql_cell_of.js                a SQL value on one line, for a cell
+tests/                           the API over fake adapters, the reading and writing of
+                                 queries; DATA_BROWSER_MONGO, DATA_BROWSER_POSTGRES and
+                                 DATA_BROWSER_MYSQL run the adapters on a real database
 </code></pre>
 <h2 id="a-query-is-data"><a class="anchor" href="#a-query-is-data" aria-hidden="true" tabindex="-1">#</a>A query is data</h2>
 <p>What a person types is never run. <code>ejson_from_text</code> reads the filter, the sort and the fields
@@ -765,6 +777,48 @@ before a closing brace, comments), with the shell&#39;s types, <code>ObjectId(&#
 value. What it reads goes into the script as a string, parsed there by <code>EJSON.parse</code>.</p>
 <p>So the database&#39;s own rights are all it has: its user&#39;s, on its database. MongoDB itself still
 runs what a query asks of it, a <code>$where</code> included, inside that database.</p>
+<h2 id="a-sql-database"><a class="anchor" href="#a-sql-database" aria-hidden="true" tabindex="-1">#</a>A SQL database</h2>
+<p>PostgreSQL&#39;s and MySQL&#39;s adapters answer as MongoDB&#39;s does, so the page needs no API of its own
+for them. What is typed is SQL its database&#39;s own user runs in its own database, with that
+user&#39;s rights alone, and nothing here reads it: the engine does.</p>
+<ul>
+<li><strong>Tables.</strong> Its tables and views, each with its rows, its size and its indexes. PostgreSQL&#39;s
+are those of every schema but <code>pg_catalog</code> and <code>information_schema</code> (partitioned tables and
+their partitions, materialized views and foreign tables among them), named <code>schema.table</code>
+where the schema is not <code>public</code>, public&#39;s first. A table up to 64 MB is counted row by row,
+all of them within 5 s; past either, the rows its engine estimates it holds are said, with
+<code>estimated</code> (the page puts <code>~</code> before them, and &quot;about&quot; in the table&#39;s head). A view has no
+numbers, but a materialized one&#39;s. The database&#39;s head counts the same tables.</li>
+<li><strong>Rows.</strong> <code>filter</code> is a condition, as typed after <code>WHERE</code> (<code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>), <code>sort</code> an <code>ORDER BY</code> (<code>joined DESC</code>), <code>fields</code> the columns (<code>name, email</code>);
+a <code>WHERE</code> or an <code>ORDER BY</code> typed before them by habit, and a <code>;</code> after, are dropped. The
+table&#39;s name is found in its list and quoted the engine&#39;s way, never pasted. A click on a
+header orders by it, quoted: <code>&quot;joined&quot; ASC</code>, then <code>DESC</code>.</li>
+<li><strong>Query.</strong> The pipeline&#39;s place takes a <code>SELECT</code> typed whole (or <code>WITH</code>, <code>TABLE</code>, <code>VALUES</code>,
+PostgreSQL&#39;s <code>EXPLAIN</code>); one left empty reads the open table. Its page is read one row past
+itself, which says whether a next page is there; it is not counted.</li>
+<li><strong>Values.</strong> A row is an object keyed by its columns, and <code>columns</code> names them in order. Each
+value is what its engine gives in JSON: a number, <code>null</code>, <code>true</code>, a date as its text, a JSON
+column as its value. A number JavaScript would round keeps its digits, as MongoDB&#39;s do: a
+64-bit integer past 2^53 as <code>{$numberLong: &#39;…&#39;}</code>, a decimal whose digits a double would lose,
+trailing zeros included (<code>2.50</code>), as <code>{$numberDecimal: &#39;…&#39;}</code>; the page writes both as the
+digits. A join&#39;s two columns of one name are both kept, the second as <code>id (2)</code>. MySQL has no
+boolean: its <code>BOOLEAN</code> is 0 or 1, as in its own JSON; binary data is <code>0x…</code>.</li>
+<li><strong>Nothing written.</strong> Every script is one <code>READ ONLY</code> transaction, rolled back at its end, and
+MySQL&#39;s session is read only too: a <code>DELETE</code>, a <code>DROP</code>, <code>nextval()</code>, <code>FOR UPDATE</code> or a
+function that writes, typed into a condition or the query box, is refused by the engine
+itself, and said so. What is typed reaches the script as hex, never as text a client would
+read (psql&#39;s <code>\!</code> runs a shell); PostgreSQL runs it with <code>EXECUTE</code> inside a <code>DO</code> block, where
+a <code>COMMIT</code> is refused, as a cursor, which refuses two statements; MySQL prepares it as one
+statement, the query box&#39;s inside <code>( … ) LIMIT</code>, so it can only be a query. A statement may
+take 20 s, its count 5 s.</li>
+</ul>
+<p><strong>MySQL&#39;s output.</strong> psql gives a page as JSON (<code>json_each</code> over each row&#39;s <code>to_json</code>, which
+keeps two columns of one name apart). MySQL&#39;s client has no JSON of its own for a <code>SELECT</code>, and
+<code>JSON_OBJECT</code> over the columns needs them in a derived table, which refuses a join&#39;s two columns
+of one name, and writes a <code>FLOAT</code> as its double (<code>1.100000023841858</code>). So the client runs each
+script twice: first with <code>--column-type-info</code>, the page&#39;s statement under <code>LIMIT 0</code>, which MySQL
+answers at once with the result&#39;s columns and their types and no row; then with <code>--xml</code>, which
+tells <code>NULL</code> from the text <code>NULL</code>, for the rows, each value read by its column&#39;s type.</p>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
 <p>What it holds is written down in <code>server/data_browser_manifest.js</code>, in
 <a href="../index.html#modules">the shape every module has</a>. Under the base the host mounts it at —
@@ -782,15 +836,15 @@ serviceman&#39;s is <code>/api/v1/databases/&lt;server&gt;/&lt;database&gt;/brow
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/collections</code></td>
-<td><code>{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}</code>, <code>system.*</code> left out; a view has no numbers</td>
+<td><code>{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}</code>, <code>system.*</code> left out; a view has no numbers; a SQL table&#39;s with <code>estimated</code></td>
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/documents?collection=&amp;filter=&amp;sort=&amp;fields=&amp;skip=&amp;limit=</code></td>
-<td><code>{items, count, skip, limit, took_ms, cut}</code></td>
+<td><code>{items, count, skip, limit, took_ms, cut}</code>; a SQL page with <code>columns</code> and <code>more</code></td>
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/aggregate?collection=&amp;pipeline=&amp;skip=&amp;limit=</code></td>
-<td><code>{items, count: null, more, skip, limit, took_ms, cut}</code></td>
+<td><code>{items, count: null, more, skip, limit, took_ms, cut}</code>; a SQL page with <code>columns</code></td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/documents</code> <code>{collection, document}</code></td>
@@ -818,8 +872,9 @@ A stage that writes, <code>$out</code> or <code>$merge</code>, is refused: it is
 <p>A document is its text, typed as a filter is; <code>id</code> is the <code>_id</code> as a page answered it, in
 relaxed Extended JSON. One deleted since the page was read is said so, and a document that
 names another <code>_id</code> MongoDB refuses: an <code>_id</code> is for good. A body is 4 MB at most.</p>
-<p>A query that is wrong is answered 400 with what is wrong and where (<code>the filter: a comma or } was expected, at 14</code>), and so is one MongoDB refuses (<code>unknown operator: $foo</code>). A database not
-reached is 502, a machine away 409.</p>
+<p>A query that is wrong is answered 400 with what is wrong and where (<code>the filter: a comma or } was expected, at 14</code>), and so is one MongoDB refuses (<code>unknown operator: $foo</code>), PostgreSQL
+(<code>column &quot;nam&quot; does not exist</code>) or MySQL. A change asked of a SQL database is 405, its rows read
+alone for now. A database not reached is 502, a machine away 409.</p>
 
 <footer class="foot">This page is built from <a href="https://github.com/vbarbarosh/serviceman/blob/main/modules/data_browser/README.md">its source on GitHub</a>. serviceman is MIT licensed.</footer>
 </main>

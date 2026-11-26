@@ -821,7 +821,7 @@ it up again</strong>; its machine away, a red note says so, and its numbers are 
 when. A server with no database in it yet is a page of its own, with
 <strong>New database in it</strong>, New database opened on its engine and machine.</p>
 <h2 id="its-data-browsed"><a class="anchor" href="#its-data-browsed" aria-hidden="true" tabindex="-1">#</a>Its data, browsed</h2>
-<p>A MongoDB&#39;s page has <strong>Browse</strong> in its head, which opens its data at
+<p>A MongoDB&#39;s, a PostgreSQL&#39;s or a MySQL&#39;s page has <strong>Browse</strong> in its head, which opens its data at
 <code>/databases/&lt;server&gt;/&lt;database&gt;/browse</code>: the <a href="modules/data_browser.html">Data</a> module on
 it. Its collections down the left, each with how many documents it holds; a click opens one, its
 documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages. A
@@ -837,8 +837,18 @@ alone. The collection open is in the address,
 <p>It reads and writes as the database&#39;s own user, inside its server&#39;s container, never as root:
 it sees that database and no other. What is typed is read as data, never run: a name that is none of the
 shell&#39;s types, <code>db.dropDatabase()</code>, is refused, with where it stands. Its machine away, or the
-server not up, Browse is greyed and says why. PostgreSQL, MySQL and SQLite files come to the
-same page.</p>
+server not up, Browse is greyed and says why.</p>
+<p>A PostgreSQL&#39;s or a MySQL&#39;s is the same page in their words: <strong>Tables</strong> down the left (a
+PostgreSQL&#39;s of every schema, <code>archive.orders</code> where the schema is not <code>public</code>), each with its
+rows, <code>~</code> before a number its engine estimates for a table too big to count at once; the
+database&#39;s head counts the same tables. <strong>Find</strong> takes a condition after <code>WHERE</code>, <code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>, and <strong>Order by and columns</strong> opens <code>joined DESC</code> and <code>name, email</code>; a click on a header orders by it. <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed
+whole, joins and <code>GROUP BY</code> and all, a page at a time. A cell shows its value as a MongoDB
+document&#39;s does, a number whole to its last digit (<code>2.50</code>, <code>9007199254740993</code>); a row opened is
+its JSON, with <strong>Copy</strong>. Their rows are read alone for now, said in the table&#39;s head: no <strong>+
+Row</strong>, no Edit or Delete yet. Each read is a <code>READ ONLY</code> transaction as the database&#39;s own user,
+signed in over its container&#39;s <code>127.0.0.1</code>, its password in the client&#39;s env (<code>PGPASSWORD</code>,
+<code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into it is refused by the engine itself, and said so.
+SQLite files come to the same page later.</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
 600, beside what it writes about itself: never in the config, never in an answer to the page

@@ -1,5 +1,6 @@
 import CATEGORIES from './categories.js';
 import app_database_give from './app_database_give.js';
+import browsed_engines from './browsed_engines.js';
 import clock_of from './clock_of.js';
 import data_table from './data_table.js';
 import database_cell from './database_cell.js';
@@ -73,7 +74,7 @@ const databases_pane = {
                 </div>
                 <item-facts :facts="open_facts"/>
                 <div v-if="browse_shown" class="item-acts">
-                    <button type="button" :disabled="(browse_why !== '')" :title="((browse_why === '') ? 'Its collections and documents, read as its own user' : browse_why)" @click="browse_open"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M9 9.5V20"/></svg>Browse</button>
+                    <button type="button" :disabled="(browse_why !== '')" :title="((browse_why === '') ? browse_title : browse_why)" @click="browse_open"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M9 9.5V20"/></svg>Browse</button>
                 </div>
             </div>
         </div>
@@ -429,10 +430,13 @@ const databases_pane = {
         server_only: function () {
             return (this.open_database === null) && (this.open_server.phase === 'up') && (this.open_server.online !== false);
         },
-        // Browse, the database's data read as its own user: a MongoDB's for now, and one
-        // serviceman made, which has that user
+        // Browse, the database's data read as its own user: a MongoDB's, a PostgreSQL's or a
+        // MySQL's, and one serviceman made, which has that user
         browse_shown: function () {
-            return (this.open_server.engine === 'mongodb') && (this.open_database !== null) && (typeof this.open_database.user === 'string');
+            return browsed_engines.includes(this.open_server.engine) && (this.open_database !== null) && (typeof this.open_database.user === 'string');
+        },
+        browse_title: function () {
+            return (this.open_server.engine === 'mongodb') ? 'Its collections and documents, read as its own user' : 'Its tables and rows, read as its own user';
         },
         // Why Browse cannot open it now; '' when it can
         browse_why: function () {

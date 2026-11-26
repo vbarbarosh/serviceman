@@ -83,6 +83,17 @@ test('a MySQL is brought up filled with a sample, a database made in it, then re
     assert.deepStrictEqual(Object.keys(engine.containers.get('serviceman-db-mysql-1').files), []);
     assert.strictEqual(fs.readFileSync(world.agent_log, 'utf8').includes(kept.root), false);
 
+    // Its data, browsed: mysql run inside its container, in shop, signed in as shop's own user
+    // over 127.0.0.1, its password in MYSQL_PWD; the script run twice, for its column types,
+    // then for its rows as XML, and gone once it ran
+    const browsed = await control(world, 'GET', '/api/v1/databases/mysql-1/shop/browse/collections');
+    assert.deepStrictEqual([browsed.status, browsed.body.items.map(v => `${v.name} ${v.type} ${v.count} ${v.estimated}`)], [200, ['note table 2 true']]);
+    const script = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
+    const options = '--default-character-set=utf8mb4 --binary-as-hex -h 127.0.0.1 -u "$SERVICEMAN_DB_USER" \'shop\'';
+    assert.strictEqual(script[0].Cmd[2], `mysql ${options} -t --column-type-info --init-command='SET @serviceman_types = 1' < "$1" && mysql ${options} --xml < "$1"; code=$?; rm -f "$1"; exit $code`);
+    assert.deepStrictEqual(script[0].Env, ['SERVICEMAN_DB_USER=shop', `MYSQL_PWD=${kept.users.shop.password}`]);
+    assert.deepStrictEqual(Object.keys(engine.containers.get('serviceman-db-mysql-1').files), []);
+
     const removed = await control(world, 'DELETE', '/api/v1/databases/mysql-1');
     assert.strictEqual(removed.status, 200, JSON.stringify(removed.body));
     assert.deepStrictEqual(removed.body.servers, []);
@@ -121,14 +132,22 @@ test('a PostgreSQL is brought up filled with a sample, and a database made in it
     assert.match(user, /CREATE DATABASE "notes" OWNER "notes";/);
     assert.match(user, /REVOKE ALL ON DATABASE "notes" FROM PUBLIC;/);
     assert.match(user, /\\connect "notes"\nGRANT ALL ON SCHEMA public TO "notes";/);
-    // Its data is not browsed yet: MongoDB's comes first
-    const browsed = await control(world, 'GET', '/api/v1/databases/postgresql-1/notes/browse/collections');
-    assert.deepStrictEqual([browsed.status, browsed.body.error], [501, 'postgresql-1 is a PostgreSQL: its data is browsed here once its engine is, MongoDB first']);
-
     const kept = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0];
     const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
     assert.deepStrictEqual([kept.root, kept.users.notes.password, kept.users.tiny.password].filter(v => cmds.includes(v)), [], 'no password on a command line');
     assert.ok([...engine.execs.values()].every(v => (v.spec.Env.length === 0) || (v.spec.Env[0] === `PGPASSWORD=${kept.root}`)));
+
+    // Its data, browsed: psql run inside its container, in notes, signed in as notes' own user
+    // over 127.0.0.1, its name and password in the exec's env, never on its command line
+    const browsed = await control(world, 'GET', '/api/v1/databases/postgresql-1/notes/browse/collections');
+    assert.deepStrictEqual([browsed.status, browsed.body.items.map(v => `${v.name} ${v.count}`)], [200, ['note 2']]);
+    const script = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
+    assert.strictEqual(script.length, 1);
+    assert.ok(script[0].Cmd[2].startsWith('psql -X -q -At -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$SERVICEMAN_DB_USER" -d \'notes\' -f "$1"; '), script[0].Cmd[2]);
+    assert.deepStrictEqual(script[0].Env, ['SERVICEMAN_DB_USER=notes', `PGPASSWORD=${kept.users.notes.password}`]);
+    assert.strictEqual(JSON.stringify(script[0].Cmd).includes(kept.users.notes.password), false);
+    const added = await control(world, 'POST', '/api/v1/databases/postgresql-1/notes/browse/documents', {collection: 'note', document: '{}'});
+    assert.deepStrictEqual([added.status, added.body.error], [405, 'its data is read here alone for now: changing it comes in a later step']);
 });
 
 // A CouchDB comes up with its admin and the ini that trusts a user name signed by its secret, laid
@@ -175,6 +194,10 @@ test('a CouchDB is brought up with its admin and its secret, as one row an app p
     const stored = (await control(world, 'GET', '/api/v1/databases')).body.servers[0];
     assert.deepStrictEqual(stored.stores, ['notes']);
     assert.ok((typeof stored.read_at === 'number') && (Date.now() - stored.read_at < 60000), JSON.stringify(stored.read_at));
+
+    // Its data is not browsed here: it has no user of its own to read it as
+    const browsed = await control(world, 'GET', '/api/v1/databases/couch-1/admin/browse/collections');
+    assert.deepStrictEqual([browsed.status, browsed.body.error], [501, 'couch-1 is a CouchDB: its data is not browsed here, only a MongoDB\'s, a PostgreSQL\'s and a MySQL\'s']);
 
     const said = JSON.stringify(up) + JSON.stringify(refused.body);
     assert.strictEqual(said.includes(kept.root) || said.includes(kept.secret), false, 'neither is ever in an answer');

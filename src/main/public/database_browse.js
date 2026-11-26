@@ -1,11 +1,10 @@
+import browsed_engines from './browsed_engines.js';
 import data_browser from 'data_browser/data_browser.js';
 import database_rows from './database_rows.js';
 import database_state from './database_state.js';
 import state_pill from './state_pill.js';
 
 const DATABASE_ICON = '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>';
-// The engines whose data the page reads, MongoDB first
-const BROWSED = ['mongodb'];
 // How often the server is read again, for its machine going away and coming back
 const VIEW_EVERY_MS = 10000;
 
@@ -42,7 +41,7 @@ const database_browse = {
         </div>
     </div>
     <div v-if="(refusal !== '')" class="card" role="status"><p class="card-body muted">{{ refusal }}</p></div>
-    <data-browser v-else-if="(server !== null)" :base="base" :offline="offline" :collection="(place.collection || '')" @collection="collection_keep"/>
+    <data-browser v-else-if="(server !== null)" :base="base" :offline="offline" :collection="(place.collection || '')" :engine="server.engine" @collection="collection_keep"/>
 </div>
 `,
     components: {'data-browser': data_browser, 'state-pill': state_pill},
@@ -77,12 +76,12 @@ const database_browse = {
         offline: function () {
             return (this.server !== null) && ((this.server.online === false) || (this.server.phase !== 'up'));
         },
-        // Why its data is not read here: an engine the page does not read yet
+        // Why its data is not read here: an engine the page does not read
         refusal: function () {
-            if ((this.server === null) || BROWSED.includes(this.server.engine)) {
+            if ((this.server === null) || browsed_engines.includes(this.server.engine)) {
                 return '';
             }
-            return `${this.engine_text}'s data is browsed here in a later step: MongoDB's comes first.`;
+            return `${this.engine_text}'s data is not browsed here: a MongoDB's, a PostgreSQL's and a MySQL's are.`;
         },
     },
     mounted: function () {

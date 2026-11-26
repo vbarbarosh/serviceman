@@ -2,6 +2,8 @@ const assert = require('assert');
 const data_browser_serve = require('../server/data_browser_serve');
 const http = require('http');
 const mongodb_adapter = require('../server/mongodb_adapter');
+const mysql_adapter = require('../server/mysql_adapter');
+const postgresql_adapter = require('../server/postgresql_adapter');
 const test = require('node:test');
 
 // The API over MongoDB's adapter, its scripts answered by a fake run that reads the ask they
@@ -133,16 +135,131 @@ test('a database not reached, or a client that printed no answer, is 502', async
     assert.deepStrictEqual([away.status, away.body.error], [502, 'vps1 is not connected']);
 });
 
+// PostgreSQL's page: what is typed reaches the script as the hex of its ask alone, never as
+// text psql would read (a backslash command, a second statement); the rows come back keyed by
+// column, a number kept whole, two columns of one name both kept; what PostgreSQL refused is 400,
+// and its rows are not changed here
+test('a PostgreSQL\'s page: what is typed goes in as hex, its rows come back keyed by column, and none is changed', async function (t) {
+    const asks = [];
+    const scripts = [];
+    const running = await serve(t, function (script) {
+        scripts.push(script);
+        const ask = JSON.parse(Buffer.from(/^SET LOCAL serviceman\.ask = '([0-9a-f]+)';$/m.exec(script)[1], 'hex').toString('utf8'));
+        asks.push(ask);
+        if (ask.collection === 'gone') {
+            return 'serviceman-answer {"error": "no table called gone in shop", "code": "P0001", "hint": ""}\nserviceman-count \n';
+        }
+        if (ask.collection === 'wrong') {
+            return 'serviceman-answer {"error": "column \\"nam\\" does not exist", "code": "42703", "hint": "Perhaps you meant to reference the column \\"items.name\\"."}\nserviceman-count \n';
+        }
+        if (ask.collection === 'writes') {
+            return 'serviceman-answer {"error": "cannot execute DELETE in a read-only transaction", "code": "25006", "hint": ""}\nserviceman-count \n';
+        }
+        return 'serviceman-answer {"ok": {"names": ["id", "price", "id"], "rows": [[1, 2.50, 7], [9007199254740993, null, 8]], "more": false, "cut": false, "took_ms": 2}}\nserviceman-count 2\n';
+    }, postgresql_adapter);
+
+    const typed = 'name = \'x\'; DROP TABLE items; --\n\\! rm -rf /';
+    const found = await call(running, '/browse/documents?' + new URLSearchParams({collection: 'it"ems', filter: typed, sort: 'ORDER BY id DESC', fields: 'id, price'}));
+    assert.strictEqual(found.status, 200, JSON.stringify(found.body));
+    assert.deepStrictEqual(found.body, {skip: 0, limit: 50, items: [{'id': 1, 'price': {$numberDecimal: '2.50'}, 'id (2)': 7}, {'id': {$numberLong: '9007199254740993'}, 'price': null, 'id (2)': 8}], columns: ['id', 'price', 'id (2)'], count: 2, more: false, took_ms: 2, cut: false});
+    assert.deepStrictEqual([asks[0].collection, asks[0].filter, asks[0].sort, asks[0].fields, asks[0].skip, asks[0].limit], ['it"ems', typed, 'id DESC', 'id, price', 0, 50]);
+    assert.deepStrictEqual(scripts[0].split('\n').filter(v => v.includes('DROP TABLE') || v.includes('rm -rf') || v.includes('it"ems')), [], 'what is typed is in the ask\'s hex alone');
+    assert.match(scripts[0], /^BEGIN TRANSACTION READ ONLY;$/m);
+
+    const query = await call(running, '/browse/aggregate?' + new URLSearchParams({collection: 'items', pipeline: 'SELECT 1;'}));
+    assert.deepStrictEqual([query.status, query.body.count, query.body.more, asks[1].query], [200, null, false, 'SELECT 1']);
+    const refusals = [
+        ['/browse/documents?collection=gone', 400, 'no table called gone in shop'],
+        ['/browse/documents?collection=wrong', 400, 'column "nam" does not exist (Perhaps you meant to reference the column "items.name".)'],
+        ['/browse/aggregate?collection=writes', 400, 'it writes, and this page changes nothing for now: cannot execute DELETE in a read-only transaction'],
+    ];
+    for (const [path, status, said] of refusals) {
+        const refused = await call(running, path);
+        assert.deepStrictEqual([refused.status, refused.body.error], [status, said], path);
+    }
+    const added = await call(running, '/browse/documents', 'POST', {collection: 'items', document: '{}'});
+    assert.deepStrictEqual([added.status, added.body.error], [405, 'its data is read here alone for now: changing it comes in a later step']);
+    const deleted = await call(running, '/browse/documents/delete', 'POST', {collection: 'items', id: 1});
+    assert.strictEqual(deleted.status, 405);
+    assert.strictEqual(scripts.length, 5, 'a change runs nothing');
+
+    const silent = await serve(t, () => 'psql: error: connection to server at "127.0.0.1", port 5432 failed\n', postgresql_adapter);
+    const away = await call(silent, '/browse/collections');
+    assert.deepStrictEqual([away.status, away.body.error], [502, 'psql printed no answer: psql: error: connection to server at "127.0.0.1", port 5432 failed']);
+});
+
+// MySQL's page: what is typed reaches the script as hex alone, prepared as one statement; the
+// client's column types read its XML's values, NULL apart from the word NULL; a count past its
+// limit leaves the page without it; what MySQL refused is 400, what the client could not do 502
+test('a MySQL\'s page: what is typed goes in as hex, its values are read by their column\'s type, and none is changed', async function (t) {
+    const scripts = [];
+    const running = await serve(t, function (script) {
+        scripts.push(script);
+        const texts = Array.from(script.matchAll(/X'([0-9a-f]*)'/g), v => Buffer.from(v[1], 'hex').toString('utf8'));
+        if (texts.some(v => v.includes('`syntax`'))) {
+            throw new Error('ERROR 1064 (42000) at line 9: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near \'x\n) LIMIT 0\' at line 2');
+        }
+        if (texts.some(v => v.includes('`away`'))) {
+            throw new Error('ERROR 2002 (HY000): Can\'t connect to MySQL server on \'127.0.0.1:3306\' (111)');
+        }
+        const printed = [
+            'Field   1:  `id`', 'Type:       LONGLONG', '', 'Field   2:  `name`', 'Type:       VAR_STRING', '', 'Field   3:  `price`', 'Type:       NEWDECIMAL', '', 'Field   4:  `doc`', 'Type:       JSON', '',
+            '<?xml version="1.0"?>',
+            '<resultset statement="EXECUTE serviceman_page" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+            '  <row>', '\t<field name="id">9007199254740993</field>', '\t<field name="name">NULL</field>', '\t<field name="price">2.50</field>', '\t<field name="doc">{&quot;a&quot;: [1, 2]}</field>', '  </row>',
+            '  <row>', '\t<field name="id">2</field>', '\t<field name="name" xsi:nil="true" />', '\t<field name="price">3.25</field>', '\t<field name="doc">&lt;b&gt; &amp;</field>', '  </row>',
+            '</resultset>',
+            '<?xml version="1.0"?>',
+            '<resultset statement="EXECUTE serviceman_took" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+            '  <row>', '\t<field name="took_ms">4</field>', '  </row>',
+            '</resultset>',
+            '',
+        ].join('\n');
+        if (texts.some(v => v.includes('`slow`'))) {
+            throw Object.assign(new Error('ERROR 3024 (HY000) at line 14: Query execution was interrupted, maximum statement execution time exceeded'), {stdout: printed});
+        }
+        return `${printed}<?xml version="1.0"?>\n<resultset statement="EXECUTE serviceman_count" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <row>\n\t<field name="n">2</field>\n  </row>\n</resultset>\n`;
+    }, mysql_adapter);
+
+    const typed = 'name = \'x\'; DROP TABLE items; -- \\! rm -rf /';
+    const found = await call(running, '/browse/documents?' + new URLSearchParams({collection: 'it`ems', filter: typed}));
+    assert.strictEqual(found.status, 200, JSON.stringify(found.body));
+    assert.deepStrictEqual(found.body, {skip: 0, limit: 50, items: [{id: {$numberLong: '9007199254740993'}, name: 'NULL', price: {$numberDecimal: '2.50'}, doc: {a: [1, 2]}}, {id: 2, name: null, price: 3.25, doc: '<b> &'}], columns: ['id', 'name', 'price', 'doc'], count: 2, more: false, took_ms: 4, cut: false});
+    assert.deepStrictEqual(scripts[0].split('\n').filter(v => v.includes('DROP TABLE') || v.includes('rm -rf') || v.includes('it`ems')), [], 'what is typed is in hex alone');
+    const texts = Array.from(scripts[0].matchAll(/X'([0-9a-f]*)'/g), v => Buffer.from(v[1], 'hex').toString('utf8'));
+    assert.deepStrictEqual(texts, [
+        `SELECT * FROM \`it\`\`ems\` WHERE (\n${typed}\n) LIMIT 0`,
+        `SELECT * FROM \`it\`\`ems\` WHERE (\n${typed}\n) LIMIT 0, 51`,
+        `SELECT COUNT(*) AS n FROM \`it\`\`ems\` WHERE (\n${typed}\n)`,
+    ]);
+    assert.match(scripts[0], /^SET SESSION TRANSACTION READ ONLY;\nSTART TRANSACTION READ ONLY;$/m);
+
+    const slow = await call(running, '/browse/documents?collection=slow');
+    assert.deepStrictEqual([slow.status, slow.body.count, slow.body.items.length], [200, null, 2]);
+    const refusals = [
+        ['/browse/aggregate?collection=items&pipeline=' + encodeURIComponent('DELETE FROM `syntax`'), 400, 'only what one SELECT gives is read here, and this page changes nothing for now: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near \'x ) LIMIT 0\' at line 2'],
+        ['/browse/documents?collection=away', 502, 'ERROR 2002 (HY000): Can\'t connect to MySQL server on \'127.0.0.1:3306\' (111)'],
+    ];
+    for (const [path, status, said] of refusals) {
+        const refused = await call(running, path);
+        assert.deepStrictEqual([refused.status, refused.body.error], [status, said], path);
+    }
+    const replaced = await call(running, '/browse/documents/replace', 'POST', {collection: 'items', id: 1, document: '{}'});
+    assert.strictEqual(replaced.status, 405);
+});
+
 function answer(value)
 {
     return `Warning: something mongosh says first\nserviceman-answer ${JSON.stringify(value)}\n`;
 }
 
-async function serve(t, run)
+// The API over an adapter, MongoDB's unless named, its scripts run by `run`
+async function serve(t, run, adapter_of)
 {
+    const adapter = (adapter_of || mongodb_adapter)(async v => run(v));
     const server = http.createServer(function (req, res) {
         const url = new URL(req.url, 'http://test.invalid');
-        data_browser_serve(req, res, {adapter: mongodb_adapter(async v => run(v)), about: {database: 'orders', server: 'mongodb-1'}, tail: url.pathname.slice('/browse'.length), query: url.searchParams});
+        data_browser_serve(req, res, {adapter, about: {database: 'orders', server: 'mongodb-1'}, tail: url.pathname.slice('/browse'.length), query: url.searchParams});
     });
     await new Promise(v => server.listen(0, '127.0.0.1', v));
     t.after(() => new Promise(v => server.close(v)));

@@ -3,6 +3,10 @@ const engine_exec = require('./engine_exec');
 
 // The schemas of a MySQL server itself, never shown as databases
 const MYSQL_OWN = ['mysql', 'information_schema', 'performance_schema', 'sys'];
+// A PostgreSQL database's tables as Browse lists them (postgresql_adapter): tables, partitioned
+// ones and their partitions, views, materialized views and foreign tables, in every schema but
+// its own, a session's temporary ones left out
+const POSTGRESQL_TABLES = "SELECT count(*) FROM pg_class AS c JOIN pg_namespace AS n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND c.relpersistence <> 't' AND n.nspname NOT IN ('pg_catalog', 'information_schema');\n";
 // A MongoDB's databases, its own left out, `tables` its collections: listDatabases names a
 // database only once something is written in it, so one with a user and nothing yet is added
 // from its users, empty
@@ -20,7 +24,8 @@ for (const v of db.getSiblingDB('admin').system.users.distinct('db')) {
 `;
 
 // The databases in a server, as it says them now: [{name, tables, bytes}], by name; an empty
-// one too, with no table. PostgreSQL counts a database's tables in that database, one at a time.
+// one too, with no table. PostgreSQL counts a database's tables in that database, one at a time,
+// as Browse lists them; a MySQL's are its tables and views, as Browse lists them too.
 // A CouchDB is one row, its admin, the way an app is given it: `tables` its databases, made by
 // that app, and `bytes` their files together, its own (_users, _replicator) left out. A
 // MongoDB's `tables` are its collections as Browse lists them: system.* left out (system.views
@@ -38,7 +43,7 @@ async function database_list(connect, server)
         const said = await database_sql(connect, server, "SELECT datname, pg_database_size(datname) FROM pg_database WHERE datistemplate = false AND datname <> 'postgres' ORDER BY datname;\n");
         const rows = rows_of(said).map(v => ({name: v[0], tables: 0, bytes: Number(v[1])}));
         for (const row of rows) {
-            const counted = await database_sql(connect, server, "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema');\n", row.name);
+            const counted = await database_sql(connect, server, POSTGRESQL_TABLES, row.name);
             row.tables = Number(counted.trim());
         }
         return rows;
