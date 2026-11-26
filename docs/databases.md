@@ -63,13 +63,15 @@ link:
 
 Its head: its name, how it stands, its engine, its server and its machine, then its size, its
 tables (a MongoDB's collections) and where it is reached from; under it, the apps given it and the variable each finds it
-in, each a link to its service; the databases beside it in its server. **Remove…** is there
-(below).
+in, each a link to its service; **Reached from**, its own machine and each other one its port
+is brought to ([below](#its-port-on-another-machine)), each with **Copy URL**; the databases
+beside it in its server. **Remove…** is there (below).
 
 ## The passwords
 
 serviceman makes root's password and every user's, and keeps them in `data/databases.json`, mode
-600, beside what it writes about itself: never in the config, never in an answer to the page.
+600, beside what it writes about itself: never in the config, never in an answer to the page
+but one, the URL **Copy URL** asks for ([below](#its-port-on-another-machine)).
 They reach the machine in the bodies of the Engine API's requests, the container's environment
 and an exec's, never on a command line, which every user of the machine can read. The SQL that
 makes a user goes into the container as a file only root reads, and is removed once it ran; in a
@@ -99,8 +101,9 @@ in New database does.
 ## An app picks one
 
 In an app's **Settings** on Apps, its **Data** tab: **+ Database** lists the databases of every
-server, those on the app's own machine with a user serviceman made to pick, the others greyed,
-saying why; **New database…** opens New database with the app ticked. The pick is written into the app's config as `databases`, each one variable of its
+server, those with a user serviceman made to pick, on the app's own machine or, for a program,
+on another whose port is [brought to its machine](#its-port-on-another-machine); the others
+greyed, saying why; **New database…** opens New database with the app ticked. The pick is written into the app's config as `databases`, each one variable of its
 env:
 
 ```json
@@ -121,14 +124,17 @@ reaches it:
     mysql://sakila:<password>@127.0.0.1:<port>/sakila                a program on the machine
     postgresql://sakila:<password>@serviceman-db-postgresql-1:5432/sakila
     mongodb://orders:<password>@serviceman-db-mongodb-1:27017/orders
+    mongodb://orders:<password>@127.0.0.1:27017/orders                a program on vps2, through the forward
 
 A MongoDB is given in `MONGODB_URL` unless the row names another variable; its user signs in to
 the database in the URL's path, so a driver needs no `authSource`.
 
 An app in a container, a docker image or a program in an image, is put on the
-`serviceman-databases` network to reach the server there. A pick of another machine's database,
-or of one that is not there or not up, stops the start with the reason, rather than start an app
-that finds no database. The tab shows the URL with its password as dots: the page never has it.
+`serviceman-databases` network to reach the server there. A program on another machine reaches
+it at the port its forward listens on there; a container there has a `127.0.0.1` of its own,
+which the forward does not listen on. A pick of another machine's database not brought there,
+of one a container there picked, or of one that is not there or not up, stops the start with
+the reason, rather than start an app that finds no database. The tab shows the URL with its password as dots: the page never has it.
 
 ### Adminer
 
@@ -284,6 +290,46 @@ pick a CouchDB in its **Data** tab with **+ Store for each user**. Then give it 
 the machine that CouchDB runs on (its page, **Public addresses**): the store is answered at that
 machine's door, and only there. Each user who signs in gets a list of their own; two users never
 see each other's.
+
+## Its port on another machine
+
+A server's port, on its machine's `127.0.0.1`, shows up on another machine's loopback as well,
+the way `ssh -L` brings one, with no ssh: a [forward](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
+that is part of the server. mongodb-1 on vps1, reached on vps2 at `127.0.0.1:27017`:
+
+```json
+"forwards": [
+    {"label": "mongodb-1 → vps2", "database": "mongodb-1", "from": {"remote": "vps1", "port": 41337}, "to": {"remote": "vps2", "port": 27017}}
+]
+```
+
+serviceman writes it from where it shows up alone, `PUT /api/v1/databases/<server>/forwards`
+with `{"forwards": [{"to": {"remote": "vps2", "port": 27017}}]}`, the whole list each time, an
+empty one taking them all out; a place it showed up before keeps its label. Nothing listens
+outside the machine's loopback, and nothing opens to the internet.
+
+**Reached from**, on a database's page, lists its own machine and each other one its port is
+brought to, with the programs there that picked it, which find it there (a container there
+does not); **+ a machine** brings it to another, at the
+port its engine listens on unless another is typed, and **×** takes it away from one, saying
+which apps there find it no more. A program or an app folder on that machine
+[picks it](#an-app-picks-one) in its Data tab, and finds it at the forward's port. **Copy URL**
+puts the database's URL, as a program on that machine reaches it, its user's password in it,
+on the clipboard, to connect by hand (a shell there, or Compass on the laptop):
+
+    mongodb://orders:<password>@127.0.0.1:27017/orders
+
+It is the one answer that holds a password, `GET /api/v1/databases/<server>/url?database=orders&remote=vps2`,
+the owner's alone, written in the log as `database_url_given`, the password left out; the page
+keeps it nowhere, and its button's hint shows it as dots.
+
+Docker picks the server's port as its container starts, and picks another at a later start
+once the machine or its docker restarted. serviceman reads the port again when the machine's
+agent dials in (and a few times in the minutes after, for a container docker starts late), and
+every few seconds while Databases is open: a new one is kept, a program on the machine gets it
+at its next start, and the server's forwards come from it, said in the log as
+`database_port_moved` and `database_forwards_follow`. **Remove…** takes its forwards out with
+it, and its answer names them, `forwards_removed`. A token neither sees them nor writes one.
 
 ## Remove
 

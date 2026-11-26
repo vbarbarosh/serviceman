@@ -1,4 +1,4 @@
-const database_engines = require('./database_engines');
+const database_url = require('./database_url');
 const databases_read = require('./databases_read');
 
 // A variable's _URL, with the number a second one of its name has
@@ -10,9 +10,10 @@ const RE_URL_ENV = /_URL(_\d+)?$/;
 // its own: COUCHDB_SECRET beside COUCHDB_URL, COUCHDB_SECRET_2 beside COUCHDB_URL_2, and
 // <env>_SECRET beside a name with no _URL (app_data_tab.js says it the same). An app in a container reaches the
 // server by its container's name on the databases' network, which it joins (inside); a program
-// on the machine itself reaches it on 127.0.0.1, at its port there. A database is reached on its
-// own machine: a pick of another machine's, or of one that is not there or not up, stops the
-// start with the reason, rather than starting an app that finds no database.
+// on the machine itself reaches it on 127.0.0.1, at its port there, and a program on another
+// machine at the port the server's forward listens on there (database_url). A pick that is not
+// reached so, or of a server that is not there or not up, stops the start with the reason,
+// rather than starting an app that finds no database.
 function database_env(app, remote, service, inside)
 {
     const out = {};
@@ -26,24 +27,10 @@ function database_env(app, remote, service, inside)
         if (server === undefined) {
             throw new Error(`${service.name} picked ${row.database} on ${row.server}, and no database server is called ${row.server} now: see Databases`);
         }
-        if (server.remote !== remote.name) {
-            throw new Error(`${row.server} is on ${server.remote}, and ${service.name} runs on ${remote.name}: an app picks a database of its own machine`);
-        }
-        if (server.phase !== 'up') {
-            throw new Error(`${row.server} is not up: see Databases`);
-        }
-        const user = server.users[row.database];
-        if (user === undefined) {
-            throw new Error(`${row.server} has no database ${row.database} made by serviceman`);
-        }
-        const engine = database_engines.find(v => v.value === server.engine);
-        const host = inside ? `serviceman-db-${server.name}:${engine.port}` : `127.0.0.1:${server.port}`;
+        out[row.env] = database_url(app, server, row.database, remote.name, inside);
         if (server.engine === 'couchdb') {
-            out[row.env] = `${engine.scheme}://${user.user}:${user.password}@${host}`;
             out[secret_env(row.env)] = server.secret;
-            continue;
         }
-        out[row.env] = `${engine.scheme}://${user.user}:${user.password}@${host}/${row.database}`;
     }
     return out;
 }

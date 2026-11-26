@@ -819,8 +819,15 @@ test('the config says what is wrong with a forward, in its own words', function 
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
-        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null, service: null},
+        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null, service: null, database: null},
     ]);
+    // A database server's port brought over is part of that server, named as the Databases page
+    // names one; never part of a service as well
+    assert.strictEqual(config_of([{label: 'a', database: 'mongodb-1', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]).forwards[0].database, 'mongodb-1');
+    for (const wrong of [null, '', 'Mongo DB', '1-mongo', 'x'.repeat(41)]) {
+        assert.throws(() => config_of([{label: 'a', database: wrong, from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]), {message: `forwards[0].database: the name of the database server it is part of, or left out (got ${JSON.stringify(wrong)})`});
+    }
+    assert.throws(() => config_of([{label: 'a', service: 'llm', database: 'mongodb-1', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]), {message: 'forwards[0].database: a forward is part of a service or of a database server, not both'});
     // The token that asked for it is serviceman's to write, and read back as it was
     const by = {token: '4c6b2ea73dc33d08', label: 'visual-agency'};
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}, by}]).forwards[0].by, by);

@@ -1800,6 +1800,30 @@ group says whose it is, and that group&#39;s <code>group_spawn</code> here names
 <td><code>database_remove</code></td>
 <td>A server was removed: its container and its volume, every database in it.</td>
 </tr>
+<tr>
+<td><code>database_url_given</code></td>
+<td><strong>Copy URL</strong> asked for a database&#39;s URL, its password in it: <code>name=</code> the database, <code>remote=</code> the machine it is for. The URL is not written.</td>
+</tr>
+<tr>
+<td><code>database_forwards</code></td>
+<td>Where a server&#39;s port shows up on other machines was written: <code>forwards=</code> its forwards now, <code>removed=</code> those taken out.</td>
+</tr>
+<tr>
+<td><code>database_port_moved</code></td>
+<td>Docker gave a server another port at a start (the machine or its docker restarted): <code>from=</code> the one it had, <code>to=</code> the new one.</td>
+</tr>
+<tr>
+<td><code>database_forwards_follow</code></td>
+<td>Its forwards come from the new port now; <code>forwards=</code> their labels.</td>
+</tr>
+<tr>
+<td><code>database_port_error</code></td>
+<td>Its port could not be read again, and why; tried again while its machine stays online.</td>
+</tr>
+<tr>
+<td><code>database_forwards_error</code></td>
+<td>Its forwards could not be taken out with it, and why: Forwards lists them.</td>
+</tr>
 </tbody></table>
 </div>
 <h3 id="logline"><a class="anchor" href="#logline" aria-hidden="true" tabindex="-1">#</a>Logline</h3>

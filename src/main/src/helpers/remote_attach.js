@@ -1,5 +1,6 @@
 const apt_lane = require('./apt_lane');
 const apt_said = require('./apt_said');
+const database_ports_follow = require('./database_ports_follow');
 const docker_lane = require('./docker_lane');
 const docker_shell_said = require('./docker_shell_said');
 const door_peer_known = require('./door_peer_known');
@@ -199,6 +200,9 @@ function message_read(app, remote, message)
         state.shared_told = null;
         state.shared_error = null;
         shared_tell(app);
+        // And the ports of its database servers: a machine that restarted, or its docker, gave
+        // each a port of docker's picking again, and their forwards come from it
+        database_ports_follow(app, remote);
         return;
     }
     if (message.type === 'stats') {

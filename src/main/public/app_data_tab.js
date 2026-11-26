@@ -164,15 +164,30 @@ const app_data_tab = {
         has_rest: function () {
             return this.items.some(v => v.kind === 'rest');
         },
-        // The databases offered, by server: those on its own machine with a user serviceman
-        // made; the others are shown, and say why they cannot be picked
+        // The databases offered, by server: those with a user serviceman made, on its own
+        // machine, or on another whose port is brought to its machine, for a program there (a
+        // container has a 127.0.0.1 of its own, which the forward does not listen on); the
+        // others are shown, and say why they cannot be picked. `forward`: the one it is reached
+        // through, or null on its own machine; `reach`: brought there, out of a container's reach
         groups: function () {
             const out = [];
             for (const server of ((this.servers === null) ? [] : this.servers)) {
-                const away = (server.remote !== this.machine);
+                const forward = (server.remote === this.machine) ? null : forward_at(server, this.machine);
+                const reach = (forward !== null) && (this.app.runs_in !== 'machine');
+                let away = '';
+                if ((server.remote !== this.machine) && (forward === null)) {
+                    away = `, on ${server.title}, not brought here`;
+                }
+                else if (reach) {
+                    away = `, on ${server.title}, out of a container's reach`;
+                }
+                else if ((forward !== null) && forward.off) {
+                    away = `, on ${server.title}, its forward set aside`;
+                }
                 const options = server.databases.map(function (database) {
-                    const why = away ? `, on ${server.title}` : ((database.user === null) ? ', made outside serviceman' : '');
-                    return {key: `${server.name}/${database.name}`, label: `${database.name} · ${server.name}${why}`, disabled: (why !== '') || (server.phase !== 'up'), server, database};
+                    const why = (away !== '') ? away : ((database.user === null) ? ', made outside serviceman' : '');
+                    const through = ((why === '') && (forward !== null)) ? `, from ${server.title}` : '';
+                    return {key: `${server.name}/${database.name}`, label: `${database.name} · ${server.name}${why}${through}`, disabled: (why !== '') || (server.phase !== 'up'), server, database, forward, reach};
                 });
                 if (options.length > 0) {
                     out.push({server: server.name, label: `${server.name} · ${engine_of(server).label} ${server.version} on ${server.title}`, options});
@@ -196,8 +211,16 @@ const app_data_tab = {
             if (this.servers === null) {
                 return 'reading the databases…';
             }
+            // One brought to its machine that a container there does not reach is said by name
+            const reach = this.groups.flatMap(v => v.options).find(v => v.reach && (this.picks.some(vv => this.key_of(vv) === v.key) === false));
+            if ((this.pick_free === null) && (reach !== undefined)) {
+                return `${reach.database.name} on ${reach.server.name} is brought to ${this.machine}'s 127.0.0.1, which a container does not reach: a program or an app folder there picks it`;
+            }
+            if ((this.pick_free === null) && this.groups.some(v => v.options.some(vv => vv.disabled === false))) {
+                return 'It has every database it reaches already: New database brings another up';
+            }
             if (this.pick_free === null) {
-                return `No database on ${this.machine || 'its machine'} to pick: New database brings one up`;
+                return `No database on ${this.machine || 'its machine'}, or brought to it, to pick: New database brings one up`;
             }
             return 'A database of the Databases page, handed to it at every start';
         },
@@ -462,7 +485,8 @@ const app_data_tab = {
             return this.groups.flatMap(v => v.options).find(v => v.key === this.key_of(pick)) || null;
         },
         // As the app finds it, its password left out: by the server's name on the databases'
-        // network for an app in a container, on 127.0.0.1 at its port for a program on the machine
+        // network for an app in a container, on 127.0.0.1 at its port for a program on the
+        // machine, and at its forward's port for a program on another
         url_of: function (pick) {
             const option = this.option_of(pick);
             if (option === null) {
@@ -470,7 +494,8 @@ const app_data_tab = {
             }
             const engine = engine_of(option.server);
             const user = (option.database.user === null) ? '…' : option.database.user;
-            const host = (this.app.runs_in === 'machine') ? `127.0.0.1:${option.server.port}` : `serviceman-db-${option.server.name}:${engine.port}`;
+            const port = (option.forward === null) ? option.server.port : option.forward.to.port;
+            const host = (this.app.runs_in === 'machine') ? `127.0.0.1:${port}` : `serviceman-db-${option.server.name}:${engine.port}`;
             if (option.server.engine === 'couchdb') {
                 return `${engine.scheme}://${user}:${DOTS}@${host}`;
             }
@@ -514,6 +539,9 @@ const app_data_tab = {
             const option = this.option_of(pick);
             if ((option !== null) && (option.server.engine === 'couchdb')) {
                 return `its admin, at every start, and ${secret_env(pick.env)}, the secret it trusts a signed user name by`;
+            }
+            if ((option !== null) && (option.forward !== null)) {
+                return `its own user and password, at every start, through the forward from ${option.server.title}`;
             }
             return 'its own user and password, at every start';
         },
@@ -585,6 +613,14 @@ const app_data_tab = {
 function engine_of(server)
 {
     return ENGINES[server.engine] || {label: server.engine, scheme: server.engine, port: ''};
+}
+
+// The first of a server's forwards that listens on a port at a machine, one set aside only when
+// no other does, or null; as database_url.js picks it
+function forward_at(server, machine)
+{
+    const there = (server.forwards || []).filter(v => (v.to.here === false) && (v.to.remote === machine) && (v.to.port !== null));
+    return there.find(v => v.off === false) || there[0] || null;
 }
 
 // The variable a CouchDB's secret comes in, beside its URL's (database_env.js says it the same)

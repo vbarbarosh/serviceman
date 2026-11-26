@@ -1,5 +1,7 @@
 const couchdb_ini = require('./couchdb_ini');
 const database_engines = require('./database_engines');
+const database_port_follow = require('./database_port_follow');
+const database_port_read = require('./database_port_read');
 const database_sample_files = require('./database_sample_files');
 const database_samples = require('./database_samples');
 const database_sql = require('./database_sql');
@@ -64,13 +66,20 @@ async function database_up(app, name)
         if (server.sample) {
             await sample_load(app, connect, server);
         }
-        const port = await port_read(connect, server, engine);
+        const port = await database_port_read(connect, server);
         server_set(app, name, {phase: 'up', said: '', error: null, port});
         log_event(app, 'database_up_end_ok', {database: name, remote: server.remote, port, ms: Date.now() - begun});
     }
     catch (error) {
         server_set(app, name, {phase: 'failed', said: '', error: error.message});
         log_event(app, 'database_up_end_error', {database: name, remote: server.remote, reason: error.message, ms: Date.now() - begun});
+    }
+    // Brought up again, it may listen on another port: its forwards come from that one
+    try {
+        await database_port_follow(app, name);
+    }
+    catch (error) {
+        log_event(app, 'database_port_error', {database: name, reason: error.message});
     }
     // A CouchDB up or down changes the door of its machine: an app's store for each user is
     // answered there only while it is up (doors_table)
@@ -207,16 +216,6 @@ async function sample_load(app, connect, server)
     const kept = databases.servers.find(v => v.name === server.name);
     kept.users[sample.database] = user;
     databases_write(app, databases);
-}
-
-async function port_read(connect, server, engine)
-{
-    const inspected = await engine_call(connect, 'GET', `/containers/serviceman-db-${server.name}/json`);
-    if (inspected.status !== 200) {
-        throw new Error(engine_said(inspected));
-    }
-    const ports = JSON.parse(inspected.body).NetworkSettings.Ports[`${engine.port}/tcp`];
-    return ((ports === null) || (ports === undefined) || (ports.length === 0)) ? null : Number(ports[0].HostPort);
 }
 
 database_up.NETWORK = NETWORK;

@@ -330,6 +330,9 @@ const forwards_section = {
             if (item.service !== null) {
                 parts.push(`part of ${item.service}`);
             }
+            if ((item.database !== null) && (item.database !== undefined)) {
+                parts.push(`part of ${item.database}, on Databases`);
+            }
             return parts.join(' · ');
         },
         pill_of: function (item) {
@@ -426,9 +429,11 @@ const forwards_section = {
             const written = await this.forwards_write(function (forwards) {
                 const at = forwards.findIndex(v => label_of(v) === ((editing === null) ? fresh.label : editing.label));
                 const kept = ((at === -1) || (editing === null)) ? false : (forwards[at].off === true);
-                // One that is part of a program stays its part, changed here or on its page
+                // One that is part of a program or a database server stays its part, changed here
+                // or on its page
                 const service = ((at === -1) || (editing === null)) ? undefined : forwards[at].service;
-                const forward = Object.assign({label: fresh.label}, (service === undefined) ? {} : {service}, {from, to}, kept ? {off: true} : {});
+                const database = ((at === -1) || (editing === null)) ? undefined : forwards[at].database;
+                const forward = Object.assign({label: fresh.label}, (service === undefined) ? {} : {service}, (database === undefined) ? {} : {database}, {from, to}, kept ? {off: true} : {});
                 if ((editing === null) || (at === -1)) {
                     forwards.push(forward);
                     return;

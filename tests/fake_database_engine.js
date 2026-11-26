@@ -11,7 +11,7 @@ const http = require('http');
 // body, for the test to read what went where.
 async function fake_database_engine(socket)
 {
-    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, fail_build: false, sql: [], next: 1};
+    const engine = {images: new Set(), networks: new Set(), volumes: new Set(), containers: new Map(), execs: new Map(), requests: [], fail_ping: false, fail_build: false, sql: [], next: 1, host_port: 41337};
     const server = http.createServer(function (req, res) {
         const chunks = [];
         req.on('data', v => chunks.push(v));
@@ -85,7 +85,8 @@ function container_route(engine, req, res, body, url, parts)
         return text(res, 204, '');
     }
     if (parts[2] === 'json') {
-        const port = [{HostIp: '127.0.0.1', HostPort: '41337'}];
+        // The port docker picked on the machine's loopback, which a test may move, as a start does
+        const port = [{HostIp: '127.0.0.1', HostPort: String(engine.host_port)}];
         return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port, '5984/tcp': port, '27017/tcp': port}}});
     }
     if (parts[2] === 'start') {

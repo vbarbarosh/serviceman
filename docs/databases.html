@@ -694,7 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
-<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
+<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#its-port-on-another-machine">Its port on another machine</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -798,11 +798,13 @@ link:</p>
 <h2 id="a-databases-page"><a class="anchor" href="#a-databases-page" aria-hidden="true" tabindex="-1">#</a>A database&#39;s page</h2>
 <p>Its head: its name, how it stands, its engine, its server and its machine, then its size, its
 tables (a MongoDB&#39;s collections) and where it is reached from; under it, the apps given it and the variable each finds it
-in, each a link to its service; the databases beside it in its server. <strong>Remove…</strong> is there
-(below).</p>
+in, each a link to its service; <strong>Reached from</strong>, its own machine and each other one its port
+is brought to (<a href="#its-port-on-another-machine">below</a>), each with <strong>Copy URL</strong>; the databases
+beside it in its server. <strong>Remove…</strong> is there (below).</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
-600, beside what it writes about itself: never in the config, never in an answer to the page.
+600, beside what it writes about itself: never in the config, never in an answer to the page
+but one, the URL <strong>Copy URL</strong> asks for (<a href="#its-port-on-another-machine">below</a>).
 They reach the machine in the bodies of the Engine API&#39;s requests, the container&#39;s environment
 and an exec&#39;s, never on a command line, which every user of the machine can read. The SQL that
 makes a user goes into the container as a file only root reads, and is removed once it ran; in a
@@ -844,8 +846,9 @@ it found, and nothing of it is run. The sample&#39;s database gets a user of its
 in New database does.</p>
 <h2 id="an-app-picks-one"><a class="anchor" href="#an-app-picks-one" aria-hidden="true" tabindex="-1">#</a>An app picks one</h2>
 <p>In an app&#39;s <strong>Settings</strong> on Apps, its <strong>Data</strong> tab: <strong>+ Database</strong> lists the databases of every
-server, those on the app&#39;s own machine with a user serviceman made to pick, the others greyed,
-saying why; <strong>New database…</strong> opens New database with the app ticked. The pick is written into the app&#39;s config as <code>databases</code>, each one variable of its
+server, those with a user serviceman made to pick, on the app&#39;s own machine or, for a program,
+on another whose port is <a href="#its-port-on-another-machine">brought to its machine</a>; the others
+greyed, saying why; <strong>New database…</strong> opens New database with the app ticked. The pick is written into the app&#39;s config as <code>databases</code>, each one variable of its
 env:</p>
 <pre><code class="language-json">{
     &quot;name&quot;: &quot;adminer&quot;,
@@ -862,13 +865,16 @@ reaches it:</p>
 mysql://sakila:&lt;password&gt;@127.0.0.1:&lt;port&gt;/sakila                a program on the machine
 postgresql://sakila:&lt;password&gt;@serviceman-db-postgresql-1:5432/sakila
 mongodb://orders:&lt;password&gt;@serviceman-db-mongodb-1:27017/orders
+mongodb://orders:&lt;password&gt;@127.0.0.1:27017/orders                a program on vps2, through the forward
 </code></pre>
 <p>A MongoDB is given in <code>MONGODB_URL</code> unless the row names another variable; its user signs in to
 the database in the URL&#39;s path, so a driver needs no <code>authSource</code>.</p>
 <p>An app in a container, a docker image or a program in an image, is put on the
-<code>serviceman-databases</code> network to reach the server there. A pick of another machine&#39;s database,
-or of one that is not there or not up, stops the start with the reason, rather than start an app
-that finds no database. The tab shows the URL with its password as dots: the page never has it.</p>
+<code>serviceman-databases</code> network to reach the server there. A program on another machine reaches
+it at the port its forward listens on there; a container there has a <code>127.0.0.1</code> of its own,
+which the forward does not listen on. A pick of another machine&#39;s database not brought there,
+of one a container there picked, or of one that is not there or not up, stops the start with
+the reason, rather than start an app that finds no database. The tab shows the URL with its password as dots: the page never has it.</p>
 <h3 id="adminer"><a class="anchor" href="#adminer" aria-hidden="true" tabindex="-1">#</a>Adminer</h3>
 <p>An app of Adminer&#39;s own image (<code>adminer</code>, any tag) given a database opens on its <code>DATABASE_URL</code>,
 logged in as its user (a MySQL or a PostgreSQL: Adminer does not speak MongoDB, and its Data tab
@@ -1041,6 +1047,38 @@ pick a CouchDB in its <strong>Data</strong> tab with <strong>+ Store for each us
 the machine that CouchDB runs on (its page, <strong>Public addresses</strong>): the store is answered at that
 machine&#39;s door, and only there. Each user who signs in gets a list of their own; two users never
 see each other&#39;s.</p>
+<h2 id="its-port-on-another-machine"><a class="anchor" href="#its-port-on-another-machine" aria-hidden="true" tabindex="-1">#</a>Its port on another machine</h2>
+<p>A server&#39;s port, on its machine&#39;s <code>127.0.0.1</code>, shows up on another machine&#39;s loopback as well,
+the way <code>ssh -L</code> brings one, with no ssh: a <a href="remotes.html#a-port-or-a-socket-from-one-machine-to-another">forward</a>
+that is part of the server. mongodb-1 on vps1, reached on vps2 at <code>127.0.0.1:27017</code>:</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;label&quot;: &quot;mongodb-1 → vps2&quot;, &quot;database&quot;: &quot;mongodb-1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 41337}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps2&quot;, &quot;port&quot;: 27017}}
+]
+</code></pre>
+<p>serviceman writes it from where it shows up alone, <code>PUT /api/v1/databases/&lt;server&gt;/forwards</code>
+with <code>{&quot;forwards&quot;: [{&quot;to&quot;: {&quot;remote&quot;: &quot;vps2&quot;, &quot;port&quot;: 27017}}]}</code>, the whole list each time, an
+empty one taking them all out; a place it showed up before keeps its label. Nothing listens
+outside the machine&#39;s loopback, and nothing opens to the internet.</p>
+<p><strong>Reached from</strong>, on a database&#39;s page, lists its own machine and each other one its port is
+brought to, with the programs there that picked it, which find it there (a container there
+does not); <strong>+ a machine</strong> brings it to another, at the
+port its engine listens on unless another is typed, and <strong>×</strong> takes it away from one, saying
+which apps there find it no more. A program or an app folder on that machine
+<a href="#an-app-picks-one">picks it</a> in its Data tab, and finds it at the forward&#39;s port. <strong>Copy URL</strong>
+puts the database&#39;s URL, as a program on that machine reaches it, its user&#39;s password in it,
+on the clipboard, to connect by hand (a shell there, or Compass on the laptop):</p>
+<pre><code>mongodb://orders:&lt;password&gt;@127.0.0.1:27017/orders
+</code></pre>
+<p>It is the one answer that holds a password, <code>GET /api/v1/databases/&lt;server&gt;/url?database=orders&amp;remote=vps2</code>,
+the owner&#39;s alone, written in the log as <code>database_url_given</code>, the password left out; the page
+keeps it nowhere, and its button&#39;s hint shows it as dots.</p>
+<p>Docker picks the server&#39;s port as its container starts, and picks another at a later start
+once the machine or its docker restarted. serviceman reads the port again when the machine&#39;s
+agent dials in (and a few times in the minutes after, for a container docker starts late), and
+every few seconds while Databases is open: a new one is kept, a program on the machine gets it
+at its next start, and the server&#39;s forwards come from it, said in the log as
+<code>database_port_moved</code> and <code>database_forwards_follow</code>. <strong>Remove…</strong> takes its forwards out with
+it, and its answer names them, <code>forwards_removed</code>. A token neither sees them nor writes one.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server&#39;s name typed again, then takes its container and

@@ -2,6 +2,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const crypto = require('crypto');
+const database_env = require('../src/main/src/helpers/database_env');
 const database_samples = require('../src/main/src/helpers/database_samples');
 const fake_database_engine = require('./fake_database_engine');
 const fetch_host = require('./fetch_host');
@@ -222,6 +223,89 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
     assert.deepStrictEqual(Object.keys(container.files), []);
 });
 
+// A server's port shows up on another machine as a forward that is part of it: written from the
+// page's {to} alone, from its machine and its port; a forward that stays where it showed up keeps
+// its label; it follows the port when docker picks another at a start; a token neither sees it
+// nor writes one; and it goes with the server
+test('a database server\'s port goes to another machine as its forward, follows its port, and goes with it', async function (t) {
+    const world = await world_start(t, ['vps2']);
+    const engine = world.docker.engine;
+    const made = await control(world, 'POST', '/api/v1/databases', {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'laptop'});
+    assert.strictEqual(made.status, 202, JSON.stringify(made.body));
+    await view_until(world, v => (v.servers[0].phase === 'up'));
+    function file() {
+        return JSON.parse(fs.readFileSync(world.config_path, 'utf8')).forwards;
+    }
+
+    assert.strictEqual((await control(world, 'PUT', '/api/v1/databases/mongodb-9/forwards', {forwards: []})).status, 404);
+    for (const wrong of [{}, {forwards: 'vps2'}, {forwards: [null]}, {forwards: [{to: 'vps2:27017'}]}]) {
+        assert.strictEqual((await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', wrong)).status, 400, JSON.stringify(wrong));
+    }
+    const nowhere = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'phone', port: 27017}}]});
+    assert.strictEqual(nowhere.status, 400);
+    assert.match(nowhere.body.error, /phone/);
+    assert.strictEqual(file(), undefined, 'nothing written for a list the config refuses');
+
+    const brought = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'vps2', port: 27017}}]});
+    assert.strictEqual(brought.status, 200, JSON.stringify(brought.body));
+    assert.deepStrictEqual(file(), [{label: 'mongodb-1 → vps2', database: 'mongodb-1', from: {remote: 'laptop', port: 41337}, to: {remote: 'vps2', port: 27017}}]);
+    assert.deepStrictEqual(brought.body.servers[0].forwards, [{label: 'mongodb-1 → vps2', from: {remote: 'laptop', port: 41337}, to: {remote: 'vps2', here: false, port: 27017, socket: null}, off: false, state: 'to_offline', problem: 'vps2 is offline', at: null, apps: []}]);
+
+    // Copy URL: its user's URL as a program there reaches it, on its machine and through the
+    // forward; nowhere it is not brought, and for the owner alone
+    const orders = await control(world, 'POST', '/api/v1/databases/mongodb-1/databases', {name: 'orders'});
+    assert.strictEqual(orders.status, 201, JSON.stringify(orders.body));
+    const password = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0].users.orders.password;
+    const home = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&remote=laptop');
+    assert.deepStrictEqual([home.status, home.body], [200, {url: `mongodb://orders:${password}@127.0.0.1:41337/orders`}]);
+    const there = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&remote=vps2');
+    assert.deepStrictEqual([there.status, there.body], [200, {url: `mongodb://orders:${password}@127.0.0.1:27017/orders`}]);
+    const unknown = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=sales&remote=vps2');
+    assert.deepStrictEqual([unknown.status, unknown.body.error], [409, 'mongodb-1 has no database sales made by serviceman']);
+    assert.strictEqual((await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&remote=phone')).status, 404);
+    assert.strictEqual((await control(world, 'GET', '/api/v1/databases/mongodb-9/url?database=orders&remote=vps2')).status, 404);
+    // A program on vps2 that picked it finds it at the forward's port, and the forward names it
+    const shop = await control(world, 'POST', '/api/v1/services', {service: {name: 'shop', type: 'shell', remotes: ['vps2'], command: 'bin/run', publish: {host: 'shop.localhost', port: 3000}, databases: [{server: 'mongodb-1', database: 'orders', env: 'MONGODB_URL'}]}});
+    assert.strictEqual(shop.status, 200, JSON.stringify(shop.body));
+    // A container there that picked it does not find it there, and is not named
+    const boxed = await control(world, 'POST', '/api/v1/services', {service: {name: 'shop-box', type: 'docker', remotes: ['vps2'], image: 'docker.io/library/mongo:8.0', publish: {host: 'shop-box.localhost', port: 3000}, databases: [{server: 'mongodb-1', database: 'orders', env: 'MONGODB_URL'}]}});
+    assert.strictEqual(boxed.status, 200, JSON.stringify(boxed.body));
+    assert.deepStrictEqual((await control(world, 'GET', '/api/v1/databases')).body.servers[0].forwards[0].apps, ['shop']);
+    const service = world.app.services.find(v => v.name === 'shop');
+    assert.deepStrictEqual(database_env(world.app, {name: 'vps2'}, service, false), {MONGODB_URL: there.body.url});
+    assert.throws(() => database_env(world.app, {name: 'vps2'}, service, true), /mongodb-1 is on laptop, its port brought to vps2's 127\.0\.0\.1, which a container does not reach/);
+
+    // Docker picked another port at a start: read again, kept, and the forward follows it
+    engine.host_port = 41338;
+    world.app.database_lists.clear();
+    const moved = await control(world, 'GET', '/api/v1/databases');
+    assert.strictEqual(moved.status, 200);
+    assert.deepStrictEqual(file()[0].from, {remote: 'laptop', port: 41338});
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0].port, 41338);
+
+    // A second place: the first keeps its label, the new one gets a number
+    const two = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'vps2', port: 27017}}, {to: {remote: 'vps2', port: 27018}}]});
+    assert.strictEqual(two.status, 200, JSON.stringify(two.body));
+    assert.deepStrictEqual(file().map(v => `${v.label} ${v.from.port} ${v.to.port}`), ['mongodb-1 → vps2 41338 27017', 'mongodb-1 → vps2 2 41338 27018']);
+
+    // A token with the forwards right: the server's are the owner's
+    const minted = await control(world, 'POST', '/api/v1/tokens', {label: 'visual-agency', remotes: ['laptop', 'vps2'], rights: ['forwards']});
+    assert.strictEqual(minted.status, 200, JSON.stringify(minted.body));
+    const listed = await control(world, 'GET', '/api/v1/forwards', undefined, minted.body.token);
+    assert.deepStrictEqual(listed.body.forwards, []);
+    const tying = await control(world, 'PUT', '/api/v1/forwards', {forwards: [{label: 'mine', database: 'mongodb-1', from: {remote: 'laptop', port: 41338}, to: {remote: 'vps2', port: 27019}}]}, minted.body.token);
+    assert.strictEqual(tying.status, 403);
+    assert.match(tying.body.error, /may not hold a forward that is part of a database server/);
+    const asked = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&remote=vps2', undefined, minted.body.token);
+    assert.strictEqual(asked.status, 403, 'a URL with its password is the owner\'s alone');
+    assert.strictEqual(JSON.stringify(asked.body).includes(password), false);
+
+    const removed = await control(world, 'DELETE', '/api/v1/databases/mongodb-1');
+    assert.strictEqual(removed.status, 200, JSON.stringify(removed.body));
+    assert.deepStrictEqual(removed.body.forwards_removed, ['mongodb-1 → vps2', 'mongodb-1 → vps2 2']);
+    assert.strictEqual(file(), undefined);
+});
+
 // A sample whose file is not the one pinned is refused, and the server says why; brought up
 // again, it keeps the password its volume was made with
 test('a sample that is not the one pinned fails the server, and it can be brought up again', async function (t) {
@@ -338,7 +422,8 @@ async function put_php(world, name, file, bytes, remote)
     return {status: answer.status, body: JSON.parse(answer.body)};
 }
 
-async function world_start(t)
+// `others` are machines of the config beside the laptop, with no agent: offline
+async function world_start(t, others)
 {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'databases-'));
     const state_dir = path.join(dir, 'state');
@@ -360,7 +445,7 @@ async function world_start(t)
     fs.writeFileSync(config_path, JSON.stringify({
         listen: {host: '127.0.0.1', port: 0},
         control: {host: 'serviceman.localhost', port: 0},
-        remotes: [{name: 'laptop', token: TOKEN}],
+        remotes: [{name: 'laptop', token: TOKEN}].concat((others || []).map((v, i) => ({name: v, token: `token-of-${v}-${i}-0123456789abcdef`}))),
         services: [],
     }, null, 4));
     const app = app_from_config(await profile_from_db(config_path));
@@ -393,15 +478,19 @@ async function world_start(t)
         fs.closeSync(log);
         fs.rmSync(dir, {recursive: true, force: true});
     });
-    await wait_until(() => app.remotes.every(v => (v.state.phase === 'online') && (v.state.resources !== null) && (v.state.resources.docker !== null)), 15000);
+    const laptop = app.remote_by_name.laptop;
+    await wait_until(() => (laptop.state.phase === 'online') && (laptop.state.resources !== null) && (laptop.state.resources.docker !== null), 15000);
     return out;
 }
 
-async function control(world, method, path_asked, value)
+async function control(world, method, path_asked, value, token)
 {
     // With its length, as a browser sends it: node sends a DELETE's body with none
     const body = (value === undefined) ? undefined : JSON.stringify(value);
     const headers = (body === undefined) ? {} : {'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body))};
+    if (token !== undefined) {
+        headers.authorization = `Bearer ${token}`;
+    }
     const answer = await fetch_host({port: world.control_port, host: '127.0.0.1', path: path_asked, method, headers, body});
     return {status: answer.status, body: JSON.parse(answer.body)};
 }

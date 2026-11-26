@@ -8369,6 +8369,79 @@ button.st-pill.problem-where {
     font-size: 1rem;
 }
 
+/* A database's page: where its port shows up on other machines, a line each: the machine, the
+   port there, the forward's state and its ×; a line being added has its own Save. Narrow, a
+   line's parts wrap under its machine, the × and the buttons kept at its right */
+.databases .db-fwds {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+}
+
+.databases .db-fwds > p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-fwd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-self: stretch;
+    gap: .4rem .9rem;
+    min-width: 0;
+    padding: .45rem .5rem .45rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+.databases .db-fwd > b,
+.databases .db-fwd > code {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-fwd > .line-x,
+.databases .db-fwd-acts {
+    margin-left: auto;
+}
+
+.databases .db-fwd-acts {
+    display: inline-flex;
+    gap: .5rem;
+}
+
+.databases .db-fwd-at {
+    display: inline-flex;
+    align-items: center;
+    gap: .15rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.databases .db-fwd-new select,
+.databases .db-fwd-new input {
+    min-width: 0;
+    max-width: 100%;
+    padding: .3rem .5rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--fg);
+    font: inherit;
+}
+
+.databases .db-fwd-new input {
+    width: 6.5em;
+}
+
+.databases .db-fwd-new select:focus,
+.databases .db-fwd-new input:focus {
+    border-color: var(--accent);
+    outline: 0;
+}
+
 /* The apps of a row wrap in their cell, each a link to its service */
 .databases .db-apps {
     white-space: normal;

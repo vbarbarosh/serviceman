@@ -1,10 +1,13 @@
 const body_fields = require('../body_fields');
 const crypto = require('crypto');
 const database_engines = require('../helpers/database_engines');
+const database_forwards_put = require('../helpers/database_forwards_put');
 const database_list = require('../helpers/database_list');
+const database_port_follow = require('../helpers/database_port_follow');
 const database_samples = require('../helpers/database_samples');
 const database_sql = require('../helpers/database_sql');
 const database_up = require('../helpers/database_up');
+const database_url = require('../helpers/database_url');
 const database_user_make = require('../helpers/database_user_make');
 const database_user_sql = require('../helpers/database_user_sql');
 const databases_read = require('../helpers/databases_read');
@@ -15,6 +18,7 @@ const engine_said = require('../helpers/engine_said');
 const log_event = require('../helpers/log_event');
 const route_param = require('../helpers/route_param');
 const send_json = require('../helpers/send_json');
+const view_from_forward = require('../helpers/view_from_forward');
 
 const BODY_LIMIT_BYTES = 16*1024;
 // A server's name: its container and its volume are called after it
@@ -23,16 +27,20 @@ const RE_NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const RE_DATABASE = /^[a-z][a-z0-9_]{0,31}$/;
 const RE_SERVER = /^\/api\/v1\/databases\/([^/]+)$/;
 const RE_SERVER_DATABASES = /^\/api\/v1\/databases\/([^/]+)\/databases$/;
+const RE_SERVER_FORWARDS = /^\/api\/v1\/databases\/([^/]+)\/forwards$/;
+const RE_SERVER_URL = /^\/api\/v1\/databases\/([^/]+)\/url$/;
 // How long a server's list of databases is shown as last read before it is read again
 const LIST_FRESH_MS = 10000;
 
 // GET /api/v1/databases (query)                    the servers, each one's databases as it says them; live=0 as last read, asked once when never
 // POST /api/v1/databases (body)                    {name, engine, version, remote, sample}: a server brought up there, filled with the sample
 // POST /api/v1/databases/<server>/databases (body) {name}: an empty database in it, with a user of its own
-// DELETE /api/v1/databases/<server>                the server, its container and its volume, every database in it
+// PUT /api/v1/databases/<server>/forwards (body)   {forwards: [{to}]}: where its port shows up on other machines
+// GET /api/v1/databases/<server>/url (query)       database, remote: {url}, its user's URL, password and all, for a program on that machine
+// DELETE /api/v1/databases/<server>                the server, its container and its volume, every database in it, its forwards
 //
 // True when the request was one of these. The owner's alone: the passwords are behind it, and
-// none of them is ever in an answer.
+// none of them is in an answer but the one URL Copy URL asks for, which is written down.
 async function handle_databases(app, req, res, url)
 {
     if ((url.pathname === '/api/v1/databases') && (req.method === 'GET')) {
@@ -46,6 +54,16 @@ async function handle_databases(app, req, res, url)
     const server = RE_SERVER_DATABASES.exec(url.pathname);
     if ((server !== null) && (req.method === 'POST')) {
         await database_create(app, req, res, route_param(server[1]));
+        return true;
+    }
+    const forwards = RE_SERVER_FORWARDS.exec(url.pathname);
+    if ((forwards !== null) && (req.method === 'PUT')) {
+        await forwards_put(app, req, res, route_param(forwards[1]));
+        return true;
+    }
+    const given = RE_SERVER_URL.exec(url.pathname);
+    if ((given !== null) && (req.method === 'GET')) {
+        url_give(app, res, route_param(given[1]), String(url.searchParams.get('database')), String(url.searchParams.get('remote')));
         return true;
     }
     const removed = RE_SERVER.exec(url.pathname);
@@ -165,8 +183,70 @@ async function database_create(app, req, res, name)
     send_json(res, 201, await view_of(app, true));
 }
 
+// Where its port shows up on other machines: {forwards: [{to}]}, each `to` a machine and a port
+// on its loopback, {"remote": "vps2", "port": 27017}, or a socket file there, as a forward's `to`
+// is written. Each is a forward that is part of it, from its machine and its port now, which
+// follows that port (database_forwards_put); an empty list takes them all out. What the config
+// refuses is said as it says it.
+async function forwards_put(app, req, res, name)
+{
+    const body = await body_fields(req, BODY_LIMIT_BYTES);
+    const server = databases_read(app).servers.find(v => v.name === name);
+    if (server === undefined) {
+        send_json(res, 404, {error: `no database server called ${JSON.stringify(name)}`});
+        return;
+    }
+    const wrong = (Array.isArray(body.forwards) === false) || body.forwards.some(v => (v === null) || (typeof v !== 'object') || (v.to === null) || (typeof v.to !== 'object') || Array.isArray(v.to));
+    if (wrong) {
+        send_json(res, 400, {error: 'forwards: where its port shows up, a list of {"to": {"remote": "vps2", "port": 27017}}'});
+        return;
+    }
+    if ((body.forwards.length > 0) && (server.port === null)) {
+        send_json(res, 409, {error: `${name} has no port yet: it goes to another machine once ${name} is up`});
+        return;
+    }
+    let written;
+    try {
+        written = await database_forwards_put(app, server, body.forwards.map(v => v.to));
+    }
+    catch (error) {
+        send_json(res, 400, {error: error.message});
+        return;
+    }
+    log_event(app, 'database_forwards', {database: name, forwards: written.labels.join(', ') || 'none', removed: written.removed.join(', ') || 'none'});
+    send_json(res, 200, await view_of(app, false));
+}
+
+// Copy URL: a database's URL as a program on a machine reaches it, its user's password in it,
+// for the owner to connect by hand (database_url): on the server's machine at its port, on
+// another at its forward's. Written down, the password left out; why it is not reached from
+// there is said as an app's start says it.
+function url_give(app, res, name, database, remote)
+{
+    const server = databases_read(app).servers.find(v => v.name === name);
+    if (server === undefined) {
+        send_json(res, 404, {error: `no database server called ${JSON.stringify(name)}`});
+        return;
+    }
+    if (app.remote_by_name[remote] === undefined) {
+        send_json(res, 404, {error: `no remote named ${JSON.stringify(remote)}`});
+        return;
+    }
+    let url;
+    try {
+        url = database_url(app, server, database, remote, false);
+    }
+    catch (error) {
+        send_json(res, 409, {error: error.message});
+        return;
+    }
+    log_event(app, 'database_url_given', {database: name, name: database, remote});
+    send_json(res, 200, {url});
+}
+
 // Its container and its volume go, through its machine's docker; a machine that is away keeps
-// them, and the server stays, failed, saying so
+// them, and the server stays, failed, saying so. Its forwards go with it, and the answer names
+// them: forwards_removed
 async function server_remove(app, res, name)
 {
     const databases = databases_read(app);
@@ -205,7 +285,16 @@ async function server_remove(app, res, name)
     databases_write(app, databases);
     app.database_lists.delete(name);
     log_event(app, 'database_remove', {database: name, remote: server.remote});
-    send_json(res, 200, await view_of(app, false));
+    let forwards_removed = [];
+    if (app.config.forwards.some(v => v.database === name)) {
+        try {
+            forwards_removed = (await database_forwards_put(app, server, [])).removed;
+        }
+        catch (error) {
+            log_event(app, 'database_forwards_error', {database: name, reason: error.message});
+        }
+    }
+    send_json(res, 200, Object.assign(await view_of(app, false), {forwards_removed}));
 }
 
 // What the page shows: the engines with their versions and samples, the machines that may hold
@@ -233,6 +322,8 @@ async function view_of(app, live)
             error: stale ? 'serviceman restarted while it came up; bring it up again' : server.error,
             port: server.port,
             databases: [],
+            // Where its port shows up on other machines, and how each stands now
+            forwards: forwards_of(app, server.name),
         };
         if ((row.phase === 'up') && online) {
             row.databases = await databases_of(app, remote, server, live);
@@ -240,7 +331,7 @@ async function view_of(app, live)
         rows.push(row);
     }
     return {
-        engines: database_engines.map(v => ({value: v.value, label: v.label, versions: Object.keys(v.versions), samples: Object.entries(database_samples[v.value]).map(vv => ({value: vv[0], label: vv[1].label, about: vv[1].about, database: vv[1].database}))})),
+        engines: database_engines.map(v => ({value: v.value, label: v.label, port: v.port, scheme: v.scheme, versions: Object.keys(v.versions), samples: Object.entries(database_samples[v.value]).map(vv => ({value: vv[0], label: vv[1].label, about: vv[1].about, database: vv[1].database}))})),
         machines: app.remotes.map(v => ({remote: v.name, title: title_of(app, v.name), online: (v.state.phase === 'online'), docker: (machine_refusal(v) === null) || (v.state.phase !== 'online')})),
         servers: rows,
     };
@@ -258,6 +349,8 @@ async function databases_of(app, remote, server, live)
         try {
             kept = {at: Date.now(), rows: await database_list(docker_exec_connect(app, remote), server)};
             app.database_lists.set(server.name, kept);
+            // Its port as docker says it now, which its forwards follow
+            await database_port_follow(app, server.name);
         }
         catch {
             // Shown as it said them last
@@ -265,6 +358,19 @@ async function databases_of(app, remote, server, live)
     }
     const rows = (kept === undefined) ? [] : kept.rows;
     return rows.map(v => Object.assign({}, v, {apps: apps_of(app, server.name, v.name), envs: envs_of(app, server.name, v.name), user: (server.users[v.name] === undefined) ? null : server.users[v.name].user}));
+}
+
+// The forwards that are part of a server, as the page shows them: where each shows up, how it
+// stands now as the Forwards page says it (view_from_forward), and the programs of that machine
+// that picked a database of it, which find it there; a container there has a 127.0.0.1 of its
+// own, and its start stops saying so (database_url)
+function forwards_of(app, name)
+{
+    return app.config.forwards.filter(v => v.database === name).map(function (forward) {
+        const view = view_from_forward(app, forward);
+        const apps = app.services.filter(v => (v.type === 'shell') && (v.image === null) && (v.databases !== undefined) && v.databases.some(vv => vv.server === name) && (v.remotes !== undefined) && v.remotes.includes(forward.to.remote)).map(v => v.name);
+        return {label: forward.label, from: {remote: forward.from.remote, port: forward.from.port}, to: {remote: forward.to.remote, here: forward.to.here, port: forward.to.port, socket: forward.to.socket}, off: forward.off, state: view.state, problem: view.problem, at: view.at, apps};
+    });
 }
 
 // The apps that picked a database, by name

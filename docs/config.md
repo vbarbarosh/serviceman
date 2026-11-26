@@ -255,6 +255,7 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
 | `by`          | Written by serviceman, never by hand: `{"token": "<id>", "label": "visual-agency"}`, the token that asked for it, on a forward a token's `PUT` added or changed. The page shows it beside the label. |
 | `service`     | The service it is part of, a program whose port it brings over ([Its port on another machine](#its-port-on-another-machine)). It goes with that service: renamed with it, taken out with it, its `from` moved with the machine the program runs on. The owner's alone: a token neither sees it nor writes one. Left out, the forward is one of its own. |
+| `database`    | Or the database server it is part of, whose port it brings over ([Its port on another machine](databases.md#its-port-on-another-machine)), written by serviceman: its `from` is kept on the server's machine and port, and it is taken out with the server. The owner's alone, as `service` is. |
 
 Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)
@@ -1407,7 +1408,7 @@ the door that answers most names already, behind `authwall` where there is one.
 
 Its **Data** tab, beside **Settings**, is what the app is given, a row each, every row one
 variable of its env. **+ Database** picks a database of the [Databases](databases.md) page on the
-app's own machine, `DATABASE_URL` unless renamed (a MongoDB's `MONGODB_URL`): it is written into
+app's own machine, or, for a program, one [brought to it](databases.md#its-port-on-another-machine), `DATABASE_URL` unless renamed (a MongoDB's `MONGODB_URL`): it is written into
 the app's config as `databases` and handed to it at every start as its own user's URL, an Adminer
 opening on it logged in ([an app picks one](databases.md#an-app-picks-one)); a CouchDB comes as its admin,
 `COUCHDB_URL` with `COUCHDB_SECRET` beside it ([for a wall's users](databases.md#couchdb-for-a-walls-users)).

@@ -35,7 +35,7 @@ test('a service\'s databases are read from the config, DATABASE_URL unless named
 test('a picked database is its own user\'s URL, by name in a container, by port on the machine', function (t) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'database-env-'));
     t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
-    const app = {state_dir: dir};
+    const app = {state_dir: dir, config: {forwards: []}};
     databases_write(app, {servers: [
         {name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop', root: 'r'.repeat(32), users: {sakila: {user: 'sakila', password: 'p'.repeat(24)}}, phase: 'up', port: 41337},
         {name: 'mysql-2', engine: 'mysql', version: '8.0', remote: 'vps1', root: 'r'.repeat(32), users: {world: {user: 'world', password: 'w'.repeat(24)}}, phase: 'up', port: 41338},
@@ -51,10 +51,39 @@ test('a picked database is its own user\'s URL, by name in a container, by port 
     assert.deepStrictEqual(database_env(app, laptop, orders, false), {MONGODB_URL: `mongodb://orders:${'o'.repeat(24)}@127.0.0.1:41339/orders`});
     assert.deepStrictEqual(database_env(app, laptop, {name: 'web', databases: []}, true), {});
     assert.deepStrictEqual(database_env(app, laptop, {name: 'page'}, true), {}, 'a service of a kind with no databases');
-    assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-2', database: 'world', env: 'DATABASE_URL'}]}, true), /mysql-2 is on vps1, and adminer runs on laptop/);
+    assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-2', database: 'world', env: 'DATABASE_URL'}]}, true), /mysql-2 is on vps1, and its port is not brought to laptop: bring it there on its page in Databases/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-9', database: 'x', env: 'DATABASE_URL'}]}, true), /no database server is called mysql-9 now/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-3', database: 'x', env: 'DATABASE_URL'}]}, true), /mysql-3 is not up/);
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-1', database: 'shop', env: 'DATABASE_URL'}]}, true), /mysql-1 has no database shop made by serviceman/);
+});
+
+// A server on another machine is reached by a program there at the port its forward listens on:
+// the first that listens on a port, one set aside only when no other does; a container there
+// has a 127.0.0.1 of its own, and its start stops saying so
+test('a database of another machine is reached through its forward, by a program there alone', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'database-env-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    function forward(label, to, off) {
+        return {label, database: 'mongodb-1', from: {remote: 'vps1', here: false, port: 41339, socket: null}, to: Object.assign({here: false, port: null, socket: null}, to), off, service: null};
+    }
+    const app = {state_dir: dir, config: {forwards: [
+        forward('mongodb-1 → laptop', {remote: 'laptop', socket: '~/mongo.sock'}, false),
+        forward('mongodb-1 → vps2', {remote: 'vps2', port: 27017}, true),
+        forward('mongodb-1 → vps2 2', {remote: 'vps2', port: 27018}, false),
+        forward('mongodb-1 → desktop', {remote: 'desktop', port: 27017}, true),
+        {label: 'loki', database: null, from: {remote: 'vps1', here: false, port: 3100, socket: null}, to: {remote: 'phone', here: false, port: 27017, socket: null}, off: false, service: null},
+    ]}};
+    const password = 'o'.repeat(24);
+    databases_write(app, {servers: [
+        {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'vps1', root: 'r'.repeat(32), users: {orders: {user: 'orders', password}}, phase: 'up', port: 41339},
+    ]});
+    const shop = {name: 'shop', databases: [{server: 'mongodb-1', database: 'orders', env: 'MONGODB_URL'}]};
+    assert.deepStrictEqual(database_env(app, {name: 'vps2'}, shop, false), {MONGODB_URL: `mongodb://orders:${password}@127.0.0.1:27018/orders`});
+    assert.deepStrictEqual(database_env(app, {name: 'vps1'}, shop, false), {MONGODB_URL: `mongodb://orders:${password}@127.0.0.1:41339/orders`});
+    assert.throws(() => database_env(app, {name: 'vps2'}, shop, true), /mongodb-1 is on vps1, its port brought to vps2's 127\.0\.0\.1, which a container does not reach: a program or an app folder there does/);
+    assert.throws(() => database_env(app, {name: 'desktop'}, shop, false), /mongodb-1 is on vps1, and its forward to desktop is set aside: turn it on in Forwards/);
+    assert.throws(() => database_env(app, {name: 'laptop'}, shop, false), /mongodb-1 is on vps1, and its port is not brought to laptop/, 'a socket file is no port');
+    assert.throws(() => database_env(app, {name: 'phone'}, shop, false), /its port is not brought to phone/, 'a forward of something else');
 });
 
 // The folders an app picked, as its config keeps them: kept for it, or a full path of its machine

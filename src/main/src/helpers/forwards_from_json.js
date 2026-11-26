@@ -5,6 +5,8 @@ const END_FIELDS = ['remote', 'here', 'port', 'socket', 'host'];
 const SOCKET_MAX = 100;
 const RE_TOKEN_ID = /^[0-9a-f]{1,64}$/;
 const RE_SERVICE = /^[a-z0-9][a-z0-9_-]*$/;
+// A database server's name, as the Databases page makes it
+const RE_DATABASE = /^[a-z][a-z0-9-]{0,39}$/;
 
 // A port or a socket of one machine, brought to another, the way `ssh -L` brings one: `from` is
 // where the service is, `to` is where it shows up. Whatever connects at `to` is carried over
@@ -35,6 +37,11 @@ const RE_SERVICE = /^[a-z0-9][a-z0-9_-]*$/;
 // and its `from` moves with the machine the program runs on (service_rename_ties, the service
 // routes). A forward with no `service` is one of its own. Only the owner writes one (a token's
 // list is refused it, forward_token_refusal), and config_from_json checks the service is there.
+//
+// `database` is the database server it is part of, the same way: its port brought to another
+// machine, written by the database's page. serviceman keeps its `from` on the server's machine
+// and port, a port docker may change at a start, and takes it out with the server
+// (database_forwards_follow, handle_databases). The server is kept beside the config, not in it.
 function forwards_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
@@ -74,7 +81,12 @@ function forwards_from_json(json, label)
         if (taken !== undefined) {
             throw new Error(`${at}.to: ${JSON.stringify(taken.label)} already listens there`);
         }
-        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`), service: service_from_json(item.service, `${at}.service`)});
+        const service = service_from_json(item.service, `${at}.service`);
+        const database = database_from_json(item.database, `${at}.database`);
+        if ((service !== null) && (database !== null)) {
+            throw new Error(`${at}.database: a forward is part of a service or of a database server, not both`);
+        }
+        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`), service, database});
     }
     return out;
 }
@@ -99,6 +111,18 @@ function service_from_json(json, label)
     }
     if ((typeof json !== 'string') || (RE_SERVICE.test(json) === false)) {
         throw new Error(`${label}: the name of the service it is part of, or left out (got ${JSON.stringify(json)})`);
+    }
+    return json;
+}
+
+// The database server a forward is part of, or null for none
+function database_from_json(json, label)
+{
+    if (json === undefined) {
+        return null;
+    }
+    if ((typeof json !== 'string') || (RE_DATABASE.test(json) === false)) {
+        throw new Error(`${label}: the name of the database server it is part of, or left out (got ${JSON.stringify(json)})`);
     }
     return json;
 }

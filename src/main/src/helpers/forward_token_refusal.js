@@ -2,12 +2,16 @@
 // it, in words that end "the token … ", or null when it may. A token's forward carries a port or
 // a socket between machines it sees, both ends on them: serviceman itself, and an address beyond
 // the machine (`host`), are the owner's, and so is a forward that is part of a service
-// (`service`): it goes with the service, which no token's list may take away or reshape. An end
-// of no shape at all is left to the config's own check, which refuses it.
+// (`service`) or of a database server (`database`): it goes with it, and no token's list may
+// take it away or reshape it. An end of no shape at all is left to the config's own check,
+// which refuses it.
 function forward_token_refusal(item, token)
 {
     if ((item !== null) && (typeof item === 'object') && (item.service !== undefined)) {
         return 'may not hold a forward that is part of a service: it goes with the service, and is the owner\'s';
+    }
+    if ((item !== null) && (typeof item === 'object') && (item.database !== undefined)) {
+        return 'may not hold a forward that is part of a database server: it goes with the server, and is the owner\'s';
     }
     const ends = ((item === null) || (typeof item !== 'object')) ? [] : [item.from, item.to];
     for (const end of ends) {

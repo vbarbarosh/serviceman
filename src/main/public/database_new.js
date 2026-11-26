@@ -304,7 +304,7 @@ const database_new = {
                     why = 'serviceman does not start it: it reads no variables';
                 }
                 else if (machine !== this.m.remote) {
-                    why = `on ${title}: an app is given a database of its own machine`;
+                    why = `on ${title}: given one of its own machine here, or one brought to it in its Data tab`;
                 }
                 cards.push({name: service.name, title: service.name, icon: kind.icon, line: `${kind.word} · ${machine || 'serviceman'}`, disabled: (why !== ''), why});
             }

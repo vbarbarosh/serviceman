@@ -509,6 +509,12 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `database_up_end_error`   | Bringing it up failed; `reason=` what failed: the machine, docker, MySQL or the sample. |
 | `database_make`           | A database was made in a server, with a user of its own.              |
 | `database_remove`         | A server was removed: its container and its volume, every database in it. |
+| `database_url_given`      | **Copy URL** asked for a database's URL, its password in it: `name=` the database, `remote=` the machine it is for. The URL is not written. |
+| `database_forwards`       | Where a server's port shows up on other machines was written: `forwards=` its forwards now, `removed=` those taken out. |
+| `database_port_moved`     | Docker gave a server another port at a start (the machine or its docker restarted): `from=` the one it had, `to=` the new one. |
+| `database_forwards_follow`| Its forwards come from the new port now; `forwards=` their labels.   |
+| `database_port_error`     | Its port could not be read again, and why; tried again while its machine stays online. |
+| `database_forwards_error` | Its forwards could not be taken out with it, and why: Forwards lists them. |
 
 ### Logline
 

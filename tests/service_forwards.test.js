@@ -159,6 +159,28 @@ test('a forward changed on Forwards stays part of its program', async function (
     }
 });
 
+// A database server's forward changed on Forwards stays part of the server, and says whose it is
+test('a forward changed on Forwards stays part of its database server', async function () {
+    const forwards_section = (await import('../src/main/public/forwards_section.js')).default;
+    const tied = {label: 'mongodb-1 → laptop', database: 'mongodb-1', from: {remote: 'server', port: 41337}, to: {remote: 'laptop', port: 27017}};
+    const running = await control_start([LLM], [LOKI, tied]);
+    const page_fetch_end = page_fetch_begin(running.port);
+    try {
+        // Its line on Forwards, with nothing in its way
+        const lines = Object.assign(forwards_section.data(), forwards_section.methods, {wrong_text: () => ''});
+        assert.strictEqual(lines.line_of({by: null, service: null, database: 'mongodb-1'}), 'part of mongodb-1, on Databases');
+        const fresh = {label: 'mongodb-1 → laptop', from_remote: 'server', from: '41337', to_remote: 'laptop', to: '27018'};
+        const form = Object.assign(forwards_section.data(), forwards_section.methods, {ready: true, making: true, editing: {label: 'mongodb-1 → laptop'}, fresh});
+        await form.write();
+        assert.deepStrictEqual([form.note, form.making], ['', false]);
+        assert.deepStrictEqual(running.file().forwards, [LOKI, {label: 'mongodb-1 → laptop', database: 'mongodb-1', from: {remote: 'server', port: 41337}, to: {remote: 'laptop', port: 27018}}]);
+    }
+    finally {
+        page_fetch_end();
+        running.close();
+    }
+});
+
 // The card "Its port on another machine" holds the forwards that are part of a program as a port
 // and the machines it is brought to; what it writes back is the config's shape, an empty box
 // standing for what it says it does

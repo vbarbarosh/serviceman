@@ -1084,6 +1084,10 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <td><code>service</code></td>
 <td>The service it is part of, a program whose port it brings over (<a href="#its-port-on-another-machine">Its port on another machine</a>). It goes with that service: renamed with it, taken out with it, its <code>from</code> moved with the machine the program runs on. The owner&#39;s alone: a token neither sees it nor writes one. Left out, the forward is one of its own.</td>
 </tr>
+<tr>
+<td><code>database</code></td>
+<td>Or the database server it is part of, whose port it brings over (<a href="databases.html#its-port-on-another-machine">Its port on another machine</a>), written by serviceman: its <code>from</code> is kept on the server&#39;s machine and port, and it is taken out with the server. The owner&#39;s alone, as <code>service</code> is.</td>
+</tr>
 </tbody></table>
 </div>
 <p>Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
@@ -2280,7 +2284,7 @@ the rest of the service is on its page, linked at the window&#39;s foot. A new a
 the door that answers most names already, behind <code>authwall</code> where there is one.</p>
 <p>Its <strong>Data</strong> tab, beside <strong>Settings</strong>, is what the app is given, a row each, every row one
 variable of its env. <strong>+ Database</strong> picks a database of the <a href="databases.html">Databases</a> page on the
-app&#39;s own machine, <code>DATABASE_URL</code> unless renamed (a MongoDB&#39;s <code>MONGODB_URL</code>): it is written into
+app&#39;s own machine, or, for a program, one <a href="databases.html#its-port-on-another-machine">brought to it</a>, <code>DATABASE_URL</code> unless renamed (a MongoDB&#39;s <code>MONGODB_URL</code>): it is written into
 the app&#39;s config as <code>databases</code> and handed to it at every start as its own user&#39;s URL, an Adminer
 opening on it logged in (<a href="databases.html#an-app-picks-one">an app picks one</a>); a CouchDB comes as its admin,
 <code>COUCHDB_URL</code> with <code>COUCHDB_SECRET</code> beside it (<a href="databases.html#couchdb-for-a-walls-users">for a wall&#39;s users</a>).
