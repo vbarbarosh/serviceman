@@ -58,11 +58,30 @@ test('collections and a page of documents are read, the ask going in as data', a
         assert.strictEqual(refused.status, status, path);
         assert.match(refused.body.error, said, path);
     }
+    // A pipeline: its stages go in as data, none that writes
+    const piped = await call(running, '/browse/aggregate?' + new URLSearchParams({collection: 'items', pipeline: '[{$match: {n: {$gt: 1}}}, {$group: {_id: \'$city\', n: {$sum: 1}}},]', limit: '10'}));
+    assert.deepStrictEqual([piped.status, JSON.parse(piped.body.ask.pipeline), piped.body.ask.skip, piped.body.ask.limit], [200, [{$match: {n: {$gt: 1}}}, {$group: {_id: '$city', n: {$sum: 1}}}], 0, 10]);
+    const pipes = [
+        ['', 200, null],
+        ['{$match: {}}', 400, /^the pipeline is a list of stages in brackets/],
+        ['[{$match: {}, $limit: 2}]', 400, /^the pipeline's stage 1 is a document of one stage/],
+        ['[{$match: {}}, 7]', 400, /^the pipeline's stage 2 is a document of one stage/],
+        ['[{$out: \'copy\'}]', 400, /^the pipeline's \$out writes into the database/],
+        ['[{$merge: {into: \'copy\'}}]', 400, /^the pipeline's \$merge writes into the database/],
+        ['[{$match: {a: db.x()}}]', 400, /^the pipeline: "db\.x" is not a value/],
+    ];
+    for (const [pipeline, status, said] of pipes) {
+        const answer = await call(running, '/browse/aggregate?' + new URLSearchParams({collection: 'items', pipeline}));
+        assert.strictEqual(answer.status, status, pipeline);
+        if (said !== null) {
+            assert.match(answer.body.error, said, pipeline);
+        }
+    }
     const long = await call(running, '/browse/documents?collection=items&filter=' + 'x'.repeat(9000));
     assert.match(long.body.error, /^the filter is longer than 8 KB$/);
     const changed = await call(running, '/browse/collections', 'POST');
     assert.strictEqual(changed.status, 405);
-    assert.strictEqual(scripts.length, 5, 'a refused ask runs nothing');
+    assert.strictEqual(scripts.length, 7, 'a refused ask runs nothing');
 });
 
 test('a database not reached, or a client that printed no answer, is 502', async function (t) {

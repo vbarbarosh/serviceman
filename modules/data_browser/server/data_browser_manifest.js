@@ -33,6 +33,12 @@ const data_browser_manifest = {
             read: {},
             commands: [],
         },
+        {
+            kind: 'aggregate',
+            said: 'a page of what a pipeline makes of one collection: ?collection, pipeline, skip, limit',
+            read: {},
+            commands: [],
+        },
     ],
     doors: [],
 };

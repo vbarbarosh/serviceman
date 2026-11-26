@@ -18,6 +18,8 @@ const TEXT_MOST = 8*1024;
 //     GET <base>/collections     {items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}
 //     GET <base>/documents?collection=&filter=&sort=&fields=&skip=&limit=
 //                                {items, count, skip, limit, took_ms, cut}
+//     GET <base>/aggregate?collection=&pipeline=&skip=&limit=
+//                                {items, count: null, more, skip, limit, took_ms, cut}
 async function data_browser_serve(req, res, options)
 {
     const tail = options.tail;
@@ -39,9 +41,17 @@ async function data_browser_serve(req, res, options)
         }
         // GET <base>/documents (query)
         if (tail === '/documents') {
-            const ask = ask_from_query(options.query);
+            const ask = ask_from_query(options.query, ['filter', 'sort', 'fields']);
             const found = await options.adapter.documents(ask);
             log('data_browser_read', {collection: ask.collection, filtered: ask.filter.trim() !== '', count: found.items.length, took_ms: found.took_ms});
+            send_json(res, 200, Object.assign({skip: ask.skip, limit: ask.limit}, found));
+            return;
+        }
+        // GET <base>/aggregate (query)
+        if (tail === '/aggregate') {
+            const ask = ask_from_query(options.query, ['pipeline']);
+            const found = await options.adapter.aggregate(ask);
+            log('data_browser_aggregate', {collection: ask.collection, stages: ask.pipeline.trim() !== '', count: found.items.length, took_ms: found.took_ms});
             send_json(res, 200, Object.assign({skip: ask.skip, limit: ask.limit}, found));
             return;
         }
@@ -52,16 +62,16 @@ async function data_browser_serve(req, res, options)
     }
 }
 
-// What a page of documents asks, from its query string: the collection, its filter, sort and
-// fields as typed, where the page begins and how many are on it
-function ask_from_query(query)
+// What a page of documents asks, from its query string: the collection, the texts typed (a
+// find's filter, sort and fields, or a pipeline), where the page begins and how many are on it
+function ask_from_query(query, texts)
 {
     const collection = String(query.get('collection') || '');
     if ((collection === '') || (collection.length > NAME_MOST)) {
         throw Object.assign(new Error('?collection names the collection its documents are read from'), {status: 400});
     }
-    const out = {collection, filter: '', sort: '', fields: '', skip: 0, limit: LIMIT};
-    for (const key of ['filter', 'sort', 'fields']) {
+    const out = {collection, skip: 0, limit: LIMIT};
+    for (const key of texts) {
         out[key] = String(query.get(key) || '');
         if (out[key].length > TEXT_MOST) {
             throw Object.assign(new Error(`the ${key} is longer than ${TEXT_MOST/1024} KB`), {status: 400});

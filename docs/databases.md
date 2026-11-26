@@ -94,8 +94,12 @@ documents as a table, 50 a page, a column for each key found in them, and â€¹ â€
 filter finds them, typed as the MongoDB shell types it, `{status: 'active', joined: {$gte:
 ISODate('2025-06-01')}}`; **Sort and fields** opens two more, `{joined: -1}` and `{name: 1,
 email: 1}`, and a click on a header sorts by that key, up, then down, then as found. A click on a
-row shows the document whole, as the shell writes it, with **Copy**. The collection open is in
-the address, `?collection=`, so a reload or a link opens it again.
+row shows the document whole, as the shell writes it, with **Copy**. **Aggregate**, beside
+Find, runs a pipeline of stages on it, `[{$match: {status: 'active'}}, {$group: {_id: '$city',
+n: {$sum: 1}}}]`, a page at a time; a stage that writes (`$out`, `$merge`) is refused. A page
+shows as a table or as **JSON**, 20 to 200 to a page, and **Recent** runs one of the
+collection's last queries again, kept in the browser. The collection open is in the address,
+`?collection=`, so a reload or a link opens it again.
 
 It reads as the database's own user, inside its server's container, never as root: it sees that
 database and no other. What is typed is read as data, never run: a name that is none of the

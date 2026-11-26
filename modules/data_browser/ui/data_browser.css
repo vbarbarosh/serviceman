@@ -120,6 +120,91 @@
     font-size: 13px;
 }
 
+/* Find or Aggregate, two tabs where the box's label is: the one on in the text's colour,
+   underlined */
+.dbr-modes {
+    display: flex;
+    gap: 14px;
+}
+
+.dbr-modes button {
+    padding: 0 0 3px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.dbr-modes button:hover {
+    color: var(--fg);
+}
+
+.dbr-modes button.on {
+    border-bottom-color: var(--accent);
+    color: var(--fg);
+}
+
+.dbr-pipeline {
+    min-height: 5.5rem;
+    resize: vertical;
+}
+
+/* The last queries of the collection, a list under Recent */
+.dbr-recent-wrap {
+    position: relative;
+}
+
+.dbr-recent {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    width: min(32rem, 80vw);
+    max-height: 20rem;
+    padding: 4px;
+    overflow: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: var(--shadow-pop);
+}
+
+.dbr-recent button {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+}
+
+.dbr-recent button:hover {
+    background: var(--hover);
+}
+
+.dbr-recent code {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dbr-recent-mode {
+    flex: none;
+    width: 4.2rem;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 .dbr-find-acts {
     display: flex;
     flex-wrap: wrap;
@@ -154,10 +239,30 @@
     color: var(--busy-text);
 }
 
+.dbr-view {
+    margin-left: auto;
+}
+
+.dbr-limit {
+    width: auto;
+    font-size: 13px;
+}
+
 .dbr-pager {
     display: flex;
     gap: 4px;
-    margin-left: auto;
+}
+
+/* A page as JSON, under the bar, its own room scrolling */
+.dbr-page-json {
+    max-height: calc(100vh - 20rem);
+    margin: 0;
+    border-width: 1px 0 0;
+    border-radius: 0 0 6px 6px;
+}
+
+.dbr-page-json.dim {
+    opacity: .6;
 }
 
 .dbr-pager button,

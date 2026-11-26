@@ -1,11 +1,14 @@
 # data_browser
 
 One database's data, for a web page: its collections down the left, and the open one's
-documents as a table, fifty a page, a column for each key found in them. A filter finds them,
-typed as the MongoDB shell types it, `{status: 'active', at: {$gt: ISODate('2026-01-01')}}`; a
-sort and the fields shown go under it, and a click on a header sorts by that key, up, down,
-then as found. A click on a row shows the document whole, as the shell writes it, with Copy:
-what the filter takes back, so a value copied from it finds it.
+documents as a table or as JSON, fifty a page (20 to 200), a column for each key found in them.
+**Find** finds them by a filter, typed as the MongoDB shell types it, `{status: 'active', at:
+{$gt: ISODate('2026-01-01')}}`; a sort and the fields shown go under it, and a click on a header
+sorts by that key, up, down, then as found. **Aggregate** makes them by a pipeline of stages,
+`[{$match: {…}}, {$group: {…}}]`, Ctrl+Enter running it. A click on a row shows the document
+whole, as the shell writes it, with Copy: what the filter takes back, so a value copied from it
+finds it. The last queries of each collection that ran are kept in the browser, under
+**Recent**, to run again.
 
 It reads, for now. MongoDB is its first engine; PostgreSQL, MySQL and SQLite files come to the
 same page, their tables as its collections and their rows as its documents.
@@ -58,6 +61,7 @@ serviceman's is `/api/v1/databases/<server>/<database>/browse`:
 | `GET <base>` | `{engine, database, …}`: the engine, and what the host heads it with |
 | `GET <base>/collections` | `{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}`, `system.*` left out; a view has no numbers |
 | `GET <base>/documents?collection=&filter=&sort=&fields=&skip=&limit=` | `{items, count, skip, limit, took_ms, cut}` |
+| `GET <base>/aggregate?collection=&pipeline=&skip=&limit=` | `{items, count: null, more, skip, limit, took_ms, cut}` |
 
 A page of documents is 50 unless `limit` says otherwise, 200 at most. Each comes as relaxed
 Extended JSON: `{$oid}`, `{$date}`, a 64-bit number past what a double holds whole as
@@ -65,6 +69,10 @@ Extended JSON: `{$oid}`, `{$date}`, a 64-bit number past what a double holds who
 counting them takes longer than 5 s; finding them may take 20 s, after which MongoDB stops it
 and the answer says an index makes it quick. A page carries 4 MB at most: `cut` says the rest
 of it was left for the next page.
+
+A pipeline's page is its stages, then the page's `$skip` and one past its `$limit`: `more` says
+whether a next page is there, and its results are not counted, which would run it whole again.
+A stage that writes, `$out` or `$merge`, is refused: it is read here.
 
 A query that is wrong is answered 400 with what is wrong and where (`the filter: a comma or }
 was expected, at 14`), and so is one MongoDB refuses (`unknown operator: $foo`). A database not

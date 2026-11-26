@@ -104,6 +104,34 @@ const DOCUMENTS = [
     '});',
 ];
 
+// A page of what a pipeline makes of one collection: its stages, then the page's own skip and
+// one past its limit, which says whether a next page is there; a pipeline's results are not
+// counted, that would run it whole a second time
+const AGGREGATE = [
+    'answer_print(function () {',
+    '    const collection = collection_of(ask.collection);',
+    '    const pipeline = EJSON.parse(ask.pipeline, {relaxed: false}).concat([{$skip: ask.skip}, {$limit: ask.limit + 1}]);',
+    '    const began = Date.now();',
+    '    const cursor = collection.aggregate(pipeline, {maxTimeMS: ask.find_ms, promoteLongs: false});',
+    '    const items = [];',
+    '    let bytes = 0;',
+    '    let cut = false;',
+    '    while (cursor.hasNext() && (items.length < ask.limit)) {',
+    '        const item = exact(cursor.next());',
+    '        bytes += EJSON.stringify(item, {relaxed: true}).length;',
+    '        if ((bytes > ask.page_bytes) && (items.length > 0)) {',
+    '            cut = true;',
+    '            break;',
+    '        }',
+    '        items.push(item);',
+    '    }',
+    '    const more = cut || cursor.hasNext();',
+    '    return {items, count: null, more, took_ms: Date.now() - began, cut};',
+    '});',
+];
+// The stages that write: a pipeline is read here, and a change is made by its own buttons
+const WRITING_STAGES = ['$out', '$merge'];
+
 // MongoDB, for the data browser: each ask a mongosh script that `run(script)` runs in the
 // database, signed in as its own user, and answers with what it printed. The ask goes in as
 // data: a filter, a sort and the fields are read by ejson_from_text and parsed by EJSON.parse
@@ -113,6 +141,8 @@ const DOCUMENTS = [
 //     await adapter.collections()   // [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]
 //     await adapter.documents({collection: 'items', filter: "{status: 'active'}", sort: '', fields: '', skip: 0, limit: 50})
 //                                   // {items, count, took_ms, cut}
+//     await adapter.aggregate({collection: 'items', pipeline: "[{$group: {_id: '$city', n: {$sum: 1}}}]", skip: 0, limit: 50})
+//                                   // {items, count: null, more, took_ms, cut}
 function mongodb_adapter(run)
 {
     return {
@@ -134,7 +164,43 @@ function mongodb_adapter(run)
             };
             return answer_read(run, DOCUMENTS, json);
         },
+        aggregate: function (ask) {
+            const json = {
+                collection: ask.collection,
+                pipeline: JSON.stringify(pipeline_read(ask.pipeline)),
+                skip: ask.skip,
+                limit: ask.limit,
+                find_ms: FIND_MS,
+                page_bytes: PAGE_BYTES,
+            };
+            return answer_read(run, AGGREGATE, json);
+        },
     };
+}
+
+// A pipeline as typed: a list of stages, each a document of one stage, none that writes
+function pipeline_read(text)
+{
+    let out;
+    try {
+        out = ejson_from_text((String(text).trim() === '') ? '[]' : text);
+    }
+    catch (error) {
+        throw Object.assign(new Error(`the pipeline: ${error.message}`), {status: 400});
+    }
+    if (Array.isArray(out) === false) {
+        throw Object.assign(new Error('the pipeline is a list of stages in brackets, [{$match: {…}}, {$group: {…}}]'), {status: 400});
+    }
+    for (const [i, stage] of out.entries()) {
+        if ((stage === null) || (typeof stage !== 'object') || Array.isArray(stage) || (Object.keys(stage).length !== 1)) {
+            throw Object.assign(new Error(`the pipeline's stage ${i + 1} is a document of one stage, {$match: {…}}`), {status: 400});
+        }
+        const name = Object.keys(stage)[0];
+        if (WRITING_STAGES.includes(name)) {
+            throw Object.assign(new Error(`the pipeline's ${name} writes into the database: it is read here, and its documents are changed by their own buttons`), {status: 400});
+        }
+    }
+    return out;
 }
 
 // The script run, and its answer: what it found, or what MongoDB refused, as a refusal of the

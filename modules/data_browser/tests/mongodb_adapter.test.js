@@ -47,6 +47,15 @@ test('a real MongoDB: its collections, a page of documents, a filter, a sort, th
     const view = await adapter.documents({collection: 'evens', filter: '{name: /^item 1\\d$/}', sort: '{n: 1}', fields: '{_id: 0, n: 1}', skip: 0, limit: 50});
     assert.deepStrictEqual(view.items.map(v => v.n), [10, 12, 14, 16, 18]);
 
+    // A pipeline: a page of what it makes, with whether a next page is there
+    const grouped = await adapter.aggregate({collection: 'items', pipeline: '[{$match: {n: {$lt: 100}}}, {$group: {_id: \'$even\', n: {$sum: 1}}}, {$sort: {_id: 1}}]', skip: 0, limit: 50});
+    assert.deepStrictEqual([grouped.items, grouped.count, grouped.more], [[{_id: false, n: 50}, {_id: true, n: 50}], null, false]);
+    const paged = await adapter.aggregate({collection: 'items', pipeline: '[{$sort: {n: 1}}, {$project: {_id: 0, n: 1}}]', skip: 10, limit: 3});
+    assert.deepStrictEqual([paged.items.map(v => v.n), paged.more], [[10, 11, 12], true]);
+    const last = await adapter.aggregate({collection: 'items', pipeline: '[{$sort: {n: 1}}, {$project: {_id: 0, n: 1}}]', skip: 119, limit: 3});
+    assert.deepStrictEqual([last.items.map(v => v.n), last.more], [[119, 1000], false]);
+    await assert.rejects(adapter.aggregate({collection: 'items', pipeline: '[{$foo: {}}]', skip: 0, limit: 50}), {status: 400, message: /Unrecognized pipeline stage name: '\$foo'/});
+
     await assert.rejects(adapter.documents({collection: 'items', filter: '{n: {$foo: 1}}', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: 'unknown operator: $foo'});
     await assert.rejects(adapter.documents({collection: 'nothing', filter: '', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: `no collection called nothing in ${DATABASE}`});
     // Its own user sees its database alone

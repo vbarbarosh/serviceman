@@ -249,8 +249,10 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
     assert.deepStrictEqual([collections.status, collections.body.items.map(v => `${v.name} ${v.count}`)], [200, ['items 2']]);
     const page = await control(world, 'GET', `/api/v1/databases/mongodb-1/orders/browse/documents?${new URLSearchParams({collection: 'items', filter: '{n: {$gt: 1}}', skip: '50'})}`);
     assert.deepStrictEqual([page.status, page.body.skip, page.body.limit, JSON.parse(page.body.ask.filter)], [200, 50, 50, {n: {$gt: 1}}]);
+    const piped = await control(world, 'GET', `/api/v1/databases/mongodb-1/orders/browse/aggregate?${new URLSearchParams({collection: 'items', pipeline: '[{$group: {_id: \'$n\'}}]', limit: '20'})}`);
+    assert.deepStrictEqual([piped.status, piped.body.limit, JSON.parse(piped.body.ask.pipeline)], [200, 20, [{$group: {_id: '$n'}}]]);
     const browsed = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
-    assert.strictEqual(browsed.length, 2);
+    assert.strictEqual(browsed.length, 3);
     assert.ok(browsed[1].Cmd[2].startsWith('mongosh --quiet --norc \'mongodb://127.0.0.1:27017/orders\' '), browsed[1].Cmd[2]);
     assert.deepStrictEqual(browsed[1].Env, ['SERVICEMAN_DB_USER=orders', `SERVICEMAN_DB_PASSWORD=${JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].users.orders.password}`]);
     const refused = [
@@ -266,7 +268,7 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
 
     const kept = JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0];
     const secrets = [kept.root, kept.users.orders.password];
-    const answers = JSON.stringify([made.body, up, orders.body, collections.body, page.body]);
+    const answers = JSON.stringify([made.body, up, orders.body, collections.body, page.body, piped.body]);
     assert.deepStrictEqual(secrets.filter(v => answers.includes(v)), [], 'no password in an answer');
     const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
     assert.deepStrictEqual(secrets.filter(v => cmds.includes(v)), [], 'no password on a command line');

@@ -2,11 +2,14 @@ import format_bytes from '../../format_bytes.js';
 import format_count from '../../format_count.js';
 import mongo_cell_of from './mongo_cell_of.js';
 import mongo_text_of from './mongo_text_of.js';
+import storage_get from '../../storage_get.js';
+import storage_set from '../../storage_set.js';
 
 // One database's data, for a web page: its collections down the left, and the open one's
-// documents as a table, a page at a time, found by a filter typed as the shell types it, in a
-// sort, with the fields asked for. A click on a header sorts by it; a click on a row shows the
-// document whole, as the shell writes it, with Copy. The host gives the API, a GET under one
+// documents as a table or as JSON, a page at a time, found by a filter typed as the shell types
+// it, in a sort, with the fields asked for, or made by a pipeline of stages. A click on a header
+// sorts by it; a click on a row shows the document whole, as the shell writes it, with Copy. The
+// last queries of each collection are kept in the browser, to run again. The host gives the API, a GET under one
 // base (data_browser_serve), the colours and its usual classes: card, card-head, primary, link,
 // muted, bad, spin, dt-window, dt-whole, dt-whole-head.
 //
@@ -27,11 +30,17 @@ const WORDS = {
         filter: '{status: \'active\', at: {$gt: ISODate(\'2026-01-01\')}}',
         sort: '{at: -1}',
         fields: '{name: 1, status: 1}',
+        pipeline: '[{$match: {status: \'active\'}}, {$group: {_id: \'$city\', n: {$sum: 1}}}]',
         none: 'No collection in it yet: MongoDB makes one at an app\'s first write to it.',
     },
 };
 // A list longer than this gets a box to find a name in
 const SEARCH_FROM = 10;
+// How many a page shows, and how many queries are kept, in all and shown for one collection
+const LIMITS = [20, 50, 100, 200];
+const RECENT_KEPT = 50;
+const RECENT_SHOWN = 10;
+const RECENT_KEY = 'serviceman.data_browser.recent';
 const RE_BARE_KEY = /^[A-Za-z_$][\w$]*$/;
 
 const data_browser = {
@@ -69,16 +78,26 @@ const data_browser = {
                 <span class="muted dbr-facts">{{ open_facts }}</span>
             </div>
             <form class="dbr-find" @submit.prevent="find">
-                <label class="dbr-field">
-                    <span>Filter</span>
-                    <input v-model="filter" class="dbr-code" type="text" :placeholder="words.filter" spellcheck="false" autocomplete="off" autocapitalize="off">
-                </label>
-                <div class="dbr-find-acts">
-                    <button type="submit" class="primary" :disabled="offline">Find</button>
-                    <button v-if="asked_any" type="button" @click="reset">Reset</button>
-                    <button type="button" class="link" :aria-expanded="(options ? 'true' : 'false')" @click="options = !options">{{ options ? 'Hide sort and fields' : 'Sort and fields' }}</button>
+                <div class="dbr-field">
+                    <span class="dbr-modes" role="tablist" aria-label="How the documents are found">
+                        <button type="button" role="tab" :aria-selected="((mode === 'find') ? 'true' : 'false')" :class="{on: (mode === 'find')}" title="A filter, and a sort and the fields under it" @click="mode = 'find'">Find</button>
+                        <button type="button" role="tab" :aria-selected="((mode === 'aggregate') ? 'true' : 'false')" :class="{on: (mode === 'aggregate')}" title="A pipeline of stages: $match, $group, $sort, $lookup…" @click="mode = 'aggregate'">Aggregate</button>
+                    </span>
+                    <input v-if="(mode === 'find')" v-model="filter" class="dbr-code" type="text" :placeholder="words.filter" aria-label="Filter" spellcheck="false" autocomplete="off" autocapitalize="off">
+                    <textarea v-else v-model="pipeline" class="dbr-code dbr-pipeline" rows="4" :placeholder="words.pipeline" aria-label="Pipeline" spellcheck="false" autocomplete="off" autocapitalize="off" @keydown.ctrl.enter.prevent="find" @keydown.meta.enter.prevent="find"/>
                 </div>
-                <template v-if="options">
+                <div class="dbr-find-acts">
+                    <button type="submit" class="primary" :disabled="offline" :title="((mode === 'find') ? '' : 'Ctrl+Enter in the pipeline runs it too')">{{ (mode === 'find') ? 'Find' : 'Run' }}</button>
+                    <button v-if="asked_any" type="button" @click="reset">Reset</button>
+                    <button v-if="(mode === 'find')" type="button" class="link" :aria-expanded="(options ? 'true' : 'false')" @click="options = !options">{{ options ? 'Hide sort and fields' : 'Sort and fields' }}</button>
+                    <span v-if="(recent_shown.length > 0)" class="dbr-recent-wrap">
+                        <button type="button" class="link" :aria-expanded="(recent_open ? 'true' : 'false')" @click="recent_open = (recent_open === false)">Recent ▾</button>
+                        <span v-if="recent_open" class="dbr-recent" role="menu">
+                            <button v-for="(item, index) of recent_shown" :key="index" type="button" role="menuitem" :title="recent_title(item)" @click="recent_run(item)"><span class="dbr-recent-mode">{{ (item.mode === 'find') ? 'find' : 'pipeline' }}</span><code>{{ recent_text(item) }}</code></button>
+                        </span>
+                    </span>
+                </div>
+                <template v-if="(options && (mode === 'find'))">
                     <label class="dbr-field">
                         <span>Sort</span>
                         <input v-model="sort" class="dbr-code" type="text" :placeholder="words.sort" spellcheck="false" autocomplete="off" autocapitalize="off">
@@ -94,18 +113,26 @@ const data_browser = {
                 <span class="dbr-range"><span v-if="busy" class="spin"/>{{ range_text }}</span>
                 <span v-if="page.cut" class="dbr-cut" title="A page carries 4 MB at most">the rest of this page is over 4 MB: Next shows it</span>
                 <span class="muted dbr-took">{{ took_text }}</span>
+                <span class="seg dbr-view" role="group" aria-label="Shown as">
+                    <button type="button" :class="{on: (view === 'table')}" @click="view = 'table'">Table</button>
+                    <button type="button" :class="{on: (view === 'json')}" @click="view = 'json'">JSON</button>
+                </span>
+                <select v-model.number="limit" class="dbr-limit" aria-label="How many a page shows" @change="documents_read(0)">
+                    <option v-for="value of LIMITS" :key="value" :value="value">{{ value }} a page</option>
+                </select>
                 <span class="dbr-pager">
                     <button type="button" :disabled="(busy || (page.skip === 0))" aria-label="The page before" @click="page_go(-1)">‹</button>
                     <button type="button" :disabled="(busy || (next_skip === null))" aria-label="The next page" @click="page_go(1)">›</button>
                 </span>
             </div>
             <p v-else-if="busy" class="muted dbr-say"><span class="spin"/>reading…</p>
-            <div v-if="((page !== null) && (page.items.length > 0))" class="dbr-room" :class="{dim: (busy || (error !== ''))}">
+            <pre v-if="((page !== null) && (page.items.length > 0) && (view === 'json'))" class="dbr-json dbr-page-json" :class="{dim: (busy || (error !== ''))}">{{ page_text }}</pre>
+            <div v-else-if="((page !== null) && (page.items.length > 0))" class="dbr-room" :class="{dim: (busy || (error !== ''))}">
                 <table class="dbr-table">
                     <thead>
                         <tr>
                             <th v-for="key of keys" :key="key" :aria-sort="sort_said(key)">
-                                <button type="button" :title="('Sort by ' + key)" @click="sort_by(key)">{{ key }}<span class="dbr-arrow">{{ sort_arrow(key) }}</span></button>
+                                <button type="button" :disabled="(asked.mode !== 'find')" :title="((asked.mode === 'find') ? ('Sort by ' + key) : 'A pipeline sorts with its own $sort')" @click="sort_by(key)">{{ key }}<span class="dbr-arrow">{{ sort_arrow(key) }}</span></button>
                             </th>
                         </tr>
                     </thead>
@@ -145,9 +172,12 @@ const data_browser = {
     data: function () {
         // about: the database as the API heads it, {engine, database, …}, null until read
         // collections: its collections, null while they are read; open the one shown
-        // filter, sort, fields: as typed; asked: as last found, for Reset and the pages
-        // page: the documents found, {items, count, skip, limit, took_ms, cut}, null before
+        // mode: find or aggregate; filter, sort, fields, pipeline: as typed; asked: as last
+        // found, for Reset and the pages
+        // page: the documents found, {items, count, skip, limit, took_ms, cut} (a pipeline's
+        // with more, whether a next page is there), null before; view: table or json
         // picked: the index on the page of the document shown whole, null for none
+        // recent: the last queries, of every collection, newest first, as kept in the browser
         return {
             about: null,
             collections: null,
@@ -158,13 +188,20 @@ const data_browser = {
             sort: '',
             fields: '',
             options: false,
-            asked: {filter: '', sort: '', fields: ''},
+            mode: 'find',
+            pipeline: '',
+            asked: {mode: 'find', filter: '', sort: '', fields: '', pipeline: ''},
+            view: 'table',
+            limit: 50,
+            recent: [],
+            recent_open: false,
             page: null,
             busy: false,
             error: '',
             picked: null,
             copied: false,
             SEARCH_FROM,
+            LIMITS,
         };
     },
     computed: {
@@ -194,7 +231,16 @@ const data_browser = {
             return facts.join(' · ');
         },
         asked_any: function () {
-            return (this.asked.filter !== '') || (this.asked.sort !== '') || (this.asked.fields !== '') || (this.filter !== '') || (this.sort !== '') || (this.fields !== '');
+            const typed = [this.filter, this.sort, this.fields, this.pipeline];
+            const found = [this.asked.filter, this.asked.sort, this.asked.fields, this.asked.pipeline];
+            return typed.concat(found).some(v => v !== '');
+        },
+        // This collection's last queries, newest first
+        recent_shown: function () {
+            return this.recent.filter(v => (v.base === this.base) && (v.collection === this.open)).slice(0, RECENT_SHOWN);
+        },
+        page_text: function () {
+            return mongo_text_of(this.page.items, true);
         },
         // The keys of the page's documents, as columns: _id first, then each in the order it
         // is first met
@@ -209,8 +255,12 @@ const data_browser = {
             }
             return met.includes('_id') ? ['_id'].concat(met.filter(v => v !== '_id')) : met;
         },
+        // How many there are in all: counted, or, for a pipeline's last page, as far as it goes
         count_text: function () {
-            return (this.page.count === null) ? 'many' : this.page.count.toLocaleString('en-US');
+            if (this.page.count !== null) {
+                return this.page.count.toLocaleString('en-US');
+            }
+            return (this.page.more === false) ? (this.page.skip + this.page.items.length).toLocaleString('en-US') : 'many';
         },
         range_text: function () {
             if (this.page.items.length === 0) {
@@ -227,9 +277,15 @@ const data_browser = {
             if ((this.page.items.length === 0) || ((this.page.cut === false) && (this.page.items.length < this.page.limit))) {
                 return null;
             }
+            if (this.page.more !== undefined) {
+                return this.page.more ? next : null;
+            }
             return ((this.page.count !== null) && (next >= this.page.count)) ? null : next;
         },
         empty_text: function () {
+            if (this.asked.mode === 'aggregate') {
+                return `The pipeline makes no ${this.words.item} of ${this.open}.`;
+            }
             if (this.asked.filter !== '') {
                 return `No ${this.words.item} matches the filter.`;
             }
@@ -277,6 +333,7 @@ const data_browser = {
         },
     },
     mounted: function () {
+        this.recent_read();
         this.load();
     },
     methods: {
@@ -315,7 +372,9 @@ const data_browser = {
             this.filter = '';
             this.sort = '';
             this.fields = '';
-            this.asked = {filter: '', sort: '', fields: ''};
+            this.pipeline = '';
+            this.asked = {mode: this.mode, filter: '', sort: '', fields: '', pipeline: ''};
+            this.recent_open = false;
             this.page = null;
             this.picked = null;
             this.error = '';
@@ -325,14 +384,58 @@ const data_browser = {
             }
         },
         find: function () {
-            this.asked = {filter: this.filter.trim(), sort: this.sort.trim(), fields: this.fields.trim()};
+            this.asked = {mode: this.mode, filter: this.filter.trim(), sort: this.sort.trim(), fields: this.fields.trim(), pipeline: this.pipeline.trim()};
             this.documents_read(0);
         },
         reset: function () {
             this.filter = '';
             this.sort = '';
             this.fields = '';
+            this.pipeline = '';
             this.find();
+        },
+        // The query that found a page, kept first among the last ones; one run again moves up,
+        // one refused and an empty one are not kept
+        recent_keep: function () {
+            const asked = this.asked;
+            const texts = (asked.mode === 'find') ? [asked.filter, asked.sort, asked.fields] : [asked.pipeline];
+            if (texts.every(v => v === '')) {
+                return;
+            }
+            const query = Object.assign({base: this.base, collection: this.open}, asked);
+            const same = JSON.stringify(query);
+            this.recent = [query].concat(this.recent.filter(v => JSON.stringify(v) !== same)).slice(0, RECENT_KEPT);
+            storage_set(RECENT_KEY, JSON.stringify(this.recent));
+        },
+        recent_read: function () {
+            try {
+                const kept = JSON.parse(storage_get(RECENT_KEY) || '[]');
+                this.recent = Array.isArray(kept) ? kept.filter(v => (v !== null) && (typeof v === 'object') && (typeof v.mode === 'string')) : [];
+            }
+            catch {
+                this.recent = [];
+            }
+        },
+        recent_run: function (query) {
+            this.mode = query.mode;
+            this.filter = query.filter || '';
+            this.sort = query.sort || '';
+            this.fields = query.fields || '';
+            this.pipeline = query.pipeline || '';
+            this.options = (this.sort !== '') || (this.fields !== '');
+            this.recent_open = false;
+            this.find();
+        },
+        // A query on one line, for the list of the last ones
+        recent_text: function (query) {
+            if (query.mode === 'aggregate') {
+                return query.pipeline.replace(/\s+/g, ' ');
+            }
+            const parts = [query.filter || '{}'].concat((query.sort === '') ? [] : [`sort ${query.sort}`], (query.fields === '') ? [] : [`fields ${query.fields}`]);
+            return parts.join(' · ').replace(/\s+/g, ' ');
+        },
+        recent_title: function (query) {
+            return (query.mode === 'aggregate') ? query.pipeline : [`filter ${query.filter || '{}'}`, `sort ${query.sort || 'as found'}`, `fields ${query.fields || 'all'}`].join('\n');
         },
         page_go: function (step) {
             const skip = (step < 0) ? Math.max(0, this.page.skip - this.page.limit) : this.next_skip;
@@ -373,13 +476,18 @@ const data_browser = {
             }
             return (this.asked.sort === `{${name}: -1}`) ? -1 : null;
         },
+        // A page of the open collection, found as last asked: a find's filter, sort and fields,
+        // or a pipeline
         documents_read: async function (skip) {
             const name = this.open;
-            const query = new URLSearchParams({collection: name, filter: this.asked.filter, sort: this.asked.sort, fields: this.asked.fields, skip: String(skip)});
+            const asked = this.asked;
+            const texts = (asked.mode === 'aggregate') ? {pipeline: asked.pipeline} : {filter: asked.filter, sort: asked.sort, fields: asked.fields};
+            const query = new URLSearchParams(Object.assign({collection: name}, texts, {skip: String(skip), limit: String(this.limit)}));
+            const door = (asked.mode === 'aggregate') ? 'aggregate' : 'documents';
             this.busy = true;
             this.error = '';
             try {
-                const answer = await fetch(`${this.base}/documents?${query}`, {cache: 'no-store'});
+                const answer = await fetch(`${this.base}/${door}?${query}`, {cache: 'no-store'});
                 const body = await answer.json();
                 if (answer.ok === false) {
                     throw new Error(body.error || `serviceman answered ${answer.status}`);
@@ -388,6 +496,9 @@ const data_browser = {
                 if (name === this.open) {
                     this.page = body;
                     this.picked = null;
+                    if (skip === 0) {
+                        this.recent_keep();
+                    }
                 }
             }
             catch (error) {
