@@ -1751,6 +1751,42 @@ ul.tried {
     letter-spacing: 1px;
 }
 
+/* A head too narrow for its facts side by side: they wrap onto rows, each as wide as what it
+   says or wider, as many to a row as fit, a line over each row and between two beside each
+   other, each fact's own. The facts reach 13 px to the left and that strip is cut away, so the
+   fact a row begins with shows no line on its left and starts where the name does. */
+@container item-card (max-width: 72rem) {
+    .item-facts {
+        flex-wrap: wrap;
+        gap: 0;
+        width: calc(100% + 13px);
+        margin-left: -13px;
+        padding-top: 0;
+        border-top: 0;
+        clip-path: inset(0 0 0 13px);
+    }
+
+    .item-facts > div,
+    .item-facts > div:first-child {
+        flex: 1 0 auto;
+        padding: 12px 12px 0;
+        border-top: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+    }
+
+    .item-facts > div + div {
+        padding-left: 12px;
+    }
+}
+
+/* A machine's charts' range on a row of its own carries the line over it: the facts' first row
+   draws none of its own under it */
+@container item-card (max-width: 52rem) {
+    .item-top:has(> .item-side > .charts-switch) > .item-facts {
+        clip-path: inset(2px 0 0 13px);
+    }
+}
+
 /* A menu that opens under its button: the ⋯ of the head, More ▾ of the tabs */
 .item-menu-wrap {
     position: relative;
