@@ -95,6 +95,26 @@ test('a SQLite file: its tables, a page of rows, a condition, an order, the colu
     ]);
     assert.ok(fs.readFileSync(file).equals(before), 'the file is as it was');
     assert.deepStrictEqual(fs.readdirSync(dir).sort(), ['shop.db']);
+
+    // A syntax error is said of what was typed: in it, SQLite's words of the statement cut at its
+    // end; past it, at the end of the condition, the ORDER BY or the columns, never the statement
+    // around it. A query is the statement whole, in SQLite's own words.
+    const syntax = [
+        [{filter: 'name = = \'a\''}, 'near "=": syntax error'],
+        [{filter: 'name = \'abc'}, 'unrecognized token: "\'abc"'],
+        [{filter: 'name ='}, 'syntax error at the end of the condition'],
+        [{filter: 'id IN (1, 2'}, 'syntax error at the end of the condition'],
+        [{filter: 'id > 1', sort: 'id DESC,'}, 'syntax error at the end of the ORDER BY'],
+        [{fields: 'id,'}, 'syntax error at the end of the columns'],
+        [{fields: 'id', filter: 'id > 1', sort: 'id DESC DESC'}, 'near "DESC": syntax error'],
+        [{pipeline: 'SELECT * FROM customers WHERE'}, 'incomplete input'],
+    ];
+    for (const [typed, said] of syntax) {
+        const door = (typed.pipeline === undefined) ? 'documents' : 'aggregate';
+        const ask = Object.assign((door === 'documents') ? {collection: 'customers', filter: '', sort: '', fields: ''} : {collection: 'customers'}, {skip: 0, limit: 50}, typed);
+        await assert.rejects(adapter[door](ask), {status: 400, message: said}, JSON.stringify(typed));
+    }
+    assert.ok(fs.readFileSync(file).equals(before), 'the file is as it was after them');
 });
 
 // A table too big to count at once says the rows ANALYZE counted, as an estimate
@@ -156,6 +176,60 @@ test('a statement stopped, a reader too busy and a Node without node:sqlite are 
     // A page whose count was stopped is said without it
     const page = await sqlite_adapter(() => ({answers: [{names: ['n'], rows: '[[1]]', more: false, cut: false, took_ms: 3}, {error: 'it took longer than 5 s, and the agent stopped it', code: 'timeout', ms: 5000}]})).documents({collection: 'a', filter: '', sort: '', fields: '', skip: 0, limit: 50});
     assert.deepStrictEqual(page, {items: [{n: 1}], columns: ['n'], count: null, more: false, took_ms: 3, cut: false});
+});
+
+// SQLite says no position: a page's statement it could not read is read again cut where each
+// part typed begins and ends, never run (EXPLAIN), each cut answered here as SQLite reads it. In
+// a part, its words of the statement cut at the part's end; past one, at its end; a reader that
+// read none of them leaves SQLite's words as they were.
+test('a SQLite syntax error is said of what was typed, by the statement cut where each part begins and ends', {skip: SKIPPED}, async function () {
+    const {DatabaseSync} = require('node:sqlite');
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE big (id INTEGER PRIMARY KEY, n INTEGER, name TEXT)');
+    const checks = [];
+    function answer_of(sql) {
+        try {
+            db.prepare(sql);
+            return {names: ['x'], rows: '[]', more: false, cut: false, took_ms: 0};
+        }
+        catch (error) {
+            return {error: error.message, code: error.errcode};
+        }
+    }
+    function run(ask) {
+        if (ask.steps[0].sql.startsWith('EXPLAIN ')) {
+            checks.push(ask.steps.map(v => `${v.limit} ${JSON.stringify(v.sql)}`));
+            return {answers: ask.steps.map(v => answer_of(v.sql))};
+        }
+        return {answers: [answer_of(ask.steps[0].sql), {names: ['n'], rows: '[[0]]'}]};
+    }
+    const find = {collection: 'big', filter: '', sort: '', fields: '', skip: 0, limit: 50};
+    const cases = [
+        {filter: 'n ='},
+        {filter: 'name = \'😀 abc'},
+        {filter: 'n = = 1'},
+        {fields: 'id,', filter: 'n = 1'},
+        {fields: 'id', filter: 'n = 1', sort: 'n DESC,'},
+        {fields: 'id', filter: 'n = 1', sort: 'n DESC DESC'},
+    ];
+    const said = [];
+    for (const typed of cases) {
+        said.push(await sqlite_adapter(run).documents(Object.assign({}, find, typed)).catch(e => `${e.status} ${e.message}`));
+    }
+    assert.deepStrictEqual(said, [
+        '400 syntax error at the end of the condition',
+        '400 unrecognized token: "\'😀 abc"',
+        '400 near "=": syntax error',
+        '400 syntax error at the end of the columns',
+        '400 syntax error at the end of the ORDER BY',
+        '400 near "DESC": syntax error',
+    ]);
+    assert.deepStrictEqual(checks[0], ['0 "EXPLAIN SELECT * FROM \\"big\\" WHERE (\\n"', '0 "EXPLAIN SELECT * FROM \\"big\\" WHERE (\\nn ="']);
+    // The reader stopped before it read the cuts: SQLite's words as they were
+    function away(ask) {
+        return ask.steps[0].sql.startsWith('EXPLAIN ') ? {error: 'the reader stopped', code: 'reader'} : run(ask);
+    }
+    assert.strictEqual(await sqlite_adapter(away).documents(Object.assign({}, find, {filter: 'n ='})).catch(e => e.message), 'near ")": syntax error');
 });
 
 function adapter_of(file)

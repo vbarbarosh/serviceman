@@ -8,7 +8,8 @@ sorts by that key, up, down, then as found. **Aggregate** makes them by a pipeli
 `[{$match: {…}}, {$group: {…}}]`, Ctrl+Enter running it. A click on a row shows the document
 whole, as the shell writes it, with Copy: what the filter takes back, so a value copied from it
 finds it. The last queries of each collection that ran are kept in the browser, under
-**Recent**, to run again.
+**Recent**, to run again. A query refused is said in red above the page, which stays the one the
+last query found, dimmed: its rows, its pages and what a row offers are still that query's.
 
 It changes documents too: **+ Document** adds one, typed as the shell types it; a document shown
 whole has **Edit**, which reads it again whole by its `_id` (a page may show some of its fields
@@ -48,6 +49,8 @@ given. module-host has it too, on a SQLite file of its own computer, opened from
     server/mysql_adapter.js          MySQL's: each ask a mysql script, given run(script)
     server/sqlite_adapter.js         SQLite's: each ask the statements a file's reader runs, given run(ask)
     server/sql_part_from_text.js     a condition, an order, columns or a query as typed
+    server/sql_statement_built.js    a page's statement, and where each part typed stands in it
+    server/sql_part_at.js            which part typed a place of a statement is in, or after
     server/ejson_from_json.js        a SQL engine's JSON, its numbers kept whole
     server/json_from_ejson.js        and back: JSON for a SQL engine, a number by its digits
     server/ejson_number_from_text.js a number as an engine wrote it, kept whole
@@ -65,7 +68,8 @@ given. module-host has it too, on a SQLite file of its own computer, opened from
     ui/sql_cell_of.js                a SQL value on one line, for a cell
     ui/sqlite_file_act.js            Browse, for a host to give the File Manager on a SQLite file
     tests/                           the API over fake adapters, the reading and writing of
-                                     queries; DATA_BROWSER_MONGO, DATA_BROWSER_POSTGRES and
+                                     queries, the component over a fake API;
+                                     DATA_BROWSER_MONGO, DATA_BROWSER_POSTGRES and
                                      DATA_BROWSER_MYSQL run the adapters on a real database;
                                      SQLite's runs on files the test makes, read by
                                      serviceman's agent's reader
@@ -93,8 +97,10 @@ user's rights alone, and nothing here reads it: the engine does.
   their partitions, materialized views and foreign tables among them), named `schema.table`
   where the schema is not `public`, public's first. A table up to 64 MB is counted row by row,
   all of them within 5 s; past either, the rows its engine estimates it holds are said, with
-  `estimated` (the page puts `~` before them, and "about" in the table's head). A view has no
-  numbers, but a materialized one's. The database's head counts the same tables.
+  `estimated` (the page puts `~` before them, and "about" in the table's head). Once a page of
+  the open table is read with no condition, the rows that page counted are said in the list and
+  the head in their place; a condition's count never is. A view has no numbers, but a
+  materialized one's. The database's head counts the same tables.
 - **Rows.** `filter` is a condition, as typed after `WHERE` (`status = 'active' AND joined >
   '2025-06-01'`), `sort` an `ORDER BY` (`joined DESC`), `fields` the columns (`name, email`);
   a `WHERE` or an `ORDER BY` typed before them by habit, and a `;` after, are dropped. The
@@ -213,8 +219,9 @@ read what it printed.
 - **Tables.** Its tables and views by name, SQLite's own (`sqlite_*`) left out, each with its
   rows, its size (its pages, as `dbstat` counts them) and its indexes. A table up to 64 MB is
   counted, all of them within 5 s; past either, the rows `sqlite_stat1` keeps for it are said,
-  as an estimate, where an `ANALYZE` made one, and none where none did. A table of a module
-  (FTS5, R*Tree) is not counted.
+  as an estimate, where an `ANALYZE` made one, and none where none did, until a page of it read
+  with no condition counts them, as a SQL database's table. A table of a module (FTS5, R*Tree)
+  is not counted.
 - **Rows and Query** as a SQL database's: a condition, an order, the columns; a query typed
   whole (`SELECT`, `WITH`, `VALUES`, `PRAGMA table_info(…)`, `EXPLAIN QUERY PLAN …`). A query's
   page is read one row past itself, and its rows from the first are passed over to its page.
@@ -250,7 +257,7 @@ encoded too (`%2F`, as `encodeURIComponent` writes it); module-host's is
 | Door | What it answers |
 |---|---|
 | `GET <base>` | `{engine, database, …}`: the engine, and what the host heads it with; a SQLite file's `{engine: 'sqlite', database, remote, path, label, size, mtime_ms}`, once it opened as SQLite |
-| `GET <base>/collections` | `{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}`, `system.*` left out; a view has no numbers; a SQL table's with `estimated` |
+| `GET <base>/collections` | `{items: [{name, type, count, bytes, storage_bytes, index_bytes, indexes}]}`, `system.*` left out; a view has no numbers; a SQL table's with `estimated` and `key` |
 | `GET <base>/documents?collection=&filter=&sort=&fields=&skip=&limit=` | `{items, count, skip, limit, took_ms, cut}`; a SQL page with `columns` and `more` |
 | `GET <base>/aggregate?collection=&pipeline=&skip=&limit=` | `{items, count: null, more, skip, limit, took_ms, cut}`; a SQL page with `columns` |
 | `GET <base>/document?collection=&id=` | `{item, columns, key, filled}`: a SQL row read whole by its key, `id` its JSON; without `id`, `item` null, the table's columns and those it fills itself, for + Row |
@@ -280,3 +287,15 @@ was expected, at 14`), and so is one MongoDB refuses (`unknown operator: $foo`),
 (`column "nam" does not exist`) or MySQL. A change of a view's rows, of a table no key names a
 row of, or of a SQLite file's is 405, saying why. A database not reached is 502, a machine away
 409.
+
+A SQL engine's syntax error never quotes the text the page's statement puts around what was
+typed. One past the end of a part typed is said there: `syntax error at the end of the
+condition` (of the `ORDER BY`, of the columns, of the query), where PostgreSQL would say `at or
+near ")"` and MySQL `near ') LIMIT 0' at line 3`. One in it keeps the engine's words, a token
+quoted cut at the part's end, and MySQL's line counted from the part's first. PostgreSQL says
+where it stopped: its page's block lets a syntax error through to psql, which says the position
+(`at character 44`) after where each part stands. MySQL quotes the statement from there, found
+in the statement as the client ran it. SQLite says neither: the statement is read again, never
+run (`EXPLAIN`), cut where each part begins and ends, and the first cut it stops in says where.
+A query typed whole in PostgreSQL's or SQLite's query box is the statement itself, said as it
+is: SQLite's `incomplete input`.

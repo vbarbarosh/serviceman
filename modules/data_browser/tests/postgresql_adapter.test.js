@@ -87,6 +87,25 @@ test('a real PostgreSQL: its tables, a page of rows, a condition, an order, the 
     await assert.rejects(adapter.documents({collection: 'locked.secrets', filter: '', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: 'permission denied for schema locked'});
     await assert.rejects(adapter.aggregate({collection: 'items', pipeline: 'SELEC 1', skip: 0, limit: 50}), {status: 400, message: /^syntax error at or near "SELEC"/});
 
+    // A syntax error is said of what was typed: in it, PostgreSQL's words, a token cut at its end;
+    // past it, at the end of the condition, the ORDER BY, the columns or the query, never the
+    // statement around it
+    const syntax = [
+        [{filter: 'name = = \'a\''}, 'syntax error at or near "="'],
+        [{filter: 'name = \'abc'}, 'unterminated quoted string at or near "\'abc"'],
+        [{filter: 'name ='}, 'syntax error at the end of the condition'],
+        [{filter: 'id IN (1, 2'}, 'syntax error at the end of the condition'],
+        [{filter: 'id > 1', sort: 'id DESC,'}, 'syntax error at the end of the ORDER BY'],
+        [{fields: 'id,'}, 'syntax error at the end of the columns'],
+        [{pipeline: 'SELECT * FROM items WHERE'}, 'syntax error at the end of the query'],
+        [{pipeline: 'SELECT * FROM items WHERE id = = 1'}, 'syntax error at or near "="'],
+    ];
+    for (const [typed, said] of syntax) {
+        const door = (typed.pipeline === undefined) ? 'documents' : 'aggregate';
+        const ask = Object.assign((door === 'documents') ? {collection: 'items', filter: '', sort: '', fields: ''} : {collection: 'items'}, {skip: 0, limit: 50}, typed);
+        await assert.rejects(adapter[door](ask), {status: 400, message: said}, JSON.stringify(typed));
+    }
+
     // Nothing is written: a DELETE, a DROP, a COMMIT, a sequence moved, typed into a condition
     // or the query box, are refused by PostgreSQL itself, the transaction being READ ONLY
     const refused = [
@@ -221,6 +240,53 @@ test('a real PostgreSQL: a row added, edited by its key, deleted, and each refus
     finally {
         holder.kill();
     }
+});
+
+// A syntax error goes through the page's block to psql, which says it with its position in the
+// statement, after where each part typed stands: said of the part, never quoting the statement
+// around it. Past the condition, the ORDER BY, the columns or the query, it is at their end; in
+// one, PostgreSQL's words, a token quoted past its end cut at it; anything else as psql said it.
+test('a PostgreSQL syntax error is said of what was typed, never of the statement around it', async function () {
+    const scripts = [];
+    function adapter_said(parts, error) {
+        return postgresql_adapter(function (script) {
+            scripts.push(script);
+            const said = [`psql:/tmp/serviceman-0a.sql:40: NOTICE:  serviceman-parts ${JSON.stringify(parts)}`, `psql:/tmp/serviceman-0a.sql:52: ERROR:  ${error}`];
+            return Promise.reject(Object.assign(new Error(said.join('\n')), {stdout: ''}));
+        });
+    }
+    const find = {collection: 'big', filter: 'status = ', sort: '', fields: '', skip: 0, limit: 50};
+    const cases = [
+        [[['condition', 34, 43]], 'syntax error at or near ")" at character 44', find],
+        [[['condition', 34, 43]], 'syntax error at or near "=" at character 41', Object.assign({}, find, {filter: 'status = = 1'})],
+        [[['condition', 34, 47]], 'unterminated quoted string at or near "\'😀 Zoë\n) LIMIT 51 OFFSET 0" at character 41', Object.assign({}, find, {filter: 'name = \'😀 Zoë'})],
+        [[['columns', 9, 12], ['condition', 40, 46]], 'syntax error at or near "FROM" at character 14', Object.assign({}, find, {fields: 'id,', filter: 'n = 1'})],
+        [[['condition', 34, 39], ['ORDER BY', 52, 58]], 'syntax error at or near "LIMIT" at character 60', Object.assign({}, find, {filter: 'n = 1', sort: 'n DESC,'})],
+        [[['query', 1, 24]], 'syntax error at end of input at character 24', {collection: 'big', pipeline: 'SELECT * FROM big WHERE', skip: 0, limit: 50}],
+        [[], 'syntax error at or near "FROM" at character 10', find],
+    ];
+    const said = [];
+    for (const [parts, error, ask] of cases) {
+        const adapter = adapter_said(parts, error);
+        said.push(await adapter[(ask.pipeline === undefined) ? 'documents' : 'aggregate'](ask).catch(e => `${e.status} ${e.message}`));
+    }
+    assert.deepStrictEqual(said, [
+        '400 syntax error at the end of the condition',
+        '400 syntax error at or near "="',
+        '400 unterminated quoted string at or near "\'😀 Zoë"',
+        '400 syntax error at the end of the columns',
+        '400 syntax error at the end of the ORDER BY',
+        '400 syntax error at the end of the query',
+        '400 syntax error at or near "FROM"',
+    ]);
+    // psql says aside, in few words, whatever the user's own setting; the block lets a syntax error
+    // through, and nothing else
+    assert.match(scripts[0], /^\\set VERBOSITY terse\nBEGIN TRANSACTION READ ONLY;\nSET LOCAL client_min_messages = notice;/);
+    assert.match(scripts[0], /RAISE NOTICE 'serviceman-parts %', parts;\n.*\n {4}OPEN page_cursor/);
+    assert.match(scripts[0], /EXCEPTION\n {4}WHEN syntax_error THEN\n {8}RAISE;\n {4}WHEN query_canceled THEN/);
+    // A psql that stopped for anything else is said as it said it
+    const away = postgresql_adapter(() => Promise.reject(new Error('psql: error: connection to server at "127.0.0.1", port 5432 failed')));
+    await assert.rejects(away.documents(find), {message: /^psql: error: connection to server/});
 });
 
 // A script run by psql in the container as `user`, over 127.0.0.1, its password in the env:

@@ -834,22 +834,27 @@ the shell types it; a document shown whole has <strong>Edit</strong>, which read
 the fields changed alone, never over another hand&#39;s change to them: the window says which and
 what it holds now, with <strong>Read it as it is now</strong>, as a SQL row&#39;s does (<a href="modules/data_browser.html#changing-a-row">Changing a
 row</a>); and <strong>Delete</strong>, asked before it is
-done. A view&#39;s documents and a pipeline&#39;s results are read alone. The collection open is in the
-address, <code>?collection=</code>, so a reload or a link opens it again.</p>
+done. A view&#39;s documents and a pipeline&#39;s results are read alone. A query refused, or stopped
+after 20 s, is said in red above the page, which stays the one the last query found, dimmed. The
+collection open is in the address, <code>?collection=</code>, so a reload or a link opens it again.</p>
 <p>It reads and writes as the database&#39;s own user, inside its server&#39;s container, never as root:
 it sees that database and no other. What is typed is read as data, never run: a name that is none of the
 shell&#39;s types, <code>db.dropDatabase()</code>, is refused, with where it stands. Its machine away, or the
 server not up, Browse is greyed and says why.</p>
 <p>A PostgreSQL&#39;s or a MySQL&#39;s is the same page in their words: <strong>Tables</strong> down the left (a
 PostgreSQL&#39;s of every schema, <code>archive.orders</code> where the schema is not <code>public</code>), each with its
-rows, <code>~</code> before a number its engine estimates for a table too big to count at once; the
-database&#39;s head counts the same tables. <strong>Find</strong> takes a condition after <code>WHERE</code>, <code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>, and <strong>Order by and columns</strong> opens <code>joined DESC</code> and <code>name, email</code>; a click on a header orders by it. <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed
-whole, joins and <code>GROUP BY</code> and all, a page at a time. A cell shows its value as a MongoDB
-document&#39;s does, a number whole to its last digit (<code>2.50</code>, <code>9007199254740993</code>); a row opened is
-its JSON, with <strong>Copy</strong>. Each read is a <code>READ ONLY</code> transaction as the database&#39;s own user,
-signed in over its container&#39;s <code>127.0.0.1</code>, its password in the client&#39;s env (<code>PGPASSWORD</code>,
-<code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into it is refused by the engine itself, and said so.
-A SQLite file comes to the same page from its machine&#39;s Files (<a href="#a-sqlite-file">A SQLite file</a>).</p>
+rows, <code>~</code> before a number its engine estimates for a table too big to count at once, until its
+page, opened with no condition, counts them; the database&#39;s head counts the same tables.
+<strong>Find</strong> takes a condition after <code>WHERE</code>, <code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>, and
+<strong>Order by and columns</strong> opens <code>joined DESC</code> and <code>name, email</code>; a click on a header orders by
+it. <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed whole, joins and <code>GROUP BY</code> and all, a
+page at a time. A cell shows its value as a MongoDB document&#39;s does, a number whole to its last
+digit (<code>2.50</code>, <code>9007199254740993</code>); a row opened is its JSON, with <strong>Copy</strong>. Each read is a
+<code>READ ONLY</code> transaction as the database&#39;s own user, signed in over its container&#39;s <code>127.0.0.1</code>,
+its password in the client&#39;s env (<code>PGPASSWORD</code>, <code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into
+it is refused by the engine itself, and said so. A syntax error is said of what was typed, never
+of the text the page puts around it: <code>syntax error at the end of the condition</code> (of the <code>ORDER BY</code>, the columns, the query), or the engine&#39;s words of the token it stopped at. A SQLite file
+comes to the same page from its machine&#39;s Files (<a href="#a-sqlite-file">A SQLite file</a>).</p>
 <p>Their rows are changed as a document is, each change asked of the database as its own user, in
 a transaction of its own. A row is named by its table&#39;s primary key, or by a unique key of
 <code>NOT NULL</code> columns where there is none: <strong>+ Row</strong> in the table&#39;s head opens a JSON object of the
@@ -873,7 +878,8 @@ well.</p>
 <code>/remotes/&lt;machine&gt;/files/browse?path=&lt;file&gt;</code>, under Files in the crumbs: Remotes › vps1 ›
 Files › app.db. Its head is the file&#39;s: its name, <strong>SQLite</strong>, its machine, its path, its size and
 when it last changed, and <strong>Its folder</strong>, which goes back to Files, at the folder it is in. Under
-it, its tables and views down the left, each with its rows; <strong>Find</strong> with a condition, <strong>Order
+it, its tables and views down the left, each with its rows (a table too big to count with the
+list counted once its page is opened with no condition); <strong>Find</strong> with a condition, <strong>Order
 by and columns</strong>, <strong>Query</strong> for a <code>SELECT</code> of your own, a page at a time, a row opened whole as
 its JSON, as a PostgreSQL&#39;s (<a href="#its-data-browsed">Its data, browsed</a>). An integer keeps every
 digit (<code>9007199254740993</code>), a blob is its hex (<code>0x00ff</code>).</p>

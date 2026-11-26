@@ -272,6 +272,12 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Under a query refused, the page is the one before it: its numbers dimmed, as its rows are */
+.dbr-range.dim,
+.dbr-took.dim {
+    opacity: .6;
+}
+
 .dbr-cut {
     color: var(--busy-text);
 }

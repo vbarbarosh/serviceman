@@ -79,7 +79,7 @@ test('a real MySQL: its tables, a page of rows, a condition, an order, the colum
     // into a condition or the query box, are refused by MySQL itself, the statement prepared
     // alone and the transaction READ ONLY
     const refused = [
-        ['documents', 'id = 1; DELETE FROM items', /^You have an error in your SQL syntax; .* near '; DELETE FROM items \) LIMIT 0' at line 2$/],
+        ['documents', 'id = 1; DELETE FROM items', /^You have an error in your SQL syntax; .* near '; DELETE FROM items' at line 1$/],
         ['documents', '1) ; DROP TABLE items; SELECT * FROM items WHERE (1', /^You have an error in your SQL syntax/],
         ['documents', 'wipe() = 1', /^it writes, and what is typed here is only read, a row being changed by its own buttons: Cannot execute statement in a READ ONLY transaction\.$/],
         ['aggregate', 'SELECT * FROM items FOR UPDATE', /^it writes, and what is typed here is only read, a row being changed by its own buttons: Cannot execute statement in a READ ONLY transaction\.$/],
@@ -94,6 +94,27 @@ test('a real MySQL: its tables, a page of rows, a condition, an order, the colum
         await assert.rejects(adapter[door](ask), {status: 400, message: said}, text);
     }
     assert.strictEqual((await adapter.collections()).find(v => v.name === 'items').count, 122, 'as many as before');
+
+    // A syntax error is said of what was typed: in it, MySQL's words, its quote cut at its end and
+    // its line counted from its first; past it, at the end of the condition, the ORDER BY, the
+    // columns or the query, never the statement around it
+    const syntax_words = 'You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use';
+    const syntax = [
+        [{filter: 'name = = \'a\''}, `${syntax_words} near '= 'a'' at line 1`],
+        [{filter: 'name = \'a\'\nAND id = = 1'}, `${syntax_words} near '= 1' at line 2`],
+        [{filter: 'name = \'😀 abc'}, `${syntax_words} near ''😀 abc' at line 1`],
+        [{filter: 'name ='}, `${syntax_words} at the end of the condition`],
+        [{filter: 'id IN (1, 2'}, `${syntax_words} at the end of the condition`],
+        [{filter: 'id > 1', sort: 'id DESC,'}, `${syntax_words} at the end of the ORDER BY`],
+        [{fields: 'id,'}, `${syntax_words} at the end of the columns`],
+        [{pipeline: 'SELECT * FROM items WHERE'}, `${syntax_words} at the end of the query`],
+        [{pipeline: 'SELECT * FROM items WHERE id = = 1'}, `${syntax_words} near '= 1' at line 1`],
+    ];
+    for (const [typed, said] of syntax) {
+        const door = (typed.pipeline === undefined) ? 'documents' : 'aggregate';
+        const ask = Object.assign((door === 'documents') ? {collection: 'items', filter: '', sort: '', fields: ''} : {collection: 'items'}, {skip: 0, limit: 50}, typed);
+        await assert.rejects(adapter[door](ask), {status: 400, message: said}, JSON.stringify(typed));
+    }
 });
 
 // Rows changed by their table's key, in a database of their own: the table described first, each
@@ -214,6 +235,44 @@ test('a real MySQL: a row added, edited by its key, deleted, and each refusal in
     finally {
         holder.kill();
     }
+});
+
+// MySQL quotes the statement from where it stopped, and says its line: found in what the client
+// ran, past a part typed is at its end, and in one the quote is cut at its end and the line
+// counted from its first; an emoji, which MySQL's words say as ?, is found as itself; a quote
+// not found leaves MySQL's words as they were, and an empty one is the statement's end
+test('a MySQL syntax error is said of what was typed, never of the statement around it', async function () {
+    const words = 'You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use';
+    function adapter_said(near) {
+        return mysql_adapter(() => Promise.reject(Object.assign(new Error(`ERROR 1064 (42000) at line 9: ${words} near '${near}`), {stdout: ''})));
+    }
+    const find = {collection: 'big', filter: 'status = ', sort: '', fields: '', skip: 0, limit: 50};
+    const cases = [
+        [') LIMIT 0\' at line 3', find],
+        ['= 1\n) LIMIT 0\' at line 2', Object.assign({}, find, {filter: 'status = = 1'})],
+        ['= 1\n) LIMIT 0\' at line 3', Object.assign({}, find, {filter: 'status = 1\nAND n = = 1'})],
+        ['\'? Zoë\n) LIMIT 0\' at line 2', Object.assign({}, find, {filter: 'name = \'😀 Zoë'})],
+        ['FROM `big` WHERE (\nn = 1\n) LIMIT 0\' at line 3', Object.assign({}, find, {fields: 'id,', filter: 'n = 1'})],
+        ['LIMIT 0\' at line 5', Object.assign({}, find, {filter: 'n = 1', sort: 'n DESC,'})],
+        [') LIMIT 0\' at line 3', {collection: 'big', pipeline: 'SELECT * FROM big WHERE', skip: 0, limit: 50}],
+        ['nothing like it\' at line 1', find],
+        ['\' at line 3', find],
+    ];
+    const said = [];
+    for (const [near, ask] of cases) {
+        said.push(await adapter_said(near)[(ask.pipeline === undefined) ? 'documents' : 'aggregate'](ask).catch(e => `${e.status} ${e.message}`));
+    }
+    assert.deepStrictEqual(said, [
+        `400 ${words} at the end of the condition`,
+        `400 ${words} near '= 1' at line 1`,
+        `400 ${words} near '= 1' at line 2`,
+        `400 ${words} near ''😀 Zoë' at line 1`,
+        `400 ${words} at the end of the columns`,
+        `400 ${words} at the end of the ORDER BY`,
+        `400 ${words} at the end of the query`,
+        `400 ${words} near 'nothing like it' at line 1`,
+        `400 ${words} at the end of the condition`,
+    ]);
 });
 
 // A script run as root, by the client in the container

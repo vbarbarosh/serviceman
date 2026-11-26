@@ -1,6 +1,7 @@
 const ejson_from_json = require('./ejson_from_json');
 const items_from_rows = require('./items_from_rows');
 const sql_part_from_text = require('./sql_part_from_text');
+const sql_statement_built = require('./sql_statement_built');
 
 // How long a page of rows may take to be found, and to be counted, before the reader is stopped
 const FIND_MS = 20000;
@@ -40,6 +41,11 @@ const STATS = 'SELECT tbl, stat FROM sqlite_stat1';
 const SIZES = 'SELECT name, SUM(pgsize) FROM dbstat GROUP BY name';
 // A table a module makes, as its statement says
 const RE_VIRTUAL = /^\s*CREATE\s+VIRTUAL\b/i;
+// SQLite's words for a statement it could not read: at a token, or at one it does not know; "incomplete
+// input" is none of them, the statement read to its end without one
+const RE_SYNTAX = /^near "[\s\S]*": syntax error$|^unrecognized token: "[\s\S]*"$/;
+const RE_NEAR = /^near "[\s\S]*": ([\s\S]*)$/;
+const SQLITE_ERROR = 1;
 
 // SQLite, for the data browser: a file of a machine, which that machine's agent reads itself with
 // node:sqlite (agent_sqlite_read). `run(ask)` sends it the statements of one ask, {ms, steps:
@@ -99,12 +105,20 @@ function sqlite_adapter(run)
             const filter = sql_part_from_text(ask.filter, 'WHERE');
             const sort = sql_part_from_text(ask.sort, 'ORDER BY');
             const where = (filter === '') ? '' : ` WHERE (\n${filter}\n)`;
-            const order = (sort === '') ? '' : ` ORDER BY\n${sort}\n`;
-            const statement = `SELECT ${(fields === '') ? '*' : `\n${fields}\n`} FROM ${target}${where}${order} LIMIT ? OFFSET ?`;
+            const built = sql_statement_built(['SELECT '].concat(
+                (fields === '') ? ['*'] : ['\n', {word: 'columns', text: fields}, '\n'],
+                [` FROM ${target}`],
+                (filter === '') ? [] : [' WHERE (\n', {word: 'condition', text: filter}, '\n)'],
+                (sort === '') ? [] : [' ORDER BY\n', {word: 'ORDER BY', text: sort}, '\n'],
+                [' LIMIT ? OFFSET ?'],
+            ));
             const answers = answers_read(await run({ms: ASK_MS, steps: [
-                {sql: statement, params: [ask.limit + 1, ask.skip], limit: ask.limit, bytes: PAGE_BYTES, ms: FIND_MS},
+                {sql: built.statement, params: [ask.limit + 1, ask.skip], limit: ask.limit, bytes: PAGE_BYTES, ms: FIND_MS},
                 {sql: `SELECT COUNT(*) FROM ${target}${where}`, ms: COUNT_MS},
             ]}));
+            if (syntax_refused(answers[0])) {
+                throw Object.assign(new Error(await syntax_said_of(run, built, answers[0].error)), {status: 400});
+            }
             const page = page_read(answers[0]);
             const counted = answers[1];
             page.count = ((counted === undefined) || (counted.error !== undefined)) ? null : number_of(rows_read(counted)[0][0]);
@@ -117,6 +131,53 @@ function sqlite_adapter(run)
             return page_read(answers[0]);
         },
     };
+}
+
+// A page's statement SQLite could not read, at a token it quotes
+function syntax_refused(answer)
+{
+    return (answer !== undefined) && (typeof answer.code === 'number') && ((answer.code & 0xff) === SQLITE_ERROR) && RE_SYNTAX.test(String(answer.error));
+}
+
+// SQLite's words for a syntax error in a page's statement, said of the part typed it is in or
+// after, never quoting the statement around it. SQLite says no position: the statement is read
+// again, never run (EXPLAIN), cut where each part typed begins and ends; cut where its reader had
+// not stopped, it reads to the end of what is left and finds it incomplete. Stopped in a part,
+// its words are those of the statement cut at the part's end, which quote what was typed alone;
+// stopped past one, at the end of the condition (or the ORDER BY, the columns).
+//
+//     await syntax_said_of(run, built, 'near ")": syntax error')   // 'syntax error at the end of the condition'
+async function syntax_said_of(run, built, said)
+{
+    const steps = [];
+    for (const part of built.parts) {
+        steps.push({sql: `EXPLAIN ${built.statement.slice(0, part.from)}`, limit: 0, ms: COUNT_MS});
+        steps.push({sql: `EXPLAIN ${built.statement.slice(0, part.to)}`, limit: 0, ms: COUNT_MS});
+    }
+    const answer = await run({ms: ASK_MS, steps});
+    if ((answer.error !== undefined) || (answer.answers.length < steps.length)) {
+        return said;
+    }
+    for (const [i, part] of built.parts.entries()) {
+        const end = answer.answers[2*i + 1];
+        if (syntax_refused(end) === false) {
+            continue;
+        }
+        // Stopped before the part began: past the one before it
+        if (syntax_refused(answer.answers[2*i])) {
+            return (i === 0) ? said : past_said_of(said, built.parts[i - 1]);
+        }
+        return end.error;
+    }
+    return past_said_of(said, built.parts[built.parts.length - 1]);
+}
+
+// SQLite's words for where it stopped, said as after a part typed: `near ")": syntax error` is
+// `syntax error at the end of the condition`
+function past_said_of(said, part)
+{
+    const near = RE_NEAR.exec(said);
+    return (near === null) ? said : `${near[1]} at the end of the ${part.word}`;
 }
 
 // The rows of the tables given counted, all of them within COUNT_MS: an ask of their own, after

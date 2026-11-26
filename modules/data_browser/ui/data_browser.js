@@ -176,9 +176,9 @@ const data_browser = {
             </form>
             <p v-if="(error !== '')" class="bad dbr-error" role="alert">{{ error }}</p>
             <div v-if="(page !== null)" class="dbr-bar">
-                <span class="dbr-range"><span v-if="busy" class="spin"/>{{ range_text }}</span>
+                <span class="dbr-range" :class="{dim: (error !== '')}"><span v-if="busy" class="spin"/>{{ range_text }}</span>
                 <span v-if="page.cut" class="dbr-cut" title="A page carries 4 MB at most">the rest of this page is over 4 MB: Next shows it</span>
-                <span class="muted dbr-took">{{ took_text }}</span>
+                <span class="muted dbr-took" :class="{dim: (error !== '')}">{{ took_text }}</span>
                 <span v-if="(said !== '')" class="dbr-said" role="status">{{ said }}</span>
                 <span class="seg dbr-view" role="group" aria-label="Shown as">
                     <button type="button" :class="{on: (view === 'table')}" @click="view = 'table'">Table</button>
@@ -210,14 +210,14 @@ const data_browser = {
                     </tbody>
                 </table>
             </div>
-            <p v-else-if="((page !== null) && (page.skip === 0))" class="muted dbr-empty">{{ empty_text }}</p>
+            <p v-else-if="((page !== null) && (page.skip === 0) && (empty_text !== ''))" class="muted dbr-empty">{{ empty_text }}</p>
         </template>
     </section>
     <div v-if="(picked_item !== null)" class="dt-window" @click.self="picked = null">
         <div ref="picked_box" class="dt-whole dbr-doc" role="dialog" aria-modal="true" tabindex="-1" @keydown.esc="picked = null">
             <div class="dt-whole-head">
                 <b class="dbr-doc-name" :title="picked_name">{{ picked_name }}</b>
-                <span class="muted">{{ open }} · {{ (page.skip + picked + 1).toLocaleString('en-US') }} of {{ count_text }}</span>
+                <span class="muted">{{ picked_from }} · {{ (page.skip + picked + 1).toLocaleString('en-US') }} of {{ count_text }}</span>
                 <span class="dbr-doc-acts">
                     <button type="button" :disabled="(picked === 0)" aria-label="The document before" @click="picked--">‹</button>
                     <button type="button" :disabled="(picked === (page.items.length - 1))" aria-label="The next document" @click="picked++">›</button>
@@ -268,8 +268,9 @@ const data_browser = {
     data: function () {
         // about: the database as the API heads it, {engine, database, …}, null until read
         // collections: its collections, null while they are read; open the one shown
-        // mode: find or aggregate; filter, sort, fields, pipeline: as typed; asked: as last
-        // found, for Reset and the pages
+        // mode: find or aggregate; filter, sort, fields, pipeline: as typed; asked: what found
+        // the page shown, for Reset, its pages, its headers and its rows' Edit: a query refused
+        // leaves the page and its ask as they were
         // page: the documents found, {items, count, skip, limit, took_ms, cut} (a pipeline's
         // with more, whether a next page is there), null before; view: table or json
         // picked: the index on the page of the document shown whole, null for none
@@ -396,7 +397,12 @@ const data_browser = {
             }
             return ((this.page.count !== null) && (next >= this.page.count)) ? null : next;
         },
+        // What an empty page says of the query that found it; nothing under a query refused, whose
+        // words are said above it, the page under them being the one before
         empty_text: function () {
+            if (this.error !== '') {
+                return '';
+            }
             if (this.asked.mode === 'aggregate') {
                 return this.words.sql ? 'The query gives no row.' : `The pipeline makes no ${this.words.item} of ${this.open}.`;
             }
@@ -433,9 +439,9 @@ const data_browser = {
             return this.changeable ? null : READ_ONLY.keyless;
         },
         // The key of the SQL row shown whole, its columns with their values; null when one of
-        // them is not among the columns shown
+        // them is not among the columns shown, and for a query's row, which is none of the table's
         picked_key: function () {
-            if ((this.words.sql === false) || (this.changeable === false) || (this.picked_item === null)) {
+            if ((this.words.sql === false) || (this.changeable === false) || (this.picked_item === null) || (this.asked.mode !== 'find')) {
                 return null;
             }
             const out = {};
@@ -478,10 +484,16 @@ const data_browser = {
                 return `Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). The fields changed are saved alone; one left out is taken out. Ctrl+Enter ${keys}.`;
             }
             if (this.editing.id === undefined) {
-                const filled = (this.editing.filled.length === 0) ? 'their defaults fill the rest' : `${this.editing.filled.join(', ')}: their defaults`;
+                const defaults = (this.editing.filled.length === 1) ? 'its default' : 'their defaults';
+                const filled = (this.editing.filled.length === 0) ? 'their defaults fill the rest' : `${this.editing.filled.join(', ')}: ${defaults}`;
                 return `A JSON object of the columns to set, null for NULL; ${filled}. Ctrl+Enter ${keys}.`;
             }
             return `Each value as this page reads it: a date as its text, binary data as ${this.words.bytes}, null for NULL. The columns changed are saved alone. Ctrl+Enter ${keys}.`;
+        },
+        // What the document shown whole is one of: the collection, or what the pipeline or the
+        // query made, which is none of its own
+        picked_from: function () {
+            return (this.asked.mode === 'aggregate') ? `the ${this.words.pipeline_word}'s` : this.open;
         },
         picked_name: function () {
             if (this.words.sql) {
@@ -552,11 +564,24 @@ const data_browser = {
                     throw new Error(body.error || `serviceman answered ${answer.status}`);
                 }
                 this.collections = body.items;
+                this.count_keep();
             }
             catch (error) {
                 this.collections = [];
                 this.collections_error = error.message;
             }
+        },
+        // The open table's rows as its page counted them, found with no condition: said in the
+        // list and the head in place of what its engine estimated, or of none, for a table too big
+        // to count with the list. A page found by a condition counts what it finds alone, and a
+        // view's is no table's.
+        count_keep: function () {
+            const item = this.open_item;
+            if ((item === null) || (item.type === 'view') || (this.page === null) || (this.page.count === null) || (this.asked.mode !== 'find') || (this.asked.filter !== '')) {
+                return;
+            }
+            item.count = this.page.count;
+            item.estimated = false;
         },
         collection_open: function (name) {
             this.open = name;
@@ -574,10 +599,10 @@ const data_browser = {
                 this.documents_read(0);
             }
         },
+        // The query as typed, its first page read: it becomes the page's once it is found
         find: function () {
             this.said = '';
-            this.asked = {mode: this.mode, filter: this.filter.trim(), sort: this.sort.trim(), fields: this.fields.trim(), pipeline: this.pipeline.trim()};
-            this.documents_read(0);
+            this.documents_read(0, {mode: this.mode, filter: this.filter.trim(), sort: this.sort.trim(), fields: this.fields.trim(), pipeline: this.pipeline.trim()});
         },
         reset: function () {
             this.filter = '';
@@ -640,10 +665,12 @@ const data_browser = {
             const skip = (step < 0) ? Math.max(0, this.page.skip - this.page.limit) : this.next_skip;
             this.documents_read(skip);
         },
-        // A header clicked: sorted by it, up; again, down; again, as found
+        // A header clicked: sorted by it, up; again, down; again, as found. Only a find's page has
+        // its headers to click, and the click finds again, whatever tab is open since
         sort_by: function (key) {
             const texts = this.sort_texts(key);
             const direction = this.sort_direction(key);
+            this.mode = 'find';
             this.sort = '';
             if (direction === null) {
                 this.sort = texts.up;
@@ -685,11 +712,12 @@ const data_browser = {
             const name = RE_BARE_KEY.test(key) ? key : JSON.stringify(key);
             return {up: `{${name}: 1}`, down: `{${name}: -1}`};
         },
-        // A page of the open collection, found as last asked: a find's filter, sort and fields,
-        // or a pipeline
-        documents_read: async function (skip) {
+        // A page of the open collection, found as `ask` asks (a find's filter, sort and fields, or
+        // a pipeline), or as the page shown was; found, the page and its ask are the ones shown,
+        // and refused, those shown stay as they were
+        documents_read: async function (skip, ask) {
             const name = this.open;
-            const asked = this.asked;
+            const asked = (ask === undefined) ? this.asked : ask;
             const texts = (asked.mode === 'aggregate') ? {pipeline: asked.pipeline} : {filter: asked.filter, sort: asked.sort, fields: asked.fields};
             const query = new URLSearchParams(Object.assign({collection: name}, texts, {skip: String(skip), limit: String(this.limit)}));
             const door = (asked.mode === 'aggregate') ? 'aggregate' : 'documents';
@@ -704,7 +732,9 @@ const data_browser = {
                 // Another collection opened meanwhile: this answer is not for it
                 if (name === this.open) {
                     this.page = body;
+                    this.asked = asked;
                     this.picked = null;
+                    this.count_keep();
                     if (skip === 0) {
                         this.recent_keep();
                     }

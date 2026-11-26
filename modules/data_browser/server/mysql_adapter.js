@@ -4,7 +4,9 @@ const ejson_number_from_text = require('./ejson_number_from_text');
 const items_from_rows = require('./items_from_rows');
 const json_from_ejson = require('./json_from_ejson');
 const sql_change_from_ask = require('./sql_change_from_ask');
+const sql_part_at = require('./sql_part_at');
 const sql_part_from_text = require('./sql_part_from_text');
+const sql_statement_built = require('./sql_statement_built');
 
 // How long a page of rows may take to be found, and to be counted, before MySQL stops it
 const FIND_MS = 20000;
@@ -38,6 +40,10 @@ const RE_WHOLE = /^-?\d+$/;
 const RE_DECIMAL = /^-?\d+(\.\d+)?$/;
 const RE_FLOAT = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const RE_HEX = /^0x([0-9a-f]{2})*$/i;
+// Where MySQL's syntax error says it stopped: the statement's text from there, cut at 80
+// characters, and the line of the statement it is on
+const RE_NEAR = /near '([\s\S]*)' at line (\d+)$/;
+const SYNTAX_ERROR = 1064;
 // Every script is one READ ONLY transaction, and the session's too
 const HEAD = [
     'SET SESSION TRANSACTION READ ONLY;',
@@ -125,16 +131,20 @@ function mysql_adapter(run)
             const filter = sql_part_from_text(ask.filter, 'WHERE');
             const sort = sql_part_from_text(ask.sort, 'ORDER BY');
             const where = (filter === '') ? '' : ` WHERE (\n${filter}\n)`;
-            const order = (sort === '') ? '' : ` ORDER BY\n${sort}\n`;
-            const statement = `SELECT ${(fields === '') ? '*' : `\n${fields}\n`} FROM ${target}${where}${order}`;
-            const lines = page_lines(statement, ask).concat([`SET SESSION max_execution_time = ${COUNT_MS};`], rows_lines('serviceman_count', `SELECT COUNT(*) AS n FROM ${target}${where}`), ['ROLLBACK;', '']);
-            return page_read(await printed_read(run, lines.join('\n'), ''), ask.limit);
+            const built = sql_statement_built(['SELECT '].concat(
+                (fields === '') ? ['*'] : ['\n', {word: 'columns', text: fields}, '\n'],
+                [` FROM ${target}`],
+                (filter === '') ? [] : [' WHERE (\n', {word: 'condition', text: filter}, '\n)'],
+                (sort === '') ? [] : [' ORDER BY\n', {word: 'ORDER BY', text: sort}, '\n'],
+            ));
+            const lines = page_lines(built.statement, ask).concat([`SET SESSION max_execution_time = ${COUNT_MS};`], rows_lines('serviceman_count', `SELECT COUNT(*) AS n FROM ${target}${where}`), ['ROLLBACK;', '']);
+            return page_read(await printed_read(run, lines.join('\n'), '', layout_of(built, ask)), ask.limit);
         },
         aggregate: async function (ask) {
             const query = sql_part_from_text(ask.pipeline, '');
-            const statement = `(\n${(query === '') ? `SELECT * FROM ${name_quoted(ask.collection)}` : query}\n)`;
-            const lines = page_lines(statement, ask).concat(['ROLLBACK;', '']);
-            const found = page_read(await printed_read(run, lines.join('\n'), query), ask.limit);
+            const built = sql_statement_built(['(\n', (query === '') ? `SELECT * FROM ${name_quoted(ask.collection)}` : {word: 'query', text: query}, '\n)']);
+            const lines = page_lines(built.statement, ask).concat(['ROLLBACK;', '']);
+            const found = page_read(await printed_read(run, lines.join('\n'), query, layout_of(built, ask)), ask.limit);
             return {items: found.items, columns: found.columns, count: null, more: found.more, took_ms: found.took_ms, cut: found.cut};
         },
         document: async function (ask) {
@@ -226,6 +236,13 @@ function mysql_adapter(run)
     };
 }
 
+// What a page's client runs, as page_lines writes it, and where the parts typed stand in it: for
+// a syntax error in it, said of the part typed (syntax_said_of)
+function layout_of(built, ask)
+{
+    return {texts: [`${built.statement} LIMIT 0`, `${built.statement} LIMIT ${ask.skip}, ${ask.limit + 1}`], parts: built.parts};
+}
+
 // The page's statement: under LIMIT 0 in the client's first run, for its column types, and one
 // past the page from `skip` in the second, for its rows; then how long it took
 function page_lines(statement, ask)
@@ -285,8 +302,9 @@ function name_quoted(name)
 // What the client printed. One that ended with an error throws what MySQL refused (400), unless
 // the page was printed before it: then what failed was the count, past its limit, and the page
 // is answered without it. An error of the client itself did not reach the database (502).
-// `query` is what was typed into the query box, '' for none.
-async function printed_read(run, script, query)
+// `query` is what was typed into the query box, '' for none; `layout` where the parts typed stand
+// in a page's statement (layout_of), for a syntax error in them.
+async function printed_read(run, script, query, layout)
 {
     try {
         return await run(script);
@@ -300,8 +318,80 @@ async function printed_read(run, script, query)
         if ((said === null) || ((Number(said[1]) >= CLIENT_ERRORS.least) && (Number(said[1]) <= CLIENT_ERRORS.most))) {
             throw error;
         }
-        throw Object.assign(new Error(said_of(Number(said[1]), said[2].trim().replace(/\s+/g, ' '), query)), {status: 400});
+        const words = ((Number(said[1]) === SYNTAX_ERROR) && (layout !== undefined)) ? syntax_said_of(said[2].trim(), layout) : said[2].trim();
+        throw Object.assign(new Error(said_of(Number(said[1]), words.replace(/\s+/g, ' '), query)), {status: 400});
     }
+}
+
+// MySQL's words for a syntax error, said of the part typed it is in or after, never quoting the
+// statement around it. MySQL quotes the statement from where it stopped, and says its line: that
+// place found in what the client ran, one past a part's end is at the end of the condition (or
+// the ORDER BY, the columns, the query), and one in it quotes the part alone, its line counted
+// from the part's first; a place not found leaves MySQL's words as they are.
+//
+//     syntax_said_of("…to use near ') LIMIT 0' at line 3", layout)   // '…to use at the end of the condition'
+function syntax_said_of(said, layout)
+{
+    const near = RE_NEAR.exec(said);
+    if (near === null) {
+        return said;
+    }
+    for (const text of layout.texts) {
+        const at = quoted_at(text, near[1], Number(near[2]));
+        if (at === null) {
+            continue;
+        }
+        const part = sql_part_at(layout.parts, at);
+        if (part === null) {
+            return said;
+        }
+        if (part.past) {
+            return `${said.slice(0, near.index)}at the end of the ${part.word}`;
+        }
+        const rest = text.slice(at, part.to);
+        const quote = ((near[1].length > as_said(rest).length) && near[1].startsWith(as_said(rest))) ? rest : near[1];
+        return `${said.slice(0, near.index)}near '${quote}' at line ${line_of(text, at) - line_of(text, part.from) + 1}`;
+    }
+    return said;
+}
+
+// Where in `text` MySQL's quote of it begins, on the line it says: the place the rest of the text
+// is the quote, else the first the quote begins at (one cut at 80 characters); null for none.
+// The quote is the text as MySQL says it (as_said).
+function quoted_at(text, quote, line)
+{
+    const said = as_said(text);
+    // Where each character of the text as said begins in the text
+    const places = [];
+    for (let at = 0; at < text.length; at += (text.codePointAt(at) > 0xffff) ? 2 : 1) {
+        places.push(at);
+    }
+    places.push(text.length);
+    let first = null;
+    // An empty quote is found at every place, the end too: past it, none
+    for (let at = said.indexOf(quote); at >= 0; at = (at < said.length) ? said.indexOf(quote, at + 1) : -1) {
+        if (line_of(text, places[at]) !== line) {
+            continue;
+        }
+        if (said.length - at === quote.length) {
+            return places[at];
+        }
+        first = (first === null) ? places[at] : first;
+    }
+    return first;
+}
+
+// Text as MySQL's words quote it: a character past the first 65536 (an emoji), which they cannot
+// hold, said as ?
+function as_said(text)
+{
+    return Array.from(text, v => ((v.codePointAt(0) > 0xffff) ? '?' : v)).join('');
+}
+
+// The line of `text` a place of it is on, from 1
+function line_of(text, at)
+{
+    return text.slice(0, at).split('\n').length;
 }
 
 // What MySQL said, in words for the page

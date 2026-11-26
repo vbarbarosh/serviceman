@@ -103,8 +103,9 @@ the shell types it; a document shown whole has **Edit**, which reads it again wh
 the fields changed alone, never over another hand's change to them: the window says which and
 what it holds now, with **Read it as it is now**, as a SQL row's does ([Changing a
 row](../modules/data_browser/README.md#changing-a-row)); and **Delete**, asked before it is
-done. A view's documents and a pipeline's results are read alone. The collection open is in the
-address, `?collection=`, so a reload or a link opens it again.
+done. A view's documents and a pipeline's results are read alone. A query refused, or stopped
+after 20 s, is said in red above the page, which stays the one the last query found, dimmed. The
+collection open is in the address, `?collection=`, so a reload or a link opens it again.
 
 It reads and writes as the database's own user, inside its server's container, never as root:
 it sees that database and no other. What is typed is read as data, never run: a name that is none of the
@@ -113,16 +114,19 @@ server not up, Browse is greyed and says why.
 
 A PostgreSQL's or a MySQL's is the same page in their words: **Tables** down the left (a
 PostgreSQL's of every schema, `archive.orders` where the schema is not `public`), each with its
-rows, `~` before a number its engine estimates for a table too big to count at once; the
-database's head counts the same tables. **Find** takes a condition after `WHERE`, `status =
-'active' AND joined > '2025-06-01'`, and **Order by and columns** opens `joined DESC` and `name,
-email`; a click on a header orders by it. **Query**, where Aggregate is, runs a `SELECT` typed
-whole, joins and `GROUP BY` and all, a page at a time. A cell shows its value as a MongoDB
-document's does, a number whole to its last digit (`2.50`, `9007199254740993`); a row opened is
-its JSON, with **Copy**. Each read is a `READ ONLY` transaction as the database's own user,
-signed in over its container's `127.0.0.1`, its password in the client's env (`PGPASSWORD`,
-`MYSQL_PWD`): a `DELETE` or a `DROP` typed into it is refused by the engine itself, and said so.
-A SQLite file comes to the same page from its machine's Files ([A SQLite file](#a-sqlite-file)).
+rows, `~` before a number its engine estimates for a table too big to count at once, until its
+page, opened with no condition, counts them; the database's head counts the same tables.
+**Find** takes a condition after `WHERE`, `status = 'active' AND joined > '2025-06-01'`, and
+**Order by and columns** opens `joined DESC` and `name, email`; a click on a header orders by
+it. **Query**, where Aggregate is, runs a `SELECT` typed whole, joins and `GROUP BY` and all, a
+page at a time. A cell shows its value as a MongoDB document's does, a number whole to its last
+digit (`2.50`, `9007199254740993`); a row opened is its JSON, with **Copy**. Each read is a
+`READ ONLY` transaction as the database's own user, signed in over its container's `127.0.0.1`,
+its password in the client's env (`PGPASSWORD`, `MYSQL_PWD`): a `DELETE` or a `DROP` typed into
+it is refused by the engine itself, and said so. A syntax error is said of what was typed, never
+of the text the page puts around it: `syntax error at the end of the condition` (of the `ORDER
+BY`, the columns, the query), or the engine's words of the token it stopped at. A SQLite file
+comes to the same page from its machine's Files ([A SQLite file](#a-sqlite-file)).
 
 Their rows are changed as a document is, each change asked of the database as its own user, in
 a transaction of its own. A row is named by its table's primary key, or by a unique key of
@@ -152,7 +156,8 @@ Browse opens the same page as a database's data, at
 `/remotes/<machine>/files/browse?path=<file>`, under Files in the crumbs: Remotes › vps1 ›
 Files › app.db. Its head is the file's: its name, **SQLite**, its machine, its path, its size and
 when it last changed, and **Its folder**, which goes back to Files, at the folder it is in. Under
-it, its tables and views down the left, each with its rows; **Find** with a condition, **Order
+it, its tables and views down the left, each with its rows (a table too big to count with the
+list counted once its page is opened with no condition); **Find** with a condition, **Order
 by and columns**, **Query** for a `SELECT` of your own, a page at a time, a row opened whole as
 its JSON, as a PostgreSQL's ([Its data, browsed](#its-data-browsed)). An integer keeps every
 digit (`9007199254740993`), a blob is its hex (`0x00ff`).

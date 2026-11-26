@@ -3,6 +3,7 @@ const ejson_from_json = require('./ejson_from_json');
 const items_from_rows = require('./items_from_rows');
 const json_from_ejson = require('./json_from_ejson');
 const sql_change_from_ask = require('./sql_change_from_ask');
+const sql_part_at = require('./sql_part_at');
 const sql_part_from_text = require('./sql_part_from_text');
 
 // How long a page of rows may take to be found, and to be counted, before PostgreSQL stops it
@@ -15,9 +16,18 @@ const LOCK_MS = 5000;
 const COUNT_BYTES = 64*1024*1024;
 // What a page of rows carries at most: the rest of the page is left out, and it says so
 const PAGE_BYTES = 4*1024*1024;
-// The lines of psql's output that are the answer and the count
+// The lines of psql's output that are the answer and the count; and of what it says aside, where
+// the parts typed stand in a page's statement
 const ANSWER = 'serviceman-answer ';
 const COUNTED = 'serviceman-count ';
+const PARTS = 'serviceman-parts ';
+// The syntax error a page's block lets through, as psql says it in few words: PostgreSQL's words
+// and the position in the statement it stopped at, a character from 1
+const RE_SYNTAX = /ERROR: {2}([\s\S]*) at character (\d+)\s*$/;
+const RE_PARTS = new RegExp(`${PARTS}(\\[.*\\])$`, 'm');
+// The end of PostgreSQL's words that says where: at a token it quotes, or at the end
+const RE_WHERE = /^([\s\S]*?) at (?:or near "[\s\S]*"|end of input)$/;
+const RE_NEAR = /^([\s\S]*? at or near ")([\s\S]*)"$/;
 // The relations listed: tables (a partitioned one and its partitions), views, materialized views
 // and foreign tables, in every schema but PostgreSQL's own, a session's temporary ones left out.
 // database_list counts the same for the database's head. One is named schema.table, the table
@@ -50,6 +60,9 @@ const REFUSED = [
     'END',
     '$serviceman$;',
 ];
+// A page's block: a syntax error in what is typed goes through to psql, which says where it is in
+// the statement (RE_SYNTAX), a position no handler in the block is given
+const PAGE_REFUSED = ['EXCEPTION', '    WHEN syntax_error THEN', '        RAISE;'].concat(REFUSED.slice(1));
 
 // The database's tables and views, public's first, then each schema's, by name; each with its
 // rows, its size and its indexes: the rows counted where that is quick, else as PostgreSQL
@@ -110,7 +123,8 @@ const COLLECTIONS = [
 
 // What a page reads: a table's rows, its columns as asked, those its condition finds, in its
 // order; their count is a statement of its own, run after it. The table is found by its name in
-// the list and named in the statement quoted, never as given.
+// the list and named in the statement quoted, never as given. Each part typed is on lines of its
+// own, and where it stands is kept in `parts`, [word, from, to], characters from 1.
 const DOCUMENTS = [
     '    target := (',
     '        SELECT format(\'%I.%I\', n.nspname, c.relname) FROM pg_class AS c JOIN pg_namespace AS n ON n.oid = c.relnamespace',
@@ -120,9 +134,19 @@ const DOCUMENTS = [
     '        RAISE EXCEPTION \'no table called % in %\', ask->>\'collection\', current_database();',
     '    END IF;',
     '    filtered := CASE WHEN ask->>\'filter\' = \'\' THEN \'\' ELSE format(E\' WHERE (\\n%s\\n)\', ask->>\'filter\') END;',
-    '    statement := format(E\'SELECT %s FROM %s%s%s LIMIT %s OFFSET %s\',',
-    '        CASE WHEN ask->>\'fields\' = \'\' THEN \'*\' ELSE format(E\'\\n%s\\n\', ask->>\'fields\') END, target, filtered,',
-    '        CASE WHEN ask->>\'sort\' = \'\' THEN \'\' ELSE format(E\' ORDER BY\\n%s\\n\', ask->>\'sort\') END, page_limit + 1, ask->>\'skip\');',
+    '    statement := \'SELECT \' || CASE WHEN ask->>\'fields\' = \'\' THEN \'*\' ELSE format(E\'\\n%s\\n\', ask->>\'fields\') END || \' FROM \' || target;',
+    '    IF ask->>\'fields\' <> \'\' THEN',
+    '        parts := parts || jsonb_build_array(jsonb_build_array(\'columns\', 9, 9 + length(ask->>\'fields\')));',
+    '    END IF;',
+    '    IF ask->>\'filter\' <> \'\' THEN',
+    '        parts := parts || jsonb_build_array(jsonb_build_array(\'condition\', length(statement) + 10, length(statement) + 10 + length(ask->>\'filter\')));',
+    '    END IF;',
+    '    statement := statement || filtered;',
+    '    IF ask->>\'sort\' <> \'\' THEN',
+    '        parts := parts || jsonb_build_array(jsonb_build_array(\'ORDER BY\', length(statement) + 11, length(statement) + 11 + length(ask->>\'sort\')));',
+    '        statement := statement || format(E\' ORDER BY\\n%s\\n\', ask->>\'sort\');',
+    '    END IF;',
+    '    statement := statement || format(\' LIMIT %s OFFSET %s\', page_limit + 1, ask->>\'skip\');',
     '    PERFORM set_config(\'serviceman.count\', format(\'SELECT count(*) FROM %s%s\', target, filtered), true);',
 ];
 // What the query box reads: its statement as typed, whole, from the page's first row on; none
@@ -136,12 +160,15 @@ const QUERY = [
     `            WHERE ${LISTED} AND (${NAME}) = ask->>'collection' ORDER BY n.nspname <> 'public' LIMIT 1`,
     '        );',
     '        statement := format(\'SELECT * FROM %s\', coalesce(target, quote_ident(ask->>\'collection\')));',
+    '    ELSE',
+    '        parts := jsonb_build_array(jsonb_build_array(\'query\', 1, length(statement) + 1));',
     '    END IF;',
 ];
 
 // The page itself, its rows read from a cursor one past the page, which says whether a next
 // page is there: each row an array of its values as PostgreSQL gives them in JSON, the column
-// names once; a name two columns have (a join's) is kept twice
+// names once; a name two columns have (a join's) is kept twice. Where the parts typed stand in
+// the statement is said aside first (PARTS), for a syntax error in them (PAGE_REFUSED).
 function page_lines(statement_lines)
 {
     return [
@@ -154,6 +181,7 @@ function page_lines(statement_lines)
         '    target text;',
         '    filtered text;',
         '    moves bigint := 0;',
+        '    parts jsonb := \'[]\';',
         '    fetched record;',
         '    line json;',
         '    names json;',
@@ -166,6 +194,7 @@ function page_lines(statement_lines)
         '    detail text;',
         'BEGIN',
     ].concat(statement_lines, [
+        `    RAISE NOTICE '${PARTS}%', parts;`,
         '    time0 := clock_timestamp();',
         '    OPEN page_cursor NO SCROLL FOR EXECUTE statement;',
         '    IF moves > 0 THEN',
@@ -196,7 +225,7 @@ function page_lines(statement_lines)
         '        \'names\', coalesce(names, \'[]\'), \'rows\', array_to_json(rows), \'more\', more, \'cut\', cut,',
         '        \'took_ms\', round(extract(epoch FROM clock_timestamp() - time0) * 1000)',
         '    ))::text, true);',
-    ], REFUSED);
+    ], PAGE_REFUSED);
 }
 
 // How many rows the page's condition finds in all: a statement of its own, under a limit of its
@@ -379,11 +408,12 @@ function postgresql_adapter(run)
                 page_bytes: PAGE_BYTES,
             };
             const lines = [`SET LOCAL statement_timeout = ${FIND_MS};`].concat(page_lines(DOCUMENTS), [`SET LOCAL statement_timeout = ${COUNT_MS};`], COUNT);
-            return page_read(await run(script_of(lines, json)));
+            const texts = {columns: json.fields, condition: json.filter, 'ORDER BY': json.sort};
+            return page_read(await page_run(run, script_of(lines, json), texts));
         },
         aggregate: async function (ask) {
             const json = {collection: ask.collection, query: sql_part_from_text(ask.pipeline, ''), skip: ask.skip, limit: ask.limit, page_bytes: PAGE_BYTES};
-            const page = page_read(await run(script_of([`SET LOCAL statement_timeout = ${FIND_MS};`].concat(page_lines(QUERY)), json)));
+            const page = page_read(await page_run(run, script_of([`SET LOCAL statement_timeout = ${FIND_MS};`].concat(page_lines(QUERY)), json), {query: json.query}));
             return {items: page.items, columns: page.columns, count: null, more: page.more, took_ms: page.took_ms, cut: page.cut};
         },
         document: async function (ask) {
@@ -409,11 +439,14 @@ function postgresql_adapter(run)
 
 // The script: the ask as hex in a GUC of the transaction, which is read only and rolled back,
 // the lines, then the answer printed on one line of its own (JSON's own newlines are spaces in
-// it) and the count on another
+// it) and the count on another. What psql says aside, a notice and an error, it says in few words
+// (RE_SYNTAX), and a notice reaches it whatever the user's own setting.
 function script_of(lines, ask)
 {
     const head = [
+        '\\set VERBOSITY terse',
         'BEGIN TRANSACTION READ ONLY;',
+        'SET LOCAL client_min_messages = notice;',
         `SET LOCAL serviceman.ask = '${Buffer.from(json_from_ejson(ask), 'utf8').toString('hex')}';`,
     ];
     const foot = [
@@ -460,6 +493,52 @@ function change_read(printed, change)
         id[name] = row.item[name];
     }
     return {id, item: row.item, saved: (change.set === null) ? [] : Object.keys(change.set)};
+}
+
+// A page's script run. A syntax error in what was typed stops psql, which says it with its
+// position (RE_SYNTAX) after where each part typed stands (RE_PARTS): said of the part, a 400
+// like any refusal of the ask; what else stops psql is thrown as it is. `texts` are the parts
+// typed by their words.
+async function page_run(run, script, texts)
+{
+    try {
+        return await run(script);
+    }
+    catch (error) {
+        const said = String(error.message);
+        const syntax = RE_SYNTAX.exec(said.slice(Math.max(0, said.indexOf('ERROR:  '))));
+        const parts = RE_PARTS.exec(said);
+        if ((syntax === null) || (parts === null)) {
+            throw error;
+        }
+        const list = JSON.parse(parts[1]).map(v => ({word: v[0], from: v[1], to: v[2]}));
+        throw Object.assign(new Error(syntax_said_of(syntax[1], list, Number(syntax[2]), texts)), {status: 400});
+    }
+}
+
+// PostgreSQL's words for a syntax error at `at`, a character of the statement from 1, said of
+// the part typed it is in or after, never quoting the statement around it: one past a part's
+// end is at the end of the condition (or the ORDER BY, the columns, the query); a token quoted
+// that runs on past the part's end (an unterminated string) is cut at it
+//
+//     syntax_said_of('syntax error at or near ")"', [{word: 'condition', from: 34, to: 43}], 44, {condition: 'status = '})
+//     // 'syntax error at the end of the condition'
+function syntax_said_of(said, parts, at, texts)
+{
+    const part = sql_part_at(parts, at);
+    if (part === null) {
+        return said;
+    }
+    if (part.past) {
+        const where = RE_WHERE.exec(said);
+        return `${(where === null) ? said : where[1]} at the end of the ${part.word}`;
+    }
+    const near = RE_NEAR.exec(said);
+    const rest = Array.from(texts[part.word] || '').slice(at - part.from).join('');
+    if ((near !== null) && (near[2].length > rest.length) && near[2].startsWith(rest)) {
+        return `${near[1]}${rest}"`;
+    }
+    return said;
 }
 
 // The row a block answered, as an object keyed by its columns, null for none
