@@ -2,7 +2,7 @@ import head_spark from './head_spark.js';
 import share_level from './share_level.js';
 
 // The facts in a page's head, between its name and its buttons: a label over a value, a note
-// beside the value, and under it a small chart of its last hour where it has one (head_spark),
+// beside the value, and under it a small chart of its range where it has one (head_spark),
 // else a bar, amber from 0.8 and red from 0.92 as a filling disk's. A dim fact is the last
 // number known: its chart grey with no dot, and no bar.
 //

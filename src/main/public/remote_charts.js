@@ -1,15 +1,8 @@
+import CHARTS_RANGES from './charts_ranges.js';
 import format_bps from './format_bps.js';
 import overview_icons from './overview_icons.js';
 import share_of from './share_of.js';
 
-// How often an open chart is read again: the machine writes a line every half minute, and
-// servermon, which the ten minutes are read from, a line every second
-const CHARTS_EVERY_MS = 30000;
-const CHARTS_LIVE_EVERY_MS = 1000;
-const CHARTS_RANGE_KEY = 'serviceman.charts_range';
-
-// The ranges a chart covers, as the machine's agent names them
-const CHART_RANGES = ['10m', '1h', '24h', '7d', '30d'];
 const CHART_W = 1000;
 const CHART_H = 100;
 
@@ -26,12 +19,17 @@ const OVERVIEW_CHARTS = [
     {key: 'ping', label: 'Ping', icon: 'pulse', top: null, text: v => `${Math.round(v)} ms`, lines: [{name: 'to serviceman', of: v => number_of(v.ping)}]},
 ];
 
-// The machine's history, one chart per OVERVIEW_CHARTS entry, with the range to pick. The
-// numbers are read from the machine, which keeps them: when the pane opens, every half minute
-// after (every second for the ten minutes), and when another range is picked; what was read
-// stays on screen while the next is read, dimmed only while another range is on its way.
+// The machine's history, one chart per OVERVIEW_CHARTS entry, over the range picked at its head.
+// It reads nothing itself: the machine's page reads the numbers, once a tick, and its head draws
+// CPU, Memory and Disk from the same answer (remote_page in serviceman.js). What was read stays
+// on screen while the next is read, dimmed only while another range is on its way.
 // The cursor follows the mouse over any chart, and every chart shows its value at that moment:
 // the spike in one is read against the others.
+//
+//     charts    {range, data, error, old, loading}: the range picked; the machine's answer, for
+//               it or, while it is on its way, for the range before; undefined before the first
+//               answer, null for none; why there is none, or why the one shown is not new; whether
+//               its agent is from before charts; whether another range is on its way
 const remote_charts = {
     template: `
 <section class="ov-charts" :class="{loading}" @mouseleave="hover_leave">
@@ -39,12 +37,9 @@ const remote_charts = {
         <b>History</b>
         <span v-if="old" class="muted">Charts need agent 1.9 or newer; this machine runs {{ (view.agent_version || 'an older one') }}. <button type="button" class="link" @click="$emit('tab', 'configure')">Update it in Configure →</button></span>
         <span v-else :class="((error === null) ? 'muted' : 'bad')">{{ note }}</span>
-        <span class="seg">
-            <button v-for="item in ranges" :key="item" type="button" :class="{on: (item === range)}" @click="pick(item)">{{ item }}</button>
-        </span>
     </div>
     <div v-if="((data !== null) || loading)" class="ov-chart-grid">
-        <section v-for="chart in charts" :key="chart.key" class="card ov-chart">
+        <section v-for="chart in plots" :key="chart.key" class="card ov-chart">
             <div class="ov-chart-head">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" v-html="icons[chart.icon]"/>
                 <b>{{ chart.label }}</b>
@@ -70,17 +65,14 @@ const remote_charts = {
     </div>
 </section>
 `,
-    props: ['view'],
+    props: ['view', 'charts'],
     emits: ['tab'],
     data: function () {
-        return {range: charts_range_read(), data: null, error: null, old: false, loading: true, timer: null, asked: 0, hover_at: null};
+        return {hover_at: null};
     },
     computed: {
         icons: function () {
             return overview_icons;
-        },
-        ranges: function () {
-            return CHART_RANGES;
         },
         width: function () {
             return CHART_W;
@@ -88,7 +80,21 @@ const remote_charts = {
         height: function () {
             return CHART_H;
         },
-        // What is said beside the range: why there is nothing, or how old what is shown is
+        // The answer drawn; null before the first and where there is none
+        data: function () {
+            return (this.charts.data === undefined) ? null : this.charts.data;
+        },
+        error: function () {
+            return this.charts.error;
+        },
+        old: function () {
+            return this.charts.old;
+        },
+        loading: function () {
+            return this.charts.loading;
+        },
+        // What is said beside History: why there is nothing, how old what is shown is, or the
+        // range it shows
         note: function () {
             if (this.error !== null) {
                 return this.error;
@@ -105,11 +111,12 @@ const remote_charts = {
             if (this.data.points.length === 0) {
                 return 'nothing written yet: the first numbers come half a minute after its agent starts';
             }
-            return '';
+            const range = CHARTS_RANGES.find(v => v.value === this.data.range);
+            return (range === undefined) ? '' : `the last ${range.said}`;
         },
         // The lines and the top of the scale: drawn again when the numbers change, not when
         // the mouse moves
-        charts: function () {
+        plots: function () {
             const data = this.data;
             const points = (data === null) ? [] : data.points;
             return OVERVIEW_CHARTS.map(function (chart) {
@@ -159,46 +166,6 @@ const remote_charts = {
         },
     },
     methods: {
-        pick: function (range) {
-            if (range === this.range) {
-                return;
-            }
-            this.range = range;
-            charts_range_write(range);
-            this.load();
-        },
-        // Only the last answer asked for is shown: a slow 30d must not land over a 1h picked after
-        load: async function () {
-            clearTimeout(this.timer);
-            const asked = ++this.asked;
-            // A refresh of what is shown is not dimmed: the ten minutes come every second
-            this.loading = ((this.data === null) || (this.data.range !== this.range));
-            let data = null;
-            let reason = null;
-            let old = false;
-            try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.view.name)}/metrics?range=${this.range}`, {cache: 'no-store'});
-                const body = await answer.json();
-                if (answer.ok) {
-                    data = body;
-                }
-                else {
-                    reason = body.error;
-                    old = (body.old_agent === true);
-                }
-            }
-            catch (error) {
-                reason = `Could not read the charts: ${error.message}`;
-            }
-            if (asked !== this.asked) {
-                return;
-            }
-            this.data = data;
-            this.error = reason;
-            this.old = old;
-            this.loading = false;
-            this.timer = setTimeout(() => this.load(), (this.range === '10m') ? CHARTS_LIVE_EVERY_MS : CHARTS_EVERY_MS);
-        },
         hover: function (event) {
             if (this.data === null) {
                 return;
@@ -211,41 +178,7 @@ const remote_charts = {
             this.hover_at = null;
         },
     },
-    watch: {
-        // A machine that comes back is read at once, not at the next half minute
-        'view.phase': function () {
-            this.load();
-        },
-    },
-    mounted: function () {
-        this.load();
-    },
-    unmounted: function () {
-        clearTimeout(this.timer);
-    },
 };
-
-// The range last picked, for this viewer: a convenience, so a browser that keeps nothing gets 24h
-function charts_range_read()
-{
-    try {
-        const kept = localStorage.getItem(CHARTS_RANGE_KEY);
-        return CHART_RANGES.includes(kept) ? kept : '24h';
-    }
-    catch {
-        return '24h';
-    }
-}
-
-function charts_range_write(range)
-{
-    try {
-        localStorage.setItem(CHARTS_RANGE_KEY, range);
-    }
-    catch {
-        // kept for this pane only
-    }
-}
 
 // The point whose step holds a moment, or the nearest one to it
 function point_nearest(data, at)

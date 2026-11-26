@@ -20,7 +20,7 @@ function hour_of(cpu_of, skip)
             points.push({at: from + i*MINUTE, cpu: cpu_of(i), mem: 2e9, mem_total: 8e9, disk: 112e9, disk_total: 160e9});
         }
     }
-    return {from, to: from + 60*MINUTE, step_ms: MINUTE, points};
+    return {range: '1h', from, to: from + 60*MINUTE, step_ms: MINUTE, points};
 }
 
 // The line starts again after minutes not measured, as History's does, and the area closes

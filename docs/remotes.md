@@ -348,12 +348,21 @@ for now. The log names the machine and the part, in `remote_link_error`, once a 
 
 A machine's head says how it stands at a glance: how long it is up in its state (`online · up
 41d 3h`), and its CPU, memory and disk between its name and its buttons, each share with a small
-chart of the last hour under it: History's `1h`, read again every half minute, 0 to 100%, a dot
-on the newest point and a gap where the machine measured nothing. An agent before 1.9 keeps no
-charts, and its head shows a bar instead (amber from 80%, red from 92%). While it is away, the
-head says how long it is down in its state (`offline · 3h 11m`) and the last numbers it said,
-dimmed; the hour before it went is charted in grey only when serviceman read it then, in the
-minutes before it went, since serviceman keeps only the last hour it read. Its **Overview** tab
+chart under it over the range History shows, 0 to 100%, a dot on the newest point and a gap
+where the machine measured nothing. The range is picked at the head's top right corner, `10m ·
+1h · 24h · 7d · 30d`, and beside it how often the ten minutes are read again, `1s · 2s · 5s`;
+the browser keeps both, the same for every machine, from 10m every 2 seconds at first. On a
+narrow screen they take a row of their own, over the charts. The head and History draw one
+answer, which the machine's page reads once a tick, on whichever of its tabs is open: the ten
+minutes at the rate picked, and 1h and longer every half minute whatever the rate, since they
+gain a point only every half minute; the rate stands disabled for them. A page in a browser tab
+out of sight reads nothing, and reads at once when it is shown again. An agent before 1.32 has
+no ten minutes: they stand disabled, its version said on them, and the hour is read in their
+place. An agent before 1.9 keeps no charts and has no range to pick, and its head shows a bar
+instead (amber from 80%, red from 92%). While it is away, the head says how long it is down in
+its state (`offline · 3h 11m`) and the last numbers it said, dimmed; the range before it went is
+charted in grey only when serviceman read it then, in the minutes before it went, since
+serviceman keeps only the last answer it read for each range. Its **Overview** tab
 shows the services on it, as the Services page's table; its uptime in one row, its history, then
 cards for the machine (its temperature and battery among them), its agent (its link, and **Test
 the link**), its updates and its logs, each with a link to the tab that does more with it, and
@@ -361,21 +370,22 @@ its raw state folded away at the end.
 It is `src/main/public/remote_overview.js`.
 
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk in its head is the one `/` is on), disk I/O, network, open tcp
-connections and ping, over the last ten minutes, hour, day, week or month. The agent keeps the numbers on
+connections and ping, over the range picked at the head, said beside its title: the last ten minutes, hour, day, week or month. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
 30 seconds made from servermon's lines of that half minute, for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
 the time from each of its beats to serviceman's answer. **10m** is servermon's own lines, a
 point a second, nothing averaged, with the last beat's ping held for each second until the next
-(none once 30 seconds pass with no beat); the page reads it every second, and serviceman asks the
-agent only for the seconds after the last point it keeps, so a second's read carries a second's
-lines. The other ranges are read when the pane opens and every half minute after, from
+(none once 30 seconds pass with no beat); the page reads it at the rate picked, and serviceman
+asks the agent only for the seconds after the last point it keeps, so a read carries only the
+seconds since the one before. The other ranges are read every half minute, all of them from
 `GET /api/v1/remotes/<name>/metrics?range=10m|1h|24h|7d|30d`, which asks the agent and keeps
 nothing but the last answer for each range: that answer is shown while the machine is offline,
-marked with the time it was read. A refresh does not dim the charts; another range picked does,
-until it comes. The minutes a machine was off
+marked with the time it was read. A refresh does not dim the charts; another range picked dims
+them, and the head's, until it comes. A machine slow to answer keeps the charts shown, with why
+beside History. The minutes a machine was off
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it; one
-before 1.32 has no 10m, and the pane says so when it is picked.
+before 1.32 has no 10m, and the head's range says so.
 
 **Uptime** is a bar a day for the last 30, in one row under the machine's name, its share of
 those days at the end of it: green when servermon wrote a line every second of it, orange from

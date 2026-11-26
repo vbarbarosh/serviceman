@@ -1,3 +1,4 @@
+import CHARTS_RANGES from './charts_ranges.js';
 import clock_of from './clock_of.js';
 import head_spark from './head_spark.js';
 import machine_shares from './machine_shares.js';
@@ -10,47 +11,50 @@ const CHARTED = {
     Disk: v => share_of(v.disk, v.disk_total),
 };
 
-// How near to when a machine went the hour kept for it must end to be drawn as its last: the
-// hour is kept as last read, which may be days before
+// How near to when a machine went the charts kept for it must end to be drawn as its last: they
+// are kept as last read, which may be days before
 const AWAY_KEPT_MS = 5*60000;
 
 // A machine's CPU, Memory and Disk as its head's facts: online, each with its bar, Memory and
 // Disk said out of how much; away, the last numbers serviceman has, dim and with no bar, CPU
-// with when it said it. None while it never said a number. Given the last hour as History reads
-// it, each draws that hour as a small chart in place of its bar; away, the hour before it went,
-// when serviceman read it then.
+// with when it said it. None while it never said a number. Given its charts, the answer History
+// draws too, each draws their range as a small chart in place of its bar; away, the range before
+// it went, when serviceman read it then.
 //
 //     view      a remote of the status: {phase, left_at, machine: {cpu_busy, mem, disk}}
-//     hour      History's answer for 1h: {from, to, step_ms, points}; null for none, the bars;
-//               undefined while it is read, a chart's room left empty so the head does not jump
+//     charts    the machine's charts as read for the range picked: {range, from, to, step_ms,
+//               points}; null for none, the bars; undefined while they are read, a chart's
+//               room left empty so the head does not jump
 //     ->        [{label: 'Memory', value: '35%', small: 'of 8 GB', share: 0.35, dim: false,
 //                 spark: null or head_spark's}, …]
-function remote_facts(view, hour)
+function remote_facts(view, charts)
 {
     return facts_of(view).map(function (fact) {
-        if (hour === undefined) {
+        if (charts === undefined) {
             return Object.assign(fact, {spark: {line: '', area: '', last: null, least: null, most: null}});
         }
-        const spark = (hour_drawn(view, hour) === false) ? null : head_spark(hour, CHARTED[fact.label]);
+        const spark = (charts_drawn(view, charts) === false) ? null : head_spark(charts, CHARTED[fact.label]);
         if (spark === null) {
             return Object.assign(fact, {spark: null});
         }
-        const when = fact.dim ? `the hour before ${clock_of(hour.to)}` : 'the last hour';
+        const range = CHARTS_RANGES.find(v => v.value === charts.range);
+        const said = (range === undefined) ? charts.range : range.said;
+        const when = fact.dim ? `the ${said} before ${clock_of(charts.to)}` : `the last ${said}`;
         const span = (Math.round(spark.least) === Math.round(spark.most)) ? `${Math.round(spark.most)}%` : `${Math.round(spark.least)} to ${Math.round(spark.most)}%`;
         return Object.assign(fact, {spark, title: `${fact.label}, ${when}: ${span}`});
     });
 }
 
-// Whether an hour is drawn: one away is only when it ends where the machine went
-function hour_drawn(view, hour)
+// Whether charts are drawn: those of a machine away only when they end where it went
+function charts_drawn(view, charts)
 {
-    if (hour === null) {
+    if (charts === null) {
         return false;
     }
-    if (hour.away !== true) {
+    if (charts.away !== true) {
         return true;
     }
-    return (typeof view.left_at === 'number') && (view.left_at - hour.to <= AWAY_KEPT_MS);
+    return (typeof view.left_at === 'number') && (view.left_at - charts.to <= AWAY_KEPT_MS);
 }
 
 function facts_of(view)

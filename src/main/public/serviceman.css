@@ -1544,6 +1544,25 @@ ul.tried {
     align-items: center;
 }
 
+/* A machine's head's right side: the range its charts show at the card's top right corner, its
+   buttons under it */
+.item-side {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+/* The range a machine's charts show and how often its ten minutes are read: two segments, as
+   History had its range */
+.charts-switch {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    justify-content: flex-end;
+}
+
 /* What a page's tiles said, in its head's empty part between the name and the buttons: a label
    over a value, a bar under the ones that have one */
 .item-facts {
@@ -1641,6 +1660,11 @@ ul.tried {
     color: var(--muted);
 }
 
+/* Another range on its way: the charts of the one before stay, dimmed as History's are */
+.item-facts.loading .spark {
+    opacity: .6;
+}
+
 .item-facts .meter {
     display: block;
     width: 120px;
@@ -1680,6 +1704,27 @@ ul.tried {
     .item-facts .meter,
     .item-facts .spark {
         width: 100%;
+    }
+}
+
+/* A head too narrow for a machine's charts' range above its buttons, the name squeezed: the
+   range takes a row of its own over the facts it charts, the line between the buttons and the
+   facts above it */
+@container item-card (max-width: 52rem) {
+    .item-side {
+        display: contents;
+    }
+
+    .charts-switch {
+        order: 2;
+        width: 100%;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .item-top:has(> .item-side > .charts-switch) > .item-facts {
+        padding-top: 0;
+        border-top: 0;
     }
 }
 
@@ -1896,6 +1941,15 @@ ul.tried {
 
     .item-acts > button.sec {
         display: none;
+    }
+
+    /* On a phone, the range and the rate a little tighter, so both fit on their row */
+    .charts-switch {
+        justify-content: space-between;
+    }
+
+    .charts-switch .seg button {
+        padding: .2rem .5rem;
     }
 
     .item-facts dd small {
@@ -6846,9 +6900,10 @@ article.ov-pane {
     color: var(--bad);
 }
 
-/* The machine's history: the range to pick above, a chart a card, two side by side where they
-   fit. A chart keeps its height whatever it holds; its value is the last point, or the one under
-   the cursor, which runs through every chart at once. */
+/* The machine's history: what it shows said beside its title (the range is picked at the
+   machine's head), a chart a card, two side by side where they fit. A chart keeps its height
+   whatever it holds; its value is the last point, or the one under the cursor, which runs
+   through every chart at once. */
 .ov-charts {
     display: flex;
     flex-direction: column;
@@ -6866,8 +6921,7 @@ article.ov-pane {
     align-items: center;
 }
 
-.ov-charts-head > span:not(.seg) {
-    flex: 1 1 12rem;
+.ov-charts-head > span {
     min-width: 0;
     overflow-wrap: anywhere;
 }

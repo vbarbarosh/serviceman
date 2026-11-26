@@ -30,7 +30,7 @@ const remote_overview = {
         <link-test-panel v-if="((view.machine !== null) && link_test_open)" :view="view" @close="link_test_open = false"/>
         <services-pane :state="state" :remote="view.name" embedded @create="$emit('create')" @select="$emit('select_named', $event)"/>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
-        <remote-charts v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
+        <remote-charts v-if="(view.machine !== null)" :view="view" :charts="charts" @tab="$emit('tab', $event)"/>
         <div class="ov-cards">
             <overview-card v-if="(view.machine !== null)" icon="monitor" title="Machine">
                 <template #aside>{{ view.machine.hostname }}</template>
@@ -147,8 +147,9 @@ const remote_overview = {
 </article>
 `,
     components: {'agent-pill-short': agent_pill_short, 'link-test-panel': link_test_panel, 'overview-card': overview_card, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime, 'services-pane': services_pane},
-    // state: the whole status, for the table of the services on it
-    props: ['view', 'state', 'served', 'logline'],
+    // state: the whole status, for the table of the services on it; charts: its numbers as its
+    // page reads them for its head and History both (remote_charts says their shape)
+    props: ['view', 'state', 'served', 'logline', 'charts'],
     emits: ['create', 'select_named', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine

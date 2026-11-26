@@ -1721,8 +1721,9 @@ async function handle_remote_metrics(app, res, name, range)
         return;
     }
     try {
-        // The ten minutes are read every second: the machine is asked only for the seconds after
-        // the last point kept, and the answer is the kept points with those added
+        // The ten minutes are read every 1, 2 or 5 seconds, as picked at the machine's head: the
+        // machine is asked only for the seconds after the last point kept, and the answer is the
+        // kept points with those added
         const since = ((range === '10m') && (kept !== undefined) && (kept.points.length > 0)) ? kept.points[kept.points.length - 1].at : null;
         let answer = await remote_call(app, remote, 'metrics', (since === null) ? {range} : {range, since}, MACHINE_READ_TIMEOUT_MS);
         if (since !== null) {

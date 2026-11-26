@@ -1,9 +1,9 @@
-// A head's small chart of one share over the last hour, as History's 1h has it: its line and the
-// area under it in a box of SPARK_W by SPARK_H, 0 to 100 %, a gap where the machine measured
-// nothing for more than two steps, the newest point to put a dot on, and the least and the most
-// the hour saw, for its title. Null when the hour holds no point of it.
+// A head's small chart of one share over the range its History shows: its line and the area
+// under it in a box of SPARK_W by SPARK_H, 0 to 100 %, a gap where the machine measured nothing
+// for more than two steps, the newest point to put a dot on, and the least and the most the
+// range saw, for its title. Null when the range holds no point of it.
 //
-//     data    History's answer for 1h: {from, to, step_ms, points: [{at, …}]}
+//     data    History's answer for its range: {from, to, step_ms, points: [{at, …}]}
 //     of      (point) -> the share in %, or null for a point that says nothing of it
 //     ->      {line, area, last: {x, y}, least, most}
 const SPARK_W = 120;
