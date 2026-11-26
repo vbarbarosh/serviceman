@@ -51,7 +51,7 @@ const data_browser = {
 <article class="dbr">
     <aside class="card dbr-side">
         <div class="card-head">
-            <h2>{{ words.kinds }}<span v-if="(collections !== null)" class="dbr-chip">{{ collections.length }}</span></h2>
+            <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>{{ words.kinds }}<span v-if="(collections !== null)" class="dbr-chip">{{ collections.length }}</span></h2>
             <button type="button" class="link" :disabled="(offline || (collections === null))" title="Read the list again" @click="collections_read">Refresh</button>
         </div>
         <input v-if="((collections !== null) && (collections.length > SEARCH_FROM))" v-model.trim="search" class="dbr-search" type="search" :placeholder="('Find a ' + words.kind)" spellcheck="false" :aria-label="('Find a ' + words.kind)">
@@ -77,7 +77,7 @@ const data_browser = {
         </div>
         <template v-else>
             <div class="card-head">
-                <h2 class="dbr-title">{{ open }}</h2>
+                <h2 class="dbr-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>{{ open }}</h2>
                 <span class="muted dbr-facts">{{ open_facts }}</span>
                 <button v-if="changeable" type="button" class="dbr-add" :disabled="offline" :title="('Add a ' + words.item + ' to ' + open)" @click="add_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ words.Item }}</button>
             </div>

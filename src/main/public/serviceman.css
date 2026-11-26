@@ -6494,6 +6494,17 @@ button.palette-hit.on {
         display: none;
     }
 
+    /* The trail keeps one line: the category and where you are stay whole, a name on the way
+       back up is cut with … (a long database's before its Browse) */
+    .crumbs-bar {
+        flex-wrap: nowrap;
+    }
+
+    .crumb-step:has(> .crumb-pick),
+    .crumb-step:last-child {
+        flex: none;
+    }
+
     #find {
         flex: none;
         width: auto;

@@ -10,7 +10,7 @@ const MONGODB_LIST = `const own = ['admin', 'config', 'local'];
 const found = db.adminCommand({listDatabases: 1}).databases.filter(v => own.includes(v.name) === false);
 const named = found.map(v => v.name);
 for (const v of found) {
-    print([v.name, db.getSiblingDB(v.name).getCollectionNames().length, v.sizeOnDisk].join('\\t'));
+    print([v.name, db.getSiblingDB(v.name).getCollectionNames().filter(vv => vv.startsWith('system.') === false).length, v.sizeOnDisk].join('\\t'));
 }
 for (const v of db.getSiblingDB('admin').system.users.distinct('db')) {
     if ((own.includes(v) === false) && (named.includes(v) === false)) {
@@ -23,7 +23,8 @@ for (const v of db.getSiblingDB('admin').system.users.distinct('db')) {
 // one too, with no table. PostgreSQL counts a database's tables in that database, one at a time.
 // A CouchDB is one row, its admin, the way an app is given it: `tables` its databases, made by
 // that app, and `bytes` their files together, its own (_users, _replicator) left out. A
-// MongoDB's `tables` are its collections.
+// MongoDB's `tables` are its collections as Browse lists them: system.* left out (system.views
+// holds a view's pipeline, and is no collection of the app's).
 async function database_list(connect, server)
 {
     if (server.engine === 'couchdb') {
