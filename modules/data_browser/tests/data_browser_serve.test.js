@@ -125,6 +125,41 @@ test('a document is added, put in place of another and deleted, the document typ
     assert.deepStrictEqual([big.status, big.body.error], [413, 'a document is 4 MB at most here']);
 });
 
+// A document edited with what it held when read (`was`): the script is given the fields the edit
+// changes alone, set and unset, and what they held, all as data; another hand's change to one of
+// them is 409, with which and the document as it is now, in the words a SQL row's are said in
+test('a document edited is saved by the fields it changes, held to what they held when read', async function (t) {
+    const asks = [];
+    const scripts = [];
+    const running = await serve(t, function (script) {
+        scripts.push(script);
+        const ask = JSON.parse(/^const ask = (.*);$/m.exec(script)[1]);
+        asks.push(ask);
+        if (ask.collection === 'conflict') {
+            return answer({ok: {changed: ['status'], item: {_id: 7, status: 'shipped', total: {$numberDecimal: '10.50'}}}});
+        }
+        if (ask.collection === 'gone') {
+            return answer({error: 'it is not there any more: deleted since the page was read', code: null});
+        }
+        return answer({ok: {id: JSON.parse(ask.id), saved: Object.keys(JSON.parse(ask.set)).concat(ask.unset)}});
+    });
+    const was = '{_id: 7, status: \'new\', total: NumberDecimal(\'10.50\'), note: \'x\', tags: [1, 2]}';
+    const typed = '{_id: 7, status: "\'); db.dropDatabase(); //", total: NumberDecimal(\'10.50\'), tags: [1, 2], added: \'$x\'}';
+    const saved = await call(running, '/browse/documents/replace', 'POST', {collection: 'items', id: 7, document: typed, was});
+    assert.deepStrictEqual([saved.status, saved.body], [200, {id: 7, saved: ['status', 'added', 'note']}]);
+    assert.deepStrictEqual([JSON.parse(asks[0].set), asks[0].unset, JSON.parse(asks[0].was), JSON.parse(asks[0].id)], [{status: '\'); db.dropDatabase(); //', added: '$x'}, ['note'], {status: 'new', note: 'x'}, 7]);
+    assert.deepStrictEqual(scripts[0].split('\n').filter(v => v.includes('dropDatabase')).map(v => v.slice(0, 12)), ['const ask = '], 'what is typed is in the ask\'s string alone');
+    assert.match(scripts[0], /updateOne\(\{_id: id, \$expr: \{\$and: held\}\}, \[\{\$replaceWith: replaced\}\]\)/);
+
+    const conflict = await call(running, '/browse/documents/replace', 'POST', {collection: 'conflict', id: 7, document: '{_id: 7, status: \'paid\'}', was});
+    assert.deepStrictEqual([conflict.status, conflict.body], [409, {error: 'it changed since it was read, by another hand: status is "shipped" now', changed: ['status'], item: {_id: 7, status: 'shipped', total: {$numberDecimal: '10.50'}}}]);
+    const gone = await call(running, '/browse/documents/replace', 'POST', {collection: 'gone', id: 7, document: '{_id: 7}', was});
+    assert.deepStrictEqual([gone.status, gone.body.error], [400, 'it is not there any more: deleted since the page was read']);
+    const wrong = await call(running, '/browse/documents/replace', 'POST', {collection: 'items', id: 7, document: '{_id: 7}', was: '{a: db.x()}'});
+    assert.deepStrictEqual([wrong.status, wrong.body.error], [400, 'the document as it was read: "db.x" is not a value: a query is data, the shell\'s types (ObjectId, ISODate, NumberLong…) and no code, at 5']);
+    assert.strictEqual(scripts.length, 3, 'a refused ask runs nothing');
+});
+
 test('a database not reached, or a client that printed no answer, is 502', async function (t) {
     const said = await serve(t, () => 'MongoServerError: Authentication failed.\n');
     const refused = await call(said, '/browse/collections');

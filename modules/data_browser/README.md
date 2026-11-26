@@ -10,10 +10,11 @@ whole, as the shell writes it, with Copy: what the filter takes back, so a value
 finds it. The last queries of each collection that ran are kept in the browser, under
 **Recent**, to run again.
 
-It changes documents too: **+ Document** adds one, typed as the shell types it; a document
-shown whole has **Edit**, which reads it again whole by its `_id` (a page may show some of its
-fields alone, and saving those would drop the rest), and **Delete**, asked before it is done.
-A view's documents and a pipeline's results are read alone.
+It changes documents too: **+ Document** adds one, typed as the shell types it; a document shown
+whole has **Edit**, which reads it again whole by its `_id` (a page may show some of its fields
+alone) and saves the fields changed alone, never over another hand's change to them ([Changing a
+row](#changing-a-row)), and **Delete**, asked before it is done. A view's documents and a
+pipeline's results are read alone.
 
 PostgreSQL, MySQL and a SQLite file come to the same page in their own words: their tables are
 its collections, their rows its documents ([A SQL database](#a-sql-database), [A SQLite
@@ -159,6 +160,19 @@ committed when it is done.
   not offered: what it would lose is what the person did not see. An edit without `was` saves
   every column given.
 - **Delete** by its key, asked first; a row gone since it was read is said so (400).
+- **A MongoDB's document** is edited the same way, by its `_id`. Edit reads it again whole, and
+  the save changes the top-level fields the edit changes alone: those it sets or adds
+  (`$setField`) and those left out of its text (`$unsetField`: the text is the document whole,
+  so a field taken out of it goes). Each is held to what it held when read: compared as the page
+  reads a value, relaxed Extended JSON (`NumberDecimal('10.50')` is not `10.5`, while a double
+  the page showed as `10` is that `10`), and held in the update's filter to what it holds then,
+  by value and by type, so a change in the instant between is caught too. A top-level field is
+  one unit: a change anywhere inside `dims: {w: 1, h: [2, 3]}` saves `dims` whole, and another
+  hand's change anywhere inside it refuses the edit. Another hand's change to one of them is
+  refused (409) as a row's is, with which and the document as it is now; a change to another
+  field is kept; a document gone is said so (400); its `_id` is for good, and MongoDB refuses a
+  change of it. A name with a dot or a `$` is a field, and a value `'$x'` a text. Without `was`,
+  the document is put in place whole, as before.
 - **Values** go in as data, never as SQL. PostgreSQL's change is a `DO` block given the row as
   JSON in the ask's hex, each column found by name in `pg_attribute` and quoted (`%I`), each
   value read by its column's own type by `json_populate_record`: a date, a timestamp with its
@@ -241,7 +255,7 @@ encoded too (`%2F`, as `encodeURIComponent` writes it); module-host's is
 | `GET <base>/aggregate?collection=&pipeline=&skip=&limit=` | `{items, count: null, more, skip, limit, took_ms, cut}`; a SQL page with `columns` |
 | `GET <base>/document?collection=&id=` | `{item, columns, key, filled}`: a SQL row read whole by its key, `id` its JSON; without `id`, `item` null, the table's columns and those it fills itself, for + Row |
 | `POST <base>/documents` `{collection, document}` | `{id}`, 201: the document added, its `_id` MongoDB's own when it had none; a SQL row's `{id, item, saved}`, its key, the row read back and the columns given |
-| `POST <base>/documents/replace` `{collection, id, document, was}` | `{id}`: put in place of the one of that `_id`, which stays; a SQL row's `{id, item, saved}`, the columns changed since `was` saved alone; 409 `{error, changed, item}` when another hand changed them |
+| `POST <base>/documents/replace` `{collection, id, document, was}` | with `was`, a document's `{id, saved}`, the fields changed since `was` saved alone; without it `{id}`, put in place of the one of that `_id`, which stays; a SQL row's `{id, item, saved}`, the columns changed since `was` saved alone; 409 `{error, changed, item}` when another hand changed them |
 | `POST <base>/documents/delete` `{collection, id}` | `{id}`: deleted; a SQL row's `{id, item, saved: []}`, by its key |
 
 A page of documents is 50 unless `limit` says otherwise, 200 at most. Each comes as relaxed

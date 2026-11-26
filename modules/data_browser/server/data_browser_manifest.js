@@ -34,7 +34,7 @@ const data_browser_manifest = {
             read: {},
             commands: [
                 {command: 'create', on: 'kind', said: 'add a document, typed as the shell types it', body: ['collection', 'document']},
-                {command: 'replace', on: 'kind', said: 'put a document in place of the one of its _id; a SQL row\'s columns changed since `was`, by its key', body: ['collection', 'id', 'document', 'was']},
+                {command: 'replace', on: 'kind', said: 'save the fields of a document changed since `was`, by its _id (without it, put the document in place whole); a SQL row\'s columns, by its key', body: ['collection', 'id', 'document', 'was']},
                 {command: 'delete', on: 'kind', said: 'delete the document of an _id', body: ['collection', 'id'], danger: true},
             ],
         },

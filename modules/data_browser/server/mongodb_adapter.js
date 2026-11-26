@@ -1,4 +1,6 @@
+const changed_said_of = require('./changed_said_of');
 const ejson_from_text = require('./ejson_from_text');
+const row_changes_of = require('./row_changes_of');
 
 // How long a page of documents may take to be found, and to be counted, before MongoDB stops it
 const FIND_MS = 20000;
@@ -151,6 +153,64 @@ const REPLACE = [
     '    return {id: exact(id)};',
     '});',
 ];
+// A document edited, saved against what it held when the page read it: the top-level fields the
+// edit changes (set), adds or leaves out (unset) alone, each compared first with what it held
+// then, as the page reads a value (relaxed Extended JSON: NumberDecimal('10.50') is not 10.5,
+// and a double 10 is the 10 the page showed), and the update held to what each holds now, by
+// value and by type, so a change in the instant between is caught too. One another hand changed
+// is said, the document as it is now, and nothing is saved over it; another hand's change to
+// other fields stays. The fields are set and unset by name ($setField, $unsetField), each value
+// a $literal, so a name with a dot or a $ is a field, and a value '$x' is text.
+const REPLACE_CHANGED = [
+    'function value_text(value) {',
+    '    return (value === undefined) ? \'missing\' : EJSON.stringify(exact(value), {relaxed: true});',
+    '}',
+    'function field_of(name) {',
+    '    return {$getField: {field: {$literal: name}, input: \'$$ROOT\'}};',
+    '}',
+    'answer_print(function () {',
+    '    const collection = collection_of(ask.collection);',
+    '    const id = EJSON.parse(ask.id, {relaxed: false});',
+    '    const set = EJSON.parse(ask.set, {relaxed: false});',
+    '    const was = EJSON.parse(ask.was, {relaxed: false});',
+    '    const names = Object.keys(set).concat(ask.unset);',
+    '    const options = {promoteValues: false, promoteLongs: false};',
+    '    const current = collection.findOne({_id: id}, {}, options);',
+    '    if (current === null) {',
+    '        throw new Error(\'it is not there any more: deleted since the page was read\');',
+    '    }',
+    '    const changed = names.filter(v => value_text(current[v]) !== value_text(was[v]));',
+    '    if (changed.length > 0) {',
+    '        return {changed, item: exact(current)};',
+    '    }',
+    '    if (names.length === 0) {',
+    '        return {id: exact(id), saved: []};',
+    '    }',
+    '    const held = names.map(function (name) {',
+    '        if (current[name] === undefined) {',
+    '            return {$eq: [{$type: field_of(name)}, \'missing\']};',
+    '        }',
+    '        return {$and: [{$eq: [field_of(name), {$literal: current[name]}]}, {$eq: [{$type: field_of(name)}, {$type: {$literal: current[name]}}]}]};',
+    '    });',
+    '    let replaced = \'$$ROOT\';',
+    '    for (const name of Object.keys(set)) {',
+    '        replaced = {$setField: {field: {$literal: name}, input: replaced, value: {$literal: set[name]}}};',
+    '    }',
+    '    for (const name of ask.unset) {',
+    '        replaced = {$unsetField: {field: {$literal: name}, input: replaced}};',
+    '    }',
+    '    const done = collection.updateOne({_id: id, $expr: {$and: held}}, [{$replaceWith: replaced}]);',
+    '    if (done.matchedCount === 0) {',
+    '        const now = collection.findOne({_id: id}, {}, options);',
+    '        if (now === null) {',
+    '            throw new Error(\'it is not there any more: deleted since the page was read\');',
+    '        }',
+    '        const moved = names.filter(v => value_text(now[v]) !== value_text(current[v]));',
+    '        return {changed: (moved.length === 0) ? names : moved, item: exact(now)};',
+    '    }',
+    '    return {id: exact(id), saved: names};',
+    '});',
+];
 // The document of an _id deleted
 const REMOVE = [
     'answer_print(function () {',
@@ -176,6 +236,9 @@ const REMOVE = [
 //                                   // {items, count: null, more, took_ms, cut}
 //     await adapter.insert({collection: 'items', document: "{name: 'a'}"})                    // {id}
 //     await adapter.replace({collection: 'items', id: {$oid: '6b08…'}, document: "{name: 'b'}"})   // {id}
+//     await adapter.replace({collection: 'items', id: {$oid: '6b08…'}, document: "{…}", was: "{…}"})
+//                                   // {id, saved}: the fields changed since `was` alone; 409 when
+//                                   // another hand changed one of them
 //     await adapter.remove({collection: 'items', id: {$oid: '6b08…'}})                         // {id}
 function mongodb_adapter(run)
 {
@@ -213,7 +276,23 @@ function mongodb_adapter(run)
             return answer_read(run, INSERT, {collection: ask.collection, document: JSON.stringify(text_read(ask.document, 'document'))});
         },
         replace: async function (ask) {
-            return answer_read(run, REPLACE, {collection: ask.collection, id: JSON.stringify(ask.id), document: JSON.stringify(text_read(ask.document, 'document'))});
+            if (ask.was === undefined) {
+                return answer_read(run, REPLACE, {collection: ask.collection, id: JSON.stringify(ask.id), document: JSON.stringify(text_read(ask.document, 'document'))});
+            }
+            const document = text_read(ask.document, 'document');
+            const was = text_read(ask.was, 'document as it was read');
+            const set = row_changes_of(was, document);
+            const unset = Object.keys(was).filter(v => Object.hasOwn(document, v) === false);
+            const held = {};
+            for (const name of Object.keys(set).concat(unset).filter(v => Object.hasOwn(was, v))) {
+                held[name] = was[name];
+            }
+            const json = {collection: ask.collection, id: JSON.stringify(ask.id), set: JSON.stringify(set), unset, was: JSON.stringify(held)};
+            const done = await answer_read(run, REPLACE_CHANGED, json);
+            if (done.changed !== undefined) {
+                throw Object.assign(new Error(changed_said_of(done.changed, done.item)), {status: 409, changed: done.changed, item: done.item});
+            }
+            return done;
         },
         remove: async function (ask) {
             return answer_read(run, REMOVE, {collection: ask.collection, id: JSON.stringify(ask.id)});

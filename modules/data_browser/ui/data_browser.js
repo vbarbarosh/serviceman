@@ -13,7 +13,8 @@ import storage_set from '../../storage_set.js';
 // sorts by it; a click on a row shows the document whole, as the shell writes it, with Copy. The
 // last queries of each collection are kept in the browser, to run again. + Document adds one,
 // typed as the shell types it; a document shown whole is edited or deleted from its window, a
-// deletion asked before it is done. A view's documents and a pipeline's results are read alone.
+// deletion asked before it is done, an edit saving the fields it changes alone and never over
+// another hand's change to them. A view's documents and a pipeline's results are read alone.
 // A SQL database (PostgreSQL, MySQL, a SQLite file) is the same page in its own words: its
 // tables and their rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its
 // own in Query; a row shown whole is its JSON. A PostgreSQL's or a MySQL's row is added, edited
@@ -273,8 +274,8 @@ const data_browser = {
         // with more, whether a next page is there), null before; view: table or json
         // picked: the index on the page of the document shown whole, null for none
         // editing: a document added or edited, {id, text, was, busy, error, changed, filled}, id
-        // undefined when added, a SQL row's its key; was: a SQL row's text as read, what an edit
-        // is saved against; changed: the columns another hand changed since, null for none;
+        // undefined when added, a SQL row's its key; was: the text as read, what an edit is saved
+        // against; changed: the fields or columns another hand changed since, null for none;
         // filled: those a SQL table fills itself, for + Row; deleting: the one shown whole asked
         // to be deleted, {busy, error}; said: what the last change did, under the page until the
         // next query
@@ -470,8 +471,11 @@ const data_browser = {
         // What is typed, as the window's foot says it: the shell's words, or a SQL row's JSON
         edit_hint: function () {
             const keys = (this.editing.id === undefined) ? 'adds' : 'saves';
-            if (this.words.sql === false) {
+            if ((this.words.sql === false) && (this.editing.id === undefined)) {
                 return `Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). Ctrl+Enter ${keys}.`;
+            }
+            if (this.words.sql === false) {
+                return `Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). The fields changed are saved alone; one left out is taken out. Ctrl+Enter ${keys}.`;
             }
             if (this.editing.id === undefined) {
                 const filled = (this.editing.filled.length === 0) ? 'their defaults fill the rest' : `${this.editing.filled.join(', ')}: their defaults`;
@@ -766,6 +770,7 @@ const data_browser = {
                         throw new Error('it is not there any more: deleted since the page was read');
                     }
                     editing.text = mongo_text_of(body.items[0], true);
+                    editing.was = editing.text;
                 }
             }
             catch (error) {
@@ -791,8 +796,8 @@ const data_browser = {
                 this.editing = null;
             }
         },
-        // Added or saved; a SQL row saved against what it held when read, so another hand's
-        // change since is said, with Read it as it is now, rather than saved over
+        // Added or saved; a document or a SQL row saved against what it held when read, so
+        // another hand's change since is said, with Read it as it is now, rather than saved over
         edit_save: async function () {
             const editing = this.editing;
             const added = (editing.id === undefined);
@@ -834,15 +839,15 @@ const data_browser = {
                 this.ref_focus('delete_cancel');
             }
         },
-        // What a change did, in a line: the document's _id or the row's key, and the columns an
-        // edit of a row saved
+        // What a change did, in a line: the document's _id or the row's key, and the fields or
+        // columns an edit saved
         change_said: function (verb, done) {
-            if (this.words.sql === false) {
-                return `${verb} ${mongo_text_of(done.id, false)}`;
-            }
-            const named = (done.id === null) ? `a ${this.words.item}` : this.key_text(done.id);
+            const named = this.words.sql ? ((done.id === null) ? `a ${this.words.item}` : this.key_text(done.id)) : mongo_text_of(done.id, false);
             if (verb !== 'Saved') {
                 return `${verb} ${named}`;
+            }
+            if (Array.isArray(done.saved) === false) {
+                return `Saved ${named}`;
             }
             return (done.saved.length === 0) ? `Nothing changed in ${named}` : `Saved ${named}: ${done.saved.join(', ')}`;
         },

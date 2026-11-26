@@ -87,22 +87,24 @@ when. A server with no database in it yet is a page of its own, with
 
 ## Its data, browsed
 
-A MongoDB's, a PostgreSQL's or a MySQL's page has **Browse** in its head, which opens its data at
-`/databases/<server>/<database>/browse`: the [Data](../modules/data_browser/README.md) module on
-it. Its collections down the left, each with how many documents it holds; a click opens one, its
-documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages. A
-filter finds them, typed as the MongoDB shell types it, `{status: 'active', joined: {$gte:
+A MongoDB's, a PostgreSQL's or a MySQL's page has **Browse** in its head, which opens its data
+at `/databases/<server>/<database>/browse`: the [Data](../modules/data_browser/README.md) module
+on it. Its collections down the left, each with how many documents it holds; a click opens one,
+its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages.
+A filter finds them, typed as the MongoDB shell types it, `{status: 'active', joined: {$gte:
 ISODate('2025-06-01')}}`; **Sort and fields** opens two more, `{joined: -1}` and `{name: 1,
-email: 1}`, and a click on a header sorts by that key, up, then down, then as found. A click on a
-row shows the document whole, as the shell writes it, with **Copy**. **Aggregate**, beside
+email: 1}`, and a click on a header sorts by that key, up, then down, then as found. A click on
+a row shows the document whole, as the shell writes it, with **Copy**. **Aggregate**, beside
 Find, runs a pipeline of stages on it, `[{$match: {status: 'active'}}, {$group: {_id: '$city',
 n: {$sum: 1}}}]`, a page at a time; a stage that writes (`$out`, `$merge`) is refused. A page
 shows as a table or as **JSON**, 20 to 200 to a page, and **Recent** runs one of the
 collection's last queries again, kept in the browser. **+ Document** adds a document, typed as
-the shell types it; a document shown whole has **Edit**, which reads it again whole, and
-**Delete**, asked before it is done. A view's documents and a pipeline's results are read
-alone. The collection open is in the address,
-`?collection=`, so a reload or a link opens it again.
+the shell types it; a document shown whole has **Edit**, which reads it again whole and saves
+the fields changed alone, never over another hand's change to them: the window says which and
+what it holds now, with **Read it as it is now**, as a SQL row's does ([Changing a
+row](../modules/data_browser/README.md#changing-a-row)); and **Delete**, asked before it is
+done. A view's documents and a pipeline's results are read alone. The collection open is in the
+address, `?collection=`, so a reload or a link opens it again.
 
 It reads and writes as the database's own user, inside its server's container, never as root:
 it sees that database and no other. What is typed is read as data, never run: a name that is none of the

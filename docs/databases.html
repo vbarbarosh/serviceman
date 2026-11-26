@@ -821,19 +821,21 @@ it up again</strong>; its machine away, a red note says so, and its numbers are 
 when. A server with no database in it yet is a page of its own, with
 <strong>New database in it</strong>, New database opened on its engine and machine.</p>
 <h2 id="its-data-browsed"><a class="anchor" href="#its-data-browsed" aria-hidden="true" tabindex="-1">#</a>Its data, browsed</h2>
-<p>A MongoDB&#39;s, a PostgreSQL&#39;s or a MySQL&#39;s page has <strong>Browse</strong> in its head, which opens its data at
-<code>/databases/&lt;server&gt;/&lt;database&gt;/browse</code>: the <a href="modules/data_browser.html">Data</a> module on
-it. Its collections down the left, each with how many documents it holds; a click opens one, its
-documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages. A
-filter finds them, typed as the MongoDB shell types it, <code>{status: &#39;active&#39;, joined: {$gte: ISODate(&#39;2025-06-01&#39;)}}</code>; <strong>Sort and fields</strong> opens two more, <code>{joined: -1}</code> and <code>{name: 1, email: 1}</code>, and a click on a header sorts by that key, up, then down, then as found. A click on a
-row shows the document whole, as the shell writes it, with <strong>Copy</strong>. <strong>Aggregate</strong>, beside
+<p>A MongoDB&#39;s, a PostgreSQL&#39;s or a MySQL&#39;s page has <strong>Browse</strong> in its head, which opens its data
+at <code>/databases/&lt;server&gt;/&lt;database&gt;/browse</code>: the <a href="modules/data_browser.html">Data</a> module
+on it. Its collections down the left, each with how many documents it holds; a click opens one,
+its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages.
+A filter finds them, typed as the MongoDB shell types it, <code>{status: &#39;active&#39;, joined: {$gte: ISODate(&#39;2025-06-01&#39;)}}</code>; <strong>Sort and fields</strong> opens two more, <code>{joined: -1}</code> and <code>{name: 1, email: 1}</code>, and a click on a header sorts by that key, up, then down, then as found. A click on
+a row shows the document whole, as the shell writes it, with <strong>Copy</strong>. <strong>Aggregate</strong>, beside
 Find, runs a pipeline of stages on it, <code>[{$match: {status: &#39;active&#39;}}, {$group: {_id: &#39;$city&#39;, n: {$sum: 1}}}]</code>, a page at a time; a stage that writes (<code>$out</code>, <code>$merge</code>) is refused. A page
 shows as a table or as <strong>JSON</strong>, 20 to 200 to a page, and <strong>Recent</strong> runs one of the
 collection&#39;s last queries again, kept in the browser. <strong>+ Document</strong> adds a document, typed as
-the shell types it; a document shown whole has <strong>Edit</strong>, which reads it again whole, and
-<strong>Delete</strong>, asked before it is done. A view&#39;s documents and a pipeline&#39;s results are read
-alone. The collection open is in the address,
-<code>?collection=</code>, so a reload or a link opens it again.</p>
+the shell types it; a document shown whole has <strong>Edit</strong>, which reads it again whole and saves
+the fields changed alone, never over another hand&#39;s change to them: the window says which and
+what it holds now, with <strong>Read it as it is now</strong>, as a SQL row&#39;s does (<a href="modules/data_browser.html#changing-a-row">Changing a
+row</a>); and <strong>Delete</strong>, asked before it is
+done. A view&#39;s documents and a pipeline&#39;s results are read alone. The collection open is in the
+address, <code>?collection=</code>, so a reload or a link opens it again.</p>
 <p>It reads and writes as the database&#39;s own user, inside its server&#39;s container, never as root:
 it sees that database and no other. What is typed is read as data, never run: a name that is none of the
 shell&#39;s types, <code>db.dropDatabase()</code>, is refused, with where it stands. Its machine away, or the

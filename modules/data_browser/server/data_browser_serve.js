@@ -37,9 +37,11 @@ const BODY_MOST = 2*DOCUMENT_MOST + ID_MOST;
 //     POST <base>/documents/delete   {collection, id}                  {id}: deleted
 //
 // A document is its text, typed as the shell types it; an id is the _id as a page answered it.
-// A SQL row is its JSON, its id its key as the page read it, {"id": 7}, and `was` the row as it
-// was read, so an edit saves the columns changed alone, and not over another hand's (409, with
-// `changed` and the row as it is now, `item`); a SQL change answers {id, item, saved}.
+// A SQL row is its JSON, its id its key as the page read it, {"id": 7}. `was` is the document or
+// the row as it was read, so an edit saves the fields or columns changed alone, and not over
+// another hand's (409, with `changed` and the document or row as it is now, `item`); without
+// it, a document is put in place whole. A SQL change answers {id, item, saved}, an edit of a
+// document {id, saved}.
 async function data_browser_serve(req, res, options)
 {
     const tail = options.tail;

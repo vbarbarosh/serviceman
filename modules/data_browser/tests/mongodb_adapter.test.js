@@ -16,6 +16,7 @@ const test = require('node:test');
 const CONTAINER = process.env.DATA_BROWSER_MONGO;
 const DOCKER = process.env.DATA_BROWSER_DOCKER || 'docker';
 const DATABASE = 'browse_test';
+const EDITED = 'browse_edit_test';
 
 test('a real MongoDB: its collections, a page of documents, a filter, a sort, the fields', {skip: (CONTAINER === undefined) && 'DATA_BROWSER_MONGO names no container'}, async function () {
     mongosh(`mongodb://root:${process.env.DATA_BROWSER_MONGO_ROOT}@127.0.0.1:27017/admin`, [
@@ -78,6 +79,75 @@ test('a real MongoDB: its collections, a page of documents, a filter, a sort, th
     await assert.rejects(adapter.documents({collection: 'nothing', filter: '', sort: '', fields: '', skip: 0, limit: 50}), {status: 400, message: `no collection called nothing in ${DATABASE}`});
     // Its own user sees its database alone
     await assert.rejects(adapter.documents({collection: 'system.users', filter: '', sort: '', fields: '', skip: 0, limit: 50}), {status: 400});
+});
+
+// A document edited with the text the page showed (`was`): the fields it changes alone are saved,
+// each held to what it held when read, as the page reads a value; another hand's change to one of
+// them is refused with what it holds now, its change to another field kept
+test('a real MongoDB: an edit saves the fields it changes alone, and never over another hand\'s change', {skip: (CONTAINER === undefined) && 'DATA_BROWSER_MONGO names no container'}, async function () {
+    const mongo_text_of = (await import('../ui/mongo_text_of.js')).default;
+    const root = `mongodb://root:${process.env.DATA_BROWSER_MONGO_ROOT}@127.0.0.1:27017/admin`;
+    mongosh(root, [
+        `const d = db.getSiblingDB('${EDITED}');`,
+        'd.dropDatabase();',
+        'd.dropAllUsers();',
+        `d.createUser({user: '${EDITED}', pwd: 'pw', roles: [{role: 'dbOwner', db: '${EDITED}'}]});`,
+        'd.orders.insertMany([1, 2, 3, 4, 5, 6].map(n => ({_id: n, status: \'new\', total: NumberDecimal(\'10.50\'), ratio: 10.0, score: NumberInt(7), big: NumberLong(\'9007199254740993\'), at: ISODate(\'2026-11-26T10:00:00Z\'), dims: {w: 1, h: [2, {d: 3}]}, \'a.b\': 1, note: \'x\'})));',
+    ].join('\n'));
+    const adapter = mongodb_adapter(v => mongosh(`mongodb://${EDITED}:pw@127.0.0.1:27017/${EDITED}`, v));
+    // Another hand: a script run as root in the database edited
+    function other(script) {
+        return mongosh(root, `const d = db.getSiblingDB('${EDITED}'); ${script}`);
+    }
+    // The document as Edit shows it, and the same with its text changed
+    async function text_read(id) {
+        const found = await adapter.documents({collection: 'orders', filter: `{_id: ${id}}`, sort: '', fields: '', skip: 0, limit: 1});
+        return mongo_text_of(found.items[0], true);
+    }
+    function text_changed(text, pairs) {
+        let out = text;
+        for (const [from, to] of pairs) {
+            assert.ok(out.includes(from), `${from} in ${text}`);
+            out = out.replace(from, to);
+        }
+        return out;
+    }
+    async function stored(id) {
+        return (await adapter.documents({collection: 'orders', filter: `{_id: ${id}}`, sort: '', fields: '{_id: 0}', skip: 0, limit: 1})).items[0];
+    }
+
+    // Saved as it was read: nothing; a field changed, one left out, one added: those alone, each
+    // value as typed, '$x' a text, a dotted name a field
+    const one = await text_read(1);
+    assert.deepStrictEqual(await adapter.replace({collection: 'orders', id: 1, document: one, was: one}), {id: 1, saved: []});
+    const edited = text_changed(one, [['status: "new"', 'status: "paid"'], ['"a.b": 1', '"a.b": 2'], ['    note: "x"\n', '    added: "$x"\n'], ['h: [2, {d: 3}]', 'h: [2, {d: 4}]']]);
+    assert.deepStrictEqual(await adapter.replace({collection: 'orders', id: 1, document: edited, was: one}), {id: 1, saved: ['status', 'dims', 'a.b', 'added', 'note']});
+    assert.deepStrictEqual(await stored(1), {status: 'paid', total: {$numberDecimal: '10.50'}, ratio: 10, score: 7, big: {$numberLong: '9007199254740993'}, at: {$date: '2026-11-26T10:00:00Z'}, dims: {w: 1, h: [2, {d: 4}]}, 'a.b': 2, added: '$x'});
+
+    // A double the page shows as 10, changed: held to what the page read, no refusal
+    const two = await text_read(2);
+    assert.deepStrictEqual((await adapter.replace({collection: 'orders', id: 2, document: text_changed(two, [['ratio: 10,', 'ratio: 12,']]), was: two})).saved, ['ratio']);
+
+    // Another hand's change to a field this edit changes: refused with what it holds now, and
+    // nothing saved; NumberDecimal('10.50') made the double 10.5 is a change
+    const three = await text_read(3);
+    other('d.orders.updateOne({_id: 3}, {$set: {status: \'shipped\', total: 10.5}});');
+    await assert.rejects(adapter.replace({collection: 'orders', id: 3, document: text_changed(three, [['status: "new"', 'status: "paid"'], ['NumberDecimal(\'10.50\')', 'NumberDecimal(\'11.50\')'], ['score: 7', 'score: 8']]), was: three}), {status: 409, message: 'it changed since it was read, by another hand: status is "shipped" now, total is 10.5 now', changed: ['status', 'total']});
+    assert.deepStrictEqual([(await stored(3)).status, (await stored(3)).score], ['shipped', 7], 'nothing saved');
+    // To a field it leaves out, or adds: refused too; to another field: kept, the edit beside it
+    const four = await text_read(4);
+    other('d.orders.updateOne({_id: 4}, {$set: {note: \'theirs\', extra: 1}});');
+    await assert.rejects(adapter.replace({collection: 'orders', id: 4, document: text_changed(four, [['    note: "x"\n', '']]), was: four}), {status: 409, changed: ['note']});
+    await assert.rejects(adapter.replace({collection: 'orders', id: 4, document: text_changed(four, [['status: "new"', 'status: "new", extra: 2']]), was: four}), {status: 409, changed: ['extra']});
+    assert.deepStrictEqual((await adapter.replace({collection: 'orders', id: 4, document: text_changed(four, [['status: "new"', 'status: "paid"']]), was: four})).saved, ['status']);
+    assert.deepStrictEqual([(await stored(4)).status, (await stored(4)).note, (await stored(4)).extra], ['paid', 'theirs', 1]);
+
+    // Gone meanwhile; an _id changed, which MongoDB refuses
+    const five = await text_read(5);
+    other('d.orders.deleteOne({_id: 5});');
+    await assert.rejects(adapter.replace({collection: 'orders', id: 5, document: five, was: five}), {status: 400, message: 'it is not there any more: deleted since the page was read'});
+    const six = await text_read(6);
+    await assert.rejects(adapter.replace({collection: 'orders', id: 6, document: text_changed(six, [['_id: 6', '_id: 7']]), was: six}), {status: 400, message: /the \(immutable\) field '_id' was found to have been altered/});
 });
 
 // A script run by mongosh in the container, signed in by the URL: copied in as a file, as
