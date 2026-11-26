@@ -11,11 +11,13 @@ import charts_range_of from './charts_range_of.js';
 //     view     a remote of the status: {agent_version, machine: {can}}
 //     range    the range read: '10m', '1h', '24h', '7d', '30d'
 //     rate     how often the ten minutes are read, in ms: 1000, 2000, 5000
+//     compact  true for a slim row's: the range alone while the rates cannot be picked, the
+//              rates beside it once the ten minutes are; a phone shows both, on a row of its own
 //     @range   a range picked: '24h'
 //     @rate    a rate picked: 5000
 const charts_switch = {
     template: `
-<span class="charts-switch">
+<span class="charts-switch" :class="{compact: (compact === true)}">
     <span class="seg" role="group" aria-label="The range the charts show">
         <button v-for="item of ranges" :key="item.value" type="button" :class="{on: item.on}" :disabled="item.disabled" :title="item.title" @click="$emit('range', item.value)">{{ item.label }}</button>
     </span>
@@ -24,7 +26,7 @@ const charts_switch = {
     </span>
 </span>
 `,
-    props: ['view', 'range', 'rate'],
+    props: ['view', 'range', 'rate', 'compact'],
     emits: ['range', 'rate'],
     computed: {
         // Whether its agent reads the ten minutes (1.32 and newer)

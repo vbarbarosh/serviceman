@@ -323,6 +323,18 @@ done on it is under **More ▾**: **Configure**, **Docker**, **Firewall**, **Pro
 under the head says since when, which services wait for it, and the line to run there to see
 why (`systemctl status serviceman-agent`).
 
+The page scrolls as one under serviceman's bar, the crumbs and the head with it. Once the head
+is gone, it folds into a slim row docked at the top: the machine's icon and name (cut at 11rem,
+the whole of it in its title), its state in a word, `CPU 23% Mem 41% Disk 62%`, its tabs, and the
+range its charts show, the rates beside it once 10m is picked. Nothing under it moves when it
+shows. A row too narrow for the tabs folds them into one button, the open tab's, whose menu has
+them all. On a phone the slim row holds the name, the state and the numbers, with the range and
+the rates on a row of their own, and no tabs. A tab picked in it opens at the top of the page,
+the head over it again. **Shell** and **Files** fill the height instead: the page stays still,
+its head on top, and the terminal or the folder scrolls inside. A service's page folds the same
+way, its own numbers and tabs in its slim row, and its Logs, Files and Shell fill the height. It
+is `src/main/public/item_slim.js`.
+
 The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
 docker version, node version — and repeats the numbers that move every 5 seconds: among them
 how busy its cores were, which is cpu use as top counts it, beside the load average, which
@@ -386,6 +398,19 @@ beside History. The minutes a machine was off
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it; one
 before 1.32 has no 10m, and the head's range says so.
+
+Each chart says its scale on its lines, inside it: the top and the middle under dashed lines at
+its left, drawn over the lines with a halo of the card's colour, so the words read where a line
+runs through them and the line shows on around them. A share's top is 100%; the rest's is the
+highest point rounded up to 1, 2 or 5 of its order, a rate's in the unit it is said in: `20MB/s`,
+where 20,000,000 bytes said in mebibytes read `19.1MB/s`. Under the chart are its start and its
+end (`now`, or when the machine went), and between them round times with faint guides up
+through the lines, `18:00 · Nov 26 · 06:00`, as many as its width has room for; one that would
+touch the start or the end gives way with its guide. The start of 24 hours says its day,
+`Nov 25 12:02`, so a machine away since 08:50 reads from `Nov 25 08:50` to `08:50`; an hour of
+another day says its day at both ends, a week or a month days alone. The time pointed at is a
+tag over them, and the times it would touch give way while it is there. It is
+`src/main/public/chart_scale_of.js` and `chart_times_of.js`.
 
 **Uptime** is a bar a day for the last 30, in one row under the machine's name, its share of
 those days at the end of it: green when servermon wrote a line every second of it, orange from

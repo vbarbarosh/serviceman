@@ -1473,6 +1473,231 @@ ul.tried {
     grid-template-rows: auto auto auto 1fr;
 }
 
+/* A machine's or a service's page scrolls as one under serviceman's bar, its crumbs and its head
+   with it, the head folding into a slim row once it is gone (item_slim.js). A tab that fills the
+   height (a terminal, a file manager, a service's lines) marks the page "fills": the page stays
+   still, its head and crumbs on top, and the pane takes the rest and scrolls inside itself */
+main > section:has(> #page:not(.fills)) {
+    display: block;
+    overflow-y: auto;
+}
+
+#page:not(.fills) {
+    display: flow-root;
+}
+
+#page:not(.fills) > #detail {
+    overflow: visible;
+}
+
+/* A form's Save sticks to the window's foot: the page that scrolls has no padding of its own for
+   the bar to sink into, as a pane's has */
+#page:not(.fills) .form .actions {
+    bottom: 0;
+}
+
+/* The slim row hangs from a box of no height right under the head, docked at the top of the
+   page as it scrolls: nothing under it moves when it shows. Hidden, it waits above the top,
+   and slides down from under serviceman's bar once the head is gone */
+.item-slim {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    height: 0;
+}
+
+.item-slim-bar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 18px;
+    align-items: center;
+    min-width: 0;
+    min-height: 52px;
+    padding: 0 20px 0 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bar);
+    box-shadow: var(--shadow-pop);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-100%);
+    transition: transform .16s ease, opacity .16s ease, visibility .16s;
+}
+
+.item-slim.shown > .item-slim-bar {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .item-slim-bar {
+        transform: none;
+        transition: opacity .12s ease, visibility .12s;
+    }
+}
+
+/* Where it is: its icon small, its name cut at 11rem with the whole of it in its title, its
+   state in a word. A row too narrow cuts the name further before anything wraps */
+.item-slim-where {
+    display: flex;
+    flex: 1 1 6rem;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    max-width: max-content;
+}
+
+.item-slim-tile {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--accent-edge);
+    border-radius: 4px;
+    background: var(--sel);
+    color: var(--link);
+}
+
+.item-slim-name {
+    min-width: 0;
+    max-width: 11rem;
+    overflow: hidden;
+    font-size: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.item-slim-where > .st-pill {
+    flex: none;
+}
+
+.item-slim-facts {
+    display: flex;
+    flex: none;
+    gap: 14px;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.item-slim-facts b.dim {
+    color: var(--muted);
+}
+
+/* Its tabs take what the row leaves them, and fold into one button where they would not fit;
+   a row too narrow for that button and the switch puts the switch on a row of its own */
+.item-slim-tabs {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    align-self: stretch;
+    gap: 2px;
+    min-width: 9rem;
+}
+
+.item-slim-tabs .tab {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+    height: 51px;
+    padding: 0 9px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.item-slim-tabs .tab:hover {
+    background: none;
+    color: var(--fg);
+}
+
+.item-slim-tabs .tab.on {
+    border-bottom-color: var(--accent);
+    color: var(--fg);
+}
+
+/* Its menus open to the right, over the page under the row */
+.item-slim-tabs .item-menu {
+    right: auto;
+    left: 0;
+}
+
+/* The tabs as they would stand unfolded, measured out of sight in a box of no size */
+.item-slim-need {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+}
+
+.item-slim-need > span {
+    display: flex;
+    gap: 2px;
+    width: max-content;
+}
+
+.item-slim-bar > .charts-switch {
+    flex: none;
+    flex-wrap: nowrap;
+    margin: 8px 0 8px auto;
+}
+
+/* A compact switch, the slim row's, says the range alone while the rates cannot be picked */
+.charts-switch.compact > .seg:has(> button:disabled) {
+    display: none;
+}
+
+/* A phone: the name, its state and its numbers, the switch whole on a row of its own, no tabs */
+@media (max-width: 600px) {
+    .item-slim-bar {
+        gap: 6px 10px;
+        padding: 8px 12px;
+    }
+
+    .item-slim-where {
+        flex: 0 1 auto;
+        max-width: none;
+    }
+
+    .item-slim-tile,
+    .item-slim-tabs {
+        display: none;
+    }
+
+    .item-slim-name {
+        max-width: none;
+        font-size: 15px;
+    }
+
+    .item-slim-facts {
+        gap: 10px;
+        margin-left: auto;
+        font-size: 13px;
+    }
+
+    .item-slim-bar > .charts-switch {
+        display: flex;
+        width: 100%;
+        margin: 0;
+    }
+
+    .charts-switch.compact > .seg:has(> button:disabled) {
+        display: inline-flex;
+    }
+}
+
 /* The kit's item head: a card with a 56 px icon tile, the name at 26 px and its state pill, a
    line of what it is, the actions on the right, and the tabs in the card's foot, at most six,
    the rest under More ▾ */
@@ -7036,22 +7261,57 @@ article.ov-pane {
     background: var(--run);
 }
 
-/* The top of the scale is said in a strip of its own above the lines: a line running at the
-   top, a cpu at 100%, is never under it */
+/* The scale on the lines, inside the chart: dashed lines at the top and the middle, the zero
+   solid; faint guides up from the round times under it */
 .ov-chart-plot {
     position: relative;
-    box-sizing: content-box;
     height: 5.5rem;
-    padding-top: 1.1rem;
-    border-bottom: 1px solid var(--line);
-    background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 25%);
-    background-clip: content-box;
-    background-origin: content-box;
-    background-size: 100% 100%;
+    margin-top: 6px;
+    border-top: 1px dashed var(--line);
+    border-bottom: 1px solid var(--line-strong);
     cursor: crosshair;
 }
 
+.ov-chart-plot::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    border-top: 1px dashed var(--line);
+    pointer-events: none;
+}
+
+.ov-chart-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed var(--line);
+    pointer-events: none;
+}
+
+/* The top and the middle said just under their lines at the left, over the lines drawn: a halo
+   of the card's colour keeps the words read where a line runs through them, and the line shows
+   on around the letters (a box behind them would hide it: Ping at 25 ms) */
+.ov-chart-level {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    color: var(--muted);
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    text-shadow: 0 0 2px var(--panel), 0 0 2px var(--panel), 0 0 3px var(--panel);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.ov-chart-level.ov-chart-half {
+    top: calc(50% + 2px);
+}
+
 .ov-chart-plot svg {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
@@ -7070,18 +7330,9 @@ article.ov-pane {
     stroke: var(--run);
 }
 
-.ov-chart-top {
-    position: absolute;
-    top: 0;
-    left: 0;
-    font-size: .75rem;
-    line-height: 1.3;
-    pointer-events: none;
-}
-
 .ov-chart-cursor {
     position: absolute;
-    top: 1.1rem;
+    top: 0;
     bottom: 0;
     width: 1px;
     background: var(--fg);
@@ -7089,13 +7340,34 @@ article.ov-pane {
     pointer-events: none;
 }
 
+/* The start and the end at the edges, the round times centred on their guides, the time pointed
+   at in a tag over them */
 .ov-chart-foot {
-    display: flex;
-    gap: .5rem;
-    justify-content: space-between;
+    position: relative;
+    height: 1.15rem;
     font-size: .75rem;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+
+.ov-chart-edge,
+.ov-chart-tick {
+    position: absolute;
+    top: 3px;
+    line-height: 1.2;
+}
+
+.ov-chart-edge {
+    left: 0;
+}
+
+.ov-chart-edge.ov-chart-end {
+    right: 0;
+    left: auto;
+}
+
+.ov-chart-tick {
+    transform: translateX(-50%);
 }
 
 /* The machine's uptime in one row under its name, a bar a day: the bars share what the row
@@ -7280,7 +7552,16 @@ article.ov-pane {
 }
 
 .ov-chart-at {
-    color: var(--fg);
+    position: absolute;
+    top: 2px;
+    z-index: 1;
+    padding: 0 5px;
+    border-radius: 3px;
+    background: var(--fg);
+    color: var(--panel);
+    font-weight: 600;
+    line-height: 1.25;
+    transform: translateX(-50%);
 }
 
 .ov-cards {

@@ -36,6 +36,7 @@ import format_ms from './format_ms.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
 import item_facts from './item_facts.js';
+import item_slim from './item_slim.js';
 import join_form from './join_form.js';
 import line_row from './line_row.js';
 import load_tests_pane from './load_tests_pane.js';
@@ -1551,6 +1552,10 @@ const REMOTE_TABS = [
     {key: 'install', label: 'Install', main: false, online: false, icon: '<path d="M12 4v11M7 11l5 5 5-5"/><path d="M5 20h14"/>'},
 ];
 
+// The tabs whose pane takes the height left under the head and scrolls inside itself, a file
+// manager and a terminal: the page stays still for them, its head on top
+const REMOTE_TABS_FILLING = ['files', 'shell'];
+
 // How often a machine's charts are read again for 1h and longer, whatever the rate picked: they
 // gain a point every half minute, from its agent's half-minute lines, so a read between two
 // finds the same points; and each read has the agent read and average up to a month of its
@@ -1559,7 +1564,7 @@ const CHARTS_EVERY_MS = 30000;
 
 const remote_page = {
     template: `
-<div id="page">
+<div id="page" :class="{fills}">
     <!-- The kit's item head: what it is and how it stands, what is done to the whole machine,
          and its tabs in the card's foot; the way back up is in the crumbs above -->
     <div class="item-card">
@@ -1614,6 +1619,11 @@ const remote_page = {
             </nav>
         </div>
     </div>
+    <!-- Scrolled away, the head folds into a slim row: its name, its state, its numbers, its
+         tabs and the range its charts show -->
+    <item-slim v-if="(fills === false)" :icon="icon" :name="view.name" :state="state_pill" :facts="head_facts" :tabs="tabs_shown" :more="tabs_more" :tab="tab_now" @tab="$emit('tab', $event)">
+        <charts-switch v-if="charts_able" :view="view" :range="charts_range_now" :rate="charts_rate" :compact="true" @range="charts_range_pick" @rate="charts_rate_pick"/>
+    </item-slim>
     <!-- Not linked: a red note under the head, what waits for it and how to look -->
     <div v-if="(down !== null)" class="item-note" role="status">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
@@ -1648,7 +1658,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, 'charts-switch': charts_switch, ink: tab_ink, 'item-facts': item_facts, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    components: {'agent-pill': agent_pill, 'charts-switch': charts_switch, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
@@ -1751,6 +1761,10 @@ const remote_page = {
 
         tab_now: function () {
             return remote_tab_allowed(this.view, this.tab) ? this.tab : 'overview';
+        },
+        // Whether the tab open fills the height under a still head, or the page scrolls
+        fills: function () {
+            return REMOTE_TABS_FILLING.includes(this.tab_now);
         },
         // Its calls waiting for answers while its link stays up, in words; '' while it answers
         unanswered_said: function () {
@@ -2036,11 +2050,15 @@ const SERVICE_TABS = [
     {key: 'shell', label: 'Shell', icon: '<path d="M5 7l5 5-5 5"/><path d="M13 17h6"/>'},
 ];
 
+// The tabs whose pane takes the height left under the head and scrolls inside itself, its lines,
+// a file manager and a terminal: the page stays still for them, its head on top
+const SERVICE_TABS_FILLING = ['logs', 'files', 'shell'];
+
 // One service as one page: tabs pick what is below, the actions stand to the right of them,
 // and the tab picked here is the app's, so it follows from service to service
 const service_page = {
     template: `
-<div id="page">
+<div id="page" :class="{fills}">
     <!-- The kit's item head, said once: what it is and how it stands, what can be done to it now,
          ⋯ for the rest, and its tabs in the card's foot -->
     <div class="item-card">
@@ -2099,6 +2117,8 @@ const service_page = {
             </nav>
         </div>
     </div>
+    <!-- Scrolled away, the head folds into a slim row: its name, its state, its numbers, its tabs -->
+    <item-slim v-if="(fills === false)" :icon="kind.icon" :name="view.name" :state="state_pill" :facts="head_facts" :tabs="tabs" :tab="tab_now" @tab="$emit('tab', $event)"/>
     <!-- How it stands, when that wants a word: why, and the way to its logs or its machine -->
     <service-note :view="view" :machine="machine_now" @logs="$emit('tab', 'logs')" @machine="$emit('remote', $event)"/>
     <!-- A new version of an app folder goes in as soon as it is picked: the browser's pick is
@@ -2143,7 +2163,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tab_ink, 'item-facts': item_facts, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
+    components: {'copy-progress': copy_progress, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
@@ -2278,6 +2298,10 @@ const service_page = {
         },
         tab_now: function () {
             return tab_allowed(this.view, this.tab) ? this.tab : 'overview';
+        },
+        // Whether the tab open fills the height under a still head, or the page scrolls
+        fills: function () {
+            return SERVICE_TABS_FILLING.includes(this.tab_now);
         },
         driven: function () {
             return (this.view.type !== 'external') && (this.view.type !== 'files');
