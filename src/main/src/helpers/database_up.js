@@ -2,6 +2,7 @@ const couchdb_ini = require('./couchdb_ini');
 const database_engines = require('./database_engines');
 const database_port_follow = require('./database_port_follow');
 const database_port_read = require('./database_port_read');
+const database_root_hold = require('./database_root_hold');
 const database_sample_files = require('./database_sample_files');
 const database_samples = require('./database_samples');
 const database_sql = require('./database_sql');
@@ -63,11 +64,13 @@ async function database_up(app, name)
         await container_made(connect, server, engine, image);
         said_set(app, name, `waiting for ${engine.label} to answer`);
         await ready_wait(connect, server, engine);
+        // A MongoDB's root signs in from inside its container alone
+        await database_root_hold(connect, server);
         if (server.sample) {
             await sample_load(app, connect, server);
         }
         const port = await database_port_read(connect, server);
-        server_set(app, name, {phase: 'up', said: '', error: null, port});
+        server_set(app, name, {phase: 'up', said: '', error: null, port, root_held: (server.engine === 'mongodb')});
         log_event(app, 'database_up_end_ok', {database: name, remote: server.remote, port, ms: Date.now() - begun});
     }
     catch (error) {

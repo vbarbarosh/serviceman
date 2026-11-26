@@ -809,6 +809,11 @@ They reach the machine in the bodies of the Engine API&#39;s requests, the conta
 and an exec&#39;s, never on a command line, which every user of the machine can read. The SQL that
 makes a user goes into the container as a file only root reads, and is removed once it ran; in a
 MongoDB, a mongosh script, which signs root in with the password its env holds.</p>
+<p>A MongoDB&#39;s root, its admin, signs in from inside its own container alone, from the container&#39;s
+<code>127.0.0.1</code>, where serviceman runs those scripts (MongoDB&#39;s <code>authenticationRestrictions</code>). Through
+its port, a forward of it or a public port, only a database&#39;s own user signs in, whoever holds
+root&#39;s password. It is set as the server comes up; on one made before, the first time its
+machine&#39;s agent dials in, said in the log as <code>database_root_held</code>.</p>
 <p>An app&#39;s <code>DATABASE_URL</code> carries its user&#39;s password. A program on the machine itself gets it in
 the environment the agent starts it with. A container gets it as every variable of its env does,
 on the <code>docker run</code> line on that machine for the moment it runs; the agent&#39;s log writes it

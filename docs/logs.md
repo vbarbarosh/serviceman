@@ -515,6 +515,8 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `database_forwards_follow`| Its forwards come from the new port now; `forwards=` their labels.   |
 | `database_port_error`     | Its port could not be read again, and why; tried again while its machine stays online. |
 | `database_forwards_error` | Its forwards could not be taken out with it, and why: Forwards lists them. |
+| `database_root_held`      | A MongoDB made before root was held to its container is held now: root signs in from inside it alone. |
+| `database_root_error`     | Root could not be held to its container, and why; tried again at the machine's next dial-in. |
 
 ### Logline
 

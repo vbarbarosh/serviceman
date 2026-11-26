@@ -77,6 +77,12 @@ and an exec's, never on a command line, which every user of the machine can read
 makes a user goes into the container as a file only root reads, and is removed once it ran; in a
 MongoDB, a mongosh script, which signs root in with the password its env holds.
 
+A MongoDB's root, its admin, signs in from inside its own container alone, from the container's
+`127.0.0.1`, where serviceman runs those scripts (MongoDB's `authenticationRestrictions`). Through
+its port, a forward of it or a public port, only a database's own user signs in, whoever holds
+root's password. It is set as the server comes up; on one made before, the first time its
+machine's agent dials in, said in the log as `database_root_held`.
+
 An app's `DATABASE_URL` carries its user's password. A program on the machine itself gets it in
 the environment the agent starts it with. A container gets it as every variable of its env does,
 on the `docker run` line on that machine for the moment it runs; the agent's log writes it

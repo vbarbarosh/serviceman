@@ -3,6 +3,7 @@ const assert = require('assert');
 const child_process = require('child_process');
 const crypto = require('crypto');
 const database_env = require('../src/main/src/helpers/database_env');
+const database_root_held = require('../src/main/src/helpers/database_root_held');
 const database_samples = require('../src/main/src/helpers/database_samples');
 const fake_database_engine = require('./fake_database_engine');
 const fetch_host = require('./fetch_host');
@@ -197,6 +198,18 @@ test('a MongoDB is brought up empty, and a database made in it is its user\'s al
     assert.match(ping.Cmd[ping.Cmd.length - 1], /auth\("root", process\.env\.MONGO_ROOT_PASSWORD\)/);
     assert.match(ping.Cmd[ping.Cmd.length - 1], /argv\.includes\("--fork"\) \? 1 : 0/);
     assert.deepStrictEqual(ping.Env, [`MONGO_ROOT_PASSWORD=${root}`]);
+    // Its root signs in from inside its container alone, held as it came up, and kept so
+    const holds = engine.sql.filter(v => v.sql.includes('authenticationRestrictions'));
+    assert.deepStrictEqual(holds.map(v => v.sql), ['db.getSiblingDB("admin").updateUser("root", {authenticationRestrictions: [{clientSource: ["127.0.0.1", "::1"]}]});\n']);
+    assert.strictEqual(JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].root_held, true);
+    // One made before that is held once, at its machine's next dial-in, and not again
+    const before = JSON.parse(fs.readFileSync(kept_file, 'utf8'));
+    delete before.servers[0].root_held;
+    fs.writeFileSync(kept_file, JSON.stringify(before));
+    await database_root_held(world.app, 'mongodb-1');
+    await database_root_held(world.app, 'mongodb-1');
+    assert.strictEqual(engine.sql.filter(v => v.sql.includes('authenticationRestrictions')).length, 2);
+    assert.strictEqual(JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].root_held, true);
 
     const orders = await control(world, 'POST', '/api/v1/databases/mongodb-1/databases', {name: 'orders'});
     assert.strictEqual(orders.status, 201, JSON.stringify(orders.body));
