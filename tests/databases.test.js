@@ -7,8 +7,10 @@ const database_root_held = require('../src/main/src/helpers/database_root_held')
 const database_samples = require('../src/main/src/helpers/database_samples');
 const fake_database_engine = require('./fake_database_engine');
 const fetch_host = require('./fetch_host');
+const forwards_tell = require('../src/main/src/helpers/forwards_tell');
 const fs = require('fs');
 const http = require('http');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const php_image_make = require('../src/main/src/helpers/php_image_make');
@@ -16,6 +18,7 @@ const profile_from_db = require('../src/main/src/helpers/profile_from_db');
 const server_start = require('../src/main/src/helpers/server_start');
 const test = require('node:test');
 const timers = require('timers/promises');
+const tls = require('tls');
 
 const AGENT = path.join(__dirname, '..', 'src', 'agent', 'index.js');
 const TOKEN = 'token-of-the-laptop-0123456789';
@@ -264,7 +267,7 @@ test('a database server\'s port goes to another machine as its forward, follows 
     const brought = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'vps2', port: 27017}}]});
     assert.strictEqual(brought.status, 200, JSON.stringify(brought.body));
     assert.deepStrictEqual(file(), [{label: 'mongodb-1 → vps2', database: 'mongodb-1', from: {remote: 'laptop', port: 41337}, to: {remote: 'vps2', port: 27017}}]);
-    assert.deepStrictEqual(brought.body.servers[0].forwards, [{label: 'mongodb-1 → vps2', from: {remote: 'laptop', port: 41337}, to: {remote: 'vps2', here: false, port: 27017, socket: null}, off: false, state: 'to_offline', problem: 'vps2 is offline', at: null, apps: []}]);
+    assert.deepStrictEqual(brought.body.servers[0].forwards, [{label: 'mongodb-1 → vps2', from: {remote: 'laptop', port: 41337}, to: {remote: 'vps2', here: false, port: 27017, socket: null, host: null}, off: false, state: 'to_offline', problem: 'vps2 is offline', at: null, apps: [], tls: false, allow: [], address: null, firewall: null}]);
 
     // Copy URL: its user's URL as a program there reaches it, on its machine and through the
     // forward; nowhere it is not brought, and for the owner alone
@@ -319,6 +322,85 @@ test('a database server\'s port goes to another machine as its forward, follows 
     assert.strictEqual(removed.status, 200, JSON.stringify(removed.body));
     assert.deepStrictEqual(removed.body.forwards_removed, ['mongodb-1 → vps2', 'mongodb-1 → vps2 2']);
     assert.strictEqual(file(), undefined);
+});
+
+// A MongoDB's public port: on every address of its own machine, the agent joining it to the
+// server's port; TLS on by default with a certificate of its own authority's, whose file the page
+// hands out; who may connect as the machine's ufw rules, written and taken out with it; Copy URL
+// at the machine's public address. Never another engine's, never on another machine.
+test('a MongoDB\'s public port listens on every address, with TLS a setting and its firewall told', async function (t) {
+    const world = await world_start(t);
+    const made = await control(world, 'POST', '/api/v1/databases', {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'laptop'});
+    assert.strictEqual(made.status, 202, JSON.stringify(made.body));
+    await view_until(world, v => (v.servers[0].phase === 'up'));
+    assert.strictEqual((await control(world, 'POST', '/api/v1/databases/mongodb-1/databases', {name: 'orders'})).status, 201);
+    const laptop = world.app.remote_by_name.laptop;
+    const port = await port_free();
+    function file() {
+        return JSON.parse(fs.readFileSync(world.config_path, 'utf8')).forwards;
+    }
+    function rules() {
+        return fs.existsSync(world.ufw_state) ? fs.readFileSync(world.ufw_state, 'utf8').split('\n').filter(v => v !== '') : [];
+    }
+    function told() {
+        return forwards_tell.forwards_of(world.app, laptop).find(v => v.name === 'mongodb-1 → the internet');
+    }
+
+    const socket = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'laptop', socket: '~/mongo.sock', host: '0.0.0.0'}}]});
+    assert.deepStrictEqual([socket.status, socket.body.error], [400, 'forwards[0].to: a public port is a port on its server\'s own machine, laptop']);
+
+    const opened = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'laptop', port, host: '0.0.0.0'}, tls: true, allow: []}]});
+    assert.strictEqual(opened.status, 200, JSON.stringify(opened.body));
+    assert.deepStrictEqual(file(), [{label: 'mongodb-1 → the internet', database: 'mongodb-1', from: {remote: 'laptop', port: 41337}, to: {remote: 'laptop', port, host: '0.0.0.0'}, tls: true}]);
+    const line = opened.body.servers[0].forwards[0];
+    assert.deepStrictEqual([line.to.host, line.tls, line.allow, line.apps, line.firewall], ['0.0.0.0', true, [], [], `its firewall lets port ${port} in from anywhere`]);
+    assert.deepStrictEqual(rules(), [`ufw allow proto tcp from any to any port ${port} comment 'serviceman:mongodb-1:public'`]);
+    assert.deepStrictEqual([told().host, told().allow, Object.keys(told().tls)], ['0.0.0.0', undefined, ['cert', 'key']]);
+    await view_until(world, v => (v.servers[0].forwards[0].state === 'ready'));
+    assert.strictEqual((await control(world, 'GET', '/api/v1/databases')).body.servers[0].forwards[0].at, `0.0.0.0:${port}`);
+
+    // The authority's file, and a TLS handshake the agent answers, checked against it
+    const certificate = await fetch_host({port: world.control_port, host: '127.0.0.1', path: '/api/v1/databases/mongodb-1/certificate', method: 'GET', headers: {}});
+    assert.strictEqual(certificate.status, 200);
+    assert.match(certificate.headers['content-disposition'], /filename="mongodb-1-ca\.pem"/);
+    const kept = JSON.parse(fs.readFileSync(path.join(world.state_dir, 'databases.json'), 'utf8')).servers[0];
+    assert.strictEqual(certificate.body, kept.tls.ca);
+    assert.strictEqual(told().tls.cert.startsWith(kept.tls.cert.split('-----END CERTIFICATE-----')[0]), true);
+    const authorized = await new Promise(function (resolve, reject) {
+        const client = tls.connect({host: '127.0.0.1', port, ca: kept.tls.ca, checkServerIdentity: () => undefined}, function () {
+            resolve(client.authorized);
+            client.destroy();
+        });
+        client.on('error', reject);
+    });
+    assert.strictEqual(authorized, true);
+
+    // Copy URL from anywhere: at the machine's public address, once one is known
+    const unknown = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&public=1');
+    assert.deepStrictEqual([unknown.status, unknown.body.error], [409, 'laptop has no public address serviceman knows: its agent says none, and it dials in from a private one']);
+    laptop.state.resources.addresses = ['10.0.0.5', '100.64.0.20', '203.0.113.5'];
+    const anywhere = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&public=1');
+    assert.deepStrictEqual([anywhere.status, anywhere.body], [200, {url: `mongodb://orders:${kept.users.orders.password}@203.0.113.5:${port}/orders?tls=true&tlsCAFile=mongodb-1-ca.pem`}]);
+
+    // Who may connect, TLS off: the rules follow, the agent is told the list and no certificate
+    const listed = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: [{to: {remote: 'laptop', port, host: '0.0.0.0'}, tls: false, allow: ['198.51.100.7', '10.0.0.0/8']}]});
+    assert.strictEqual(listed.status, 200, JSON.stringify(listed.body));
+    assert.deepStrictEqual(rules(), [`ufw allow proto tcp from 198.51.100.7 to any port ${port} comment 'serviceman:mongodb-1:public'`, `ufw allow proto tcp from 10.0.0.0/8 to any port ${port} comment 'serviceman:mongodb-1:public'`]);
+    assert.deepStrictEqual([told().allow, told().tls], [['198.51.100.7', '10.0.0.0/8'], undefined]);
+    assert.strictEqual(listed.body.servers[0].forwards[0].firewall, `its firewall lets port ${port} in from 198.51.100.7, 10.0.0.0/8 alone`);
+    const plain = await control(world, 'GET', '/api/v1/databases/mongodb-1/url?database=orders&public=1');
+    assert.strictEqual(plain.body.url, `mongodb://orders:${kept.users.orders.password}@203.0.113.5:${port}/orders`);
+
+    // Closed: its rules go with it
+    const closed = await control(world, 'PUT', '/api/v1/databases/mongodb-1/forwards', {forwards: []});
+    assert.strictEqual(closed.status, 200, JSON.stringify(closed.body));
+    assert.deepStrictEqual([file(), rules()], [undefined, []]);
+
+    // Another engine has none
+    assert.strictEqual((await control(world, 'POST', '/api/v1/databases', {name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop'})).status, 202);
+    await view_until(world, v => v.servers.every(vv => vv.phase === 'up'));
+    const mysql = await control(world, 'PUT', '/api/v1/databases/mysql-1/forwards', {forwards: [{to: {remote: 'laptop', port, host: '0.0.0.0'}}]});
+    assert.deepStrictEqual([mysql.status, mysql.body.error], [400, 'a public port is a MongoDB\'s: mysql-1 is mysql']);
 });
 
 // A sample whose file is not the one pinned is refused, and the server says why; brought up
@@ -471,7 +553,10 @@ async function world_start(t, others)
     Object.assign(out, {app, servers, control_port: servers.control.address().port});
     const log = fs.openSync(out.agent_log, 'w');
     const argv = [AGENT, '--url', `http://127.0.0.1:${out.control_port}`, '--token', TOKEN, '--docker', docker, '--peer-port', '0'];
-    const env = Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), SERVICEMAN_LOG_TIME: 'off', DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`});
+    // ufw is a stand-in that keeps its rules in a file: a public port's firewall rules are written
+    // there, never to the machine's own
+    out.ufw_state = path.join(dir, 'ufw.rules');
+    const env = Object.assign({}, process.env, {SERVICEMAN_AGENT_DIR: path.join(dir, 'agent'), SERVICEMAN_LOG_TIME: 'off', DOCKER_HOST: `unix://${path.join(dir, 'docker.sock')}`, SERVICEMAN_UFW: `${process.execPath} ${path.join(__dirname, 'fake_ufw.js')}`, FAKE_UFW_STATE: out.ufw_state});
     out.agent = child_process.spawn(process.execPath, argv, {stdio: ['ignore', log, log], env});
     t.after(async function () {
         out.agent.kill();
@@ -542,4 +627,16 @@ async function wait_until(ready, timeout_ms)
         }
         await timers.setTimeout(25);
     }
+}
+
+// A port nobody listens on now
+function port_free()
+{
+    return new Promise(function (resolve) {
+        const probe = net.createServer();
+        probe.listen(0, '127.0.0.1', function () {
+            const port = probe.address().port;
+            probe.close(() => resolve(port));
+        });
+    });
 }

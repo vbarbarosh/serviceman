@@ -8442,6 +8442,47 @@ button.st-pill.problem-where {
     outline: 0;
 }
 
+/* Its public port: TLS green, none amber; what its machine's firewall said under the line; the
+   form's check and its addresses, which take what room is left */
+.databases .db-fwd .tag.db-tls-on {
+    background: var(--run-soft);
+    color: var(--run);
+}
+
+.databases .db-fwd .tag.db-tls-off {
+    background: var(--busy-soft);
+    color: var(--busy-text);
+}
+
+.databases .db-fwd-said {
+    flex-basis: 100%;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.databases .db-fwd-check {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    white-space: nowrap;
+}
+
+.databases .db-fwd-check input {
+    width: auto;
+    margin: 0;
+}
+
+.databases .db-fwd-new input.db-fwd-allow {
+    flex: 1 1 14rem;
+    width: auto;
+}
+
+.databases .db-fwd-adds {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
 /* The apps of a row wrap in their cell, each a link to its service */
 .databases .db-apps {
     white-space: normal;

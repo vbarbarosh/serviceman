@@ -4,9 +4,11 @@ const agent_peer_stream = require('./agent_peer_stream');
 const agent_say = require('./agent_say');
 const agent_stream_counts = require('./agent_stream_counts');
 const agent_tunnel = require('./agent_tunnel');
+const crypto = require('crypto');
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
+const tls = require('tls');
 
 // The forwards this machine listens for, by name: {name: {key, where, server, error, dial,
 // peer}}. They stand for the life of the agent, not of a link: a socket file that came and went
@@ -26,9 +28,14 @@ const counts = agent_stream_counts();
 // listens: each connection goes straight there, over the tailnet (agent_peer_stream); a peer
 // that does not answer leaves it to the link, as before.
 //
-// forwards: [{name, socket}] or [{name, port}], each with `dial` ({host, port}, {port} or
-// {path}), `peer` ({addresses, port, token}) or neither. Answers what each one is now:
-// {name: {at, error}}, error null for one that listens.
+// A port may listen beyond the loopback, `host` 0.0.0.0, on every address of the machine: a
+// public port, joined to a port of this machine (`dial`). `tls` {cert, key} makes it speak TLS
+// with that certificate, its far end spoken to plainly as before; `allow`, addresses and
+// networks (203.0.113.5, 10.0.0.0/8), lets in those alone, before a TLS handshake is begun.
+//
+// forwards: [{name, socket}] or [{name, port, host, tls, allow}], each with `dial` ({host,
+// port}, {port} or {path}), `peer` ({addresses, port, token}) or neither. Answers what each one
+// is now: {name: {at, error}}, error null for one that listens.
 async function agent_forwards_set(forwards, group)
 {
     const wanted = {};
@@ -64,13 +71,19 @@ async function agent_forwards_set(forwards, group)
 
 async function listen(item, group)
 {
-    const where = (item.socket === undefined) ? `127.0.0.1:${item.port}` : agent_path_expand(item.socket);
+    const host = (item.host === undefined) ? '127.0.0.1' : item.host;
+    const where = (item.socket === undefined) ? `${host}:${item.port}` : agent_path_expand(item.socket);
     const out = {key: key_of(item), where, server: null, error: null, dial: null, peer: null};
+    const admitted = allow_list(item.allow);
     // Half open, as ssh -L is: a client that says it is done is still sent the answer
-    const server = net.createServer({allowHalfOpen: true}, function (socket) {
+    function accept(socket) {
         socket.on('error', function () {
             socket.destroy();
         });
+        if (admitted(socket) === false) {
+            socket.destroy();
+            return;
+        }
         if (out.dial !== null) {
             join(item.name, socket, out.dial);
             return;
@@ -80,10 +93,23 @@ async function listen(item, group)
             return;
         }
         through_link(item.name, socket);
-    });
+    }
+    const server = (item.tls === undefined) ? net.createServer({allowHalfOpen: true}, accept) : tls.createServer({allowHalfOpen: true, cert: item.tls.cert, key: item.tls.key}, accept);
+    if (item.tls !== undefined) {
+        // One not let in is closed before its handshake; a handshake that fails is that
+        // client's alone
+        server.on('connection', function (raw) {
+            if (admitted(raw) === false) {
+                raw.destroy();
+            }
+        });
+        server.on('tlsClientError', function (error, raw) {
+            raw.destroy();
+        });
+    }
     try {
         if (item.socket === undefined) {
-            await server_listen(server, {host: '127.0.0.1', port: item.port});
+            await server_listen(server, {host, port: item.port});
         }
         else {
             // A folder of its own for the sockets, ~/.sockets/, is made the first time, for the
@@ -213,9 +239,47 @@ function close(found)
     }
 }
 
+// What a listener is: a new key opens it again. A certificate is told by its fingerprint.
 function key_of(item)
 {
-    return (item.socket === undefined) ? `port ${item.port}` : `socket ${item.socket}`;
+    if (item.socket !== undefined) {
+        return `socket ${item.socket}`;
+    }
+    const tls_key = (item.tls === undefined) ? '' : ` tls ${crypto_hash(item.tls.cert)}`;
+    const allow_key = (item.allow === undefined) ? '' : ` allow ${item.allow.join(',')}`;
+    return `port ${(item.host === undefined) ? '127.0.0.1' : item.host}:${item.port}${tls_key}${allow_key}`;
+}
+
+function crypto_hash(text)
+{
+    return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
+// Whether a connection may come in: every one when there is no list, else the ones from an
+// address or a network on it. An IPv4 address that arrives as IPv6 (::ffff:203.0.113.5) is
+// taken as itself.
+function allow_list(allow)
+{
+    if (allow === undefined) {
+        return function () {
+            return true;
+        };
+    }
+    const list = new net.BlockList();
+    for (const item of allow) {
+        const [address, prefix] = item.split('/');
+        const type = net.isIPv6(address) ? 'ipv6' : 'ipv4';
+        if (prefix === undefined) {
+            list.addAddress(address, type);
+        }
+        else {
+            list.addSubnet(address, Number(prefix), type);
+        }
+    }
+    return function (socket) {
+        const address = String(socket.remoteAddress).replace(/^::ffff:(?=\d+\.)/, '');
+        return list.check(address, net.isIPv6(address) ? 'ipv6' : 'ipv4');
+    };
 }
 
 module.exports = agent_forwards_set;

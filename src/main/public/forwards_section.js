@@ -331,7 +331,8 @@ const forwards_section = {
                 parts.push(`part of ${item.service}`);
             }
             if ((item.database !== null) && (item.database !== undefined)) {
-                parts.push(`part of ${item.database}, on Databases`);
+                const opened = ((item.to.host === null) || (item.to.host === undefined)) ? '' : `its public port${item.tls ? ', TLS' : ''}, `;
+                parts.push(`${opened}part of ${item.database}, on Databases`);
             }
             return parts.join(' · ');
         },
@@ -433,7 +434,10 @@ const forwards_section = {
                 // or on its page
                 const service = ((at === -1) || (editing === null)) ? undefined : forwards[at].service;
                 const database = ((at === -1) || (editing === null)) ? undefined : forwards[at].database;
-                const forward = Object.assign({label: fresh.label}, (service === undefined) ? {} : {service}, (database === undefined) ? {} : {database}, {from, to}, kept ? {off: true} : {});
+                // A database server's public port keeps its TLS and who it lets in, set on its page
+                const tls = ((at === -1) || (editing === null)) ? undefined : forwards[at].tls;
+                const allow = ((at === -1) || (editing === null)) ? undefined : forwards[at].allow;
+                const forward = Object.assign({label: fresh.label}, (service === undefined) ? {} : {service}, (database === undefined) ? {} : {database}, {from, to}, (tls === undefined) ? {} : {tls}, (allow === undefined) ? {} : {allow}, kept ? {off: true} : {});
                 if ((editing === null) || (at === -1)) {
                     forwards.push(forward);
                     return;

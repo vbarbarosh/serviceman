@@ -1,3 +1,4 @@
+const net = require('net');
 const RE_LINE_BREAK = /[\x00-\x1f\x7f]/;
 const LABEL_MAX = 100;
 const RE_HOST = /^[A-Za-z0-9.:_-]+$/;
@@ -7,6 +8,8 @@ const RE_TOKEN_ID = /^[0-9a-f]{1,64}$/;
 const RE_SERVICE = /^[a-z0-9][a-z0-9_-]*$/;
 // A database server's name, as the Databases page makes it
 const RE_DATABASE = /^[a-z][a-z0-9-]{0,39}$/;
+// How many addresses and networks a public port may let in
+const ALLOW_MAX = 50;
 
 // A port or a socket of one machine, brought to another, the way `ssh -L` brings one: `from` is
 // where the service is, `to` is where it shows up. Whatever connects at `to` is carried over
@@ -42,6 +45,12 @@ const RE_DATABASE = /^[a-z][a-z0-9-]{0,39}$/;
 // machine, written by the database's page. serviceman keeps its `from` on the server's machine
 // and port, a port docker may change at a start, and takes it out with the server
 // (database_forwards_follow, handle_databases). The server is kept beside the config, not in it.
+//
+// A database server's public port is one more: its `to` on the server's own machine with
+// `host` 0.0.0.0, listening on every address the machine has, where every other forward listens
+// on its loopback alone. `tls` true makes it speak TLS, with a certificate serviceman keeps beside
+// the server (database_public_tls); `allow` lets in those addresses and networks alone, [] for
+// everyone.
 function forwards_from_json(json, label)
 {
     if ((json === undefined) || (json === null)) {
@@ -69,9 +78,8 @@ function forwards_from_json(json, label)
             throw new Error(`${at}.from.host: a host goes with a port, not with a socket`);
         }
         const to = end_from_json(item.to, `${at}.to`, true);
-        if (to.host !== null) {
-            throw new Error(`${at}.to.host: a forward shows up on its machine's loopback and nowhere else`);
-        }
+        const database = database_from_json(item.database, `${at}.database`);
+        public_check(to, from, database, `${at}.to`);
         // Both ends on one machine is a forward its agent joins itself; one that would dial where
         // it listens would open one more connection for each it takes, without end
         if ((to.here === false) && (from.remote === to.remote) && end_loops(from, to)) {
@@ -82,11 +90,12 @@ function forwards_from_json(json, label)
             throw new Error(`${at}.to: ${JSON.stringify(taken.label)} already listens there`);
         }
         const service = service_from_json(item.service, `${at}.service`);
-        const database = database_from_json(item.database, `${at}.database`);
         if ((service !== null) && (database !== null)) {
             throw new Error(`${at}.database: a forward is part of a service or of a database server, not both`);
         }
-        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`), service, database});
+        const tls = tls_from_json(item.tls, to, `${at}.tls`);
+        const allow = allow_from_json(item.allow, to, `${at}.allow`);
+        out.push({label: forward_label, from, to, off: item.off === true, by: by_from_json(item.by, `${at}.by`), service, database, tls, allow});
     }
     return out;
 }
@@ -113,6 +122,79 @@ function service_from_json(json, label)
         throw new Error(`${label}: the name of the service it is part of, or left out (got ${JSON.stringify(json)})`);
     }
     return json;
+}
+
+// A public port: `to` listens on every address of its machine, `host` 0.0.0.0, and nowhere but
+// a database server's own machine, for its port alone; every other forward shows up on its
+// machine's loopback
+function public_check(to, from, database, label)
+{
+    if (to.host === null) {
+        return;
+    }
+    if (database === null) {
+        throw new Error(`${label}.host: a forward shows up on its machine's loopback and nowhere else`);
+    }
+    if (to.host !== '0.0.0.0') {
+        throw new Error(`${label}.host: 0.0.0.0, every address of its machine, or left out for its loopback (got ${JSON.stringify(to.host)})`);
+    }
+    if (to.here || (to.socket !== null) || (to.remote !== from.remote)) {
+        throw new Error(`${label}: a public port is a port on its server's own machine, ${from.remote}`);
+    }
+}
+
+// Whether a public port speaks TLS: false, or left out, for one that does not; never on any
+// other forward
+function tls_from_json(json, to, label)
+{
+    if (json === undefined) {
+        return false;
+    }
+    if (typeof json !== 'boolean') {
+        throw new Error(`${label}: true or false (got ${JSON.stringify(json)})`);
+    }
+    if (json && (to.host === null)) {
+        throw new Error(`${label}: TLS is a public port's, one whose "to" has "host": "0.0.0.0"`);
+    }
+    return json;
+}
+
+// Who a public port lets in: addresses and networks, [] or left out for everyone; never on any
+// other forward
+function allow_from_json(json, to, label)
+{
+    if (json === undefined) {
+        return [];
+    }
+    if ((Array.isArray(json) === false) || (json.length > ALLOW_MAX)) {
+        throw new Error(`${label}: a list of at most ${ALLOW_MAX} addresses and networks, such as ["203.0.113.5", "10.0.0.0/8"] (got ${JSON.stringify(json)})`);
+    }
+    for (const item of json) {
+        if (address_or_network(item) === false) {
+            throw new Error(`${label}: an address or a network, such as 203.0.113.5 or 10.0.0.0/8 (got ${JSON.stringify(item)})`);
+        }
+    }
+    if ((json.length > 0) && (to.host === null)) {
+        throw new Error(`${label}: who may connect is a public port's, one whose "to" has "host": "0.0.0.0"`);
+    }
+    return json;
+}
+
+// 203.0.113.5, 10.0.0.0/8, 2001:db8::5 or 2001:db8::/32
+function address_or_network(text)
+{
+    if (typeof text !== 'string') {
+        return false;
+    }
+    const [address, prefix, more] = text.split('/');
+    const kind = net.isIP(address);
+    if ((kind === 0) || (more !== undefined)) {
+        return false;
+    }
+    if (prefix === undefined) {
+        return true;
+    }
+    return /^\d{1,3}$/.test(prefix) && (Number(prefix) <= ((kind === 4) ? 32 : 128));
 }
 
 // The database server a forward is part of, or null for none

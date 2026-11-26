@@ -1,3 +1,4 @@
+const database_public_tls = require('./database_public_tls');
 const forward_dial = require('./forward_dial');
 const log_event = require('./log_event');
 const remote_call = require('./remote_call');
@@ -81,7 +82,8 @@ function said_checked(said)
 // of it: `dial`, the service, when it is the same machine and its agent can dial it; `peer`,
 // the agent of the service's machine, when that is another machine both of whose agents speak
 // to their peers (stream_peer). An older agent is told nothing more, and its connections go
-// through serviceman as before.
+// through serviceman as before. A database server's public port says where it listens (`host`),
+// who it lets in (`allow`) and its certificate (`tls`, database_public_tls).
 function forwards_of(app, remote)
 {
     const dial_here = remote_can(remote, 'forwards_dial');
@@ -92,6 +94,19 @@ function forwards_of(app, remote)
             const peer = (item.from.remote === remote.name) ? null : stream_peer(app, remote, item.from.remote);
             if (dial_here && (item.from.remote === remote.name)) {
                 told.dial = forward_dial(item.from);
+            }
+            // A public port, to an agent that can listen beyond its loopback alone: one that
+            // cannot would open it on its loopback, so it is not told it
+            if (item.to.host !== null) {
+                if (remote_can(remote, 'forwards_public') === false) {
+                    continue;
+                }
+                // TLS with no certificate made yet is never opened plain instead
+                const tls = item.tls ? database_public_tls(app, item.database) : null;
+                if (item.tls && (tls === null)) {
+                    continue;
+                }
+                Object.assign(told, {host: item.to.host}, (item.allow.length === 0) ? {} : {allow: item.allow}, item.tls ? {tls} : {});
             }
             else if (peer !== null) {
                 told.peer = peer;

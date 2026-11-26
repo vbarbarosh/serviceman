@@ -1073,6 +1073,10 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <td>Or a port on its loopback, <code>127.0.0.1</code>, and nowhere else.</td>
 </tr>
 <tr>
+<td><code>to.host</code></td>
+<td><code>0.0.0.0</code>, every address of its machine: a database server&#39;s public port alone, on its own machine (<a href="databases.html#its-port-on-the-internet">Its port on the internet</a>). Left out on every other forward.</td>
+</tr>
+<tr>
 <td><code>off</code></td>
 <td><code>true</code> sets it aside: written down, and not listened for.</td>
 </tr>
@@ -1087,6 +1091,14 @@ rides its link to serviceman and the other machine&#39;s link to <code>from</cod
 <tr>
 <td><code>database</code></td>
 <td>Or the database server it is part of, whose port it brings over (<a href="databases.html#its-port-on-another-machine">Its port on another machine</a>), written by serviceman: its <code>from</code> is kept on the server&#39;s machine and port, and it is taken out with the server. The owner&#39;s alone, as <code>service</code> is.</td>
+</tr>
+<tr>
+<td><code>tls</code></td>
+<td>A public port&#39;s: <code>true</code> speaks TLS with a certificate serviceman keeps for its server, its far end spoken to plainly.</td>
+</tr>
+<tr>
+<td><code>allow</code></td>
+<td>A public port&#39;s: the addresses and networks it lets in, <code>[&quot;203.0.113.5&quot;, &quot;10.0.0.0/8&quot;]</code>, at most 50; left out, everyone.</td>
 </tr>
 </tbody></table>
 </div>

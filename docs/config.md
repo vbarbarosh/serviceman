@@ -252,10 +252,13 @@ rides its link to serviceman and the other machine's link to `from`. No ssh and 
 | `to.here`     | Or `true` in place of `to.remote`: it shows up on serviceman itself, which listens. |
 | `to.socket`   | A socket file there, `0600`: only the agent's user may open it. `~/` is that user's home. On serviceman itself, a path inside its state dir, written from it: `sockets/loki.sock`. |
 | `to.port`     | Or a port on its loopback, `127.0.0.1`, and nowhere else.                          |
+| `to.host`     | `0.0.0.0`, every address of its machine: a database server's public port alone, on its own machine ([Its port on the internet](databases.md#its-port-on-the-internet)). Left out on every other forward. |
 | `off`         | `true` sets it aside: written down, and not listened for.                          |
 | `by`          | Written by serviceman, never by hand: `{"token": "<id>", "label": "visual-agency"}`, the token that asked for it, on a forward a token's `PUT` added or changed. The page shows it beside the label. |
 | `service`     | The service it is part of, a program whose port it brings over ([Its port on another machine](#its-port-on-another-machine)). It goes with that service: renamed with it, taken out with it, its `from` moved with the machine the program runs on. The owner's alone: a token neither sees it nor writes one. Left out, the forward is one of its own. |
 | `database`    | Or the database server it is part of, whose port it brings over ([Its port on another machine](databases.md#its-port-on-another-machine)), written by serviceman: its `from` is kept on the server's machine and port, and it is taken out with the server. The owner's alone, as `service` is. |
+| `tls`         | A public port's: `true` speaks TLS with a certificate serviceman keeps for its server, its far end spoken to plainly. |
+| `allow`       | A public port's: the addresses and networks it lets in, `["203.0.113.5", "10.0.0.0/8"]`, at most 50; left out, everyone. |
 
 Both machines run the agent, version 1.15 or newer; one that shows up on serviceman itself
 needs it only on `from`. [Remotes](remotes.md#a-port-or-a-socket-from-one-machine-to-another)

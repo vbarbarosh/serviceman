@@ -517,6 +517,9 @@ group says whose it is, and that group's `group_spawn` here names the link it ca
 | `database_forwards_error` | Its forwards could not be taken out with it, and why: Forwards lists them. |
 | `database_root_held`      | A MongoDB made before root was held to its container is held now: root signs in from inside it alone. |
 | `database_root_error`     | Root could not be held to its container, and why; tried again at the machine's next dial-in. |
+| `database_tls_made`       | A public port's certificate was made, for the addresses `at=`: a client takes the new `<server>-ca.pem`. |
+| `database_firewall`       | A public port's firewall rules were written: `removed=` how many of serviceman's went, `added=` the addresses let in, `active=` whether ufw is on. |
+| `database_firewall_error` | Its firewall could not be told, and why: ufw, or sudo for it, is not there, or the machine is away. |
 
 ### Logline
 

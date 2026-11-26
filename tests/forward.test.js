@@ -3,6 +3,7 @@ const app_from_config = require('../src/main/src/helpers/app_from_config');
 const assert = require('assert');
 const child_process = require('child_process');
 const config_from_json = require('../src/main/src/helpers/config_from_json');
+const crypto = require('crypto');
 const door_token = require('../src/main/src/helpers/door_token');
 const doors_table = require('../src/main/src/helpers/doors_table');
 const fetch_host = require('./fetch_host');
@@ -226,6 +227,32 @@ test('a machine is told the far end of a forward only when both ends are its own
     vps1.state.resources = {can: ['forwards', 'peer_streams']};
     laptop.state.resources = {can: ['forwards', 'forwards_dial']};
     assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop)[2], {name: 'from vps1', socket: '~/loki.sock'}, 'an older agent on the laptop');
+});
+
+// A database server's public port is told to its machine's agent only when that agent can listen
+// beyond its loopback: an older one would open it there, so it hears nothing of it. With TLS, its
+// certificate goes with it, made for the machine's addresses; one that cannot be made yet (no
+// address known) is never told plain instead.
+test('a public port is told with where it listens, who it lets in and its certificate', function (t) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forward-public-'));
+    t.after(() => fs.rmSync(dir, {recursive: true, force: true}));
+    const app = app_from_config(config_of([
+        {label: 'mongodb-1 → the internet', database: 'mongodb-1', from: {remote: 'laptop', port: 41337}, to: {remote: 'laptop', port: 27017, host: '0.0.0.0'}, tls: true, allow: ['198.51.100.7']},
+        {label: 'plain', database: 'mongodb-2', from: {remote: 'laptop', port: 41338}, to: {remote: 'laptop', port: 27018, host: '0.0.0.0'}},
+    ]));
+    app.state_dir = dir;
+    fs.writeFileSync(path.join(dir, 'databases.json'), JSON.stringify({servers: [{name: 'mongodb-1', engine: 'mongodb', remote: 'laptop', users: {}}, {name: 'mongodb-2', engine: 'mongodb', remote: 'laptop', users: {}}]}));
+    const laptop = app.remote_by_name.laptop;
+    laptop.state.resources = {can: ['forwards', 'forwards_dial'], addresses: ['203.0.113.5']};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop), [], 'an agent from before public ports');
+    laptop.state.resources = {can: ['forwards', 'forwards_dial', 'forwards_public'], addresses: []};
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop), [{name: 'plain', port: 27018, dial: {port: 41338}, host: '0.0.0.0'}], 'TLS with no address to name is not told at all');
+    laptop.state.resources = {can: ['forwards', 'forwards_dial', 'forwards_public'], addresses: ['203.0.113.5']};
+    const told = forwards_tell.forwards_of(app, laptop);
+    assert.deepStrictEqual(told.map(v => Object.keys(v).join(' ')), ['name port dial host allow tls', 'name port dial host']);
+    assert.deepStrictEqual([told[0].host, told[0].allow, Object.keys(told[0].tls)], ['0.0.0.0', ['198.51.100.7'], ['cert', 'key']]);
+    assert.strictEqual(new crypto.X509Certificate(told[0].tls.cert).subjectAltName, 'IP Address:203.0.113.5');
+    assert.deepStrictEqual(forwards_tell.forwards_of(app, laptop)[0].tls, told[0].tls, 'made once, and kept');
 });
 
 // The author's case, straight: a port on vps1 shows up on the laptop, and each connection goes
@@ -819,7 +846,7 @@ test('the config says what is wrong with a forward, in its own words', function 
     // No forwards is an empty list, and an end keeps every field, null where it was not written
     assert.deepStrictEqual(config_of([]).forwards, []);
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', host: '10.0.0.5', port: 2}, to: {remote: 'laptop', socket: '~/a.sock'}}]).forwards, [
-        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null, service: null, database: null},
+        {label: 'a', from: {remote: 'vps1', here: false, port: 2, socket: null, host: '10.0.0.5'}, to: {remote: 'laptop', here: false, port: null, socket: '~/a.sock', host: null}, off: false, by: null, service: null, database: null, tls: false, allow: []},
     ]);
     // A database server's port brought over is part of that server, named as the Databases page
     // names one; never part of a service as well
@@ -828,6 +855,21 @@ test('the config says what is wrong with a forward, in its own words', function 
         assert.throws(() => config_of([{label: 'a', database: wrong, from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]), {message: `forwards[0].database: the name of the database server it is part of, or left out (got ${JSON.stringify(wrong)})`});
     }
     assert.throws(() => config_of([{label: 'a', service: 'llm', database: 'mongodb-1', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}}]), {message: 'forwards[0].database: a forward is part of a service or of a database server, not both'});
+    // Every address of its machine, a database server's public port alone: on its own machine, a
+    // port, TLS and who may connect beside it and on no other forward
+    const opened = config_of([{label: 'a', database: 'mongodb-1', from: {remote: 'vps1', port: 2}, to: {remote: 'vps1', port: 27017, host: '0.0.0.0'}, tls: true, allow: ['198.51.100.7', '10.0.0.0/8', '2001:db8::/32']}]).forwards[0];
+    assert.deepStrictEqual([opened.to.host, opened.tls, opened.allow], ['0.0.0.0', true, ['198.51.100.7', '10.0.0.0/8', '2001:db8::/32']]);
+    for (const [wrong, message] of [
+        [{to: {remote: 'laptop', port: 1, host: '0.0.0.0'}}, 'forwards[0].to.host: a forward shows up on its machine\'s loopback and nowhere else'],
+        [{database: 'mongodb-1', to: {remote: 'laptop', port: 1, host: '0.0.0.0'}}, 'forwards[0].to: a public port is a port on its server\'s own machine, vps1'],
+        [{database: 'mongodb-1', to: {remote: 'vps1', port: 1, host: '203.0.113.5'}}, 'forwards[0].to.host: 0.0.0.0, every address of its machine, or left out for its loopback (got "203.0.113.5")'],
+        [{database: 'mongodb-1', to: {remote: 'vps1', port: 1}, tls: true}, 'forwards[0].tls: TLS is a public port\'s, one whose "to" has "host": "0.0.0.0"'],
+        [{database: 'mongodb-1', to: {remote: 'vps1', port: 1}, allow: ['198.51.100.7']}, 'forwards[0].allow: who may connect is a public port\'s, one whose "to" has "host": "0.0.0.0"'],
+        [{database: 'mongodb-1', to: {remote: 'vps1', port: 1, host: '0.0.0.0'}, tls: 'yes'}, 'forwards[0].tls: true or false (got "yes")'],
+        [{database: 'mongodb-1', to: {remote: 'vps1', port: 1, host: '0.0.0.0'}, allow: ['10.0.0.0/33']}, 'forwards[0].allow: an address or a network, such as 203.0.113.5 or 10.0.0.0/8 (got "10.0.0.0/33")'],
+    ]) {
+        assert.throws(() => config_of([Object.assign({label: 'a', from: {remote: 'vps1', port: 2}}, wrong)]), {message}, JSON.stringify(wrong));
+    }
     // The token that asked for it is serviceman's to write, and read back as it was
     const by = {token: '4c6b2ea73dc33d08', label: 'visual-agency'};
     assert.deepStrictEqual(config_of([{label: 'a', from: {remote: 'vps1', port: 2}, to: {remote: 'laptop', port: 1}, by}]).forwards[0].by, by);

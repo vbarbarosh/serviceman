@@ -4,6 +4,9 @@ const database_engines = require('../helpers/database_engines');
 const database_forwards_put = require('../helpers/database_forwards_put');
 const database_list = require('../helpers/database_list');
 const database_port_follow = require('../helpers/database_port_follow');
+const database_public_firewall = require('../helpers/database_public_firewall');
+const database_public_tls = require('../helpers/database_public_tls');
+const database_public_url = require('../helpers/database_public_url');
 const database_samples = require('../helpers/database_samples');
 const database_sql = require('../helpers/database_sql');
 const database_up = require('../helpers/database_up');
@@ -16,6 +19,8 @@ const docker_exec_connect = require('../helpers/docker_exec_connect');
 const engine_call = require('../helpers/engine_call');
 const engine_said = require('../helpers/engine_said');
 const log_event = require('../helpers/log_event');
+const remote_addresses = require('../helpers/remote_addresses');
+const remote_can = require('../helpers/remote_can');
 const route_param = require('../helpers/route_param');
 const send_json = require('../helpers/send_json');
 const view_from_forward = require('../helpers/view_from_forward');
@@ -29,14 +34,16 @@ const RE_SERVER = /^\/api\/v1\/databases\/([^/]+)$/;
 const RE_SERVER_DATABASES = /^\/api\/v1\/databases\/([^/]+)\/databases$/;
 const RE_SERVER_FORWARDS = /^\/api\/v1\/databases\/([^/]+)\/forwards$/;
 const RE_SERVER_URL = /^\/api\/v1\/databases\/([^/]+)\/url$/;
+const RE_SERVER_CERTIFICATE = /^\/api\/v1\/databases\/([^/]+)\/certificate$/;
 // How long a server's list of databases is shown as last read before it is read again
 const LIST_FRESH_MS = 10000;
 
 // GET /api/v1/databases (query)                    the servers, each one's databases as it says them; live=0 as last read, asked once when never
 // POST /api/v1/databases (body)                    {name, engine, version, remote, sample}: a server brought up there, filled with the sample
 // POST /api/v1/databases/<server>/databases (body) {name}: an empty database in it, with a user of its own
-// PUT /api/v1/databases/<server>/forwards (body)   {forwards: [{to}]}: where its port shows up on other machines
-// GET /api/v1/databases/<server>/url (query)       database, remote: {url}, its user's URL, password and all, for a program on that machine
+// PUT /api/v1/databases/<server>/forwards (body)   {forwards: [{to, tls, allow}]}: where its port shows up on other machines, and on its public port
+// GET /api/v1/databases/<server>/url (query)       database, remote or public=1: {url}, its user's URL, password and all, for a program on that machine or anywhere
+// GET /api/v1/databases/<server>/certificate       its public port's authority, <server>-ca.pem, for a client to check the server by
 // DELETE /api/v1/databases/<server>                the server, its container and its volume, every database in it, its forwards
 //
 // True when the request was one of these. The owner's alone: the passwords are behind it, and
@@ -63,7 +70,12 @@ async function handle_databases(app, req, res, url)
     }
     const given = RE_SERVER_URL.exec(url.pathname);
     if ((given !== null) && (req.method === 'GET')) {
-        url_give(app, res, route_param(given[1]), String(url.searchParams.get('database')), String(url.searchParams.get('remote')));
+        url_give(app, res, route_param(given[1]), String(url.searchParams.get('database')), (url.searchParams.get('public') === '1') ? null : String(url.searchParams.get('remote')));
+        return true;
+    }
+    const certificate = RE_SERVER_CERTIFICATE.exec(url.pathname);
+    if ((certificate !== null) && (req.method === 'GET')) {
+        certificate_give(app, res, route_param(certificate[1]));
         return true;
     }
     const removed = RE_SERVER.exec(url.pathname);
@@ -198,22 +210,34 @@ async function forwards_put(app, req, res, name)
     }
     const wrong = (Array.isArray(body.forwards) === false) || body.forwards.some(v => (v === null) || (typeof v !== 'object') || (v.to === null) || (typeof v.to !== 'object') || Array.isArray(v.to));
     if (wrong) {
-        send_json(res, 400, {error: 'forwards: where its port shows up, a list of {"to": {"remote": "vps2", "port": 27017}}'});
+        send_json(res, 400, {error: 'forwards: where its port shows up, a list of {"to": {"remote": "vps2", "port": 27017}}, its public port {"to": {"remote": "<its machine>", "port": 27017, "host": "0.0.0.0"}, "tls": true, "allow": []}'});
+        return;
+    }
+    // A public port speaks TLS as a MongoDB's client does, from its first byte; MySQL and
+    // PostgreSQL ask for it inside their own protocol, and a port that answered TLS at once would
+    // turn their clients away
+    if (body.forwards.some(v => v.to.host !== undefined) && (server.engine !== 'mongodb')) {
+        send_json(res, 400, {error: `a public port is a MongoDB's: ${name} is ${server.engine}`});
         return;
     }
     if ((body.forwards.length > 0) && (server.port === null)) {
         send_json(res, 409, {error: `${name} has no port yet: it goes to another machine once ${name} is up`});
         return;
     }
+    const had_public = app.config.forwards.some(v => (v.database === name) && (v.to.host === '0.0.0.0'));
     let written;
     try {
-        written = await database_forwards_put(app, server, body.forwards.map(v => v.to));
+        written = await database_forwards_put(app, server, body.forwards.map(v => ({to: v.to, tls: v.tls, allow: v.allow})));
     }
     catch (error) {
         send_json(res, 400, {error: error.message});
         return;
     }
     log_event(app, 'database_forwards', {database: name, forwards: written.labels.join(', ') || 'none', removed: written.removed.join(', ') || 'none'});
+    // Its machine's firewall lets the public port in, or no longer
+    if (had_public || body.forwards.some(v => v.to.host !== undefined)) {
+        await database_public_firewall(app, server);
+    }
     send_json(res, 200, await view_of(app, false));
 }
 
@@ -226,6 +250,20 @@ function url_give(app, res, name, database, remote)
     const server = databases_read(app).servers.find(v => v.name === name);
     if (server === undefined) {
         send_json(res, 404, {error: `no database server called ${JSON.stringify(name)}`});
+        return;
+    }
+    // Through its public port, from anywhere
+    if (remote === null) {
+        let url;
+        try {
+            url = database_public_url(app, server, database);
+        }
+        catch (error) {
+            send_json(res, 409, {error: error.message});
+            return;
+        }
+        log_event(app, 'database_url_given', {database: name, name: database, remote: 'the internet'});
+        send_json(res, 200, {url});
         return;
     }
     if (app.remote_by_name[remote] === undefined) {
@@ -242,6 +280,29 @@ function url_give(app, res, name, database, remote)
     }
     log_event(app, 'database_url_given', {database: name, name: database, remote});
     send_json(res, 200, {url});
+}
+
+// Its public port's authority, the file a client checks the server by (tlsCAFile): no secret,
+// its key thrown away when it was made (database_public_tls). Made now when its port speaks TLS
+// and none was made yet.
+function certificate_give(app, res, name)
+{
+    const server = databases_read(app).servers.find(v => v.name === name);
+    if (server === undefined) {
+        send_json(res, 404, {error: `no database server called ${JSON.stringify(name)}`});
+        return;
+    }
+    const tls = app.config.forwards.some(v => (v.database === name) && (v.to.host === '0.0.0.0') && v.tls);
+    if ((server.tls === undefined) && tls) {
+        database_public_tls(app, name);
+    }
+    const kept = databases_read(app).servers.find(v => v.name === name).tls;
+    if (kept === undefined) {
+        send_json(res, 404, {error: `${name} has no public port that speaks TLS, and so no certificate`});
+        return;
+    }
+    res.writeHead(200, {'content-type': 'application/x-pem-file', 'content-disposition': `attachment; filename="${name}-ca.pem"`, 'cache-control': 'no-store'});
+    res.end(kept.ca);
 }
 
 // Its container and its volume go, through its machine's docker; a machine that is away keeps
@@ -288,6 +349,7 @@ async function server_remove(app, res, name)
     app.database_lists.delete(name);
     log_event(app, 'database_remove', {database: name, remote: server.remote});
     let forwards_removed = [];
+    const had_public = app.config.forwards.some(v => (v.database === name) && (v.to.host === '0.0.0.0'));
     if (app.config.forwards.some(v => v.database === name)) {
         try {
             forwards_removed = (await database_forwards_put(app, server, [])).removed;
@@ -295,6 +357,11 @@ async function server_remove(app, res, name)
         catch (error) {
             log_event(app, 'database_forwards_error', {database: name, reason: error.message});
         }
+    }
+    // The firewall rules its public port had go with it
+    if (had_public) {
+        await database_public_firewall(app, server);
+        app.database_firewall.delete(name);
     }
     send_json(res, 200, Object.assign(await view_of(app, false), {forwards_removed}));
 }
@@ -370,8 +437,20 @@ function forwards_of(app, name)
 {
     return app.config.forwards.filter(v => v.database === name).map(function (forward) {
         const view = view_from_forward(app, forward);
-        const apps = app.services.filter(v => (v.type === 'shell') && (v.image === null) && (v.databases !== undefined) && v.databases.some(vv => vv.server === name) && (v.remotes !== undefined) && v.remotes.includes(forward.to.remote)).map(v => v.name);
-        return {label: forward.label, from: {remote: forward.from.remote, port: forward.from.port}, to: {remote: forward.to.remote, here: forward.to.here, port: forward.to.port, socket: forward.to.socket}, off: forward.off, state: view.state, problem: view.problem, at: view.at, apps};
+        const out = {label: forward.label, from: {remote: forward.from.remote, port: forward.from.port}, to: {remote: forward.to.remote, here: forward.to.here, port: forward.to.port, socket: forward.to.socket, host: forward.to.host}, off: forward.off, state: view.state, problem: view.problem, at: view.at, apps: [], tls: forward.tls, allow: forward.allow, address: null, firewall: null};
+        if (forward.to.host === null) {
+            out.apps = app.services.filter(v => (v.type === 'shell') && (v.image === null) && (v.databases !== undefined) && v.databases.some(vv => vv.server === name) && (v.remotes !== undefined) && v.remotes.includes(forward.to.remote)).map(v => v.name);
+            return out;
+        }
+        // Its public port: the address it is reached at, what its machine's firewall said, and
+        // an agent from before public ports, which is not told it (forwards_tell)
+        const remote = app.remote_by_name[forward.to.remote];
+        out.address = (remote === undefined) ? null : remote_addresses(remote).public;
+        out.firewall = app.database_firewall.has(name) ? app.database_firewall.get(name) : null;
+        if ((remote !== undefined) && (remote.state.phase === 'online') && (remote_can(remote, 'forwards_public') === false)) {
+            Object.assign(out, {state: 'old_agent', problem: `the agent on ${forward.to.remote} is from before public ports: update it`});
+        }
+        return out;
     });
 }
 

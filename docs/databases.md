@@ -316,7 +316,7 @@ outside the machine's loopback, and nothing opens to the internet.
 
 **Reached from**, on a database's page, lists its own machine and each other one its port is
 brought to, with the programs there that picked it, which find it there (a container there
-does not); **+ a machine** brings it to another, at the
+does not), then its public port ([below](#its-port-on-the-internet)); **+ a machine** brings it to another, at the
 port its engine listens on unless another is typed, and **×** takes it away from one, saying
 which apps there find it no more. A program or an app folder on that machine
 [picks it](#an-app-picks-one) in its Data tab, and finds it at the forward's port. **Copy URL**
@@ -336,6 +336,54 @@ every few seconds while Databases is open: a new one is kept, a program on the m
 at its next start, and the server's forwards come from it, said in the log as
 `database_port_moved` and `database_forwards_follow`. **Remove…** takes its forwards out with
 it, and its answer names them, `forwards_removed`. A token neither sees them nor writes one.
+
+## Its port on the internet
+
+A MongoDB's port, on its machine's public address, for a client anywhere: an app in the cloud,
+Compass at home. **+ the internet**, under **Reached from**, opens it: its port there, 27017
+unless another is typed; **TLS**, on unless unticked; and who may connect, the addresses and
+networks typed (`203.0.113.5, 10.0.0.0/8`), or anyone when none is. **Change** sets them again,
+and **×** closes it. It is a forward that is part of the server, its `to` on the server's own
+machine with `"host": "0.0.0.0"`:
+
+```json
+"forwards": [
+    {"label": "mongodb-1 → the internet", "database": "mongodb-1", "from": {"remote": "vps1", "port": 41337}, "to": {"remote": "vps1", "port": 27017, "host": "0.0.0.0"}, "tls": true}
+]
+```
+
+The machine's agent listens on every address the machine has, and joins each connection to the
+server's port on its loopback; one from an address that is not on the list is closed before a
+word is said. An agent from before public ports is told nothing of it, and the line says so: it
+listens once the agent is updated. The server's root is refused there as everywhere outside its
+container ([The passwords](#the-passwords)): only a database's own user signs in. A MongoDB
+alone has one: MySQL and PostgreSQL ask for TLS inside their own protocol, and a port that
+answered TLS at once would turn their clients away.
+
+**TLS.** serviceman makes an authority of its own for the server and a certificate it signs for
+every address the machine is reached at (EC P-256, ten years), keeps them beside the passwords in
+`data/databases.json`, and makes them again, said in the log as `database_tls_made`, when the
+machine is reached at an address the certificate does not name. **Certificate**, on the line,
+hands out the authority's file, `mongodb-1-ca.pem`, the one a client checks the server by
+(`GET /api/v1/databases/<server>/certificate`, no secret in it); **Copy URL** gives the URL at
+the machine's public address, the file named in it:
+
+    mongodb://orders:<password>@203.0.113.5:27017/orders?tls=true&tlsCAFile=mongodb-1-ca.pem
+
+The public address is the first the machine has that is the internet's, not a private network's
+or the tailnet's, or else the one its agent dials serviceman from: a machine behind its
+provider's NAT has its public address nowhere on itself. A machine with neither has no Copy URL
+for its public port. Unticked, the port speaks no TLS: the password is never sent (MongoDB's
+sign-in, SCRAM, does not send it), but every query and answer is readable on the way.
+
+**The firewall.** With the port, serviceman lets it in through the machine's firewall, ufw, by
+its agent, as root: a rule for each address it lets in, `allow proto tcp from <address> to any
+port 27017`, or one from anywhere, each with the comment `serviceman:<server>:public`; **Change**
+replaces them, **×** and **Remove…** take them out (`database_firewall`). With ufw off nothing is
+written, and the line says the port is open to whoever reaches the machine; ufw that cannot be
+run (no ufw, no sudo) is said on the line too (`database_firewall_error`), the rule left to the
+machine's **Firewall** tab. Its port and who it lets in are changed on its database's page: an
+edit on **Forwards** keeps its TLS and who it lets in, and tells no firewall.
 
 ## Remove
 

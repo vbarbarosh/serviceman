@@ -168,7 +168,8 @@ test('a forward changed on Forwards stays part of its database server', async fu
     try {
         // Its line on Forwards, with nothing in its way
         const lines = Object.assign(forwards_section.data(), forwards_section.methods, {wrong_text: () => ''});
-        assert.strictEqual(lines.line_of({by: null, service: null, database: 'mongodb-1'}), 'part of mongodb-1, on Databases');
+        assert.strictEqual(lines.line_of({by: null, service: null, database: 'mongodb-1', to: {host: null}}), 'part of mongodb-1, on Databases');
+        assert.strictEqual(lines.line_of({by: null, service: null, database: 'mongodb-1', to: {host: '0.0.0.0'}, tls: true}), 'its public port, TLS, part of mongodb-1, on Databases');
         const fresh = {label: 'mongodb-1 → laptop', from_remote: 'server', from: '41337', to_remote: 'laptop', to: '27018'};
         const form = Object.assign(forwards_section.data(), forwards_section.methods, {ready: true, making: true, editing: {label: 'mongodb-1 → laptop'}, fresh});
         await form.write();

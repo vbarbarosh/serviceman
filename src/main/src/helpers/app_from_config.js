@@ -48,6 +48,9 @@ function app_from_config(config)
         // said them last, {at, rows} (handle_databases)
         database_jobs: new Set(),
         database_lists: new Map(),
+        // What each server's public port's machine firewall said last, by its name
+        // (database_public_firewall)
+        database_firewall: new Map(),
         // The connections agents' tokens hold open now (control_token_live)
         control_token_live: new Set(),
         // Machines taken out of the config while they were away. A laptop that was asleep when

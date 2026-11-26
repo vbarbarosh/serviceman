@@ -694,7 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
-<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#its-port-on-another-machine">Its port on another machine</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
+<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#its-port-on-another-machine">Its port on another machine</a></li><li><a href="#its-port-on-the-internet">Its port on the internet</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -1066,7 +1066,7 @@ empty one taking them all out; a place it showed up before keeps its label. Noth
 outside the machine&#39;s loopback, and nothing opens to the internet.</p>
 <p><strong>Reached from</strong>, on a database&#39;s page, lists its own machine and each other one its port is
 brought to, with the programs there that picked it, which find it there (a container there
-does not); <strong>+ a machine</strong> brings it to another, at the
+does not), then its public port (<a href="#its-port-on-the-internet">below</a>); <strong>+ a machine</strong> brings it to another, at the
 port its engine listens on unless another is typed, and <strong>×</strong> takes it away from one, saying
 which apps there find it no more. A program or an app folder on that machine
 <a href="#an-app-picks-one">picks it</a> in its Data tab, and finds it at the forward&#39;s port. <strong>Copy URL</strong>
@@ -1084,6 +1084,45 @@ every few seconds while Databases is open: a new one is kept, a program on the m
 at its next start, and the server&#39;s forwards come from it, said in the log as
 <code>database_port_moved</code> and <code>database_forwards_follow</code>. <strong>Remove…</strong> takes its forwards out with
 it, and its answer names them, <code>forwards_removed</code>. A token neither sees them nor writes one.</p>
+<h2 id="its-port-on-the-internet"><a class="anchor" href="#its-port-on-the-internet" aria-hidden="true" tabindex="-1">#</a>Its port on the internet</h2>
+<p>A MongoDB&#39;s port, on its machine&#39;s public address, for a client anywhere: an app in the cloud,
+Compass at home. <strong>+ the internet</strong>, under <strong>Reached from</strong>, opens it: its port there, 27017
+unless another is typed; <strong>TLS</strong>, on unless unticked; and who may connect, the addresses and
+networks typed (<code>203.0.113.5, 10.0.0.0/8</code>), or anyone when none is. <strong>Change</strong> sets them again,
+and <strong>×</strong> closes it. It is a forward that is part of the server, its <code>to</code> on the server&#39;s own
+machine with <code>&quot;host&quot;: &quot;0.0.0.0&quot;</code>:</p>
+<pre><code class="language-json">&quot;forwards&quot;: [
+    {&quot;label&quot;: &quot;mongodb-1 → the internet&quot;, &quot;database&quot;: &quot;mongodb-1&quot;, &quot;from&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 41337}, &quot;to&quot;: {&quot;remote&quot;: &quot;vps1&quot;, &quot;port&quot;: 27017, &quot;host&quot;: &quot;0.0.0.0&quot;}, &quot;tls&quot;: true}
+]
+</code></pre>
+<p>The machine&#39;s agent listens on every address the machine has, and joins each connection to the
+server&#39;s port on its loopback; one from an address that is not on the list is closed before a
+word is said. An agent from before public ports is told nothing of it, and the line says so: it
+listens once the agent is updated. The server&#39;s root is refused there as everywhere outside its
+container (<a href="#the-passwords">The passwords</a>): only a database&#39;s own user signs in. A MongoDB
+alone has one: MySQL and PostgreSQL ask for TLS inside their own protocol, and a port that
+answered TLS at once would turn their clients away.</p>
+<p><strong>TLS.</strong> serviceman makes an authority of its own for the server and a certificate it signs for
+every address the machine is reached at (EC P-256, ten years), keeps them beside the passwords in
+<code>data/databases.json</code>, and makes them again, said in the log as <code>database_tls_made</code>, when the
+machine is reached at an address the certificate does not name. <strong>Certificate</strong>, on the line,
+hands out the authority&#39;s file, <code>mongodb-1-ca.pem</code>, the one a client checks the server by
+(<code>GET /api/v1/databases/&lt;server&gt;/certificate</code>, no secret in it); <strong>Copy URL</strong> gives the URL at
+the machine&#39;s public address, the file named in it:</p>
+<pre><code>mongodb://orders:&lt;password&gt;@203.0.113.5:27017/orders?tls=true&amp;tlsCAFile=mongodb-1-ca.pem
+</code></pre>
+<p>The public address is the first the machine has that is the internet&#39;s, not a private network&#39;s
+or the tailnet&#39;s, or else the one its agent dials serviceman from: a machine behind its
+provider&#39;s NAT has its public address nowhere on itself. A machine with neither has no Copy URL
+for its public port. Unticked, the port speaks no TLS: the password is never sent (MongoDB&#39;s
+sign-in, SCRAM, does not send it), but every query and answer is readable on the way.</p>
+<p><strong>The firewall.</strong> With the port, serviceman lets it in through the machine&#39;s firewall, ufw, by
+its agent, as root: a rule for each address it lets in, <code>allow proto tcp from &lt;address&gt; to any port 27017</code>, or one from anywhere, each with the comment <code>serviceman:&lt;server&gt;:public</code>; <strong>Change</strong>
+replaces them, <strong>×</strong> and <strong>Remove…</strong> take them out (<code>database_firewall</code>). With ufw off nothing is
+written, and the line says the port is open to whoever reaches the machine; ufw that cannot be
+run (no ufw, no sudo) is said on the line too (<code>database_firewall_error</code>), the rule left to the
+machine&#39;s <strong>Firewall</strong> tab. Its port and who it lets in are changed on its database&#39;s page: an
+edit on <strong>Forwards</strong> keeps its TLS and who it lets in, and tells no firewall.</p>
 <h2 id="remove"><a class="anchor" href="#remove" aria-hidden="true" tabindex="-1">#</a>Remove</h2>
 <p><strong>Remove…</strong>, on a database&#39;s page, removes its server: it names the databases beside it that go
 too and the apps given them, asks for the server&#39;s name typed again, then takes its container and

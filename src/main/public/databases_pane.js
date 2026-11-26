@@ -13,6 +13,8 @@ import to_clipboard from './to_clipboard.js';
 
 // How often an open pane asks how the servers stand: one coming up says each step within seconds
 const REFRESH_MS = 3000;
+// What Copy URL's last copy is said by when it was the public port's URL
+const PUBLIC = 'the internet';
 // What a database's tables are called in its head, where an engine has none
 const TABLES_WORDS = {couchdb: 'Users', mongodb: 'Collections'};
 
@@ -69,7 +71,7 @@ const databases_pane = {
                     <button type="button" :disabled="(copy_why(open_server.remote, null) !== '')" :title="copy_title(open_server.remote, open_server.port, null)" @click="url_copy(open_server.remote)">{{ ((copied === open_server.remote) ? 'Copied' : 'Copy URL') }}</button>
                 </span>
             </div>
-            <div v-for="item of open_server.forwards" :key="item.label" class="db-fwd">
+            <div v-for="item of machine_forwards" :key="item.label" class="db-fwd">
                 <b>{{ machine_title(item.to.remote) }}</b>
                 <code>{{ end_text(item.to) }}</code>
                 <forward-state :forward="item" :remotes="remotes_named" :reason="true"/>
@@ -78,6 +80,20 @@ const databases_pane = {
                     <button v-if="(item.to.socket === null)" type="button" :disabled="(copy_why(item.to.remote, item) !== '')" :title="copy_title(item.to.remote, item.to.port, item)" @click="url_copy(item.to.remote)">{{ ((copied === item.to.remote) ? 'Copied' : 'Copy URL') }}</button>
                     <button type="button" class="line-x" :disabled="busy" :title="drop_title(item)" :aria-label="('Bring it to ' + machine_title(item.to.remote) + ' no more')" @click="forward_drop(item)">×</button>
                 </span>
+            </div>
+            <div v-if="((public_port !== null) && (opening === null))" class="db-fwd db-fwd-public">
+                <b>The internet</b>
+                <code>{{ public_port.address || ('its public address on ' + open_server.title) }}:{{ public_port.to.port }}</code>
+                <span class="tag" :class="(public_port.tls ? 'db-tls-on' : 'db-tls-off')">{{ public_port.tls ? 'TLS' : 'no TLS' }}</span>
+                <span class="muted">{{ (public_port.allow.length === 0) ? 'anyone may connect' : ('from ' + public_port.allow.join(', ') + ' alone') }}</span>
+                <forward-state :forward="public_port" :remotes="remotes_named" :reason="true"/>
+                <span class="db-fwd-acts">
+                    <button type="button" :disabled="(public_copy_why !== '')" :title="public_copy_title" @click="url_copy(null)">{{ ((copied === PUBLIC) ? 'Copied' : 'Copy URL') }}</button>
+                    <a v-if="public_port.tls" class="button" :href="('/api/v1/databases/' + encodeURIComponent(open_server.name) + '/certificate')" :download="(open_server.name + '-ca.pem')" title="Its authority's file: a client checks the server by it (tlsCAFile in the URL)">Certificate</a>
+                    <button type="button" :disabled="busy" title="Its port, TLS, and who may connect" @click="public_change">Change</button>
+                    <button type="button" class="line-x" :disabled="busy" title="Close its public port: nothing listens for it on the internet any more, and its firewall rule goes" aria-label="Close its public port" @click="forward_drop(public_port)">×</button>
+                </span>
+                <p v-if="(public_port.firewall !== null)" class="muted db-fwd-said">{{ public_port.firewall }}</p>
             </div>
             <div v-if="(adding !== null)" class="db-fwd db-fwd-new">
                 <select ref="adding_remote" v-model="adding.remote" aria-label="The machine it shows up on">
@@ -90,9 +106,22 @@ const databases_pane = {
                     <button type="button" :disabled="busy" @click="forward_cancel">Cancel</button>
                 </span>
             </div>
+            <div v-if="(opening !== null)" class="db-fwd db-fwd-new">
+                <b>The internet</b>
+                <span class="db-fwd-at"><span class="muted">{{ public_address_text }}:</span><input ref="opening_port" v-model.trim="opening.port" :placeholder="String(engine_port)" inputmode="numeric" spellcheck="false" autocomplete="off" aria-label="Its port there" @keydown.enter.prevent="public_save"></span>
+                <label class="db-fwd-check" title="The client speaks TLS, and checks the server by its authority's file"><input v-model="opening.tls" type="checkbox"> TLS</label>
+                <input v-model.trim="opening.allow" class="db-fwd-allow" placeholder="anyone, or 203.0.113.5, 10.0.0.0/8" spellcheck="false" autocomplete="off" aria-label="Who may connect: addresses and networks, or none for anyone" @keydown.enter.prevent="public_save">
+                <span class="db-fwd-acts">
+                    <button type="button" class="primary" :disabled="busy" @click="public_save">Save</button>
+                    <button type="button" :disabled="busy" @click="public_cancel">Cancel</button>
+                </span>
+            </div>
             <p v-if="(forward_note !== '')" class="bad">{{ forward_note }}</p>
-            <p v-if="((open_server.forwards.length === 0) && (adding === null))" class="muted">Reached on {{ open_server.title }} alone. On a machine picked here its port shows up at that machine's 127.0.0.1 too, as <code>ssh -L</code> brings one, with no ssh: the agents carry it, and a program there picks it in its Data tab. Nothing opens to the internet.</p>
-            <button v-if="(adding === null)" type="button" class="db-fwd-add" :disabled="(busy || (open_server.phase !== 'up') || (forward_machines.length === 0))" :title="forward_add_title" @click="forward_add">{{ (open_server.forwards.length === 0) ? '+ a machine' : '+ another machine' }}</button>
+            <p v-if="((open_server.forwards.length === 0) && (adding === null) && (opening === null))" class="muted">Reached on {{ open_server.title }} alone. On a machine picked here its port shows up at that machine's 127.0.0.1 too, as <code>ssh -L</code> brings one, with no ssh: the agents carry it, and a program there picks it in its Data tab. Nothing opens to the internet.</p>
+            <span v-if="((adding === null) && (opening === null))" class="db-fwd-adds">
+                <button type="button" class="db-fwd-add" :disabled="(busy || (open_server.phase !== 'up') || (forward_machines.length === 0))" :title="forward_add_title" @click="forward_add">{{ (machine_forwards.length === 0) ? '+ a machine' : '+ another machine' }}</button>
+                <button v-if="((open_server.engine === 'mongodb') && (public_port === null))" type="button" class="db-fwd-add" :disabled="(busy || (open_server.phase !== 'up'))" :title="public_add_title" @click="public_open">+ the internet</button>
+            </span>
         </div>
         <template v-if="(others.length > 0)">
             <h2 class="db-sub">Beside it in {{ open_server.name }}</h2>
@@ -148,9 +177,11 @@ const databases_pane = {
     emits: ['changed', 'machine', 'place', 'select'],
     data: function () {
         // removing: Remove's typed confirmation on a database's page; adding: a machine its port
-        // is brought to, being picked, {remote, port}, and forward_note what a write of them, or
-        // a Copy URL, said; copied: the machine whose URL Copy URL put on the clipboard last
-        return {DATABASE_ICON: database_rows.DATABASE_ICON, DATABASES_ICON: CATEGORIES.find(v => v.key === 'databases').icon, view: null, load_error: '', filter: '', show: 'all', removing: null, adding: null, forward_note: '', copied: '', busy: false, note: '', bad: false, timer: null};
+        // is brought to, being picked, {remote, port}; opening: its public port being opened or
+        // changed, {port, tls, allow}, allow as typed; forward_note what a write of them, or a
+        // Copy URL, said; copied: the machine whose URL Copy URL put on the clipboard last, PUBLIC
+        // for its public port's
+        return {PUBLIC, DATABASE_ICON: database_rows.DATABASE_ICON, DATABASES_ICON: CATEGORIES.find(v => v.key === 'databases').icon, view: null, load_error: '', filter: '', show: 'all', removing: null, adding: null, opening: null, forward_note: '', copied: '', busy: false, note: '', bad: false, timer: null};
     },
     computed: {
         // The page open: a database that is not there any more shows the table
@@ -250,9 +281,12 @@ const databases_pane = {
             out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), small: '', share: null, title: (database === null) ? 'no database in it' : `its data, on ${server.title}`});
             out.push({label: TABLES_WORDS[server.engine] || 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', share: null, title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
             // Short, as a phone has room for: the machines by name in its title and its card
-            const others = [...new Set(server.forwards.map(v => this.machine_title(v.to.remote)))];
-            const reached = (others.length === 0) ? 'nothing outside it' : `and on ${others.join(', ')} through its forwards; nothing outside them`;
-            out.push({label: 'Reached from', value: (others.length === 0) ? 'its machine' : `${others.length + 1} machines`, small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, share: null, mono: true, title: (server.port === null) ? reached : `127.0.0.1:${server.port} on ${server.title}, ${reached}`});
+            const others = [...new Set(server.forwards.filter(v => v.to.host === null).map(v => this.machine_title(v.to.remote)))];
+            const opened = server.forwards.find(v => v.to.host !== null);
+            const machines = (others.length === 0) ? 'nothing outside it' : `and on ${others.join(', ')} through its forwards`;
+            const reached = (opened === undefined) ? `${machines}${(others.length === 0) ? '' : '; nothing outside them'}` : `${machines}, and from the internet at its port ${opened.to.port}`;
+            const value = (others.length === 0) ? 'its machine' : `${others.length + 1} machines`;
+            out.push({label: 'Reached from', value: (opened === undefined) ? value : 'the internet', small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, share: null, mono: true, title: (server.port === null) ? reached : `127.0.0.1:${server.port} on ${server.title}, ${reached}`});
             return out;
         },
         open_apps: function () {
@@ -295,6 +329,38 @@ const databases_pane = {
             }
             return (this.forward_machines.length === 0) ? 'It is on the only machine: add another on Remotes' : 'Its port at another machine\'s 127.0.0.1 too';
         },
+        // Its port brought to other machines, and its public port, apart
+        machine_forwards: function () {
+            return this.open_server.forwards.filter(v => v.to.host === null);
+        },
+        public_port: function () {
+            return this.open_server.forwards.find(v => v.to.host !== null) || null;
+        },
+        public_add_title: function () {
+            if (this.open_server.phase !== 'up') {
+                return 'Once it is up';
+            }
+            return `Its port on ${this.open_server.title}'s public address, for a client anywhere: TLS, its databases' own users alone`;
+        },
+        public_address_text: function () {
+            const address = (this.public_port === null) ? null : this.public_port.address;
+            return address || `${this.open_server.title}'s public address`;
+        },
+        // Why Copy URL cannot give the URL through its public port, or ''
+        public_copy_why: function () {
+            const why = this.copy_why(this.open_server.remote, this.public_port);
+            if (why !== '') {
+                return why;
+            }
+            return (this.public_port.address === null) ? `${this.open_server.title} has no public address serviceman knows` : '';
+        },
+        public_copy_title: function () {
+            if (this.public_copy_why !== '') {
+                return this.public_copy_why;
+            }
+            const tls = this.public_port.tls ? `?tls=true&tlsCAFile=${this.open_server.name}-ca.pem` : '';
+            return `mongodb://${this.open_database.user}:${'•'.repeat(8)}@${this.public_port.address}:${this.public_port.to.port}/${this.open_database.name}${tls}, its password in it, for a client anywhere${this.public_port.tls ? ', with the certificate beside it' : ''}`;
+        },
         // Where it is reached at on its machine, the port it shows up at on others by default
         engine_port: function () {
             const engine = this.view.engines.find(v => v.value === this.open_server.engine);
@@ -311,6 +377,7 @@ const databases_pane = {
         place: function () {
             this.removing = null;
             this.adding = null;
+            this.opening = null;
             this.forward_note = '';
             this.copied = '';
             this.note = '';
@@ -422,9 +489,40 @@ const databases_pane = {
                 this.forward_note = 'A port is a number from 1 to 65535';
                 return;
             }
-            const ends = this.open_server.forwards.map(v => end_of(v.to)).concat([{remote: this.adding.remote, port: Number(port)}]);
+            const ends = this.open_server.forwards.map(item_of).concat([{to: {remote: this.adding.remote, port: Number(port)}}]);
             if (await this.forwards_write(ends)) {
                 this.adding = null;
+            }
+        },
+        public_open: function () {
+            this.opening = {port: '', tls: true, allow: ''};
+            this.forward_note = '';
+            this.$nextTick(() => this.$refs.opening_port.focus());
+        },
+        public_change: function () {
+            this.opening = {port: String(this.public_port.to.port), tls: this.public_port.tls, allow: this.public_port.allow.join(', ')};
+            this.forward_note = '';
+            this.$nextTick(() => this.$refs.opening_port.focus());
+        },
+        public_cancel: function () {
+            this.opening = null;
+            this.forward_note = '';
+        },
+        // Its forwards to other machines as they are, and its public port as typed: the port its
+        // engine listens on when none is, everyone let in when no address is
+        public_save: async function () {
+            if ((this.opening === null) || this.busy) {
+                return;
+            }
+            const port = (this.opening.port === '') ? String(this.engine_port) : this.opening.port;
+            if ((/^\d{1,5}$/.test(port) === false) || (Number(port) < 1) || (Number(port) > 65535)) {
+                this.forward_note = 'A port is a number from 1 to 65535';
+                return;
+            }
+            const allow = this.opening.allow.split(/[\s,]+/).filter(v => v !== '');
+            const ends = this.machine_forwards.map(item_of).concat([{to: {remote: this.open_server.remote, port: Number(port), host: '0.0.0.0'}, tls: this.opening.tls, allow}]);
+            if (await this.forwards_write(ends)) {
+                this.opening = null;
             }
         },
         // Why Copy URL cannot give the URL a program on that machine reaches it at, or ''
@@ -456,10 +554,11 @@ const databases_pane = {
             const tail = (this.open_server.engine === 'couchdb') ? '' : `/${this.open_database.name}`;
             return `${scheme}://${user}:${'•'.repeat(8)}@127.0.0.1:${port}${tail}, its password in it, for a program on ${this.machine_title(remote)}`;
         },
+        // remote null: through its public port
         url_copy: async function (remote) {
             this.forward_note = '';
             try {
-                const query = new URLSearchParams({database: this.open_database.name, remote});
+                const query = new URLSearchParams((remote === null) ? {database: this.open_database.name, public: '1'} : {database: this.open_database.name, remote});
                 const answer = await fetch(`/api/v1/databases/${encodeURIComponent(this.open_server.name)}/url?${query}`, {cache: 'no-store'});
                 const said = await answer.json().catch(() => ({}));
                 if (answer.ok === false) {
@@ -468,7 +567,7 @@ const databases_pane = {
                 if (await to_clipboard(said.url) === false) {
                     throw new Error('The browser did not take it on the clipboard');
                 }
-                this.copied = remote;
+                this.copied = (remote === null) ? PUBLIC : remote;
             }
             catch (error) {
                 this.forward_note = error.message;
@@ -482,14 +581,15 @@ const databases_pane = {
             return `Bring it to ${where} no more: ${item.apps.join(', ')} ${(item.apps.length === 1) ? 'finds' : 'find'} it here, and the next start stops without it`;
         },
         forward_drop: async function (item) {
-            await this.forwards_write(this.open_server.forwards.filter(v => v !== item).map(v => end_of(v.to)));
+            await this.forwards_write(this.open_server.forwards.filter(v => v !== item).map(item_of));
         },
-        // Where its port shows up, the whole list: what serviceman answers is the page now
+        // Where its port shows up, the whole list, each {to, tls, allow}: what serviceman answers
+        // is the page now
         forwards_write: async function (ends) {
             this.busy = true;
             this.forward_note = '';
             try {
-                const answer = await fetch(`/api/v1/databases/${encodeURIComponent(this.open_server.name)}/forwards`, {method: 'PUT', body: JSON.stringify({forwards: ends.map(v => ({to: v}))})});
+                const answer = await fetch(`/api/v1/databases/${encodeURIComponent(this.open_server.name)}/forwards`, {method: 'PUT', body: JSON.stringify({forwards: ends})});
                 const said = await answer.json().catch(() => ({}));
                 if (answer.ok === false) {
                     throw new Error(said.error || `serviceman answered ${answer.status}`);
@@ -532,11 +632,14 @@ const databases_pane = {
     },
 };
 
-// A forward's end as the config writes it, from the end the answer shows
-function end_of(to)
+// A forward as the page writes it back, {to, tls, allow}, from the one the answer shows: its end
+// as the config writes it, and a public port's TLS and who it lets in
+function item_of(forward)
 {
+    const to = forward.to;
     const place = to.here ? {here: true} : {remote: to.remote};
-    return Object.assign(place, (to.socket === null) ? {port: to.port} : {socket: to.socket});
+    const end = Object.assign(place, (to.socket === null) ? {port: to.port} : {socket: to.socket}, (to.host === null) ? {} : {host: to.host});
+    return (to.host === null) ? {to: end} : {to: end, tls: forward.tls, allow: forward.allow};
 }
 
 export default databases_pane;
