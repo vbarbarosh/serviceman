@@ -6,7 +6,8 @@ const http = require('http');
 // and removed, a volume), files put into a container, and commands run in it. Its MySQL is a
 // make-believe, MySQL's or PostgreSQL's: a ping answers once the container runs, and SQL run as a
 // file makes the databases its CREATE lines name, drops those its DROP lines name, and answers
-// the list of them; every SQL run is kept, in `sql`. Every request is kept, with its
+// the list of them; every SQL run is kept, in `sql`. Its MongoDB the same, a mongosh script
+// making the databases its createUser lines are made in. Every request is kept, with its
 // body, for the test to read what went where.
 async function fake_database_engine(socket)
 {
@@ -85,7 +86,7 @@ function container_route(engine, req, res, body, url, parts)
     }
     if (parts[2] === 'json') {
         const port = [{HostIp: '127.0.0.1', HostPort: '41337'}];
-        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port, '5984/tcp': port}}});
+        return json(res, 200, {State: {Running: container.running}, NetworkSettings: {Ports: {'3306/tcp': port, '5432/tcp': port, '5984/tcp': port, '27017/tcp': port}}});
     }
     if (parts[2] === 'start') {
         container.running = true;
@@ -119,7 +120,7 @@ function exec_route(engine, req, res, parts)
     const cmd = exec.spec.Cmd;
     let printed = '';
     exec.code = 0;
-    if ((cmd[0] === 'mysqladmin') || (cmd[0] === 'pg_isready') || (cmd[0] === 'curl')) {
+    if ((cmd[0] === 'mysqladmin') || (cmd[0] === 'pg_isready') || (cmd[0] === 'curl') || (cmd[0] === 'mongosh')) {
         exec.code = engine.fail_ping ? 1 : 0;
     }
     // A CouchDB's databases, as its admin asks them: its own and the app's, by name
@@ -137,7 +138,13 @@ function exec_route(engine, req, res, parts)
         for (const found of sql.matchAll(/CREATE (?:DATABASE|SCHEMA)(?: IF NOT EXISTS)? [`"]?([A-Za-z0-9_]+)[`"]?/g)) {
             container.databases.add(found[1]);
         }
-        if (sql.includes('information_schema.schemata')) {
+        for (const found of sql.matchAll(/getSiblingDB\('([a-z0-9_]+)'\)\.createUser\(/g)) {
+            container.databases.add(found[1]);
+        }
+        if (sql.includes('listDatabases')) {
+            printed = [...container.databases].sort().map(v => `${v}\t3\t8192\n`).join('');
+        }
+        else if (sql.includes('information_schema.schemata')) {
             printed = [...container.databases].sort().map(v => `${v}\t2\t16384\n`).join('');
         }
         else if (sql.includes('FROM pg_database')) {

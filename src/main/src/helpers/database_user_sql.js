@@ -3,8 +3,22 @@
 // quote. MySQL makes the database too when it is not there. PostgreSQL gives the user what is in
 // it, a sample's tables loaded as root: `made` makes the database first, owned by the user, for
 // one that is not there; it runs in postgres, and moves into the database for the grants.
+// MongoDB's is a mongosh script: the user is made in its database, which signs it in, as the
+// owner of that database alone; MongoDB makes the database itself at its first write.
 function database_user_sql(engine, database, user, made)
 {
+    if (engine === 'mongodb') {
+        return [
+            `const roles = [{role: 'dbOwner', db: '${database}'}];`,
+            `if (db.getSiblingDB('${database}').getUser('${user.user}') === null) {`,
+            `    db.getSiblingDB('${database}').createUser({user: '${user.user}', pwd: '${user.password}', roles});`,
+            '}',
+            'else {',
+            `    db.getSiblingDB('${database}').updateUser('${user.user}', {pwd: '${user.password}', roles});`,
+            '}',
+            '',
+        ].join('\n');
+    }
     if (engine === 'postgresql') {
         return [
             `DO $$ BEGIN IF EXISTS (SELECT FROM pg_roles WHERE rolname = '${user.user}') THEN ALTER ROLE "${user.user}" WITH LOGIN PASSWORD '${user.password}'; ELSE CREATE ROLE "${user.user}" WITH LOGIN PASSWORD '${user.password}'; END IF; END $$;`,

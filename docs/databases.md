@@ -1,8 +1,9 @@
 # Databases
 
 A database on one of your machines, in a server serviceman brings up there in docker, always
-up, its data kept there. An app given it finds it in `DATABASE_URL` at every start, as a user of
-its own; an Adminer given one opens on it, logged in.
+up, its data kept there: MySQL, PostgreSQL, MongoDB or CouchDB. An app given it finds it in
+`DATABASE_URL` at every start (a MongoDB in `MONGODB_URL`), as a user of its own; an Adminer
+given one opens on it, logged in.
 
 The page is **Databases**, under **All categories**: one table, a row a database, with its
 engine and version, its machine, its size, the apps given it and how it stands. A server with no
@@ -17,9 +18,10 @@ does; it opens at `/databases/new`, from **Database** in New service's first ste
 database here** on a machine's Databases tab (that machine picked), and from **New database…**
 in an app's Data tab (that app ticked).
 
-1. **Engine:** a tile each, PostgreSQL 17 or 16, MySQL 8.4 or 8.0, CouchDB 3, the official image
-   (`docker.io/library/postgres:<version>`, `mysql:<version>`, `couchdb:3`); its version; and
-   what it starts with, a tile each: an empty database or a sample (below).
+1. **Engine:** a tile each, PostgreSQL 17 or 16, MySQL 8.4 or 8.0, MongoDB 8.0 or 7.0, CouchDB 3,
+   the official image (`docker.io/library/postgres:<version>`, `mysql:<version>`,
+   `mongo:<version>`, `couchdb:3`); its version; and what it starts with, a tile each: an empty
+   database or a sample (below). A MongoDB starts empty.
 2. **Machine:** a tile each, what it is, how many services it runs and its free memory of all,
    with a meter of it; one that is offline or has no docker its agent reaches is shown, and says
    why. **Add a machine** opens New remote and comes back with every answer kept and the new
@@ -27,10 +29,11 @@ in an app's Data tab (that app ticked).
 3. **Given to:** every app a row, those on that machine that serviceman starts (a docker image,
    an app folder, a program) ticked or not; one on another machine, a page or an address already
    running is shown, and says why it cannot be. The first one ticked shows what it finds at every
-   start, its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`.
+   start, its password hidden: `DATABASE_URL=postgresql://orders:••••••@127.0.0.1:<port>/orders`,
+   `MONGODB_URL=mongodb://orders:••••••@serviceman-db-mongodb-1:27017/orders`.
 4. **Check:** its name, up to 32 small letters, digits and `_`, a letter first (a sample and a
    CouchDB name it themselves); a row per answer, each with **Change**; the rest as it is today:
-   reached from its machine only, Adminer as an app.
+   reached from its machine only, Adminer as an app (not for a MongoDB: Adminer speaks SQL).
 
 **Create database** puts it in a server of that engine and version already up on that machine;
 with none, it brings one up first, named after its engine and the first number free
@@ -38,7 +41,8 @@ with none, it brings one up first, named after its engine and the first number f
 waiting for the server to answer, fetching the sample, loading it. Then it makes the database,
 with a user of its own named after it, whose rights are on that database alone (in PostgreSQL the
 user owns it, and nobody else may connect to it: PostgreSQL lets every user connect to every
-database unless told otherwise), and gives it to each app ticked, as its Data tab does. A sample
+database unless told otherwise; in MongoDB the user is made in that database, which signs it in,
+as its `dbOwner`), and gives it to each app ticked, as its Data tab does. A sample
 comes in a server of its own, under its own name. What fails is said in the form, and what was
 made stays made.
 
@@ -51,14 +55,14 @@ link:
 | What      | Its name               | What it is for                                                   |
 |-----------|------------------------|------------------------------------------------------------------|
 | container | `serviceman-db-<name>` | the server, restarted with docker (`unless-stopped`): a restart of serviceman or of the agent touches nothing of it |
-| volume    | `serviceman-db-<name>` | its data, at `/var/lib/mysql` or `/var/lib/postgresql/data`      |
+| volume    | `serviceman-db-<name>` | its data, at `/var/lib/mysql`, `/var/lib/postgresql/data` or `/data/db` |
 | network   | `serviceman-databases` | where an app in a container reaches it, by its container's name  |
 | port      | `127.0.0.1:<port>`     | where a program on that machine reaches it; docker picks the port, and nothing outside the machine reaches it |
 
 ## A database's page
 
 Its head: its name, how it stands, its engine, its server and its machine, then its size, its
-tables and where it is reached from; under it, the apps given it and the variable each finds it
+tables (a MongoDB's collections) and where it is reached from; under it, the apps given it and the variable each finds it
 in, each a link to its service; the databases beside it in its server. **Remove…** is there
 (below).
 
@@ -68,7 +72,8 @@ serviceman makes root's password and every user's, and keeps them in `data/datab
 600, beside what it writes about itself: never in the config, never in an answer to the page.
 They reach the machine in the bodies of the Engine API's requests, the container's environment
 and an exec's, never on a command line, which every user of the machine can read. The SQL that
-makes a user goes into the container as a file only root reads, and is removed once it ran.
+makes a user goes into the container as a file only root reads, and is removed once it ran; in a
+MongoDB, a mongosh script, which signs root in with the password its env holds.
 
 An app's `DATABASE_URL` carries its user's password. A program on the machine itself gets it in
 the environment the agent starts it with. A container gets it as every variable of its env does,
@@ -83,7 +88,7 @@ on the `docker run` line on that machine for the moment it runs; the agent's log
 | Chinook | a music store, 11 tables, 15 thousand rows     | `lerocha/chinook-database` on GitHub, release `v1.4.5` | MIT          |
 
 Each engine has its own files of each sample. PostgreSQL's Sakila loads into a database made
-for it first, afresh; its Chinook makes its own.
+for it first, afresh; its Chinook makes its own. A MongoDB and a CouchDB start empty.
 
 Each file is fetched once by serviceman from that address, pinned to that commit or release,
 kept in `data/samples/` under its sha256, and loaded only when its sha256 is the one written in
@@ -115,6 +120,10 @@ reaches it:
     mysql://sakila:<password>@serviceman-db-mysql-1:3306/sakila     an app in a container
     mysql://sakila:<password>@127.0.0.1:<port>/sakila                a program on the machine
     postgresql://sakila:<password>@serviceman-db-postgresql-1:5432/sakila
+    mongodb://orders:<password>@serviceman-db-mongodb-1:27017/orders
+
+A MongoDB is given in `MONGODB_URL` unless the row names another variable; its user signs in to
+the database in the URL's path, so a driver needs no `authSource`.
 
 An app in a container, a docker image or a program in an image, is put on the
 `serviceman-databases` network to reach the server there. A pick of another machine's database,
@@ -124,7 +133,8 @@ that finds no database. The tab shows the URL with its password as dots: the pag
 ### Adminer
 
 An app of Adminer's own image (`adminer`, any tag) given a database opens on its `DATABASE_URL`,
-logged in as its user, for a visitor signed in through its wall: serviceman puts a plugin into
+logged in as its user (a MySQL or a PostgreSQL: Adminer does not speak MongoDB, and its Data tab
+says so), for a visitor signed in through its wall: serviceman puts a plugin into
 the container as it starts (`src/main/adminer/serviceman_database.php`). serviceman says who the
 visitor is in `X-Auth-User` and drops any a visitor sends, so the plugin lets in only whom the
 wall let in. Without a wall it lets nobody in and says so; a server typed in its form is
@@ -134,6 +144,23 @@ The single `adminer.php` does the same: dropped on **Apps**, it runs on the mach
 serviceman's PHP image ([a PHP file](config.md#a-php-file)), and its folder holds the plugin and
 the `adminer-plugins.php` that Adminer loads beside itself. Its container is made on
 `serviceman-databases`, by an agent that can (an older one joins it once it is made).
+
+## MongoDB
+
+**New database** with **MongoDB** brings up `docker.io/library/mongo:8.0` (or `7.0`) the same way:
+its data in a volume at `/data/db`, port 27017 on `127.0.0.1` of its machine and on the
+databases' network, never outside it. Its image makes `root` at its first start, with the
+password serviceman made, in a server of its own on `127.0.0.1` that it stops once root is made:
+serviceman waits until root signs in to a server that is not that one, so no database is made in
+a server about to stop. MongoDB lists a database only once something is written in it; the page
+shows one made here from then on, its collections and size 0.
+
+To look inside on its machine, as root, mongosh asking for the password
+(`data/databases.json`, `root` of the server) rather than reading it from a command line:
+
+```sh
+docker exec -it serviceman-db-mongodb-1 mongosh mongodb://127.0.0.1:27017/admin -u root
+```
 
 ## CouchDB, for a wall's users
 
@@ -272,5 +299,5 @@ so. A machine that is offline keeps them: Remove is refused until it is back.
 | `data/databases.json`                          | the servers, their root passwords and their users, mode 600  |
 | `data/samples/<sha256>.sql`                    | the samples, as fetched                                      |
 | `docker ps --filter label=serviceman.database` | the servers' containers, on their machine                    |
-| `docker logs serviceman-db-<name>`             | what MySQL or PostgreSQL said, on its machine                |
+| `docker logs serviceman-db-<name>`             | what MySQL, PostgreSQL or MongoDB said, on its machine       |
 | `database_*` in serviceman's log               | each server brought up, made, removed ([The log](logs.md))   |

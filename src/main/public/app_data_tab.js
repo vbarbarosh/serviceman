@@ -1,6 +1,7 @@
 import app_data_env_free from './app_data_env_free.js';
 import app_data_value from './app_data_value.js';
 import app_kind_of from './app_kind_of.js';
+import database_env_given from './database_env_given.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
 import to_clipboard from './to_clipboard.js';
@@ -16,13 +17,14 @@ const DOTS = '•'.repeat(8);
 // A variable's _URL, with the number a second one of its name has; and the names a pick is
 // given until one is typed, by the kind of server it picks
 const RE_URL_ENV = /_URL(_\d+)?$/;
-const RE_ENV_GIVEN = /^(DATABASE|COUCHDB)_URL(_\d+)?$/;
+const RE_ENV_GIVEN = /^(DATABASE|COUCHDB|MONGODB)_URL(_\d+)?$/;
 
 // Each engine as its URL says it and its servers are named: its scheme and its port inside
 const ENGINES = {
     mysql: {label: 'MySQL', scheme: 'mysql', port: 3306},
     postgresql: {label: 'PostgreSQL', scheme: 'postgresql', port: 5432},
     couchdb: {label: 'CouchDB', scheme: 'http', port: 5984},
+    mongodb: {label: 'MongoDB', scheme: 'mongodb', port: 27017},
 };
 
 // An app's Data tab, in its Settings window: what the app is given, a row each, every row filling
@@ -286,7 +288,7 @@ const app_data_tab = {
         },
         click_database: function () {
             const free = this.pick_free;
-            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), env_given(free.server));
+            const env = app_data_env_free(this.picks.concat(this.folders, this.items).map(v => v.env), database_env_given(free.server.engine));
             this.picks.push({server: free.server.name, database: free.database.name, env});
             this.removed = null;
             this.picks_save();
@@ -337,14 +339,14 @@ const app_data_tab = {
             this.add({kind: 'rest', keep: 'serviceman', env: 'REST_URL'});
         },
         // A name it was given and not typed follows the kind of server picked: COUCHDB_URL for
-        // a CouchDB, DATABASE_URL for the others
+        // a CouchDB, MONGODB_URL for a MongoDB, DATABASE_URL for the others
         change_pick: function (pick, key) {
             const at = key.indexOf('/');
             pick.server = key.slice(0, at);
             pick.database = key.slice(at + 1);
             const option = this.option_of(pick);
-            if ((option !== null) && RE_ENV_GIVEN.test(pick.env) && (pick.env.startsWith(env_given(option.server).replace(/_URL$/, '')) === false)) {
-                pick.env = app_data_env_free(this.picks.concat(this.folders, this.items).filter(v => v !== pick).map(v => v.env), env_given(option.server));
+            if ((option !== null) && RE_ENV_GIVEN.test(pick.env) && (pick.env.startsWith(database_env_given(option.server.engine).replace(/_URL$/, '')) === false)) {
+                pick.env = app_data_env_free(this.picks.concat(this.folders, this.items).filter(v => v !== pick).map(v => v.env), database_env_given(option.server.engine));
             }
             this.picks_save();
         },
@@ -474,9 +476,14 @@ const app_data_tab = {
             }
             return `${engine.scheme}://${user}:${DOTS}@${host}/${pick.database}`;
         },
-        // Why a pick will not reach the app as it is, or nothing; an Adminer with no wall is one
+        // Why a pick will not reach the app as it is, or nothing; an Adminer with no wall is one,
+        // and an Adminer given a MongoDB, which it does not speak
         pick_problem: function (pick) {
-            if (this.adminer && (pick.env === 'DATABASE_URL') && (this.app.auth === null) && (this.option_of(pick) !== null)) {
+            const given = this.option_of(pick);
+            if (this.adminer && (pick.env === 'DATABASE_URL') && (given !== null) && (given.server.engine === 'mongodb')) {
+                return 'Adminer opens SQL databases, not MongoDB';
+            }
+            if (this.adminer && (pick.env === 'DATABASE_URL') && (this.app.auth === null) && (given !== null)) {
                 return 'Adminer opens on it only behind a wall: pick one in Settings';
             }
             if ((pick.env === '') || this.env_taken(pick.env, pick)) {
@@ -578,12 +585,6 @@ const app_data_tab = {
 function engine_of(server)
 {
     return ENGINES[server.engine] || {label: server.engine, scheme: server.engine, port: ''};
-}
-
-// The name a pick of this server is given: CouchDB's admin URL apart from a database's
-function env_given(server)
-{
-    return (server.engine === 'couchdb') ? 'COUCHDB_URL' : 'DATABASE_URL';
 }
 
 // The variable a CouchDB's secret comes in, beside its URL's (database_env.js says it the same)

@@ -11,13 +11,16 @@ import state_pill from './state_pill.js';
 
 // How often an open pane asks how the servers stand: one coming up says each step within seconds
 const REFRESH_MS = 3000;
+// What a database's tables are called in its head, where an engine has none
+const TABLES_WORDS = {couchdb: 'Users', mongodb: 'Collections'};
 
 // Databases: every database on the machines, a row each, in one table: its engine, its machine,
 // its size, the apps given it, how it stands. Each lives in a database server serviceman runs
 // there, a container always up, its data in a folder kept for it there; a server with no
 // database yet, coming up or failed is a row of its own. + New database opens New database; a row
-// opens the database's page. An app finds one given it in DATABASE_URL at every start, and the
-// passwords stay with serviceman: the page sees names, sizes and who uses what.
+// opens the database's page. An app finds one given it in DATABASE_URL at every start (a
+// CouchDB in COUCHDB_URL, a MongoDB in MONGODB_URL), and the passwords stay with serviceman: the
+// page sees names, sizes and who uses what.
 const databases_pane = {
     template: `
 <article id="detail" class="list databases" :class="{form: (place_now.page === 'new')}">
@@ -195,15 +198,16 @@ const databases_pane = {
         other_rows: function () {
             return this.rows.filter(v => (v.server === this.open_server.name) && (v.database !== '') && (v.database !== this.place.database));
         },
-        // What its tiles said, in its head: its size, its tables (a CouchDB's users), and where
-        // it is reached from; its server is named in the line beside its engine
+        // What its tiles said, in its head: its size, its tables (a CouchDB's users, a MongoDB's
+        // collections), and where it is reached from; its server is named in the line beside its
+        // engine
         open_facts: function () {
             const server = this.open_server;
             const database = this.open_database;
             const couch = (server.engine === 'couchdb');
             const out = [];
             out.push({label: 'Size', value: (database === null) ? '—' : database_rows.size(database.bytes), small: '', share: null, title: (database === null) ? 'no database in it' : `its data, on ${server.title}`});
-            out.push({label: couch ? 'Users' : 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', share: null, title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
+            out.push({label: TABLES_WORDS[server.engine] || 'Tables', value: (database === null) ? '—' : String(database.tables), small: '', share: null, title: (database === null) ? '' : (couch ? 'a database each, made by the app' : 'as its server says them')});
             out.push({label: 'Reached from', value: 'its machine', small: (server.port === null) ? '' : `127.0.0.1:${server.port}`, share: null, mono: true, title: (server.port === null) ? 'nothing outside it' : `127.0.0.1:${server.port} on ${server.title}, nothing outside it`});
             return out;
         },
@@ -211,8 +215,8 @@ const databases_pane = {
             if (this.open_database === null) {
                 return [];
             }
-            const env = (this.open_server.engine === 'couchdb') ? 'COUCHDB_URL' : 'DATABASE_URL';
-            return this.open_database.apps.map(v => ({name: v, env}));
+            const envs = this.open_database.envs;
+            return this.open_database.apps.map(v => ({name: v, env: envs[v]}));
         },
         open_apps_empty: function () {
             const server = this.open_server;

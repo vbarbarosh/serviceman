@@ -1,7 +1,7 @@
 import database_state from './database_state.js';
 
 // Each engine's mark, as New database draws it
-const ENGINE_COLOURS = {mysql: '#FF8400', postgresql: '#1299DA', couchdb: '#C77DFF'};
+const ENGINE_COLOURS = {mysql: '#FF8400', postgresql: '#1299DA', couchdb: '#C77DFF', mongodb: '#13AA52'};
 const DATABASE_ICON = '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>';
 
 // The rows of a table of databases: one per database, and one for each server with none to show

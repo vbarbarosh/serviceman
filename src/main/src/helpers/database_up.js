@@ -25,11 +25,13 @@ const READY_EVERY_MS = 2000;
 // What a server that stopped said last, in its reason
 const LOG_LINES = 12;
 // What answers once each engine's real server is up, over TCP: its first start runs one of its
-// own without TCP while it makes its data folder
+// own without TCP while it makes its data folder. MongoDB's first start runs one on 127.0.0.1,
+// forked, while it makes root: the real one is the server root signs in to that was not forked.
 const READY = {
     mysql: ['mysqladmin', 'ping', '--protocol=TCP', '-h127.0.0.1', '-uroot', '--silent'],
     postgresql: ['pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-q'],
     couchdb: ['curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:5984/_up'],
+    mongodb: ['mongosh', '--quiet', '--norc', 'mongodb://127.0.0.1:27017/admin', '--eval', 'db.getSiblingDB("admin").auth("root", process.env.MONGO_ROOT_PASSWORD); quit(db.adminCommand({getCmdLineOpts: 1}).argv.includes("--fork") ? 1 : 0)'],
 };
 // Where a CouchDB reads the settings serviceman lays in, before it starts
 const COUCHDB_LOCAL = '/opt/couchdb/etc/local.d';
@@ -116,7 +118,7 @@ async function container_made(connect, server, engine, image)
     if (found.status === 404) {
         const made = await engine_call(connect, 'POST', `/containers/create?name=${container}`, {
             Image: image,
-            Env: [`${engine.root_env}=${server.root}`].concat((engine.admin_env === undefined) ? [] : [`${engine.admin_env}=${engine.admin}`]),
+            Env: container_env(server, engine),
             Labels: {'serviceman.database': server.name},
             ExposedPorts: {[`${engine.port}/tcp`]: {}},
             HostConfig: {
@@ -140,6 +142,19 @@ async function container_made(connect, server, engine, image)
     if ((started.status !== 204) && (started.status !== 304)) {
         throw new Error(engine_said(started));
     }
+}
+
+// Root's password, and the name of its admin or root where the image takes one
+function container_env(server, engine)
+{
+    const out = [`${engine.root_env}=${server.root}`];
+    if (engine.admin_env !== undefined) {
+        out.push(`${engine.admin_env}=${engine.admin}`);
+    }
+    if (engine.root_user_env !== undefined) {
+        out.push(`${engine.root_user_env}=${engine.root_user}`);
+    }
+    return out;
 }
 
 // Answering on its port: its first start runs a server of its own without one while it makes

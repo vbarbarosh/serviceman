@@ -40,11 +40,15 @@ test('a picked database is its own user\'s URL, by name in a container, by port 
         {name: 'mysql-1', engine: 'mysql', version: '8.4', remote: 'laptop', root: 'r'.repeat(32), users: {sakila: {user: 'sakila', password: 'p'.repeat(24)}}, phase: 'up', port: 41337},
         {name: 'mysql-2', engine: 'mysql', version: '8.0', remote: 'vps1', root: 'r'.repeat(32), users: {world: {user: 'world', password: 'w'.repeat(24)}}, phase: 'up', port: 41338},
         {name: 'mysql-3', engine: 'mysql', version: '8.4', remote: 'laptop', root: 'r'.repeat(32), users: {}, phase: 'failed', port: null},
+        {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'laptop', root: 'r'.repeat(32), users: {orders: {user: 'orders', password: 'o'.repeat(24)}}, phase: 'up', port: 41339},
     ]});
     const laptop = {name: 'laptop'};
     const picked = {name: 'adminer', databases: [{server: 'mysql-1', database: 'sakila', env: 'DATABASE_URL'}]};
     assert.deepStrictEqual(database_env(app, laptop, picked, true), {DATABASE_URL: `mysql://sakila:${'p'.repeat(24)}@serviceman-db-mysql-1:3306/sakila`});
     assert.deepStrictEqual(database_env(app, laptop, picked, false), {DATABASE_URL: `mysql://sakila:${'p'.repeat(24)}@127.0.0.1:41337/sakila`});
+    const orders = {name: 'shop', databases: [{server: 'mongodb-1', database: 'orders', env: 'MONGODB_URL'}]};
+    assert.deepStrictEqual(database_env(app, laptop, orders, true), {MONGODB_URL: `mongodb://orders:${'o'.repeat(24)}@serviceman-db-mongodb-1:27017/orders`});
+    assert.deepStrictEqual(database_env(app, laptop, orders, false), {MONGODB_URL: `mongodb://orders:${'o'.repeat(24)}@127.0.0.1:41339/orders`});
     assert.deepStrictEqual(database_env(app, laptop, {name: 'web', databases: []}, true), {});
     assert.deepStrictEqual(database_env(app, laptop, {name: 'page'}, true), {}, 'a service of a kind with no databases');
     assert.throws(() => database_env(app, laptop, {name: 'adminer', databases: [{server: 'mysql-2', database: 'world', env: 'DATABASE_URL'}]}, true), /mysql-2 is on vps1, and adminer runs on laptop/);

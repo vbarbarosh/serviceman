@@ -49,6 +49,8 @@ const database_samples = {
     },
     // CouchDB starts empty: its databases are the app's, one for each user it signs in
     couchdb: {},
+    // MongoDB starts empty, its databases made on its page
+    mongodb: {},
 };
 
 module.exports = database_samples;

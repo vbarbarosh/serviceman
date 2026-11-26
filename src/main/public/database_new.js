@@ -1,4 +1,5 @@
 import app_data_env_free from './app_data_env_free.js';
+import database_env_given from './database_env_given.js';
 import machine_card from './machine_card.js';
 import machine_icons from './machine_icons.js';
 import machine_tile from './machine_tile.js';
@@ -9,7 +10,7 @@ import step_frame from './step_frame.js';
 // How often the form asks how a server it brought up stands
 const UP_EVERY_MS = 2000;
 // The engines' tiles in this order, the first picked when the form opens
-const ENGINE_ORDER = ['postgresql', 'mysql', 'couchdb'];
+const ENGINE_ORDER = ['postgresql', 'mysql', 'mongodb', 'couchdb'];
 // A database's name, as a server takes it
 const RE_DATABASE = /^[a-z][a-z0-9_]{0,31}$/;
 // Each engine's port inside and its URL's scheme
@@ -17,15 +18,19 @@ const ENGINES = {
     mysql: {port: 3306, scheme: 'mysql'},
     postgresql: {port: 5432, scheme: 'postgresql'},
     couchdb: {port: 5984, scheme: 'http'},
+    mongodb: {port: 27017, scheme: 'mongodb'},
 };
 const DATABASE_ICON = '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>';
 const SERVER_ICON = '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>';
 const BOX_ICON = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/>';
+// What Adminer is for each engine that has no Adminer of its own, on Check
+const ADMINER_NOTES = {couchdb: 'CouchDB has its own, Fauxton', mongodb: 'not for MongoDB: Adminer speaks SQL'};
 // What each engine is for, under its name on its tile
 const ENGINE_SAYS = {
     postgresql: 'the usual pick; most apps speak it',
     mysql: 'for apps made for it: WordPress, Matomo',
     couchdb: 'documents and sync, over HTTP',
+    mongodb: 'JSON documents, for apps made for it',
 };
 
 // New database, step by step: the engine, its version and what it starts with; the machine its
@@ -37,7 +42,7 @@ const database_new = {
     template: `
 <step-frame title="New database" :steps="steps" :step="step" :mode="mode" :can_next="step_ok.ok" :next_title="step_ok.why" :busy="busy" create_label="Create database" @step="step_go" @mode="mode = $event" @cancel="$emit('close')" @create="create">
     <template #engine>
-        <div class="kind-tiles three" role="radiogroup" aria-label="Which database">
+        <div class="kind-tiles" role="radiogroup" aria-label="Which database">
             <button v-for="item of engines" :key="item.value" type="button" role="radio" class="kind-tile" :class="{on: (item.value === m.engine)}" :aria-checked="(item.value === m.engine)" @click="engine_pick(item.value)">
                 <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="DATABASE_ICON"/></span>
                 <b>{{ item.label }}</b>
@@ -68,6 +73,7 @@ const database_new = {
             <p v-if="(m.sample !== '')" class="sf-hint">It comes in a server of its own, as the database <code>{{ sample_item.database }}</code>.</p>
         </template>
         <p v-else-if="(m.engine === 'couchdb')" class="sf-hint">A CouchDB is one store: the app given it is its admin, and makes a database for each user its wall signs in.</p>
+        <p v-else-if="(m.engine === 'mongodb')" class="sf-hint">It starts empty: its collections come from the app.</p>
     </template>
     <template #machine>
         <div class="machine-cards" role="radiogroup" aria-label="The machine its data stays on">
@@ -181,7 +187,7 @@ const database_new = {
             return (this.m.sample === '') ? this.m.name : this.sample_item.database;
         },
         env_name: function () {
-            return (this.m.engine === 'couchdb') ? 'COUCHDB_URL' : 'DATABASE_URL';
+            return database_env_given(this.m.engine);
         },
         engine_text: function () {
             return `${this.engine_item.label} ${this.m.version}`;
@@ -330,7 +336,7 @@ const database_new = {
         rest_cards: function () {
             return [
                 {id: 'reach', title: 'Reached from', text: 'its machine only', note: 'its apps there; nothing outside'},
-                {id: 'adminer', title: 'Adminer', text: 'to look inside', note: (this.m.engine === 'couchdb') ? 'CouchDB has its own, Fauxton' : 'an app on Apps, given it'},
+                {id: 'adminer', title: 'Adminer', text: 'to look inside', note: ADMINER_NOTES[this.m.engine] || 'an app on Apps, given it'},
             ];
         },
     },

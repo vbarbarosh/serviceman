@@ -164,6 +164,64 @@ test('a CouchDB is brought up with its admin and its secret, as one row an app p
     assert.strictEqual(cmds.includes(kept.root) || cmds.includes(kept.secret), false, 'neither on a command line');
 });
 
+// A MongoDB comes up empty, root named in its env and its port on the machine's loopback alone;
+// it is up once root signs in to a server that is not its first start's own, forked; a database
+// made in it is made by its user's createUser, the owner of it alone; and no password is ever
+// said or put on a command line, the script that held one gone once it ran
+test('a MongoDB is brought up empty, and a database made in it is its user\'s alone', async function (t) {
+    const world = await world_start(t);
+    const engine = world.docker.engine;
+    const sampled = await control(world, 'POST', '/api/v1/databases', {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'laptop', sample: 'tiny'});
+    assert.strictEqual(sampled.status, 400, 'a MongoDB has no sample');
+    const made = await control(world, 'POST', '/api/v1/databases', {name: 'mongodb-1', engine: 'mongodb', version: '8.0', remote: 'laptop'});
+    assert.strictEqual(made.status, 202, JSON.stringify(made.body));
+    const up = await view_until(world, v => (v.servers[0].phase === 'up'));
+    assert.deepStrictEqual(up.servers[0].databases, []);
+    assert.strictEqual(up.servers[0].port, 41337);
+    const listed = up.engines.find(v => v.value === 'mongodb');
+    assert.deepStrictEqual([listed.label, listed.versions, listed.samples], ['MongoDB', ['8.0', '7.0'], []]);
+
+    const kept_file = path.join(world.state_dir, 'databases.json');
+    const root = JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0].root;
+    const container = engine.containers.get('serviceman-db-mongodb-1');
+    const spec = container.spec;
+    assert.strictEqual(spec.Image, 'docker.io/library/mongo:8.0');
+    assert.deepStrictEqual(spec.HostConfig.Binds, ['serviceman-db-mongodb-1:/data/db']);
+    assert.deepStrictEqual(spec.HostConfig.PortBindings, {'27017/tcp': [{HostIp: '127.0.0.1', HostPort: ''}]});
+    assert.strictEqual(spec.HostConfig.NetworkMode, 'serviceman-databases');
+    assert.deepStrictEqual(spec.Env.slice().sort(), [`MONGO_INITDB_ROOT_PASSWORD=${root}`, 'MONGO_INITDB_ROOT_USERNAME=root']);
+    const ping = [...engine.execs.values()].find(v => v.spec.Cmd[0] === 'mongosh').spec;
+    assert.match(ping.Cmd[ping.Cmd.length - 1], /auth\("root", process\.env\.MONGO_ROOT_PASSWORD\)/);
+    assert.match(ping.Cmd[ping.Cmd.length - 1], /argv\.includes\("--fork"\) \? 1 : 0/);
+    assert.deepStrictEqual(ping.Env, [`MONGO_ROOT_PASSWORD=${root}`]);
+
+    const orders = await control(world, 'POST', '/api/v1/databases/mongodb-1/databases', {name: 'orders'});
+    assert.strictEqual(orders.status, 201, JSON.stringify(orders.body));
+    assert.deepStrictEqual(orders.body.servers[0].databases.map(v => `${v.name} ${v.tables} ${v.user}`), ['orders 3 orders']);
+    assert.strictEqual((await control(world, 'POST', '/api/v1/databases/mongodb-1/databases', {name: 'orders'})).status, 409);
+    // The page names the variable each app given it finds it in, as the app's own row says it
+    for (const [name, env] of [['shop', 'MONGODB_URL'], ['report', 'DB_URL']]) {
+        const given = await control(world, 'POST', '/api/v1/services', {service: {name, type: 'docker', remotes: ['laptop'], image: 'docker.io/library/node:22', publish: {host: `${name}.localhost`, port: 3000}, databases: [{server: 'mongodb-1', database: 'orders', env}]}});
+        assert.strictEqual(given.status, 200, JSON.stringify(given.body));
+    }
+    const picked = (await control(world, 'GET', '/api/v1/databases')).body.servers[0].databases[0];
+    assert.deepStrictEqual([picked.apps, picked.envs], [['shop', 'report'], {shop: 'MONGODB_URL', report: 'DB_URL'}]);
+    const script = engine.sql.find(v => v.sql.includes('createUser'));
+    assert.ok(script.cmd.startsWith('mongosh --quiet --norc mongodb://127.0.0.1:27017/admin '), script.cmd);
+    assert.match(script.sql, /^const roles = \[\{role: 'dbOwner', db: 'orders'\}\];$/m);
+    assert.match(script.sql, /db\.getSiblingDB\('orders'\)\.createUser\(\{user: 'orders', pwd: '[0-9a-f]{24}', roles\}\);/);
+    const scripts = [...engine.execs.values()].filter(v => v.spec.Cmd[0] === 'sh').map(v => v.spec.Cmd[v.spec.Cmd.length - 1]);
+    assert.ok((scripts.length > 0) && scripts.every(v => v.endsWith('.js')), 'mongosh loads a file only when it ends in .js');
+
+    const kept = JSON.parse(fs.readFileSync(kept_file, 'utf8')).servers[0];
+    const secrets = [kept.root, kept.users.orders.password];
+    const answers = JSON.stringify([made.body, up, orders.body]);
+    assert.deepStrictEqual(secrets.filter(v => answers.includes(v)), [], 'no password in an answer');
+    const cmds = JSON.stringify([...engine.execs.values()].map(v => v.spec.Cmd));
+    assert.deepStrictEqual(secrets.filter(v => cmds.includes(v)), [], 'no password on a command line');
+    assert.deepStrictEqual(Object.keys(container.files), []);
+});
+
 // A sample whose file is not the one pinned is refused, and the server says why; brought up
 // again, it keeps the password its volume was made with
 test('a sample that is not the one pinned fails the server, and it can be brought up again', async function (t) {

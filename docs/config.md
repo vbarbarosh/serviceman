@@ -1407,9 +1407,9 @@ the door that answers most names already, behind `authwall` where there is one.
 
 Its **Data** tab, beside **Settings**, is what the app is given, a row each, every row one
 variable of its env. **+ Database** picks a database of the [Databases](databases.md) page on the
-app's own machine, `DATABASE_URL` unless renamed: it is written into the app's config as
-`databases` and handed to it at every start as its own user's URL, an Adminer opening on it
-logged in ([an app picks one](databases.md#an-app-picks-one)); a CouchDB comes as its admin,
+app's own machine, `DATABASE_URL` unless renamed (a MongoDB's `MONGODB_URL`): it is written into
+the app's config as `databases` and handed to it at every start as its own user's URL, an Adminer
+opening on it logged in ([an app picks one](databases.md#an-app-picks-one)); a CouchDB comes as its admin,
 `COUCHDB_URL` with `COUCHDB_SECRET` beside it ([for a wall's users](databases.md#couchdb-for-a-walls-users)).
 **New database…** opens [New database](databases.md#new-database) with the app ticked.
 **+ Folder** is a folder kept for it, in the agent's `data/<app>/files` on its machine, or a folder of that machine typed as a full

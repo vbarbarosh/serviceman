@@ -248,7 +248,8 @@ async function view_of(app, live)
 
 // As the server said them last, read again when that is older than a few seconds, and once
 // when it never was, even for a count; a server that does not answer shows the last it said. Each with the apps that picked it in their Data tab,
-// and the name of the user serviceman made for it, which an app's pick needs; null for none.
+// the variable each finds it in, by the app's name, and the name of the user serviceman made for
+// it, which an app's pick needs; null for none.
 async function databases_of(app, remote, server, live)
 {
     let kept = app.database_lists.get(server.name);
@@ -263,13 +264,26 @@ async function databases_of(app, remote, server, live)
         }
     }
     const rows = (kept === undefined) ? [] : kept.rows;
-    return rows.map(v => Object.assign({}, v, {apps: apps_of(app, server.name, v.name), user: (server.users[v.name] === undefined) ? null : server.users[v.name].user}));
+    return rows.map(v => Object.assign({}, v, {apps: apps_of(app, server.name, v.name), envs: envs_of(app, server.name, v.name), user: (server.users[v.name] === undefined) ? null : server.users[v.name].user}));
 }
 
 // The apps that picked a database, by name
 function apps_of(app, server, database)
 {
     return app.services.filter(v => (v.databases !== undefined) && v.databases.some(vv => (vv.server === server) && (vv.database === database))).map(v => v.name);
+}
+
+// The variable each app that picked a database finds it in, by the app's name
+function envs_of(app, server, database)
+{
+    const out = {};
+    for (const service of app.services) {
+        const picked = (service.databases === undefined) ? undefined : service.databases.find(v => (v.server === server) && (v.database === database));
+        if (picked !== undefined) {
+            out[service.name] = picked.env;
+        }
+    }
+    return out;
 }
 
 // Why a machine cannot hold a server, or null: it is online with docker its agent reaches

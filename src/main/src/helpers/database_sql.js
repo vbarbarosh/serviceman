@@ -5,11 +5,14 @@ const engine_files_put = require('./engine_files_put');
 
 // The client of each engine, run as root on a file of SQL: what it prints is a row a line, its
 // fields split by tabs, and a statement that fails stops it with what it said. PostgreSQL runs it
-// in the database named, postgres when none is.
+// in the database named, postgres when none is. MongoDB's is a mongosh script, which signs in as
+// root with the password in its env first, and loads only a file that ends in .js.
 const CLIENTS = {
     mysql: () => 'mysql --default-character-set=utf8mb4 -uroot -N -B < "$1"',
     postgresql: v => `psql -v ON_ERROR_STOP=1 -q -X -U postgres -At -F "$(printf '\\t')" -d '${v || 'postgres'}' -f "$1"`,
+    mongodb: () => 'mongosh --quiet --norc mongodb://127.0.0.1:27017/admin --eval \'void db.getSiblingDB("admin").auth("root", process.env.MONGO_ROOT_PASSWORD)\' "$1"',
 };
+const SUFFIXES = {mysql: '.sql', postgresql: '.sql', mongodb: '.js'};
 
 // SQL run as the server's root, inside its container: the text goes in as a file of its own,
 // readable by root alone, and is removed when it has run, since it may hold a user's password;
@@ -19,7 +22,7 @@ async function database_sql(connect, server, sql, database)
 {
     const engine = database_engines.find(v => v.value === server.engine);
     const container = `serviceman-db-${server.name}`;
-    const file = `/tmp/serviceman-${crypto.randomBytes(8).toString('hex')}.sql`;
+    const file = `/tmp/serviceman-${crypto.randomBytes(8).toString('hex')}${SUFFIXES[engine.value]}`;
     await engine_files_put(connect, container, '/tmp', [{name: file.slice('/tmp/'.length), bytes: Buffer.from(sql)}]);
     const line = `${CLIENTS[engine.value](database)}; code=$?; rm -f "$1"; exit $code`;
     const said = await engine_exec(connect, container, ['sh', '-c', line, 'sh', file], [`${engine.password_env}=${server.root}`]);

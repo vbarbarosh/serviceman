@@ -3,7 +3,9 @@
 // variable its image takes root's password in, and the one its client reads a password from.
 // The samples it can be filled with are in database_samples, under its value. CouchDB has no
 // client and no user per database: an app is given it as its admin, named in `admin`, which
-// its image takes in `admin_env`, with the secret it trusts a signed user name by.
+// its image takes in `admin_env`, with the secret it trusts a signed user name by. MongoDB's
+// image takes root's name too, `root_user` in `root_user_env`; its client, mongosh, reads no
+// password from its env, so serviceman's script reads root's from `password_env` itself.
 const database_engines = [
     {
         value: 'mysql',
@@ -36,6 +38,18 @@ const database_engines = [
         password_env: null,
         admin: 'admin',
         admin_env: 'COUCHDB_USER',
+    },
+    {
+        value: 'mongodb',
+        label: 'MongoDB',
+        versions: {'8.0': 'docker.io/library/mongo:8.0', '7.0': 'docker.io/library/mongo:7.0'},
+        port: 27017,
+        data: '/data/db',
+        scheme: 'mongodb',
+        root_env: 'MONGO_INITDB_ROOT_PASSWORD',
+        password_env: 'MONGO_ROOT_PASSWORD',
+        root_user: 'root',
+        root_user_env: 'MONGO_INITDB_ROOT_USERNAME',
     },
 ];
 
