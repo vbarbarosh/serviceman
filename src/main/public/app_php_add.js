@@ -13,21 +13,23 @@ const app_php_add = {
         <h2>A PHP app</h2>
         <button type="button" class="app-settings-x" title="Close: nothing is sent (Esc)" aria-label="Close" @click="close">×</button>
     </div>
-    <p class="muted app-settings-says"><code>{{ file.name }}</code> runs on a machine of yours, in PHP 8.4 with the drivers of MySQL and PostgreSQL; its first start there makes that image, a minute or two.</p>
-    <p v-if="adminer" class="muted app-settings-says">It is Adminer: give it a database in its Data tab, and it opens on it, logged in, for whoever its wall lets in.</p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Name</span>
-        <input ref="name" v-model.trim="name" placeholder="adminer" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
-    </label>
-    <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Runs on</span>
-        <select v-model="remote" :disabled="busy">
-            <option value="" disabled>Pick a machine…</option>
-            <option v-for="item of machines" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option>
-        </select>
-    </label>
-    <p v-if="(machines.every(v => v.disabled))" class="muted app-settings-says">No machine can run it now: it needs one online, with docker.</p>
+    <div class="app-settings-body">
+        <p class="muted app-settings-says"><code>{{ file.name }}</code> runs on a machine of yours, in PHP 8.4 with the drivers of MySQL and PostgreSQL; its first start there makes that image, a minute or two.</p>
+        <p v-if="adminer" class="muted app-settings-says">It is Adminer: give it a database in its Data tab, and it opens on it, logged in, for whoever its wall lets in.</p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Name</span>
+            <input ref="name" v-model.trim="name" placeholder="adminer" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
+        </label>
+        <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Runs on</span>
+            <select v-model="remote" :disabled="busy">
+                <option value="" disabled>Pick a machine…</option>
+                <option v-for="item of machines" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option>
+            </select>
+        </label>
+        <p v-if="(machines.every(v => v.disabled))" class="muted app-settings-says">No machine can run it now: it needs one online, with docker.</p>
+    </div>
     <div class="app-settings-foot">
         <button type="button" class="primary" :disabled="(busy || (name === '') || (remote === ''))" @click="add">{{ (busy ? 'Sending…' : 'Run it') }}</button>
         <button type="button" :disabled="busy" @click="close">Cancel</button>

@@ -1284,7 +1284,8 @@ a.dt-address:hover {
     color: var(--fg);
 }
 
-.data-table .dt-confirm button {
+.data-table .dt-confirm button,
+.dt-whole .dt-confirm button {
     margin-left: .4rem;
 }
 
@@ -1327,7 +1328,13 @@ a.dt-address:hover {
     background: rgba(0, 0, 0, .45);
 }
 
+/* The window: its head, its body and its foot in a column (dt-whole-head, dt-whole-body,
+   dt-whole-foot). The head and the foot stay where they are and only the body scrolls, so Close
+   and the buttons are in view however long it is; a short one is as tall as what it holds. The
+   window itself scrolls only when its head and foot alone are taller than it. */
 .dt-whole {
+    display: flex;
+    flex-direction: column;
     width: min(42rem, 100%);
     max-height: calc(100vh - 2rem);
     overflow: auto;
@@ -1338,7 +1345,10 @@ a.dt-address:hover {
     box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
 }
 
-.dt-whole:focus {
+/* The window's body takes the keys as it opens, so the arrows and Page Down scroll it; neither it
+   nor a window focused whole draws a ring */
+.dt-whole:focus,
+.dt-whole-body:focus {
     outline: none;
 }
 
@@ -1352,6 +1362,7 @@ a.dt-address:hover {
 
 .dt-whole-head {
     display: flex;
+    flex: none;
     flex-wrap: wrap;
     align-items: baseline;
     gap: .2rem .75rem;
@@ -1361,6 +1372,18 @@ a.dt-address:hover {
 
 .dt-whole-head .link {
     margin-left: auto;
+}
+
+.dt-whole-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The window's actions under its body, as far under it as a row is under the one before */
+.dt-whole > .dt-whole-foot {
+    flex: none;
+    margin-top: .3rem;
 }
 
 /* What a row says, in its bar: one line each, its label and its value */
@@ -1399,11 +1422,20 @@ a.dt-address:hover {
     width: auto;
 }
 
-/* On a phone the labels take less room */
+/* On a phone the labels take less room; a window's foot with no label of its own has its
+   buttons from the left edge, as the label column above it is as wide as its own labels */
 @media (max-width: 560px) {
     .fold-details {
         grid-template-columns: max-content minmax(0, 1fr);
         gap: .3rem .6rem;
+    }
+
+    .dt-whole-foot > dt:empty {
+        display: none;
+    }
+
+    .dt-whole-foot > dt:empty + dd {
+        grid-column: 1 / -1;
     }
 }
 
@@ -7959,6 +7991,15 @@ button.st-pill.problem-where {
     .restart-window .restart-facts > dd {
         margin-bottom: .55rem;
     }
+
+    /* The space under the last fact is the foot's, so it stays as the facts scroll */
+    .restart-window .dt-whole-body > dd:last-child {
+        margin-bottom: 0;
+    }
+
+    .restart-window .dt-whole-foot {
+        margin-top: .55rem;
+    }
 }
 
 .health-tables {
@@ -8841,7 +8882,8 @@ button.st-pill.problem-where {
 }
 
 /* Its windows: a head with a tile, a title and a line under it, and ×; rows or a list; a foot
-   with what it does and its buttons */
+   with what it does and its buttons. The head and the foot stay where they are, and only what is
+   between them scrolls (dt-whole is the column). */
 .databases .db-window {
     width: min(720px, calc(100vw - 32px));
     max-height: calc(100vh - 64px);
@@ -8851,6 +8893,7 @@ button.st-pill.problem-where {
 
 .databases .db-window-head {
     display: flex;
+    flex: none;
     gap: 12px;
     align-items: center;
     padding: 16px 18px;
@@ -8894,13 +8937,30 @@ button.st-pill.problem-where {
 
 .databases .db-window-body {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 14px;
+    min-height: 0;
     padding: 18px;
+    overflow: auto;
+}
+
+/* Each part of it keeps its height, the list of apps too (its corners clip it): the body scrolls */
+.databases .db-window-body > * {
+    flex: none;
 }
 
 .databases .db-window-body p {
     margin: 0;
+}
+
+/* What Give or Remove ran into stays in view above the buttons, over the list scrolled under it:
+   10px over the body's edge (its padding is 18px), in a band of the window's colour */
+.databases .db-window-body > p.bad {
+    position: sticky;
+    bottom: -8px;
+    background: var(--panel);
+    box-shadow: 0 0 0 10px var(--panel);
 }
 
 .databases .db-window-rows {
@@ -8924,6 +8984,7 @@ button.st-pill.problem-where {
 
 .databases .db-window-foot {
     display: flex;
+    flex: none;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
@@ -9949,8 +10010,13 @@ section.apps-pane {
     padding: .1rem .55rem;
 }
 
-/* An app's settings, in a small window over Apps: its name, its public addresses, Save */
+/* An app's settings, in a small window over Apps: its name, its public addresses, Save. The
+   same window for each Add: its head (and tabs), its body and its foot in a column; the head and
+   the foot stay where they are and only the body scrolls, so × and the buttons are in view however
+   long it is. */
 .apps-pane .app-settings {
+    display: flex;
+    flex-direction: column;
     width: min(30rem, 100%);
     max-height: calc(100vh - 2rem);
     overflow: auto;
@@ -9963,6 +10029,7 @@ section.apps-pane {
 
 .apps-pane .app-settings-head {
     display: flex;
+    flex: none;
     align-items: flex-start;
     gap: .75rem;
 }
@@ -9989,6 +10056,15 @@ section.apps-pane {
 
 .apps-pane .app-settings-x:hover {
     color: var(--fg);
+}
+
+/* Its sides reach into the window's padding a little, so a focused field's ring is not cut */
+.apps-pane .app-settings-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0 -.3rem;
+    padding: 0 .3rem;
+    overflow: auto;
 }
 
 .apps-pane .app-settings-row {
@@ -10077,6 +10153,7 @@ section.apps-pane {
 
 .apps-pane .app-settings-foot {
     display: flex;
+    flex: none;
     flex-wrap: wrap;
     align-items: center;
     gap: .5rem .6rem;
@@ -10100,6 +10177,7 @@ section.apps-pane {
 
 /* The window's two tabs, under its title; on Data it is wider, for a variable and its value */
 .apps-pane .app-settings-tabs {
+    flex: none;
     margin: .75rem 0 0;
 }
 

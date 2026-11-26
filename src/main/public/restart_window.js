@@ -3,15 +3,16 @@ import format_ms from './format_ms.js';
 
 // The window that asks before a machine is restarted, over the page: why, what comes back by
 // itself and what does not, what ends, whether serviceman itself goes with it, and what happens
-// after; then Restart now, or Cancel. What it says is what serviceman reads of the machine as the
-// window opens (GET /api/v1/remotes/<name>/restart); a part it could not read says so. Restart
-// now asks for the restart and closes: the card it was opened from follows it in the status.
+// after; then, at its foot and always in view, Restart now, or Cancel. What it says is what
+// serviceman reads of the machine as the window opens (GET /api/v1/remotes/<name>/restart); a
+// part it could not read says so. Restart now asks for the restart and closes: the card it was
+// opened from follows it in the status.
 const restart_window = {
     template: `
 <div class="dt-window" @click.self="$emit('close')" @keydown.esc="$emit('close')">
-<div ref="box" class="dt-whole restart-window" role="dialog" aria-modal="true" tabindex="-1" :aria-label="('Restart ' + title)">
+<div class="dt-whole restart-window" role="dialog" aria-modal="true" tabindex="-1" :aria-label="('Restart ' + title)">
     <div class="dt-whole-head"><b>Restart {{ title }}?</b><button type="button" class="link" title="Close (Esc)" @click="$emit('close')">Close</button></div>
-    <dl class="fold-details restart-facts">
+    <dl ref="body" class="fold-details dt-whole-body restart-facts" tabindex="-1">
         <dt>Why</dt>
         <dd>{{ why }}</dd>
         <template v-if="(facts === null)">
@@ -32,6 +33,8 @@ const restart_window = {
             <dt>After</dt>
             <dd>a Security look as soon as its agent dials in again: a problem the restart mends goes then</dd>
         </template>
+    </dl>
+    <dl class="fold-details dt-whole-foot restart-facts">
         <template v-if="(refused !== null)">
             <dt></dt>
             <dd class="bad">{{ refused }}</dd>
@@ -98,7 +101,7 @@ const restart_window = {
         },
     },
     mounted: function () {
-        this.$refs.box.focus();
+        this.$refs.body.focus();
         this.load();
     },
     methods: {

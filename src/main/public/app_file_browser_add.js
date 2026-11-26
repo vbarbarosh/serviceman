@@ -10,33 +10,35 @@ const app_file_browser_add = {
         <h2>A file browser</h2>
         <button type="button" class="app-settings-x" title="Close: nothing is sent (Esc)" aria-label="Close" @click="close">×</button>
     </div>
-    <p class="muted app-settings-says">serviceman's File Manager, on a machine of yours, over one folder there: it opens on it, and never leaves it.</p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Name</span>
-        <input ref="name" v-model.trim="name" placeholder="files" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
-    </label>
-    <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Runs on</span>
-        <select v-model="remote" :disabled="busy">
-            <option value="" disabled>Pick a machine…</option>
-            <option v-for="item of machines" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option>
-        </select>
-    </label>
-    <p v-if="(machines.every(v => v.disabled))" class="muted app-settings-says">No machine can run it now: it needs one online.</p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Its folder</span>
-        <select v-model="from" :disabled="busy">
-            <option value="kept">a folder kept for it</option>
-            <option value="machine">a folder of the machine</option>
-        </select>
-    </label>
-    <label v-if="(from === 'machine')" class="app-settings-row">
-        <span class="app-settings-label">Path</span>
-        <input v-model.trim="path" placeholder="/srv/photos" spellcheck="false" autocomplete="off" :disabled="busy" @keyup.enter="add">
-    </label>
-    <p class="muted app-settings-says">{{ folder_says }}</p>
-    <p class="muted app-settings-says">Whoever opens it can read, change and delete everything in that folder: put it behind a wall in its Settings.</p>
+    <div class="app-settings-body">
+        <p class="muted app-settings-says">serviceman's File Manager, on a machine of yours, over one folder there: it opens on it, and never leaves it.</p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Name</span>
+            <input ref="name" v-model.trim="name" placeholder="files" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
+        </label>
+        <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Runs on</span>
+            <select v-model="remote" :disabled="busy">
+                <option value="" disabled>Pick a machine…</option>
+                <option v-for="item of machines" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option>
+            </select>
+        </label>
+        <p v-if="(machines.every(v => v.disabled))" class="muted app-settings-says">No machine can run it now: it needs one online.</p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Its folder</span>
+            <select v-model="from" :disabled="busy">
+                <option value="kept">a folder kept for it</option>
+                <option value="machine">a folder of the machine</option>
+            </select>
+        </label>
+        <label v-if="(from === 'machine')" class="app-settings-row">
+            <span class="app-settings-label">Path</span>
+            <input v-model.trim="path" placeholder="/srv/photos" spellcheck="false" autocomplete="off" :disabled="busy" @keyup.enter="add">
+        </label>
+        <p class="muted app-settings-says">{{ folder_says }}</p>
+        <p class="muted app-settings-says">Whoever opens it can read, change and delete everything in that folder: put it behind a wall in its Settings.</p>
+    </div>
     <div class="app-settings-foot">
         <button type="button" class="primary" :disabled="(busy || (name === '') || (remote === '') || ((from === 'machine') && (path === '')))" @click="add">{{ (busy ? 'Sending…' : 'Make it') }}</button>
         <button type="button" :disabled="busy" @click="close">Cancel</button>

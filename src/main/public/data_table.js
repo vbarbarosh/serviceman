@@ -5,10 +5,11 @@ import {Comment} from 'vue';
 // The one table of every page: the same look and the same behaviour wherever a list of things
 // is shown. Columns that do not fit fold away, the least needed first (fold_table). A click on a
 // row that has more to show, anywhere but its links, buttons and boxes, shows it whole in a
-// window over the page: every column, what folded and what has more to say, its actions, so the
-// rows stay where they were clicked; Close, Esc or a click beside it puts the window away. No
-// mark down the left edge, no details opening under a row. Actions sit last, one style for all,
-// and fold into the window on a narrow screen.
+// window over the page: every column, what folded and what has more to say, and its actions at
+// its foot, so the rows stay where they were clicked; its head and its foot stay in view as what
+// is between them scrolls. Close, Esc or a click beside it puts the window away. No mark down
+// the left edge, no details opening under a row. Actions sit last, one style for all, and fold
+// into the window on a narrow screen.
 //
 // Props
 //     columns    [{key, label, fold, wraps, clip, align, sort, hide, spread}]: fold a number, the
@@ -146,24 +147,24 @@ const data_table = {
         </span>
     </div>
     <div v-if="whole_shown(folded)" class="dt-window" @click.self="whole = null">
-    <div ref="whole" class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
         <div class="dt-whole-head">
             <b><slot name="cell" :row="whole_row" :column="columns[0]" :more="true">{{ whole_row[columns[0].key] }}</slot></b>
             <button type="button" class="link" title="Close (Esc)" @click="whole = null">Close</button>
         </div>
-        <dl class="fold-details">
+        <dl ref="whole_body" class="fold-details dt-whole-body" tabindex="-1">
             <template v-for="column of whole_columns(whole_row)" :key="('whole-' + column.key)">
                 <dt>{{ column.label }}</dt>
                 <dd><slot name="cell" :row="whole_row" :column="column" :more="true">{{ whole_row[column.key] }}</slot></dd>
             </template>
             <slot name="details" :row="whole_row"/>
-            <template v-if="(has_actions && (framed || folded.includes('actions')) && ((acts === null) || acts(whole_row)))">
-                <dt>{{ actions_label }}</dt>
-                <dd class="fold-actions dt-actions">
-                    <span v-if="asking_of(whole_row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
-                    <slot v-else name="actions" :row="whole_row" :ask="(question, yes, action) => ask(whole_row, question, yes, action)" :close="() => (whole = null)"/>
-                </dd>
-            </template>
+        </dl>
+        <dl v-if="(has_actions && (framed || folded.includes('actions')) && ((acts === null) || acts(whole_row)))" class="fold-details dt-whole-foot">
+            <dt>{{ actions_label }}</dt>
+            <dd class="fold-actions dt-actions">
+                <span v-if="asking_of(whole_row)" class="dt-confirm">{{ asking.question }} <button type="button" class="danger" @click="ask_yes">{{ asking.yes }}</button><button type="button" @click="asking = null">Cancel</button></span>
+                <slot v-else name="actions" :row="whole_row" :ask="(question, yes, action) => ask(whole_row, question, yes, action)" :close="() => (whole = null)"/>
+            </dd>
         </dl>
     </div>
     </div>
@@ -209,12 +210,13 @@ const data_table = {
         return {whole: null, folded: [], all_shown: false, shown_more: 0, asking: null};
     },
     watch: {
-        // A window opened takes the keys; Esc puts it away wherever the focus went since
+        // A window opened takes the keys in its body, which scrolls; Esc puts it away wherever
+        // the focus went since
         whole: function (key) {
             if (key !== null) {
                 this.$nextTick(function () {
-                    if (this.$refs.whole !== undefined) {
-                        this.$refs.whole.focus({preventScroll: true});
+                    if (this.$refs.whole_body !== undefined) {
+                        this.$refs.whole_body.focus({preventScroll: true});
                     }
                 });
             }

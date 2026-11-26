@@ -141,13 +141,16 @@
     margin-right: .35rem;
 }
 
-/* Free space, before it runs: the three steps, what each takes away, the old images by name */
+/* Free space, before it runs: the three steps, what each takes away, the old images by name;
+   they scroll when the old images are many, its head, what it frees and its buttons in view */
 .dk-free-steps {
     display: flex;
     flex-direction: column;
     gap: .7rem;
+    min-height: 0;
     margin: .2rem 1rem 0;
     padding-left: 1.4rem;
+    overflow: auto;
 }
 
 .dk-free-steps > li > code {

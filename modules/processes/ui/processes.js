@@ -4,8 +4,9 @@ import items_view from '../../items_view.js';
 
 // Everything running on one machine, as a tree, for a web page. The host gives the API, a GET
 // that answers {items, commands, cpu_window_ms}, the colours and its usual classes: list-tools,
-// list-right, seg, load, meter, muted, bad; its list is the page's items-view, drawn as the
-// manifest's columns say, imported from the page beside it.
+// list-right, seg, load, meter, muted, bad, and its window, dt-window, dt-whole with its head and
+// body; its list is the page's items-view, drawn as the manifest's columns say, imported from the
+// page beside it.
 
 // Everything running on a machine, as the tree it is: a process sits under the one that
 // started it, and a branch folds away. A click on a process opens the ones it started, or
@@ -30,20 +31,22 @@ const processes = {
         </template>
     </items-view>
     <div v-if="(picked !== null)" class="dt-window" @click.self="picked = null">
-    <div ref="picked_box" class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="dt-whole" role="dialog" aria-modal="true" tabindex="-1">
         <template v-if="(picked_in(items_now) !== null)">
             <div class="dt-whole-head">
                 <b>{{ picked }}</b>
                 <span class="muted">{{ picked_in(items_now).user }} · started by {{ parent_text(items_now, picked_in(items_now)) }} · {{ picked_in(items_now).state }}</span>
                 <button type="button" class="link" @click="picked = null">Close</button>
             </div>
-            <code class="proc-command">{{ picked_in(items_now).command }}</code>
-            <dl class="proc-numbers">
-                <dt>CPU</dt><dd>{{ picked_in(items_now).cpu.toFixed(1) }}%</dd>
-                <dt>Memory</dt><dd>{{ picked_in(items_now).mem.toFixed(1) }}% · {{ format_bytes(picked_in(items_now).rss) }} RSS</dd>
-                <dt>Running</dt><dd>{{ format_ms(picked_in(items_now).elapsed_ms) }}</dd>
-                <dt>Started</dt><dd>{{ children_text(items_now, picked_in(items_now)) }}</dd>
-            </dl>
+            <div ref="picked_body" class="dt-whole-body" tabindex="-1">
+                <code class="proc-command">{{ picked_in(items_now).command }}</code>
+                <dl class="proc-numbers">
+                    <dt>CPU</dt><dd>{{ picked_in(items_now).cpu.toFixed(1) }}%</dd>
+                    <dt>Memory</dt><dd>{{ picked_in(items_now).mem.toFixed(1) }}% · {{ format_bytes(picked_in(items_now).rss) }} RSS</dd>
+                    <dt>Running</dt><dd>{{ format_ms(picked_in(items_now).elapsed_ms) }}</dd>
+                    <dt>Started</dt><dd>{{ children_text(items_now, picked_in(items_now)) }}</dd>
+                </dl>
+            </div>
         </template>
         <div v-else class="dt-whole-head">
             <span class="muted">Process {{ picked }} is not running any more.</span>
@@ -69,12 +72,13 @@ const processes = {
         return {window_ms: null, picked: null, items_now: []};
     },
     watch: {
-        // A process shown whole is where the keys go: Esc puts its window away
+        // A process shown whole is where the keys go, to its body, which scrolls: Esc puts its
+        // window away
         picked: function (pid) {
             if (pid !== null) {
                 this.$nextTick(function () {
-                    if (this.$refs.picked_box !== undefined) {
-                        this.$refs.picked_box.focus({preventScroll: true});
+                    if (this.$refs.picked_body !== undefined) {
+                        this.$refs.picked_body.focus({preventScroll: true});
                     }
                 });
             }

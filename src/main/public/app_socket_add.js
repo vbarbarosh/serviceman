@@ -10,25 +10,27 @@ const app_socket_add = {
         <h2>An app on a socket</h2>
         <button type="button" class="app-settings-x" title="Close: nothing is sent (Esc)" aria-label="Close" @click="close">×</button>
     </div>
-    <p class="muted app-settings-says">Your app listens on a socket file; serviceman answers the app's address by passing every request into that file.</p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Name</span>
-        <input ref="name" v-model.trim="name" placeholder="agency" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
-    </label>
-    <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Its socket is</span>
-        <select v-model="remote" :disabled="busy">
-            <option value="">in serviceman's own {{ folder }}/ folder</option>
-            <option v-for="item of machines" :key="item.value" :value="item.value">{{ item.label }}</option>
-        </select>
-    </label>
-    <label class="app-settings-row">
-        <span class="app-settings-label">Socket</span>
-        <input v-model.trim="socket" :placeholder="socket_default" spellcheck="false" autocomplete="off" :disabled="busy" @keyup.enter="add">
-    </label>
-    <p v-if="(remote === '')" class="muted app-settings-says">a file in serviceman's own <code>{{ folder }}/</code>, the folder <code>bin/run</code> gives its container: your app listens on it there</p>
-    <p v-else class="muted app-settings-says">the file your app listens on{{ (remote ? ', on ' + remote : '') }}; <code>~</code> is the home of the user its agent runs as</p>
+    <div class="app-settings-body">
+        <p class="muted app-settings-says">Your app listens on a socket file; serviceman answers the app's address by passing every request into that file.</p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Name</span>
+            <input ref="name" v-model.trim="name" placeholder="agency" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="add">
+        </label>
+        <p class="muted app-settings-says">opens at <code>{{ host }}</code></p>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Its socket is</span>
+            <select v-model="remote" :disabled="busy">
+                <option value="">in serviceman's own {{ folder }}/ folder</option>
+                <option v-for="item of machines" :key="item.value" :value="item.value">{{ item.label }}</option>
+            </select>
+        </label>
+        <label class="app-settings-row">
+            <span class="app-settings-label">Socket</span>
+            <input v-model.trim="socket" :placeholder="socket_default" spellcheck="false" autocomplete="off" :disabled="busy" @keyup.enter="add">
+        </label>
+        <p v-if="(remote === '')" class="muted app-settings-says">a file in serviceman's own <code>{{ folder }}/</code>, the folder <code>bin/run</code> gives its container: your app listens on it there</p>
+        <p v-else class="muted app-settings-says">the file your app listens on{{ (remote ? ', on ' + remote : '') }}; <code>~</code> is the home of the user its agent runs as</p>
+    </div>
     <div class="app-settings-foot">
         <button type="button" class="primary" :disabled="(busy || (name === ''))" @click="add">{{ (busy ? 'Adding…' : 'Add') }}</button>
         <button type="button" :disabled="busy" @click="close">Cancel</button>

@@ -1,6 +1,6 @@
 /* The Processes module's own rules. The host page gives the colours and the classes the module
-   shares with it: list-tools, list-right, seg, load, meter, muted, bad; its list is the page's
-   items-view. */
+   shares with it: list-tools, list-right, seg, load, meter, muted, bad, and its window, dt-window,
+   dt-whole with its head and body; its list is the page's items-view. */
 
 /* A line of totals under the tools */
 .procs-summary {
@@ -11,11 +11,11 @@
     font-size: .9rem;
 }
 
-/* The process clicked, whole, in the page's bar (dt-whole): its command as it was typed,
-   wrapped, and its numbers */
+/* The process clicked, whole, in a window over the page (dt-whole): under its head, which stays,
+   its command as it was typed, wrapped, and its numbers, in the body that scrolls */
 .proc-command {
     display: block;
-    margin: .4rem 0;
+    margin: 0 0 .4rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }

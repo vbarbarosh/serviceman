@@ -29,55 +29,57 @@ const app_settings = {
         <button type="button" class="tab" :class="{on: (tab === 'settings')}" @click="click_settings">Settings</button>
         <button type="button" class="tab" :class="{on: (tab === 'data')}" @click="click_data">Data</button>
     </div>
-    <template v-if="(tab === 'settings')">
-        <label class="app-settings-row">
-            <span class="app-settings-label">Name</span>
-            <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
-        </label>
-        <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
-        <p v-if="(tailnet !== '')" class="muted app-settings-says">on every device of your tailnet at <a :href="tailnet" target="_blank" rel="noopener"><code>{{ tailnet }}</code></a><span v-if="(https_off !== null)" class="app-http-why"> · http only: {{ https_off.why }}</span></p>
-        <div v-if="(app.socket !== null)" class="app-settings-row">
-            <span class="app-settings-label">Socket</span>
-            <div class="app-socket-how">
-                <select v-model="where" aria-label="Where its socket is" :disabled="busy">
-                    <option value="">in serviceman's own {{ folder }}/ folder</option>
-                    <option v-for="item of machines" :key="item.value" :value="item.value">on {{ item.label }}</option>
-                </select>
-                <input v-model.trim="socket" class="app-socket-path" :placeholder="socket_default" spellcheck="false" autocomplete="off" aria-label="The file its app listens on" :disabled="busy" @keyup.enter="save">
-            </div>
-        </div>
-        <div class="app-settings-row">
-            <span class="app-settings-label">Sign-in</span>
-            <div class="app-wall-pick">
-                <wall-select v-model="pick" :walls="walls" :none="(from_apps ? ('as every app: behind ' + app.auth) : 'open: no sign-in')" :self="app.name" :disabled="busy" @create="$emit('walls')"/>
-                <p class="muted app-settings-says">{{ ((wall === null) ? 'anyone may open it' : 'every visitor signs in first, at every address') }}</p>
-            </div>
-        </div>
-        <div class="app-settings-row">
-            <span class="app-settings-label">Public address</span>
-            <div class="app-pub">
-                <ul v-if="(kept.length > 0)" class="app-pub-list">
-                    <li v-for="row of kept" :key="(row.machine + ' ' + row.host)">
-                        <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (behind_of(row) === null ? '' : ' · behind ' + behind_of(row)) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
-                        <button type="button" class="app-pub-drop" :disabled="busy" :title="('Take ' + row.host + ' away when you save')" @click="drop(row)">remove</button>
-                    </li>
-                </ul>
-                <p v-for="row of by_domain" :key="(row.machine + ' ' + row.host)" class="muted app-pub-also">also <code>{{ row.host }}</code> through {{ row.title }}, as every app under <code>{{ row.pattern }}</code></p>
-                <input v-model.trim="fresh.host" class="app-pub-host" placeholder="name.example.com" spellcheck="false" autocomplete="off" aria-label="A new public address" :disabled="busy" @keyup.enter="save">
-                <div v-if="(fresh.host !== '')" class="app-pub-how">
-                    <select v-model="fresh.machine" aria-label="Through the door of" :disabled="busy">
-                        <option value="">through the door of…</option>
-                        <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
+    <div class="app-settings-body">
+        <template v-if="(tab === 'settings')">
+            <label class="app-settings-row">
+                <span class="app-settings-label">Name</span>
+                <input ref="name" v-model.trim="name" spellcheck="false" autocomplete="off" maxlength="63" :disabled="busy" @keyup.enter="save">
+            </label>
+            <p class="muted app-settings-says">opens at <code>{{ host_after }}</code></p>
+            <p v-if="(tailnet !== '')" class="muted app-settings-says">on every device of your tailnet at <a :href="tailnet" target="_blank" rel="noopener"><code>{{ tailnet }}</code></a><span v-if="(https_off !== null)" class="app-http-why"> · http only: {{ https_off.why }}</span></p>
+            <div v-if="(app.socket !== null)" class="app-settings-row">
+                <span class="app-settings-label">Socket</span>
+                <div class="app-socket-how">
+                    <select v-model="where" aria-label="Where its socket is" :disabled="busy">
+                        <option value="">in serviceman's own {{ folder }}/ folder</option>
+                        <option v-for="item of machines" :key="item.value" :value="item.value">on {{ item.label }}</option>
                     </select>
-                    <select v-if="(wall === null)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
-                        <option value="">protected by nothing</option>
-                        <option v-for="item of guards" :key="item" :value="item">protected by {{ item }}</option>
-                    </select>
+                    <input v-model.trim="socket" class="app-socket-path" :placeholder="socket_default" spellcheck="false" autocomplete="off" aria-label="The file its app listens on" :disabled="busy" @keyup.enter="save">
                 </div>
             </div>
-        </div>
-    </template>
-    <app-data-tab v-else :app="app" :host="host" @new_database="$emit('new_database', $event)"/>
+            <div class="app-settings-row">
+                <span class="app-settings-label">Sign-in</span>
+                <div class="app-wall-pick">
+                    <wall-select v-model="pick" :walls="walls" :none="(from_apps ? ('as every app: behind ' + app.auth) : 'open: no sign-in')" :self="app.name" :disabled="busy" @create="$emit('walls')"/>
+                    <p class="muted app-settings-says">{{ ((wall === null) ? 'anyone may open it' : 'every visitor signs in first, at every address') }}</p>
+                </div>
+            </div>
+            <div class="app-settings-row">
+                <span class="app-settings-label">Public address</span>
+                <div class="app-pub">
+                    <ul v-if="(kept.length > 0)" class="app-pub-list">
+                        <li v-for="row of kept" :key="(row.machine + ' ' + row.host)">
+                            <span class="app-pub-what"><a :href="('https://' + row.host)" target="_blank" rel="noopener"><code>{{ row.host }}</code></a> <span class="muted">through {{ row.title }}{{ (behind_of(row) === null ? '' : ' · behind ' + behind_of(row)) }}{{ (row.off ? ' · set aside' : '') }}</span></span>
+                            <button type="button" class="app-pub-drop" :disabled="busy" :title="('Take ' + row.host + ' away when you save')" @click="drop(row)">remove</button>
+                        </li>
+                    </ul>
+                    <p v-for="row of by_domain" :key="(row.machine + ' ' + row.host)" class="muted app-pub-also">also <code>{{ row.host }}</code> through {{ row.title }}, as every app under <code>{{ row.pattern }}</code></p>
+                    <input v-model.trim="fresh.host" class="app-pub-host" placeholder="name.example.com" spellcheck="false" autocomplete="off" aria-label="A new public address" :disabled="busy" @keyup.enter="save">
+                    <div v-if="(fresh.host !== '')" class="app-pub-how">
+                        <select v-model="fresh.machine" aria-label="Through the door of" :disabled="busy">
+                            <option value="">through the door of…</option>
+                            <option v-for="item of machines" :key="item.value" :value="item.value">through {{ item.label }}</option>
+                        </select>
+                        <select v-if="(wall === null)" v-model="fresh.auth" aria-label="Protected by" :disabled="busy">
+                            <option value="">protected by nothing</option>
+                            <option v-for="item of guards" :key="item" :value="item">protected by {{ item }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <app-data-tab v-else :app="app" :host="host" @new_database="$emit('new_database', $event)"/>
+    </div>
     <div class="app-settings-foot">
         <template v-if="(tab === 'settings')">
             <button type="button" class="primary" :disabled="(busy || (changed === false))" @click="save">{{ (busy ? 'Saving…' : 'Save') }}</button>
