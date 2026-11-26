@@ -8,10 +8,11 @@ const FORMS = {'new-service': 'New service', 'new-remote': 'New remote', 'new-da
 // where you are. A step's `to` is what a click on it opens; the last one is where you are, and
 // has none.
 //
-//     place   {page, name, title, tab}: page is 'list', 'service', 'remote', 'database',
+//     place   {page, name, title, tab, file}: page is 'list', 'service', 'remote', 'database',
 //             'new-service', 'new-remote', 'new-database', 'join' or 'updates'; name and title of the
 //             service, machine or database open ('' when none, a title of '' shows the name);
-//             tab its open tab; a database's is 'browse' when its data is browsed
+//             tab its open tab; a database's is 'browse' when its data is browsed; file the name
+//             of a machine's SQLite file browsed, under its Files ('' or none for none)
 //
 //     [{label, to}]   to is {page, name, tab}, or null for the last
 function page_crumbs(place)
@@ -31,6 +32,10 @@ function page_crumbs(place)
     }
     const tabs = (place.page === 'service') ? SERVICE_TABS : REMOTE_TABS;
     const label = (place.title === '') ? place.name : place.title;
+    // A SQLite file browsed is under its machine's Files: Files goes back to its folder
+    if ((place.page === 'remote') && (place.tab === 'files') && (typeof place.file === 'string') && (place.file !== '')) {
+        return [{label, to: {page: 'remote', name: place.name, tab: 'overview'}}, {label: tabs.files, to: {page: 'remote', name: place.name, tab: 'files'}}, {label: place.file, to: null}];
+    }
     if ((place.tab === 'overview') || (tabs[place.tab] === undefined)) {
         return [{label, to: null}];
     }

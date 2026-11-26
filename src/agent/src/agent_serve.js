@@ -42,6 +42,7 @@ const agent_screenshot = require('./agent_screenshot');
 const agent_secrets_put = require('./agent_secrets_put');
 const agent_security = require('./agent_security');
 const agent_shell = require('./agent_shell');
+const agent_sqlite_read = require('./agent_sqlite_read');
 const agent_stats = require('./agent_stats');
 const agent_term_end = require('./agent_term_end');
 const agent_term_list = require('./agent_term_list');
@@ -100,7 +101,7 @@ const UPTIME_DAYS_MOST = 90;
 
 // What the host asks for every half minute, and every time it measures the link. These would
 // bury everything worth reading, so they are done quietly.
-const QUIET = ['ping', 'net_counters', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'disk_usage_progress', 'package_list', 'term_list'];
+const QUIET = ['ping', 'net_counters', 'stats', 'metrics', 'uptime', 'resources', 'shell_resize', 'fs_list', 'fs_stat', 'fs_room', 'file_part_stat', 'proc_list', 'port_list', 'disk_list', 'disk_usage', 'disk_usage_progress', 'package_list', 'term_list', 'sqlite_read'];
 
 // The work worth bracketing: a line that fetches a repo, an image that has to come down, a
 // shell line somebody wrote. It takes seconds, so a reader wants to see it start and wait.
@@ -359,7 +360,7 @@ function asked_words(message)
     if (message.method === 'fs_rename') {
         return {from: params.from, to: params.to};
     }
-    if (message.method === 'fs_delete') {
+    if ((message.method === 'fs_delete') || (message.method === 'sqlite_read')) {
         return {path: params.path};
     }
     if (message.method === 'link_create') {
@@ -497,6 +498,10 @@ async function method_run(options, state, method, params, say, group)
     }
     if (method === 'fs_delete') {
         return await agent_fs_delete(params);
+    }
+    if (method === 'sqlite_read') {
+        // A SQLite file's tables and rows, for the Data browser: read by a process of its own
+        return await agent_sqlite_read(params);
     }
     if (method === 'file_part_stat') {
         return await agent_file_part_stat(params);

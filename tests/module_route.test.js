@@ -18,6 +18,7 @@ const SERVES = {
     '/api/v1/remotes/<name>/volumes': ['modules/volumes/server/volumes_serve.js'],
     '/api/v1/remotes/<name>/fs': ['modules/file_manager/server/file_manager_serve.js'],
     '/api/v1/remotes/<name>/terminals': ['modules/terminal/server/terminal_serve.js'],
+    '/api/v1/remotes/<name>/sqlite/<file>/browse': ['modules/data_browser/server/data_browser_serve.js'],
     '/api/v1/transfers': ['modules/file_manager/server/file_manager_transfers_serve.js'],
     '/api/v1/databases/<server>/<database>/browse': ['modules/data_browser/server/data_browser_serve.js'],
 };
@@ -129,6 +130,12 @@ test('a token\'s right to a module is to the doors its manifest gives it, and th
     assert.strictEqual(right('GET', '/api/v1/databases/mongodb-1/orders/browse/documents'), null, 'a database\'s data is the owner\'s alone');
     const browse = module_mount_of('/api/v1/databases/mongodb-1/my%20db/browse/collections');
     assert.deepStrictEqual([browse.mount.manifest.module, browse.remote, browse.params, browse.tail], ['data_browser', null, {server: 'mongodb-1', database: 'my db'}, '/collections']);
+    // A SQLite file's data is under its machine, its path one word with its slashes encoded,
+    // and the owner's alone too
+    const file = module_mount_of('/api/v1/remotes/vps1/sqlite/%2Fhome%2Fuser%2Fnotes%2Fdata%2Fmy%20notes.db/browse/documents');
+    assert.deepStrictEqual([file.mount.manifest.module, file.remote, file.params, file.tail], ['data_browser', 'vps1', {name: 'vps1', file: '/home/user/notes/data/my notes.db'}, '/documents']);
+    assert.strictEqual(right('GET', '/api/v1/remotes/vps1/sqlite/%2Fhome%2Fuser%2Fnotes.db/browse/collections'), null, 'a SQLite file\'s data is the owner\'s alone');
+    assert.strictEqual(module_mount_of('/api/v1/remotes/vps1/sqlite/home/user/notes.db/browse'), null, 'a path with its slashes as they are is no file\'s');
     assert.deepStrictEqual(control_route_right('GET', '/api/v1/remotes/a%20b/disks'), {right: 'disks', said: 'read the disks', under: null, remote: 'a b'});
 });
 

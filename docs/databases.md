@@ -121,7 +121,40 @@ its JSON, with **Copy**. Their rows are read alone for now, said in the table's 
 Row**, no Edit or Delete yet. Each read is a `READ ONLY` transaction as the database's own user,
 signed in over its container's `127.0.0.1`, its password in the client's env (`PGPASSWORD`,
 `MYSQL_PWD`): a `DELETE` or a `DROP` typed into it is refused by the engine itself, and said so.
-SQLite files come to the same page later.
+A SQLite file comes to the same page from its machine's Files ([A SQLite file](#a-sqlite-file)).
+
+## A SQLite file
+
+A SQLite file needs no server: it is a file of a machine, often an app folder's `data/`, where
+an app keeps its state (`data/app.db`). The machine's **Files** has **Browse** for it among a
+ticked file's actions: a `.sqlite`, `.sqlite3` or `.db` file, or any file whose first bytes are
+SQLite's own, `SQLite format 3` (read when it is ticked; a file that is no text, opened from its
+name, has Browse on its card too). A service's Files tab, its folder on its machine, has it as
+well.
+
+Browse opens the same page as a database's data, at
+`/remotes/<machine>/files/browse?path=<file>`, under Files in the crumbs: Remotes › vps1 ›
+Files › app.db. Its head is the file's: its name, **SQLite**, its machine, its path, its size and
+when it last changed, and **Its folder**, which goes back to Files, at the folder it is in. Under
+it, its tables and views down the left, each with its rows; **Find** with a condition, **Order
+by and columns**, **Query** for a `SELECT` of your own, a page at a time, a row opened whole as
+its JSON, as a PostgreSQL's ([Its data, browsed](#its-data-browsed)). An integer keeps every
+digit (`9007199254740993`), a blob is its hex (`0x00ff`).
+
+The machine's agent reads it, with its own Node's `node:sqlite`: nothing is installed for it,
+and nothing of the file leaves the machine but the page asked for. A machine whose Node is older
+than 22.16 has no `node:sqlite` whole: its Browse is greyed, and says so. The file is opened read
+only: a `DELETE` or a `DROP` typed into the query box is refused, and nothing typed into it ever
+writes. The rows are read alone for now, as a PostgreSQL's are. Each read runs in a process of
+its own beside the agent, so a query that takes long holds nothing else of the machine: it is
+stopped at 20 s, and when the agent restarts, it ends with it. A file another program is writing
+at that moment is said to be locked, read again a moment later; a `.db` file that is no SQLite
+says so in place of its tables. A database in WAL mode keeps a `-wal` and a `-shm` file beside
+it while it is open; read while its app is stopped, they stay there after, empty, as any reader
+of it leaves them, and the app's next open takes them over.
+
+`bin/run-local`'s Files has the same Browse, on this computer's files (see
+[module-host](../src/module-host/README.md)).
 
 ## The passwords
 

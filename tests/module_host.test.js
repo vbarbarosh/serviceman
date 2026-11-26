@@ -4,6 +4,7 @@ const fs = require('fs');
 const handshake_raw = require('./handshake_raw');
 const http = require('http');
 const modules_served = require('../src/module-host/src/modules_served');
+const node_sqlite_refusal_of = require('../src/helpers/node_sqlite_refusal_of');
 const os = require('os');
 const page_key = require('../src/module-host/src/page_key');
 const path = require('path');
@@ -47,7 +48,7 @@ test('module-host serves every file a module\'s page half imports', async functi
                 }
             }
         }
-        for (const asked of ['/items_view.js', '/remote_shell.js', '/_/terminal/terminal.js', '/_/file_manager/file_manager.js']) {
+        for (const asked of ['/items_view.js', '/remote_shell.js', '/_/terminal/terminal.js', '/_/file_manager/file_manager.js', '/sqlite_browse.js', '/_/data_browser/data_browser.js', '/_/data_browser/sqlite_file_act.js']) {
             assert.ok(seen.has(asked), asked);
         }
         for (const url of Object.values(imports).filter(v => v.endsWith('/') === false)) {
@@ -89,6 +90,7 @@ test('module-host answers its own page only, in the browser that holds its key',
 // serviceman asks a machine, asked of this one
 test('module-host reads this computer through the agent it runs', {timeout: 60000}, async function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'module-host-run-'));
+    const files = fs.mkdtempSync(path.join(os.tmpdir(), 'module-host-files-'));
     const port = 40000 + Math.floor(Math.random()*10000);
     const child = child_process.spawn(process.execPath, [path.join(__dirname, '../src/module-host/index.js')], {
         env: Object.assign({}, process.env, {PORT: String(port), SERVICEMAN_AGENT_DIR: dir}),
@@ -113,12 +115,27 @@ test('module-host reads this computer through the agent it runs', {timeout: 6000
         assert.ok(disks.items.length > 0);
         const terminals = await (await fetch(`${base}/api/terminal`, {headers: {cookie}})).json();
         assert.deepStrictEqual(terminals.items, []);
+        // A SQLite file of this computer, read by the agent's own reader, as a machine's is
+        if (node_sqlite_refusal_of(process.version) === null) {
+            const {DatabaseSync} = require('node:sqlite');
+            const file = path.join(files, 'notes.db');
+            const db = new DatabaseSync(file);
+            db.exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, text TEXT); INSERT INTO notes VALUES (1, \'hello\');');
+            db.close();
+            const browse = `${base}/api/data_browser/${encodeURIComponent(file)}/browse`;
+            const head = await (await fetch(browse, {headers: {cookie}})).json();
+            assert.deepStrictEqual([head.engine, head.database, head.size], ['sqlite', 'notes.db', fs.statSync(file).size]);
+            const notes = await (await fetch(`${browse}/documents?collection=notes`, {headers: {cookie}})).json();
+            assert.deepStrictEqual([notes.items, notes.count], [[{id: 1, text: 'hello'}], 1]);
+            assert.strictEqual((await fetch(`${base}/api/data_browser/browse`, {headers: {cookie}})).status, 404);
+        }
         // The agent keeps what it keeps in its folder, and nothing in this checkout
         assert.deepStrictEqual(fs.readdirSync(dir).sort(), ['page.key']);
     }
     finally {
         child.kill();
         fs.rmSync(dir, {recursive: true, force: true});
+        fs.rmSync(files, {recursive: true, force: true});
     }
 });
 

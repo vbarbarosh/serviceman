@@ -706,7 +706,7 @@ img {
 </ul>
 <h2>Modules</h2>
 <ul>
-<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#a-sql-database">A SQL database</a></li><li><a href="#the-api">The API</a></li></ul></li>
+<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#a-sql-database">A SQL database</a></li><li><a href="#a-sqlite-file">A SQLite file</a></li><li><a href="#the-api">The API</a></li></ul></li>
 <li><a href="disks.html">Disks</a></li>
 <li><a href="docker.html">Docker</a></li>
 <li><a href="file_manager.html">Files</a></li>
@@ -732,11 +732,12 @@ finds it. The last queries of each collection that ran are kept in the browser, 
 shown whole has <strong>Edit</strong>, which reads it again whole by its <code>_id</code> (a page may show some of its
 fields alone, and saving those would drop the rest), and <strong>Delete</strong>, asked before it is done.
 A view&#39;s documents and a pipeline&#39;s results are read alone.</p>
-<p>PostgreSQL and MySQL come to the same page in their own words: their tables are its
-collections, their rows its documents (<a href="#a-sql-database">A SQL database</a>). <strong>Find</strong> finds rows
-by a condition typed after <code>WHERE</code>, with <strong>Order by</strong> and <strong>Columns</strong> under it, and <strong>Query</strong>,
-where Aggregate is, runs a <code>SELECT</code> typed whole. A row shown whole is its JSON, with Copy. Their
-rows are read alone for now: changing them comes in a step of its own. SQLite files come later.</p>
+<p>PostgreSQL, MySQL and a SQLite file come to the same page in their own words: their tables are
+its collections, their rows its documents (<a href="#a-sql-database">A SQL database</a>, <a href="#a-sqlite-file">A SQLite
+file</a>). <strong>Find</strong> finds rows by a condition typed after <code>WHERE</code>, with <strong>Order
+by</strong> and <strong>Columns</strong> under it, and <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed whole. A
+row shown whole is its JSON, with Copy. Their rows are read alone for now: changing them comes
+in a step of its own, for every SQL engine at once.</p>
 <p>It has two halves and knows nothing of where the database is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
 handler given an <strong>adapter</strong>, which says the engine&#39;s words and has the host <strong>run</strong> them in
@@ -744,8 +745,9 @@ the database. The host gives the way to run a script there, mounts the handler a
 and decides who may ask.</p>
 <p>serviceman is the first host: a database&#39;s page has Browse, which opens this component on it,
 and the scripts run inside its server&#39;s container, in that database, signed in as the user
-serviceman made for it, never root. The owner alone may: the manifest names no right a token
-may be given.</p>
+serviceman made for it, never root. A SQLite file has Browse in its machine&#39;s Files, and the
+machine&#39;s agent reads it itself. The owner alone may: the manifest names no right a token may be
+given. module-host has it too, on a SQLite file of its own computer, opened from its Files.</p>
 <h2 id="layout"><a class="anchor" href="#layout" aria-hidden="true" tabindex="-1">#</a>Layout</h2>
 <pre><code>server/data_browser_serve.js     the HTTP API, given an adapter
 server/data_browser_manifest.js  its kinds of items
@@ -753,6 +755,7 @@ server/mongodb_adapter.js        MongoDB&#39;s: each ask a mongosh script, given
 server/ejson_from_text.js        a query as typed, read as data, into Extended JSON
 server/postgresql_adapter.js     PostgreSQL&#39;s: each ask a psql script, given run(script)
 server/mysql_adapter.js          MySQL&#39;s: each ask a mysql script, given run(script)
+server/sqlite_adapter.js         SQLite&#39;s: each ask the statements a file&#39;s reader runs, given run(ask)
 server/sql_part_from_text.js     a condition, an order, columns or a query as typed
 server/ejson_from_json.js        a SQL engine&#39;s JSON, its numbers kept whole
 server/ejson_number_from_text.js a number as an engine wrote it, kept whole
@@ -764,9 +767,12 @@ ui/mongo_cell_of.js              a value on one line, for a cell
 ui/mongo_type_of.js              which of the shell&#39;s types a value is
 ui/sql_text_of.js                a SQL row as JSON, its numbers with their digits
 ui/sql_cell_of.js                a SQL value on one line, for a cell
+ui/sqlite_file_act.js            Browse, for a host to give the File Manager on a SQLite file
 tests/                           the API over fake adapters, the reading and writing of
                                  queries; DATA_BROWSER_MONGO, DATA_BROWSER_POSTGRES and
-                                 DATA_BROWSER_MYSQL run the adapters on a real database
+                                 DATA_BROWSER_MYSQL run the adapters on a real database;
+                                 SQLite&#39;s runs on files the test makes, read by
+                                 serviceman&#39;s agent&#39;s reader
 </code></pre>
 <h2 id="a-query-is-data"><a class="anchor" href="#a-query-is-data" aria-hidden="true" tabindex="-1">#</a>A query is data</h2>
 <p>What a person types is never run. <code>ejson_from_text</code> reads the filter, the sort and the fields
@@ -819,10 +825,54 @@ of one name, and writes a <code>FLOAT</code> as its double (<code>1.100000023841
 script twice: first with <code>--column-type-info</code>, the page&#39;s statement under <code>LIMIT 0</code>, which MySQL
 answers at once with the result&#39;s columns and their types and no row; then with <code>--xml</code>, which
 tells <code>NULL</code> from the text <code>NULL</code>, for the rows, each value read by its column&#39;s type.</p>
+<h2 id="a-sqlite-file"><a class="anchor" href="#a-sqlite-file" aria-hidden="true" tabindex="-1">#</a>A SQLite file</h2>
+<p>A SQLite file of a machine, <code>.sqlite</code>, <code>.sqlite3</code>, <code>.db</code> or any file whose first bytes are
+SQLite&#39;s own, is a database of its own: Browse in the File Manager opens it here. Nothing runs it
+on the machine but the machine&#39;s agent, with its Node&#39;s own <code>node:sqlite</code>: nothing is installed
+there, and a machine whose Node is older than 22.16 says so (501), its Browse greyed.</p>
+<p><code>run(ask)</code> gives the agent the statements of one ask, <code>{ms, steps: [{sql, params, skip, limit, bytes, ms}]}</code>, and the agent answers each with what it found (<code>{names, rows, more, cut, took_ms}</code>, the rows as JSON whose integers are their digits) or SQLite&#39;s refusal and its result
+code. The adapter writes the statements and reads the answers, as the others write a script and
+read what it printed.</p>
+<ul>
+<li><strong>Its reader.</strong> The agent reads the file in a node process of its own, started for each ask,
+never in its own: a statement holds the thread it runs in until it ends, and nothing stops it
+before then, not even a worker thread&#39;s <code>terminate</code>. The process is killed instead. Inside
+it, a thread of its own runs SQLite, and the process&#39;s own thread kills it the moment the
+agent&#39;s end of its stdin closes, or an answer cannot be written to the agent: an agent that
+is stopped or restarted takes its reader with it, whatever its statement is doing. (Ended as
+a process ends, it would wait for that thread, and so for its statement.) Eight files are read at once on a machine at most (503
+past them).</li>
+<li><strong>Tables.</strong> Its tables and views by name, SQLite&#39;s own (<code>sqlite_*</code>) left out, each with its
+rows, its size (its pages, as <code>dbstat</code> counts them) and its indexes. A table up to 64 MB is
+counted, all of them within 5 s; past either, the rows <code>sqlite_stat1</code> keeps for it are said,
+as an estimate, where an <code>ANALYZE</code> made one, and none where none did. A table of a module
+(FTS5, R*Tree) is not counted.</li>
+<li><strong>Rows and Query</strong> as a SQL database&#39;s: a condition, an order, the columns; a query typed
+whole (<code>SELECT</code>, <code>WITH</code>, <code>VALUES</code>, <code>PRAGMA table_info(…)</code>, <code>EXPLAIN QUERY PLAN …</code>). A query&#39;s
+page is read one row past itself, and its rows from the first are passed over to its page.</li>
+<li><strong>Values.</strong> An integer as SQLite keeps it, whole past 2^53 (<code>{$numberLong: &#39;…&#39;}</code>), a real as
+a number (one past a double, <code>1e999</code>, as the text <code>Infinity</code>), text as it is, a blob as <code>0x</code>
+and its hex, as MySQL&#39;s binary data, <code>NULL</code> as null. A date is the text or the number it was
+written as. A view&#39;s two columns of one name are named apart by SQLite itself, <code>id:1</code>; a
+query&#39;s are kept as the other engines&#39; are, <code>id (2)</code>.</li>
+<li><strong>Nothing written.</strong> The file is opened read only, and <code>query_only</code> refuses every write
+besides: a <code>DELETE … RETURNING</code> or a write in a condition is refused by SQLite (<code>it writes, and this page changes nothing for now</code>). A statement that gives no rows, a <code>DELETE</code>, a <code>DROP</code>,
+an <code>ATTACH</code>, a <code>VACUUM INTO</code>, is not run at all, nor a second statement after the first. A
+database in WAL mode keeps a <code>-wal</code> and a <code>-shm</code> file beside it while it is open; read while
+its app is stopped, they stay there after, empty, as any reader of it leaves them, and its
+app&#39;s next open takes them over.</li>
+<li><strong>Time and size.</strong> A statement may take 20 s, a count 5 s; a page carries 4 MB, and a reader
+stops past 24 MB of answer (a row alone that large). A file another program holds locked while
+it writes is waited for 2 s, then said so (409). A file that is gone (404), a folder or a file
+that is no SQLite (400) are said by the reader before anything else is asked of it.</li>
+</ul>
 <h2 id="the-api"><a class="anchor" href="#the-api" aria-hidden="true" tabindex="-1">#</a>The API</h2>
 <p>What it holds is written down in <code>server/data_browser_manifest.js</code>, in
 <a href="../index.html#modules">the shape every module has</a>. Under the base the host mounts it at —
-serviceman&#39;s is <code>/api/v1/databases/&lt;server&gt;/&lt;database&gt;/browse</code>:</p>
+serviceman&#39;s is <code>/api/v1/databases/&lt;server&gt;/&lt;database&gt;/browse</code>, and a SQLite file&#39;s
+<code>/api/v1/remotes/&lt;name&gt;/sqlite/&lt;file&gt;/browse</code>, <code>&lt;file&gt;</code> its path as one word, its slashes
+encoded too (<code>%2F</code>, as <code>encodeURIComponent</code> writes it); module-host&#39;s is
+<code>/api/data_browser/&lt;file&gt;/browse</code>:</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -832,7 +882,7 @@ serviceman&#39;s is <code>/api/v1/databases/&lt;server&gt;/&lt;database&gt;/brow
 </thead>
 <tbody><tr>
 <td><code>GET &lt;base&gt;</code></td>
-<td><code>{engine, database, …}</code>: the engine, and what the host heads it with</td>
+<td><code>{engine, database, …}</code>: the engine, and what the host heads it with; a SQLite file&#39;s <code>{engine: &#39;sqlite&#39;, database, remote, path, label, size, mtime_ms}</code>, once it opened as SQLite</td>
 </tr>
 <tr>
 <td><code>GET &lt;base&gt;/collections</code></td>

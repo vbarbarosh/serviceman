@@ -12,8 +12,9 @@ const BODY_MOST = 4*1024*1024;
 // one's documents as a filter or a pipeline finds them, and a document added, put in place of
 // another or deleted. The host gives `adapter`, which says the engine's words and runs them in
 // the database as its own user ({engine, collections(), documents(ask), aggregate(ask), insert,
-// replace, remove}: mongodb_adapter; postgresql_adapter and mysql_adapter, whose tables are the
-// collections and rows the documents, read a SELECT as the pipeline, and change nothing yet),
+// replace, remove}: mongodb_adapter; postgresql_adapter, mysql_adapter and sqlite_adapter, whose
+// tables are the collections and rows the documents, read a SELECT as the pipeline, and change
+// nothing yet),
 // and `about`, what the page heads it with ({engine, database, server, remote}). Nothing is kept
 // here: each read asks the database.
 //

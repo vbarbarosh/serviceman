@@ -372,12 +372,28 @@ The page half: the host serves `ui/` and maps it, with Vue and a CodeMirror bund
 | `transfers` | where the host's copies between disks are; without it there is no Copy to… |
 | `disk` | this disk's name among them |
 | `targets` | the disks a file may be copied to, its own first: `[{value, label}]`; Copy to… opens on the first each time |
+| `acts` | what the host does with a file of a kind, beside Download (below); none by default |
 
 It emits `path`, the folder it shows, each time it shows another one: the host keeps it where a
 reload finds it and gives it back as `start`. serviceman keeps it in the address,
 `/remotes/<name>/files?path=<folder>`, so a reload, Back and a link sent to somebody come back
 to it. A `start` that is not there any more opens the nearest folder on its way that is, and
 says so.
+
+### A host's own acts on a file
+
+The module knows nothing of what a file is to its host. `acts` names what the host does with a
+file of a kind, each `{act, label, title, names, head, refusal}`: a file whose name `names`
+matches (a RegExp), or whose first bytes are `head` (text, a byte a character), has a button
+`label` when it is ticked alone, first after its name, and on the card a file that is no text
+opens to. The first bytes are read once a file is ticked, as a range of `<base>/file`, as many
+as the longest `head` needs. A click emits `act`, `{act, path, name, size, mtime_ms}`, and what
+it opens is the host's. `refusal`, when one is set, keeps the button greyed, saying why.
+
+serviceman and module-host give it **Browse** on a SQLite file, which the Data module names
+(`modules/data_browser/ui/sqlite_file_act.js`): a `.sqlite`, `.sqlite3` or `.db` file, or one
+whose first bytes are `SQLite format 3` and a zero. It opens the file's tables and rows, read
+by its machine's agent ([A SQLite file](../../docs/databases.md#a-sqlite-file)).
 
 ### Files and folders from outside
 
@@ -443,6 +459,8 @@ and `--accent`, and the classes the component shares with the rest of the page: 
   with `root`, the folder the copy makes, which the machine's agent keeps (`fs_root`); to an
   agent from before it no folder is copied, and the copy says how the agent updates
 - `src/main/public/serviceman.js` has `remote_files`, the Remote tab, which wraps the component
+  and gives it Browse on a SQLite file, greyed on a machine whose agent reads none; a click
+  opens the file's page, `/remotes/<name>/files/browse?path=<file>`
 - `src/main/public/index.html` loads the css and maps `file_manager/`; the control server
   serves `ui/` at `/modules/file_manager/`
 - `bin/vendor` bundles `vendor_src/codemirror.js`

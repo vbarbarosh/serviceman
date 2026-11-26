@@ -39,11 +39,15 @@ const SHARED = [
     '/items_rows.js',
     '/items_view.js',
     '/module_kind.js',
+    '/sqlite_browse.js',
+    '/state_pill.js',
+    '/storage_get.js',
+    '/storage_set.js',
     '/to_clipboard.js',
 ];
 
 // GET /                         the page
-// GET /api/modules              [{key, title, page}]
+// GET /api/modules              [{key, title, page, listed}]
 // GET /api/machine              {hostname, user, cores, addresses}
 // GET /api/v1/modules           {modules}: each one's manifest and where it is mounted, as serviceman answers them
 // GET /api/v1/streams (query)   the streams of lines kept now, a module's by its base
@@ -76,7 +80,7 @@ async function request_answer(req, res)
         return;
     }
     if ((pathname === '/api/modules') && (req.method === 'GET')) {
-        send(res, 200, 'application/json', JSON.stringify(modules_served.map(v => ({key: v.key, title: v.title, page: (v.page === undefined) ? `/_/${v.key}/${v.key}.js` : v.page}))));
+        send(res, 200, 'application/json', JSON.stringify(modules_served.map(v => ({key: v.key, title: v.title, page: (v.page === undefined) ? `/_/${v.key}/${v.key}.js` : v.page, listed: (v.listed !== false)}))));
         return;
     }
     // The items view draws a module's lists from its manifest, read here as on the control page

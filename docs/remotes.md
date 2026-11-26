@@ -44,7 +44,9 @@ By hand it is the same thing, with a secret of your own:
 Three ways to the same agent. It needs node and nothing else — no npm install, no build.
 On a machine with no node, the install line says so before anything else, before the
 password `--root` asks for, and prints the command that puts node, one file, in `~/bin`; the
-same install line run again finds it there.
+same install line run again finds it there. Any node runs it; reading a SQLite file in Files
+([A SQLite file](databases.md#a-sqlite-file)) wants node 22.16 or later, whose `node:sqlite` is
+whole, and an older one says so on Browse.
 
 ### One file
 

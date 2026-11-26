@@ -1162,6 +1162,10 @@ import file_manager from &#39;file_manager/file_manager.js&#39;;
 <td><code>targets</code></td>
 <td>the disks a file may be copied to, its own first: <code>[{value, label}]</code>; Copy to… opens on the first each time</td>
 </tr>
+<tr>
+<td><code>acts</code></td>
+<td>what the host does with a file of a kind, beside Download (below); none by default</td>
+</tr>
 </tbody></table>
 </div>
 <p>It emits <code>path</code>, the folder it shows, each time it shows another one: the host keeps it where a
@@ -1169,6 +1173,18 @@ reload finds it and gives it back as <code>start</code>. serviceman keeps it in 
 <code>/remotes/&lt;name&gt;/files?path=&lt;folder&gt;</code>, so a reload, Back and a link sent to somebody come back
 to it. A <code>start</code> that is not there any more opens the nearest folder on its way that is, and
 says so.</p>
+<h3 id="a-hosts-own-acts-on-a-file"><a class="anchor" href="#a-hosts-own-acts-on-a-file" aria-hidden="true" tabindex="-1">#</a>A host&#39;s own acts on a file</h3>
+<p>The module knows nothing of what a file is to its host. <code>acts</code> names what the host does with a
+file of a kind, each <code>{act, label, title, names, head, refusal}</code>: a file whose name <code>names</code>
+matches (a RegExp), or whose first bytes are <code>head</code> (text, a byte a character), has a button
+<code>label</code> when it is ticked alone, first after its name, and on the card a file that is no text
+opens to. The first bytes are read once a file is ticked, as a range of <code>&lt;base&gt;/file</code>, as many
+as the longest <code>head</code> needs. A click emits <code>act</code>, <code>{act, path, name, size, mtime_ms}</code>, and what
+it opens is the host&#39;s. <code>refusal</code>, when one is set, keeps the button greyed, saying why.</p>
+<p>serviceman and module-host give it <strong>Browse</strong> on a SQLite file, which the Data module names
+(<code>modules/data_browser/ui/sqlite_file_act.js</code>): a <code>.sqlite</code>, <code>.sqlite3</code> or <code>.db</code> file, or one
+whose first bytes are <code>SQLite format 3</code> and a zero. It opens the file&#39;s tables and rows, read
+by its machine&#39;s agent (<a href="../databases.html#a-sqlite-file">A SQLite file</a>).</p>
 <h3 id="files-and-folders-from-outside"><a class="anchor" href="#files-and-folders-from-outside" aria-hidden="true" tabindex="-1">#</a>Files and folders from outside</h3>
 <p>What the dialogs take, a drop takes, as the rulebook&#39;s UIM-04 to UIM-06 ask:</p>
 <ul>
@@ -1230,7 +1246,9 @@ which reads it with this module&#39;s <code>tar_parser</code>, and says so as <c
 connected with an agent that keeps parts. A folder&#39;s copy is written through <code>remote_disk</code>
 with <code>root</code>, the folder the copy makes, which the machine&#39;s agent keeps (<code>fs_root</code>); to an
 agent from before it no folder is copied, and the copy says how the agent updates</li>
-<li><code>src/main/public/serviceman.js</code> has <code>remote_files</code>, the Remote tab, which wraps the component</li>
+<li><code>src/main/public/serviceman.js</code> has <code>remote_files</code>, the Remote tab, which wraps the component
+and gives it Browse on a SQLite file, greyed on a machine whose agent reads none; a click
+opens the file&#39;s page, <code>/remotes/&lt;name&gt;/files/browse?path=&lt;file&gt;</code></li>
 <li><code>src/main/public/index.html</code> loads the css and maps <code>file_manager/</code>; the control server
 serves <code>ui/</code> at <code>/modules/file_manager/</code></li>
 <li><code>bin/vendor</code> bundles <code>vendor_src/codemirror.js</code></li>

@@ -12,6 +12,7 @@ const volumes_manifest = require('../../../../modules/volumes/server/volumes_man
 const vulnerabilities_manifest = require('../../../../modules/vulnerabilities/server/vulnerabilities_manifest');
 
 // Where serviceman mounts each module's API: a machine's at /api/v1/remotes/<name>/<mount>, a
+// SQLite file's data on it at /api/v1/remotes/<name>/sqlite/<file>/browse, its path one word, a
 // database's data at /api/v1/databases/<server>/<database>/browse, the copies between machines
 // once, at /api/v1/transfers. What each one holds and does is its
 // manifest, by which every request to it is routed (module_route) and every right a token may
@@ -26,6 +27,7 @@ const MODULE_MOUNTS = mounts_with_re([
     {base: '/api/v1/remotes/<name>/vulnerabilities', manifest: vulnerabilities_manifest},
     {base: '/api/v1/remotes/<name>/fs', manifest: file_manager_manifest},
     {base: '/api/v1/remotes/<name>/terminals', manifest: terminal_manifest},
+    {base: '/api/v1/remotes/<name>/sqlite/<file>/browse', manifest: data_browser_manifest},
     {base: '/api/v1/transfers', manifest: file_manager_transfers_manifest},
     {base: '/api/v1/databases/<server>/<database>/browse', manifest: data_browser_manifest},
 ]);

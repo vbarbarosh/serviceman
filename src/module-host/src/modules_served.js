@@ -1,5 +1,6 @@
 const apt_run = require('../../main/src/helpers/apt_run');
 const container_disk = require('../../../modules/docker/server/container_disk');
+const data_browser_manifest = require('../../../modules/data_browser/server/data_browser_manifest');
 const disks_manifest = require('../../../modules/disks/server/disks_manifest');
 const disks_serve = require('../../../modules/disks/server/disks_serve');
 const docker_exec_connect = require('../../main/src/helpers/docker_exec_connect');
@@ -20,6 +21,8 @@ const processes_manifest = require('../../../modules/processes/server/processes_
 const processes_serve = require('../../../modules/processes/server/processes_serve');
 const remote_call = require('../../main/src/helpers/remote_call');
 const remote_disk = require('../../main/src/helpers/remote_disk');
+const route_param = require('../../main/src/helpers/route_param');
+const sqlite_browse_serve = require('../../main/src/helpers/sqlite_browse_serve');
 const stream_open = require('../../main/src/helpers/stream_open');
 const term_create_refusal = require('../../helpers/term_create_refusal');
 const term_name_valid = require('../../helpers/term_name_valid');
@@ -46,6 +49,8 @@ const HELLO_WAIT_MS = 10000;
 const HELLO_STEP_MS = 50;
 
 const RE_CONTAINER_FS = /^\/containers\/([0-9a-f]{12,64})\/fs(\/.*)?$/;
+// A SQLite file's data: its path one word, as serviceman's address has it
+const RE_FILE_BROWSE = /^\/([^/]+)\/browse(\/.*)?$/;
 
 const MODULES = path.resolve(__dirname, '../../../modules');
 
@@ -57,6 +62,7 @@ const MODULES = path.resolve(__dirname, '../../../modules');
 //     page      the component the page opens, when it is not the module's own <key>.js: a
 //               module whose page half is only a part (the Terminal's pane) is opened in the
 //               control page's own component around it
+//     listed    false for one the list leaves out, opened from another (Data, from Files)
 //     manifest  what it holds and does, which its lists are drawn from
 //     serve     its API at /api/<key>, with the address after that as tail
 const modules_served = [
@@ -170,6 +176,33 @@ const modules_served = [
                 return;
             }
             await file_manager_serve(req, res, {disk: remote_disk(app, remote), tail, name: remote.name, log: log_of(app)});
+        },
+    },
+    {
+        key: 'data_browser',
+        title: 'Data',
+        ui: path.join(MODULES, 'data_browser/ui'),
+        page: '/sqlite_browse.js',
+        listed: false,
+        manifest: data_browser_manifest,
+        // A SQLite file of this computer, read by the agent's own code, as serviceman has a
+        // machine's: /api/data_browser/<file>/browse…
+        serve: async function (req, res, tail) {
+            const {app, remote} = machine_host();
+            const found = RE_FILE_BROWSE.exec(tail);
+            if (found === null) {
+                send_json(res, 404, {error: `no such door: /api/data_browser${tail}`});
+                return;
+            }
+            try {
+                await online(remote);
+            }
+            catch (error) {
+                send_json(res, error.status, {error: error.message});
+                return;
+            }
+            const query = new URL(req.url, 'http://module-host.invalid').searchParams;
+            await sqlite_browse_serve(app, req, res, {remote, file: route_param(found[1]), tail: (found[2] === undefined) ? '' : found[2], query});
         },
     },
     {

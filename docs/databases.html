@@ -694,7 +694,7 @@ img {
 <li><a href="logs.html">The log</a></li>
 <li><a href="remotes.html">Remotes</a></li>
 <li><a href="shared-folders.html">Shared folders</a></li>
-<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#its-data-browsed">Its data, browsed</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#its-port-on-another-machine">Its port on another machine</a></li><li><a href="#its-port-on-the-internet">Its port on the internet</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
+<li class="current"><a href="databases.html" aria-current="page">Databases</a><ul class="toc"><li><a href="#new-database">New database</a></li><li><a href="#a-databases-page">A database&#39;s page</a></li><li><a href="#its-data-browsed">Its data, browsed</a></li><li><a href="#a-sqlite-file">A SQLite file</a></li><li><a href="#the-passwords">The passwords</a></li><li><a href="#samples">Samples</a></li><li><a href="#an-app-picks-one">An app picks one</a></li><li><a href="#mongodb">MongoDB</a></li><li><a href="#couchdb-for-a-walls-users">CouchDB, for a wall&#39;s users</a></li><li><a href="#its-port-on-another-machine">Its port on another machine</a></li><li><a href="#its-port-on-the-internet">Its port on the internet</a></li><li><a href="#remove">Remove</a></li><li><a href="#for-whoever-runs-it">For whoever runs it</a></li></ul></li>
 <li><a href="mounts.html">Mounts</a></li>
 <li><a href="deploy.html">Deploy</a></li>
 <li><a href="terminals.html">Terminals from another program</a></li>
@@ -848,7 +848,35 @@ its JSON, with <strong>Copy</strong>. Their rows are read alone for now, said in
 Row</strong>, no Edit or Delete yet. Each read is a <code>READ ONLY</code> transaction as the database&#39;s own user,
 signed in over its container&#39;s <code>127.0.0.1</code>, its password in the client&#39;s env (<code>PGPASSWORD</code>,
 <code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into it is refused by the engine itself, and said so.
-SQLite files come to the same page later.</p>
+A SQLite file comes to the same page from its machine&#39;s Files (<a href="#a-sqlite-file">A SQLite file</a>).</p>
+<h2 id="a-sqlite-file"><a class="anchor" href="#a-sqlite-file" aria-hidden="true" tabindex="-1">#</a>A SQLite file</h2>
+<p>A SQLite file needs no server: it is a file of a machine, often an app folder&#39;s <code>data/</code>, where
+an app keeps its state (<code>data/app.db</code>). The machine&#39;s <strong>Files</strong> has <strong>Browse</strong> for it among a
+ticked file&#39;s actions: a <code>.sqlite</code>, <code>.sqlite3</code> or <code>.db</code> file, or any file whose first bytes are
+SQLite&#39;s own, <code>SQLite format 3</code> (read when it is ticked; a file that is no text, opened from its
+name, has Browse on its card too). A service&#39;s Files tab, its folder on its machine, has it as
+well.</p>
+<p>Browse opens the same page as a database&#39;s data, at
+<code>/remotes/&lt;machine&gt;/files/browse?path=&lt;file&gt;</code>, under Files in the crumbs: Remotes › vps1 ›
+Files › app.db. Its head is the file&#39;s: its name, <strong>SQLite</strong>, its machine, its path, its size and
+when it last changed, and <strong>Its folder</strong>, which goes back to Files, at the folder it is in. Under
+it, its tables and views down the left, each with its rows; <strong>Find</strong> with a condition, <strong>Order
+by and columns</strong>, <strong>Query</strong> for a <code>SELECT</code> of your own, a page at a time, a row opened whole as
+its JSON, as a PostgreSQL&#39;s (<a href="#its-data-browsed">Its data, browsed</a>). An integer keeps every
+digit (<code>9007199254740993</code>), a blob is its hex (<code>0x00ff</code>).</p>
+<p>The machine&#39;s agent reads it, with its own Node&#39;s <code>node:sqlite</code>: nothing is installed for it,
+and nothing of the file leaves the machine but the page asked for. A machine whose Node is older
+than 22.16 has no <code>node:sqlite</code> whole: its Browse is greyed, and says so. The file is opened read
+only: a <code>DELETE</code> or a <code>DROP</code> typed into the query box is refused, and nothing typed into it ever
+writes. The rows are read alone for now, as a PostgreSQL&#39;s are. Each read runs in a process of
+its own beside the agent, so a query that takes long holds nothing else of the machine: it is
+stopped at 20 s, and when the agent restarts, it ends with it. A file another program is writing
+at that moment is said to be locked, read again a moment later; a <code>.db</code> file that is no SQLite
+says so in place of its tables. A database in WAL mode keeps a <code>-wal</code> and a <code>-shm</code> file beside
+it while it is open; read while its app is stopped, they stay there after, empty, as any reader
+of it leaves them, and the app&#39;s next open takes them over.</p>
+<p><code>bin/run-local</code>&#39;s Files has the same Browse, on this computer&#39;s files (see
+<a href="https://github.com/vbarbarosh/serviceman/blob/main/src/module-host/README.md">module-host</a>).</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>
 <p>serviceman makes root&#39;s password and every user&#39;s, and keeps them in <code>data/databases.json</code>, mode
 600, beside what it writes about itself: never in the config, never in an answer to the page

@@ -150,6 +150,7 @@ const file_manager = {
         </template>
         <template v-else-if="(chosen_names.length > 0)">
             <b>{{ chosen_text }}</b>
+            <button v-for="act of chosen_acts" :key="act.act" type="button" class="primary" :disabled="(offline || (act.refusal !== undefined))" :title="((act.refusal === undefined) ? act.title : act.refusal)" @click="click_act(act, chosen_file)">{{ act.label }}</button>
             <a class="button" :href="download_url" download>Download</a>
             <button v-if="(chosen_names.length === 1)" type="button" :disabled="offline" @click="mode_open('rename')">Rename</button>
             <button type="button" :disabled="offline" @click="mode_open('move')">Move to…</button>
@@ -268,6 +269,7 @@ const file_manager = {
         <div v-if="(open_file.state === 'loading')" class="card fm-editor-msg muted"><span class="spin"/>reading {{ open_file.name }}…</div>
         <div v-else-if="(open_file.state === 'binary')" class="card fm-editor-msg">
             <p><b>{{ open_file.name }}</b> is not text, so it is not opened here.</p>
+            <p v-if="(open_acts.length > 0)" class="fm-acts"><button v-for="act of open_acts" :key="act.act" type="button" class="primary" :disabled="(offline || (act.refusal !== undefined))" :title="((act.refusal === undefined) ? act.title : act.refusal)" @click="click_act(act, open_file)">{{ act.label }}</button></p>
             <p><a :href="file_url(open_file)" target="_blank" rel="noreferrer">Open it in a tab</a> · <a :href="download_one(open_file)" download>Download it</a></p>
         </div>
         <div v-else-if="(open_file.state === 'error')" class="card fm-editor-msg bad">{{ open_file.error }}</div>
@@ -287,11 +289,16 @@ const file_manager = {
     // transfers  where the host's copies between disks are; none, and no file is copied away
     // disk       this disk's name among them
     // targets    the other disks a file may be copied to: [{value, label}]
+    // acts       what the host does with a file of a kind, beside Download: [{act, label, title,
+    //            names, head, refusal}]. A file whose name `names` matches (a RegExp), or whose
+    //            first bytes are `head`, read when it is ticked alone, has a button `label`;
+    //            `refusal`, when there is one, keeps it greyed, saying why. None by default.
     components: {'copy-progress': copy_progress, 'data-table': data_table},
-    props: ['base', 'theme', 'offline', 'open_base', 'title', 'user', 'home_title', 'start', 'transfers', 'disk', 'targets'],
+    props: ['base', 'theme', 'offline', 'open_base', 'title', 'user', 'home_title', 'start', 'transfers', 'disk', 'targets', 'acts'],
     // path       the folder now shown, each time another one is, for the host to keep: in the
     //            address, say, where a reload finds it and gives it back as `start`
-    emits: ['path'],
+    // act        one of `acts` clicked, {act, path, name, size, mtime_ms}: the file's
+    emits: ['path', 'act'],
     data: function () {
         return {
             LANGUAGES,
@@ -357,6 +364,9 @@ const file_manager = {
             transfers_paused: false,
             copy_disk: '',
             copy_dir: '',
+            // The first bytes of the files read for `acts`, by file_key_of: as text, a byte a
+            // character
+            heads: {},
         };
     },
     computed: {
@@ -613,6 +623,19 @@ const file_manager = {
             const count = this.chosen_names.length;
             return (count === 1) ? this.chosen_names[0] : `${count} items`;
         },
+        // The one file ticked, {name, path, size, mtime_ms}; null for a folder or several names
+        chosen_file: function () {
+            const item = (this.chosen_names.length === 1) ? this.items.find(v => v.name === this.chosen_names[0]) : undefined;
+            return ((item === undefined) || (item.kind !== 'file')) ? null : Object.assign({path: `${this.path}/${item.name}`}, item);
+        },
+        // The host's acts on the one file ticked, by its name or its first bytes
+        chosen_acts: function () {
+            return (this.chosen_file === null) ? [] : this.acts_of(this.chosen_file);
+        },
+        // And on the file opened that is no text
+        open_acts: function () {
+            return ((this.open_file === null) || (this.open_file.state !== 'binary')) ? [] : this.acts_of(this.open_file);
+        },
         // Why the question the bar asks would be refused, as far as this page knows, in the
         // disk's own words; '' when it knows no reason. A rename onto a name the folder shown
         // holds: a disk never replaces one. The list may be old, and a move goes to a folder
@@ -828,6 +851,9 @@ const file_manager = {
             if ((value.length === 1) && ((old.length !== 1) || (old[0] !== value[0]))) {
                 this.new_name = value[0];
             }
+            if (this.chosen_file !== null) {
+                this.head_read(this.chosen_file);
+            }
             if ((value.length === 0) && (this.mode !== 'folder')) {
                 this.mode = '';
             }
@@ -966,6 +992,40 @@ const file_manager = {
         download_one: function (file) {
             return `${this.base}/file${url_path(file.path)}`;
         },
+        // The host's acts a file has: by its name, or by its first bytes once they are read
+        acts_of: function (file) {
+            const head = this.heads[file_key_of(file)];
+            return (Array.isArray(this.acts) ? this.acts : []).filter(v => ((v.names instanceof RegExp) && v.names.test(file.name)) || ((typeof v.head === 'string') && (head !== undefined) && head.startsWith(v.head)));
+        },
+        // The first bytes of a file, for the acts that know a file by them and not by its name,
+        // read once: the bytes the longest head needs, as a range; a file shorter than that has
+        // none of them
+        head_read: async function (file) {
+            const acts = (Array.isArray(this.acts) ? this.acts : []).filter(v => (typeof v.head === 'string') && (((v.names instanceof RegExp) && v.names.test(file.name)) === false));
+            const length = Math.max(0, ...acts.map(v => v.head.length));
+            const key = file_key_of(file);
+            if ((length === 0) || (this.heads[key] !== undefined) || (file.size === null) || (file.size < length)) {
+                return;
+            }
+            this.heads[key] = '';
+            try {
+                const answer = await fetch(this.download_one(file), {cache: 'no-store', headers: {range: `bytes=0-${length - 1}`}});
+                if (answer.ok === false) {
+                    throw new Error(`the server answered ${answer.status}`);
+                }
+                this.heads[key] = head_text_of(new Uint8Array(await answer.arrayBuffer()));
+            }
+            catch {
+                // Read again the next time it is ticked
+                delete this.heads[key];
+            }
+        },
+        // A file of the root folder is named /a, not //a
+        click_act: function (act, file) {
+            if (act.refusal === undefined) {
+                this.$emit('act', {act: act.act, path: file.path.replace(/^\/\/+/, '/'), name: file.name, size: file.size, mtime_ms: file.mtime_ms});
+            }
+        },
         file_open: async function (item) {
             const path = (item.path === undefined) ? `${this.path}/${item.name}` : item.path;
             this.editor_destroy();
@@ -988,8 +1048,10 @@ const file_manager = {
                 this.open_file.error = error.message;
                 return;
             }
-            // A zero byte near the start is a file that is not text, whatever its name says
+            // A zero byte near the start is a file that is not text, whatever its name says; its
+            // first bytes say what it is to the host's acts
             if (bytes.subarray(0, 8000).includes(0)) {
+                this.heads[file_key_of(this.open_file)] = head_text_of(bytes.subarray(0, 64));
                 this.open_file.state = 'binary';
                 return;
             }
@@ -1744,6 +1806,18 @@ function transfer_going_of(item)
 function plural(count, one, many)
 {
     return (count === 1) ? one : many;
+}
+
+// A file as its first bytes are kept: the same path, size and time are the same bytes
+function file_key_of(file)
+{
+    return `${file.path} ${file.size} ${file.mtime_ms}`;
+}
+
+// Bytes as text, a byte a character, as an act's head is written: 'SQLite format 3\u0000'
+function head_text_of(bytes)
+{
+    return String.fromCharCode(...bytes);
 }
 
 // A disk path as a url path: each name encoded, the slashes kept

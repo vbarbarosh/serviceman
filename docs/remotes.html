@@ -755,7 +755,9 @@ themselves</strong> starts its command with the same address.</p>
 <p>Three ways to the same agent. It needs node and nothing else — no npm install, no build.
 On a machine with no node, the install line says so before anything else, before the
 password <code>--root</code> asks for, and prints the command that puts node, one file, in <code>~/bin</code>; the
-same install line run again finds it there.</p>
+same install line run again finds it there. Any node runs it; reading a SQLite file in Files
+(<a href="databases.html#a-sqlite-file">A SQLite file</a>) wants node 22.16 or later, whose <code>node:sqlite</code> is
+whole, and an older one says so on Browse.</p>
 <h3 id="one-file"><a class="anchor" href="#one-file" aria-hidden="true" tabindex="-1">#</a>One file</h3>
 <pre><code>curl -fsSL https://serviceman.example.com/api/v1/agent.js -o serviceman-agent.js
 node serviceman-agent.js --url https://serviceman.example.com --token 0c0f…a91b

@@ -144,6 +144,16 @@ async function main()
         await require('./src/agent_term_keeper')(argv[1]);
         return;
     }
+    if (argv[0] === '--sqlite-read') {
+        // Not an agent this time: the reader of a SQLite file, for one ask of the agent's
+        // (agent_sqlite_read), and in it the thread that reads it
+        require('./src/agent_sqlite_child')();
+        return;
+    }
+    if (argv[0] === '--sqlite-worker') {
+        require('./src/agent_sqlite_worker')();
+        return;
+    }
     if (argv.includes('--status')) {
         // Not an agent this time: the one that is running is asked, and what it says is printed
         process.exitCode = await agent_status_ask();

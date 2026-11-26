@@ -83,6 +83,8 @@ import services_pane from './services_pane.js';
 import settled from './settled.js';
 import shared_folders_pane from './shared_folders_pane.js';
 import snippet from './snippet.js';
+import sqlite_browse from './sqlite_browse.js';
+import sqlite_file_act from 'data_browser/sqlite_file_act.js';
 import state_pill from './state_pill.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
@@ -1210,13 +1212,24 @@ const remote_files = {
     <p class="muted">The agent on this machine is from before the file manager, so its folders cannot be read yet.</p>
     <p class="muted">It updates itself within a minute or two of being connected; the Overview says when it refuses, and why.</p>
 </article>
-<file-manager v-else id="detail" class="list" :base="base" :theme="theme" :offline="offline" :open_base="open_base" :title="(view.title || view.name)" :user="agent_user" home_title="The home folder of the agent's user" :start="start" transfers="/api/v1/transfers" :disk="view.name" :targets="targets" @path="$emit('path', $event)"/>
+<file-manager v-else id="detail" class="list" :base="base" :theme="theme" :offline="offline" :open_base="open_base" :title="(view.title || view.name)" :user="agent_user" home_title="The home folder of the agent's user" :start="start" transfers="/api/v1/transfers" :disk="view.name" :targets="targets" :acts="acts" @path="$emit('path', $event)" @act="act_take"/>
 `,
     components: {'file-manager': file_manager},
-    // start: the folder to open first, from the address; path: each folder opened after
+    // start: the folder to open first, from the address; path: each folder opened after;
+    // browse: a SQLite file's Browse clicked, {remote, path}
     props: ['view', 'remotes', 'control', 'theme', 'start'],
-    emits: ['path'],
+    emits: ['browse', 'path'],
     computed: {
+        // Browse on a SQLite file, its data read by this machine's agent; greyed, saying why, on
+        // a machine whose agent reads none
+        acts: function () {
+            const machine = this.view.machine;
+            if ((machine !== null) && (machine.can !== null) && machine.can.includes('sqlite_read')) {
+                return [sqlite_file_act];
+            }
+            const node = ((machine === null) || !machine.node) ? 'its Node' : `Node ${machine.node}`;
+            return [Object.assign({}, sqlite_file_act, {refusal: `This machine's agent reads no SQLite file: it is from before they were read, or it runs ${node}, and node:sqlite comes whole with Node 22.16`})];
+        },
         // The machines a file can be copied to: this one first, said so, since a copy within one
         // machine is the copy most often meant; then the others, and one that is not connected
         // now takes the copy when it is back
@@ -1257,6 +1270,14 @@ const remote_files = {
                 return null;
             }
             return `${this.base}/open`;
+        },
+    },
+    methods: {
+        // Browse on a SQLite file: its page, the app's to open
+        act_take: function (event) {
+            if (event.act === 'browse') {
+                this.$emit('browse', {remote: this.view.name, path: event.path});
+            }
         },
     },
 };
@@ -1643,7 +1664,7 @@ const remote_page = {
     <remote-logline v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" @logline="$emit('logline')"/>
     <remote-docker v-else-if="(tab_now === 'docker')" :key="('docker-' + view.name)" :view="view" :theme="theme"/>
     <remote-firewall v-else-if="(tab_now === 'firewall')" :key="('firewall-' + view.name)" :view="view"/>
-    <remote-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme" :start="files_path" @path="$emit('files_path', $event)"/>
+    <remote-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme" :start="files_path" @path="$emit('files_path', $event)" @browse="$emit('browse', $event)"/>
     <remote-processes v-else-if="(tab_now === 'processes')" :key="('processes-' + view.name)" :view="view"/>
     <remote-disks v-else-if="(tab_now === 'disks')" :key="('disks-' + view.name)" :view="view"/>
     <remote-packages v-else-if="(tab_now === 'packages')" :key="('packages-' + view.name)" :view="view"/>
@@ -1662,7 +1683,7 @@ const remote_page = {
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
-    emits: ['create', 'databases', 'files_path', 'logline', 'saved', 'select', 'select_named', 'service', 'tab'],
+    emits: ['browse', 'create', 'databases', 'files_path', 'logline', 'saved', 'select', 'select_named', 'service', 'tab'],
     data: function () {
         // menu_open: its ⋯; more_open: the tabs under More ▾; copied: the note's Copy, said a moment;
         // charts_range, charts_rate: the range and the rate picked, as this browser keeps them for
@@ -1948,7 +1969,7 @@ const remote_page = {
 const service_files = {
     template: `
 <p v-if="(view.type === 'shell' && place.remote !== null)" class="muted svc-files-lead">Its working directory on {{ place.remote.name }}{{ (agent_user === '') ? '' : (', as ' + agent_user) }}: what it runs, and what it writes.</p>
-<remote-files v-if="(view.type === 'shell' && place.remote !== null)" :view="place.remote" :remotes="remotes" :control="control" :theme="theme" :start="place.folder"/>
+<remote-files v-if="(view.type === 'shell' && place.remote !== null)" :view="place.remote" :remotes="remotes" :control="control" :theme="theme" :start="place.folder" @browse="$emit('browse', $event)"/>
 <article v-else-if="(view.type === 'shell')" id="detail" class="list fm">
     <p class="muted">{{ place.why }}</p>
 </article>
@@ -1959,6 +1980,8 @@ const service_files = {
 `,
     components: {'file-manager': file_manager, 'remote-files': remote_files},
     props: ['view', 'remotes', 'control', 'theme'],
+    // browse: a SQLite file of its machine's, its Browse clicked
+    emits: ['browse'],
     data: function () {
         return {container_id: null, error: null};
     },
@@ -2157,7 +2180,7 @@ const service_page = {
         <p class="muted">{{ original_state === 'none' ? 'This serviceman runs without a config file, so nothing about the service can be changed from here.' : 'reading the config…' }}</p>
     </article>
     <service-logs v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" :logline="logline" :theme="theme"/>
-    <service-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme"/>
+    <service-files v-else-if="(tab_now === 'files')" :key="('files-' + view.name)" :view="view" :remotes="remotes" :control="control" :theme="theme" @browse="$emit('browse', $event)"/>
     <program-shell v-else-if="(tab_now === 'shell' && view.type === 'shell')" :key="('program-shell-' + view.name)" :view="view" :remotes="remotes" :theme="theme"/>
     <service-shell v-else-if="(tab_now === 'shell')" :key="('shell-' + view.name)" :view="view" :theme="theme"/>
     </keep-alive>
@@ -2166,7 +2189,7 @@ const service_page = {
     components: {'copy-progress': copy_progress, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
-    emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
+    emits: ['browse', 'clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
         // tied: the config's forwards that are part of it, as the file has them; forward_labels:
@@ -2458,6 +2481,13 @@ const service_page = {
     },
 };
 
+// The folder a file is in, as its path says it
+function folder_of(file)
+{
+    const at = file.lastIndexOf('/');
+    return (at <= 0) ? '/' : file.slice(0, at);
+}
+
 // A count as its place in a row: 1st, 2nd, 3rd, 4th, 11th, 21st
 function ordinal_of(n)
 {
@@ -2582,14 +2612,15 @@ const app = {
         <join-form v-else-if="join_form_open" :key="join_key" :join="join_original" :tailnet="tailnet_name" :port="state.control.port" @close="join_form_open = false" @saved="poll"/>
         <remote-form v-else-if="remote_form_open" :key="remote_form_key" :original="null" :control="state.control" :tailnet="tailnet_name" @close="remote_form_close" @saved="remote_saved" @service_here="remote_service_here"/>
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" :kinds="kind_by_remote" :counts="service_counts" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
-        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :state="state" @files_path="remote_files_paths[selected_remote.name] = $event" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @select_named="select_named" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
+        <sqlite-browse v-else-if="((selected_remote !== null) && (sqlite_place !== null) && (sqlite_place.remote === selected_remote.name))" :key="sqlite_place.path" :place="sqlite_place" :view="selected_remote" @place="sqlite_place = $event" @remote="remote_select_named" @folder="sqlite_folder_open"/>
+        <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :state="state" @files_path="remote_files_paths[selected_remote.name] = $event" @browse="sqlite_open" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @select_named="select_named" @service="service_settings"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @browse="sqlite_open" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
 </main>
 `,
-    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'database-browse': database_browse, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'updates-page': updates_page, 'volumes-pane': volumes_pane},
+    components: {'addresses-pane': addresses_pane, 'apps-pane': apps_pane, 'boards-pane': boards_pane, 'authwall-pane': authwall_pane, 'canvas-pane': canvas_pane, 'categories-pane': categories_pane, 'config-editor': config_editor, 'crumbs-bar': crumbs_bar, 'find-palette': find_palette, 'forwards-section': forwards_section, 'health-pane': health_pane, 'mounts-section': mounts_section, 'join-form': join_form, 'load-tests-pane': load_tests_pane, 'logline-pane': logline_pane, 'map-pane': map_pane, 'networking-pane': networking_pane, 'remote-form': remote_form, 'remote-page': remote_page, 'remotes-pane': remotes_pane, 'secrets-form': secrets_form, 'security-pane': security_pane, 'service-form': service_form, 'service-page': service_page, 'services-pane': services_pane, 'shared-folders-pane': shared_folders_pane, 'sqlite-browse': sqlite_browse, 'database-browse': database_browse, 'databases-pane': databases_pane, 'tailscale-pane': tailscale_pane, 'tokens-form': tokens_form, 'updates-page': updates_page, 'volumes-pane': volumes_pane},
     data: function () {
         return {
             state: null,
@@ -2619,6 +2650,9 @@ const app = {
             // The folder each machine's File Manager shows, by machine: in the address, so a reload
             // and a link come back to it
             remote_files_paths: {},
+            // A SQLite file of the machine open, browsed in place of its page: {page: 'file',
+            // remote, path, collection}; null for none
+            sqlite_place: null,
             // The terminal last open in each machine's Shell tab, by machine; and the one last open
             // on any, which another machine opens too when it has one of that name
             remote_terminals: {},
@@ -2847,6 +2881,10 @@ const app = {
                 const tail = (this.service_tab_now === 'overview') ? '' : `/${this.service_tab_now}`;
                 return `/services/${encodeURIComponent(this.selected_name)}${tail}`;
             }
+            if ((this.remote_name !== null) && (this.sqlite_place !== null) && (this.sqlite_place.remote === this.remote_name)) {
+                const collection = (this.sqlite_place.collection === '') ? '' : `&collection=${encodeURIComponent(this.sqlite_place.collection)}`;
+                return `/remotes/${encodeURIComponent(this.remote_name)}/files/browse?path=${encodeURIComponent(this.sqlite_place.path)}${collection}`;
+            }
             if (this.remote_name !== null) {
                 const tail = (this.remote_tab_now === 'overview') ? '' : `/${this.remote_tab_now}`;
                 const item = ((this.remote_tab_now === 'shell') && (this.remote_terminal_now !== null)) ? `/${encodeURIComponent(this.remote_terminal_now)}` : '';
@@ -2965,8 +3003,10 @@ const app = {
                 return (place.page === 'new') ? page_crumbs({page: 'new-database', name: '', title: '', tab: ''}) : page_crumbs({page: 'database', name: place.server, title: (place.database === '') ? '' : place.database, tab: (place.page === 'browse') ? 'browse' : ''});
             }
             if ((this.kind_now === 'remotes') && (this.selected_remote !== null)) {
-                // Named as its head names it, by its name; its title is on the line under it
-                return page_crumbs({page: 'remote', name: this.selected_remote.name, title: '', tab: this.remote_tab_now});
+                // Named as its head names it, by its name; its title is on the line under it. A
+                // SQLite file browsed is under its Files.
+                const file = (this.sqlite_place === null) ? '' : this.sqlite_place.path.slice(this.sqlite_place.path.lastIndexOf('/') + 1);
+                return page_crumbs({page: 'remote', name: this.selected_remote.name, title: '', tab: this.remote_tab_now, file});
             }
             if ((this.kind_now === 'services') && (this.selected !== null)) {
                 return page_crumbs({page: 'service', name: this.selected.name, title: '', tab: this.service_tab_now});
@@ -3182,7 +3222,14 @@ const app = {
                     return;
                 }
                 this.remote_name = route.name;
-                if ((route.path !== null) && (route.path !== undefined)) {
+                // A SQLite file browsed, /remotes/<name>/files/browse?path=<file>: its folder is
+                // the one its Files shows when it is left
+                const is_file = (route.tab === 'files') && (route.item === 'browse') && (typeof route.path === 'string') && (route.path !== '');
+                if (is_file) {
+                    this.sqlite_place = {page: 'file', remote: route.name, path: route.path, collection: route.collection || ''};
+                    this.remote_files_paths[route.name] = folder_of(route.path);
+                }
+                else if ((route.path !== null) && (route.path !== undefined)) {
                     this.remote_files_paths[route.name] = route.path;
                 }
                 this.selected_name = null;
@@ -3613,6 +3660,7 @@ const app = {
             this.shared_open = false;
             this.databases_open = false;
             this.database_place = null;
+            this.sqlite_place = null;
             this.form_open = false;
             this.remote_form_open = false;
             this.networking_open = false;
@@ -3689,6 +3737,21 @@ const app = {
             this.remote_name = view.name;
             this.selected_name = null;
             this.remote_key++;
+        },
+        // A SQLite file's Browse, from its machine's Files or a service's: its page, under the
+        // machine's Files, which shows its folder when it is left
+        sqlite_open: function (event) {
+            this.panes_close();
+            this.remote_name = event.remote;
+            this.selected_name = null;
+            this.remote_tab = 'files';
+            this.remote_files_paths[event.remote] = folder_of(event.path);
+            this.sqlite_place = {page: 'file', remote: event.remote, path: event.path, collection: ''};
+        },
+        sqlite_folder_open: function (folder) {
+            this.remote_files_paths[this.sqlite_place.remote] = folder;
+            this.remote_tab = 'files';
+            this.sqlite_place = null;
         },
         remote_new: function () {
             this.panes_close();
@@ -3840,6 +3903,11 @@ const app = {
                 return;
             }
             if (to.page === 'remote') {
+                // From a SQLite file back to Files: the folder it is in
+                if ((this.sqlite_place !== null) && (to.tab === 'files')) {
+                    this.remote_files_paths[this.sqlite_place.remote] = folder_of(this.sqlite_place.path);
+                }
+                this.sqlite_place = null;
                 this.remote_tab = to.tab;
             }
         },

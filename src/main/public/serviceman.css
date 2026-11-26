@@ -2078,6 +2078,19 @@ main > section:has(> #page:not(.fills)) {
     font-size: inherit;
 }
 
+/* A SQLite file's path in its Browse page's head: whole, broken anywhere it must on a phone */
+.item-line .sqb-path {
+    min-width: 0;
+    color: var(--fg);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+/* Why a SQLite file is not read, its path in it as whole */
+.sqb-refusal {
+    overflow-wrap: anywhere;
+}
+
 .item-menu > button.on {
     color: var(--link);
     font-weight: 600;

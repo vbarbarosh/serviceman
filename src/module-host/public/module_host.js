@@ -1,9 +1,11 @@
+import sqlite_file_act from 'data_browser/sqlite_file_act.js';
 import {createApp, markRaw} from 'vue';
 
 const THEME_KEY = 'module-host.theme';
 
 // What each module's component is given here, from this computer (its name, user, cores and
-// addresses) and the page's theme: its API is /api/<key>, as serviceman gives it a machine's
+// addresses), the page's theme and the folder Files opens first: its API is /api/<key>, as
+// serviceman gives it a machine's
 const MODULE_PROPS = {
     processes: v => ({base: '/api/processes', cores: v.machine.cores}),
     disks: () => ({base: '/api/disks'}),
@@ -20,7 +22,8 @@ const MODULE_PROPS = {
             shell_url: vv => `/api/shell?container=${vv.id}`,
         };
     },
-    file_manager: v => ({base: '/api/file_manager', theme: v.theme, title: v.machine.hostname, user: v.machine.user, home_title: `The home folder of ${v.machine.user}`, disk: v.machine.hostname, targets: []}),
+    // Browse on a SQLite file, which this page opens in place of Files
+    file_manager: v => ({base: '/api/file_manager', theme: v.theme, title: v.machine.hostname, user: v.machine.user, home_title: `The home folder of ${v.machine.user}`, disk: v.machine.hostname, targets: [], start: v.folder, acts: [(v.machine.sqlite_refusal === null) ? sqlite_file_act : Object.assign({}, sqlite_file_act, {refusal: v.machine.sqlite_refusal})]}),
     // The control page's own terminal tabs, around the Terminal module's pane
     terminal: v => ({view: {name: v.machine.hostname, title: v.machine.hostname}, theme: v.theme, base: '/api/terminal'}),
     firewall: v => ({base: '/api/firewall', addresses: v.machine.addresses}),
@@ -46,25 +49,36 @@ const module_host = {
 </div>
 <div class="mh-body">
     <div class="mh-nav">
-        <button v-for="item in modules" :key="item.key" type="button" :class="{on: (item.key === key)}" @click="open(item.key)">{{ item.title }}</button>
+        <button v-for="item in listed" :key="item.key" type="button" :class="{on: (item.key === key)}" @click="open(item.key)">{{ item.title }}</button>
     </div>
     <div class="mh-main">
         <p v-if="(error !== '')" class="bad">{{ error }}</p>
         <p v-else-if="((loaded === null) || (machine === null))" class="muted">Loading…</p>
+        <component v-else-if="(browse !== null)" :is="loaded" :key="browse.path" :place="browse" :view="machine_view" api="/api/data_browser" @place="browse_keep" @folder="folder_open" @remote="folder_open('')"/>
         <article v-else-if="WITHIN_PAGE.includes(key)" class="list">
             <component :is="loaded" :key="key" v-bind="props"/>
         </article>
-        <component v-else :is="loaded" :key="key" v-bind="props"/>
+        <component v-else :is="loaded" :key="key" v-bind="props" @act="act_take"/>
     </div>
 </div>
 `,
     data: function () {
-        return {WITHIN_PAGE, modules: [], machine: null, key: null, loaded: null, error: '', theme: document.documentElement.dataset.theme};
+        // browse: a SQLite file of this computer open, {page: 'file', remote, path, collection},
+        // in place of Files, which stays lit; null for none. folder: the one Files opens first.
+        return {WITHIN_PAGE, modules: [], machine: null, key: null, loaded: null, error: '', browse: null, folder: '', theme: document.documentElement.dataset.theme};
     },
     computed: {
         props: function () {
             const make = MODULE_PROPS[this.key];
-            return (make === undefined) ? {} : make({machine: this.machine, theme: this.theme});
+            return (make === undefined) ? {} : make({machine: this.machine, theme: this.theme, folder: this.folder});
+        },
+        // The modules of the list: Data opens from Files, on a file
+        listed: function () {
+            return this.modules.filter(v => v.listed);
+        },
+        // This computer as a SQLite file's page names its machine: always there, its page is
+        machine_view: function () {
+            return {name: this.machine.hostname, title: this.machine.hostname, phase: 'online'};
         },
     },
     methods: {
@@ -73,6 +87,7 @@ const module_host = {
             this.key = key;
             this.loaded = null;
             this.error = '';
+            this.browse = null;
             if (location.hash !== `#${key}`) {
                 history.replaceState(null, '', `#${key}`);
             }
@@ -85,6 +100,43 @@ const module_host = {
             catch (error) {
                 this.error = `Could not load ${key}: ${error.message}`;
             }
+        },
+        // A SQLite file's data, its Browse clicked in Files, or its address: Data's component in
+        // place of Files, which its folder goes back to
+        file_browse: async function (file, collection) {
+            this.key = 'file_manager';
+            this.loaded = null;
+            this.error = '';
+            this.browse = {page: 'file', remote: this.machine.hostname, path: file, collection};
+            this.address_keep();
+            try {
+                const found = await import(this.modules.find(v => v.key === 'data_browser').page);
+                // Unless another module was opened meanwhile
+                if ((this.browse !== null) && (this.browse.path === file)) {
+                    this.loaded = markRaw(found.default);
+                }
+            }
+            catch (error) {
+                this.error = `Could not load the data browser: ${error.message}`;
+            }
+        },
+        act_take: function (event) {
+            if (event.act === 'browse') {
+                this.file_browse(event.path, '');
+            }
+        },
+        browse_keep: function (place) {
+            this.browse = place;
+            this.address_keep();
+        },
+        folder_open: function (folder) {
+            this.folder = folder;
+            this.open('file_manager');
+        },
+        // The file open in the address, #browse=<path>&collection=<table>: a reload opens it again
+        address_keep: function () {
+            const collection = (this.browse.collection === '') ? '' : `&collection=${encodeURIComponent(this.browse.collection)}`;
+            history.replaceState(null, '', `#browse=${encodeURIComponent(this.browse.path)}${collection}`);
         },
         theme_flip: function () {
             this.theme = (this.theme === 'light') ? 'dark' : 'light';
@@ -114,7 +166,12 @@ const module_host = {
             return;
         }
         const asked = location.hash.slice(1);
-        this.open(this.modules.some(v => v.key === asked) ? asked : this.modules[0].key);
+        const file = new URLSearchParams(asked).get('browse');
+        if ((file !== null) && (file !== '')) {
+            this.file_browse(file, new URLSearchParams(asked).get('collection') || '');
+            return;
+        }
+        this.open(this.listed.some(v => v.key === asked) ? asked : this.listed[0].key);
     },
 };
 

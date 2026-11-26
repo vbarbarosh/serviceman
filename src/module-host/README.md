@@ -7,7 +7,10 @@ serviceman uses for a machine whose agent dialled in. The work is done as the us
 module-host.
 
 It loads every module: **Processes**, **Disks**, **Packages**, **Docker**, **Files**,
-**Terminal**, **Firewall** and **Volumes**.
+**Terminal**, **Firewall** and **Volumes**. **Data** is opened from Files: a SQLite file there
+has **Browse**, which shows its tables and rows in place of Files, read by the agent's own
+reader as serviceman's is on a machine; **Its folder** goes back. Its address is
+`#browse=<file>`, so a reload opens it again.
 
 ## Run
 
@@ -32,7 +35,7 @@ missing).
 |---|---|
 | Processes, Disks, Packages | `ps`, `df`, `dpkg`, as the agent reads them on a machine |
 | Docker | a docker socket the user can reach (`/var/run/docker.sock`, or `DOCKER_HOST`) |
-| Files | nothing: the user's own files, from the home folder |
+| Files | nothing: the user's own files, from the home folder; Browse on a SQLite file, Node 22.16 or later |
 | Terminal | `python3`, which holds each kept terminal |
 | Firewall | `ss` for the ports; ufw as root (below) |
 | Packages' upgrade, Volumes | root (below) |
@@ -64,7 +67,8 @@ started it:
     index.js                 the server, PORT; the agent's folder
     src/machine_host.js      this computer as the modules' host: serviceman's `app` and the remote
     src/machine_link.js      the agent's code in this process, joined by a socket file of its own
-    src/modules_served.js    the modules: each one's page half, its manifest, and its API with what it is given
+    src/modules_served.js    the modules: each one's page half, its manifest, and its API with what it is given;
+                             Data's on a file, /api/data_browser/<file>/browse, out of the list
     src/request_answer.js    the page, /api/modules, /api/v1/modules, /api/v1/streams, /api/machine, /api/<module>…, the files
     src/upgrade_answer.js    the WebSockets: a kept terminal joined, a shell in a container
     src/request_allowed.js   only this computer's own page, with the key

@@ -58,6 +58,7 @@ const handle_database_browse = require('./handle_database_browse');
 const handle_databases = require('./handle_databases');
 const handle_logline_viewer = require('./handle_logline_viewer');
 const handle_shared_folders = require('./handle_shared_folders');
+const handle_sqlite_browse = require('./handle_sqlite_browse');
 const health_from_views = require('../helpers/health_from_views');
 const link_test = require('../helpers/link_test');
 const load_test_log_path = require('../helpers/load_test_log_path');
@@ -172,8 +173,10 @@ const RE_REMOTE_DOCKER = /^\/api\/v1\/remotes\/([^/]+)\/docker(\/.*)?$/;
 const RE_CONTAINER_FS = /^\/containers\/([0-9a-f]{12,64})\/fs(\/.*)?$/;
 // The Firewall module's API, one machine's firewall and ports under each
 const RE_REMOTE_FIREWALL = /^\/api\/v1\/remotes\/([^/]+)\/firewall(\/.*)?$/;
-// The Data browser module's API, one database's data under each
+// The Data browser module's API, one database's data under each, and a SQLite file's of a
+// machine, its path one word of the address
 const RE_DATABASE_BROWSE = /^\/api\/v1\/databases\/([^/]+)\/([^/]+)\/browse(\/.*)?$/;
+const RE_SQLITE_BROWSE = /^\/api\/v1\/remotes\/([^/]+)\/sqlite\/([^/]+)\/browse(\/.*)?$/;
 // The Volumes module's API, one machine's encrypted volumes under each
 const RE_REMOTE_VOLUMES = /^\/api\/v1\/remotes\/([^/]+)\/volumes(\/.*)?$/;
 // Copies of files from one machine to another, run here and not by a page
@@ -573,6 +576,11 @@ async function control_answer(app, req, res)
         await handle_database_browse(app, req, res, url, route_param(database_browse[1]), route_param(database_browse[2]), (database_browse[3] === undefined) ? '' : database_browse[3]);
         return;
     }
+    const sqlite_browse = RE_SQLITE_BROWSE.exec(url.pathname);
+    if (sqlite_browse !== null) {
+        await handle_sqlite_browse(app, req, res, url, route_param(sqlite_browse[1]), route_param(sqlite_browse[2]), (sqlite_browse[3] === undefined) ? '' : sqlite_browse[3]);
+        return;
+    }
     const remote_firewall = RE_REMOTE_FIREWALL.exec(url.pathname);
     if (remote_firewall !== null) {
         await handle_firewall(app, req, res, route_param(remote_firewall[1]), (remote_firewall[2] === undefined) ? '' : remote_firewall[2]);
@@ -797,11 +805,13 @@ function page_known(app, pathname)
         return PAGE_PANES.includes(parts[0]);
     }
     // A machine's Shell tab names the terminal open in it: /remotes/<name>/shell/<terminal>; a
-    // database's data, browsed: /databases/<server>/<database>/browse
+    // database's data, browsed: /databases/<server>/<database>/browse; a SQLite file's of a
+    // machine: /remotes/<name>/files/browse?path=<file>
     if (parts.length === 4) {
         const shell = (parts[0] === 'remotes') && (app.remote_by_name[parts[1]] !== undefined) && (parts[2] === 'shell') && term_name_valid(parts[3]);
         const browse = (parts[0] === 'databases') && databases_read(app).servers.some(v => v.name === parts[1]) && RE_DATABASE_SHOWN.test(parts[2]) && (parts[3] === 'browse');
-        return shell || browse;
+        const file = (parts[0] === 'remotes') && (app.remote_by_name[parts[1]] !== undefined) && (parts[2] === 'files') && (parts[3] === 'browse');
+        return shell || browse || file;
     }
     if (parts.length > 3) {
         return false;

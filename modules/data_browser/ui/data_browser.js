@@ -14,9 +14,9 @@ import storage_set from '../../storage_set.js';
 // last queries of each collection are kept in the browser, to run again. + Document adds one,
 // typed as the shell types it; a document shown whole is edited or deleted from its window, a
 // deletion asked before it is done. A view's documents and a pipeline's results are read alone.
-// A SQL database (PostgreSQL, MySQL) is the same page in its own words: its tables and their
-// rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its own in Query;
-// a row shown whole is its JSON, and its rows are read alone for now. The host gives the API, a
+// A SQL database (PostgreSQL, MySQL, a SQLite file) is the same page in its own words: its
+// tables and their rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its
+// own in Query; a row shown whole is its JSON, and its rows are read alone for now. The host gives the API, a
 // GET under one base (data_browser_serve), the colours and its usual classes: card, card-head,
 // primary, link, muted, bad, spin, dt-window, dt-whole, dt-whole-head.
 //
@@ -31,7 +31,8 @@ import storage_set from '../../storage_set.js';
 
 // An engine's words, where they differ from another's. A SQL engine's tables and rows stand for
 // the collections and documents, a condition for the filter, a SELECT of its own for the
-// pipeline; `quote` is how it quotes a name.
+// pipeline; `quote` is how it quotes a name, and `schemas` says a name of a table of another
+// schema is schema.table, each part quoted on its own.
 const SQL_WORDS = {
     sql: true,
     kinds: 'Tables',
@@ -78,8 +79,9 @@ const WORDS = {
         sorts_own: 'A pipeline sorts with its own $sort',
         none: 'No collection in it yet: MongoDB makes one at an app\'s first write to it.',
     },
-    postgresql: Object.assign({quote: '"'}, SQL_WORDS),
-    mysql: Object.assign({quote: '`'}, SQL_WORDS),
+    postgresql: Object.assign({quote: '"', schemas: true}, SQL_WORDS),
+    mysql: Object.assign({quote: '`', schemas: false}, SQL_WORDS),
+    sqlite: Object.assign({quote: '"', schemas: false}, SQL_WORDS),
 };
 // A list longer than this gets a box to find a name in
 const SEARCH_FROM = 10;
@@ -733,7 +735,7 @@ const data_browser = {
         // named schema.table, each quoted
         name_quoted: function (name) {
             const quote = this.words.quote;
-            const parts = ((quote === '"') && name.includes('.')) ? [name.slice(0, name.indexOf('.')), name.slice(name.indexOf('.') + 1)] : [name];
+            const parts = (this.words.schemas && name.includes('.')) ? [name.slice(0, name.indexOf('.')), name.slice(name.indexOf('.') + 1)] : [name];
             return parts.map(v => `${quote}${v.split(quote).join(quote + quote)}${quote}`).join('.');
         },
         // A collection's count at a glance, ~ before one its engine estimates

@@ -651,6 +651,14 @@ p.fm-foot {
     margin: .3rem 0;
 }
 
+/* What the host does with a file of this kind, above the ways to open or save it */
+.fm-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
 .fm-dirty {
     color: var(--busy-text, var(--busy, #d38b12));
     font-size: .9rem;

@@ -40,6 +40,18 @@ test('a tab of an item is a crumb after its name, the name a way back to its Ove
     assert.deepStrictEqual(page_crumbs({page: 'remote', name: 'laptop', title: '', tab: 'shell'}).map(v => v.label), ['laptop', 'Shell']);
 });
 
+// Remotes ▾ › vps1 › Files › shop.db: a SQLite file browsed is under its machine's Files, which
+// goes back to its folder
+test('a SQLite file browsed is a crumb after its machine\'s Files', async function () {
+    const page_crumbs = await page_crumbs_of();
+    assert.deepStrictEqual(page_crumbs({page: 'remote', name: 'vps1', title: '', tab: 'files', file: 'shop.db'}), [
+        {label: 'vps1', to: {page: 'remote', name: 'vps1', tab: 'overview'}},
+        {label: 'Files', to: {page: 'remote', name: 'vps1', tab: 'files'}},
+        {label: 'shop.db', to: null},
+    ]);
+    assert.deepStrictEqual(page_crumbs({page: 'remote', name: 'vps1', title: '', tab: 'files', file: ''}).map(v => v.label), ['vps1', 'Files']);
+});
+
 // A tab the page does not know (an address from an older serviceman) is not a crumb of its own
 test('a tab no tab bar has is left out, the item its last crumb', async function () {
     const page_crumbs = await page_crumbs_of();
