@@ -117,11 +117,25 @@ database's head counts the same tables. **Find** takes a condition after `WHERE`
 email`; a click on a header orders by it. **Query**, where Aggregate is, runs a `SELECT` typed
 whole, joins and `GROUP BY` and all, a page at a time. A cell shows its value as a MongoDB
 document's does, a number whole to its last digit (`2.50`, `9007199254740993`); a row opened is
-its JSON, with **Copy**. Their rows are read alone for now, said in the table's head: no **+
-Row**, no Edit or Delete yet. Each read is a `READ ONLY` transaction as the database's own user,
+its JSON, with **Copy**. Each read is a `READ ONLY` transaction as the database's own user,
 signed in over its container's `127.0.0.1`, its password in the client's env (`PGPASSWORD`,
 `MYSQL_PWD`): a `DELETE` or a `DROP` typed into it is refused by the engine itself, and said so.
 A SQLite file comes to the same page from its machine's Files ([A SQLite file](#a-sqlite-file)).
+
+Their rows are changed as a document is, each change asked of the database as its own user, in
+a transaction of its own. A row is named by its table's primary key, or by a unique key of
+`NOT NULL` columns where there is none: **+ Row** in the table's head opens a JSON object of the
+columns to set, those the database fills itself (a serial, a default, a generated one) left out
+for their defaults; a row opened has **Edit**, which reads it again whole by its key and saves
+the columns changed alone, and **Delete**, asked before it is done. An edit is saved against
+the row as it was read: when another hand (an app) changed one of the columns it changes
+meanwhile, nothing is saved over it, and the window says which and what it holds now, with
+**Read it as it is now**. A value goes in as data, read by its column's type, never as SQL, and
+what the database refuses is said in its own words: `null value in column "customer" … violates
+not-null constraint`, `Cannot add or update a child row: a foreign key constraint fails …`. A
+view, and a table no key names a row of, are read alone, said in the table's head: `read only: a
+view`, `read only: no primary key`. The [Data](../modules/data_browser/README.md#changing-a-row)
+module says how each engine is asked.
 
 ## A SQLite file
 
@@ -143,15 +157,16 @@ digit (`9007199254740993`), a blob is its hex (`0x00ff`).
 
 The machine's agent reads it, with its own Node's `node:sqlite`: nothing is installed for it,
 and nothing of the file leaves the machine but the page asked for. A machine whose Node is older
-than 22.16 has no `node:sqlite` whole: its Browse is greyed, and says so. The file is opened read
-only: a `DELETE` or a `DROP` typed into the query box is refused, and nothing typed into it ever
-writes. The rows are read alone for now, as a PostgreSQL's are. Each read runs in a process of
-its own beside the agent, so a query that takes long holds nothing else of the machine: it is
-stopped at 20 s, and when the agent restarts, it ends with it. A file another program is writing
-at that moment is said to be locked, read again a moment later; a `.db` file that is no SQLite
-says so in place of its tables. A database in WAL mode keeps a `-wal` and a `-shm` file beside
-it while it is open; read while its app is stopped, they stay there after, empty, as any reader
-of it leaves them, and the app's next open takes them over.
+than 22.16 has no `node:sqlite` whole: its Browse is greyed, and says so. The file is opened
+read only: a `DELETE` or a `DROP` typed into the query box is refused, and nothing typed into it
+ever writes. Its rows are read alone, not changed as a database's are: the file is its app's own
+data, written by its app, and the table's head says `read only: an app's file`. Each read runs
+in a process of its own beside the agent, so a query that takes long holds nothing else of the
+machine: it is stopped at 20 s, and when the agent restarts, it ends with it. A file another
+program is writing at that moment is said to be locked, read again a moment later; a `.db` file
+that is no SQLite says so in place of its tables. A database in WAL mode keeps a `-wal` and a
+`-shm` file beside it while it is open; read while its app is stopped, they stay there after,
+empty, as any reader of it leaves them, and the app's next open takes them over.
 
 `bin/run-local`'s Files has the same Browse, on this computer's files (see
 [module-host](../src/module-host/README.md)).

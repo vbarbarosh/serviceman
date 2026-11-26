@@ -430,13 +430,13 @@ const databases_pane = {
         server_only: function () {
             return (this.open_database === null) && (this.open_server.phase === 'up') && (this.open_server.online !== false);
         },
-        // Browse, the database's data read as its own user: a MongoDB's, a PostgreSQL's or a
-        // MySQL's, and one serviceman made, which has that user
+        // Browse, the database's data, read and changed as its own user: a MongoDB's, a
+        // PostgreSQL's or a MySQL's, and one serviceman made, which has that user
         browse_shown: function () {
             return browsed_engines.includes(this.open_server.engine) && (this.open_database !== null) && (typeof this.open_database.user === 'string');
         },
         browse_title: function () {
-            return (this.open_server.engine === 'mongodb') ? 'Its collections and documents, read as its own user' : 'Its tables and rows, read as its own user';
+            return (this.open_server.engine === 'mongodb') ? 'Its collections and documents, as its own user' : 'Its tables and rows, as its own user';
         },
         // Why Browse cannot open it now; '' when it can
         browse_why: function () {

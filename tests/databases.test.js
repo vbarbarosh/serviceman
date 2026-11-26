@@ -146,8 +146,16 @@ test('a PostgreSQL is brought up filled with a sample, and a database made in it
     assert.ok(script[0].Cmd[2].startsWith('psql -X -q -At -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$SERVICEMAN_DB_USER" -d \'notes\' -f "$1"; '), script[0].Cmd[2]);
     assert.deepStrictEqual(script[0].Env, ['SERVICEMAN_DB_USER=notes', `PGPASSWORD=${kept.users.notes.password}`]);
     assert.strictEqual(JSON.stringify(script[0].Cmd).includes(kept.users.notes.password), false);
-    const added = await control(world, 'POST', '/api/v1/databases/postgresql-1/notes/browse/documents', {collection: 'note', document: '{}'});
-    assert.deepStrictEqual([added.status, added.body.error], [405, 'its data is read here alone for now: changing it comes in a later step']);
+
+    // A row added: a change of its own, as notes' own user, what was typed in the ask's hex alone
+    const added = await control(world, 'POST', '/api/v1/databases/postgresql-1/notes/browse/documents', {collection: 'note', document: '{"text": "added\'; DROP TABLE note; --"}'});
+    assert.deepStrictEqual([added.status, added.body], [201, {id: {id: 3}, item: {id: 3, text: 'added'}, saved: ['text']}]);
+    const change = engine.sql[engine.sql.length - 1];
+    assert.match(change.sql, /^BEGIN;\nSET LOCAL serviceman\.ask = '[0-9a-f]+';$/m);
+    assert.match(change.sql, /^COMMIT;$/m);
+    assert.strictEqual(change.sql.includes('DROP TABLE'), false, 'what was typed is in the ask\'s hex alone');
+    const changed = [...engine.execs.values()].filter(v => (v.spec.Cmd[0] === 'sh') && v.spec.Cmd[2].includes('SERVICEMAN_DB_USER')).map(v => v.spec);
+    assert.deepStrictEqual(changed[changed.length - 1].Env, ['SERVICEMAN_DB_USER=notes', `PGPASSWORD=${kept.users.notes.password}`]);
 });
 
 // A CouchDB comes up with its admin and the ini that trusts a user name signed by its secret, laid

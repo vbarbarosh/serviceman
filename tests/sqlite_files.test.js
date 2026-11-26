@@ -34,7 +34,7 @@ test('a SQLite file of a machine is browsed through its agent: its head, its tab
     const query = await control(world, 'GET', `${base}/aggregate?${new URLSearchParams({collection: 'notes', pipeline: 'SELECT COUNT(*) AS n FROM notes'})}`);
     assert.deepStrictEqual([query.status, query.body.items, query.body.count], [200, [{n: 2}], null]);
     const deleted = await control(world, 'GET', `${base}/aggregate?${new URLSearchParams({collection: 'notes', pipeline: 'DELETE FROM notes'})}`);
-    assert.deepStrictEqual([deleted.status, deleted.body.error], [400, 'only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows']);
+    assert.deepStrictEqual([deleted.status, deleted.body.error], [400, 'only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows']);
 
     // Its address on the page is one the page knows: Files, and the file browsed under it
     const shown = await fetch_host({port: world.control_port, host: '127.0.0.1', path: `/remotes/laptop/files/browse?path=${encodeURIComponent(file)}&collection=notes`, headers: {accept: 'text/html'}});
@@ -75,7 +75,7 @@ test('a file that is gone, a folder, a file that is no SQLite, a machine away an
         '400 the address names a file by its path, of at most 4096 characters',
         '409 phone is offline: shop.db is read again when it is back',
         '404 no remote named "nope"',
-        '405 its data is read here alone for now: changing it comes in a later step',
+        '405 a SQLite file is its app\'s own data: it is read here alone, never written under its app',
         `404 no such door: ${base_of(file)}/documents/drop`,
         `404 no such door: ${base_of(file)}/tables`,
     ]);

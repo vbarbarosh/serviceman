@@ -83,6 +83,23 @@
     text-align: center;
 }
 
+/* The open collection's card. A host may lay a section out as a grid (serviceman does), whose
+   one column would widen to the longest word in it, a long table name in the head, and push the
+   card past a phone's screen: its column takes the card's width alone */
+.dbr-main {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+}
+
+/* Its head: the name, its numbers, then + Document or why its rows are read alone. A name too
+   long for the line wraps inside its own line, and what follows it goes under it, whole */
+.dbr-main > .card-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
 .dbr-title {
     min-width: 0;
     overflow-wrap: anywhere;
@@ -415,9 +432,14 @@
     flex: none;
 }
 
+/* The document's _id, a SQL row's key: on one line, a long key cut, whole in its title */
 .dbr-doc-name {
+    max-width: 100%;
+    overflow: hidden;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dbr-doc-acts {
@@ -425,6 +447,13 @@
     gap: 6px;
     align-items: center;
     margin-left: auto;
+}
+
+/* Why a SQL row shown has no Edit: its key is not among the columns shown */
+.dbr-doc-note {
+    flex: none;
+    margin: .4rem 0 0;
+    font-size: 13px;
 }
 
 .dbr-json {
@@ -443,8 +472,8 @@
     word-break: break-all;
 }
 
-/* + Document, at the end of the collection's head; where a SQL table's rows are read alone for
-   now, that is said there */
+/* + Document, at the end of the collection's head; where a SQL table's rows are read alone, a
+   view's, a table's with no key, a SQLite file's, that is said there, and why */
 .card-head > .dbr-add {
     display: inline-flex;
     flex: none;
@@ -515,6 +544,14 @@
     margin: 10px 0 0;
 }
 
+/* A SQL row changed by another hand since it was read: the way to read it as it is now, a
+   button in the page's own letters after the engine's words */
+.dbr-edit > .dbr-error > button {
+    margin-left: 10px;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    white-space: nowrap;
+}
+
 .dbr-edit-foot {
     display: flex;
     flex: none;
@@ -554,6 +591,12 @@
 
     .card-head > .dbr-facts {
         display: none;
+    }
+
+    /* Its numbers hidden, + Document or the tag keeps the head's right end, under a long name too */
+    .card-head > .dbr-add,
+    .card-head > .dbr-readonly {
+        margin-left: auto;
     }
 
     /* A narrow window keeps each line whole and scrolls sideways, as code is read: wrapped, a

@@ -706,7 +706,7 @@ img {
 </ul>
 <h2>Modules</h2>
 <ul>
-<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#a-sql-database">A SQL database</a></li><li><a href="#a-sqlite-file">A SQLite file</a></li><li><a href="#the-api">The API</a></li></ul></li>
+<li class="current"><a href="data_browser.html" aria-current="page">Data</a><ul class="toc"><li><a href="#layout">Layout</a></li><li><a href="#a-query-is-data">A query is data</a></li><li><a href="#a-sql-database">A SQL database</a></li><li><a href="#changing-a-row">Changing a row</a></li><li><a href="#a-sqlite-file">A SQLite file</a></li><li><a href="#the-api">The API</a></li></ul></li>
 <li><a href="disks.html">Disks</a></li>
 <li><a href="docker.html">Docker</a></li>
 <li><a href="file_manager.html">Files</a></li>
@@ -736,8 +736,10 @@ A view&#39;s documents and a pipeline&#39;s results are read alone.</p>
 its collections, their rows its documents (<a href="#a-sql-database">A SQL database</a>, <a href="#a-sqlite-file">A SQLite
 file</a>). <strong>Find</strong> finds rows by a condition typed after <code>WHERE</code>, with <strong>Order
 by</strong> and <strong>Columns</strong> under it, and <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed whole. A
-row shown whole is its JSON, with Copy. Their rows are read alone for now: changing them comes
-in a step of its own, for every SQL engine at once.</p>
+row shown whole is its JSON, with Copy. A PostgreSQL&#39;s or a MySQL&#39;s row is changed as a document
+is, <strong>+ Row</strong>, <strong>Edit</strong> and <strong>Delete</strong>, named by its table&#39;s key (<a href="#changing-a-row">Changing a
+row</a>); a view, a table no key names a row of, and a SQLite file are read alone,
+and the table&#39;s head says which: <code>read only: a view</code>, <code>read only: no primary key</code>, <code>read only: an app&#39;s file</code>.</p>
 <p>It has two halves and knows nothing of where the database is. The page half is a Vue component
 that talks to an HTTP API under one base URL. The server half is that API, as one request
 handler given an <strong>adapter</strong>, which says the engine&#39;s words and has the host <strong>run</strong> them in
@@ -758,8 +760,13 @@ server/mysql_adapter.js          MySQL&#39;s: each ask a mysql script, given run
 server/sqlite_adapter.js         SQLite&#39;s: each ask the statements a file&#39;s reader runs, given run(ask)
 server/sql_part_from_text.js     a condition, an order, columns or a query as typed
 server/ejson_from_json.js        a SQL engine&#39;s JSON, its numbers kept whole
+server/json_from_ejson.js        and back: JSON for a SQL engine, a number by its digits
 server/ejson_number_from_text.js a number as an engine wrote it, kept whole
 server/items_from_rows.js        rows as objects keyed by column, a name met twice kept
+server/sql_change_from_ask.js    a row&#39;s change as asked: its key, the columns to set
+server/sql_row_from_text.js      a row as typed, a JSON object of its columns
+server/row_changes_of.js         the columns of a row edited that differ from it as read
+server/changed_said_of.js        why an edit was not saved: another hand&#39;s change, said
 ui/data_browser.js               the component
 ui/data_browser.css              the component&#39;s rules
 ui/mongo_text_of.js              a value as the shell writes it, for the document&#39;s window
@@ -809,10 +816,10 @@ column as its value. A number JavaScript would round keeps its digits, as MongoD
 trailing zeros included (<code>2.50</code>), as <code>{$numberDecimal: &#39;…&#39;}</code>; the page writes both as the
 digits. A join&#39;s two columns of one name are both kept, the second as <code>id (2)</code>. MySQL has no
 boolean: its <code>BOOLEAN</code> is 0 or 1, as in its own JSON; binary data is <code>0x…</code>.</li>
-<li><strong>Nothing written.</strong> Every script is one <code>READ ONLY</code> transaction, rolled back at its end, and
-MySQL&#39;s session is read only too: a <code>DELETE</code>, a <code>DROP</code>, <code>nextval()</code>, <code>FOR UPDATE</code> or a
-function that writes, typed into a condition or the query box, is refused by the engine
-itself, and said so. What is typed reaches the script as hex, never as text a client would
+<li><strong>Nothing written by a read.</strong> Every read is one <code>READ ONLY</code> transaction, rolled back at its
+end, and MySQL&#39;s session is read only too: a <code>DELETE</code>, a <code>DROP</code>, <code>nextval()</code>, <code>FOR UPDATE</code> or
+a function that writes, typed into a condition or the query box, is refused by the engine
+itself, and said so (<code>it writes, and what is typed here is only read, a row being changed by its own buttons</code>): only the change doors write (<a href="#changing-a-row">Changing a row</a>). What is typed reaches the script as hex, never as text a client would
 read (psql&#39;s <code>\!</code> runs a shell); PostgreSQL runs it with <code>EXECUTE</code> inside a <code>DO</code> block, where
 a <code>COMMIT</code> is refused, as a cursor, which refuses two statements; MySQL prepares it as one
 statement, the query box&#39;s inside <code>( … ) LIMIT</code>, so it can only be a query. A statement may
@@ -825,6 +832,51 @@ of one name, and writes a <code>FLOAT</code> as its double (<code>1.100000023841
 script twice: first with <code>--column-type-info</code>, the page&#39;s statement under <code>LIMIT 0</code>, which MySQL
 answers at once with the result&#39;s columns and their types and no row; then with <code>--xml</code>, which
 tells <code>NULL</code> from the text <code>NULL</code>, for the rows, each value read by its column&#39;s type.</p>
+<h2 id="changing-a-row"><a class="anchor" href="#changing-a-row" aria-hidden="true" tabindex="-1">#</a>Changing a row</h2>
+<p>A PostgreSQL&#39;s or a MySQL&#39;s row is added, edited and deleted by the change doors alone, as a
+MongoDB&#39;s document is, each asked of it as the database&#39;s own user, in a transaction of its own,
+committed when it is done.</p>
+<ul>
+<li><strong>Its key.</strong> A row is named by its table&#39;s primary key; else by its first unique key, by name,
+whose columns are all <code>NOT NULL</code>, whole (no prefix, no expression) and with no <code>WHERE</code>, which
+names one row as a primary key does. A unique key of a column that may be <code>NULL</code> names none
+(two rows may both hold <code>NULL</code> there), and a table with neither, a view, a materialized view
+and a foreign table are read alone: their change is refused (405), and the page says why in
+the table&#39;s head. Each table&#39;s key is in its list, <code>key: [&#39;order_id&#39;, &#39;line_no&#39;]</code>, <code>null</code> for
+none; a row&#39;s key, as the page read it, is its <code>id</code>, <code>{&quot;order_id&quot;: 1, &quot;line_no&quot;: 2}</code>.</li>
+<li><strong>+ Row</strong> is a JSON object of the columns to set; the columns the database fills itself, a
+default, a serial, an identity, <code>AUTO_INCREMENT</code> or a generated one, are left out of the
+text it starts with, the rest <code>null</code>, and their defaults fill what is left out. The row is
+read back as it was added: PostgreSQL&#39;s <code>RETURNING</code>; MySQL by its key as given, else its
+<code>AUTO_INCREMENT</code> (<code>LAST_INSERT_ID()</code>), else its default when that is a value, and a key MySQL
+works out (<code>DEFAULT (UUID())</code>) is not read back.</li>
+<li><strong>Edit</strong> reads the row again whole by its key (<code>GET &lt;base&gt;/document</code>), each value as a page
+reads it, numbers kept whole, and saves the columns changed alone: <code>UPDATE … SET &lt;changed&gt; WHERE &lt;key&gt; = …</code>. A column left out of the text is left as it is; <code>null</code> is <code>NULL</code>. A key
+changed is the row&#39;s new name.</li>
+<li><strong>Another hand.</strong> An edit is saved against the row as it was read (<code>was</code>): the row is locked
+by its key, and each column it changes compared with what it held then (PostgreSQL as JSON,
+<code>jsonb</code>, by value; MySQL by the column&#39;s type, text byte by byte, so a change of case alone
+counts). One another hand changed meanwhile is refused (409) with which, <code>changed</code>, and the
+row as it is now, <code>item</code>; nothing is saved over it, and the page says so, with <strong>Read it as
+it is now</strong>. A change to another column is kept, and the edit saved beside it. Saving over is
+not offered: what it would lose is what the person did not see. An edit without <code>was</code> saves
+every column given.</li>
+<li><strong>Delete</strong> by its key, asked first; a row gone since it was read is said so (400).</li>
+<li><strong>Values</strong> go in as data, never as SQL. PostgreSQL&#39;s change is a <code>DO</code> block given the row as
+JSON in the ask&#39;s hex, each column found by name in <code>pg_attribute</code> and quoted (<code>%I</code>), each
+value read by its column&#39;s own type by <code>json_populate_record</code>: a date, a timestamp with its
+zone, an array, <code>jsonb</code> and <code>json</code> as their JSON, binary data as its text (<code>&quot;\\x00ff&quot;</code>), a
+number by its digits. MySQL&#39;s table is described first (<code>information_schema</code>), so each column
+is found by name and quoted, then each value is a hex literal of its own in a statement that
+goes in as hex and is prepared: MySQL reads it by its column&#39;s type, binary data from its
+<code>0x…</code>, bits as their number, JSON from its text, <code>true</code> as 1; the session is strict
+(<code>STRICT_ALL_TABLES</code>), so a value a type does not take is refused, never cut with a warning.
+The client&#39;s first run, for the column types, writes nothing.</li>
+<li><strong>Refusals</strong> are the engine&#39;s words: a <code>NOT NULL</code>, a <code>CHECK</code>, a foreign key, a duplicate key,
+a type, a generated column given a value, PostgreSQL&#39;s with its detail (<code>Key (order_id)=(999) is not present in table &quot;orders&quot;</code>). A deferred foreign key is checked before
+the change is committed (<code>SET CONSTRAINTS ALL IMMEDIATE</code>), so it is refused in the same words.
+A row another transaction holds is waited for 5 s, then said so (409), nothing changed.</li>
+</ul>
 <h2 id="a-sqlite-file"><a class="anchor" href="#a-sqlite-file" aria-hidden="true" tabindex="-1">#</a>A SQLite file</h2>
 <p>A SQLite file of a machine, <code>.sqlite</code>, <code>.sqlite3</code>, <code>.db</code> or any file whose first bytes are
 SQLite&#39;s own, is a database of its own: Browse in the File Manager opens it here. Nothing runs it
@@ -856,7 +908,9 @@ and its hex, as MySQL&#39;s binary data, <code>NULL</code> as null. A date is th
 written as. A view&#39;s two columns of one name are named apart by SQLite itself, <code>id:1</code>; a
 query&#39;s are kept as the other engines&#39; are, <code>id (2)</code>.</li>
 <li><strong>Nothing written.</strong> The file is opened read only, and <code>query_only</code> refuses every write
-besides: a <code>DELETE … RETURNING</code> or a write in a condition is refused by SQLite (<code>it writes, and this page changes nothing for now</code>). A statement that gives no rows, a <code>DELETE</code>, a <code>DROP</code>,
+besides: a <code>DELETE … RETURNING</code> or a write in a condition is refused by SQLite (<code>it writes, and an app&#39;s file is read alone here</code>). Its rows are not changed as a database&#39;s are: the
+file is its app&#39;s own data, written by its app, and writing into it under the app is another
+question. The change doors answer 405, saying so, and the table&#39;s head says <code>read only: an app&#39;s file</code>. A statement that gives no rows, a <code>DELETE</code>, a <code>DROP</code>,
 an <code>ATTACH</code>, a <code>VACUUM INTO</code>, is not run at all, nor a second statement after the first. A
 database in WAL mode keeps a <code>-wal</code> and a <code>-shm</code> file beside it while it is open; read while
 its app is stopped, they stay there after, empty, as any reader of it leaves them, and its
@@ -897,16 +951,20 @@ encoded too (<code>%2F</code>, as <code>encodeURIComponent</code> writes it); mo
 <td><code>{items, count: null, more, skip, limit, took_ms, cut}</code>; a SQL page with <code>columns</code></td>
 </tr>
 <tr>
-<td><code>POST &lt;base&gt;/documents</code> <code>{collection, document}</code></td>
-<td><code>{id}</code>, 201: the document added, its <code>_id</code> MongoDB&#39;s own when it had none</td>
+<td><code>GET &lt;base&gt;/document?collection=&amp;id=</code></td>
+<td><code>{item, columns, key, filled}</code>: a SQL row read whole by its key, <code>id</code> its JSON; without <code>id</code>, <code>item</code> null, the table&#39;s columns and those it fills itself, for + Row</td>
 </tr>
 <tr>
-<td><code>POST &lt;base&gt;/documents/replace</code> <code>{collection, id, document}</code></td>
-<td><code>{id}</code>: put in place of the one of that <code>_id</code>, which stays</td>
+<td><code>POST &lt;base&gt;/documents</code> <code>{collection, document}</code></td>
+<td><code>{id}</code>, 201: the document added, its <code>_id</code> MongoDB&#39;s own when it had none; a SQL row&#39;s <code>{id, item, saved}</code>, its key, the row read back and the columns given</td>
+</tr>
+<tr>
+<td><code>POST &lt;base&gt;/documents/replace</code> <code>{collection, id, document, was}</code></td>
+<td><code>{id}</code>: put in place of the one of that <code>_id</code>, which stays; a SQL row&#39;s <code>{id, item, saved}</code>, the columns changed since <code>was</code> saved alone; 409 <code>{error, changed, item}</code> when another hand changed them</td>
 </tr>
 <tr>
 <td><code>POST &lt;base&gt;/documents/delete</code> <code>{collection, id}</code></td>
-<td><code>{id}</code>: deleted</td>
+<td><code>{id}</code>: deleted; a SQL row&#39;s <code>{id, item, saved: []}</code>, by its key</td>
 </tr>
 </tbody></table>
 </div>
@@ -921,10 +979,13 @@ whether a next page is there, and its results are not counted, which would run i
 A stage that writes, <code>$out</code> or <code>$merge</code>, is refused: it is read here.</p>
 <p>A document is its text, typed as a filter is; <code>id</code> is the <code>_id</code> as a page answered it, in
 relaxed Extended JSON. One deleted since the page was read is said so, and a document that
-names another <code>_id</code> MongoDB refuses: an <code>_id</code> is for good. A body is 4 MB at most.</p>
+names another <code>_id</code> MongoDB refuses: an <code>_id</code> is for good. A SQL row is its JSON text, <code>id</code> its
+key as a page answered it, and <code>was</code> the row&#39;s text as <code>GET &lt;base&gt;/document</code> gave it
+(<a href="#changing-a-row">Changing a row</a>). A document, and a row&#39;s <code>was</code>, are 4 MB each at most.</p>
 <p>A query that is wrong is answered 400 with what is wrong and where (<code>the filter: a comma or } was expected, at 14</code>), and so is one MongoDB refuses (<code>unknown operator: $foo</code>), PostgreSQL
-(<code>column &quot;nam&quot; does not exist</code>) or MySQL. A change asked of a SQL database is 405, its rows read
-alone for now. A database not reached is 502, a machine away 409.</p>
+(<code>column &quot;nam&quot; does not exist</code>) or MySQL. A change of a view&#39;s rows, of a table no key names a
+row of, or of a SQLite file&#39;s is 405, saying why. A database not reached is 502, a machine away
+409.</p>
 
 <footer class="foot">This page is built from <a href="https://github.com/vbarbarosh/serviceman/blob/main/modules/data_browser/README.md">its source on GitHub</a>. serviceman is MIT licensed.</footer>
 </main>

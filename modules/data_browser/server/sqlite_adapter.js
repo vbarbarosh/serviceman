@@ -47,7 +47,9 @@ const RE_VIRTUAL = /^\s*CREATE\s+VIRTUAL\b/i;
 // the file was not read, {error, code}. The file is opened read only and its writes refused
 // besides: a DELETE typed into a condition or the query box is refused by SQLite itself; one that
 // gives no rows (an ATTACH, a VACUUM INTO) is not run at all, nor a second statement after the
-// first. What is typed is run as typed, by SQLite, with the file's data alone.
+// first. What is typed is run as typed, by SQLite, with the file's data alone. Its rows are not
+// changed here, as a database's are: the file is its app's own data, written by its app, and
+// writing into it under the app is another question (read_only says so, for the change doors).
 //
 //     adapter = sqlite_adapter(v => remote_call(app, remote, 'sqlite_read', {path, ...v}))
 //     await adapter.file()          // {size, mtime_ms}: the file, opened as SQLite, for its head
@@ -60,6 +62,7 @@ function sqlite_adapter(run)
 {
     return {
         engine: 'sqlite',
+        read_only: 'a SQLite file is its app\'s own data: it is read here alone, never written under its app',
         // The file as the page heads it, read as SQLite and nothing more: one that is gone, a
         // folder or no SQLite is refused here, before any table is asked of it
         file: async function () {
@@ -235,7 +238,7 @@ function said_of(answer)
         return `it took longer than ${answer.ms/1000} s, and the agent stopped it: an index on what it filters or sorts by makes it quick`;
     }
     if (answer.code === 'no_rows') {
-        return 'only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows';
+        return 'only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows';
     }
     if (answer.code === 'statements') {
         return 'only one statement at a time is read here, and this is more than one: none of it was run';
@@ -245,7 +248,7 @@ function said_of(answer)
     }
     const code = answer.code & 0xff;
     if (code === SQLITE_READONLY) {
-        return `it writes, and this page changes nothing for now: ${answer.error}`;
+        return `it writes, and an app's file is read alone here: ${answer.error}`;
     }
     if ((code === SQLITE_BUSY) || (code === SQLITE_LOCKED)) {
         return `another program holds the file locked while it writes to it: read it again in a moment (${answer.error})`;

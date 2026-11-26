@@ -97,13 +97,13 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     assert.strictEqual(vm.remove_said, 'Removes its server, mongodb-1, and orders_test with it: its container on vps1 stops and their data goes; shop finds no database at its next start.');
     assert.deepStrictEqual(vm.remove_rows.map(v => `${v.label}: ${v.code}${v.text}`), ['Its container: serviceman-db-mongodb-1 stops and goes', 'Its data: serviceman-db-mongodb-1 volume, 1 KB, goes for good', 'Beside it: orders_test', 'Apps given it: shop: no database at the next start']);
 
-    // Browse: its data, read as its own user, a MongoDB's for now, once it is up and its machine
+    // Browse: its data, read and changed as its own user, a MongoDB's, once it is up and its machine
     // here
     const emitted = [];
     vm.$emit = function (name, value) {
         emitted.push([name, value]);
     };
-    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, '', 'Its collections and documents, read as its own user']);
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, '', 'Its collections and documents, as its own user']);
     vm.browse_open();
     assert.deepStrictEqual(emitted, [['place', {page: 'browse', server: 'mongodb-1', database: 'orders', collection: ''}]]);
 
@@ -128,7 +128,7 @@ test('a database\'s page offers it to the apps that reach it, and says each part
     Object.assign(server, {engine: 'postgresql', version: '17', sample: 'sakila', phase: 'starting', said: 'fetching Sakila'});
     assert.deepStrictEqual(vm.up_steps.map(v => `${v.state} ${v.text}`), ['done pulling its image', 'done making its container', 'done waiting for PostgreSQL to answer', 'now fetching Sakila', 'next loading Sakila']);
     // A PostgreSQL's and a MySQL's tables are browsed too, once the server is up
-    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, 'mongodb-1 is not up: its data is read once it is', 'Its tables and rows, read as its own user']);
+    assert.deepStrictEqual([vm.browse_shown, vm.browse_why, vm.browse_title], [true, 'mongodb-1 is not up: its data is read once it is', 'Its tables and rows, as its own user']);
     Object.assign(server, {engine: 'mysql', version: '8.4', phase: 'up'});
     assert.deepStrictEqual([vm.browse_shown, vm.browse_why], [true, '']);
 

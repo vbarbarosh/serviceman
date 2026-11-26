@@ -16,9 +16,11 @@ import storage_set from '../../storage_set.js';
 // deletion asked before it is done. A view's documents and a pipeline's results are read alone.
 // A SQL database (PostgreSQL, MySQL, a SQLite file) is the same page in its own words: its
 // tables and their rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its
-// own in Query; a row shown whole is its JSON, and its rows are read alone for now. The host gives the API, a
-// GET under one base (data_browser_serve), the colours and its usual classes: card, card-head,
-// primary, link, muted, bad, spin, dt-window, dt-whole, dt-whole-head.
+// own in Query; a row shown whole is its JSON. A PostgreSQL's or a MySQL's row is added, edited
+// and deleted as a document is, named by its table's key: a table with none, a view and a SQLite
+// file are read alone, and the head says why. The host gives the API under one base
+// (data_browser_serve), the colours and its usual classes: card, card-head, primary, link, muted,
+// bad, spin, dt-window, dt-whole, dt-whole-head.
 //
 // Props
 //     base        the module's API, as the host mounts it
@@ -31,8 +33,9 @@ import storage_set from '../../storage_set.js';
 
 // An engine's words, where they differ from another's. A SQL engine's tables and rows stand for
 // the collections and documents, a condition for the filter, a SELECT of its own for the
-// pipeline; `quote` is how it quotes a name, and `schemas` says a name of a table of another
-// schema is schema.table, each part quoted on its own.
+// pipeline; `quote` is how it quotes a name, `schemas` says a name of a table of another schema
+// is schema.table, each part quoted on its own, `changes` that its rows are changed here, and
+// `bytes` how binary data is written in a row's JSON, as the engine gives it.
 const SQL_WORDS = {
     sql: true,
     kinds: 'Tables',
@@ -78,10 +81,18 @@ const WORDS = {
         pipeline: '[{$match: {status: \'active\'}}, {$group: {_id: \'$city\', n: {$sum: 1}}}]',
         sorts_own: 'A pipeline sorts with its own $sort',
         none: 'No collection in it yet: MongoDB makes one at an app\'s first write to it.',
+        changes: true,
     },
-    postgresql: Object.assign({quote: '"', schemas: true}, SQL_WORDS),
-    mysql: Object.assign({quote: '`', schemas: false}, SQL_WORDS),
-    sqlite: Object.assign({quote: '"', schemas: false}, SQL_WORDS),
+    postgresql: Object.assign({quote: '"', schemas: true, changes: true, bytes: '"\\\\x00ff"'}, SQL_WORDS),
+    mysql: Object.assign({quote: '`', schemas: false, changes: true, bytes: '"0x00FF"'}, SQL_WORDS),
+    sqlite: Object.assign({quote: '"', schemas: false, changes: false, bytes: '"0x00ff"'}, SQL_WORDS),
+};
+// Why a SQL table's rows are read alone, said in its head: a view, a table no key names a row
+// of, a SQLite file
+const READ_ONLY = {
+    view: {text: 'read only: a view', title: 'A view\'s rows are found by its query: they are changed in the tables it reads'},
+    keyless: {text: 'read only: no primary key', title: 'A row is changed here by its primary key, or by a unique key of NOT NULL columns, which names one row: this table has neither, so a change could reach another row with the same values'},
+    file: {text: 'read only: an app\'s file', title: 'A SQLite file on a machine is its app\'s own data: it is read here, never written under its app'},
 };
 // A list longer than this gets a box to find a name in
 const SEARCH_FROM = 10;
@@ -126,7 +137,7 @@ const data_browser = {
                 <h2 class="dbr-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>{{ open }}</h2>
                 <span class="muted dbr-facts">{{ open_facts }}</span>
                 <button v-if="changeable" type="button" class="dbr-add" :disabled="offline" :title="('Add a ' + words.item + ' to ' + open)" @click="add_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ words.Item }}</button>
-                <span v-else-if="(words.sql && (open_item !== null) && (open_item.type !== 'view'))" class="tag dbr-readonly" title="Its rows are added, edited and deleted here in a later step">read only for now</span>
+                <span v-else-if="(read_only !== null)" class="tag dbr-readonly" :title="read_only.title">{{ read_only.text }}</span>
             </div>
             <form class="dbr-find" @submit.prevent="find">
                 <div class="dbr-field">
@@ -204,22 +215,23 @@ const data_browser = {
     <div v-if="(picked_item !== null)" class="dt-window" @click.self="picked = null">
         <div ref="picked_box" class="dt-whole dbr-doc" role="dialog" aria-modal="true" tabindex="-1" @keydown.esc="picked = null">
             <div class="dt-whole-head">
-                <b class="dbr-doc-name">{{ picked_name }}</b>
+                <b class="dbr-doc-name" :title="picked_name">{{ picked_name }}</b>
                 <span class="muted">{{ open }} · {{ (page.skip + picked + 1).toLocaleString('en-US') }} of {{ count_text }}</span>
                 <span class="dbr-doc-acts">
                     <button type="button" :disabled="(picked === 0)" aria-label="The document before" @click="picked--">‹</button>
                     <button type="button" :disabled="(picked === (page.items.length - 1))" aria-label="The next document" @click="picked++">›</button>
                     <button type="button" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
                     <button v-if="picked_changeable" type="button" :disabled="offline" @click="edit_open">Edit</button>
-                    <button v-if="picked_changeable" type="button" :disabled="(offline || (deleting !== null))" @click="deleting = {busy: false, error: ''}">Delete</button>
+                    <button v-if="picked_changeable" type="button" :disabled="(offline || (deleting !== null))" @click="delete_ask">Delete</button>
                     <button type="button" class="link" @click="picked = null">Close</button>
                 </span>
             </div>
+            <p v-if="(picked_unkeyed !== '')" class="muted dbr-doc-note">{{ picked_unkeyed }}</p>
             <div v-if="(deleting !== null)" class="dbr-confirm" role="alert">
                 <span>Delete this {{ words.item }} from {{ open }}? It goes for good.</span>
                 <span v-if="(deleting.error !== '')" class="bad">{{ deleting.error }}</span>
                 <span class="dbr-confirm-acts">
-                    <button type="button" :disabled="deleting.busy" @click="deleting = null">Cancel</button>
+                    <button ref="delete_cancel" type="button" :disabled="deleting.busy" @click="deleting = null">Cancel</button>
                     <button type="button" class="danger" :disabled="deleting.busy" @click="delete_save">Delete</button>
                 </span>
             </div>
@@ -228,16 +240,16 @@ const data_browser = {
     </div>
     <!-- A document added or edited: the head and the foot stay, the text between them scrolls -->
     <div v-if="(editing !== null)" class="dt-window" @click.self="edit_close">
-        <div class="dt-whole dbr-edit" role="dialog" aria-modal="true" :aria-label="edit_title" @keydown.esc="edit_close">
+        <div ref="edit_box" class="dt-whole dbr-edit" role="dialog" aria-modal="true" tabindex="-1" :aria-label="edit_title" @keydown.esc="edit_close">
             <div class="dt-whole-head">
-                <b class="dbr-doc-name">{{ edit_title }}</b>
+                <b class="dbr-doc-name" :title="edit_title">{{ edit_title }}</b>
                 <span class="muted">{{ open }}</span>
                 <button type="button" class="link" @click="edit_close">Close</button>
             </div>
             <textarea ref="edit_text" v-model="editing.text" class="dbr-code dbr-edit-text" wrap="off" :aria-label="edit_title" spellcheck="false" autocomplete="off" autocapitalize="off" :disabled="editing.busy" @keydown.ctrl.enter.prevent="edit_save" @keydown.meta.enter.prevent="edit_save"/>
-            <p v-if="(editing.error !== '')" class="bad dbr-error" role="alert">{{ editing.error }}</p>
+            <p v-if="(editing.error !== '')" class="bad dbr-error" role="alert">{{ editing.error }}<button v-if="(editing.changed !== null)" type="button" class="link" :disabled="editing.busy" title="Reads the row as it is now, in place of what is typed here" @click="edit_read">Read it as it is now</button></p>
             <div class="dbr-edit-foot">
-                <span class="muted">Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). Ctrl+Enter {{ (editing.id === undefined) ? 'adds' : 'saves' }}.</span>
+                <span class="muted">{{ edit_hint }}</span>
                 <button type="button" :disabled="editing.busy" @click="edit_close">Cancel</button>
                 <button type="button" class="primary" :disabled="(editing.busy || offline)" @click="edit_save">{{ (editing.id === undefined) ? 'Add' : 'Save' }}</button>
             </div>
@@ -260,9 +272,12 @@ const data_browser = {
         // page: the documents found, {items, count, skip, limit, took_ms, cut} (a pipeline's
         // with more, whether a next page is there), null before; view: table or json
         // picked: the index on the page of the document shown whole, null for none
-        // editing: a document added or edited, {id, text, busy, error}, id undefined when
-        // added; deleting: the one shown whole asked to be deleted, {busy, error}; said: what
-        // the last change did, under the page until the next query
+        // editing: a document added or edited, {id, text, was, busy, error, changed, filled}, id
+        // undefined when added, a SQL row's its key; was: a SQL row's text as read, what an edit
+        // is saved against; changed: the columns another hand changed since, null for none;
+        // filled: those a SQL table fills itself, for + Row; deleting: the one shown whole asked
+        // to be deleted, {busy, error}; said: what the last change did, under the page until the
+        // next query
         // recent: the last queries, of every collection, newest first, as kept in the browser
         return {
             about: null,
@@ -395,22 +410,81 @@ const data_browser = {
             }
             return (this.page.items[this.picked] === undefined) ? null : this.page.items[this.picked];
         },
-        // Its documents can be changed: a collection, not a view; a SQL table's rows are read
-        // alone for now
+        // Its documents can be changed: a collection, not a view; a SQL table's rows when its
+        // engine's are changed here and a key names one of them
         changeable: function () {
-            return (this.words.sql === false) && (this.open_item !== null) && (this.open_item.type !== 'view');
+            if ((this.open_item === null) || (this.open_item.type === 'view') || (this.words.changes === false)) {
+                return false;
+            }
+            return (this.words.sql === false) || (Array.isArray(this.open_item.key) && (this.open_item.key.length > 0));
+        },
+        // Why a SQL table's rows are read alone; null when they are not, or it is no SQL table
+        read_only: function () {
+            if ((this.words.sql === false) || (this.open_item === null)) {
+                return null;
+            }
+            if (this.words.changes === false) {
+                return READ_ONLY.file;
+            }
+            if (this.open_item.type === 'view') {
+                return READ_ONLY.view;
+            }
+            return this.changeable ? null : READ_ONLY.keyless;
+        },
+        // The key of the SQL row shown whole, its columns with their values; null when one of
+        // them is not among the columns shown
+        picked_key: function () {
+            if ((this.words.sql === false) || (this.changeable === false) || (this.picked_item === null)) {
+                return null;
+            }
+            const out = {};
+            for (const name of this.open_item.key) {
+                if (this.picked_item[name] === undefined) {
+                    return null;
+                }
+                out[name] = this.picked_item[name];
+            }
+            return out;
         },
         // The document shown whole can be edited and deleted: one of the collection as found,
-        // never a pipeline's result, which is no document of it
+        // never a pipeline's result, which is no document of it; a SQL row by its key
         picked_changeable: function () {
-            return this.changeable && (this.asked.mode === 'find') && (this.picked_item !== null) && (this.picked_item._id !== undefined);
+            if ((this.changeable === false) || (this.asked.mode !== 'find') || (this.picked_item === null)) {
+                return false;
+            }
+            return this.words.sql ? (this.picked_key !== null) : (this.picked_item._id !== undefined);
+        },
+        // A SQL row shown without its key, Columns typed without it: why it has no Edit
+        picked_unkeyed: function () {
+            if ((this.words.sql === false) || (this.changeable === false) || (this.asked.mode !== 'find') || (this.picked_item === null) || (this.picked_key !== null)) {
+                return '';
+            }
+            return `Edit and Delete find a row by its key, ${this.open_item.key.join(', ')}: show it among the columns to change this row.`;
         },
         edit_title: function () {
-            return (this.editing.id === undefined) ? `Add a ${this.words.item}` : `Edit ${mongo_text_of(this.editing.id, false)}`;
+            if (this.editing.id === undefined) {
+                return `Add a ${this.words.item}`;
+            }
+            return `Edit ${this.words.sql ? this.key_text(this.editing.id) : mongo_text_of(this.editing.id, false)}`;
+        },
+        // What is typed, as the window's foot says it: the shell's words, or a SQL row's JSON
+        edit_hint: function () {
+            const keys = (this.editing.id === undefined) ? 'adds' : 'saves';
+            if (this.words.sql === false) {
+                return `Typed as the shell types it: ObjectId('…'), ISODate('…'), NumberLong('…'). Ctrl+Enter ${keys}.`;
+            }
+            if (this.editing.id === undefined) {
+                const filled = (this.editing.filled.length === 0) ? 'their defaults fill the rest' : `${this.editing.filled.join(', ')}: their defaults`;
+                return `A JSON object of the columns to set, null for NULL; ${filled}. Ctrl+Enter ${keys}.`;
+            }
+            return `Each value as this page reads it: a date as its text, binary data as ${this.words.bytes}, null for NULL. The columns changed are saved alone. Ctrl+Enter ${keys}.`;
         },
         picked_name: function () {
+            if (this.words.sql) {
+                return (this.picked_key === null) ? `A ${this.words.item}` : this.key_text(this.picked_key);
+            }
             const id = this.picked_item._id;
-            return ((id === undefined) || this.words.sql) ? `A ${this.words.item}` : mongo_text_of(id, false);
+            return (id === undefined) ? `A ${this.words.item}` : mongo_text_of(id, false);
         },
         // The document as the shell writes it; a row as its JSON, its columns in order
         picked_text: function () {
@@ -641,34 +715,74 @@ const data_browser = {
                 this.busy = false;
             }
         },
-        add_open: function () {
-            this.editing = {id: undefined, text: '{\n    \n}', busy: false, error: ''};
+        // + Document; + Row, its text the columns its table does not fill itself, each null
+        add_open: async function () {
+            this.editing = {id: undefined, text: '{\n    \n}', was: undefined, busy: this.words.sql, error: '', changed: null, filled: []};
+            const editing = this.editing;
+            this.ref_focus('edit_box');
+            if (this.words.sql) {
+                try {
+                    const body = await this.api('GET', `document?${new URLSearchParams({collection: this.open})}`);
+                    const names = body.columns.filter(v => body.filled.includes(v) === false);
+                    editing.filled = body.filled;
+                    editing.text = (names.length === 0) ? '{\n    \n}' : sql_text_of(new Map(names.map(v => [v, null])), true);
+                }
+                catch (error) {
+                    editing.error = error.message;
+                }
+                editing.busy = false;
+            }
             this.edit_focus();
         },
         // Edit: the document read again whole by its _id, since a page may show some of its
-        // fields alone, and saving those would drop the rest
-        edit_open: async function () {
-            const id = this.picked_item._id;
+        // fields alone, and saving those would drop the rest; a SQL row by its key
+        edit_open: function () {
+            const id = this.words.sql ? this.picked_key : this.picked_item._id;
             this.picked = null;
-            this.editing = {id, text: '', busy: true, error: ''};
-            const query = new URLSearchParams({collection: this.open, filter: `{_id: ${mongo_text_of(id, false)}}`, limit: '1'});
+            this.editing = {id, text: '', was: undefined, busy: true, error: '', changed: null, filled: []};
+            this.edit_read();
+        },
+        // The document edited read whole as it is now, in place of what is typed: a SQL row
+        // with what it holds, which its save is held against
+        edit_read: async function () {
+            const editing = this.editing;
+            editing.busy = true;
+            editing.error = '';
+            editing.changed = null;
+            this.ref_focus('edit_box');
             try {
-                const body = await this.api('GET', `documents?${query}`);
-                if (body.items.length === 0) {
-                    throw new Error('it is not there any more: deleted since the page was read');
+                if (this.words.sql) {
+                    const body = await this.api('GET', `document?${new URLSearchParams({collection: this.open, id: JSON.stringify(editing.id)})}`);
+                    if (body.item === null) {
+                        throw new Error('it is not there any more: deleted, or its key changed, since it was read');
+                    }
+                    editing.text = sql_text_of(new Map(body.columns.map(v => [v, body.item[v]])), true);
+                    editing.was = editing.text;
                 }
-                this.editing.text = mongo_text_of(body.items[0], true);
+                else {
+                    const query = new URLSearchParams({collection: this.open, filter: `{_id: ${mongo_text_of(editing.id, false)}}`, limit: '1'});
+                    const body = await this.api('GET', `documents?${query}`);
+                    if (body.items.length === 0) {
+                        throw new Error('it is not there any more: deleted since the page was read');
+                    }
+                    editing.text = mongo_text_of(body.items[0], true);
+                }
             }
             catch (error) {
-                this.editing.error = error.message;
+                editing.error = error.message;
             }
-            this.editing.busy = false;
+            editing.busy = false;
             this.edit_focus();
         },
         edit_focus: function () {
+            this.ref_focus('edit_text');
+        },
+        // What has the keys in a window is given to `ref` once the page is drawn: the window
+        // itself while what had them is disabled, so Esc still reaches it and closes it
+        ref_focus: function (ref) {
             this.$nextTick(function () {
-                if (this.$refs.edit_text !== undefined) {
-                    this.$refs.edit_text.focus({preventScroll: true});
+                if (this.$refs[ref] !== undefined) {
+                    this.$refs[ref].focus({preventScroll: true});
                 }
             });
         },
@@ -677,35 +791,60 @@ const data_browser = {
                 this.editing = null;
             }
         },
+        // Added or saved; a SQL row saved against what it held when read, so another hand's
+        // change since is said, with Read it as it is now, rather than saved over
         edit_save: async function () {
             const editing = this.editing;
             const added = (editing.id === undefined);
             editing.busy = true;
             editing.error = '';
+            editing.changed = null;
+            this.ref_focus('edit_box');
             try {
-                const body = added ? {collection: this.open, document: editing.text} : {collection: this.open, id: editing.id, document: editing.text};
+                const body = added ? {collection: this.open, document: editing.text} : {collection: this.open, id: editing.id, document: editing.text, was: editing.was};
                 const done = await this.api('POST', added ? 'documents' : 'documents/replace', body);
                 this.editing = null;
-                this.changed(added ? `Added ${mongo_text_of(done.id, false)}` : `Saved ${mongo_text_of(done.id, false)}`);
+                this.changed(this.change_said(added ? 'Added' : 'Saved', done));
             }
             catch (error) {
                 editing.busy = false;
                 editing.error = error.message;
+                editing.changed = ((error.answer !== undefined) && Array.isArray(error.answer.changed)) ? error.answer.changed : null;
+                this.edit_focus();
             }
+        },
+        // Delete asked: Cancel takes the keys, the head's Delete being disabled while it is asked
+        delete_ask: function () {
+            this.deleting = {busy: false, error: ''};
+            this.ref_focus('delete_cancel');
         },
         delete_save: async function () {
             const deleting = this.deleting;
             deleting.busy = true;
             deleting.error = '';
+            this.ref_focus('picked_box');
             try {
-                const done = await this.api('POST', 'documents/delete', {collection: this.open, id: this.picked_item._id});
+                const done = await this.api('POST', 'documents/delete', {collection: this.open, id: this.words.sql ? this.picked_key : this.picked_item._id});
                 this.picked = null;
-                this.changed(`Deleted ${mongo_text_of(done.id, false)}`);
+                this.changed(this.change_said('Deleted', done));
             }
             catch (error) {
                 deleting.busy = false;
                 deleting.error = error.message;
+                this.ref_focus('delete_cancel');
             }
+        },
+        // What a change did, in a line: the document's _id or the row's key, and the columns an
+        // edit of a row saved
+        change_said: function (verb, done) {
+            if (this.words.sql === false) {
+                return `${verb} ${mongo_text_of(done.id, false)}`;
+            }
+            const named = (done.id === null) ? `a ${this.words.item}` : this.key_text(done.id);
+            if (verb !== 'Saved') {
+                return `${verb} ${named}`;
+            }
+            return (done.saved.length === 0) ? `Nothing changed in ${named}` : `Saved ${named}: ${done.saved.join(', ')}`;
         },
         // A change made: said under the page, the page and the counts read again
         changed: function (said) {
@@ -713,14 +852,18 @@ const data_browser = {
             this.collections_read();
             this.documents_read((this.page === null) ? 0 : this.page.skip);
         },
-        // The module's API: its answer, or what it refused, thrown
+        // The module's API: its answer, or what it refused, thrown with the answer
         api: async function (method, door, body) {
             const answer = await fetch(`${this.base}/${door}`, {method, cache: 'no-store', body: (body === undefined) ? undefined : JSON.stringify(body)});
             const out = await answer.json().catch(() => ({}));
             if (answer.ok === false) {
-                throw new Error(out.error || `serviceman answered ${answer.status}`);
+                throw Object.assign(new Error(out.error || `serviceman answered ${answer.status}`), {answer: out});
             }
             return out;
+        },
+        // A SQL row's key in a line: each column and its value as the page writes it
+        key_text: function (key) {
+            return Object.keys(key).map(v => `${v} = ${sql_text_of(key[v], false)}`).join(', ');
         },
         cells_of: function (item) {
             const cell_of = this.words.sql ? sql_cell_of : mongo_cell_of;

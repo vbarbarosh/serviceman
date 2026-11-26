@@ -844,11 +844,22 @@ rows, <code>~</code> before a number its engine estimates for a table too big to
 database&#39;s head counts the same tables. <strong>Find</strong> takes a condition after <code>WHERE</code>, <code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>, and <strong>Order by and columns</strong> opens <code>joined DESC</code> and <code>name, email</code>; a click on a header orders by it. <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed
 whole, joins and <code>GROUP BY</code> and all, a page at a time. A cell shows its value as a MongoDB
 document&#39;s does, a number whole to its last digit (<code>2.50</code>, <code>9007199254740993</code>); a row opened is
-its JSON, with <strong>Copy</strong>. Their rows are read alone for now, said in the table&#39;s head: no <strong>+
-Row</strong>, no Edit or Delete yet. Each read is a <code>READ ONLY</code> transaction as the database&#39;s own user,
+its JSON, with <strong>Copy</strong>. Each read is a <code>READ ONLY</code> transaction as the database&#39;s own user,
 signed in over its container&#39;s <code>127.0.0.1</code>, its password in the client&#39;s env (<code>PGPASSWORD</code>,
 <code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into it is refused by the engine itself, and said so.
 A SQLite file comes to the same page from its machine&#39;s Files (<a href="#a-sqlite-file">A SQLite file</a>).</p>
+<p>Their rows are changed as a document is, each change asked of the database as its own user, in
+a transaction of its own. A row is named by its table&#39;s primary key, or by a unique key of
+<code>NOT NULL</code> columns where there is none: <strong>+ Row</strong> in the table&#39;s head opens a JSON object of the
+columns to set, those the database fills itself (a serial, a default, a generated one) left out
+for their defaults; a row opened has <strong>Edit</strong>, which reads it again whole by its key and saves
+the columns changed alone, and <strong>Delete</strong>, asked before it is done. An edit is saved against
+the row as it was read: when another hand (an app) changed one of the columns it changes
+meanwhile, nothing is saved over it, and the window says which and what it holds now, with
+<strong>Read it as it is now</strong>. A value goes in as data, read by its column&#39;s type, never as SQL, and
+what the database refuses is said in its own words: <code>null value in column &quot;customer&quot; … violates not-null constraint</code>, <code>Cannot add or update a child row: a foreign key constraint fails …</code>. A
+view, and a table no key names a row of, are read alone, said in the table&#39;s head: <code>read only: a view</code>, <code>read only: no primary key</code>. The <a href="modules/data_browser.html#changing-a-row">Data</a>
+module says how each engine is asked.</p>
 <h2 id="a-sqlite-file"><a class="anchor" href="#a-sqlite-file" aria-hidden="true" tabindex="-1">#</a>A SQLite file</h2>
 <p>A SQLite file needs no server: it is a file of a machine, often an app folder&#39;s <code>data/</code>, where
 an app keeps its state (<code>data/app.db</code>). The machine&#39;s <strong>Files</strong> has <strong>Browse</strong> for it among a
@@ -866,15 +877,16 @@ its JSON, as a PostgreSQL&#39;s (<a href="#its-data-browsed">Its data, browsed</
 digit (<code>9007199254740993</code>), a blob is its hex (<code>0x00ff</code>).</p>
 <p>The machine&#39;s agent reads it, with its own Node&#39;s <code>node:sqlite</code>: nothing is installed for it,
 and nothing of the file leaves the machine but the page asked for. A machine whose Node is older
-than 22.16 has no <code>node:sqlite</code> whole: its Browse is greyed, and says so. The file is opened read
-only: a <code>DELETE</code> or a <code>DROP</code> typed into the query box is refused, and nothing typed into it ever
-writes. The rows are read alone for now, as a PostgreSQL&#39;s are. Each read runs in a process of
-its own beside the agent, so a query that takes long holds nothing else of the machine: it is
-stopped at 20 s, and when the agent restarts, it ends with it. A file another program is writing
-at that moment is said to be locked, read again a moment later; a <code>.db</code> file that is no SQLite
-says so in place of its tables. A database in WAL mode keeps a <code>-wal</code> and a <code>-shm</code> file beside
-it while it is open; read while its app is stopped, they stay there after, empty, as any reader
-of it leaves them, and the app&#39;s next open takes them over.</p>
+than 22.16 has no <code>node:sqlite</code> whole: its Browse is greyed, and says so. The file is opened
+read only: a <code>DELETE</code> or a <code>DROP</code> typed into the query box is refused, and nothing typed into it
+ever writes. Its rows are read alone, not changed as a database&#39;s are: the file is its app&#39;s own
+data, written by its app, and the table&#39;s head says <code>read only: an app&#39;s file</code>. Each read runs
+in a process of its own beside the agent, so a query that takes long holds nothing else of the
+machine: it is stopped at 20 s, and when the agent restarts, it ends with it. A file another
+program is writing at that moment is said to be locked, read again a moment later; a <code>.db</code> file
+that is no SQLite says so in place of its tables. A database in WAL mode keeps a <code>-wal</code> and a
+<code>-shm</code> file beside it while it is open; read while its app is stopped, they stay there after,
+empty, as any reader of it leaves them, and the app&#39;s next open takes them over.</p>
 <p><code>bin/run-local</code>&#39;s Files has the same Browse, on this computer&#39;s files (see
 <a href="https://github.com/vbarbarosh/serviceman/blob/main/src/module-host/README.md">module-host</a>).</p>
 <h2 id="the-passwords"><a class="anchor" href="#the-passwords" aria-hidden="true" tabindex="-1">#</a>The passwords</h2>

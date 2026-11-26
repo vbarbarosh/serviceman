@@ -143,8 +143,11 @@ function exec_route(engine, req, res, parts)
             container.databases.add(found[1]);
         }
         // The data browser's script, as the database's own user: a collection, and a page of it;
-        // a PostgreSQL's one table, a MySQL's
-        if (sql.includes('SET LOCAL serviceman.ask = ')) {
+        // a PostgreSQL's one table, a MySQL's; a PostgreSQL's row added, committed, read back
+        if (sql.includes('SET LOCAL serviceman.ask = ') && /^COMMIT;$/m.test(sql)) {
+            printed = 'serviceman-answer {"ok": {"names": ["id", "text"], "row": [3, "added"], "key": ["id"], "changed": [], "columns": null, "filled": null}}\n';
+        }
+        else if (sql.includes('SET LOCAL serviceman.ask = ')) {
             printed = 'serviceman-answer {"ok": [{"name": "note", "type": "table", "count": 2, "estimated": false, "bytes": 8192, "storage_bytes": 16384, "index_bytes": 8192, "indexes": 1}]}\nserviceman-count \n';
         }
         else if (sql.includes('@serviceman_types')) {

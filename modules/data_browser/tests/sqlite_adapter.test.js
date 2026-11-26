@@ -82,12 +82,12 @@ test('a SQLite file: its tables, a page of rows, a condition, an order, the colu
     refused.push(await adapter.documents({collection: 'orders', filter: 'nope = 1', sort: '', fields: '', skip: 0, limit: 50}).catch(e => `${e.status} ${e.message}`));
     refused.push(await adapter.documents({collection: 'nope', filter: '', sort: '', fields: '', skip: 0, limit: 50}).catch(e => `${e.status} ${e.message}`));
     assert.deepStrictEqual(refused, [
-        '400 only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows',
-        '400 only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows',
+        '400 only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows',
+        '400 only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows',
         '400 only one statement at a time is read here, and this is more than one: none of it was run',
-        '400 it writes, and this page changes nothing for now: attempt to write a readonly database',
-        '400 only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows',
-        '400 only what one SELECT gives is read here, and this page changes nothing for now: that statement gives no rows',
+        '400 it writes, and an app\'s file is read alone here: attempt to write a readonly database',
+        '400 only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows',
+        '400 only what one SELECT gives is read here, and an app\'s file is read alone: that statement gives no rows',
         '400 near "SELEC": syntax error',
         '400 near "DELETE": syntax error',
         '400 no such column: nope',

@@ -9,9 +9,9 @@ const DATABASE_ICON = '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.
 const VIEW_EVERY_MS = 10000;
 
 // One database's data, browsed: its head as its page has it, then the Data browser module on
-// it, whose API is /api/v1/databases/<server>/<database>/browse. What it reads is read as the
-// database's own user, the head says which. The collection open is kept in the address, so a
-// reload or a link opens it again.
+// it, whose API is /api/v1/databases/<server>/<database>/browse. What it reads and changes is
+// asked as the database's own user, the head says which. The collection open is kept in the
+// address, so a reload or a link opens it again.
 //
 // Props
 //     place   {page: 'browse', server, database, collection}
@@ -32,7 +32,7 @@ const database_browse = {
                 <div v-if="(server !== null)" class="item-line">
                     <span class="tag">{{ engine_text }}</span>
                     <span>in {{ server.name }} on <button type="button" class="link" @click="$emit('remote', server.remote)">{{ server.title }}</button></span>
-                    <span v-if="(user !== '')" class="muted">read as <code>{{ user }}</code>, its own user</span>
+                    <span v-if="(user !== '')" class="muted">as <code>{{ user }}</code>, its own user</span>
                 </div>
             </div>
             <div class="item-acts">
