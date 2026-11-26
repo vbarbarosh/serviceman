@@ -2015,10 +2015,6 @@ ul.tried {
     min-width: 0;
 }
 
-.svc-ov .card-head h2 svg {
-    color: var(--link);
-}
-
 .svc-head-acts {
     display: flex;
     gap: 18px;
@@ -3035,7 +3031,6 @@ pre.line-body.stderr {
 
 .editor-card > .card-head h2 svg {
     flex: none;
-    color: var(--link);
 }
 
 .editor-path {
@@ -3563,6 +3558,18 @@ button.link:hover {
     text-decoration: underline;
 }
 
+/* An add button: the + icon, then its words, never a typed + */
+button.add {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+}
+
+/* Its icon keeps its size when the words wrap in a narrow row */
+button.add > svg {
+    flex: none;
+}
+
 .tabs {
     display: flex;
     gap: .4rem;
@@ -3736,6 +3743,11 @@ article.list > p {
     margin: 0;
     font-size: 16px;
     font-weight: 700;
+}
+
+/* Its icon in link blue, on every card */
+.card-head h2 svg {
+    color: var(--link);
 }
 
 .card-head > h2 + * {
@@ -7543,7 +7555,6 @@ article.rf .actions {
    it is not joined to. */
 .map-card .card-head h2 svg {
     flex: none;
-    color: var(--link);
 }
 
 .map-legend {
@@ -9099,6 +9110,42 @@ button.st-pill.problem-where {
     min-width: 0;
     text-align: right;
     overflow-wrap: anywhere;
+}
+
+/* A phone: a row's variable or why not on a line of its own, left-aligned under the name. The box
+   hangs in the row's padding (its 13px and the row's 12px gap), so every line of the row starts
+   under the name, a long name's own too; the foot's sentence a line of its own, its buttons at the
+   right under it */
+@media (max-width: 640px) {
+    .databases .db-give {
+        padding-left: 39px;
+    }
+
+    .databases .db-give input {
+        margin-left: -25px;
+    }
+
+    .databases .db-give > b {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .databases .db-give-end {
+        flex-basis: 100%;
+        text-align: left;
+    }
+
+    .databases .db-window-foot {
+        justify-content: flex-end;
+    }
+
+    .databases .db-window-foot > :first-child {
+        flex-basis: 100%;
+    }
+
+    .databases .db-window-foot > :first-child:empty {
+        display: none;
+    }
 }
 
 /* Its public port: TLS green, none amber; what its machine's firewall said under the line, by a

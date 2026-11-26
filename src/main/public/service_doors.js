@@ -51,7 +51,7 @@ const service_doors = {
         <button type="button" :disabled="busy" @click="adding = false">Cancel</button>
     </div>
     <div v-else>
-        <button type="button" @click="add_open">+ Add a public address</button>
+        <button type="button" class="add" @click="add_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a public address</button>
     </div>
     <p v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')">{{ note }}</p>
 </div>

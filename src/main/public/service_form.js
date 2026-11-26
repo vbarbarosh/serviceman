@@ -472,7 +472,7 @@ const service_form = {
                         <input v-model.trim="row.value" placeholder="value" spellcheck="false">
                         <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
                     </div>
-                    <button type="button" @click="row_add(m.env, {name: '', value: ''})">+ variable</button>
+                    <button type="button" class="add" @click="row_add(m.env, {name: '', value: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>variable</button>
                 </div>
                 <label>Network</label>
                 <div><input v-model.trim="m.network" placeholder="a docker network — optional" spellcheck="false"></div>
@@ -534,7 +534,7 @@ const service_form = {
                                 <input v-model.trim="row.value" placeholder="value" spellcheck="false">
                                 <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
                             </div>
-                            <button type="button" @click="row_add(m.env, {name: '', value: ''})">+ variable</button>
+                            <button type="button" class="add" @click="row_add(m.env, {name: '', value: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>variable</button>
                         </div>
                     </div>
                 </div>
@@ -580,7 +580,7 @@ const service_form = {
                         <input v-model.trim="row.value" placeholder="value" spellcheck="false">
                         <button type="button" title="Take this variable away" aria-label="Take this variable away" @click="row_drop(m.env, row)">×</button>
                     </div>
-                    <button type="button" @click="row_add(m.env, {name: '', value: ''})">+ variable</button>
+                    <button type="button" class="add" @click="row_add(m.env, {name: '', value: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>variable</button>
                 </div>
             </template>
             <template v-if="(section.id === 'runs' && m.type === 'external')">
@@ -625,7 +625,7 @@ const service_form = {
                         </select>
                         <button v-if="(m.places.length > 1)" type="button" title="Take this machine away" aria-label="Take this machine away" @click="row_drop(m.places, row)">×</button>
                     </div>
-                    <button v-if="(places.length > 0)" type="button" @click="row_add(m.places, {text: places[0].value})">+ a machine to fall back on</button>
+                    <button v-if="(places.length > 0)" type="button" class="add" @click="row_add(m.places, {text: places[0].value})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>a machine to fall back on</button>
                     <p v-if="(places.length === 0)" class="bad">No machine yet. It runs where an agent is — add a remote first.</p>
                     <p v-else-if="problems.places" class="bad">{{ problems.places }}</p>
                     <p v-else class="muted">The first one that is online runs it. A <code>#tag</code> is every machine carrying it.</p>
@@ -638,7 +638,7 @@ const service_form = {
                         <input v-model.trim="row.text" placeholder="app.example.com or tools.example.com/pdf" :class="{wrong: problems.hosts}" spellcheck="false">
                         <button v-if="(m.hosts.length > 1)" type="button" title="Take this address away" aria-label="Take this address away" @click="row_drop(m.hosts, row)">×</button>
                     </div>
-                    <button type="button" @click="row_add(m.hosts, {text: ''})">+ address</button>
+                    <button type="button" class="add" @click="row_add(m.hosts, {text: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>address</button>
                     <p v-if="problems.hosts" class="bad">{{ problems.hosts }}</p>
                     <p v-else-if="(creating && easy_host !== '' && m.hosts.every(v => v.text === ''))" class="muted">Left empty, it is <code>{{ easy_host }}</code>, after its name.</p>
                     <p v-else-if="(m.type === 'shell')" class="muted">Only a program that listens on a port has one. <code>*.example.com</code> is every name under it.</p>
@@ -696,7 +696,7 @@ const service_form = {
                         <p :class="(brought_says.targets[i].bad ? 'bad' : 'muted')">{{ brought_says.targets[i].text }}</p>
                         <p v-if="(brought_says.targets[i].away !== '')" class="svc-warn">{{ brought_says.targets[i].away }}</p>
                     </div>
-                    <button type="button" @click="click_another_machine">{{ (m.brought.targets.length === 0 ? '+ a machine' : '+ another machine') }}</button>
+                    <button type="button" class="add" @click="click_another_machine"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ (m.brought.targets.length === 0 ? 'a machine' : 'another machine') }}</button>
                     <p v-for="item of m.brought.kept" :key="item.label" class="muted">Also <code>{{ item.label }}</code>, written by hand: it stays as it is, and is changed on Forwards.</p>
                     <p v-if="(m.brought.targets.length === 0 && m.brought.kept.length === 0)" class="muted">It is reached on its machine alone. On a machine picked here its port shows up as a socket file, or a port on that machine's loopback, the way <code>ssh -L</code> brings one, with no ssh: the agents carry it. This host, where serviceman runs, needs no agent.</p>
                     <p v-if="brought_sleeps" class="svc-warn">It starts at the first request to its address and sleeps when idle, and a connection to its port over there does not wake it: under When it runs, start it with serviceman.</p>
@@ -710,7 +710,7 @@ const service_form = {
                         <span v-if="(row.source !== '')" class="muted step">{{ row.source }}{{ (row.readonly ? ' · read only' : '') }}</span>
                         <button type="button" title="Take this path away" aria-label="Take this path away" @click="row_drop(m.volumes, row)">×</button>
                     </div>
-                    <button type="button" @click="row_add(m.volumes, {source: '', target: '', readonly: false})">+ path</button>
+                    <button type="button" class="add" @click="row_add(m.volumes, {source: '', target: '', readonly: false})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>path</button>
                     <p class="muted">These survive a restart; everything else it writes goes with it. What is kept stays on its machine, so a service that keeps something runs on one machine.</p>
                 </div>
                 <template v-if="(m.type === 'shell')">
@@ -725,7 +725,7 @@ const service_form = {
                             </select>
                             <button type="button" title="Take this secret away" aria-label="Take this secret away" @click="row_drop(m.secrets, row)">×</button>
                         </div>
-                        <button type="button" @click="row_add(m.secrets, {name: '', value: '', copy_from: '', kept: false, length: 0})">+ secret</button>
+                        <button type="button" class="add" @click="row_add(m.secrets, {name: '', value: '', copy_from: '', kept: false, length: 0})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>secret</button>
                         <p v-if="problems.secrets" class="bad">{{ problems.secrets }}</p>
                         <p v-else class="muted">The program reads one with <code>secrets &lt;name&gt;</code>. They are this service's own and never in the config.</p>
                     </div>

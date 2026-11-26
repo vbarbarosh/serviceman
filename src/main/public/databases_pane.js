@@ -206,8 +206,8 @@ const databases_pane = {
                 <p v-if="(forward_note !== '')" class="bad">{{ forward_note }}</p>
                 <p v-if="((open_server.forwards.length === 0) && (adding === null) && (opening === null))" class="muted">Reached on {{ open_server.title }} alone. On a machine picked here its port shows up at that machine's 127.0.0.1 too, as <code>ssh -L</code> brings one, with no ssh: the agents carry it, and a program there picks it in its Data tab. Nothing opens to the internet.</p>
                 <span v-if="((adding === null) && (opening === null))" class="db-fwd-adds">
-                    <button type="button" class="db-fwd-add" :disabled="(busy || (open_server.phase !== 'up') || (forward_machines.length === 0))" :title="forward_add_title" @click="forward_add">{{ (machine_forwards.length === 0) ? '+ a machine' : '+ another machine' }}</button>
-                    <button v-if="((open_server.engine === 'mongodb') && (public_port === null))" type="button" class="db-fwd-add" :disabled="(busy || (open_server.phase !== 'up'))" :title="public_add_title" @click="public_open">+ the internet</button>
+                    <button type="button" class="add" :disabled="(busy || (open_server.phase !== 'up') || (forward_machines.length === 0))" :title="forward_add_title" @click="forward_add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{ (machine_forwards.length === 0) ? 'a machine' : 'another machine' }}</button>
+                    <button v-if="((open_server.engine === 'mongodb') && (public_port === null))" type="button" class="add" :disabled="(busy || (open_server.phase !== 'up'))" :title="public_add_title" @click="public_open"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>the internet</button>
                 </span>
             </div>
             </div>

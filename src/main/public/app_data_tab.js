@@ -41,11 +41,11 @@ const app_data_tab = {
     template: `
 <div class="app-data">
     <div class="app-data-adds">
-        <button type="button" :disabled="((pick_free === null) || saving)" :title="pick_title" @click="click_database">+ Database</button>
+        <button type="button" class="add" :disabled="((pick_free === null) || saving)" :title="pick_title" @click="click_database"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Database</button>
         <button type="button" :disabled="((started === false) || (machine === null) || saving)" :title="(started ? ('New database, on ' + (machine || 'its machine') + ', given to ' + app.name) : 'serviceman does not start it, so it hands it no database')" @click="$emit('new_database', {given: [app.name], remote: machine})">New database…</button>
-        <button type="button" :disabled="((started === false) || saving)" :title="(started ? 'A folder kept for it, or one of its machine, at every start' : 'serviceman does not start it, so it hands it no folder')" @click="click_folder">+ Folder</button>
-        <button type="button" :disabled="((store !== null) || (store_free === null) || saving)" :title="store_title" @click="click_store">+ Store for each user</button>
-        <button type="button" :disabled="has_rest" :title="(has_rest ? 'It has REST already' : '')" @click="click_rest">+ REST</button>
+        <button type="button" class="add" :disabled="((started === false) || saving)" :title="(started ? 'A folder kept for it, or one of its machine, at every start' : 'serviceman does not start it, so it hands it no folder')" @click="click_folder"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Folder</button>
+        <button type="button" class="add" :disabled="((store !== null) || (store_free === null) || saving)" :title="store_title" @click="click_store"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Store for each user</button>
+        <button type="button" class="add" :disabled="has_rest" :title="(has_rest ? 'It has REST already' : '')" @click="click_rest"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>REST</button>
     </div>
     <p class="muted app-settings-says">{{ how }}</p>
     <p v-if="(error !== '')" class="bad app-data-error">{{ error }}</p>

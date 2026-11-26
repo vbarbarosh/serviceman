@@ -1,5 +1,5 @@
 /* The File Manager's own rules. The host page gives the colours (--bg, --panel, --fg,
-   --muted, --line, --hover, --accent) and its usual classes: card, chip, primary, danger,
+   --muted, --line, --hover, --accent) and its usual classes: card, chip, primary, danger, add,
    muted, bad, list-tools, list-table, meter. */
 
 /* The parts one under another, each keeping its own height */

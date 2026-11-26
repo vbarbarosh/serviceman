@@ -44,7 +44,7 @@ const service_overview = {
                 <template v-if="(addresses.length > 0)">
                     <div class="card-head">
                         <h2><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icons.globe"/>Addresses</h2>
-                        <button type="button" class="link" @click="$emit('settings', 'address')">+ Add</button>
+                        <button type="button" class="link add" @click="$emit('settings', 'address')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add</button>
                     </div>
                     <div v-for="item of addresses" :key="item.key" class="svc-addr-row" :class="{muted: item.off}">
                         <a v-if="(item.url !== '')" class="mono" :href="item.url" target="_blank" rel="noopener">{{ item.host }}</a>
@@ -55,7 +55,7 @@ const service_overview = {
                 <div v-else class="svc-addr-none">
                     <span class="kt-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="icons.globe"/></span>
                     <span><b>No address</b><span class="muted">{{ none_said }}</span></span>
-                    <button v-if="(view.type !== 'files')" type="button" class="link" @click="$emit('settings', 'address')">+ Add</button>
+                    <button v-if="(view.type !== 'files')" type="button" class="link add" @click="$emit('settings', 'address')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add</button>
                 </div>
                 <div v-for="item of forwards" :key="item.label" class="svc-addr-row">
                     <span>its port → <template v-if="item.to.here">this host</template><button v-else type="button" class="link" @click="$emit('remote', item.to.remote)">{{ item.to.remote }}</button></span>

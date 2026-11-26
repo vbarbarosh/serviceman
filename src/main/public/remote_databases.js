@@ -11,7 +11,7 @@ const remote_databases = {
         <h2>Databases on {{ view.title || view.name }}</h2>
         <span class="muted">{{ count }}</span>
         <div class="list-acts">
-            <button type="button" class="primary" :disabled="(view.phase !== 'online')" :title="((view.phase === 'online') ? 'A database whose data stays on this machine' : 'Once it is online')" @click="$emit('databases', {page: 'new', remote: view.name})">+ New database here</button>
+            <button type="button" class="primary add" :disabled="(view.phase !== 'online')" :title="((view.phase === 'online') ? 'A database whose data stays on this machine' : 'Once it is online')" @click="$emit('databases', {page: 'new', remote: view.name})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database here</button>
         </div>
     </div>
     <p v-if="(error !== '')" class="bad">{{ error }}</p>

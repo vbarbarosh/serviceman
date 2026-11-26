@@ -161,7 +161,7 @@ const file_manager = {
             <input v-model.trim="filter" type="search" placeholder="filter this folder" spellcheck="false">
             <button type="button" class="chip" :class="{on: show_dot_files}" :aria-pressed="(show_dot_files ? 'true' : 'false')" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files"><span class="chip-check" aria-hidden="true"></span>dot files <span class="muted">{{ dot_count }}</span></button>
             <span class="list-right">
-                <button type="button" :disabled="(offline || path === null)" @click="mode_open('folder')">+ New folder</button>
+                <button type="button" class="add" :disabled="(offline || path === null)" @click="mode_open('folder')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New folder</button>
                 <button type="button" :disabled="(offline || path === null)" title="A whole folder, its inner folders too; or drop it on the list" @click="$refs.folder_picker.click()">Upload folder</button>
                 <button type="button" class="primary" :disabled="(offline || path === null)" title="Or drop them on the list, or paste them with Ctrl+V" @click="$refs.picker.click()">Upload files</button>
             </span>

@@ -33,7 +33,6 @@ import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
-import forward_state from './forward_state.js';
 import forwards_section from './forwards_section.js';
 import health_pane from './health_pane.js';
 import item_facts from './item_facts.js';
@@ -1338,7 +1337,7 @@ const remote_logline = {
                 </template>
                 <label>{{ dirs_form.length === 0 ? 'Folders' : '' }}</label>
                 <div>
-                    <button type="button" @click="dirs_form.push({key: Math.random(), path: '', service: ''})">+ folder</button>
+                    <button type="button" class="add" @click="dirs_form.push({key: Math.random(), path: '', service: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>folder</button>
                     <p class="muted">A path from <code>/</code> or <code>~/</code> on this machine. Files already there are read from where they end now; new ones from their start. Compressed and hidden files are left alone.</p>
                 </div>
             </div>
