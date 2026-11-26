@@ -80,8 +80,10 @@ h1 {
     font-size: .78rem;
 }
 
-/* The facts as ruled rows: a rule above the first, one under each, labels in small caps */
-#detail dl {
+/* The facts as ruled rows: a rule above the first, one under each, labels in small caps. A plain
+   list alone: one with a class lays itself out (a head's numbers side by side, a table's folded
+   columns, a process's numbers, the link test's) and keeps that */
+#detail dl:not([class]) {
     grid-template-columns: 11rem 1fr;
     gap: 0 1.5rem;
     max-width: 48rem;
@@ -89,7 +91,7 @@ h1 {
     border-top: 1px solid var(--line);
 }
 
-#detail dt {
+#detail dl:not([class]) dt {
     padding: .55rem 0;
     border-bottom: 1px solid var(--line);
     font-size: .7rem;
@@ -98,7 +100,7 @@ h1 {
     line-height: 2.1;
 }
 
-#detail dd {
+#detail dl:not([class]) dd {
     padding: .5rem 0;
     border-bottom: 1px solid var(--line);
 }
