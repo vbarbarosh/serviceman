@@ -82,6 +82,7 @@ import snippet from './snippet.js';
 import state_pill from './state_pill.js';
 import storage_get from './storage_get.js';
 import storage_set from './storage_set.js';
+import tab_ink from './tab_ink.js';
 import tailscale_pane from './tailscale_pane.js';
 import to_clipboard from './to_clipboard.js';
 import tokens_form from './tokens_form.js';
@@ -1513,51 +1514,6 @@ function thousands_text(count)
     return count.toLocaleString('en-US');
 }
 
-// The underline of the open tab, as one element for the whole row: when the pick changes it
-// slides from where it was to where it belongs, instead of appearing there
-const tabink = {
-    template: `<span class="tabink" :class="{still}" :style="{transform: 'translate(' + left + 'px, ' + top + 'px)', width: width + 'px'}"/>`,
-    // Anything that may move or resize the open tab goes in the mark, and a changed mark means
-    // measure again
-    props: ['mark'],
-    data: function () {
-        return {left: 0, top: 0, width: 0, still: true};
-    },
-    watch: {
-        mark: function () {
-            this.$nextTick(() => this.place());
-        },
-    },
-    methods: {
-        allow_slides: function () {
-            this.still = false;
-        },
-        place: function () {
-            const on = this.$el.parentElement.querySelector('.tab.on');
-            if (on === null) {
-                this.width = 0;
-                return;
-            }
-            // Under the tab itself, on whichever row it is: a narrow page wraps the tabs
-            this.left = on.offsetLeft;
-            this.top = on.offsetTop + on.offsetHeight - 1;
-            this.width = on.offsetWidth;
-        },
-    },
-    mounted: function () {
-        // A page opened anew draws the line under its tab at once; only a move after that
-        // slides, rather than the line flying in from the corner
-        this.place();
-        requestAnimationFrame(() => requestAnimationFrame(this.allow_slides));
-        window.addEventListener('resize', this.place);
-        // The web fonts land after the first paint, and every tab is a little wider then
-        document.fonts.ready.then(this.place);
-    },
-    unmounted: function () {
-        window.removeEventListener('resize', this.place);
-    },
-};
-
 // Which tabs a remote can show: a machine that is away has nothing to open, and an online
 // machine needs no install command
 function remote_tab_allowed(view, tab)
@@ -1682,7 +1638,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, ink: tabink, 'item-facts': item_facts, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    components: {'agent-pill': agent_pill, ink: tab_ink, 'item-facts': item_facts, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
@@ -2114,7 +2070,7 @@ const service_page = {
     </keep-alive>
 </div>
 `,
-    components: {'copy-progress': copy_progress, ink: tabink, 'item-facts': item_facts, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
+    components: {'copy-progress': copy_progress, ink: tab_ink, 'item-facts': item_facts, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
     // forwards: every forward of the status, for those that are part of this service
     props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
     emits: ['clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
