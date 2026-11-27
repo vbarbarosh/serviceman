@@ -62,9 +62,11 @@ and when, the starts in a row, whether serviceman stopped trying), stopping badl
 (since when). A new version or an image on its way is shown there too, with its bar. Its
 head says how it runs: how long it is up, in its state, then its requests once it has an
 address, and the CPU, memory and disk of the machine it runs on, the whole machine's, each with
-its bar. Its **Overview** shows what runs with each option as a chip (**Copy** takes the whole
-line, **Edit** opens its card), its newest lines and its addresses; nothing there is set. It has
-the same cards under its **Settings** tab, four a row, **What runs** over two, each with
+its bar. Its **Overview** shows what no other tab shows: its newest lines, as serviceman keeps
+them of what it printed, with **All logs** to its **Logs** tab, which is Logline's. What runs and
+its addresses are on its **Settings** tab, and a folder of files or an app already running,
+which prints no lines, has no Overview and opens there. **Settings** has its cards four a row,
+**What runs** over two, each with
 **Edit** — addresses, image, storage, environment, the whole policy. **Edit** opens that card
 across the top, the others stepping back. A program's **What runs** shows its command, numbered,
 with **Working directory** and **Runs as the user** beside it: the user its machine's agent runs as,

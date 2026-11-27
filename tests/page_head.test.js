@@ -65,6 +65,34 @@ test('a service\'s page has its tabs in its head\'s card, Settings among them', 
     assert.deepStrictEqual(keys, ['overview', 'logs', 'settings', 'files', 'shell']);
 });
 
+// A service's Overview shows what no other tab of its page shows, its newest lines: what runs
+// and its addresses are its Settings' cards, with Edit there
+test('a service\'s Overview shows its newest lines alone, what runs and its addresses on Settings', async function () {
+    const overview = (await import(path.join(PUBLIC, 'service_overview.js'))).default;
+    assert.deepStrictEqual(overview.props, ['view']);
+    assert.match(overview.template, /Its newest lines/);
+    assert.doesNotMatch(overview.template, /What runs<\/h2>|Addresses<\/h2>|svc-runs|svc-addr/, 'no card Settings has');
+    const vm = {view: {phase: 'running', said: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']}};
+    assert.deepStrictEqual(overview.computed.lines.call(vm), ['c', 'd', 'e', 'f', 'g', 'h'], 'the newest six');
+});
+
+// Only what serviceman drives prints lines, so only a program or an image has an Overview: a
+// folder of files and an app already running open on Settings, whatever tab was picked last
+test('a service with no lines of its own has no Overview, and opens on Settings', async function () {
+    const service_tab_allowed = (await import(path.join(PUBLIC, 'service_tab_allowed.js'))).default;
+    const service_tab_of = (await import(path.join(PUBLIC, 'service_tab_of.js'))).default;
+    const program = {type: 'shell', phase: 'running'};
+    const image = {type: 'docker', phase: 'stopped'};
+    const folder = {type: 'files', phase: 'running'};
+    const app = {type: 'external', phase: 'running'};
+    const tabs = ['overview', 'logs', 'settings', 'files', 'shell'];
+    assert.deepStrictEqual(tabs.filter(v => service_tab_allowed(program, v)), tabs);
+    assert.deepStrictEqual(tabs.filter(v => service_tab_allowed(image, v)), ['overview', 'logs', 'settings']);
+    assert.deepStrictEqual(tabs.filter(v => service_tab_allowed(folder, v)), ['settings']);
+    assert.deepStrictEqual(tabs.filter(v => service_tab_allowed(app, v)), ['settings']);
+    assert.deepStrictEqual([service_tab_of(program, 'shell'), service_tab_of(image, 'shell'), service_tab_of(folder, 'overview'), service_tab_of(app, 'logs'), service_tab_of(folder, 'settings')], ['shell', 'overview', 'settings', 'settings', 'settings']);
+});
+
 // A machine's Overview shows what no other tab of its page shows: its services are its Services
 // tab, the table there and Service here in its head; its agent and its updates are Configure's
 // cards, Test the link with them; its logs are its Logs tab

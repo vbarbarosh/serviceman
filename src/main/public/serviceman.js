@@ -83,6 +83,8 @@ import service_overview from './service_overview.js';
 import service_script from './service_script.js';
 import service_shell from './service_shell.js';
 import service_state_word from './service_state_word.js';
+import service_tab_allowed from './service_tab_allowed.js';
+import service_tab_of from './service_tab_of.js';
 import services_pane from './services_pane.js';
 import settled from './settled.js';
 import shared_folders_pane from './shared_folders_pane.js';
@@ -2112,21 +2114,6 @@ const service_files = {
     },
 };
 
-// Which tabs a service can show: logs only for what serviceman drives; the files and a shell
-// of a program on its machine, of a docker service inside its container while it runs. A tab
-// that does not apply falls back to the overview — and the pick stays, so the next service
-// that has the tab opens on it.
-function tab_allowed(view, tab)
-{
-    if (tab === 'logs') {
-        return (view.type !== 'external') && (view.type !== 'files');
-    }
-    if ((tab === 'files') || (tab === 'shell')) {
-        return (view.type === 'shell') || ((view.type === 'docker') && (view.phase === 'running'));
-    }
-    return true;
-}
-
 // A service's tabs, in the order its head's card shows them
 const SERVICE_TABS = [
     {key: 'overview', label: 'Overview', icon: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>'},
@@ -2230,7 +2217,7 @@ const service_page = {
     <!-- The overview is how it stands, then what it is made of: one card per part, each
          edited in place -->
     <keep-alive :max="10">
-    <service-overview v-if="(tab_now === 'overview')" :view="view" :original="original" :remotes="remotes" :port="port" :forwards="brought" @logs="$emit('tab', 'logs')" @remote="$emit('remote', $event)" @settings="settings_at($event)"/>
+    <service-overview v-if="(tab_now === 'overview')" :view="view" @logs="$emit('tab', 'logs')" @settings="$emit('tab', 'settings')"/>
     <!-- Its settings, a card each, edited and saved in place; Remove last; then the names a
          machine's door answers for it, and a new version from a script -->
     <service-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('cards-' + view.name + '-' + edit_key + '-' + settings_start)" :remotes="remotes" :names="names" :walls="walls" :original="original" :port="port" :redir="view.redir" :tied="tied" :forward_labels="forward_labels" :start="settings_start" :stands="stands" @restart="$emit('restart', view)" @saved="saved" @walls="$emit('walls')">
@@ -2250,8 +2237,7 @@ const service_page = {
 </div>
 `,
     components: {'copy-progress': copy_progress, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'program-shell': program_shell, 'service-doors': service_doors, 'service-files': service_files, 'service-form': service_form, 'service-logs': service_logs, 'service-note': service_note, 'service-script': service_script, 'service-overview': service_overview, 'service-shell': service_shell, 'state-pill': state_pill},
-    // forwards: every forward of the status, for those that are part of this service
-    props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control', 'forwards'],
+    props: ['view', 'busy', 'port', 'remotes', 'names', 'walls', 'tab', 'theme', 'logline', 'control'],
     emits: ['browse', 'clone', 'forwards', 'pull', 'remote', 'restart', 'saved', 'start', 'stop', 'tab', 'update', 'walls'],
     data: function () {
         // original_state: reading, found, or none — a serviceman without a config file
@@ -2377,13 +2363,13 @@ const service_page = {
         },
         // Its tabs: Overview, Logs, Settings, Files, Shell, those it has
         tabs: function () {
-            return SERVICE_TABS.filter(v => tab_allowed(this.view, v.key));
+            return SERVICE_TABS.filter(v => service_tab_allowed(this.view, v.key));
         },
         logline_url: function () {
             return logline_link(this.logline, 'service', this.view.name, this.view.remotes);
         },
         tab_now: function () {
-            return tab_allowed(this.view, this.tab) ? this.tab : 'overview';
+            return service_tab_of(this.view, this.tab);
         },
         // Whether the tab open fills the height under a still head, or the page scrolls
         fills: function () {
@@ -2394,7 +2380,7 @@ const service_page = {
         },
         // Whether it has files and a shell to open: Files and Shell show when they do
         inside: function () {
-            return tab_allowed(this.view, 'files');
+            return service_tab_allowed(this.view, 'files');
         },
         // The machine the breadcrumb goes through: the first one named, not a #tag
         place: function () {
@@ -2407,10 +2393,6 @@ const service_page = {
         },
         version_shown: function () {
             return (this.version_new !== null) && (this.version_new.service === this.view.name);
-        },
-        // Its forwards as they stand now: where its port is brought, and whether it is there
-        brought: function () {
-            return ((this.forwards === undefined) || (this.forwards === null)) ? [] : this.forwards.filter(v => v.service === this.view.name);
         },
     },
     watch: {
@@ -2677,7 +2659,7 @@ const app = {
         <service-form v-else-if="form_open" :key="form_key" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :original="null" :source="form_source" :remote="form_remote" :control="state.control" :port="state.listen.port" :redir="null" :ports_taken="state.services.filter(v => v.type === 'shell').map(v => v.publish.port)" :folder="state_folder" :forward_labels="(state.forwards === undefined ? [] : state.forwards.map(v => v.label))" :restore="form_restore" :kinds="kind_by_remote" :counts="service_counts" @close="form_open = false" @databases="databases_show({page: 'new'})" @machine="machine_add" @saved="form_saved" @walls="wall_new"/>
         <sqlite-browse v-else-if="((selected_remote !== null) && (sqlite_place !== null) && (sqlite_place.remote === selected_remote.name))" :key="sqlite_place.path" :place="sqlite_place" :view="selected_remote" @place="sqlite_place = $event" @remote="remote_select_named" @folder="sqlite_folder_open"/>
         <remote-page v-else-if="(selected_remote !== null)" :key="(selected_remote.name + '-' + remote_key)" :view="selected_remote" :answering="answering" :remotes="state.remotes" :services="remote_services" :control="state.control" :tailnet="tailnet_name" :tab="remote_tab" :theme="theme" :served="(state.agent_built === undefined ? null : state.agent_built)" :logline="(state.logline === undefined ? null : state.logline)" :terminal="remote_terminal_now" :prefer="terminal_last" :files_path="remote_files_paths[selected_remote.name]" :kind="kind_by_remote[selected_remote.name]" :state="state" @files_path="remote_files_paths[selected_remote.name] = $event" @browse="sqlite_open" @create="create" @databases="databases_show" @logline="logline_show" @tab="remote_tab_pick" @terminal="remote_terminal_pick" @saved="remote_saved" @select="select" @select_named="select_named" @service="service_settings"/>
-        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" :forwards="state.forwards" @tab="tab_pick" @browse="sqlite_open" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
+        <service-page v-else-if="(selected !== null)" :view="selected" :logline="(state.logline === undefined ? null : state.logline)" :busy="busy[selected.name]" :port="state.listen.port" :remotes="state.remotes" :names="state.services.map(v => v.name)" :walls="walls" :tab="service_tab" :theme="theme" :control="state.control" @tab="tab_pick" @browse="sqlite_open" @clone="clone" @forwards="forwards_show" @pull="pull" @remote="remote_select_named" @restart="restart" @saved="form_saved" @start="start" @stop="stop" @update="update" @walls="wall_new"/>
         <services-pane v-else :state="state" :remote="list_remote" @create="create" @only="list_remote = $event" @select="select_named"/>
     </section>
     <find-palette v-if="find_open" :state="state" @close="find_open = false" @pick="find_pick"/>
@@ -3178,7 +3160,7 @@ const app = {
             if (this.selected === null) {
                 return 'overview';
             }
-            return tab_allowed(this.selected, this.service_tab) ? this.service_tab : 'overview';
+            return service_tab_of(this.selected, this.service_tab);
         },
         remote_tab_now: function () {
             if (this.selected_remote === null) {

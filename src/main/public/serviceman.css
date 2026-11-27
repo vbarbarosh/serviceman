@@ -2278,79 +2278,13 @@ main > section:has(> #page:not(.fills)) {
     }
 }
 
-/* A service's Overview, as drawn: its tiles, then what runs beside its newest lines and its
-   addresses; on a phone one under another */
-.svc-ov-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
-    gap: 18px;
-    align-items: start;
-}
-
-.svc-ov-side {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    min-width: 0;
-}
-
-.svc-head-acts {
-    display: flex;
-    gap: 18px;
-    margin-left: auto;
-}
-
-.svc-head-acts .link,
+/* A service's Overview: its newest lines in a card, and under it where what runs and its
+   addresses are */
 .svc-ov .card-head > .link {
     display: inline-flex;
     gap: 6px;
     align-items: center;
     font-weight: 600;
-}
-
-.svc-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 22px;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 14px;
-}
-
-.svc-facts code {
-    background: none;
-    color: var(--fg);
-}
-
-.svc-command {
-    padding: 14px 18px 18px;
-    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.svc-program {
-    margin-bottom: 10px;
-    overflow-wrap: anywhere;
-}
-
-.svc-program-name {
-    color: var(--link);
-}
-
-.svc-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.svc-chip {
-    max-width: 100%;
-    padding: 3px 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    background: var(--code);
-    font-size: 13.5px;
-    overflow-wrap: anywhere;
 }
 
 .svc-tail {
@@ -2367,44 +2301,8 @@ main > section:has(> #page:not(.fills)) {
     padding: 14px 18px;
 }
 
-.svc-addr-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 48px;
-    padding: 8px 18px;
-    border-top: 1px solid var(--line);
-}
-
-.svc-addr .card-head + .svc-addr-row {
-    border-top: 0;
-}
-
-.svc-addr-row a.mono {
-    color: var(--link);
-    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
-    text-decoration: none;
-    overflow-wrap: anywhere;
-}
-
-.svc-addr-none {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    padding: 16px 18px;
-}
-
-.svc-addr-none > span:nth-child(2) {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.svc-addr-none .muted {
-    font-size: 13.5px;
+.svc-ov-more {
+    margin: 12px 0 0;
 }
 
 /* The note under a service's head, when how it stands wants a word: its icon, why, the lines it
@@ -2522,12 +2420,6 @@ main > section:has(> #page:not(.fills)) {
 
     .svc-note > button {
         margin-left: 32px;
-    }
-}
-
-@media (max-width: 600px) {
-    .svc-ov-grid {
-        grid-template-columns: minmax(0, 1fr);
     }
 }
 
