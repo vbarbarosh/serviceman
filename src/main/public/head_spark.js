@@ -3,7 +3,7 @@
 // for more than two steps, the newest point to put a dot on, and the least and the most the
 // range saw, for its title. Null when the range holds no point of it.
 //
-//     data    History's answer for its range: {from, to, step_ms, points: [{at, …}]}
+//     data    History's answer for its range: {since, until, step_ms, points: [{at, …}]}
 //     of      (point) -> the share in %, or null for a point that says nothing of it
 //     ->      {line, area, last: {x, y}, least, most}
 const SPARK_W = 120;
@@ -11,7 +11,7 @@ const SPARK_H = 30;
 
 function head_spark(data, of)
 {
-    if ((data === null) || (data === undefined) || (Array.isArray(data.points) === false) || (data.to <= data.from)) {
+    if ((data === null) || (data === undefined) || (Array.isArray(data.points) === false) || (data.until <= data.since)) {
         return null;
     }
     // The points drawn, in runs the gaps cut apart
@@ -29,7 +29,7 @@ function head_spark(data, of)
             runs.push([]);
         }
         const share = Math.min(100, Math.max(0, value));
-        const x = Number(((point.at + data.step_ms/2 - data.from)/(data.to - data.from)*SPARK_W).toFixed(1));
+        const x = Number(((point.at + data.step_ms/2 - data.since)/(data.until - data.since)*SPARK_W).toFixed(1));
         const y = Number((SPARK_H - share/100*SPARK_H).toFixed(1));
         runs[runs.length - 1].push({x, y});
         prev_at = point.at;

@@ -197,10 +197,10 @@
                         <section v-if="rangeOpen" class="range-popover" aria-label="Choose a time range">
                             <form class="range-custom" @submit.prevent="applyRangeInputs">
                                 <span class="eyebrow">Custom range</span>
-                                <label for="rangeFromInput">From</label>
-                                <input id="rangeFromInput" ref="rangeFromInput" v-model="rangeFromInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
-                                <label for="rangeToInput">To</label>
-                                <input id="rangeToInput" v-model="rangeToInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
+                                <label for="rangeSinceInput">From</label>
+                                <input id="rangeSinceInput" ref="rangeSinceInput" v-model="rangeSinceInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
+                                <label for="rangeUntilInput">To</label>
+                                <input id="rangeUntilInput" v-model="rangeUntilInput" type="text" spellcheck="false" autocomplete="off" @input="rangeError = ''">
                                 <p v-if="rangeError" class="range-error" role="alert">{{ rangeError }}</p>
                                 <p v-else class="range-hint"><code>2026-09-26 14:30</code>, <code>14:30</code> for today, <code>now-2h</code>, <code>now</code>. To <code>now</code> follows live.</p>
                                 <button type="submit" class="range-apply">Apply</button>

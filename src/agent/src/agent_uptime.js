@@ -45,6 +45,9 @@ function state_load()
             agent_uptime_state[key] = kept[key];
         }
     }
+    // An agent from before since/until kept its stretches as {from, to, why}: they reach back
+    // further than servermon keeps its days, and cannot be counted again
+    agent_uptime_state.down = agent_uptime_state.down.map(v => ((v.until === undefined) ? {since: v.from, until: v.to, why: v.why} : v));
 }
 
 module.exports = agent_uptime;

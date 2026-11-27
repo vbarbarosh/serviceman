@@ -2902,6 +2902,7 @@ test('a machine keeps its own numbers, the page reads them, and sees the last of
         const point = charts.body.points.find(v => v.ping !== null);
         assert.strictEqual(charts.body.away, false);
         assert.strictEqual(charts.body.step_ms, 30000);
+        assert.strictEqual(charts.body.until - charts.body.since, 3600000, 'the hour, since to until');
         assert.ok((point.cpu >= 0) && (point.cpu <= 1), `cpu ${point.cpu}`);
         assert.ok((point.mem > 0) && (point.mem <= point.mem_total), `mem ${point.mem} of ${point.mem_total}`);
         assert.ok(point.ping >= 0, `ping ${point.ping}`);
@@ -2924,6 +2925,8 @@ test('a machine keeps its own numbers, the page reads them, and sees the last of
         assert.deepStrictEqual(later.body.points.slice(0, live.body.points.length), live.body.points);
         const ats = later.body.points.map(v => v.at);
         assert.deepStrictEqual(ats, [...new Set(ats)].sort((a, b) => a - b), 'each second once, in order');
+        assert.strictEqual(later.body.after, null, 'the kept seconds and the new ones are the whole ten minutes');
+        assert.ok(later.body.points.every(v => (v.at > later.body.since) && (v.at <= later.body.until)), 'every point within since and until');
         assert.ok(later.body.points.some(v => v.ping !== null), 'the beats\' pings are said in the seconds after them');
 
         // An agent from before the ten minutes is told so; the other ranges still work

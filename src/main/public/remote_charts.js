@@ -121,7 +121,7 @@ const remote_charts = {
                 return 'reading the machine\'s history…';
             }
             if (this.data.away) {
-                return `as the machine said it at ${clock_of(this.data.to)} — it is offline now`;
+                return `as the machine said it at ${clock_of(this.data.until)} — it is offline now`;
             }
             if ((this.data.points.length === 0) && (this.data.range === '10m')) {
                 return 'nothing from servermon in the last ten minutes';
@@ -200,7 +200,7 @@ const remote_charts = {
             }
             const box = event.currentTarget.getBoundingClientRect();
             const share = Math.min(1, Math.max(0, (event.clientX - box.left)/box.width));
-            this.hover_at = this.data.from + share*(this.data.to - this.data.from);
+            this.hover_at = this.data.since + share*(this.data.until - this.data.since);
         },
         hover_leave: function () {
             this.hover_at = null;
@@ -326,7 +326,7 @@ function chart_path(line, points, data, top)
 
 function chart_x(at, data)
 {
-    return ((at - data.from)/(data.to - data.from)*CHART_W).toFixed(1);
+    return ((at - data.since)/(data.until - data.since)*CHART_W).toFixed(1);
 }
 
 function percent_text(value)

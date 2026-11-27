@@ -22,7 +22,7 @@ const AWAY_KEPT_MS = 5*60000;
 // it went, when serviceman read it then.
 //
 //     view      a remote of the status: {phase, left_at, machine: {cpu_busy, mem, disk}}
-//     charts    the machine's charts as read for the range picked: {range, from, to, step_ms,
+//     charts    the machine's charts as read for the range picked: {range, since, until, step_ms,
 //               points}; null for none, the bars; undefined while they are read, a chart's
 //               room left empty so the head does not jump
 //     ->        [{label: 'Memory', value: '35%', small: 'of 8 GB', share: 0.35, dim: false,
@@ -39,7 +39,7 @@ function remote_facts(view, charts)
         }
         const range = CHARTS_RANGES.find(v => v.value === charts.range);
         const said = (range === undefined) ? charts.range : range.said;
-        const when = fact.dim ? `the ${said} before ${clock_of(charts.to)}` : `the last ${said}`;
+        const when = fact.dim ? `the ${said} before ${clock_of(charts.until)}` : `the last ${said}`;
         const span = (Math.round(spark.least) === Math.round(spark.most)) ? `${Math.round(spark.most)}%` : `${Math.round(spark.least)} to ${Math.round(spark.most)}%`;
         return Object.assign(fact, {spark, title: `${fact.label}, ${when}: ${span}`});
     });
@@ -54,7 +54,7 @@ function charts_drawn(view, charts)
     if (charts.away !== true) {
         return true;
     }
-    return (typeof view.left_at === 'number') && (view.left_at - charts.to <= AWAY_KEPT_MS);
+    return (typeof view.left_at === 'number') && (view.left_at - charts.until <= AWAY_KEPT_MS);
 }
 
 function facts_of(view)

@@ -170,8 +170,8 @@
                 labelGroupsOpen: storedLabelGroups(),
                 labelTimer: null,
                 labelGeneration: 0,
-                rangeFrom: '',
-                rangeTo: '',
+                rangeSince: '',
+                rangeUntil: '',
                 followLive: true,
                 stripAnsiEnabled: true,
                 ignoreEmptyEnabled: storedBoolean('logline-ignore-empty', false),
@@ -185,8 +185,8 @@
                 relativeRanges: RELATIVE_RANGES,
                 calendarRanges: CALENDAR_RANGES,
                 rangeOpen: false,
-                rangeFromInput: '',
-                rangeToInput: '',
+                rangeSinceInput: '',
+                rangeUntilInput: '',
                 rangeError: '',
                 rows: [],
                 active: null,
@@ -315,19 +315,19 @@
                 if (quick) {
                     return quick.label;
                 }
-                const from = new Date(this.rangeFrom);
-                const to = new Date(this.rangeTo);
-                if (Number.isNaN(from.getTime())) {
+                const since = new Date(this.rangeSince);
+                const until = new Date(this.rangeUntil);
+                if (Number.isNaN(since.getTime())) {
                     return 'Choose a range';
                 }
                 const day = {month: 'short', day: 'numeric'};
                 const clock = {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false};
-                const fromText = from.toLocaleString([], {...day, ...clock});
+                const sinceText = since.toLocaleString([], {...day, ...clock});
                 if (this.followLive) {
-                    return `${fromText} → now`;
+                    return `${sinceText} → now`;
                 }
-                const sameDay = from.toDateString() === to.toDateString();
-                return `${fromText} → ${to.toLocaleString([], sameDay ? clock : {...day, ...clock})}`;
+                const sameDay = since.toDateString() === until.toDateString();
+                return `${sinceText} → ${until.toLocaleString([], sameDay ? clock : {...day, ...clock})}`;
             },
 
             // Any part of the search still on its way
@@ -350,12 +350,12 @@
                 if (!this.active) {
                     return [];
                 }
-                const from = Math.floor(new Date(this.active.from).getTime()/1000);
-                const to = Math.ceil(new Date(this.active.to).getTime()/1000);
-                const first = Math.floor(from/this.bucketSeconds)*this.bucketSeconds;
+                const since = Math.floor(new Date(this.active.since).getTime()/1000);
+                const until = Math.ceil(new Date(this.active.until).getTime()/1000);
+                const first = Math.floor(since/this.bucketSeconds)*this.bucketSeconds;
                 const counts = new Map(this.histogram.map(v => [Number(v.bucket), Number(v.count)]));
                 const out = [];
-                for (let cursor = first; (cursor < to) && (out.length < 260); cursor += this.bucketSeconds) {
+                for (let cursor = first; (cursor < until) && (out.length < 260); cursor += this.bucketSeconds) {
                     out.push({bucket: cursor, count: counts.get(cursor) || 0});
                 }
                 return out;
@@ -385,11 +385,11 @@
             },
 
             rangeStartLabel: function () {
-                return this.active ? this.axisTime(this.active.from) : '';
+                return this.active ? this.axisTime(this.active.since) : '';
             },
 
             rangeEndLabel: function () {
-                return this.active ? this.axisTime(this.active.to) : '';
+                return this.active ? this.axisTime(this.active.until) : '';
             },
 
             detailMetadata: function () {
@@ -544,8 +544,8 @@
 
             initializeRange: function (seconds) {
                 const now = new Date();
-                this.rangeTo = this.toLocalInputValue(now);
-                this.rangeFrom = this.toLocalInputValue(new Date(now.getTime() - seconds*1000));
+                this.rangeUntil = this.toLocalInputValue(now);
+                this.rangeSince = this.toLocalInputValue(new Date(now.getTime() - seconds*1000));
             },
 
             readTerms: function () {
@@ -574,33 +574,33 @@
             },
 
             readFilters: function () {
-                const fromDate = new Date(this.rangeFrom);
-                const toDate = this.followLive ? new Date() : new Date(this.rangeTo);
-                if (!this.rangeFrom || Number.isNaN(fromDate.getTime())) {
+                const sinceDate = new Date(this.rangeSince);
+                const untilDate = this.followLive ? new Date() : new Date(this.rangeUntil);
+                if (!this.rangeSince || Number.isNaN(sinceDate.getTime())) {
                     throw new Error('Choose a valid start time.');
                 }
-                if ((!this.followLive && !this.rangeTo) || Number.isNaN(toDate.getTime())) {
+                if ((!this.followLive && !this.rangeUntil) || Number.isNaN(untilDate.getTime())) {
                     throw new Error('Choose a valid end time.');
                 }
-                if (fromDate >= toDate) {
+                if (sinceDate >= untilDate) {
                     throw new Error('The start time must be before the end time.');
                 }
                 if (this.followLive) {
-                    this.rangeTo = this.toLocalInputValue(toDate);
+                    this.rangeUntil = this.toLocalInputValue(untilDate);
                 }
                 const terms = this.readTerms();
                 return {
                     terms: terms.include,
                     excludeTerms: terms.exclude,
-                    from: fromDate.toISOString(),
-                    to: toDate.toISOString(),
+                    since: sinceDate.toISOString(),
+                    until: untilDate.toISOString(),
                     labels: copyLabels(this.labelFilter),
                     containerId: (this.investigation && (this.investigation.kind !== 'context')) ? this.investigation.containerId || '' : '',
                     groupUid: (this.investigation && (this.investigation.kind !== 'context')) ? this.investigation.groupUid || '' : '',
                     ignoreEmpty: this.ignoreEmptyEnabled,
                     context: (this.investigation?.kind === 'context') ? {
-                        from: this.investigation.contextFrom,
-                        to: this.investigation.contextTo,
+                        since: this.investigation.contextSince,
+                        until: this.investigation.contextUntil,
                         service: this.investigation.service || '',
                         containerId: this.investigation.containerId || '',
                         groupUid: this.investigation.groupUid || '',
@@ -610,31 +610,33 @@
 
             loadStateFromUrl: function () {
                 const params = new URLSearchParams(window.location.search);
-                const hasSharedState = ['q', 'label', 'filter_service', 'hide_empty', 'from', 'to', 'range', 'scope', 'at'].some(v => params.has(v));
+                // Links made before since and until said a range's bounds `from` and `to`, and a
+                // context's `context_from` and `context_to`: they open as they did
+                const hasSharedState = ['q', 'label', 'filter_service', 'hide_empty', 'since', 'until', 'from', 'to', 'range', 'scope', 'at'].some(v => params.has(v));
                 if (!hasSharedState) {
                     return;
                 }
 
                 this.termsInput = params.get('q') || '';
-                const from = new Date(params.get('from') || '');
-                const to = new Date(params.get('to') || '');
+                const since = new Date(params.get('since') || params.get('from') || '');
+                const until = new Date(params.get('until') || params.get('to') || '');
                 // A range by its name — `range=24h`, `range=today` — is the quick range itself, live
                 // where it ends now. Times are a range of their own. A link with neither, only labels
                 // to filter by, opens on the range the page opens on, following live.
                 const quick = [...RELATIVE_RANGES, ...CALENDAR_RANGES].find(v => v.value === params.get('range'));
                 if (quick !== undefined) {
                     const picked = this.quickRange(quick.value);
-                    this.rangeFrom = this.toLocalInputValue(picked.from);
-                    this.rangeTo = this.toLocalInputValue(picked.to);
+                    this.rangeSince = this.toLocalInputValue(picked.since);
+                    this.rangeUntil = this.toLocalInputValue(picked.until);
                     this.followLive = picked.live;
                     this.activeRange = quick.value;
                 }
-                else if (!Number.isNaN(from.getTime()) || !Number.isNaN(to.getTime())) {
-                    if (!Number.isNaN(from.getTime())) {
-                        this.rangeFrom = this.toLocalInputValue(from);
+                else if (!Number.isNaN(since.getTime()) || !Number.isNaN(until.getTime())) {
+                    if (!Number.isNaN(since.getTime())) {
+                        this.rangeSince = this.toLocalInputValue(since);
                     }
-                    if (!Number.isNaN(to.getTime())) {
-                        this.rangeTo = this.toLocalInputValue(to);
+                    if (!Number.isNaN(until.getTime())) {
+                        this.rangeUntil = this.toLocalInputValue(until);
                     }
                     this.followLive = params.get('live') === '1';
                     this.activeRange = null;
@@ -668,18 +670,18 @@
                 if (params.has('hide_empty')) {
                     this.ignoreEmptyEnabled = params.get('hide_empty') === '1';
                 }
-                const sharedContextFrom = new Date(params.get('context_from') || '');
-                const sharedContextTo = new Date(params.get('context_to') || '');
-                const fallbackContextFrom = Number.isNaN(from.getTime()) ? new Date(this.rangeFrom) : from;
-                const fallbackContextTo = Number.isNaN(to.getTime()) ? new Date(this.rangeTo) : to;
+                const sharedContextSince = new Date(params.get('context_since') || params.get('context_from') || '');
+                const sharedContextUntil = new Date(params.get('context_until') || params.get('context_to') || '');
+                const fallbackContextSince = Number.isNaN(since.getTime()) ? new Date(this.rangeSince) : since;
+                const fallbackContextUntil = Number.isNaN(until.getTime()) ? new Date(this.rangeUntil) : until;
                 if ((scope === 'context') && (service || containerId)) {
                     this.investigation = {
                         kind: 'context',
                         service,
                         containerId,
                         groupUid,
-                        contextFrom: Number.isNaN(sharedContextFrom.getTime()) ? fallbackContextFrom.toISOString() : sharedContextFrom.toISOString(),
-                        contextTo: Number.isNaN(sharedContextTo.getTime()) ? fallbackContextTo.toISOString() : sharedContextTo.toISOString(),
+                        contextSince: Number.isNaN(sharedContextSince.getTime()) ? fallbackContextSince.toISOString() : sharedContextSince.toISOString(),
+                        contextUntil: Number.isNaN(sharedContextUntil.getTime()) ? fallbackContextUntil.toISOString() : sharedContextUntil.toISOString(),
                         anchorKey: '',
                     };
                 }
@@ -708,8 +710,8 @@
                     params.append('label', `${chip.name}:${chip.value}`);
                 }
                 params.set('hide_empty', this.ignoreEmptyEnabled ? '1' : '0');
-                params.set('from', this.active.from);
-                params.set('to', this.active.to);
+                params.set('since', this.active.since);
+                params.set('until', this.active.until);
                 if (this.followLive) {
                     params.set('live', '1');
                 }
@@ -725,11 +727,11 @@
                     if (this.investigation.groupUid) {
                         params.set('group', this.investigation.groupUid);
                     }
-                    if (this.investigation.contextFrom) {
-                        params.set('context_from', this.investigation.contextFrom);
+                    if (this.investigation.contextSince) {
+                        params.set('context_since', this.investigation.contextSince);
                     }
-                    if (this.investigation.contextTo) {
-                        params.set('context_to', this.investigation.contextTo);
+                    if (this.investigation.contextUntil) {
+                        params.set('context_until', this.investigation.contextUntil);
                     }
                 }
 
@@ -788,16 +790,16 @@
             buildWhere: function (filters, options = {}) {
                 const params = new URLSearchParams({
                     default_format: 'JSONEachRow',
-                    param_range_from: filters.from,
-                    param_range_to: filters.to,
+                    param_range_since: filters.since,
+                    param_range_until: filters.until,
                 });
                 // The table is split by day and kept in order by TimestampTime, the second of each
                 // line: bounded by it too, a query reads the days of its range alone, not the table
                 const clauses = [
-                    "TimestampTime >= toDateTime(parseDateTime64BestEffort({range_from:String}, 9, 'UTC'))",
-                    "TimestampTime <= toDateTime(parseDateTime64BestEffort({range_to:String}, 9, 'UTC'))",
-                    "Timestamp >= parseDateTime64BestEffort({range_from:String}, 9, 'UTC')",
-                    "Timestamp < parseDateTime64BestEffort({range_to:String}, 9, 'UTC')",
+                    "TimestampTime >= toDateTime(parseDateTime64BestEffort({range_since:String}, 9, 'UTC'))",
+                    "TimestampTime <= toDateTime(parseDateTime64BestEffort({range_until:String}, 9, 'UTC'))",
+                    "Timestamp >= parseDateTime64BestEffort({range_since:String}, 9, 'UTC')",
+                    "Timestamp < parseDateTime64BestEffort({range_until:String}, 9, 'UTC')",
                 ];
                 for (const [index, term] of filters.terms.entries()) {
                     const name = `term_${index}`;
@@ -819,8 +821,8 @@
           ))`);
                 }
                 if (filters.context) {
-                    params.set('param_context_from', filters.context.from);
-                    params.set('param_context_to', filters.context.to);
+                    params.set('param_context_since', filters.context.since);
+                    params.set('param_context_until', filters.context.until);
                     const sourceClauses = [];
                     if (filters.context.containerId) {
                         params.set('param_context_container_id', filters.context.containerId);
@@ -831,8 +833,8 @@
                         sourceClauses.push('ServiceName = {context_service:String}');
                     }
                     const nearby = [
-                        "Timestamp >= parseDateTime64BestEffort({context_from:String}, 9, 'UTC')",
-                        "Timestamp < parseDateTime64BestEffort({context_to:String}, 9, 'UTC')",
+                        "Timestamp >= parseDateTime64BestEffort({context_since:String}, 9, 'UTC')",
+                        "Timestamp < parseDateTime64BestEffort({context_until:String}, 9, 'UTC')",
                         ...sourceClauses,
                     ].join(' AND ');
                     const contextBranches = [`(${nearby})`];
@@ -953,13 +955,13 @@
                 return this.clickhouse(sql, params, options.signal);
             },
 
-            chooseBucket: function (from, to) {
-                const target = Math.max(1, (new Date(to) - new Date(from))/1000)/90;
+            chooseBucket: function (since, until) {
+                const target = Math.max(1, (new Date(until) - new Date(since))/1000)/90;
                 return BUCKETS.find(v => v >= target) || BUCKETS[BUCKETS.length - 1];
             },
 
             queryHistogram: async function (filters, signal) {
-                const bucketSeconds = this.chooseBucket(filters.from, filters.to);
+                const bucketSeconds = this.chooseBucket(filters.since, filters.until);
                 const {where, params} = this.buildWhere(filters);
                 const sql = `
                     SELECT
@@ -1531,7 +1533,7 @@
                 this.loadingInitial = true;
                 // The volume of the new range, empty until it is counted: never the old one's bars
                 this.histogram = [];
-                this.bucketSeconds = this.chooseBucket(filters.from, filters.to);
+                this.bucketSeconds = this.chooseBucket(filters.since, filters.until);
                 this.loading = {rows: true, volume: !this.embed, labels: !this.embed};
                 this.loadErrors = {rows: '', volume: '', labels: ''};
                 this.loadingSince = Date.now();
@@ -1682,7 +1684,7 @@
                 const signal = this.searchController?.signal;
                 const time0 = performance.now();
                 const now = new Date();
-                const nextFilters = {...this.active, to: now.toISOString()};
+                const nextFilters = {...this.active, until: now.toISOString()};
                 this.polling = true;
                 try {
                     const wasEmpty = !this.rows.length;
@@ -1697,7 +1699,7 @@
                     if (generation !== this.requestGeneration) {
                         return;
                     }
-                    this.rangeTo = this.toLocalInputValue(now);
+                    this.rangeUntil = this.toLocalInputValue(now);
                     this.active = nextFilters;
                     let additionsCount = 0;
                     if (rawRows.length) {
@@ -1870,20 +1872,20 @@
                 const now = new Date();
                 const relative = RELATIVE_RANGES.find(v => v.value === value);
                 if (relative) {
-                    return {from: new Date(now.getTime() - relative.seconds*1000), to: now, live: true};
+                    return {since: new Date(now.getTime() - relative.seconds*1000), until: now, live: true};
                 }
                 const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 if (value === 'today') {
-                    return {from: midnight, to: now, live: true};
+                    return {since: midnight, until: now, live: true};
                 }
                 if (value === 'yesterday') {
-                    return {from: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1), to: midnight, live: false};
+                    return {since: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1), until: midnight, live: false};
                 }
                 // Weeks start on Monday
                 if (value === 'week') {
-                    return {from: new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7), to: now, live: true};
+                    return {since: new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7), until: now, live: true};
                 }
-                return {from: new Date(now.getFullYear(), now.getMonth(), 1), to: now, live: true};
+                return {since: new Date(now.getFullYear(), now.getMonth(), 1), until: now, live: true};
             },
 
             applyQuickRange: function (value) {
@@ -1894,8 +1896,8 @@
             setRange: function (range) {
                 this.rangeOpen = false;
                 this.rangeError = '';
-                this.rangeFrom = this.toLocalInputValue(range.from);
-                this.rangeTo = this.toLocalInputValue(range.to);
+                this.rangeSince = this.toLocalInputValue(range.since);
+                this.rangeUntil = this.toLocalInputValue(range.until);
                 const wasLive = this.followLive;
                 this.followLive = range.live;
                 if (range.live && !wasLive) {
@@ -1913,11 +1915,11 @@
                     return;
                 }
                 const relative = RELATIVE_RANGES.find(v => v.value === this.activeRange);
-                this.rangeFromInput = relative ? `now-${relative.value}` : this.rangeFrom.replace('T', ' ');
-                this.rangeToInput = this.followLive ? 'now' : this.rangeTo.replace('T', ' ');
+                this.rangeSinceInput = relative ? `now-${relative.value}` : this.rangeSince.replace('T', ' ');
+                this.rangeUntilInput = this.followLive ? 'now' : this.rangeUntil.replace('T', ' ');
                 this.rangeError = '';
                 this.rangeOpen = true;
-                this.$nextTick(() => this.$refs.rangeFromInput?.focus());
+                this.$nextTick(() => this.$refs.rangeSinceInput?.focus());
             },
 
             closeRange: function () {
@@ -1953,23 +1955,23 @@
             },
 
             applyRangeInputs: function () {
-                const from = this.parseRangeInput(this.rangeFromInput);
-                const to = this.parseRangeInput(this.rangeToInput);
-                if (!from || !to) {
-                    this.rangeError = `Cannot read ${!from ? 'From' : 'To'}: write a time like 2026-09-26 14:30, 14:30 or now-2h.`;
+                const since = this.parseRangeInput(this.rangeSinceInput);
+                const until = this.parseRangeInput(this.rangeUntilInput);
+                if (!since || !until) {
+                    this.rangeError = `Cannot read ${!since ? 'From' : 'To'}: write a time like 2026-09-26 14:30, 14:30 or now-2h.`;
                     return;
                 }
-                if (from.date >= to.date) {
+                if (since.date >= until.date) {
                     this.rangeError = 'From must be before To.';
                     return;
                 }
-                this.activeRange = (to.now && RELATIVE_RANGES.some(v => v.value === from.relative)) ? from.relative : null;
-                this.setRange({from: from.date, to: to.date, live: to.now});
+                this.activeRange = (until.now && RELATIVE_RANGES.some(v => v.value === since.relative)) ? since.relative : null;
+                this.setRange({since: since.date, until: until.date, live: until.now});
             },
 
             onFollowChange: function () {
                 if (this.followLive) {
-                    this.rangeTo = this.toLocalInputValue(new Date());
+                    this.rangeUntil = this.toLocalInputValue(new Date());
                     this.resetLiveTimer();
                     this.runSearch();
                 }
@@ -2001,8 +2003,8 @@
             zoomToBucket: function (bucketStart) {
                 this.followLive = false;
                 this.activeRange = null;
-                this.rangeFrom = this.toLocalInputValue(new Date(bucketStart*1000));
-                this.rangeTo = this.toLocalInputValue(new Date((bucketStart + this.bucketSeconds)*1000));
+                this.rangeSince = this.toLocalInputValue(new Date(bucketStart*1000));
+                this.rangeUntil = this.toLocalInputValue(new Date((bucketStart + this.bucketSeconds)*1000));
                 this.runSearch();
             },
 
@@ -2027,11 +2029,11 @@
                         };
                     }
                     if (this.followLive) {
-                        const currentTo = this.active ? new Date(this.active.to) : new Date();
-                        const inclusiveSecond = new Date(Math.ceil(currentTo.getTime()/1000)*1000);
+                        const currentUntil = this.active ? new Date(this.active.until) : new Date();
+                        const inclusiveSecond = new Date(Math.ceil(currentUntil.getTime()/1000)*1000);
                         this.followLive = false;
                         this.activeRange = null;
-                        this.rangeTo = this.toLocalInputValue(inclusiveSecond);
+                        this.rangeUntil = this.toLocalInputValue(inclusiveSecond);
                     }
                     const succeeded = await this.runSearch();
                     if (!succeeded) {
@@ -2056,8 +2058,8 @@
                 this.savedSearch = {
                     termsInput: this.termsInput,
                     labelFilter: copyLabels(this.labelFilter),
-                    rangeFrom: this.rangeFrom,
-                    rangeTo: this.rangeTo,
+                    rangeSince: this.rangeSince,
+                    rangeUntil: this.rangeUntil,
                     followLive: this.followLive,
                     activeRange: this.activeRange,
                 };
@@ -2077,8 +2079,8 @@
             investigateContext: function (row) {
                 this.saveSearchForInvestigation();
                 const center = Number(row.timestamp_ms);
-                const contextFrom = new Date(center - SURROUNDING_SECONDS*1000);
-                const contextTo = new Date(center + SURROUNDING_SECONDS*1000);
+                const contextSince = new Date(center - SURROUNDING_SECONDS*1000);
+                const contextUntil = new Date(center + SURROUNDING_SECONDS*1000);
                 const inferredGroupUid = this.inferGroupUid(row);
                 const hasGroup = Boolean(inferredGroupUid);
                 this.investigation = {
@@ -2086,20 +2088,20 @@
                     service: row.service || '',
                     containerId: row.container_id || '',
                     groupUid: inferredGroupUid,
-                    contextFrom: contextFrom.toISOString(),
-                    contextTo: contextTo.toISOString(),
+                    contextSince: contextSince.toISOString(),
+                    contextUntil: contextUntil.toISOString(),
                     anchorKey: row.key,
                 };
                 this.termsInput = '';
                 this.labelFilter = row.service ? {service: [row.service]} : {};
                 this.followLive = false;
                 this.activeRange = null;
-                this.rangeFrom = this.toLocalInputValue(hasGroup
+                this.rangeSince = this.toLocalInputValue(hasGroup
                     ? new Date(center - GROUP_CONTEXT_SECONDS*1000)
-                    : contextFrom);
-                this.rangeTo = this.toLocalInputValue(hasGroup
+                    : contextSince);
+                this.rangeUntil = this.toLocalInputValue(hasGroup
                     ? new Date(center + GROUP_CONTEXT_SECONDS*1000)
-                    : contextTo);
+                    : contextUntil);
                 this.runSearch();
             },
 
@@ -2112,10 +2114,10 @@
                 this.saveSearchForInvestigation();
                 const originalRange = this.savedSearch
                     ? {
-                        from: new Date(this.savedSearch.rangeFrom).toISOString(),
-                        to: new Date(this.savedSearch.rangeTo).toISOString(),
+                        since: new Date(this.savedSearch.rangeSince).toISOString(),
+                        until: new Date(this.savedSearch.rangeUntil).toISOString(),
                     }
-                    : (this.active ? {from: this.active.from, to: this.active.to} : null);
+                    : (this.active ? {since: this.active.since, until: this.active.until} : null);
                 this.investigation = {
                     kind: useParent ? 'parent' : 'group',
                     service: '',
@@ -2128,8 +2130,8 @@
                 this.followLive = false;
                 this.activeRange = null;
                 if (originalRange) {
-                    this.rangeFrom = this.toLocalInputValue(new Date(originalRange.from));
-                    this.rangeTo = this.toLocalInputValue(new Date(originalRange.to));
+                    this.rangeSince = this.toLocalInputValue(new Date(originalRange.since));
+                    this.rangeUntil = this.toLocalInputValue(new Date(originalRange.until));
                 }
                 this.runSearch();
             },
@@ -2144,8 +2146,8 @@
                 }
                 this.termsInput = saved.termsInput;
                 this.labelFilter = saved.labelFilter || {};
-                this.rangeFrom = saved.rangeFrom;
-                this.rangeTo = saved.rangeTo;
+                this.rangeSince = saved.rangeSince;
+                this.rangeUntil = saved.rangeUntil;
                 this.followLive = saved.followLive;
                 this.activeRange = saved.activeRange;
                 this.runSearch();
@@ -2270,7 +2272,7 @@
             // An end of the chart's axis: the day too once the range is longer than one, or both
             // ends of seven days read the same time
             axisTime: function (value) {
-                if ((new Date(this.active.to) - new Date(this.active.from)) <= 86400*1000) {
+                if ((new Date(this.active.until) - new Date(this.active.since)) <= 86400*1000) {
                     return this.shortTime(value);
                 }
                 return new Date(value).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});

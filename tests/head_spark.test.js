@@ -13,14 +13,14 @@ async function module_of(name)
 // History's answer for 1h, a point a minute; skip: the minutes the machine did not measure
 function hour_of(cpu_of, skip)
 {
-    const from = Date.UTC(2026, 10, 20, 19, 0);
+    const since = Date.UTC(2026, 10, 20, 19, 0);
     const points = [];
     for (let i = 0; i < 60; ++i) {
         if (skip.includes(i) === false) {
-            points.push({at: from + i*MINUTE, cpu: cpu_of(i), mem: 2e9, mem_total: 8e9, disk: 112e9, disk_total: 160e9});
+            points.push({at: since + i*MINUTE, cpu: cpu_of(i), mem: 2e9, mem_total: 8e9, disk: 112e9, disk_total: 160e9});
         }
     }
-    return {range: '1h', from, to: from + 60*MINUTE, step_ms: MINUTE, points};
+    return {range: '1h', since, until: since + 60*MINUTE, step_ms: MINUTE, points};
 }
 
 // The line starts again after minutes not measured, as History's does, and the area closes
@@ -49,7 +49,7 @@ test('a chart\'s scale is fixed at 0 to 100%', async function () {
 test('nothing to chart draws no chart', async function () {
     const head_spark = await module_of('head_spark');
     assert.strictEqual(head_spark(null, v => v.cpu), null);
-    assert.strictEqual(head_spark({from: 0, to: 0, step_ms: MINUTE, points: []}, v => v.cpu), null);
+    assert.strictEqual(head_spark({since: 0, until: 0, step_ms: MINUTE, points: []}, v => v.cpu), null);
     assert.strictEqual(head_spark(hour_of(() => null, []), v => v.cpu), null);
 });
 
@@ -73,10 +73,10 @@ test('an away machine charts the hour before it went, never an older one', async
     const remote_facts = await module_of('remote_facts');
     const clock_of = await module_of('clock_of');
     const hour = Object.assign(hour_of(() => 0.04, []), {away: true});
-    const view = {phase: 'away', left_at: hour.to + 40000, machine: {cpu_busy: 0.04, mem: {used: 2e9, total: 8e9}, disk: {used: 112e9, total: 160e9}}};
+    const view = {phase: 'away', left_at: hour.until + 40000, machine: {cpu_busy: 0.04, mem: {used: 2e9, total: 8e9}, disk: {used: 112e9, total: 160e9}}};
     const facts = remote_facts(view, hour);
-    assert.strictEqual(facts[0].title, `CPU, the hour before ${clock_of(hour.to)}: 4%`);
+    assert.strictEqual(facts[0].title, `CPU, the hour before ${clock_of(hour.until)}: 4%`);
     assert.ok(facts.every(v => v.dim && (v.spark !== null)), 'grey charts');
-    const later = Object.assign({}, view, {left_at: hour.to + 3*86400000});
+    const later = Object.assign({}, view, {left_at: hour.until + 3*86400000});
     assert.deepStrictEqual(remote_facts(later, hour).map(v => v.spark), [null, null, null], 'an hour from days before is not drawn');
 });

@@ -71,21 +71,21 @@ test('a share tops at 100%, a count and a ping at 1, 2 or 5 of their order', asy
 // midnight, 06:00 for the last 24 hours; one in the middle where there is room for one
 test('a chart\'s round times are the clock\'s, as many as fit', async function () {
     const chart_times_of = await module_of('chart_times_of');
-    const day = {range: '24h', from: NOW - DAY, to: NOW, away: false};
+    const day = {range: '24h', since: NOW - DAY, until: NOW, away: false};
     const three = chart_times_of(day, 3, NOW).ticks;
     assert.deepStrictEqual(three.map(v => v.at), [Date.UTC(2026, 10, 25, 18), Date.UTC(2026, 10, 26), Date.UTC(2026, 10, 26, 6)]);
     assert.deepStrictEqual(three.map(v => v.said), [time_of(Date.UTC(2026, 10, 25, 18)), day_of(Date.UTC(2026, 10, 26)), time_of(Date.UTC(2026, 10, 26, 6))]);
     assert.deepStrictEqual(three.map(v => Number(v.share.toFixed(3))), [0.249, 0.499, 0.749]);
     assert.deepStrictEqual(chart_times_of(day, 1, NOW).ticks.map(v => v.said), [day_of(Date.UTC(2026, 10, 26))], 'room for one: midnight');
 
-    const ten = chart_times_of({range: '10m', from: NOW - 10*MINUTE, to: NOW, away: false}, 4, NOW).ticks;
+    const ten = chart_times_of({range: '10m', since: NOW - 10*MINUTE, until: NOW, away: false}, 4, NOW).ticks;
     assert.deepStrictEqual(ten.map(v => v.at), [54, 56, 58, 60].map(v => Date.UTC(2026, 10, 26, 11, v)), 'every other minute');
-    const hour = chart_times_of({range: '1h', from: NOW - HOUR, to: NOW, away: false}, 4, NOW).ticks;
+    const hour = chart_times_of({range: '1h', since: NOW - HOUR, until: NOW, away: false}, 4, NOW).ticks;
     assert.deepStrictEqual(hour.map(v => v.said), ['11:15', '11:30', '11:45'].map(v => time_of(Date.UTC(2026, 10, 26, 11, Number(v.slice(3))))), 'every quarter, 12:00 too near the end');
 
-    const week = chart_times_of({range: '7d', from: NOW - 7*DAY, to: NOW, away: false}, 3, NOW).ticks;
+    const week = chart_times_of({range: '7d', since: NOW - 7*DAY, until: NOW, away: false}, 3, NOW).ticks;
     assert.deepStrictEqual(week.map(v => v.at), [Date.UTC(2026, 10, 22), Date.UTC(2026, 10, 24)], 'every other day');
-    const month = chart_times_of({range: '30d', from: NOW - 30*DAY, to: NOW, away: false}, 4, NOW).ticks;
+    const month = chart_times_of({range: '30d', since: NOW - 30*DAY, until: NOW, away: false}, 4, NOW).ticks;
     assert.deepStrictEqual(month.map(v => new Date(v.at).getUTCDay()), [1, 1, 1, 1], 'weeks on Mondays');
     assert.deepStrictEqual(month.map(v => v.said), [2, 9, 16, 23].map(v => day_of(Date.UTC(2026, 10, v))));
 });
@@ -96,19 +96,19 @@ test('a chart\'s round times are the clock\'s, as many as fit', async function (
 test('a chart\'s start says its day where it crosses one', async function () {
     const chart_times_of = await module_of('chart_times_of');
     const went = Date.UTC(2026, 10, 26, 8, 50);
-    const away = chart_times_of({range: '24h', from: went - DAY, to: went, away: true}, 3, NOW);
+    const away = chart_times_of({range: '24h', since: went - DAY, until: went, away: true}, 3, NOW);
     assert.strictEqual(away.start, `${day_of(went - DAY)} ${time_of(went - DAY)}`);
     assert.strictEqual(away.end, time_of(went));
     assert.notStrictEqual(away.start, away.end);
-    assert.strictEqual(chart_times_of({range: '24h', from: NOW - DAY, to: NOW, away: false}, 3, NOW).end, 'now');
+    assert.strictEqual(chart_times_of({range: '24h', since: NOW - DAY, until: NOW, away: false}, 3, NOW).end, 'now');
 
-    const hour = chart_times_of({range: '1h', from: NOW - HOUR, to: NOW, away: false}, 3, NOW);
+    const hour = chart_times_of({range: '1h', since: NOW - HOUR, until: NOW, away: false}, 3, NOW);
     assert.deepStrictEqual([hour.start, hour.end], [time_of(NOW - HOUR), 'now']);
     const old = Date.UTC(2026, 10, 24, 11, 2);
-    const gone = chart_times_of({range: '1h', from: old - HOUR, to: old, away: true}, 3, NOW);
+    const gone = chart_times_of({range: '1h', since: old - HOUR, until: old, away: true}, 3, NOW);
     assert.deepStrictEqual([gone.start, gone.end], [`${day_of(old - HOUR)} ${time_of(old - HOUR)}`, `${day_of(old)} ${time_of(old)}`], 'two days ago');
 
-    const week = chart_times_of({range: '7d', from: NOW - 7*DAY, to: NOW, away: false}, 3, NOW);
+    const week = chart_times_of({range: '7d', since: NOW - 7*DAY, until: NOW, away: false}, 3, NOW);
     assert.deepStrictEqual([week.start, week.end], [day_of(NOW - 7*DAY), 'now']);
 });
 
@@ -120,7 +120,7 @@ test('History says each chart\'s top and middle, and the times its width has roo
     for (let at = NOW - DAY; at < NOW; at += 30*MINUTE) {
         points.push({at, cpu: 0.3, mem: 2e9, mem_total: 8e9, disk: 1e11, disk_total: 1.6e11, disk_read: 1e5, disk_write: 2e5, net_in: 20e6, net_out: 4e6, tcp: 281, ping: 25});
     }
-    const data = {range: '24h', from: NOW - DAY, to: NOW, step_ms: 30*MINUTE, points, away: false};
+    const data = {range: '24h', since: NOW - DAY, until: NOW, step_ms: 30*MINUTE, points, away: false};
     const view = {name: 'vps1', phase: 'online', agent_version: '1.40.1', machine: {can: ['metrics']}};
     const history = vm_of(remote_charts, {view, charts: {range: '24h', data, error: null, old: false, loading: false}, plot_width: 417});
     const said = Object.fromEntries(history.plots.map(v => [v.key, `${v.half} of ${v.top}`]));

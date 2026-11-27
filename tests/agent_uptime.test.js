@@ -1,3 +1,4 @@
+const agent_uptime = require('../src/agent/src/agent_uptime');
 const agent_uptime_count = require('../src/agent/src/agent_uptime_count');
 const agent_uptime_of = require('../src/agent/src/agent_uptime_of');
 const agent_uptime_state = require('../src/agent/src/agent_uptime_state');
@@ -38,7 +39,7 @@ test('a second with a line is up: a gap is down, a reboot told from a servermon 
 
     assert.strictEqual(agent_uptime_state.first_at, DAY_1 + 6*3600e3);
     assert.deepStrictEqual(agent_uptime_state.down.map(v => v.why), [null, 'stopped', 'reboot']);
-    assert.strictEqual(agent_uptime_state.down[0].to - agent_uptime_state.down[0].from, 30*60e3);
+    assert.strictEqual(agent_uptime_state.down[0].until - agent_uptime_state.down[0].since, 30*60e3);
 
     const until = DAY_2 + 2*3600e3 + 600e3;
     const days = agent_uptime_of(3, until).days;
@@ -49,8 +50,8 @@ test('a second with a line is up: a gap is down, a reboot told from a servermon 
     assert.strictEqual(days[1].known_ms, 18*3600e3);
     assert.strictEqual(days[1].down.length, 3);
     assert.strictEqual(days[1].down_ms, 2*30*60e3 + (15*3600e3 - 60e3));
-    assert.strictEqual(days[2].down[0].from, DAY_2, 'a stretch over midnight is cut at it');
-    assert.strictEqual(days[2].down[0].to, DAY_2 + 2*3600e3);
+    assert.strictEqual(days[2].down[0].since, DAY_2, 'a stretch over midnight is cut at it');
+    assert.strictEqual(days[2].down[0].until, DAY_2 + 2*3600e3);
     assert.strictEqual(days[2].known_ms, 2*3600e3 + 600e3);
 
     // The cut line is finished, and a reboot follows it: only the new bytes are read
@@ -66,6 +67,19 @@ test('a second with a line is up: a gap is down, a reboot told from a servermon 
     assert.strictEqual(kept.down.length, 4);
     const later = agent_uptime_of(1, DAY_2 + 4*3600e3).days[0];
     assert.strictEqual(later.down[later.down.length - 1].why, 'silent');
+});
+
+// An agent from before since/until kept its stretches as {from, to, why}, further back than
+// servermon keeps its days: the agent after it reads each one in the names of now, none lost
+test('the stretches an agent from before kept as from and to are read as since and until', async function () {
+    const file = path.join(ROOT, 'metrics', 'uptime.json');
+    const kept = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, JSON.stringify(Object.assign({}, kept, {down: kept.down.map(v => ({from: v.since, to: v.until, why: v.why}))})));
+    agent_uptime_state.down = [];
+    agent_uptime(null);
+    await agent_uptime_count(null);
+    assert.deepStrictEqual(agent_uptime_state.down, kept.down);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).down, kept.down, 'written back in the names of now');
 });
 
 // servermon's lines, one a second from `from`: the time first, then the boot when it says one

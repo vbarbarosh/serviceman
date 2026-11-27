@@ -73,7 +73,7 @@ async function count(dir)
         await file_count(path.join(dir, name));
     }
     const oldest = Date.now() - KEEP_MS;
-    agent_uptime_state.down = agent_uptime_state.down.filter(v => v.to >= oldest);
+    agent_uptime_state.down = agent_uptime_state.down.filter(v => v.until >= oldest);
 }
 
 // The whole lines from the offset on; a last line still being written waits for the next count
@@ -126,7 +126,7 @@ function line_count(line)
         agent_uptime_state.first_at = at;
     }
     else if ((at - last_at) > GAP_MS) {
-        agent_uptime_state.down.push({from: last_at + 1000, to: at, why: why_of(last_boot, boot)});
+        agent_uptime_state.down.push({since: last_at + 1000, until: at, why: why_of(last_boot, boot)});
     }
     agent_uptime_state.last_at = at;
     agent_uptime_state.last_boot = boot;

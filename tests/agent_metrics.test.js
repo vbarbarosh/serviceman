@@ -91,7 +91,7 @@ test('ten minutes are the lines of servermon, a point a second, and the minutes 
     const answer = agent_metrics_read({range: '10m'});
     assert.strictEqual(answer.step_ms, 1000);
     assert.ok((answer.points.length >= 598) && (answer.points.length <= 600), `${answer.points.length} points`);
-    assert.ok(answer.points.every(v => v.at > answer.from), 'nothing older than ten minutes');
+    assert.ok(answer.points.every(v => v.at > answer.since), 'nothing older than ten minutes');
     const point = answer.points[answer.points.length - 1];
     assert.strictEqual(point.at, now - 1000);
     assert.strictEqual(point.cpu, 0.5);
@@ -101,7 +101,7 @@ test('ten minutes are the lines of servermon, a point a second, and the minutes 
     assert.strictEqual(point.tcp, 7);
 });
 
-test('ten minutes since a point are the seconds after it, and reach into the day before at midnight', function () {
+test('ten minutes after a point are the seconds after it, and reach into the day before at midnight', function () {
     servermon_clear();
     const now = Math.floor(Date.now()/1000)*1000;
     // The day turned two minutes ago: the eight minutes before are in yesterday's file
@@ -109,11 +109,12 @@ test('ten minutes since a point are the seconds after it, and reach into the day
     servermon_write('20261031', range_lines(now - 2*MINUTE_MS, now));
     const whole = agent_metrics_read({range: '10m'});
     assert.ok(whole.points.length >= 598, `${whole.points.length} points across the two files`);
-    assert.strictEqual(whole.since, null);
-    const since = now - 5000;
-    const part = agent_metrics_read({range: '10m', since});
+    assert.strictEqual(whole.after, null);
+    assert.strictEqual(whole.until - whole.since, 10*MINUTE_MS);
+    const after = now - 5000;
+    const part = agent_metrics_read({range: '10m', after});
     assert.deepStrictEqual(part.points.map(v => v.at), [now - 4000, now - 3000, now - 2000, now - 1000]);
-    assert.strictEqual(part.since, since);
+    assert.strictEqual(part.after, after);
 });
 
 test('each second says the last beat\'s ping before it, and none once two beats are missed', function () {

@@ -16,27 +16,27 @@ function agent_uptime_of(days, until)
     const state = agent_uptime_state;
     const down = state.down.slice();
     if ((state.last_at !== null) && ((until - state.last_at) > agent_uptime_count.GAP_MS)) {
-        down.push({from: state.last_at + 1000, to: until, why: 'silent'});
+        down.push({since: state.last_at + 1000, until, why: 'silent'});
     }
     const today = format_of(tz, {year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date(until)).split('-').map(Number);
     const list = [];
     for (let i = days - 1; i >= 0; i--) {
         const date = new Date(Date.UTC(today[0], today[1] - 1, today[2] - i));
-        const from = midnight_of(date, tz);
-        const to = midnight_of(new Date(date.getTime() + 24*60*60*1000), tz);
-        const known_from = (state.first_at === null) ? to : Math.max(from, state.first_at);
-        const known_to = Math.min(to, until);
+        const day_since = midnight_of(date, tz);
+        const day_until = midnight_of(new Date(date.getTime() + 24*60*60*1000), tz);
+        const known_since = (state.first_at === null) ? day_until : Math.max(day_since, state.first_at);
+        const known_until = Math.min(day_until, until);
         const stretches = [];
         for (const item of down) {
-            if ((item.to > known_from) && (item.from < known_to)) {
-                stretches.push({from: Math.max(item.from, known_from), to: Math.min(item.to, known_to), why: item.why});
+            if ((item.until > known_since) && (item.since < known_until)) {
+                stretches.push({since: Math.max(item.since, known_since), until: Math.min(item.until, known_until), why: item.why});
             }
         }
-        const listed = stretches.slice().sort((a, b) => (b.to - b.from) - (a.to - a.from)).slice(0, DOWN_LISTED).sort((a, b) => a.from - b.from);
+        const listed = stretches.slice().sort((a, b) => (b.until - b.since) - (a.until - a.since)).slice(0, DOWN_LISTED).sort((a, b) => a.since - b.since);
         list.push({
             day: date.toISOString().slice(0, 10),
-            known_ms: Math.max(0, known_to - known_from),
-            down_ms: stretches.reduce((sum, v) => sum + (v.to - v.from), 0),
+            known_ms: Math.max(0, known_until - known_since),
+            down_ms: stretches.reduce((sum, v) => sum + (v.until - v.since), 0),
             down: listed,
             down_more: stretches.length - listed.length,
         });

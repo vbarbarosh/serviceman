@@ -24,13 +24,13 @@ function view_of(can, agent_version)
 // An answer of the machine's for a range: `count` points a `step_ms` apart, ending now
 function answer_of(range, step_ms, count)
 {
-    const to = Date.UTC(2026, 10, 26, 12, 0);
-    const from = to - count*step_ms;
+    const until = Date.UTC(2026, 10, 26, 12, 0);
+    const since = until - count*step_ms;
     const points = [];
     for (let i = 0; i < count; ++i) {
-        points.push({at: from + i*step_ms, cpu: (i % 10)/100, mem: 2e9, mem_total: 8e9, disk: 112e9, disk_total: 160e9});
+        points.push({at: since + i*step_ms, cpu: (i % 10)/100, mem: 2e9, mem_total: 8e9, disk: 112e9, disk_total: 160e9});
     }
-    return {range, from, to, step_ms, points, away: false};
+    return {range, since, until, step_ms, points, away: false};
 }
 
 // A component's data, computed and methods on one object, as the page reads them
@@ -125,9 +125,9 @@ test('a machine\'s head charts the range picked, and says it', async function ()
     assert.ok(ten.every(v => v.spark.line.startsWith('M')), 'a chart under each');
     const day = answer_of('24h', 2*MINUTE, 720);
     assert.strictEqual(remote_facts(view, day)[1].title, 'Memory, the last 24 hours: 25%');
-    const away = Object.assign({}, view, {phase: 'offline', left_at: day.to + 20000});
+    const away = Object.assign({}, view, {phase: 'offline', left_at: day.until + 20000});
     const gone = remote_facts(away, Object.assign({}, day, {away: true}));
-    assert.strictEqual(gone[2].title, `Disk, the 24 hours before ${clock_of(day.to)}: 70%`);
+    assert.strictEqual(gone[2].title, `Disk, the 24 hours before ${clock_of(day.until)}: 70%`);
     assert.ok(gone.every(v => v.dim && (v.spark !== null)), 'grey charts');
 });
 
@@ -158,4 +158,16 @@ test('History draws what its page read, and says what it shows', async function 
     const old = vm_of(remote_charts, {view: view_of(null, '1.4.0'), charts: {range: '1h', data: null, error: 'the agent on vps1 is from before charts', old: true, loading: false}});
     assert.strictEqual(old.old, true);
     assert.strictEqual(old.data, null);
+});
+
+// An agent from before since/until names its charts' span from and to, and calls the ten
+// minutes' `after` since: serviceman says what it answers in the names of now, the page reads
+// one kind; an answer of now is passed on as it is
+test('the charts of an agent from before are said as since and until', function () {
+    const metrics_answer_of = require('../src/main/src/helpers/metrics_answer_of');
+    const points = [{at: 30000, cpu: 0.2}];
+    assert.deepStrictEqual(metrics_answer_of({range: '1h', from: 0, to: 3600000, step_ms: 30000, points}), {range: '1h', since: 0, until: 3600000, step_ms: 30000, points});
+    assert.deepStrictEqual(metrics_answer_of({range: '10m', from: 0, to: 600000, step_ms: 1000, since: 5000, points}), {range: '10m', since: 0, until: 600000, step_ms: 1000, after: 5000, points});
+    const now = {range: '10m', since: 0, until: 600000, step_ms: 1000, after: null, points};
+    assert.strictEqual(metrics_answer_of(now), now);
 });

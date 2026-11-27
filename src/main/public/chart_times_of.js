@@ -14,47 +14,47 @@ const EDGE_SHARE = 0.1;
 // start and an end of the same hour never read alike; a week or a month says days alone. The
 // end is "now", or when the machine went.
 //
-//     data     the machine's answer: {range: '24h', from, to, away}, from and to in ms
+//     data     the machine's answer: {range: '24h', since, until, away}, since and until in ms
 //     most     how many round times there is room for between the ends: 1 or more
 //     now      the time now, in ms: a time of another day than now's says its day
 //     ->       {start: 'Nov 25 12:02', end: 'now', ticks: [{at, share: 0.25, said: '18:00'}, …]}
 function chart_times_of(data, most, now)
 {
     const days = (data.range === '7d') || (data.range === '30d');
-    const start = days ? format_day(data.from) : format_time(data.from, (data.range === '24h') || (is_same_day(data.from, now) === false));
+    const start = days ? format_day(data.since) : format_time(data.since, (data.range === '24h') || (is_same_day(data.since, now) === false));
     let end = 'now';
     if (data.away === true) {
-        end = days ? format_day(data.to) : format_time(data.to, (is_same_day(data.to, now) === false));
+        end = days ? format_day(data.until) : format_time(data.until, (is_same_day(data.until, now) === false));
     }
-    return {start, end, ticks: ticks_of(data.from, data.to, most)};
+    return {start, end, ticks: ticks_of(data.since, data.until, most)};
 }
 
 // The round times between two moments, clear of the edges, at the first step that leaves at
 // most `most`; none where even two weeks leave more. A step whose clear stretch alone holds more
 // is not counted out: a month at every minute would be 43,200 of them, at every refresh.
-function ticks_of(from, to, most)
+function ticks_of(since, until, most)
 {
-    const span = to - from;
+    const span = until - since;
     const room = span*(1 - 2*EDGE_SHARE);
     function is_clear(at) {
-        return ((at - from)/span >= EDGE_SHARE) && ((at - from)/span <= 1 - EDGE_SHARE);
+        return ((at - since)/span >= EDGE_SHARE) && ((at - since)/span <= 1 - EDGE_SHARE);
     }
     for (const step of STEPS_MINUTES) {
         if (Math.floor(room/(step*MINUTE_MS)) > most) {
             continue;
         }
-        const ats = ats_of_clock(from, to, step).filter(is_clear);
+        const ats = ats_of_clock(since, until, step).filter(is_clear);
         if (ats.length <= most) {
-            return ats.map(v => tick_of(v, from, span, is_midnight(v) ? format_day(v) : format_time(v, false)));
+            return ats.map(v => tick_of(v, since, span, is_midnight(v) ? format_day(v) : format_time(v, false)));
         }
     }
     for (const step of STEPS_DAYS) {
         if (Math.floor(room/(step*DAY_MS)) > most) {
             continue;
         }
-        const ats = ats_of_days(from, to, step).filter(is_clear);
+        const ats = ats_of_days(since, until, step).filter(is_clear);
         if (ats.length <= most) {
-            return ats.map(v => tick_of(v, from, span, format_day(v)));
+            return ats.map(v => tick_of(v, since, span, format_day(v)));
         }
     }
     return [];
@@ -62,16 +62,16 @@ function ticks_of(from, to, most)
 
 // Every `step` minutes of the clock from midnight: 00:00, 06:00, 12:00, 18:00 for six hours;
 // the clock's, so a day the clocks go back keeps them round
-function ats_of_clock(from, to, step)
+function ats_of_clock(since, until, step)
 {
-    const first = new Date(from);
+    const first = new Date(since);
     const minutes = first.getHours()*60 + first.getMinutes() + first.getSeconds()/60 + first.getMilliseconds()/MINUTE_MS;
     const at = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, Math.ceil(minutes/step)*step);
-    if (at.getTime() <= from) {
+    if (at.getTime() <= since) {
         at.setMinutes(at.getMinutes() + step);
     }
     const out = [];
-    while (at.getTime() < to) {
+    while (at.getTime() < until) {
         out.push(at.getTime());
         at.setMinutes(at.getMinutes() + step);
     }
@@ -80,12 +80,12 @@ function ats_of_clock(from, to, step)
 
 // Every `step` days at midnight, the same days whatever the range's start: weeks on Mondays,
 // two weeks on every other Monday, two days on every other day, counted from 1970
-function ats_of_days(from, to, step)
+function ats_of_days(since, until, step)
 {
-    const first = new Date(from);
+    const first = new Date(since);
     const at = new Date(first.getFullYear(), first.getMonth(), first.getDate() + 1);
     const out = [];
-    while (at.getTime() < to) {
+    while (at.getTime() < until) {
         const day = Math.round(Date.UTC(at.getFullYear(), at.getMonth(), at.getDate())/DAY_MS);
         if ((day + 3) % step === 0) {
             out.push(at.getTime());
@@ -96,9 +96,9 @@ function ats_of_days(from, to, step)
 }
 
 // A round time and where it stands across the chart; midnight says its day
-function tick_of(at, from, span, said)
+function tick_of(at, since, span, said)
 {
-    return {at, share: (at - from)/span, said};
+    return {at, share: (at - since)/span, said};
 }
 
 function is_midnight(at)

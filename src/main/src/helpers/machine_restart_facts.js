@@ -2,6 +2,7 @@ const docker_exec_connect = require('./docker_exec_connect');
 const engine_json = require('./engine_json');
 const remote_call = require('./remote_call');
 const remote_can = require('./remote_can');
+const uptime_answer_of = require('./uptime_answer_of');
 
 const READ_TIMEOUT_MS = 15000;
 // The policies Docker starts a container again by when its daemon starts, as after a restart
@@ -87,17 +88,17 @@ async function last_of(app, remote)
     if (remote_can(remote, 'uptime') === false) {
         throw new Error('its agent is from before uptime');
     }
-    const answer = await remote_call(app, remote, 'uptime', {days: UPTIME_DAYS}, READ_TIMEOUT_MS);
+    const answer = uptime_answer_of(await remote_call(app, remote, 'uptime', {days: UPTIME_DAYS}, READ_TIMEOUT_MS));
     const days = Array.isArray(answer.days) ? answer.days : [];
-    const reboots = days.flatMap(v => (Array.isArray(v.down) ? v.down : [])).filter(v => (v.why === 'reboot') && (typeof v.from === 'number') && (typeof v.to === 'number')).sort((a, b) => (a.from - b.from));
+    const reboots = days.flatMap(v => (Array.isArray(v.down) ? v.down : [])).filter(v => (v.why === 'reboot') && (typeof v.since === 'number') && (typeof v.until === 'number')).sort((a, b) => (a.since - b.since));
     if (reboots.length === 0) {
         return null;
     }
     const last = Object.assign({}, reboots[reboots.length - 1]);
-    for (let i = reboots.length - 2; (i >= 0) && (reboots[i].to === last.from); i--) {
-        last.from = reboots[i].from;
+    for (let i = reboots.length - 2; (i >= 0) && (reboots[i].until === last.since); i--) {
+        last.since = reboots[i].since;
     }
-    return {at: last.to, down_ms: last.to - last.from};
+    return {at: last.until, down_ms: last.until - last.since};
 }
 
 module.exports = machine_restart_facts;

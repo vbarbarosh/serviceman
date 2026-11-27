@@ -20,14 +20,14 @@ test.afterEach(function () {
 
 test('every query of a range reads only the days of that range', function () {
     const page = page_start();
-    const {where, params} = page.app.buildWhere({from: '2026-11-01T10:00:00.000Z', to: '2026-11-01T11:00:00.000Z', terms: [], excludeTerms: [], labels: {}});
+    const {where, params} = page.app.buildWhere({since: '2026-11-01T10:00:00.000Z', until: '2026-11-01T11:00:00.000Z', terms: [], excludeTerms: [], labels: {}});
     // The table is split by day and kept in order by TimestampTime: a bound on Timestamp alone
     // reads every part of the table, whatever the range
-    assert.match(where, /TimestampTime >= toDateTime\(parseDateTime64BestEffort\(\{range_from:String\}, 9, 'UTC'\)\)/);
-    assert.match(where, /TimestampTime <= toDateTime\(parseDateTime64BestEffort\(\{range_to:String\}, 9, 'UTC'\)\)/);
-    assert.match(where, /Timestamp >= parseDateTime64BestEffort\(\{range_from:String\}, 9, 'UTC'\)/);
-    assert.match(where, /Timestamp < parseDateTime64BestEffort\(\{range_to:String\}, 9, 'UTC'\)/);
-    assert.strictEqual(params.get('param_range_from'), '2026-11-01T10:00:00.000Z');
+    assert.match(where, /TimestampTime >= toDateTime\(parseDateTime64BestEffort\(\{range_since:String\}, 9, 'UTC'\)\)/);
+    assert.match(where, /TimestampTime <= toDateTime\(parseDateTime64BestEffort\(\{range_until:String\}, 9, 'UTC'\)\)/);
+    assert.match(where, /Timestamp >= parseDateTime64BestEffort\(\{range_since:String\}, 9, 'UTC'\)/);
+    assert.match(where, /Timestamp < parseDateTime64BestEffort\(\{range_until:String\}, 9, 'UTC'\)/);
+    assert.strictEqual(params.get('param_range_since'), '2026-11-01T10:00:00.000Z');
 });
 
 test('the lines show the moment they land, while the volume and the labels are still counted', async function () {
@@ -67,6 +67,27 @@ test('the small view asks for the lines alone, and its address stays the small v
     assert.strictEqual(written.get('theme'), 'light');
 });
 
+// A link says its range since and until; one made before says it from and to, and its context
+// context_from and context_to: it opens on the same range and context, and is written again in
+// the names of now
+test('a link made before since and until opens on its range, and is written in the names of now', async function () {
+    const page = page_start('?from=2026-10-25T09:00:00.000Z&to=2026-10-25T10:00:00.000Z&scope=context&service=notes&context_from=2026-10-25T09:20:00.000Z&context_to=2026-10-25T09:40:00.000Z');
+    page.app.loadStateFromUrl();
+    assert.strictEqual(page.app.rangeSince, page.app.toLocalInputValue(new Date('2026-10-25T09:00:00.000Z')));
+    assert.strictEqual(page.app.rangeUntil, page.app.toLocalInputValue(new Date('2026-10-25T10:00:00.000Z')));
+    assert.deepStrictEqual([page.app.investigation.contextSince, page.app.investigation.contextUntil], ['2026-10-25T09:20:00.000Z', '2026-10-25T09:40:00.000Z']);
+    const search = page.app.runSearch();
+    page.answer('rows', [row_json('2026-10-25 09:30:00.000000000', 'hello')]);
+    page.answer('volume', []);
+    page.answer('labels', []);
+    assert.strictEqual(await search, true);
+    page.sync();
+    const written = new URL(page.urls[page.urls.length - 1]).searchParams;
+    assert.deepStrictEqual([written.get('since'), written.get('until')], ['2026-10-25T09:00:00.000Z', '2026-10-25T10:00:00.000Z']);
+    assert.deepStrictEqual([written.get('context_since'), written.get('context_until')], ['2026-10-25T09:20:00.000Z', '2026-10-25T09:40:00.000Z']);
+    assert.deepStrictEqual(['from', 'to', 'context_from', 'context_to'].filter(v => written.has(v)), [], 'none of the names from before');
+});
+
 test('a range picked again lets go of every request of the older one', async function () {
     const page = page_start();
     const older = page.app.runSearch();
@@ -75,7 +96,7 @@ test('a range picked again lets go of every request of the older one', async fun
     await settled();
 
     page.app.activeRange = '7d';
-    page.app.rangeFrom = '2026-10-25T11:00';
+    page.app.rangeSince = '2026-10-25T11:00';
     const newer = page.app.runSearch();
     assert.strictEqual(await older, false);
     assert.deepStrictEqual(first.map(v => v.signal.aborted), [true, true, true], 'the volume and the labels still asked are let go, and ClickHouse drops their queries');
@@ -117,7 +138,7 @@ test('a live poll is one at a time, and one a new range overtook changes nothing
     const poll = page.calls.find(v => !v.done);
 
     page.app.activeRange = '7d';
-    page.app.rangeFrom = '2026-10-25T11:00';
+    page.app.rangeSince = '2026-10-25T11:00';
     page.app.runSearch();
     const active = page.app.active;
     assert.strictEqual(poll.signal.aborted, true);
@@ -187,8 +208,8 @@ function page_start(search = '')
     app.showToast = function () {};
     app.activeRange = '1h';
     app.followLive = false;
-    app.rangeFrom = '2026-11-01T10:00';
-    app.rangeTo = '2026-11-01T11:00';
+    app.rangeSince = '2026-11-01T10:00';
+    app.rangeUntil = '2026-11-01T11:00';
     const out = {
         app,
         calls,

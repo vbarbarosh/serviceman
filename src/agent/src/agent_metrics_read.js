@@ -29,34 +29,38 @@ const PING_HOLDS_MS = 30*1000;
 // The longer ranges come from the five-minute averages, and the minutes since the last of them
 // from the half-minute lines, so every range reaches the moment it was asked. The last ten
 // minutes are servermon's own lines, a point a second (live_read).
+//
+//     params   {range: '24h'}, or {range: '10m', after}: after is the last point the asker has
+//     ->       {range, since, until, step_ms, points}, since and until in ms; the ten minutes
+//              add `after`: the points are only those after it, or all ten minutes' with null
 function agent_metrics_read(params)
 {
     const span_ms = RANGES[params.range];
     if (span_ms === undefined) {
         throw new Error(`no range is called ${JSON.stringify(String(params.range))}; there are ${Object.keys(RANGES).join(', ')}`);
     }
-    const to = Date.now();
-    const from = to - span_ms;
+    const until = Date.now();
+    const since = until - span_ms;
     if (params.range === '10m') {
-        return live_read(from, to, params.since);
+        return live_read(since, until, params.after);
     }
     const source_ms = (span_ms <= RAW_MOST_MS) ? RAW_MS : AVERAGE_MS;
     const step_ms = Math.max(source_ms, Math.ceil(span_ms/POINTS_MOST/source_ms)*source_ms);
-    let rows = rows_read((source_ms === RAW_MS) ? '30s' : '5m', from, to);
+    let rows = rows_read((source_ms === RAW_MS) ? '30s' : '5m', since, until);
     if (source_ms === AVERAGE_MS) {
-        const since = (rows.length === 0) ? from : rows[rows.length - 1].at + AVERAGE_MS;
-        rows = rows.concat(rows_read('30s', since, to));
+        const lines_since = (rows.length === 0) ? since : rows[rows.length - 1].at + AVERAGE_MS;
+        rows = rows.concat(rows_read('30s', lines_since, until));
     }
-    return {range: params.range, from, to, step_ms, points: points_of(rows, step_ms)};
+    return {range: params.range, since, until, step_ms, points: points_of(rows, step_ms)};
 }
 
 // The last ten minutes, a point a second, straight from servermon's lines: nothing averaged.
-// With `since` (the last point the asker has), only the points after it: a chart read every
+// With `after` (the last point the asker has), only the points after it: a chart read every
 // second takes a second's worth, not ten minutes'.
-function live_read(from, to, since)
+function live_read(since, until, after)
 {
-    const start = ((typeof since === 'number') && (since > from)) ? since : from;
-    const rows = agent_servermon_lines(start).filter(v => (v.at > start) && (v.at <= to));
+    const start = ((typeof after === 'number') && (after > since)) ? after : since;
+    const rows = agent_servermon_lines(start).filter(v => (v.at > start) && (v.at <= until));
     const pings = agent_metrics_state.pings_lately;
     let i = 0;
     const points = rows.map(function (row) {
@@ -67,14 +71,14 @@ function live_read(from, to, since)
         const ms = ((ping !== null) && (row.at - ping.at <= PING_HOLDS_MS)) ? [ping.ms] : [];
         return agent_metrics_sample([row], ms, row.at);
     });
-    return {range: '10m', from, to, step_ms: LIVE_STEP_MS, since: (start === from) ? null : start, points};
+    return {range: '10m', since, until, step_ms: LIVE_STEP_MS, after: (start === since) ? null : start, points};
 }
 
-function rows_read(kind, from, to)
+function rows_read(kind, since, until)
 {
     const dir = agent_metrics_dir();
     const out = [];
-    for (let day = Math.floor(from/DAY_MS)*DAY_MS; day <= to; day += DAY_MS) {
+    for (let day = Math.floor(since/DAY_MS)*DAY_MS; day <= until; day += DAY_MS) {
         let text;
         try {
             text = fs.readFileSync(path.join(dir, `${kind}-${new Date(day).toISOString().slice(0, 10)}.jsonl`), 'utf8');
@@ -94,7 +98,7 @@ function rows_read(kind, from, to)
                 // A line cut by a power loss: the rest of the file still holds
                 continue;
             }
-            if ((row.at >= from) && (row.at <= to)) {
+            if ((row.at >= since) && (row.at <= until)) {
                 out.push(row);
             }
         }

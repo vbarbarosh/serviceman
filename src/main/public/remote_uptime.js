@@ -41,7 +41,7 @@ const remote_uptime = {
                     <p><b>{{ tip.label }}</b> · {{ tip.said }}</p>
                     <template v-if="(tip.stretches.length > 0)">
                         <ul>
-                            <li v-for="stretch in tip.stretches" :key="stretch.from">{{ stretch.text }}</li>
+                            <li v-for="stretch in tip.stretches" :key="stretch.since">{{ stretch.text }}</li>
                             <li v-if="(tip.more > 0)" class="muted">and {{ tip.more }} shorter {{ ((tip.more === 1) ? 'one' : 'ones') }}</li>
                         </ul>
                         <p class="muted">Each stretch longer than 10 s, in {{ data.tz }} time</p>
@@ -184,8 +184,8 @@ function day_of(day, tz)
         kind = ((day.down_ms/day.known_ms) <= 0.01) ? 'some' : 'bad';
         said = `${share_text(day.known_ms, day.down_ms)} up · down ${format_ms(day.down_ms)}`;
     }
-    const longest = day.down.slice().sort((a, b) => (b.to - b.from) - (a.to - a.from)).slice(0, STRETCHES_SHOWN).sort((a, b) => a.from - b.from);
-    const stretches = longest.map(v => ({from: v.from, text: stretch_text(v, tz)}));
+    const longest = day.down.slice().sort((a, b) => (b.until - b.since) - (a.until - a.since)).slice(0, STRETCHES_SHOWN).sort((a, b) => a.since - b.since);
+    const stretches = longest.map(v => ({since: v.since, text: stretch_text(v, tz)}));
     return {day: day.day, known_ms: day.known_ms, down_ms: day.down_ms, kind, label, said, title: `${label}: ${said}`, stretches, more: day.down_more + day.down.length - longest.length};
 }
 
@@ -193,13 +193,13 @@ function day_of(day, tz)
 function stretch_text(stretch, tz)
 {
     const format = new Intl.DateTimeFormat('en-GB', {timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
-    const from = format.format(new Date(stretch.from));
-    let to = format.format(new Date(stretch.to));
-    if ((to === '00:00') && (stretch.to > stretch.from)) {
-        to = '24:00';
+    const since = format.format(new Date(stretch.since));
+    let until = format.format(new Date(stretch.until));
+    if ((until === '00:00') && (stretch.until > stretch.since)) {
+        until = '24:00';
     }
     const why = ((stretch.why === null) || (WHY_SAID[stretch.why] === undefined)) ? [] : [WHY_SAID[stretch.why]];
-    return [`${from} – ${to}`, format_ms(stretch.to - stretch.from)].concat(why).join(' · ');
+    return [`${since} – ${until}`, format_ms(stretch.until - stretch.since)].concat(why).join(' · ');
 }
 
 // The share up, never rounded up to 100% while a second was down

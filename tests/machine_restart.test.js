@@ -101,9 +101,9 @@ test('the window is told the last restart, the kept terminals, and why a part is
     const running = await serviceman_start(t);
     const midnight = Date.UTC(2026, 10, 20);
     const days = [
-        {day: '2026-11-18', down: [{from: midnight - 2*DAY_MS + 1000, to: midnight - 2*DAY_MS + 30000, why: 'reboot'}]},
-        {day: '2026-11-19', down: [{from: midnight - 20000, to: midnight, why: 'reboot'}, {from: midnight - 9*3600000, to: midnight - 8*3600000, why: 'silent'}]},
-        {day: '2026-11-20', down: [{from: midnight, to: midnight + 25000, why: 'reboot'}]},
+        {day: '2026-11-18', down: [{since: midnight - 2*DAY_MS + 1000, until: midnight - 2*DAY_MS + 30000, why: 'reboot'}]},
+        {day: '2026-11-19', down: [{since: midnight - 20000, until: midnight, why: 'reboot'}, {since: midnight - 9*3600000, until: midnight - 8*3600000, why: 'silent'}]},
+        {day: '2026-11-20', down: [{since: midnight, until: midnight + 25000, why: 'reboot'}]},
     ];
     await agent_fake(t, running, TOKEN, {can: ['machine_restart', 'root', 'uptime', 'term_list'], uptime_ms: DAY_MS, answers: {uptime: {tz: 'UTC', until: midnight + 3600000, days}, term_list: {items: [{name: 'a'}, {name: 'b'}]}}});
     const facts = await control(running, 'GET', '/api/v1/remotes/vps1/restart');
@@ -111,7 +111,20 @@ test('the window is told the last restart, the kept terminals, and why a part is
     assert.deepStrictEqual([facts.body.refused, facts.body.last, facts.body.terminals, facts.body.serviceman_here], [null, {at: midnight + 25000, down_ms: 45000}, 2, false]);
     assert.strictEqual(facts.body.containers, null);
     assert.strictEqual(typeof facts.body.errors.containers, 'string');
+
+    // An agent from before since/until names its stretches from and to: its last restart is
+    // the same one
+    const days_before = days.map(v => Object.assign({}, v, {down: v.down.map(stretch_before_of)}));
+    await agent_fake(t, running, TOKEN2, {can: ['machine_restart', 'root', 'uptime', 'term_list'], uptime_ms: DAY_MS, answers: {uptime: {tz: 'UTC', until: midnight + 3600000, days: days_before}, term_list: {items: []}}});
+    const facts_before = await control(running, 'GET', '/api/v1/remotes/vps2/restart');
+    assert.deepStrictEqual(facts_before.body.last, {at: midnight + 25000, down_ms: 45000});
 });
+
+// A stretch as an agent from before since/until names it
+function stretch_before_of(stretch)
+{
+    return {from: stretch.since, to: stretch.until, why: stretch.why};
+}
 
 function restart_of(running, name)
 {
