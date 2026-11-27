@@ -1,9 +1,14 @@
 import mongo_text_of from './mongo_text_of.js';
 import mongo_type_of from './mongo_type_of.js';
 
+// A cell is 18rem wide at most: its text is cut long past what it shows, so a page of banners'
+// configs puts no megabytes of text in its rows
+const CELL_MOST = 500;
+
 // A value in a cell of the table, on one line: {text, kind, title}; kind is what colours it
 // (id, date, number, string, bool, null, object, array, other), title the whole of it where the
-// cell cuts it. A key the document does not have is kind none.
+// cell cuts it. A key the document does not have is kind none. A text longer than a cell shows
+// is cut: the document shown whole has it all.
 //
 //     mongo_cell_of({$oid: '6b08…'})   // {text: '6b08…', kind: 'id', title: "ObjectId('6b08…')"}
 //     mongo_cell_of(['a', 'b'])        // {text: '["a", "b"]', kind: 'array', title: '2 items'}
@@ -38,9 +43,9 @@ function mongo_cell_of(value)
         return {text: String(value), kind: 'bool', title: ''};
     }
     if (typeof value === 'string') {
-        return {text: (value === '') ? '""' : value, kind: (value === '') ? 'null' : 'string', title: (value.length > 40) ? value.slice(0, 2000) : ''};
+        return {text: (value === '') ? '""' : value.slice(0, CELL_MOST), kind: (value === '') ? 'null' : 'string', title: (value.length > 40) ? value.slice(0, 2000) : ''};
     }
-    const text = mongo_text_of(value, false).replace(/\n\s*/g, ' ');
+    const text = mongo_text_of(value, false).replace(/\n\s*/g, ' ').slice(0, CELL_MOST);
     if (Array.isArray(value)) {
         return {text, kind: 'array', title: `${value.length} ${(value.length === 1) ? 'item' : 'items'}`};
     }

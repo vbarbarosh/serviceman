@@ -7,6 +7,8 @@ import sql_text_of from './sql_text_of.js';
 import storage_get from '../../storage_get.js';
 import storage_set from '../../storage_set.js';
 
+import {markRaw} from 'vue';
+
 // One database's data, for a web page: its collections down the left, and the open one's
 // documents as a table or as JSON, a page at a time, found by a filter typed as the shell types
 // it, in a sort, with the fields asked for, or made by a pipeline of stages. A click on a header
@@ -207,8 +209,8 @@ const data_browser = {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(item, index) of page.items" :key="index" tabindex="0" @click="picked = index" @keydown.enter.prevent="picked = index">
-                            <td v-for="cell of cells_of(item)" :key="cell.key" :class="('dbr-' + cell.kind)" :title="cell.title"><span>{{ cell.text }}</span></td>
+                        <tr v-for="(cells, index) of rows" :key="index" tabindex="0" @click="picked = index" @keydown.enter.prevent="picked = index">
+                            <td v-for="cell of cells" :key="cell.key" :class="('dbr-' + cell.kind)" :title="cell.title"><span>{{ cell.text }}</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -372,6 +374,11 @@ const data_browser = {
                 }
             }
             return met.includes('_id') ? ['_id'].concat(met.filter(v => v !== '_id')) : met;
+        },
+        // The table's cells, a row of them for each document: written once for a page, never
+        // again for a click that shows one whole or puts it away
+        rows: function () {
+            return this.page.items.map(v => this.cells_of(v));
         },
         // How many there are in all: counted, or, for a pipeline's last page, as far as it goes
         count_text: function () {
@@ -762,9 +769,11 @@ const data_browser = {
                 if ((end !== null) && (end !== skip) && ((last === true) || past)) {
                     body = await this.page_fetch(name, asked, end);
                 }
-                // Another collection opened meanwhile: this answer is not for it
+                // Another collection opened meanwhile: this answer is not for it. Its documents
+                // are only read, never changed in place: kept raw, Vue watches none of their
+                // fields, and a page of 4 MB is not made millions of proxies
                 if (name === this.open) {
-                    this.page = body;
+                    this.page = Object.assign(body, {items: markRaw(body.items)});
                     this.asked = asked;
                     this.picked = null;
                     this.count_keep();

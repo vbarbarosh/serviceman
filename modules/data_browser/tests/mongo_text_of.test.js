@@ -61,3 +61,23 @@ test('a document is written as the shell writes it, and read back as it was', as
     assert.strictEqual(mongo_text_of(wide, true).split('\n').length, 34);
     assert.strictEqual(mongo_cell_of(wide.list).text.includes('\n'), false);
 });
+
+// A document nested deep, as a banner's config is (scenes, layers, their animations, keyframes),
+// is written at once: each value once, never once for each way it could be laid out, which wrote
+// one 30 deep 2³⁰ times and froze the page; its cell is one line, cut long past what it shows
+test('a document nested 30 deep is written at once, and its cell cut', async function () {
+    const mongo_text_of = (await import('../ui/mongo_text_of.js')).default;
+    const mongo_cell_of = (await import('../ui/mongo_cell_of.js')).default;
+    let deep = {id: 'layer-0', type: 'text', x: 10, y: 20};
+    for (let i = 1; i < 30; ++i) {
+        deep = {id: `layer-${i}`, type: 'group', x: 10, y: 20, children: [deep]};
+    }
+    const at = performance.now();
+    const text = mongo_text_of({config: [deep]}, true);
+    const cell = mongo_cell_of([deep]);
+    assert.ok((performance.now() - at) < 1000);
+    assert.strictEqual(text.split('\n').length, 242);
+    assert.ok(text.includes('id: "layer-0",'));
+    assert.deepStrictEqual([cell.text.length, cell.text.includes('\n'), cell.text.slice(0, 40), cell.kind], [500, false, '[ { id: "layer-29", type: "group", x: 10', 'array']);
+    assert.strictEqual(mongo_cell_of('x'.repeat(3000)).text.length, 500);
+});

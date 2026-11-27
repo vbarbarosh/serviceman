@@ -1,6 +1,9 @@
 import mongo_cell_of from './mongo_cell_of.js';
 import sql_text_of from './sql_text_of.js';
 
+// A cell is 18rem wide at most: its text is cut long past what it shows, as mongo_cell_of cuts it
+const CELL_MOST = 500;
+
 // A SQL row's value in a cell of the table, on one line: {text, kind, title}, kinds and colours
 // as a MongoDB value's (mongo_cell_of): a string, a number, a boolean, null; a number the
 // module's server kept whole is a number, its digits the text; an object or an array (a JSON
@@ -16,7 +19,7 @@ function sql_cell_of(value)
     if ((value === null) || (typeof value !== 'object')) {
         return mongo_cell_of(value);
     }
-    const text = sql_text_of(value, false).replace(/\n\s*/g, ' ');
+    const text = sql_text_of(value, false).replace(/\n\s*/g, ' ').slice(0, CELL_MOST);
     if (Array.isArray(value)) {
         return {text, kind: 'array', title: `${value.length} ${(value.length === 1) ? 'item' : 'items'}`};
     }

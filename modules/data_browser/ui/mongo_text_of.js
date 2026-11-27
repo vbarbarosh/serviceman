@@ -37,12 +37,17 @@ function text_of(value, indent, whole)
     if (pairs.length === 0) {
         return open + close;
     }
-    const inline = `${open}${pairs.map(v => pair_text(v, indent + '    ', false)).join(', ')}${close}`;
-    if ((whole === false) && (inline.length + indent.length <= LINE_MOST) && (inline.includes('\n') === false)) {
-        return inline;
-    }
+    // Each value written once, whichever way it is laid out: written for each, a value nested n
+    // deep was written 2ⁿ times, and a banner's config froze the page for minutes
     const inner = indent + '    ';
-    return `${open}\n${pairs.map(v => inner + pair_text(v, inner, false)).join(',\n')}\n${indent}${close}`;
+    const texts = pairs.map(v => pair_text(v, inner, false));
+    if (whole === false) {
+        const inline = `${open}${texts.join(', ')}${close}`;
+        if (((inline.length + indent.length) <= LINE_MOST) && (inline.includes('\n') === false)) {
+            return inline;
+        }
+    }
+    return `${open}\n${texts.map(v => inner + v).join(',\n')}\n${indent}${close}`;
 }
 
 function pair_text(pair, indent, whole)

@@ -38,3 +38,21 @@ test('a SQL row is written as JSON with its numbers whole, and its cells as the 
         {text: '', kind: 'none', title: 'not in this row'},
     ]);
 });
+
+// A JSON column nested deep is written at once, each value once, its cell cut long past what it
+// shows, as a MongoDB document's
+test('a JSON column nested 30 deep is written at once, and its cell cut', async function () {
+    const sql_text_of = (await import('../ui/sql_text_of.js')).default;
+    const sql_cell_of = (await import('../ui/sql_cell_of.js')).default;
+    let deep = {id: 'layer-0', type: 'text', x: 10, y: 20};
+    for (let i = 1; i < 30; ++i) {
+        deep = {id: `layer-${i}`, type: 'group', x: 10, y: 20, children: [deep]};
+    }
+    const at = performance.now();
+    const text = sql_text_of(new Map([['config', [deep]]]), true);
+    const cell = sql_cell_of([deep]);
+    assert.ok((performance.now() - at) < 1000);
+    assert.strictEqual(text.split('\n').length, 242);
+    assert.ok(text.includes('"id": "layer-0",'));
+    assert.deepStrictEqual([cell.text.length, cell.text.includes('\n'), cell.kind], [500, false, 'array']);
+});
