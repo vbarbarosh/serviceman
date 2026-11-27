@@ -7424,109 +7424,118 @@ article.ov-pane {
     transform: translateX(-50%);
 }
 
-/* The machine's uptime in one row under its name, a bar a day: the bars share what the row
-   leaves them, from the first day's date to "today", the share of the 30 days at the end. A
-   card too narrow for all of that (a phone, or a window that still has the sidebar) puts the
-   bars on a line of their own, the dates under them: it asks its own width, not the screen's.
-   The day pointed at says itself in a box over what is below, so the row never grows; the box
-   fades and follows the pointer from day to day. */
-.ov-uptime {
-    container-type: inline-size;
+/* The machine's uptime in its head, after its Disk, a column of its own as a fact is: its share of
+   the last 30 days over a dot a day, 4 px wide and 2 px apart, each a target taller than itself.
+   It sits beside the facts, not among them: a narrow head cuts the facts' left edge away, and
+   would cut the day's box with it. A head too narrow gives it a row of its own under the facts,
+   the dots spread across it. The day pointed at says itself in a box over what is below, so the
+   head never grows; the box fades and follows the pointer from day to day. */
+.item-uptime {
+    flex: none;
     min-width: 0;
-    padding: .5rem 1rem;
+    padding: 2px 0 2px 22px;
+    border-left: 1px solid var(--line);
     transition: opacity .2s ease;
 }
 
-.ov-uptime.loading {
+.item-uptime.loading {
     opacity: .8;
 }
 
-.ov-uptime-row {
-    display: grid;
-    grid-template-areas: "head from track to value";
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-    gap: .3rem .75rem;
-    align-items: center;
-}
-
-.ov-uptime-head {
-    grid-area: head;
-    display: flex;
-    gap: .4rem;
-    align-items: center;
-}
-
-.ov-uptime-head svg {
-    flex: none;
-    color: var(--muted);
-}
-
-.ov-uptime-say {
-    grid-column: from / to;
+.item-uptime-label {
     margin: 0;
-    overflow-wrap: anywhere;
-}
-
-.ov-uptime-from,
-.ov-uptime-to {
-    font-size: .75rem;
+    color: var(--muted);
+    font-size: 13px;
     white-space: nowrap;
 }
 
-.ov-uptime-from {
-    grid-area: from;
+.item-uptime-value {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 650;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
-.ov-uptime-to {
-    grid-area: to;
+.item-uptime-value small {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
 }
 
-.ov-uptime-track {
-    grid-area: track;
+.item-uptime-track {
     position: relative;
-    min-width: 0;
-    min-height: 1.3rem;
+    min-height: 30px;
+    margin-top: 6px;
 }
 
-.ov-uptime .ov-chart-value {
-    grid-area: value;
-}
-
-.ov-uptime-bars {
+.item-uptime-dots {
     display: flex;
     gap: 2px;
-    height: 1.3rem;
+    height: 30px;
 }
 
-.ov-uptime-day {
-    flex: 1 1 0;
-    min-width: 0;
+.item-uptime-day {
+    position: relative;
+    flex: none;
+    width: 4px;
+    height: 100%;
     padding: 0;
-    border: 1px solid transparent;
-    border-radius: 2px;
-    background: var(--run);
+    border: 0;
+    background: none;
     cursor: pointer;
-    transition: background .12s ease, box-shadow .12s ease, opacity .12s ease;
 }
 
-.ov-uptime-day.some {
+.item-uptime-day:hover,
+.item-uptime-day:active {
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+
+.item-uptime-day::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: var(--run);
+    transform: translate(-50%, -50%);
+    transition: width .12s ease, height .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.item-uptime-day.some::before {
     background: var(--busy);
 }
 
-.ov-uptime-day.bad {
+.item-uptime-day.bad::before {
     background: var(--bad);
 }
 
-.ov-uptime-day.unknown {
-    border-color: var(--line);
+.item-uptime-day.unknown::before {
+    border-color: var(--muted);
     background: transparent;
 }
 
-.ov-uptime-bars:hover .ov-uptime-day:not(.on) {
+.item-uptime-dots:hover .item-uptime-day:not(.on)::before {
     opacity: .7;
 }
 
-.ov-uptime-day.on {
+.item-uptime-day.on::before {
+    width: 8px;
+    height: 8px;
+    box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--fg);
+}
+
+.item-uptime-day:focus-visible {
+    outline: 0;
+}
+
+.item-uptime-day:focus-visible::before {
     box-shadow: var(--focus-ring);
 }
 
@@ -7546,6 +7555,11 @@ article.ov-pane {
     visibility: hidden;
     pointer-events: none;
     transition: opacity .12s ease, visibility .12s ease, left .12s ease, transform .12s ease;
+}
+
+/* In the head the dots are narrow: the box takes the room its lines need, not theirs */
+.item-uptime .ov-uptime-tip {
+    max-width: min(24rem, calc(100vw - 32px));
 }
 
 .ov-uptime-tip.open {
@@ -7568,34 +7582,38 @@ article.ov-pane {
     font-size: .75rem;
 }
 
-/* The row alone, in a list that names it beside it */
-.ov-uptime.bare {
-    padding: 0;
-}
-
-.ov-uptime.bare .ov-uptime-row {
-    grid-template-areas: "from track to value";
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-}
-
-@container (max-width: 44rem) {
-    .ov-uptime-row {
-        grid-template-areas: "head value value" "track track track" "from . to";
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        row-gap: .25rem;
+/* A head too narrow for it beside the charts: a row of its own under them, the dots spread
+   across it, each still a target as tall as the row */
+@container item-card (max-width: 72rem) {
+    .item-uptime {
+        order: 4;
+        width: 100%;
+        padding: 12px 0 0;
+        border-top: 1px solid var(--line);
+        border-left: 0;
     }
 
-    .ov-uptime.bare .ov-uptime-row {
-        grid-template-areas: "value value value" "track track track" "from . to";
-        grid-template-columns: auto minmax(0, 1fr) auto;
+    .item-uptime-label,
+    .item-uptime-value {
+        display: inline;
     }
 
-    .ov-uptime .ov-chart-value {
-        white-space: normal;
+    .item-uptime-value {
+        margin-left: 10px;
     }
 
-    .ov-uptime-say {
-        grid-column: 1 / -1;
+    .item-uptime-dots {
+        justify-content: space-between;
+    }
+
+    .item-uptime-day {
+        flex: 1 1 0;
+        width: auto;
+        max-width: 24px;
+    }
+
+    .item-uptime .ov-uptime-tip {
+        max-width: 100%;
     }
 }
 

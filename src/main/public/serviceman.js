@@ -70,6 +70,7 @@ import remote_packages from './remote_packages.js';
 import remote_processes from './remote_processes.js';
 import remote_shell from './remote_shell.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
+import remote_uptime from './remote_uptime.js';
 import remote_vulnerabilities from './remote_vulnerabilities.js';
 import remotes_pane from './remotes_pane.js';
 import restart_said from './restart_said.js';
@@ -1646,8 +1647,10 @@ const remote_page = {
                     <span v-if="(seen_said !== '')">{{ seen_said }}</span>
                 </div>
             </div>
-            <!-- Its CPU, memory and disk, where its Overview's tiles said them; away, the last -->
+            <!-- Its CPU, memory and disk, where its Overview's tiles said them; away, the last;
+                 then its uptime, a dot a day for the last 30 -->
             <item-facts v-if="(head_facts.length > 0)" :class="{loading: (head_charts.data === undefined)}" :facts="head_facts"/>
+            <remote-uptime v-if="(head_facts.length > 0)" :key="('uptime-' + view.name)" :view="view"/>
             <!-- How often its numbers are read, above its buttons; a narrow head puts the rates on
                  a row of their own, over its facts. The span History shows is History's own. -->
             <div class="item-side">
@@ -1723,7 +1726,7 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, 'charts-rate-switch': charts_rate_switch, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    components: {'agent-pill': agent_pill, 'charts-rate-switch': charts_rate_switch, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-uptime': remote_uptime, 'remote-vulnerabilities': remote_vulnerabilities},
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],

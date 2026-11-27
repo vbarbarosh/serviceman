@@ -393,7 +393,7 @@ from 92%). While it is away, the head says how long it is down in its state (`of
 11m`) and the last numbers it said, dimmed; the ten minutes before it went are charted in grey
 only when serviceman read them then, in the minutes before it went, since serviceman keeps only
 the last answer it read for each range. Its **Overview** tab
-shows what no other tab of its page shows: its uptime in one row, its history, a card for the
+shows what no other tab of its page shows: its history, a card for the
 machine (its temperature and battery among them), and its raw state folded away at the end; a
 machine that has not dialled in yet has a line saying so there, and its raw state. What has a tab
 of its own is not said there again: the services on it are its **Services** tab, its agent (its
@@ -437,19 +437,22 @@ another day says its day at both ends, a week or a month days alone. The time po
 tag over them, and the times it would touch give way while it is there. It is
 `src/main/public/chart_scale_of.js` and `chart_times_of.js`.
 
-**Uptime** is a bar a day for the last 30, in one row under the machine's name, its share of
-those days at the end of it: green when servermon wrote a line every second of it, orange from
-99%, red below, grey for the days before servermon came. A gap of more than 10 seconds between
-two lines is a stretch the machine was down; a day pointed at or tapped says, in a box under it,
-its share and its longest stretches, in the machine's own time zone, each with why: rebooted
+**Uptime** is in the head, after Disk: `Uptime, 30 days`, its share of those days (`99.9%`)
+and how long it was down (`down 4m`), and under them a dot a day for the last 30, 4 px wide and
+2 px apart: green when servermon wrote a line every second of it, orange from 99%, red below,
+grey for the days before servermon came. A head too narrow for it beside the charts gives it a
+row of its own under them, the dots spread across it. A gap of more than 10 seconds between
+two lines is a stretch the machine was down; a dot pointed at, focused or tapped says, in a box
+under it, its day, its share and its longest stretches, in the machine's own time zone, each with why: rebooted
 (the line after it says another boot time), servermon stopped or the machine slept (the same
 one), or no line since. The agent counts the lines itself and reads each byte of them once: a
 finished day when it first meets it (the time and boot at the start of each line, about 170 ms
 for a day's 50 MB), today from where the last count stopped, every minute. The count is kept
 in `metrics/uptime.json`, 90 days, longer than servermon keeps its files. The page reads it from
 `GET /api/v1/remotes/<name>/uptime?days=30` when it opens and every minute after, and shows the
-last answer while the machine is offline; its Overview has the last 30 days, a bar a day. An agent before 1.22 has none, and the pane says how to
-update it.
+last answer while the machine is offline, the day it went red, its box saying since when
+nothing was heard from its agent. An agent before 1.22 has none: the head says `agent too old`,
+and its title that Configure updates it.
 
 **servermon** is the one thing that reads the machine, second by second, and the night it
 stopped answering is in it too: CPU and steal, load, memory and swap, how long tasks waited for

@@ -2,16 +2,15 @@ import format_ms from './format_ms.js';
 import overview_card from './overview_card.js';
 import remote_charts from './remote_charts.js';
 import remote_unanswered_said from './remote_unanswered_said.js';
-import remote_uptime from './remote_uptime.js';
 import to_clipboard from './to_clipboard.js';
 
 // How long the Copy button says it copied
 const COPIED_MS = 1500;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// A remote's Overview tab: what no other tab of its page shows. Its uptime by day in one row, its
-// history, the machine as a card, and the raw state folded away at the end; its name, its state
-// and its CPU, memory and disk are the page's head. What a tab of its own shows is not said here
+// A remote's Overview tab: what no other tab of its page shows. Its history, the machine as a
+// card, and the raw state folded away at the end; its name, its state, its CPU, memory and disk
+// and its uptime are the page's head. What a tab of its own shows is not said here
 // again: its services are the Services tab, its agent and its updates Configure, its logs Logs.
 // It is drawn again with every beat of the machine.
 const remote_overview = {
@@ -21,8 +20,7 @@ const remote_overview = {
         <p v-if="(unanswered_said !== '')" class="alert">{{ unanswered_said }}. What is below waits for it.</p>
         <p v-if="view.error" class="alert"><strong>Last error</strong> · {{ view.error }}</p>
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
-        <p v-if="(view.machine === null)" class="muted">Nothing is known about this machine yet: what it is, its uptime and its history show here once its agent dials in.</p>
-        <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
+        <p v-if="(view.machine === null)" class="muted">Nothing is known about this machine yet: what it is and its history show here once its agent dials in.</p>
         <remote-charts v-if="(view.machine !== null)" :view="view" :charts="charts" @range="$emit('range', $event)" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-cards">
             <overview-card icon="monitor" title="Machine">
@@ -71,7 +69,7 @@ const remote_overview = {
     </div>
 </article>
 `,
-    components: {'overview-card': overview_card, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
+    components: {'overview-card': overview_card, 'remote-charts': remote_charts},
     // charts: History's numbers as its page reads them, the head's reading among them
     // (remote_charts says their shape); @range: a span picked in History's head
     props: ['view', 'charts'],
