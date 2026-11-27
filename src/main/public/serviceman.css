@@ -1496,6 +1496,37 @@ main > section:has(> #page:not(.fills)) {
     bottom: 0;
 }
 
+/* A window under 900 px wide, where the head stands in rows, or under 720 px tall, as a laptop's
+   is, has no room for a head and a pane that fills the rest: under a machine's head a 390 x 844
+   phone left Files 172 px of its 792, and on its side none in view. There a tab that fills the
+   height scrolls with the page too, the way the other tabs do, and its pane takes the screen
+   under serviceman's bar once the head is gone: a terminal as tall as that, a folder and a
+   service's lines at least as tall and longer as they grow, in the one scroll of the page. The
+   section is what the panes are measured by (cqh); a fixed window inside it still covers the
+   whole screen */
+@media (max-width: 900px), (max-height: 720px) {
+    main > section:has(> #page.fills) {
+        container-type: size;
+        display: block;
+        overflow-y: auto;
+    }
+
+    #page.fills {
+        display: flow-root;
+    }
+
+    #page.fills > #detail {
+        height: 100cqh;
+    }
+
+    #page.fills > #detail.fm,
+    #page.fills > #detail.service-logs {
+        height: auto;
+        min-height: 100cqh;
+        overflow: visible;
+    }
+}
+
 /* The slim row hangs from a box of no height right under the head, docked at the top of the
    page as it scrolls: nothing under it moves when it shows. Hidden, it waits above the top,
    and slides down from under serviceman's bar once the head is gone */

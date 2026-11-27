@@ -17,6 +17,32 @@
     margin: 0;
 }
 
+/* The bar and the note under it are one head, spaced as the parts around them are, whatever gap
+   the host gives those */
+.fm-head {
+    display: flex;
+    flex-direction: column;
+    gap: inherit;
+}
+
+/* While something is ticked or asked, the head stays a little under the top of what scrolls the
+   list, its own pane or the page: a file ticked deep in a long folder keeps its buttons in view.
+   A band of the page's colour around it hides the rows passing under it, and reaches 2.5rem
+   higher: a pane stops it under its own padding, and the rows would show through that */
+.fm > .fm-head:has(> .fm-bar.picked) {
+    position: sticky;
+    top: .45rem;
+    z-index: 3;
+    background: var(--bg);
+    box-shadow: 0 0 0 .45rem var(--bg), 0 -2.5rem 0 .45rem var(--bg);
+}
+
+/* The way here stands over that band while both are in view, the head not yet stuck */
+.fm > .fm-path {
+    position: relative;
+    z-index: 4;
+}
+
 /* The file manager: the way here, one bar of actions, the list, and what is on its way */
 .fm-path {
     display: flex;
@@ -588,6 +614,11 @@ p.fm-foot {
 
 @media (max-width: 40rem) {
     .svc-head {
+        flex-wrap: wrap;
+    }
+
+    /* The bar's right end wraps on a narrow screen: the editor's Save and Close stay in it */
+    .fm-bar .list-right {
         flex-wrap: wrap;
     }
 

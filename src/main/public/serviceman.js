@@ -1614,7 +1614,8 @@ const REMOTE_TABS = [
 ];
 
 // The tabs whose pane takes the height left under the head and scrolls inside itself, a file
-// manager and a terminal: the page stays still for them, its head on top
+// manager and a terminal: the page stays still for them, its head on top. A phone or a small
+// window has no room for both, and scrolls the page on them too (serviceman.css)
 const REMOTE_TABS_FILLING = ['files', 'shell'];
 
 // How often a machine's charts are read again for 1h and longer, whatever the rate picked: they
@@ -2124,7 +2125,8 @@ const SERVICE_TABS = [
 ];
 
 // The tabs whose pane takes the height left under the head and scrolls inside itself, its lines,
-// a file manager and a terminal: the page stays still for them, its head on top
+// a file manager and a terminal: the page stays still for them, its head on top; on a phone or
+// in a small window it scrolls on them too, as a machine's does
 const SERVICE_TABS_FILLING = ['logs', 'files', 'shell'];
 
 // One service as one page: tabs pick what is below, the actions stand to the right of them,

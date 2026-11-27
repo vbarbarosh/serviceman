@@ -113,64 +113,68 @@ const file_manager = {
         </button>
     </div>
     <template v-if="(open_file === null)">
-    <!-- One bar, always in the same place: what can be done with nothing ticked, with
-         something ticked, and the one question an action asks before it happens -->
-    <div class="list-tools fm-bar" :class="{picked: (chosen_names.length > 0 || mode !== '')}">
-        <template v-if="(mode === 'folder')">
-            <span>New folder in <code>{{ here }}</code></span>
-            <input ref="ask" v-model.trim="folder_name" placeholder="its name — foo/bar goes deep" spellcheck="false" @keyup.enter="folder_make" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || offline || folder_name === '')" @click="folder_make">Create</button>
-            <button type="button" @click="mode = ''">Cancel</button>
-        </template>
-        <template v-else-if="(mode === 'rename')">
-            <span>Rename <code>{{ chosen_names[0] }}</code> to</span>
-            <input ref="ask" v-model.trim="new_name" spellcheck="false" @keyup.enter="rename" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || offline || new_name === '' || new_name === chosen_names[0] || ask_refusal !== '')" @click="rename">Rename</button>
-            <button type="button" @click="mode = ''">Cancel</button>
-        </template>
-        <template v-else-if="(mode === 'move')">
-            <span>Move {{ chosen_text }} to</span>
-            <input ref="ask" v-model.trim="move_to" placeholder="the folder to move to" spellcheck="false" @keyup.enter="move" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || offline || move_to === '' || move_to === path)" @click="move">Move</button>
-            <button type="button" @click="mode = ''">Cancel</button>
-        </template>
-        <template v-else-if="(mode === 'copy')">
-            <span>Copy {{ chosen_text }} to</span>
-            <select v-model="copy_disk" aria-label="The machine to copy to">
-                <option v-for="item of targets" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-            <input ref="ask" v-model.trim="copy_dir" placeholder="the folder there" spellcheck="false" @keyup.enter="copy_start" @keyup.esc="mode = ''">
-            <button type="button" class="primary" :disabled="(acting || copy_disk === '' || copy_dir === '')" @click="copy_start">Copy</button>
-            <button type="button" @click="mode = ''">Cancel</button>
-        </template>
-        <template v-else-if="(mode === 'delete')">
-            <span class="bad">Delete {{ chosen_text }}{{ (title ? ' from ' + title : '') }}? A folder goes with everything in it, and nothing brings it back.</span>
-            <button type="button" class="danger" :disabled="(acting || offline)" @click="remove">Delete</button>
-            <button type="button" @click="mode = ''">Cancel</button>
-        </template>
-        <template v-else-if="(chosen_names.length > 0)">
-            <b>{{ chosen_text }}</b>
-            <button v-for="act of chosen_acts" :key="act.act" type="button" class="primary" :disabled="(offline || (act.refusal !== undefined))" :title="((act.refusal === undefined) ? act.title : act.refusal)" @click="click_act(act, chosen_file)">{{ act.label }}</button>
-            <a class="button" :href="download_url" download>Download</a>
-            <button v-if="(chosen_names.length === 1)" type="button" :disabled="offline" @click="mode_open('rename')">Rename</button>
-            <button type="button" :disabled="offline" @click="mode_open('move')">Move to…</button>
-            <button v-if="copy_able" type="button" :disabled="offline" title="Copy to another folder, on this machine or another" @click="mode_open('copy')">Copy to…</button>
-            <button type="button" class="danger" :disabled="offline" @click="mode_open('delete')">Delete…</button>
-            <span class="list-right"><button type="button" @click="chosen = {}">Clear</button></span>
-        </template>
-        <template v-else>
-            <input v-model.trim="filter" type="search" placeholder="filter this folder" spellcheck="false">
-            <button type="button" class="chip" :class="{on: show_dot_files}" :aria-pressed="(show_dot_files ? 'true' : 'false')" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files"><span class="chip-check" aria-hidden="true"></span>dot files <span class="muted">{{ dot_count }}</span></button>
-            <span class="list-right">
-                <button type="button" class="add" :disabled="(offline || path === null)" @click="mode_open('folder')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New folder</button>
-                <button type="button" :disabled="(offline || path === null)" title="A whole folder, its inner folders too; or drop it on the list" @click="$refs.folder_picker.click()">Upload folder</button>
-                <button type="button" class="primary" :disabled="(offline || path === null)" title="Or drop them on the list, or paste them with Ctrl+V" @click="$refs.picker.click()">Upload files</button>
-            </span>
-        </template>
+    <!-- The bar and the note under it are one head, kept in view over the list while something
+         is ticked or asked -->
+    <div class="fm-head">
+        <!-- One bar, always in the same place: what can be done with nothing ticked, with
+             something ticked, and the one question an action asks before it happens -->
+        <div class="list-tools fm-bar" :class="{picked: (chosen_names.length > 0 || mode !== '')}">
+            <template v-if="(mode === 'folder')">
+                <span>New folder in <code>{{ here }}</code></span>
+                <input ref="ask" v-model.trim="folder_name" placeholder="its name — foo/bar goes deep" spellcheck="false" @keyup.enter="folder_make" @keyup.esc="mode = ''">
+                <button type="button" class="primary" :disabled="(acting || offline || folder_name === '')" @click="folder_make">Create</button>
+                <button type="button" @click="mode = ''">Cancel</button>
+            </template>
+            <template v-else-if="(mode === 'rename')">
+                <span>Rename <code>{{ chosen_names[0] }}</code> to</span>
+                <input ref="ask" v-model.trim="new_name" spellcheck="false" @keyup.enter="rename" @keyup.esc="mode = ''">
+                <button type="button" class="primary" :disabled="(acting || offline || new_name === '' || new_name === chosen_names[0] || ask_refusal !== '')" @click="rename">Rename</button>
+                <button type="button" @click="mode = ''">Cancel</button>
+            </template>
+            <template v-else-if="(mode === 'move')">
+                <span>Move {{ chosen_text }} to</span>
+                <input ref="ask" v-model.trim="move_to" placeholder="the folder to move to" spellcheck="false" @keyup.enter="move" @keyup.esc="mode = ''">
+                <button type="button" class="primary" :disabled="(acting || offline || move_to === '' || move_to === path)" @click="move">Move</button>
+                <button type="button" @click="mode = ''">Cancel</button>
+            </template>
+            <template v-else-if="(mode === 'copy')">
+                <span>Copy {{ chosen_text }} to</span>
+                <select v-model="copy_disk" aria-label="The machine to copy to">
+                    <option v-for="item of targets" :key="item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+                <input ref="ask" v-model.trim="copy_dir" placeholder="the folder there" spellcheck="false" @keyup.enter="copy_start" @keyup.esc="mode = ''">
+                <button type="button" class="primary" :disabled="(acting || copy_disk === '' || copy_dir === '')" @click="copy_start">Copy</button>
+                <button type="button" @click="mode = ''">Cancel</button>
+            </template>
+            <template v-else-if="(mode === 'delete')">
+                <span class="bad">Delete {{ chosen_text }}{{ (title ? ' from ' + title : '') }}? A folder goes with everything in it, and nothing brings it back.</span>
+                <button type="button" class="danger" :disabled="(acting || offline)" @click="remove">Delete</button>
+                <button type="button" @click="mode = ''">Cancel</button>
+            </template>
+            <template v-else-if="(chosen_names.length > 0)">
+                <b>{{ chosen_text }}</b>
+                <button v-for="act of chosen_acts" :key="act.act" type="button" class="primary" :disabled="(offline || (act.refusal !== undefined))" :title="((act.refusal === undefined) ? act.title : act.refusal)" @click="click_act(act, chosen_file)">{{ act.label }}</button>
+                <a class="button" :href="download_url" download>Download</a>
+                <button v-if="(chosen_names.length === 1)" type="button" :disabled="offline" @click="mode_open('rename')">Rename</button>
+                <button type="button" :disabled="offline" @click="mode_open('move')">Move to…</button>
+                <button v-if="copy_able" type="button" :disabled="offline" title="Copy to another folder, on this machine or another" @click="mode_open('copy')">Copy to…</button>
+                <button type="button" class="danger" :disabled="offline" @click="mode_open('delete')">Delete…</button>
+                <span class="list-right"><button type="button" @click="chosen = {}">Clear</button></span>
+            </template>
+            <template v-else>
+                <input v-model.trim="filter" type="search" placeholder="filter this folder" spellcheck="false">
+                <button type="button" class="chip" :class="{on: show_dot_files}" :aria-pressed="(show_dot_files ? 'true' : 'false')" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files"><span class="chip-check" aria-hidden="true"></span>dot files <span class="muted">{{ dot_count }}</span></button>
+                <span class="list-right">
+                    <button type="button" class="add" :disabled="(offline || path === null)" @click="mode_open('folder')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New folder</button>
+                    <button type="button" :disabled="(offline || path === null)" title="A whole folder, its inner folders too; or drop it on the list" @click="$refs.folder_picker.click()">Upload folder</button>
+                    <button type="button" class="primary" :disabled="(offline || path === null)" title="Or drop them on the list, or paste them with Ctrl+V" @click="$refs.picker.click()">Upload files</button>
+                </span>
+            </template>
+        </div>
+        <!-- What the page knows the disk will refuse is said under the question, before it is asked -->
+        <p v-if="(ask_refusal !== '')" class="bad fm-note">{{ ask_refusal }}</p>
+        <p v-else-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="note_busy" class="spin"/>{{ note_shown }}</p>
     </div>
-    <!-- What the page knows the disk will refuse is said under the question, before it is asked -->
-    <p v-if="(ask_refusal !== '')" class="bad fm-note">{{ ask_refusal }}</p>
-    <p v-else-if="(note_shown !== '')" :class="(note_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="note_busy" class="spin"/>{{ note_shown }}</p>
     <input ref="picker" type="file" multiple hidden @change="picked">
     <input ref="folder_picker" type="file" webkitdirectory hidden @change="picked">
     <!-- What is on its way there, one file at a time, above the folder it lands in -->
@@ -237,35 +241,38 @@ const file_manager = {
     </template>
     <!-- One file of the folder, read into an editor in place of the list -->
     <template v-else>
-        <div class="list-tools fm-bar picked">
-            <template v-if="(edit_ask === 'conflict')">
-                <span class="bad">{{ open_file.name }} changed on the disk since it was opened here.</span>
-                <button type="button" class="danger" :disabled="saving" @click="save(true)">Overwrite it</button>
-                <button type="button" @click="discard('reload')">Load theirs</button>
-                <button type="button" @click="edit_ask = ''">Cancel</button>
-            </template>
-            <template v-else-if="(edit_ask !== '')">
-                <span class="bad">{{ ask_text }}</span>
-                <button type="button" class="primary" :disabled="saving" @click="save_then_go">Save</button>
-                <button type="button" class="danger" @click="discard(edit_ask)">Discard changes</button>
-                <button type="button" @click="edit_ask = ''">Keep editing</button>
-            </template>
-            <template v-else>
-                <b>{{ open_file.name }}</b>
-                <span class="muted">{{ file_meta }}</span>
-                <span v-if="dirty" class="fm-dirty">● not saved</span>
-                <span class="list-right">
-                    <select v-model="language" aria-label="Language" :disabled="(open_file.state !== 'ready')">
-                        <option v-for="item of LANGUAGES" :key="item.value" :value="item.value">{{ item.label }}</option>
-                    </select>
-                    <button type="button" class="chip" :class="{on: wrap}" :aria-pressed="(wrap ? 'true' : 'false')" title="Wrap long lines" @click="wrap = !wrap"><span class="chip-check" aria-hidden="true"></span>wrap</button>
-                    <a class="button" :href="file_url(open_file)" target="_blank" rel="noreferrer">Open in a tab</a>
-                    <button type="button" class="primary" :disabled="(dirty === false || saving || offline)" title="Ctrl+S" @click="save(false)"><span v-if="saving" class="spin"/>{{ saving ? 'saving…' : 'Save' }}</button>
-                    <button type="button" @click="file_close">Close</button>
-                </span>
-            </template>
+        <!-- Its bar and the note under it, one head as the list's -->
+        <div class="fm-head">
+            <div class="list-tools fm-bar picked">
+                <template v-if="(edit_ask === 'conflict')">
+                    <span class="bad">{{ open_file.name }} changed on the disk since it was opened here.</span>
+                    <button type="button" class="danger" :disabled="saving" @click="save(true)">Overwrite it</button>
+                    <button type="button" @click="discard('reload')">Load theirs</button>
+                    <button type="button" @click="edit_ask = ''">Cancel</button>
+                </template>
+                <template v-else-if="(edit_ask !== '')">
+                    <span class="bad">{{ ask_text }}</span>
+                    <button type="button" class="primary" :disabled="saving" @click="save_then_go">Save</button>
+                    <button type="button" class="danger" @click="discard(edit_ask)">Discard changes</button>
+                    <button type="button" @click="edit_ask = ''">Keep editing</button>
+                </template>
+                <template v-else>
+                    <b>{{ open_file.name }}</b>
+                    <span class="muted">{{ file_meta }}</span>
+                    <span v-if="dirty" class="fm-dirty">● not saved</span>
+                    <span class="list-right">
+                        <select v-model="language" aria-label="Language" :disabled="(open_file.state !== 'ready')">
+                            <option v-for="item of LANGUAGES" :key="item.value" :value="item.value">{{ item.label }}</option>
+                        </select>
+                        <button type="button" class="chip" :class="{on: wrap}" :aria-pressed="(wrap ? 'true' : 'false')" title="Wrap long lines" @click="wrap = !wrap"><span class="chip-check" aria-hidden="true"></span>wrap</button>
+                        <a class="button" :href="file_url(open_file)" target="_blank" rel="noreferrer">Open in a tab</a>
+                        <button type="button" class="primary" :disabled="(dirty === false || saving || offline)" title="Ctrl+S" @click="save(false)"><span v-if="saving" class="spin"/>{{ saving ? 'saving…' : 'Save' }}</button>
+                        <button type="button" @click="file_close">Close</button>
+                    </span>
+                </template>
+            </div>
+            <p v-if="(edit_note !== '')" :class="(edit_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="saving" class="spin"/>{{ edit_note }}</p>
         </div>
-        <p v-if="(edit_note !== '')" :class="(edit_bad ? 'bad' : 'muted')" class="fm-note"><span v-if="saving" class="spin"/>{{ edit_note }}</p>
         <div v-if="(open_file.state === 'loading')" class="card fm-editor-msg muted"><span class="spin"/>reading {{ open_file.name }}…</div>
         <div v-else-if="(open_file.state === 'binary')" class="card fm-editor-msg">
             <p><b>{{ open_file.name }}</b> is not text, so it is not opened here.</p>

@@ -143,7 +143,8 @@ function template_of(text, name)
 
 // A machine's and a service's page scroll as one, the crumbs and the head with them; right under
 // its card the head folds into a slim row with the same tabs, which takes no room in the page. A
-// tab that fills the height (a terminal, a file manager, a service's lines) keeps the page still.
+// tab that fills the height (a terminal, a file manager, a service's lines) keeps the page still
+// where the screen has room for both.
 test('a machine\'s and a service\'s head fold into a slim row as the page scrolls', function () {
     const text = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
     const css = fs.readFileSync(path.join(PUBLIC, 'serviceman.css'), 'utf8');
@@ -165,6 +166,47 @@ test('a machine\'s and a service\'s head fold into a slim row as the page scroll
     assert.match(css, /\nmain > section:has\(> #page:not\(\.fills\)\) \{\n    display: block;\n    overflow-y: auto;\n\}/, 'the section under the bar scrolls, the crumbs in it');
     assert.match(css, /\n#page:not\(\.fills\) > #detail \{\n    overflow: visible;\n\}/, 'the pane does not scroll on its own');
     assert.match(css, /\n\.item-slim \{\n    position: sticky;\n    top: 0;\n    z-index: 10;\n    height: 0;\n\}/, 'the slim row takes no room');
+});
+
+// A window under 900 px wide or 720 px tall, a phone among them, has no room for a head and a
+// pane that fills the rest: there a filling tab scrolls with the page too, its pane as
+// tall as the section (cqh), a folder and a service's lines longer as they grow. The file
+// manager's bar and the note under it are one head, which stays at the top of what scrolls the
+// list, at every size, while something is ticked or asked; on a phone the bar's right end wraps.
+test('on a phone a tab that fills the height scrolls with the page, the file manager\'s bar in view', function () {
+    const css = fs.readFileSync(path.join(PUBLIC, 'serviceman.css'), 'utf8');
+    const found = /\n@media \(max-width: 900px\), \(max-height: 720px\) \{\n([\s\S]*?)\n\}\n/.exec(css);
+    assert.notStrictEqual(found, null, 'a narrow window and a short one have rules of their own');
+    assert.match(found[1], /^    main > section:has\(> #page\.fills\) \{\n        container-type: size;\n        display: block;\n        overflow-y: auto;\n    \}$/m, 'the section scrolls, and the panes are measured by it');
+    assert.match(found[1], /^    #page\.fills > #detail \{\n        height: 100cqh;\n    \}$/m, 'a terminal takes the screen');
+    assert.match(found[1], /^    #page\.fills > #detail\.fm,\n    #page\.fills > #detail\.service-logs \{\n        height: auto;\n        min-height: 100cqh;\n        overflow: visible;\n    \}$/m, 'a folder and the lines take at least the screen, and grow');
+    const fm_css = fs.readFileSync(path.join(__dirname, '..', 'modules', 'file_manager', 'ui', 'file_manager.css'), 'utf8');
+    assert.match(fm_css, /\n\.fm > \.fm-head:has\(> \.fm-bar\.picked\) \{\n    position: sticky;\n    top: \.45rem;\n/, 'the bar stays in view while something is ticked, at every size');
+    assert.match(fm_css, /\n@media \(max-width: 40rem\) \{\n[^@]*?\n    \.fm-bar \.list-right \{\n        flex-wrap: wrap;\n    \}\n/, 'a phone wraps the bar\'s right end');
+    // Each bar of the file manager's, the list's and the editor's, opens a head, and every note
+    // under a bar is in the head before it closes
+    const lines = fs.readFileSync(path.join(__dirname, '..', 'modules', 'file_manager', 'ui', 'file_manager.js'), 'utf8').split('\n');
+    const inside = new Set();
+    let heads = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const head = /^( *)<div class="fm-head">$/.exec(lines[i]);
+        if (head === null) {
+            continue;
+        }
+        heads++;
+        let first = null;
+        for (let j = i + 1; lines[j] !== `${head[1]}</div>`; j++) {
+            inside.add(j);
+            if ((first === null) && /^ *<(?!!--)/.test(lines[j])) {
+                first = lines[j];
+            }
+        }
+        assert.match(first, /^ *<div class="list-tools fm-bar[" ]/, 'the bar first in its head');
+    }
+    assert.strictEqual(heads, 2, 'the list\'s bar and the editor\'s');
+    const notes = lines.map((v, i) => (v.includes('fm-note"') ? i : -1)).filter(v => v >= 0);
+    assert.strictEqual(notes.length, 3);
+    assert.deepStrictEqual(notes.filter(v => (inside.has(v) === false)), [], 'every note under a bar is in its head');
 });
 
 // The slim row says the state in its first word and Memory short; it shows once the mark under

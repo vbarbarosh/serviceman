@@ -335,7 +335,11 @@ the rates on a row of their own, and no tabs. A tab picked in it opens at the to
 the head over it again. **Shell** and **Files** fill the height instead: the page stays still,
 its head on top, and the terminal or the folder scrolls inside. A service's page folds the same
 way, its own numbers and tabs in its slim row, and its Logs, Files and Shell fill the height. It
-is `src/main/public/item_slim.js`.
+is `src/main/public/item_slim.js`. A window under 900 px wide, a phone or a tablet standing up,
+or one under 720 px tall has no room for a head and a pane that fills the rest: there such a tab
+scrolls with the page too. The terminal takes the screen once the head is gone, the folder
+and a service's lines at least the screen and longer as they grow. At any size, while something
+is ticked, the folder's bar stays at the top of what scrolls the list, with the note under it.
 
 The agent says what the machine is when the link opens — hostname, cpu, memory, free disk,
 docker version, node version — and repeats the numbers that move every 5 seconds: among them
