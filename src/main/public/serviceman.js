@@ -17,7 +17,9 @@ import canvas_pane from './canvas_pane.js';
 import categories_pane from './categories_pane.js';
 import charts_kept from './charts_kept.js';
 import charts_range_of from './charts_range_of.js';
-import charts_switch from './charts_switch.js';
+import charts_rate_switch from './charts_rate_switch.js';
+import charts_read from './charts_read.js';
+import charts_shown_of from './charts_shown_of.js';
 import clock_of from './clock_of.js';
 import config_read from './config_read.js';
 import config_tokens_back from './config_tokens_back.js';
@@ -1618,6 +1620,8 @@ const REMOTE_TABS_FILLING = ['files', 'shell'];
 // finds the same points; and each read has the agent read and average up to a month of its
 // files. The rate picked is for the ten minutes alone, servermon's line a second.
 const CHARTS_EVERY_MS = 30000;
+// A machine's charts before the first is read
+const CHARTS_NONE = {range: null, data: undefined, error: null, old: false};
 
 const remote_page = {
     template: `
@@ -1639,11 +1643,11 @@ const remote_page = {
                 </div>
             </div>
             <!-- Its CPU, memory and disk, where its Overview's tiles said them; away, the last -->
-            <item-facts v-if="(head_facts.length > 0)" :class="{loading: charts_shown.loading}" :facts="head_facts"/>
-            <!-- The range its charts show and how often the ten minutes are read, above its
-                 buttons; a narrow head puts them on a row of their own, over its facts -->
+            <item-facts v-if="(head_facts.length > 0)" :class="{loading: (head_charts.data === undefined)}" :facts="head_facts"/>
+            <!-- How often its numbers are read, above its buttons; a narrow head puts the rates on
+                 a row of their own, over its facts. The span History shows is History's own. -->
             <div class="item-side">
-                <charts-switch v-if="charts_able" :view="view" :range="charts_range_now" :rate="charts_rate" @range="charts_range_pick" @rate="charts_rate_pick"/>
+                <charts-rate-switch v-if="charts_able" :view="view" :rate="charts_rate" @rate="charts_rate_pick"/>
                 <div class="item-acts">
                     <button v-if="(view.phase === 'online')" type="button" class="sec" :class="{on: (tab_now === 'shell')}" title="A terminal on this machine" @click="$emit('tab', 'shell')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Shell</button>
                     <button v-if="(view.phase === 'online')" type="button" class="primary" title="A new service, run on this machine" @click="$emit('create', view.name)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Service here</button>
@@ -1677,9 +1681,9 @@ const remote_page = {
         </div>
     </div>
     <!-- Scrolled away, the head folds into a slim row: its name, its state, its numbers, its
-         tabs and the range its charts show -->
+         tabs and how often its numbers are read -->
     <item-slim v-if="(fills === false)" :icon="icon" :name="view.name" :state="state_pill" :facts="head_facts" :tabs="tabs_shown" :more="tabs_more" :tab="tab_now" @tab="$emit('tab', $event)">
-        <charts-switch v-if="charts_able" :view="view" :range="charts_range_now" :rate="charts_rate" :compact="true" @range="charts_range_pick" @rate="charts_rate_pick"/>
+        <charts-rate-switch v-if="charts_able" :view="view" :rate="charts_rate" @rate="charts_rate_pick"/>
     </item-slim>
     <!-- Not linked: a red note under the head, what waits for it and how to look -->
     <div v-if="(down !== null)" class="item-note" role="status">
@@ -1691,7 +1695,7 @@ const remote_page = {
          a form half filled, a shell mid-session. Another machine is another page, so its
          panes start fresh. -->
     <keep-alive :max="10">
-    <remote-overview v-if="(tab_now === 'overview')" :view="view" :charts="charts_shown" @tab="$emit('tab', $event)"/>
+    <remote-overview v-if="(tab_now === 'overview')" :view="view" :charts="charts_shown" @range="charts_range_pick" @tab="$emit('tab', $event)"/>
     <article v-else-if="(tab_now === 'services')" id="detail" class="list"><services-pane :state="state" :remote="view.name" embedded @create="$emit('create', view.name)" @select="$emit('select_named', $event)"/></article>
     <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases', $event)" @select="$emit('select', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
@@ -1715,19 +1719,21 @@ const remote_page = {
     </keep-alive>
 </div>
 `,
-    components: {'agent-pill': agent_pill, 'charts-switch': charts_switch, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
+    components: {'agent-pill': agent_pill, 'charts-rate-switch': charts_rate_switch, ink: tab_ink, 'item-facts': item_facts, 'item-slim': item_slim, 'services-pane': services_pane, 'state-pill': state_pill, 'remote-databases': remote_databases, 'remote-configure': remote_configure, 'remote-docker': remote_docker, 'remote-firewall': remote_firewall, 'remote-files': remote_files, 'remote-form': remote_form, 'remote-install': remote_install, 'remote-logline': remote_logline, 'remote-overview': remote_overview, 'remote-disks': remote_disks, 'remote-packages': remote_packages, 'remote-processes': remote_processes, 'remote-shell': remote_shell, 'remote-vulnerabilities': remote_vulnerabilities},
     // kind: how the Canvas draws it, server, laptop or home; state: the whole status, for the
     // table of its services
     props: ['view', 'answering', 'remotes', 'services', 'control', 'tailnet', 'tab', 'theme', 'served', 'logline', 'terminal', 'prefer', 'files_path', 'kind', 'state'],
     emits: ['browse', 'create', 'databases', 'files_path', 'logline', 'saved', 'select', 'select_named', 'service', 'tab'],
     data: function () {
         // menu_open: its ⋯; more_open: the tabs under More ▾; copied: the note's Copy, said a moment;
-        // charts_range, charts_rate: the range and the rate picked, as this browser keeps them for
-        // every machine; charts: the last answer for its charts, for its head and History both:
-        // {range: the range read, data: the answer, undefined before the first, null for none,
-        // error: why none or why not new, old: an agent from before charts}
+        // charts_range, charts_rate: the span History shows and how often the head reads, as this
+        // browser keeps them for every machine. head_charts: the head's reading, its last ten
+        // minutes at that rate, whose newest point is its numbers and History's too;
+        // history_charts: History's span where it is not the head's, read every half minute.
+        // Each {range: the range read, data: the answer, undefined before the first, null for
+        // none, error: why none or why not new, old: an agent from before charts}.
         const kept = charts_kept();
-        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false, charts_range: kept.range, charts_rate: kept.rate, charts: {range: null, data: undefined, error: null, old: false}};
+        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false, charts_range: kept.range, charts_rate: kept.rate, head_charts: CHARTS_NONE, history_charts: CHARTS_NONE};
     },
     computed: {
         icon: function () {
@@ -1749,20 +1755,23 @@ const remote_page = {
             }
             return {tone: 'bad', text: `offline · ${format_ms(Date.now() - this.view.left_at)}`};
         },
-        // Its CPU, memory and disk for its head, each the range its History shows as a small
-        // chart; away, the last it said and the range before it went
+        // Its CPU, memory and disk for its head, each the newest point of the head's reading with
+        // its ten minutes as a small chart; away, the ten minutes before it went
         head_facts: function () {
-            return remote_facts(this.view, this.charts.data);
+            return remote_facts(this.view, this.head_charts.data);
         },
-        // The range its charts are read for: the one picked, 1h in place of the ten minutes on an
-        // agent from before them
+        // The range the head reads: its ten minutes, the hour on an agent from before them
+        head_range: function () {
+            return charts_range_of(this.view, '10m');
+        },
+        // The span History is read for: the one picked, the hour in place of the ten minutes on
+        // an agent from before them
         charts_range_now: function () {
             return charts_range_of(this.view, this.charts_range);
         },
-        // Its charts as its head and History draw them, dimmed while another range is on its way
+        // History's charts, dimmed while another span is on its way (charts_shown_of)
         charts_shown: function () {
-            const loading = (this.charts.data === undefined) || (this.charts.range !== this.charts_range_now);
-            return {range: this.charts_range_now, data: this.charts.data, error: this.charts.error, old: this.charts.old, loading};
+            return charts_shown_of(this.charts_range_now, this.head_range, this.head_charts, this.history_charts);
         },
         // Whether its agent keeps charts (1.9 and newer): an older one has no range to pick
         charts_able: function () {
@@ -1857,22 +1866,31 @@ const remote_page = {
         // A machine that comes back is charted at once, and one that goes is read once more for
         // what serviceman kept of it
         'view.phase': function () {
-            this.refresh_charts();
+            this.refresh_head();
+            this.refresh_history();
         },
-        // Another range picked, or the ten minutes come with an agent updated: read at once
+        // The ten minutes come with an agent updated: the head reads them at once, and History
+        // too where it shows them
+        head_range: function () {
+            this.refresh_head();
+            this.refresh_history();
+        },
+        // Another span picked in History's head: read at once
         charts_range_now: function () {
-            this.refresh_charts();
+            this.refresh_history();
         },
         charts_rate: function () {
-            this.refresh_charts();
+            this.refresh_head();
         },
         // How many databases it holds, for its tab, read as kept: the machine is asked only for
         // a server never read; and its charts, for its head and History
         'view.name': {
             immediate: true,
             handler: async function (name) {
-                this.charts = {range: null, data: undefined, error: null, old: false};
-                this.refresh_charts();
+                this.head_charts = CHARTS_NONE;
+                this.history_charts = CHARTS_NONE;
+                this.refresh_head();
+                this.refresh_history();
                 try {
                     const answer = await fetch('/api/v1/databases?live=0', {cache: 'no-store'});
                     this.databases_count = (await answer.json()).servers.filter(v => v.remote === name).reduce((sum, v) => sum + v.databases.length, 0);
@@ -1901,10 +1919,12 @@ const remote_page = {
         // A page in a browser tab out of sight reads no charts; shown again, it reads them at once
         this.charts_seen = function () {
             if (document.visibilityState === 'visible') {
-                self.refresh_charts();
+                self.refresh_head();
+                self.refresh_history();
             }
             else {
-                clearTimeout(self.charts_timer);
+                clearTimeout(self.head_timer);
+                clearTimeout(self.history_timer);
             }
         };
         document.addEventListener('visibilitychange', this.charts_seen);
@@ -1914,57 +1934,64 @@ const remote_page = {
         document.removeEventListener('keydown', this.menus_away);
         document.removeEventListener('visibilitychange', this.charts_seen);
         // A read still on its way lands nowhere and arms no timer
-        this.charts_asked = (this.charts_asked || 0) + 1;
-        clearTimeout(this.charts_timer);
+        this.head_asked = (this.head_asked || 0) + 1;
+        this.history_asked = (this.history_asked || 0) + 1;
+        clearTimeout(this.head_timer);
+        clearTimeout(this.history_timer);
     },
     methods: {
         format_ms,
         remote_dot,
-        // Its charts, for its head and History both: one read of the range picked, once a tick,
-        // the ten minutes at the rate picked and the longer ranges every CHARTS_EVERY_MS, the next
-        // tick counted from when this one began; only the newest ask lands, so a slow 30d never
-        // lands over a 1h picked after it, nor one machine's over another's. A machine away is
-        // read once: serviceman answers what it kept, which stays so until it is back, and its
-        // phase moving reads it again. A machine slow to answer (502), or serviceman not
-        // answering, keeps the charts shown, with why beside History; an agent too old for
-        // charts, or a machine never read while it is away, has none.
-        refresh_charts: async function () {
-            clearTimeout(this.charts_timer);
+        // The head's reading: its ten minutes at the rate picked, its numbers and its small charts,
+        // and History's while it shows the ten minutes; an agent from before them, its hour every
+        // CHARTS_EVERY_MS. Once a tick, the next counted from when this one began; only the newest
+        // ask lands, so none lands over another machine's. A machine away is read once: serviceman
+        // answers what it kept, which stays so until it is back, and its phase moving reads it
+        // again. A machine slow to answer (502), or serviceman not answering, keeps what is shown,
+        // with why beside History; an agent too old for charts, or a machine never read while it
+        // is away, has none.
+        refresh_head: async function () {
+            clearTimeout(this.head_timer);
             const name = this.view.name;
-            const range = this.charts_range_now;
-            const asked = this.charts_asked = (this.charts_asked || 0) + 1;
+            const range = this.head_range;
+            const asked = this.head_asked = (this.head_asked || 0) + 1;
             const time0 = Date.now();
-            const shown = ((this.charts.range === range) && (this.charts.data !== undefined)) ? this.charts.data : null;
-            let data = null;
-            let reason = null;
-            let old = false;
-            try {
-                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(name)}/metrics?range=${range}`, {cache: 'no-store'});
-                const body = await answer.json();
-                if (answer.ok) {
-                    data = body;
-                }
-                else {
-                    data = (answer.status === 502) ? shown : null;
-                    reason = body.error;
-                    old = (body.old_agent === true);
-                }
-            }
-            catch (error) {
-                data = shown;
-                reason = `Could not read the charts: ${error.message}`;
-            }
-            if ((asked !== this.charts_asked) || (name !== this.view.name)) {
+            const read = await charts_read(name, range, (this.head_charts.range === range) ? (this.head_charts.data || null) : null);
+            if ((asked !== this.head_asked) || (name !== this.view.name)) {
                 return;
             }
-            this.charts = {range, data, error: reason, old};
+            this.head_charts = read;
             if ((this.view.phase !== 'online') || (document.visibilityState === 'hidden')) {
                 return;
             }
             const every = (range === '10m') ? this.charts_rate : CHARTS_EVERY_MS;
-            this.charts_timer = setTimeout(() => this.refresh_charts(), Math.max(0, every - (Date.now() - time0)));
+            this.head_timer = setTimeout(() => this.refresh_head(), Math.max(0, every - (Date.now() - time0)));
         },
-        // The range or the rate picked at its head: kept in this browser for every machine
+        // History's own reading, for a span longer than the head's, every CHARTS_EVERY_MS: its
+        // agent writes a point every half minute. None while History shows the head's range,
+        // which draws the head's reading. Only the newest ask lands: a slow 30d never lands over
+        // a 1h picked after it.
+        refresh_history: async function () {
+            clearTimeout(this.history_timer);
+            const name = this.view.name;
+            const range = this.charts_range_now;
+            const asked = this.history_asked = (this.history_asked || 0) + 1;
+            if (range === this.head_range) {
+                return;
+            }
+            const time0 = Date.now();
+            const read = await charts_read(name, range, (this.history_charts.range === range) ? (this.history_charts.data || null) : null);
+            if ((asked !== this.history_asked) || (name !== this.view.name)) {
+                return;
+            }
+            this.history_charts = read;
+            if ((this.view.phase !== 'online') || (document.visibilityState === 'hidden')) {
+                return;
+            }
+            this.history_timer = setTimeout(() => this.refresh_history(), Math.max(0, CHARTS_EVERY_MS - (Date.now() - time0)));
+        },
+        // The span picked in History's head, and the rate at the machine's head: each kept in this
+        // browser for every machine
         charts_range_pick: function (range) {
             this.charts_range = range;
             storage_set('serviceman.charts_range', range);

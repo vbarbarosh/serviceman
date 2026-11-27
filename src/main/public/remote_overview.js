@@ -23,7 +23,7 @@ const remote_overview = {
         <p v-if="servermon_text" class="alert">{{ servermon_text }}</p>
         <p v-if="(view.machine === null)" class="muted">Nothing is known about this machine yet: what it is, its uptime and its history show here once its agent dials in.</p>
         <remote-uptime v-if="(view.machine !== null)" :view="view" @tab="$emit('tab', $event)"/>
-        <remote-charts v-if="(view.machine !== null)" :view="view" :charts="charts" @tab="$emit('tab', $event)"/>
+        <remote-charts v-if="(view.machine !== null)" :view="view" :charts="charts" @range="$emit('range', $event)" @tab="$emit('tab', $event)"/>
         <div v-if="(view.machine !== null)" class="ov-cards">
             <overview-card icon="monitor" title="Machine">
                 <template #aside>{{ view.machine.hostname }}</template>
@@ -72,10 +72,10 @@ const remote_overview = {
 </article>
 `,
     components: {'overview-card': overview_card, 'remote-charts': remote_charts, 'remote-uptime': remote_uptime},
-    // charts: its numbers as its page reads them for its head and History both (remote_charts
-    // says their shape)
+    // charts: History's numbers as its page reads them, the head's reading among them
+    // (remote_charts says their shape); @range: a span picked in History's head
     props: ['view', 'charts'],
-    emits: ['tab'],
+    emits: ['range', 'tab'],
     data: function () {
         // The raw state stays open while the pane is drawn again with every beat of the machine
         return {raw_open: false, copied: false, copied_timer: null};

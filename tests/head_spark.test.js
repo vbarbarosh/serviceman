@@ -53,16 +53,18 @@ test('nothing to chart draws no chart', async function () {
     assert.strictEqual(head_spark(hour_of(() => null, []), v => v.cpu), null);
 });
 
-// The head charts CPU, Memory and Disk of the same point History charts them from, and says
-// in its title what the chart covers
-test('a machine\'s head charts its last hour, titled with its span', async function () {
+// The head says and charts CPU, Memory and Disk from the same points History charts them from:
+// its number is the newest point, never the status's own (23% here), and its title says what the
+// chart covers and its dashed lines
+test('a machine\'s head says its newest point and charts its range, titled with its span', async function () {
     const remote_facts = await module_of('remote_facts');
     const view = {phase: 'online', machine: {cpu_busy: 0.23, mem: {used: 2e9, total: 8e9}, disk: {used: 112e9, total: 160e9}}};
     const facts = remote_facts(view, hour_of(v => v/100, []));
     assert.deepStrictEqual(facts.map(v => v.label), ['CPU', 'Memory', 'Disk']);
-    assert.strictEqual(facts[0].title, 'CPU, the last hour: 0 to 59%');
-    assert.strictEqual(facts[1].title, 'Memory, the last hour: 25%');
-    assert.strictEqual(facts[2].title, 'Disk, the last hour: 70%');
+    assert.deepStrictEqual(facts.map(v => v.value), ['59%', '25%', '70%'], 'the newest point\'s, as History\'s line ends');
+    assert.strictEqual(facts[0].title, 'CPU, the last hour: 0 to 59% (its lines at 100% and 50%)');
+    assert.strictEqual(facts[1].title, 'Memory, the last hour: 25% (its lines at 100% and 50%)');
+    assert.strictEqual(facts[2].title, 'Disk, all its disks together, the last hour: 70% (its lines at 100% and 50%)');
     assert.deepStrictEqual(remote_facts(view, null).map(v => v.spark), [null, null, null], 'no hour, the bars');
     assert.deepStrictEqual(remote_facts(view, undefined).map(v => v.spark.line), ['', '', ''], 'while it is read, an empty chart');
 });
@@ -75,7 +77,7 @@ test('an away machine charts the hour before it went, never an older one', async
     const hour = Object.assign(hour_of(() => 0.04, []), {away: true});
     const view = {phase: 'away', left_at: hour.until + 40000, machine: {cpu_busy: 0.04, mem: {used: 2e9, total: 8e9}, disk: {used: 112e9, total: 160e9}}};
     const facts = remote_facts(view, hour);
-    assert.strictEqual(facts[0].title, `CPU, the hour before ${clock_of(hour.until)}: 4%`);
+    assert.strictEqual(facts[0].title, `CPU, the hour before ${clock_of(hour.until)}: 4% (its lines at 100% and 50%)`);
     assert.ok(facts.every(v => v.dim && (v.spark !== null)), 'grey charts');
     const later = Object.assign({}, view, {left_at: hour.until + 3*86400000});
     assert.deepStrictEqual(remote_facts(later, hour).map(v => v.spark), [null, null, null], 'an hour from days before is not drawn');

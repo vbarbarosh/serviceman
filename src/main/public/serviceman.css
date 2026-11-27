@@ -1590,7 +1590,7 @@ main > section:has(> #page:not(.fills)) {
 }
 
 /* Its tabs take what the row leaves them, and fold into one button where they would not fit;
-   a row too narrow for that button and the switch puts the switch on a row of its own */
+   a row too narrow for that button and the rates puts the rates on a row of their own */
 .item-slim-tabs {
     position: relative;
     display: flex;
@@ -1654,12 +1654,7 @@ main > section:has(> #page:not(.fills)) {
     margin: 8px 0 8px auto;
 }
 
-/* A compact switch, the slim row's, says the range alone while the rates cannot be picked */
-.charts-switch.compact > .seg:has(> button:disabled) {
-    display: none;
-}
-
-/* A phone: the name, its state and its numbers, the switch whole on a row of its own, no tabs */
+/* A phone: the name, its state and its numbers, the rates on a row of their own, no tabs */
 @media (max-width: 600px) {
     .item-slim-bar {
         gap: 6px 10px;
@@ -1691,10 +1686,6 @@ main > section:has(> #page:not(.fills)) {
         display: flex;
         width: 100%;
         margin: 0;
-    }
-
-    .charts-switch.compact > .seg:has(> button:disabled) {
-        display: inline-flex;
     }
 }
 
@@ -1769,8 +1760,8 @@ main > section:has(> #page:not(.fills)) {
     align-items: center;
 }
 
-/* A machine's head's right side: the range its charts show at the card's top right corner, its
-   buttons under it */
+/* A machine's head's right side: how often its numbers are read at the card's top right corner,
+   its buttons under it */
 .item-side {
     display: flex;
     flex: none;
@@ -1779,8 +1770,8 @@ main > section:has(> #page:not(.fills)) {
     align-items: flex-end;
 }
 
-/* The range a machine's charts show and how often its ten minutes are read: two segments, as
-   History had its range */
+/* How often a machine's head reads its numbers, at the head's top right and in its slim row, and
+   the span History shows, in History's head: a segment each */
 .charts-switch {
     display: inline-flex;
     flex-wrap: wrap;
@@ -1827,8 +1818,8 @@ main > section:has(> #page:not(.fills)) {
     font-weight: 500;
 }
 
-/* A fact's last hour, in place of its bar: the line in the accent over the area under it, a dot
-   on the newest point; grey and with no dot for a machine that is away */
+/* A fact's last ten minutes, in place of its bar: the line in the accent over the area under it,
+   a dot on the newest point; grey and with no dot for a machine that is away */
 .item-facts .spark {
     position: relative;
     display: block;
@@ -1837,7 +1828,24 @@ main > section:has(> #page:not(.fills)) {
     margin-top: 6px;
 }
 
+/* Its scale on its lines, inside it, as History's: faint dashed lines at its top and its middle,
+   100% and 50%, under its line. No words: at its height they would cover the line, and its
+   title says them. */
+.item-facts .spark::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    box-sizing: border-box;
+    height: calc(50% + 1px);
+    border-top: 1px dashed var(--line);
+    border-bottom: 1px dashed var(--line);
+    pointer-events: none;
+}
+
 .item-facts .spark svg {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
@@ -1885,7 +1893,8 @@ main > section:has(> #page:not(.fills)) {
     color: var(--muted);
 }
 
-/* Another range on its way: the charts of the one before stay, dimmed as History's are */
+/* The first reading on its way: the charts' room, their scale's lines in it, dimmed as
+   History's are */
 .item-facts.loading .spark {
     opacity: .6;
 }
@@ -1932,8 +1941,8 @@ main > section:has(> #page:not(.fills)) {
     }
 }
 
-/* A head too narrow for a machine's charts' range above its buttons, the name squeezed: the
-   range takes a row of its own over the facts it charts, the line between the buttons and the
+/* A head too narrow for its rates above its buttons, the name squeezed: the rates take a row of
+   their own over the facts they read, at its right end, the line between the buttons and the
    facts above it */
 @container item-card (max-width: 52rem) {
     .item-side {
@@ -2004,8 +2013,8 @@ main > section:has(> #page:not(.fills)) {
     }
 }
 
-/* A machine's charts' range on a row of its own carries the line over it: the facts' first row
-   draws none of its own under it */
+/* A machine's rates on a row of their own carry the line over them: the facts' first row draws
+   none of its own under it */
 @container item-card (max-width: 52rem) {
     .item-top:has(> .item-side > .charts-switch) > .item-facts {
         clip-path: inset(2px 0 0 13px);
@@ -2217,11 +2226,7 @@ main > section:has(> #page:not(.fills)) {
         display: none;
     }
 
-    /* On a phone, the range and the rate a little tighter, so both fit on their row */
-    .charts-switch {
-        justify-content: space-between;
-    }
-
+    /* On a phone, a switch's buttons a little tighter: History's spans beside its title */
     .charts-switch .seg button {
         padding: .2rem .5rem;
     }
@@ -7199,11 +7204,12 @@ article.ov-pane {
     color: var(--bad);
 }
 
-/* The machine's history: what it shows said beside its title (the range is picked at the
-   machine's head), a chart a card, two side by side where they fit. A chart keeps its height
-   whatever it holds; its value is the last point, or the one under the cursor, which runs
-   through every chart at once. */
+/* The machine's history: what it shows said beside its title, the span picked at the head's
+   right end, a chart a card, two side by side where they fit. A chart keeps its height
+   whatever it holds; its value is the newest point of the head's reading, or the one under the
+   cursor, which runs through every chart at once. */
 .ov-charts {
+    container: ov-charts / inline-size;
     display: flex;
     flex-direction: column;
     gap: .6rem;
@@ -7220,9 +7226,25 @@ article.ov-pane {
     align-items: center;
 }
 
-.ov-charts-head > span {
+.ov-charts-head > .ov-charts-note {
+    flex: 1 1 0;
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+/* The span at the head's right end: what is said beside the title wraps in the room between,
+   so a span picked, and the words that change with it, move nothing */
+.ov-charts-head > .charts-switch {
+    flex: none;
+    margin-left: auto;
+}
+
+/* Too narrow for the words between: the title and the span on the first row, the words under */
+@container ov-charts (max-width: 34rem) {
+    .ov-charts-head > .ov-charts-note {
+        flex-basis: 100%;
+        order: 3;
+    }
 }
 
 .ov-chart-grid {

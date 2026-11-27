@@ -361,22 +361,22 @@ for now. The log names the machine and the part, in `remote_link_error`, once a 
 `reason=hello_shape part=resources.mem.total`, `reason=stats_shape part=stats.load`.
 
 A machine's head says how it stands at a glance: how long it is up in its state (`online · up
-41d 3h`), and its CPU, memory and disk between its name and its buttons, each share with a small
-chart under it over the range History shows, 0 to 100%, a dot on the newest point and a gap
-where the machine measured nothing. The range is picked at the head's top right corner, `10m ·
-1h · 24h · 7d · 30d`, and beside it how often the ten minutes are read again, `1s · 2s · 5s`;
-the browser keeps both, the same for every machine, from 10m every 2 seconds at first. On a
-narrow screen they take a row of their own, over the charts. The head and History draw one
-answer, which the machine's page reads once a tick, on whichever of its tabs is open: the ten
-minutes at the rate picked, and 1h and longer every half minute whatever the rate, since they
-gain a point only every half minute; the rate stands disabled for them. A page in a browser tab
-out of sight reads nothing, and reads at once when it is shown again. An agent before 1.32 has
-no ten minutes: they stand disabled, its version said on them, and the hour is read in their
-place. An agent before 1.9 keeps no charts and has no range to pick, and its head shows a bar
-instead (amber from 80%, red from 92%). While it is away, the head says how long it is down in
-its state (`offline · 3h 11m`) and the last numbers it said, dimmed; the range before it went is
-charted in grey only when serviceman read it then, in the minutes before it went, since
-serviceman keeps only the last answer it read for each range. Its **Overview** tab
+41d 3h`), and its CPU, memory and disk (all its disks together) between its name and its
+buttons. Each is the newest point of the head's own reading, its last ten minutes, with a small
+chart of those ten minutes under it: 0 to 100%, faint dashed lines at 100% and 50%, a dot on the
+newest point and a gap where the machine measured nothing. A value the newest seconds do not say
+is `—`, never a number from minutes before. The head's one switch, at its top right corner, is
+how often it reads, `1s · 2s · 5s`; the browser keeps it, the same for every machine, every 2
+seconds at first, and on a narrow screen it takes a row of its own, over the charts. The
+machine's page reads the head once a tick, on whichever of its tabs is open; a page in a browser
+tab out of sight reads nothing, and reads at once when it is shown again. Nothing in the head
+appears, vanishes or moves when History's span is picked. An agent before 1.32 has no ten
+minutes: the head reads its hour every half minute, the rates disabled with its version said on
+them. An agent before 1.9 keeps no charts, and its head shows a bar instead (amber from 80%, red
+from 92%). While it is away, the head says how long it is down in its state (`offline · 3h
+11m`) and the last numbers it said, dimmed; the ten minutes before it went are charted in grey
+only when serviceman read them then, in the minutes before it went, since serviceman keeps only
+the last answer it read for each range. Its **Overview** tab
 shows what no other tab of its page shows: its uptime in one row, its history, a card for the
 machine (its temperature and battery among them), and its raw state folded away at the end; a
 machine that has not dialled in yet has a line saying so there, and its raw state. What has a tab
@@ -385,23 +385,28 @@ version, its link and **Test the link**, its node, the user it runs as, its root
 updates are its **Configure** tab, its logs its **Logs** tab.
 It is `src/main/public/remote_overview.js`.
 
-**History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk in its head is the one `/` is on), disk I/O, network, open tcp
-connections and ping, over the range picked at the head, said beside its title: the last ten minutes, hour, day, week or month. The agent keeps the numbers on
+**History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it, and as the Disk in its head), disk I/O, network, open tcp
+connections and ping, over the span picked in History's own head, at its right end, `10m · 1h ·
+24h · 7d · 30d`, and said beside its title: the last ten minutes, hour, day, week or month. The
+browser keeps the span, the same for every machine, from 10m at first. At 10m History draws the
+head's own reading; a longer span is History's own, read every half minute. Each chart's number
+is the newest point of the head's reading at every span, so the head and History say one number,
+and both move at the head's rate. The agent keeps the numbers on
 its own disk, under `metrics/` in its folder, whether serviceman is there or not: a line every
 30 seconds made from servermon's lines of that half minute, for two days, and five-minute averages for 90 days, a few megabytes at most. Ping is
 the time from each of its beats to serviceman's answer. **10m** is servermon's own lines, a
 point a second, nothing averaged, with the last beat's ping held for each second until the next
 (none once 30 seconds pass with no beat); the page reads it at the rate picked, and serviceman
 asks the agent only for the seconds after the last point it keeps, so a read carries only the
-seconds since the one before. The other ranges are read every half minute, all of them from
+seconds since the one before. The longer spans are read every half minute, all of them from
 `GET /api/v1/remotes/<name>/metrics?range=10m|1h|24h|7d|30d`, which asks the agent and keeps
 nothing but the last answer for each range: that answer is shown while the machine is offline,
-marked with the time it was read. A refresh does not dim the charts; another range picked dims
-them, and the head's, until it comes. A machine slow to answer keeps the charts shown, with why
+marked with the time it was read. A refresh does not dim the charts; another span picked dims
+History's, until it comes; the head's stay as they are. A machine slow to answer keeps the charts shown, with why
 beside History. The minutes a machine was off
 are a gap in its lines. The cursor runs through every chart at once, so a spike in one is read
 against the others. An agent before 1.9 has no charts, and the pane says how to update it; one
-before 1.32 has no 10m, and the head's range says so.
+before 1.32 has no 10m, and History's span says so.
 
 Each chart says its scale on its lines, inside it: the top and the middle under dashed lines at
 its left, drawn over the lines with a halo of the card's colour, so the words read where a line

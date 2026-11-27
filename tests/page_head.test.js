@@ -171,11 +171,14 @@ test('the slim row docks once the head is gone, and folds tabs that do not fit',
     assert.strictEqual(slim.fold, false, 'room enough: the tabs');
 });
 
-// The slim row's switch is compact: the range alone while the rates cannot be picked
-test('the slim row\'s switch says the range alone while the rates are idle', async function () {
-    const charts_switch = (await import(path.join(PUBLIC, 'charts_switch.js'))).default;
-    assert.match(charts_switch.template, /<span class="charts-switch" :class="\{compact: \(compact === true\)\}">/);
-    assert.ok(charts_switch.props.includes('compact'));
+// The slim row carries the head's one switch, the rate, and never History's span: scrolled away
+// or not, the machine's head reads at one rate and picks no span
+test('the slim row carries the head\'s rate, never History\'s span', function () {
+    const page = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
+    const slim = /<item-slim [^>]*>\n\s*(<[^\n]*)\n\s*<\/item-slim>/.exec(page);
+    assert.ok(slim !== null, 'the slim row holds one element');
+    assert.match(slim[1], /^<charts-rate-switch v-if="charts_able" :view="view" :rate="charts_rate" @rate="charts_rate_pick"\/>$/);
+    assert.doesNotMatch(page, /<charts-switch|<charts-range-switch/, 'the span is History\'s alone');
     const css = fs.readFileSync(path.join(PUBLIC, 'serviceman.css'), 'utf8');
-    assert.match(css, /\n\.charts-switch\.compact > \.seg:has\(> button:disabled\) \{\n    display: none;\n\}/);
+    assert.doesNotMatch(css, /\.charts-switch\.compact/, 'no compact switch is left');
 });

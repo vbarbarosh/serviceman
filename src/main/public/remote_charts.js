@@ -1,6 +1,8 @@
 import CHARTS_RANGES from './charts_ranges.js';
+import chart_newest_of from './chart_newest_of.js';
 import chart_scale_of from './chart_scale_of.js';
 import chart_times_of from './chart_times_of.js';
+import charts_range_switch from './charts_range_switch.js';
 import clock_of from './clock_of.js';
 import format_bps from './format_bps.js';
 import overview_icons from './overview_icons.js';
@@ -28,10 +30,14 @@ const OVERVIEW_CHARTS = [
     {key: 'ping', label: 'Ping', icon: 'pulse', unit: 'ms', text: v => `${Math.round(v)} ms`, lines: [{name: 'to serviceman', of: v => number_of(v.ping)}]},
 ];
 
-// The machine's history, one chart per OVERVIEW_CHARTS entry, over the range picked at its head.
-// It reads nothing itself: the machine's page reads the numbers, once a tick, and its head draws
-// CPU, Memory and Disk from the same answer (remote_page in serviceman.js). What was read stays
-// on screen while the next is read, dimmed only while another range is on its way.
+// The machine's history, one chart per OVERVIEW_CHARTS entry, over the span picked in its own
+// head, at its right end (charts_range_switch): History's alone, the machine's head charting its
+// ten minutes whatever is picked. It reads nothing itself: the machine's page reads the numbers
+// once a tick, its head's and these (remote_page in serviceman.js). The ten minutes are the head's
+// own reading; a longer span is read every half minute, and its lines are drawn from that, but
+// each chart's number is the newest point of the head's reading, at every span: the number at
+// the head is the one each chart says, and both move at the head's rate. What was read stays on
+// screen while the next is read, dimmed only while another span is on its way.
 // The cursor follows the mouse over any chart, and every chart shows its value at that moment:
 // the spike in one is read against the others.
 // A chart says its scale on its lines, inside it: the top and the middle under their dashed
@@ -39,17 +45,21 @@ const OVERVIEW_CHARTS = [
 // end, and round times between them with faint guides up through the lines, as many as its width
 // has room for; the time pointed at in a tag over them, those it would touch giving way.
 //
-//     charts    {range, data, error, old, loading}: the range picked; the machine's answer, for
-//               it or, while it is on its way, for the range before; undefined before the first
-//               answer, null for none; why there is none, or why the one shown is not new; whether
-//               its agent is from before charts; whether another range is on its way
+//     charts    {range, data, now, error, old, loading}: the span picked; the machine's answer,
+//               for it or, while it is on its way, for the span before; undefined before the first
+//               answer, null for none; the head's reading, whose newest point each chart says,
+//               the same answer as data at 10m (null or undefined: data's own newest); why there
+//               is none, or why the one shown is not new; whether its agent is from before charts;
+//               whether another span is on its way
+//     @range   a span picked: '24h'
 const remote_charts = {
     template: `
 <section class="ov-charts" :class="{loading}" @mouseleave="hover_leave">
     <div class="ov-charts-head">
         <b>History</b>
-        <span v-if="old" class="muted">Charts need agent 1.9 or newer; this machine runs {{ (view.agent_version || 'an older one') }}. <button type="button" class="link" @click="$emit('tab', 'configure')">Update it in Configure →</button></span>
-        <span v-else :class="((error === null) ? 'muted' : 'bad')">{{ note }}</span>
+        <span v-if="old" class="muted ov-charts-note">Charts need agent 1.9 or newer; this machine runs {{ (view.agent_version || 'an older one') }}. <button type="button" class="link" @click="$emit('tab', 'configure')">Update it in Configure →</button></span>
+        <span v-else class="ov-charts-note" :class="((error === null) ? 'muted' : 'bad')">{{ note }}</span>
+        <charts-range-switch v-if="(old === false)" :view="view" :range="charts.range" @range="$emit('range', $event)"/>
     </div>
     <div v-if="((data !== null) || loading)" class="ov-chart-grid">
         <section v-for="chart in plots" :key="chart.key" class="card ov-chart">
@@ -81,8 +91,9 @@ const remote_charts = {
     </div>
 </section>
 `,
+    components: {'charts-range-switch': charts_range_switch},
     props: ['view', 'charts'],
-    emits: ['tab'],
+    emits: ['range', 'tab'],
     data: function () {
         // hover_at: the moment under the mouse, null for none; plot_width: a chart's width in px,
         // as the page lays it out, for how many times fit under it
@@ -146,17 +157,19 @@ const remote_charts = {
         point: function () {
             return ((this.hover_at === null) || (this.data === null)) ? null : point_nearest(this.data, this.hover_at);
         },
-        // Each chart's value: at the cursor, or the last point it has a value at; null for none.
-        // Each line is said with its name where the chart has more than one.
+        // The answer each chart's number is the newest point of: the head's reading, which is
+        // the one drawn at 10m; the one drawn where the head has none
+        now: function () {
+            return ((this.charts.now === null) || (this.charts.now === undefined)) ? this.data : this.charts.now;
+        },
+        // Each chart's value: at the cursor, or the newest point that says it, as the head says
+        // its numbers (chart_newest_of); null for none. Each line is said with its name where the
+        // chart has more than one.
         values: function () {
             const out = {};
-            const data = this.data;
+            const now = this.now;
             for (const chart of OVERVIEW_CHARTS) {
-                let point = this.point;
-                if ((point === null) && (data !== null)) {
-                    const last = data.points.findLast(v => chart.lines.some(vv => vv.of(v) !== null));
-                    point = (last === undefined) ? null : last;
-                }
+                const point = (this.point !== null) ? this.point : chart_newest_of(now, v => chart.lines.some(vv => vv.of(v) !== null));
                 out[chart.key] = (point === null) ? null : chart.lines.map(function (line) {
                     const value = line.of(point);
                     return {name: line.name, said: (value === null) ? '—' : chart.text(value)};
