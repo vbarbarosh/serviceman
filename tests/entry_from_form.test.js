@@ -355,7 +355,7 @@ async function remote_save(original, change, port)
     }
     change(self.model);
     const sent = [];
-    await fetch_swap(sent, port, () => self.save());
+    await fetch_swap(sent, port, () => self.entry_save());
     if (port === undefined) {
         return sent[0].remote;
     }

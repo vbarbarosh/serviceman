@@ -5528,6 +5528,100 @@ button.link.page-head-how {
     grid-column: 1 / -1;
 }
 
+/* A machine's Settings, as drawn: Name, Title and Drawn as in a row, Access over two under
+   them; the card opened stays where it stands, across the row, its field under its head */
+.svc-cards.grid.rf-cards .svc-sec.open {
+    order: 0;
+}
+
+.svc-cards.grid #rf-access:not(.open) {
+    grid-column: span 2;
+}
+
+.rf-cards .svc-sec:not(.open) .list-right button,
+.rf-cards .rf-field .line button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.form .rf-cards .rf-says {
+    margin: -4px 16px 0;
+}
+
+.rf-cards .rf-field,
+.rf-cards .kind-tiles {
+    margin: 12px 16px 16px;
+}
+
+.form .rf-cards .rf-field p {
+    margin: 6px 0 0;
+}
+
+/* Drawn as's three: the icon beside its name, a line under them, the one picked in the accent */
+.rf-cards .kind-tile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 8px;
+    align-items: center;
+    min-height: 0;
+    padding: 14px 16px;
+}
+
+.rf-cards .kind-tile.on {
+    padding: 13px 15px;
+}
+
+.rf-cards .kind-tile::after {
+    display: none;
+}
+
+.rf-cards .kind-tile .kt-icon,
+.rf-cards .kind-tile.on .kt-icon {
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: 0;
+    background: none;
+    color: var(--link);
+}
+
+.rf-cards .kind-tile .kt-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.rf-cards .kind-tile .muted {
+    grid-column: 1 / -1;
+}
+
+.rf-change span + span::before {
+    content: ', ';
+}
+
+.rf-remove-note,
+.rf-remove-by {
+    margin: 0;
+    padding: 0 16px 12px;
+}
+
+.rf-remove-by {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+@media (max-width: 600px) {
+    .svc-cards.grid #rf-access:not(.open) {
+        grid-column: auto;
+    }
+
+    .rf-cards .kind-tiles.three {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .svc-sec.dim {
     opacity: .45;
 }
@@ -7712,44 +7806,11 @@ article.cfg > .alert {
     }
 }
 
-/* A remote's settings: what it is called, what it proves itself with, and taking it away,
-   each in a card of its own; Save stays at the foot of the page */
+/* A remote's settings: a card a setting, each with its own Save, and taking it away apart */
 article.rf {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-}
-
-article.rf h1 + p {
-    margin: 0;
-}
-
-.rf-card {
-    display: flex;
-    flex-direction: column;
-    gap: .7rem;
-    padding: .8rem 1rem 1rem;
-}
-
-.rf-card p {
-    margin: 0;
-}
-
-.rf-card .grid p + p {
-    margin-top: .4rem;
-}
-
-.rf-head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-    padding-bottom: .55rem;
-    border-bottom: 1px solid var(--line);
-}
-
-.rf-head svg {
-    color: var(--muted);
 }
 
 .rf-token {
@@ -7768,25 +7829,6 @@ textarea.secret-hidden {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
     gap: .4rem 1rem;
-}
-
-.rf-danger {
-    border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
-}
-
-.rf-danger .rf-head svg {
-    color: var(--bad);
-}
-
-.rf-remove {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-}
-
-article.rf .actions {
-    margin-top: 0;
 }
 
 /* A share as a short bar beside its number */
@@ -9766,29 +9808,6 @@ button.st-pill.problem-where {
 .canvas-zoom button {
     min-width: 2rem;
     padding: .15rem .5rem;
-}
-
-/* A machine's Settings: how the Canvas draws it, the three drawings to pick from */
-.rf-kinds {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .75rem;
-}
-
-.rf-kind {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .35rem;
-    min-width: 8.5rem;
-    padding: .75rem .9rem .6rem;
-    border-radius: 6px;
-}
-
-.rf-kind.on {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-    background: var(--sel);
 }
 
 /* Olive 3 has no white: the line of trouble is its danger tag across the page, and the ring of

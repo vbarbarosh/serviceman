@@ -1,7 +1,7 @@
 import agent_url_of from './agent_url_of.js';
 import entry_from_form from './entry_from_form.js';
 import format_ms_ago from './format_ms_ago.js';
-import machine_drawing from './machine_drawing.js';
+import machine_icons from './machine_icons.js';
 import settled from './settled.js';
 import size_words from './size_words.js';
 import state_pill from './state_pill.js';
@@ -15,16 +15,16 @@ const RE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 // How often the Connect step asks whether its agent has dialled in
 const JOIN_EVERY_MS = 2000;
 
-// How a machine may be drawn on the Canvas
+// How a machine may be drawn on the Canvas, and what each one is
 const KINDS = [
-    {kind: 'server', label: 'server'},
-    {kind: 'laptop', label: 'laptop'},
-    {kind: 'home', label: 'home computer'},
+    {kind: 'server', label: 'server', words: 'a rack box, on all day'},
+    {kind: 'laptop', label: 'laptop', words: 'a lid that closes, away at times'},
+    {kind: 'home', label: 'home computer', words: 'a desk tower, on when someone is home'},
 ];
 
 // Adding a machine that carries services, without touching the config text: a new one step by
 // step, its name, then the lines to run there while the page waits for its agent; a machine
-// that exists, its settings in one form
+// that exists, a card a setting, each saved alone
 const remote_form = {
     template: `
 <article id="detail" class="form rf">
@@ -88,98 +88,106 @@ const remote_form = {
         </template>
     </step-frame>
     <template v-else>
-    <div>
-        <h1>{{ (original === null ? 'New remote' : 'Settings of ' + (original.title || original.name)) }}</h1>
-        <p class="muted">A machine that runs services for this host. Its agent connects to this host and waits for orders, so that machine needs no open port and no public address.</p>
-    </div>
-    <section class="card rf-card">
-        <div class="rf-head">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11V4a1 1 0 0 1 1-1h7l10 10-8 8z"/><circle cx="8" cy="8" r="1.3"/></svg>
-            <b>Identity</b>
-            <span class="muted">how this page and the services name it</span>
-        </div>
-        <div class="grid">
-            <label for="rf-name">Name</label>
-            <div>
-                <input id="rf-name" v-model.trim="model.name" placeholder="vps1" spellcheck="false">
-                <p class="muted">Lowercase letters, digits, <code>-</code> and <code>_</code>. A service names its remote by this.</p>
+    <!-- A machine's Settings, as a service's are: a card a setting, read until its Edit. The card
+         opened stays where it stands, across the row, the others stepping back; its foot says the
+         change and what Save does, and saves that setting alone -->
+    <div class="svc-cards grid rf-cards">
+        <div v-for="card of cards" :key="card.id" :id="('rf-' + card.id)" class="card svc-sec" :class="{open: (open === card.id), dim: ((open !== '') && (open !== card.id))}" @keydown.esc="card_cancel">
+            <div class="svc-head">
+                <b><svg v-if="(open === card.id)" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M13.5 6.5l4 4"/></svg>{{ card.title }}</b>
+                <span v-if="((open === card.id) && (changes.length > 0))" class="tag svc-changed">{{ (changes.length === 1) ? '1 change' : (changes.length + ' changes') }}</span>
+                <span v-if="(open !== card.id)" class="svc-sum">
+                    <span :class="{mono: card.mono, muted: card.none}">{{ card.value }}</span>
+                    <span>{{ card.says }}</span>
+                </span>
+                <span v-if="(open !== card.id)" class="list-right">
+                    <template v-if="(card.id === 'access')">
+                        <button type="button" :disabled="(open !== '')" @click="click_copy"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M4 16V5.5A1.5 1.5 0 0 1 5.5 4H16"/></svg>{{ (copied ? 'Copied' : 'Copy') }}</button>
+                        <button type="button" :disabled="(open !== '')" @click="access_another">Another one</button>
+                    </template>
+                    <button v-else type="button" :disabled="((open !== '') || ((card.id === 'kind') && (kind === null)))" @click="card_open(card.id)">Edit</button>
+                </span>
             </div>
-            <label for="rf-title">Title</label>
-            <div><input id="rf-title" v-model.trim="model.title" placeholder="shown on this page — optional" spellcheck="false"></div>
-        </div>
-    </section>
-    <!-- How it is drawn on the Canvas: not the config's, so a click keeps it at once -->
-    <section v-if="(original !== null)" class="card rf-card">
-        <div class="rf-head">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="11" height="8" rx="1.5"/><path d="M7 12v3M5 15h5"/><rect x="16" y="6" width="5" height="12" rx="1.2"/></svg>
-            <b>Drawn as</b>
-            <span class="muted">how the Canvas draws it; a click keeps it</span>
-        </div>
-        <div class="rf-kinds" role="radiogroup" aria-label="Drawn as">
-            <button v-for="item of KINDS" :key="item.kind" type="button" role="radio" class="rf-kind" :class="{on: (kind === item.kind)}" :aria-checked="(kind === item.kind)" :disabled="(kind === null)" @click="kind_set(item.kind)">
-                <svg viewBox="0 0 100 100" width="88" height="88" aria-hidden="true"><machine-drawing :kind="item.kind" light="green"/></svg>
-                <span>{{ item.label }}</span>
-            </button>
-        </div>
-        <p v-if="(kind_note !== '')" :class="(kind_bad ? 'bad' : 'muted')">{{ kind_note }}</p>
-    </section>
-    <section class="card rf-card">
-        <div class="rf-head">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-            <b>Access</b>
-            <span class="muted">what its agent proves itself with</span>
-        </div>
-        <div class="grid">
-            <label for="rf-token">Token</label>
-            <div>
-                <div class="line">
-                    <input id="rf-token" v-model.trim="model.token" class="rf-token secret" spellcheck="false" autocomplete="off">
-                    <button type="button" @click="click_copy">{{ (copied ? 'Copied' : 'Copy') }}</button>
-                    <button type="button" @click="click_another_one">Another one</button>
+            <template v-if="(open === card.id)">
+                <p class="muted rf-says">{{ card.open_says }}</p>
+                <div v-if="(card.id === 'name')" class="rf-field">
+                    <input id="rf-name" v-model.trim="model.name" class="sf-mono" :class="{wrong: (name_wrong !== '')}" placeholder="vps1" spellcheck="false" aria-label="Name" @keydown.enter.prevent="card_save">
+                    <p v-if="(name_wrong !== '')" class="bad">{{ name_wrong }}</p>
+                    <p v-else class="muted">Lowercase letters, digits, <code>-</code> and <code>_</code>.</p>
                 </div>
-                <p class="muted">It lets that machine run containers for you — keep it like an ssh key.</p>
-                <p v-if="token_changed" class="alert">The agent on that machine still has the old token: once this is saved it cannot connect until it is given the new one — the Install tab has the command that does it.</p>
-            </div>
-        </div>
-    </section>
-    <section v-if="(original !== null)" class="card rf-card rf-danger">
-        <div class="rf-head">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4L2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></svg>
-            <b>Remove this remote</b>
-        </div>
-        <p class="muted">This host forgets {{ original.name }}. Whatever runs on that machine keeps running. Its agent is told, stops and takes itself out of systemd there; nothing on that machine is deleted.</p>
-        <div class="rf-remove">
-            <button v-if="(removing === false)" type="button" class="danger" @click="removing = true">Remove…</button>
-            <template v-else>
-                <span>Forget {{ original.name }}?</span>
-                <button type="button" class="danger" :disabled="busy" @click="remove">Forget it</button>
-                <button type="button" @click="removing = false">Keep it</button>
+                <div v-else-if="(card.id === 'title')" class="rf-field">
+                    <input id="rf-title" v-model.trim="model.title" placeholder="Hetzner, Falkenstein" spellcheck="false" aria-label="Title" @keydown.enter.prevent="card_save">
+                    <p class="muted">Left empty, its name stands for it.</p>
+                </div>
+                <div v-else-if="(card.id === 'kind')" class="kind-tiles three" role="radiogroup" aria-label="Drawn as">
+                    <button v-for="item of KINDS" :key="item.kind" type="button" role="radio" class="kind-tile" :class="{on: (kind_pick === item.kind)}" :aria-checked="(kind_pick === item.kind)" @click="kind_pick = item.kind">
+                        <span class="kt-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" v-html="MACHINE_ICONS[item.kind]"/></span>
+                        <b>a {{ item.label }}</b>
+                        <span class="muted">{{ item.words }}</span>
+                    </button>
+                </div>
+                <div v-else class="rf-field">
+                    <div class="line">
+                        <input id="rf-token" v-model.trim="model.token" class="rf-token secret" spellcheck="false" autocomplete="off" aria-label="Token" @keydown.enter.prevent="card_save">
+                        <button type="button" @click="click_copy"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M4 16V5.5A1.5 1.5 0 0 1 5.5 4H16"/></svg>{{ (copied ? 'Copied' : 'Copy') }}</button>
+                        <button type="button" @click="click_another_one">Another one</button>
+                    </div>
+                </div>
+                <!-- The open card's foot: the change alone, what Save does, its own Cancel and Save -->
+                <div class="svc-foot">
+                    <div class="svc-foot-says">
+                        <p v-if="(changes.length === 0)" class="muted">Nothing changed yet</p>
+                        <p v-else class="svc-foot-change rf-change"><b>{{ (changes.length === 1) ? '1 change' : (changes.length + ' changes') }}:</b> <span v-for="item of changes" :key="item">{{ item }}</span></p>
+                        <p v-if="(foot.text !== '')" :class="(foot.bad ? 'bad' : 'muted')">{{ foot.text }}</p>
+                    </div>
+                    <div class="svc-foot-acts">
+                        <button type="button" :disabled="busy" @click="card_cancel">Cancel</button>
+                        <button type="button" class="primary" :disabled="(save_ok === false)" @click="card_save"><span v-if="busy" class="spin"/>{{ busy ? 'saving…' : 'Save' }}</button>
+                    </div>
+                </div>
             </template>
         </div>
-        <div v-if="(blockers.length > 0)" class="rf-remove">
+    </div>
+    <!-- Taking it away, apart at the end: what still runs there keeps it, and is said first -->
+    <div class="card svc-sec svc-remove" :class="{dim: (open !== '')}">
+        <div class="svc-head">
+            <b>Remove {{ original.name }}</b>
+            <span v-if="(removing === false)" class="svc-sum">
+                <span v-if="(named_by.length === 0)">Forgets the machine; what runs there keeps running, and its agent takes itself out of systemd.</span>
+                <span v-else>Forgets the machine; {{ named_words.what }} and {{ named_words.keep }} it until {{ named_words.until }}.</span>
+            </span>
+            <span v-else class="svc-sum"><span class="svc-warn">Forget {{ original.name }}? What runs there keeps running; nothing on it is deleted.</span></span>
+            <span class="list-right">
+                <button v-if="(removing === false)" type="button" class="danger" :disabled="((open !== '') || (named_by.length > 0))" :title="((named_by.length > 0) ? (named_words.what + ': ' + named_words.until + ' first') : '')" @click="removing = true">Remove…</button>
+                <template v-else>
+                    <button type="button" class="danger" :disabled="busy" @click="remove">Forget it</button>
+                    <button type="button" @click="removing = false">Keep it</button>
+                </template>
+            </span>
+        </div>
+        <p v-if="((open === '') && (note !== ''))" class="bad rf-remove-note">{{ note }}</p>
+        <div v-if="(blockers.length > 0)" class="rf-remove-by">
             <span class="muted">Services keeping it:</span>
             <button v-for="name of blockers" :key="name" type="button" @click="$emit('service', name)">{{ name }}</button>
         </div>
-    </section>
-    <div class="actions">
-        <button type="button" class="primary" :disabled="busy" @click="save">Save</button>
-        <button type="button" @click="$emit('close')">Cancel</button>
-        <span :class="(bad ? 'bad' : 'muted')">{{ note }}</span>
     </div>
     </template>
 </article>
 `,
-    components: {'machine-drawing': machine_drawing, 'state-pill': state_pill, 'step-frame': step_frame},
-    // control, tailnet: where a new agent dials, for the lines a new machine is given
-    props: ['original', 'control', 'tailnet'],
+    components: {'state-pill': state_pill, 'step-frame': step_frame},
+    // control, tailnet: where a new agent dials, for the lines a new machine is given; named_by:
+    // what in the config names a machine that exists, [{kind, name}] (remote_named_by)
+    props: ['original', 'control', 'tailnet', 'named_by'],
     emits: ['close', 'saved', 'service', 'service_here'],
     data: function () {
         return {
             KINDS,
-            // How the Canvas draws it, null until read; what came of the last click
+            MACHINE_ICONS: machine_icons,
+            // How the Canvas draws it, null until read; the one picked while Drawn as is open
             kind: null,
-            kind_note: '',
-            kind_bad: false,
+            kind_pick: null,
+            // The card opened with its Edit: 'name', 'title', 'kind', 'access', or '' for none
+            open: '',
             model: {
                 name: (this.original === null) ? '' : this.original.name || '',
                 title: (this.original === null) ? '' : this.original.title || '',
@@ -280,9 +288,99 @@ const remote_form = {
         lines_text: function () {
             return `curl -fsSL ${this.agent_url}/api/v1/agent.js -o serviceman-agent.js\nnode serviceman-agent.js --url ${this.agent_url} --token ${this.model.token}`;
         },
-        // A new token on a machine that exists locks its agent out until it is given the token
-        token_changed: function () {
-            return (this.original !== null) && (this.model.token !== (this.original.token || ''));
+        // A machine's cards: what each is set to, what it is for at rest, and once opened
+        cards: function () {
+            const name = this.original.name;
+            const title = this.original.title || '';
+            const kind = KINDS.find(v => (v.kind === this.kind));
+            const says = {
+                name: 'how the services name it; its agent dials in under it',
+                title: 'shown on this page and the Canvas',
+                access: 'the token its agent proves itself with; keep it like an ssh key',
+            };
+            return [
+                {id: 'name', title: 'Name', value: name, mono: true, none: false, says: says.name, open_says: says.name},
+                {id: 'title', title: 'Title', value: (title === '') ? 'none' : title, mono: false, none: (title === ''), says: says.title, open_says: says.title},
+                {id: 'kind', title: 'Drawn as', value: (kind === undefined) ? 'reading…' : `a ${kind.label}`, mono: false, none: (kind === undefined), says: 'how the Canvas draws it', open_says: `how the Canvas draws ${name}`},
+                {id: 'access', title: 'Access', value: '••••••••••••••••', mono: true, none: false, says: says.access, open_says: says.access},
+            ];
+        },
+        // The change of the open card, as its foot says it: was → now; a token is never shown
+        changes: function () {
+            const original = this.original;
+            if (this.open === 'name') {
+                return (this.model.name === original.name) ? [] : [`${original.name} → ${this.model.name || 'none'}`];
+            }
+            if (this.open === 'title') {
+                const was = original.title || '';
+                return (this.model.title === was) ? [] : [`${was || 'none'} → ${this.model.title || 'none'}`];
+            }
+            if (this.open === 'kind') {
+                return (this.kind_pick === this.kind) ? [] : [`a ${kind_label(this.kind)} → a ${kind_label(this.kind_pick)}`];
+            }
+            if (this.open === 'access') {
+                return (this.model.token === (original.token || '')) ? [] : ['a new token'];
+            }
+            return [];
+        },
+        // What is wrong with the name typed, or ''
+        name_wrong: function () {
+            if (this.model.name === '') {
+                return 'A name first';
+            }
+            return RE_NAME.test(this.model.name) ? '' : 'Lowercase letters, digits, - and _ only, starting with a letter or a digit.';
+        },
+        // What in the config names it, in words: {what: 'notes and shop run on it', keep: 'keep',
+        // until: 'they move'}; a service runs on it, anything else names it
+        named_words: function () {
+            const named = this.named_by;
+            const one = (named.length === 1);
+            const services = named.every(v => (v.kind === 'service'));
+            const names = named.map(v => ((v.kind === 'service') ? v.name : `the ${v.kind} ${v.name}`));
+            const list = (names.length < 2) ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+            if (services) {
+                return {what: `${list} ${one ? 'runs' : 'run'} on it`, keep: (one ? 'keeps' : 'keep'), until: (one ? 'it moves' : 'they move')};
+            }
+            return {what: `${list} ${one ? 'names' : 'name'} it`, keep: (one ? 'keeps' : 'keep'), until: (one ? 'it names another machine' : 'they name another machine')};
+        },
+        // What Save does to the machine as the open card stands, or what keeps it from saving
+        foot: function () {
+            if (this.note !== '') {
+                return {text: this.note, bad: this.bad};
+            }
+            if (this.changes.length === 0) {
+                return {text: '', bad: false};
+            }
+            if (this.open === 'name') {
+                if (this.name_wrong !== '') {
+                    return {text: this.name_wrong, bad: true};
+                }
+                if (this.named_by.length > 0) {
+                    const words = this.named_words;
+                    return {text: `Not while ${words.what}: a new name waits until ${words.until}.`, bad: true};
+                }
+                return {text: `Renames it here; its agent dials in again as ${this.model.name}. Nothing restarts.`, bad: false};
+            }
+            if (this.open === 'title') {
+                return {text: 'Only how this page and the Canvas name it: nothing restarts.', bad: false};
+            }
+            if (this.open === 'kind') {
+                return {text: 'Only how the Canvas draws it: nothing restarts.', bad: false};
+            }
+            if (this.model.token === '') {
+                return {text: 'A token first: Another one makes one.', bad: true};
+            }
+            return {text: `Its agent keeps the old token: once this is saved, ${this.original.name} cannot dial in until it is given the new one, with the line its Install tab has.`, bad: false};
+        },
+        // Save is pressed only when it would keep something
+        save_ok: function () {
+            if (this.busy || (this.changes.length === 0)) {
+                return false;
+            }
+            if (this.open === 'name') {
+                return (this.name_wrong === '') && (this.named_by.length === 0);
+            }
+            return (this.open !== 'access') || (this.model.token !== '');
         },
     },
     methods: {
@@ -378,23 +476,72 @@ const remote_form = {
                 this.kind = 'server';
             }
         },
-        // Drawn as another kind: kept at once, for the Canvas on every page
-        kind_set: async function (kind) {
-            const before = this.kind;
-            this.kind = kind;
-            this.kind_note = '';
-            this.kind_bad = false;
-            try {
-                const answer = await fetch(`/api/v1/canvas/machines/${encodeURIComponent(this.original.name)}`, {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({kind})});
-                if (answer.ok === false) {
-                    throw new Error((await answer.json()).error);
+        // Edit: the card opens across its row, its field taking the keys
+        card_open: function (id) {
+            this.report('', false);
+            this.removing = false;
+            this.kind_pick = this.kind;
+            this.open = id;
+            this.$nextTick(function () {
+                const found = this.$el.querySelector(`#rf-${id} input, #rf-${id} [role="radio"][aria-checked="true"]`);
+                if (found !== null) {
+                    found.focus();
                 }
-                this.kind_note = `kept: the Canvas draws ${this.original.name} as a ${KINDS.find(v => (v.kind === kind)).label}`;
+            });
+        },
+        // Cancel, or Esc: the card closes as it was saved
+        card_cancel: function () {
+            if (this.busy) {
+                return;
             }
-            catch (error) {
-                this.kind = before;
-                this.kind_bad = true;
-                this.kind_note = `not kept: ${(error instanceof TypeError) ? 'the answer never came back' : error.message}`;
+            const id = this.open;
+            this.model.name = this.original.name || '';
+            this.model.title = this.original.title || '';
+            this.model.token = this.original.token || '';
+            this.kind_pick = this.kind;
+            this.open = '';
+            this.report('', false);
+            this.$nextTick(function () {
+                const found = (id === '') ? null : this.$el.querySelector(`#rf-${id} .list-right button`);
+                if (found !== null) {
+                    found.focus();
+                }
+            });
+        },
+        card_save: async function () {
+            if (this.save_ok === false) {
+                return;
+            }
+            if (this.open === 'kind') {
+                await this.kind_save();
+                return;
+            }
+            await this.entry_save();
+        },
+        // Another one on the card at rest: Access opens with a new token, saved only by its Save
+        access_another: function () {
+            this.card_open('access');
+            this.model.token = token_make();
+        },
+        // Drawn as another kind: kept for the Canvas on every page; it is not the config's, so
+        // nothing reloads
+        kind_save: async function () {
+            this.busy = true;
+            this.report('', false);
+            try {
+                const answer = await fetch(`/api/v1/canvas/machines/${encodeURIComponent(this.original.name)}`, {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({kind: this.kind_pick})});
+                if (answer.ok === false) {
+                    this.report((await answer.json().catch(() => ({}))).error || `serviceman answered ${answer.status}`, true);
+                    return;
+                }
+                this.kind = this.kind_pick;
+                this.open = '';
+            }
+            catch {
+                this.report('the answer never came back: Save again', true);
+            }
+            finally {
+                this.busy = false;
             }
         },
         line_copy: async function (index) {
@@ -421,23 +568,23 @@ const remote_form = {
             this.copied = false;
             this.copied_line = null;
         },
-        save: async function () {
+        // The open card's Save for its name, title or token: the page reads the entry again once
+        // it is kept, and the card stands closed with what it now says
+        entry_save: async function () {
             this.busy = true;
+            this.report('', false);
             try {
-                const url = (this.original === null) ? '/api/v1/remotes' : `/api/v1/remotes/${encodeURIComponent(this.original.name)}`;
-                const method = (this.original === null) ? 'POST' : 'PUT';
-                // The entry the config file has, changed where this form changed it: its log
+                // The entry the config file has, changed where this card changed it: its log
                 // folders, and whatever else this form does not show, stay as they were
                 const written = json_from_remote(this.model);
-                const remote = (this.original === null) ? written : entry_from_form(this.original, this.seen, written, {});
-                const answer = await fetch(url, {method, body: JSON.stringify({remote})});
-                const outcome = await answer.json();
+                const remote = entry_from_form(this.original, this.seen, written, {});
+                const answer = await fetch(`/api/v1/remotes/${encodeURIComponent(this.original.name)}`, {method: 'PUT', body: JSON.stringify({remote})});
+                const outcome = await answer.json().catch(() => ({}));
                 if (answer.ok === false) {
-                    this.report(outcome.error, true);
+                    this.report(outcome.error || `serviceman answered ${answer.status}`, true);
                     return;
                 }
                 this.$emit('saved', this.model.name);
-                this.$emit('close');
             }
             catch {
                 this.report('the answer never came back — checking whether it landed…', false);
@@ -448,7 +595,6 @@ const remote_form = {
                     return;
                 }
                 this.$emit('saved', name);
-                this.$emit('close');
             }
             finally {
                 this.busy = false;
@@ -531,6 +677,13 @@ function json_from_remote(model)
         out.logs = 'all';
     }
     return out;
+}
+
+// A kind as the cards say it: 'home' is a home computer
+function kind_label(kind)
+{
+    const found = KINDS.find(v => (v.kind === kind));
+    return (found === undefined) ? kind : found.label;
 }
 
 // The same thing openssl rand -hex 32 gives you, made here so the token never travels

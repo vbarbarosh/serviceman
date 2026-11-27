@@ -64,6 +64,7 @@ import remote_dot from './remote_dot.js';
 import remote_facts from './remote_facts.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
+import remote_named_by from './remote_named_by.js';
 import remote_overview from './remote_overview.js';
 import remote_packages from './remote_packages.js';
 import remote_processes from './remote_processes.js';
@@ -1702,7 +1703,7 @@ const remote_page = {
     <article v-else-if="(tab_now === 'services')" id="detail" class="list"><services-pane :state="state" :remote="view.name" embedded @create="$emit('create', view.name)" @select="$emit('select_named', $event)"/></article>
     <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases', $event)" @select="$emit('select', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
-    <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" @close="$emit('tab', 'overview')" @saved="$emit('saved', $event)" @service="$emit('service', $event)"/>
+    <remote-form v-else-if="(tab_now === 'settings' && original !== null)" :key="('settings-' + view.name + '-' + edit_key)" :original="original" :named_by="named_by" @close="$emit('tab', 'overview')" @saved="settings_saved" @service="$emit('service', $event)"/>
     <article v-else-if="(tab_now === 'settings')" id="detail"><p class="muted">reading the config…</p></article>
     <remote-logline v-else-if="(tab_now === 'logs')" :key="('logs-' + view.name)" :view="view" @logline="$emit('logline')"/>
     <remote-docker v-else-if="(tab_now === 'docker')" :key="('docker-' + view.name)" :view="view" :theme="theme"/>
@@ -1734,9 +1735,10 @@ const remote_page = {
         // minutes at that rate, whose newest point is its numbers and History's too;
         // history_charts: History's span where it is not the head's, read every half minute.
         // Each {range: the range read, data: the answer, undefined before the first, null for
-        // none, error: why none or why not new, old: an agent from before charts}.
+        // none, error: why none or why not new, old: an agent from before charts}. named_by:
+        // what in the config names this machine, read with its entry for Settings.
         const kept = charts_kept();
-        return {original: null, edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false, charts_range: kept.range, charts_rate: kept.rate, head_charts: CHARTS_NONE, history_charts: CHARTS_NONE};
+        return {original: null, named_by: [], edit_key: 0, databases_count: null, menu_open: false, more_open: false, copied: false, charts_range: kept.range, charts_rate: kept.rate, head_charts: CHARTS_NONE, history_charts: CHARTS_NONE};
     },
     computed: {
         icon: function () {
@@ -2019,11 +2021,21 @@ const remote_page = {
         },
         original_load: async function (name) {
             const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
-            const found = (JSON.parse(loaded.text).remotes || []).find(v => v.name === name) || null;
+            const json = JSON.parse(loaded.text);
+            const found = (json.remotes || []).find(v => v.name === name) || null;
             // The tab may have moved on while the config was coming; a late answer is nobody's
             if (name === this.settings_name) {
                 this.original = found;
+                this.named_by = remote_named_by(json, name);
                 this.edit_key++;
+            }
+        },
+        // A card of Settings saved: the entry is read again, so the card stands closed with what
+        // it now says; a new name is another page, which reads its own
+        settings_saved: function (name) {
+            this.$emit('saved', name);
+            if (name === this.view.name) {
+                this.original_load(name);
             }
         },
     },

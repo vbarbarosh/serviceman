@@ -325,6 +325,18 @@ done on it is under **More ▾**: **Configure**, **Docker**, **Firewall**, **Pro
 under the head says since when, which services wait for it, and the line to run there to see
 why (`systemctl status serviceman-agent`).
 
+**Settings** is a card a setting, each read until its **Edit**: **Name** (how the services name
+it; its agent dials in under it), **Title** (shown on its page and the Canvas) and **Drawn as**
+(a server, a laptop or a home computer, on the Canvas) in a row, **Access** under them, its token
+as dots with **Copy** and **Another one**. **Edit** opens the card across its row, where it
+stands, the others' Edit greyed; its foot says the change (`a server → a laptop`) and what Save
+does, with a **Cancel** and a **Save** of its own, which save that setting alone: the rest of the
+machine's entry, its logs and its door among them, stays as it is. A new name is not saved while
+a service, a forward, a mount, a board or a load test names the machine, and the foot says which;
+**Another one** opens Access with a new token and says that its agent keeps the old one until it
+is given the new one. **Remove**, apart at the end, forgets the machine; what still names it is
+said there, and keeps it until it moves.
+
 The page scrolls as one under serviceman's bar, the crumbs and the head with it. Once the head
 is gone, it folds into a slim row docked at the top: the machine's icon and name (cut at 11rem,
 the whole of it in its title), its state in a word, `CPU 23% Mem 41% Disk 62%`, its tabs, and the
