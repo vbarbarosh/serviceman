@@ -22,7 +22,7 @@ test('a test says the longest its bytes stood', function () {
 // speed, a quick call waiting on the bytes ahead of it while a way is full, and a call with
 // the link idle as quick as the link
 test('a link test measures each way, and the calls while it is full', async function (t) {
-    const running = await link_proxy_rig(t, {down: 1024*1024, up: 2*1024*1024});
+    const running = await link_proxy_rig(t, {agent_update: false, down: 1024*1024, up: 2*1024*1024});
     const result = await link_test(running.app, running.app.remote_by_name.vps1, {spell_ms: 3000});
     const summary = link_test.summary(result);
     assert.ok((summary.down_bps > 0.6*1024*1024) && (summary.down_bps < 1.4*1024*1024), `down ${summary.down_bps}`);
@@ -40,7 +40,7 @@ test('a link test measures each way, and the calls while it is full', async func
 // 250 ms, so a stand of 1.5 s reads as 1250 or 1500, give or take a timer's few ms either way:
 // the bound sits between two counts, where 1250 itself was missed by 1249 now and then
 test('a link test says how long the way to the machine stood', async function (t) {
-    const running = await link_proxy_rig(t, {down: 1024*1024, up: 4*1024*1024});
+    const running = await link_proxy_rig(t, {agent_update: false, down: 1024*1024, up: 4*1024*1024});
     const remote = running.app.remote_by_name.vps1;
     const testing = link_test(running.app, remote, {spell_ms: 4000});
     await timers.setTimeout(2500);
@@ -59,7 +59,7 @@ test('a link that drops while the test sends its bytes fails the test, and servi
     const unheld = [];
     process.on('unhandledRejection', heard);
     t.after(() => process.off('unhandledRejection', heard));
-    const running = await link_proxy_rig(t, {down: 8*1024*1024, up: 8*1024*1024});
+    const running = await link_proxy_rig(t, {agent_update: false, down: 8*1024*1024, up: 8*1024*1024});
     const remote = running.app.remote_by_name.vps1;
     const result = link_test(running.app, remote, {spell_ms: 4000});
     // Past the idle calls, into the spell that writes toward the machine
@@ -78,7 +78,7 @@ test('a link that drops while the test sends its bytes fails the test, and servi
 
 // Through the control door: one at a time, and an agent that cannot is told so, not hung on
 test('the link test door refuses an old agent and a second test at once', async function (t) {
-    const running = await link_proxy_rig(t, {down: 4*1024*1024, up: 4*1024*1024});
+    const running = await link_proxy_rig(t, {agent_update: false, down: 4*1024*1024, up: 4*1024*1024});
     const remote = running.app.remote_by_name.vps1;
     remote.state.link_test_running = true;
     const busy = await fetch_host({port: running.control_port, host: 'serviceman.localhost', method: 'POST', path: '/api/v1/remotes/vps1/link-test'});
