@@ -90,7 +90,10 @@ when. A server with no database in it yet is a page of its own, with
 A MongoDB's, a PostgreSQL's or a MySQL's page has **Browse** in its head, which opens its data
 at `/databases/<server>/<database>/browse`: the [Data](../modules/data_browser/README.md) module
 on it. Its collections down the left, each with how many documents it holds; a click opens one,
-its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages.
+its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages,
+with **‹‹ First** and **Last ››** beside them once they are counted (a find's are, when that
+takes under 5 s; a pipeline's never are): Last reads the page that holds the last one, as many
+as there are when it is clicked, never an empty page.
 A filter finds them, typed as the MongoDB shell types it, `{status: 'active', joined: {$gte:
 ISODate('2025-06-01')}}`; **Sort and fields** opens two more, `{joined: -1}` and `{name: 1,
 email: 1}`, and a click on a header sorts by that key, up, then down, then as found. A click on
@@ -119,7 +122,8 @@ page, opened with no condition, counts them; the database's head counts the same
 **Find** takes a condition after `WHERE`, `status = 'active' AND joined > '2025-06-01'`, and
 **Order by and columns** opens `joined DESC` and `name, email`; a click on a header orders by
 it. **Query**, where Aggregate is, runs a `SELECT` typed whole, joins and `GROUP BY` and all, a
-page at a time. A cell shows its value as a MongoDB document's does, a number whole to its last
+page at a time, with ‹ › alone: its rows are not counted. A cell shows its value as a MongoDB
+document's does, a number whole to its last
 digit (`2.50`, `9007199254740993`); a row opened is its JSON, with **Copy**. Each read is a
 `READ ONLY` transaction as the database's own user, signed in over its container's `127.0.0.1`,
 its password in the client's env (`PGPASSWORD`, `MYSQL_PWD`): a `DELETE` or a `DROP` typed into

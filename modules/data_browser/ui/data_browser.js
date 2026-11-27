@@ -15,6 +15,7 @@ import storage_set from '../../storage_set.js';
 // typed as the shell types it; a document shown whole is edited or deleted from its window, a
 // deletion asked before it is done, an edit saving the fields it changes alone and never over
 // another hand's change to them. A view's documents and a pipeline's results are read alone.
+// ‹ › go a page back and on; ‹‹ First and Last ›› beside them where the documents were counted.
 // A SQL database (PostgreSQL, MySQL, a SQLite file) is the same page in its own words: its
 // tables and their rows, a condition after WHERE, an ORDER BY and the columns, and a SELECT of its
 // own in Query; a row shown whole is its JSON. A PostgreSQL's or a MySQL's row is added, edited
@@ -188,8 +189,10 @@ const data_browser = {
                     <option v-for="value of LIMITS" :key="value" :value="value">{{ value }} a page</option>
                 </select>
                 <span class="dbr-pager">
+                    <button v-if="(last_skip !== null)" type="button" :disabled="(busy || (page.skip === 0))" aria-label="The first page" @click="click_first">‹‹ First</button>
                     <button type="button" :disabled="(busy || (page.skip === 0))" aria-label="The page before" @click="page_go(-1)">‹</button>
                     <button type="button" :disabled="(busy || (next_skip === null))" aria-label="The next page" @click="page_go(1)">›</button>
+                    <button v-if="(last_skip !== null)" type="button" :disabled="(busy || (next_skip === null) || (page.skip >= last_skip))" :title="last_title" aria-label="The last page" @click="click_last">Last ››</button>
                 </span>
             </div>
             <p v-else-if="busy" class="muted dbr-say"><span class="spin"/>reading…</p>
@@ -396,6 +399,19 @@ const data_browser = {
                 return this.page.more ? next : null;
             }
             return ((this.page.count !== null) && (next >= this.page.count)) ? null : next;
+        },
+        // Where the last page begins, the one that holds the last row at the page size chosen,
+        // by the page's count; null with no count, a query's page or a count stopped at 5 s, which
+        // has no First and no Last
+        last_skip: function () {
+            return this.last_skip_of(this.page.count);
+        },
+        // Last's rows, as the page's range says them: none for a collection with none
+        last_title: function () {
+            if ((this.last_skip === null) || (this.page.count === 0)) {
+                return null;
+            }
+            return `The last page: ${(this.last_skip + 1).toLocaleString('en-US')}–${this.page.count.toLocaleString('en-US')}`;
         },
         // What an empty page says of the query that found it; nothing under a query refused, whose
         // words are said above it, the page under them being the one before
@@ -665,6 +681,22 @@ const data_browser = {
             const skip = (step < 0) ? Math.max(0, this.page.skip - this.page.limit) : this.next_skip;
             this.documents_read(skip);
         },
+        click_first: function () {
+            this.documents_read(0);
+        },
+        // The last page by the page's count; read again where its own count puts it when rows
+        // were added or deleted since (documents_read)
+        click_last: function () {
+            this.documents_read(this.last_skip, undefined, true);
+        },
+        // Where the page that holds the last of `count` rows begins, at the page size chosen: 0
+        // for none; null when they were not counted
+        last_skip_of: function (count) {
+            if (typeof count !== 'number') {
+                return null;
+            }
+            return Math.max(0, Math.floor((count - 1)/this.limit)*this.limit);
+        },
         // A header clicked: sorted by it, up; again, down; again, as found. Only a find's page has
         // its headers to click, and the click finds again, whatever tab is open since
         sort_by: function (key) {
@@ -714,20 +746,21 @@ const data_browser = {
         },
         // A page of the open collection, found as `ask` asks (a find's filter, sort and fields, or
         // a pipeline), or as the page shown was; found, the page and its ask are the ones shown,
-        // and refused, those shown stay as they were
-        documents_read: async function (skip, ask) {
+        // and refused, those shown stay as they were. A page counted is read again, once, where
+        // its own count puts the last page, when it was asked as the last one (`last`) or came
+        // back empty past its end: rows were added or deleted since the page before counted
+        // them, and the page shows those there are, never none
+        documents_read: async function (skip, ask, last) {
             const name = this.open;
             const asked = (ask === undefined) ? this.asked : ask;
-            const texts = (asked.mode === 'aggregate') ? {pipeline: asked.pipeline} : {filter: asked.filter, sort: asked.sort, fields: asked.fields};
-            const query = new URLSearchParams(Object.assign({collection: name}, texts, {skip: String(skip), limit: String(this.limit)}));
-            const door = (asked.mode === 'aggregate') ? 'aggregate' : 'documents';
             this.busy = true;
             this.error = '';
             try {
-                const answer = await fetch(`${this.base}/${door}?${query}`, {cache: 'no-store'});
-                const body = await answer.json();
-                if (answer.ok === false) {
-                    throw new Error(body.error || `serviceman answered ${answer.status}`);
+                let body = await this.page_fetch(name, asked, skip);
+                const end = this.last_skip_of(body.count);
+                const past = (skip > 0) && (body.items.length === 0);
+                if ((end !== null) && (end !== skip) && ((last === true) || past)) {
+                    body = await this.page_fetch(name, asked, end);
                 }
                 // Another collection opened meanwhile: this answer is not for it
                 if (name === this.open) {
@@ -748,6 +781,19 @@ const data_browser = {
             finally {
                 this.busy = false;
             }
+        },
+        // A page of collection `name` as `asked` finds it, from `skip`, at the page size chosen:
+        // the API's answer, or what it refused, thrown
+        page_fetch: async function (name, asked, skip) {
+            const texts = (asked.mode === 'aggregate') ? {pipeline: asked.pipeline} : {filter: asked.filter, sort: asked.sort, fields: asked.fields};
+            const query = new URLSearchParams(Object.assign({collection: name}, texts, {skip: String(skip), limit: String(this.limit)}));
+            const door = (asked.mode === 'aggregate') ? 'aggregate' : 'documents';
+            const answer = await fetch(`${this.base}/${door}?${query}`, {cache: 'no-store'});
+            const body = await answer.json();
+            if (answer.ok === false) {
+                throw new Error(body.error || `serviceman answered ${answer.status}`);
+            }
+            return body;
         },
         // + Document; + Row, its text the columns its table does not fill itself, each null
         add_open: async function () {

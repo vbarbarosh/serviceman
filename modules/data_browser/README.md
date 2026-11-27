@@ -2,6 +2,14 @@
 
 One database's data, for a web page: its collections down the left, and the open one's
 documents as a table or as JSON, fifty a page (20 to 200), a column for each key found in them.
+‹ › go a page back and on; once they are counted (a find's are, when that takes under 5 s; a
+pipeline's never are), **‹‹ First** and **Last ››** beside them go to the first page and to the
+one that holds the last of them, at the page size chosen. Last is a page like the others, its
+`skip` every document before it, which the engine walks past in the order asked (`$skip`,
+`OFFSET`): on 1,000,000 that took 0.1 to 1.1 s, and 3.5 s on SQLite sorted by a column with no
+index. Documents added or deleted since they were counted, Last reads the page their count puts
+last then, and a page found past the end, by › or after a deletion, is read again there: the
+page shows the documents there are, never none.
 **Find** finds them by a filter, typed as the MongoDB shell types it, `{status: 'active', at:
 {$gt: ISODate('2026-01-01')}}`; a sort and the fields shown go under it, and a click on a header
 sorts by that key, up, down, then as found. **Aggregate** makes them by a pipeline of stages,

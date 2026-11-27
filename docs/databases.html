@@ -824,7 +824,10 @@ when. A server with no database in it yet is a page of its own, with
 <p>A MongoDB&#39;s, a PostgreSQL&#39;s or a MySQL&#39;s page has <strong>Browse</strong> in its head, which opens its data
 at <code>/databases/&lt;server&gt;/&lt;database&gt;/browse</code>: the <a href="modules/data_browser.html">Data</a> module
 on it. Its collections down the left, each with how many documents it holds; a click opens one,
-its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages.
+its documents as a table, 50 a page, a column for each key found in them, and ‹ › for the pages,
+with <strong>‹‹ First</strong> and <strong>Last ››</strong> beside them once they are counted (a find&#39;s are, when that
+takes under 5 s; a pipeline&#39;s never are): Last reads the page that holds the last one, as many
+as there are when it is clicked, never an empty page.
 A filter finds them, typed as the MongoDB shell types it, <code>{status: &#39;active&#39;, joined: {$gte: ISODate(&#39;2025-06-01&#39;)}}</code>; <strong>Sort and fields</strong> opens two more, <code>{joined: -1}</code> and <code>{name: 1, email: 1}</code>, and a click on a header sorts by that key, up, then down, then as found. A click on
 a row shows the document whole, as the shell writes it, with <strong>Copy</strong>. <strong>Aggregate</strong>, beside
 Find, runs a pipeline of stages on it, <code>[{$match: {status: &#39;active&#39;}}, {$group: {_id: &#39;$city&#39;, n: {$sum: 1}}}]</code>, a page at a time; a stage that writes (<code>$out</code>, <code>$merge</code>) is refused. A page
@@ -848,7 +851,8 @@ page, opened with no condition, counts them; the database&#39;s head counts the 
 <strong>Find</strong> takes a condition after <code>WHERE</code>, <code>status = &#39;active&#39; AND joined &gt; &#39;2025-06-01&#39;</code>, and
 <strong>Order by and columns</strong> opens <code>joined DESC</code> and <code>name, email</code>; a click on a header orders by
 it. <strong>Query</strong>, where Aggregate is, runs a <code>SELECT</code> typed whole, joins and <code>GROUP BY</code> and all, a
-page at a time. A cell shows its value as a MongoDB document&#39;s does, a number whole to its last
+page at a time, with ‹ › alone: its rows are not counted. A cell shows its value as a MongoDB
+document&#39;s does, a number whole to its last
 digit (<code>2.50</code>, <code>9007199254740993</code>); a row opened is its JSON, with <strong>Copy</strong>. Each read is a
 <code>READ ONLY</code> transaction as the database&#39;s own user, signed in over its container&#39;s <code>127.0.0.1</code>,
 its password in the client&#39;s env (<code>PGPASSWORD</code>, <code>MYSQL_PWD</code>): a <code>DELETE</code> or a <code>DROP</code> typed into
