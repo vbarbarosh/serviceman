@@ -124,9 +124,18 @@ async function down_run(remote, spell_ms, counted)
         }
     }
     stream.end();
-    await Promise.race([ended, timers.setTimeout(END_TIMEOUT_MS).then(function () {
-        throw new Error(`${remote.name} never said what it took`);
-    })]);
+    // Its answer, or why none came; the clock stopped once it is in, so no timer outlives the
+    // test: one left serviceman, and a test file, waiting two minutes after every link test
+    let timer = null;
+    const late = new Promise(function (resolve, reject) {
+        timer = setTimeout(() => reject(new Error(`${remote.name} never said what it took`)), END_TIMEOUT_MS);
+    });
+    try {
+        await Promise.race([ended, late]);
+    }
+    finally {
+        clearTimeout(timer);
+    }
     counted.bytes = stream.taken;
     stream.destroy();
 }
