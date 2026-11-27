@@ -758,6 +758,18 @@ password <code>--root</code> asks for, and prints the command that puts node, on
 same install line run again finds it there. Any node runs it; reading a SQLite file in Files
 (<a href="databases.html#a-sqlite-file">A SQLite file</a>) wants node 22.16 or later, whose <code>node:sqlite</code> is
 whole, and an older one says so on Browse.</p>
+<p>A machine&#39;s page has them all on its <strong>Install</strong> tab (under <strong>More ▾</strong>, and <strong>Install the agent</strong>
+in its head while it is away), in two cards. <strong>Install the agent on vps1</strong> is the one command, to
+run there as yourself: where it dials (<code>It dials</code>, this serviceman as that machine reaches it,
+with <code>address | socket file</code> beside the field where the config gives both ways in), <strong>Root half
+too</strong> (for mounts, the firewall and updates; it asks your password once), the command with its
+token as dots and <strong>Copy</strong>, and under it what it does: it needs node, keeps its token beside it,
+and comes up again after a reboot where there is systemd. <strong>Other ways</strong>, for a machine where the
+command cannot run, is a tab each, its steps numbered: <strong>No node</strong> (node in <code>~/bin</code>, then the
+command above), <strong>By hand</strong> (the agent fetched, then run), <strong>Docker</strong> (the container, and the
+image made from the repo) and <strong>The file</strong> (the agent to download). Every field and command is as
+wide as its card, a long one wrapping inside its block; on a phone the field&#39;s label is over it,
+and each <strong>Copy</strong> under its command.</p>
 <h3 id="one-file"><a class="anchor" href="#one-file" aria-hidden="true" tabindex="-1">#</a>One file</h3>
 <pre><code>curl -fsSL https://serviceman.example.com/api/v1/agent.js -o serviceman-agent.js
 node serviceman-agent.js --url https://serviceman.example.com --token 0c0f…a91b

@@ -3866,6 +3866,268 @@ button.command-copy.done {
     opacity: 0;
 }
 
+/* A command at a prompt: the $ in green, the line wrapping inside its block, Copy at its right;
+   on a phone Copy goes under it, at its right end */
+.snip.snip-prompt {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 8px 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--code);
+}
+
+.snip-prompt pre.tail {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.snip-dollar {
+    flex: none;
+    color: var(--run);
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.snip-prompt .snip-copy {
+    position: static;
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 600px) {
+    .snip.snip-prompt {
+        flex-wrap: wrap;
+    }
+
+    .snip-prompt pre.tail {
+        flex-basis: calc(100% - 24px);
+    }
+
+    .snip-prompt .snip-copy {
+        margin-left: auto;
+    }
+}
+
+/* A machine's Install, as drawn: the one command in a card of its own, where it dials and its
+   root half over it and what it does under it; the other ways in a second card, behind tabs, a
+   step a numbered row. Every field and command as wide as its card. */
+article.ins {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ins-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+}
+
+.ins-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+}
+
+.ins-head h2 {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.ins-head h2 svg {
+    flex: none;
+    color: var(--link);
+}
+
+.ins-dials {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px 14px;
+    align-items: center;
+}
+
+.ins-dials > label:first-child {
+    font-weight: 650;
+}
+
+.ins-dials input:not([type]),
+.ins-dials input[type="text"] {
+    width: 100%;
+    min-width: 0;
+    padding: .45rem .6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--code);
+    color: var(--fg);
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.ins-dials input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.ins-hint,
+.ins-root {
+    grid-column: 2 / -1;
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.ins-root {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    margin-top: 6px;
+    font-size: 14px;
+}
+
+.ins-root input {
+    flex: none;
+    width: auto;
+    margin: 0;
+}
+
+.ins-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    margin: -4px 0 0;
+    padding: 0;
+    color: var(--muted);
+    font-size: 13px;
+    list-style: none;
+}
+
+.ins-facts li {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ins-facts svg {
+    flex: none;
+    color: var(--run);
+}
+
+.ins-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    border-bottom: 1px solid var(--line);
+}
+
+.ins-tabs button {
+    margin-bottom: -1px;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.ins-tabs button:hover {
+    background: none;
+    color: var(--fg);
+}
+
+.ins-tabs button.on {
+    border-bottom-color: var(--accent);
+    color: var(--fg);
+}
+
+.ins-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: ins-step;
+}
+
+.ins-steps li {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 8px 10px;
+    counter-increment: ins-step;
+}
+
+.ins-steps li::before {
+    content: counter(ins-step);
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--sel);
+    color: var(--link);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ins-steps li > * {
+    grid-column: 2;
+}
+
+.ins-steps li > p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    align-items: baseline;
+    grid-row: 1;
+    margin: 2px 0 0;
+}
+
+.ins-file {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+}
+
+.ins-file .button {
+    display: inline-flex;
+    gap: 7px;
+    align-items: center;
+}
+
+/* On a phone: the label over the field, the ways to dial under it */
+@media (max-width: 600px) {
+    .ins-dials {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ins-hint,
+    .ins-root {
+        grid-column: 1;
+    }
+
+    .ins-doors {
+        justify-self: start;
+    }
+}
+
 /* The header's find box: a button that looks like the field it opens */
 #find {
     display: flex;

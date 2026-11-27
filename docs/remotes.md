@@ -48,6 +48,19 @@ same install line run again finds it there. Any node runs it; reading a SQLite f
 ([A SQLite file](databases.md#a-sqlite-file)) wants node 22.16 or later, whose `node:sqlite` is
 whole, and an older one says so on Browse.
 
+A machine's page has them all on its **Install** tab (under **More ▾**, and **Install the agent**
+in its head while it is away), in two cards. **Install the agent on vps1** is the one command, to
+run there as yourself: where it dials (`It dials`, this serviceman as that machine reaches it,
+with `address | socket file` beside the field where the config gives both ways in), **Root half
+too** (for mounts, the firewall and updates; it asks your password once), the command with its
+token as dots and **Copy**, and under it what it does: it needs node, keeps its token beside it,
+and comes up again after a reboot where there is systemd. **Other ways**, for a machine where the
+command cannot run, is a tab each, its steps numbered: **No node** (node in `~/bin`, then the
+command above), **By hand** (the agent fetched, then run), **Docker** (the container, and the
+image made from the repo) and **The file** (the agent to download). Every field and command is as
+wide as its card, a long one wrapping inside its block; on a phone the field's label is over it,
+and each **Copy** under its command.
+
 ### One file
 
 ```

@@ -2,7 +2,6 @@ import CATEGORIES from './categories.js';
 import addresses_pane from './addresses_pane.js';
 import agent_current from './agent_current.js';
 import agent_pill from './agent_pill.js';
-import agent_url_of from './agent_url_of.js';
 import answered_again from './answered_again.js';
 import app_data_apart from './app_data_apart.js';
 import app_files_pick from './app_files_pick.js';
@@ -64,6 +63,7 @@ import remote_dot from './remote_dot.js';
 import remote_facts from './remote_facts.js';
 import remote_firewall from './remote_firewall.js';
 import remote_form from './remote_form.js';
+import remote_install from './remote_install.js';
 import remote_named_by from './remote_named_by.js';
 import remote_overview from './remote_overview.js';
 import remote_packages from './remote_packages.js';
@@ -141,12 +141,6 @@ const CATEGORY_SHOW = {
     'config': 'editor_show',
     'categories': 'categories_show',
 };
-
-// A machine with no node cannot run the agent, and the whole of node it needs is one file.
-// The archive is unpacked as it arrives and only bin/node is kept, in ~/bin; the install line
-// prints the same command, for the machine's own processor, when it finds no node. Node 24, as
-// agent_install_sh.js says why.
-const NODE_TEXT = 'mkdir -p ~/bin && v=v24.22.3 && curl -fsSL https://nodejs.org/dist/$v/node-$v-linux-x64.tar.xz | tar -xJ -C ~/bin --strip-components=2 node-$v-linux-x64/bin/node';
 
 // A service's Logs tab: the lines it wrote in the last day, read from Logline by serviceman
 // (service_lines), a row each, oldest first and the newest at the foot, as its viewer shows
@@ -622,166 +616,6 @@ const config_editor = {
         this.ace.destroy();
     },
 };
-
-// The one command that puts the agent on the machine, written with the address this page was
-// opened on and the token from the config
-const remote_install = {
-    template: `
-<article id="detail">
-    <h1>Install the agent on that machine</h1>
-    <div v-if="(doors.length > 1)" class="tabs">
-        <button v-for="item of doors" :key="item.key" type="button" class="tab" :class="{on: (item.key === door.key)}" @click="door_pick(item)">{{ item.label }}</button>
-    </div>
-    <p v-if="(door === null)" class="bad">The agent has no way in: the config gives the control page no port and no socket file.</p>
-    <template v-else>
-        <p class="muted">One command on that machine. It needs node and nothing else: the script fetches the agent, writes its token beside it, and — where there is systemd — keeps it up across reboots.</p>
-        <dl>
-            <dt>{{ door.socket === null ? 'It dials' : 'The socket file there' }}</dt>
-            <dd>
-                <input v-model.trim="typed" class="wide" spellcheck="false">
-                <p class="muted">{{ door.hint }}</p>
-            </dd>
-        </dl>
-        <label class="check wide"><input type="checkbox" v-model="root_half"> give it a root half too — the same file under the system's systemd, for the work that has to be root</label>
-        <snip :text="install_text" :secret="token"/>
-        <p v-if="root_half" class="muted">Run it as yourself, not with sudo in front: it asks for your password once, at the start, and uses it for the root half alone.</p>
-        <p class="muted">No node on that machine? It is one file, and it goes in <code>~/bin</code> — nothing is installed and nothing else is touched:</p>
-        <snip :text="node_text"/>
-        <p class="muted">Or by hand — the two things that command does:</p>
-        <snip :text="file_text" :secret="token"/>
-        <p class="muted">Or start it as a container, if that machine has docker:</p>
-        <snip :text="docker_text" :secret="token"/>
-        <p v-if="(door.socket !== null)" class="muted">The socket file must be on that machine. This command copies it there, and no port stays open on the two machines: <code>ssh -R {{ door_where }}:{{ door.socket }} {{ view.name }}</code></p>
-        <p class="muted">
-            <a :href="'/api/v1/agent.js'" download>Download the agent file</a> ·
-            to make the image, run <code>docker build -f Dockerfile.agent -t serviceman-agent .</code> in the repo
-        </p>
-    </template>
-</article>
-`,
-    components: {snip: snippet},
-    props: ['view', 'control', 'tailnet'],
-    data: function () {
-        return {token: null, door_key: null, typed: '', root_half: false};
-    },
-    computed: {
-        token_text: function () {
-            return (this.token === null) ? '<the token in the config>' : this.token;
-        },
-        // serviceman's own name on the tailnet, at its control port, where tailscale has given
-        // it one; else what this page was opened on
-        agent_url: function () {
-            return agent_url_of(this.tailnet, this.control.port);
-        },
-        // The ways in that the config gives an agent: a port, a socket file, or the two of them.
-        //
-        // What is filled in is serviceman's own tailnet name, which every machine on the tailnet
-        // reaches, or with none what this page was opened on. A machine off the tailnet may
-        // reach this one by another name entirely, so it can be typed.
-        doors: function () {
-            const out = [];
-            if (this.control.port !== null) {
-                out.push({
-                    key: 'http',
-                    label: 'http',
-                    socket: null,
-                    mark: this.agent_url,
-                    hint: ((this.tailnet === null) || (this.tailnet === undefined)) ? 'Where that machine reaches this one — a tailscale name, a public address, anything it can resolve.' : 'serviceman\'s own name on the tailnet, as tailscale says. A machine off the tailnet: another address it can resolve.',
-                });
-            }
-            if (this.control.socket !== null) {
-                out.push({
-                    key: 'socket',
-                    label: 'socket',
-                    socket: this.control.socket,
-                    mark: this.control.socket,
-                    hint: 'The path of the socket file on that machine — where an ssh forward puts it, which need not be the path it has here.',
-                });
-            }
-            return out;
-        },
-        // What the commands below are written with: what is in the field, or — if it was
-        // emptied — what this page knows
-        door_where: function () {
-            return (this.typed === '') ? this.door.mark : this.typed;
-        },
-        door: function () {
-            const picked = this.doors.find(v => v.key === this.door_key);
-            if (picked !== undefined) {
-                return picked;
-            }
-            return (this.doors.length === 0) ? null : this.doors[0];
-        },
-        // The whole install in one line, the way tailscale does it: fetch and run, with the token
-        // given to the script instead of baked into it
-        install_text: function () {
-            const fetched = (this.door.socket === null)
-                ? `curl -fsSL ${this.door_where}/api/v1/install.sh`
-                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/install.sh`;
-            const where = (this.door.socket === null) ? '' : ` --url ${this.door_url}`;
-            const root = this.root_half ? ' --root' : '';
-            return `${fetched} | sh -s -- --token ${this.token_text}${where}${root}`;
-        },
-        // The url the agent is given: a plain address, or a socket file as unix:///path
-        door_url: function () {
-            return (this.door.socket === null) ? this.door_where : `unix://${this.door_where}`;
-        },
-        file_text: function () {
-            const fetched = (this.door.socket === null)
-                ? `curl -fsSL ${this.door_where}/api/v1/agent.js -o serviceman-agent.js`
-                : `curl -fsSL --unix-socket ${this.door_where} http://localhost/api/v1/agent.js -o serviceman-agent.js`;
-            return `${fetched}\nnode serviceman-agent.js --url ${this.door_url} --token ${this.token_text}`;
-        },
-        node_text: function () {
-            return NODE_TEXT;
-        },
-        docker_text: function () {
-            const words = ['docker run -d --name serviceman-agent --restart always --network host', '-v /var/run/docker.sock:/var/run/docker.sock', '-v /:/host:ro -e SERVICEMAN_DIR=/host'];
-            if (this.door.socket !== null) {
-                words.push(`-v ${this.door_where}:${this.door_where}`);
-            }
-            words.push(`-e SERVICEMAN_URL=${this.door_url}`, `-e SERVICEMAN_TOKEN=${this.token_text}`, 'serviceman-agent');
-            return words.join(' ');
-        },
-    },
-    watch: {
-        'view.name'() {
-            this.token = null;
-            this.token_read();
-        },
-    },
-    methods: {
-        // Picking a door puts what this end knows about it in the field: the address for the
-        // port, the path for the socket file. It is a starting point, and it is meant to be
-        // edited — the machine over there may reach this one by a different name entirely.
-        door_pick: function (door) {
-            this.door_key = door.key;
-            this.typed = door.mark;
-        },
-        door_fill: function () {
-            this.typed = (this.door === null) ? '' : this.door.mark;
-        },
-        // The command is only worth copying with the real token in it, and the config has it
-        token_read: async function () {
-            if (this.view.phase === 'online') {
-                return;
-            }
-            try {
-                const loaded = await fetch('/api/v1/config', {cache: 'no-store'}).then(v => v.json());
-                const found = (JSON.parse(loaded.text).remotes || []).find(v => v.name === this.view.name);
-                this.token = (found === undefined) ? null : found.token;
-            }
-            catch {
-                this.token = null;
-            }
-        },
-    },
-    mounted: function () {
-        this.token_read();
-        this.door_fill();
-    },
-};
-
 
 // A machine's own upkeep — its agent, its updates, its screen — and nothing moves by itself:
 // every change is a press on this page
