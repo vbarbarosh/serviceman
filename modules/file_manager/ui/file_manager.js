@@ -874,6 +874,7 @@ const file_manager = {
             if (this.busy) {
                 return;
             }
+            const before = this.path;
             this.busy = true;
             this.report('reading…', false);
             this.act_report('', false);
@@ -892,6 +893,11 @@ const file_manager = {
                 this.now = Date.now();
                 this.chosen = {};
                 this.report(`${outcome.items.length} ${plural(outcome.items.length, 'entry', 'entries')}`, false);
+                // Another folder starts at its top, wherever the one before it was scrolled to;
+                // the same one read again, after a change in it, stays where it was
+                if ((before !== null) && (outcome.path !== before)) {
+                    this.$nextTick(this.top_show);
+                }
             }
             catch {
                 this.report('the answer never came back', true);
@@ -961,6 +967,10 @@ const file_manager = {
         report: function (note, bad) {
             this.note = note;
             this.bad = bad;
+        },
+        // A folder just opened, from its first row
+        top_show: function () {
+            top_in_view(this.$el);
         },
         // Every walk to another folder comes here: an open file with changes asks first
         go: function (where) {
@@ -1684,6 +1694,24 @@ const file_manager = {
         clearTimeout(this.transfers_timer);
     },
 };
+
+// An element's top in view: its own scroll back at the start, and the nearest box that scrolls
+// it (the window, with none) scrolled up to it when its top is above that box's
+function top_in_view(element)
+{
+    element.scrollTop = 0;
+    let top = 0;
+    for (let at = element.parentElement; at !== null; at = at.parentElement) {
+        const overflow = getComputedStyle(at).overflowY;
+        if ((overflow === 'auto') || (overflow === 'scroll')) {
+            top = at.getBoundingClientRect().top;
+            break;
+        }
+    }
+    if (element.getBoundingClientRect().top < top) {
+        element.scrollIntoView({block: 'start'});
+    }
+}
 
 // The part of the file manager in view, for the drop zone fixed over it
 function drop_style_of(rect)
