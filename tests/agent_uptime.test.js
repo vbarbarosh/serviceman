@@ -20,6 +20,11 @@ const DAY_MS = 24*60*60*1000;
 // Midnight of 2026-10-18 in Chisinau, UTC+3 in summer
 const DAY_1 = Date.parse('2026-10-18T00:00:00+03:00');
 const DAY_2 = DAY_1 + DAY_MS;
+// The count keeps the stretches of the last 90 days back from now: the test's now is the last
+// day it writes, or from 2027-01-17 on its stretches would be too old to keep
+Date.now = function () {
+    return DAY_2 + 4*3600e3;
+};
 
 test('a second with a line is up: a gap is down, a reboot told from a servermon that stopped, each byte read once', async function () {
     fs.mkdirSync(DIR, {recursive: true});
