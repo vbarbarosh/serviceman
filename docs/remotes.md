@@ -403,9 +403,10 @@ appears, vanishes or moves when History's span is picked. An agent before 1.32 h
 minutes: the head reads its hour every half minute, the rates disabled with its version said on
 them. An agent before 1.9 keeps no charts, and its head shows a bar instead (amber from 80%, red
 from 92%). While it is away, the head says how long it is down in its state (`offline · 3h
-11m`) and the last numbers it said, dimmed; the ten minutes before it went are charted in grey
-only when serviceman read them then, in the minutes before it went, since serviceman keeps only
-the last answer it read for each range. Its **Overview** tab
+11m`) and the last numbers it said, dimmed, the ten minutes before it went charted in grey and
+History's hour with them: serviceman reads every machine online, its ten minutes and its hour,
+every half minute itself, its uptime with them, whether a page has it open or not, and keeps the
+last answer for each. Its **Overview** tab
 shows what no other tab of its page shows: its history, a card for the
 machine (its temperature and battery among them), and its raw state folded away at the end; a
 machine that has not dialled in yet has a line saying so there, and its raw state. What has a tab
@@ -462,8 +463,9 @@ one), or no line since. The agent counts the lines itself and reads each byte of
 finished day when it first meets it (the time and boot at the start of each line, about 170 ms
 for a day's 50 MB), today from where the last count stopped, every minute. The count is kept
 in `metrics/uptime.json`, 90 days, longer than servermon keeps its files. The page reads it from
-`GET /api/v1/remotes/<name>/uptime?days=30` when it opens and every minute after, and shows the
-last answer while the machine is offline, the day it went red, its box saying since when
+`GET /api/v1/remotes/<name>/uptime?days=30` when it opens and every minute after, serviceman every
+half minute itself, with the charts, and shows the last answer while the machine is offline, the
+day it went red, its box saying since when
 nothing was heard from its agent. An agent before 1.22 has none: the head says `agent too old`,
 and its title that Configure updates it.
 

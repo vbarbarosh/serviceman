@@ -87,6 +87,8 @@ function remote_state()
         metrics: {},
         // Its uptime by day as last read, shown while it is away the same way
         uptime: null,
+        // Both read every half minute by serviceman itself: true while that read is on its way
+        metrics_keeping: false,
         calls: {},
         next_call_id: 0,
         streams: {},

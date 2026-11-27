@@ -76,7 +76,6 @@ const logline_viewer_of = require('../helpers/logline_viewer_of');
 const machine_restart = require('../helpers/machine_restart');
 const machine_restart_facts = require('../helpers/machine_restart_facts');
 const mcp_bundle = require('../../../mcp/bundler/mcp_bundle');
-const metrics_answer_of = require('../helpers/metrics_answer_of');
 const module_mount_of = require('../helpers/module_mount_of');
 const module_route = require('../helpers/module_route');
 const os = require('os');
@@ -90,9 +89,11 @@ const remote_call = require('../helpers/remote_call');
 const remote_can = require('../helpers/remote_can');
 const remote_containers_running = require('../helpers/remote_containers_running');
 const remote_disk = require('../helpers/remote_disk');
+const remote_metrics_read = require('../helpers/remote_metrics_read');
 const remote_removed_add = require('../helpers/remote_removed_add');
 const remote_tags = require('../helpers/remote_tags');
 const remote_update_call = require('../helpers/remote_update_call');
+const remote_uptime_read = require('../helpers/remote_uptime_read');
 const render_error_page = require('../helpers/render_error_page');
 const render_index_collection = require('../render_index_collection');
 const render_sign_in_page = require('../helpers/render_sign_in_page');
@@ -127,7 +128,6 @@ const term_create_refusal = require('../../../helpers/term_create_refusal');
 const term_name_valid = require('../../../helpers/term_name_valid');
 const terminal_serve = require('../../../../modules/terminal/server/terminal_serve');
 const transfer_queue = require('../../../../modules/file_manager/server/transfer_queue');
-const uptime_answer_of = require('../helpers/uptime_answer_of');
 const url_logged = require('../helpers/url_logged');
 const view_from_forward = require('../helpers/view_from_forward');
 const view_from_mount = require('../helpers/view_from_mount');
@@ -1740,16 +1740,9 @@ async function handle_remote_metrics(app, res, name, range)
         return;
     }
     try {
-        // The ten minutes are read every 1, 2 or 5 seconds, as picked at the machine's head: the
-        // machine is asked only for the seconds after the last point kept, and the answer is the
-        // kept points with those added
-        const after = ((range === '10m') && (kept !== undefined) && (kept.points.length > 0)) ? kept.points[kept.points.length - 1].at : null;
-        let answer = metrics_answer_of(await remote_call(app, remote, 'metrics', (after === null) ? {range} : {range, after}, MACHINE_READ_TIMEOUT_MS));
-        if (after !== null) {
-            const added = answer.points.filter(v => v.at > after);
-            answer = Object.assign({}, answer, {after: null, points: kept.points.filter(v => v.at > answer.since).concat(added)});
-        }
-        remote.state.metrics[range] = answer;
+        // The ten minutes are read every 1, 2 or 5 seconds, as picked at the machine's head, the
+        // machine asked only for the seconds after the last point kept
+        const answer = await remote_metrics_read(app, remote, range);
         send_json(res, 200, Object.assign({}, answer, {away: false}));
     }
     catch (error) {
@@ -1849,8 +1842,7 @@ async function handle_remote_uptime(app, res, name, days_text)
         return;
     }
     try {
-        const answer = uptime_answer_of(await remote_call(app, remote, 'uptime', {days}, MACHINE_READ_TIMEOUT_MS));
-        remote.state.uptime = answer;
+        const answer = await remote_uptime_read(app, remote, days);
         send_json(res, 200, Object.assign({}, answer, {away: false}));
     }
     catch (error) {

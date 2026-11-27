@@ -30,6 +30,7 @@ const profile_from_db = require('./src/helpers/profile_from_db');
 const reap_idle = require('./src/helpers/reap_idle');
 const remote_tags = require('./src/helpers/remote_tags');
 const remotes_measure = require('./src/helpers/remotes_measure');
+const remotes_metrics_keep = require('./src/helpers/remotes_metrics_keep');
 const remotes_update = require('./src/helpers/remotes_update');
 const security_check = require('./src/helpers/security_check');
 const server_start = require('./src/helpers/server_start');
@@ -44,6 +45,8 @@ const tailnet_ip_read = require('./src/helpers/tailnet_ip_read');
 const tailnet_name_read = require('./src/helpers/tailnet_name_read');
 
 const UPDATE_INTERVAL_MS = 60000;
+// Every machine's last ten minutes and hour, read and kept for when it goes away
+const METRICS_KEEP_INTERVAL_MS = 30000;
 // How often the quiet ones are looked at. A machine that is talking costs nothing here, so
 // this can be often enough to matter without being a poll.
 const MEASURE_INTERVAL_MS = 10000;
@@ -132,6 +135,10 @@ async function main()
         setInterval(function () {
             remotes_update(app);
         }, UPDATE_INTERVAL_MS);
+        // The minutes before a machine went are kept, whether a page read them or not
+        setInterval(function () {
+            remotes_metrics_keep(app);
+        }, METRICS_KEEP_INTERVAL_MS);
         setInterval(function () {
             logline_sweep(app).catch(function (error) {
                 log_event(app, 'logline_sweep_error', {reason: error.message});

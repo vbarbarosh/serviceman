@@ -19,6 +19,7 @@ const profile_from_db = require('../src/main/src/helpers/profile_from_db');
 const remote_call = require('../src/main/src/helpers/remote_call');
 const remote_tags = require('../src/main/src/helpers/remote_tags');
 const remotes_measure = require('../src/main/src/helpers/remotes_measure');
+const remotes_metrics_keep = require('../src/main/src/helpers/remotes_metrics_keep');
 const server_start = require('../src/main/src/helpers/server_start');
 const terminal_connect = require('../demos/terminal-client/terminal_connect');
 const terminals_list = require('../demos/terminal-client/terminals_list');
@@ -2950,6 +2951,58 @@ test('a machine keeps its own numbers, the page reads them, and sees the last of
         assert.ok(away.body.points.length > 0);
         const never = await machine_read(running, 'ui1', 'metrics?range=30d');
         assert.strictEqual(never.status, 409);
+    }
+    finally {
+        agent.kill('SIGKILL');
+        await running.close();
+    }
+});
+
+// No page read the machine's charts or its uptime before it went: serviceman read its ten minutes,
+// its hour and its days itself, as its clock does every half minute, and those are what the page
+// sees while it is away.
+// A read still on its way is not asked again; an agent from before the ten minutes is asked for
+// its hour alone.
+test('serviceman keeps a machine\'s last minutes and its days itself, and the page sees them once it is away', async function () {
+    const running = await serviceman_start([{name: 'ui1', token: TOKEN}]);
+    const agent = agent_start(running.control_port, TOKEN, [], Object.assign({SERVICEMAN_METRICS_MS: '1500', SERVICEMAN_BEAT_MS: '100'}, LOGS_ENV));
+    try {
+        const remote = running.app.remote_by_name.ui1;
+        await wait_until(() => remote.state.phase === 'online');
+        const deadline = Date.now() + 10000;
+        while ((Date.now() < deadline) && ((remote.state.metrics['10m'] === undefined) || (remote.state.metrics['10m'].points.length === 0))) {
+            await remotes_metrics_keep(running.app);
+            await timers.setTimeout(300);
+        }
+        const kept = remote.state.metrics;
+        assert.ok(kept['10m'].points.length > 0, 'its ten minutes kept, servermon\'s seconds in them');
+        assert.strictEqual(kept['1h'].step_ms, 30000, 'its hour kept');
+        assert.strictEqual(remote.state.uptime.days.length, 30, 'its 30 days kept');
+        assert.strictEqual(remote.state.metrics_keeping, false);
+
+        // A read on its way: no second one
+        const hour = kept['1h'];
+        remote.state.metrics_keeping = true;
+        await remotes_metrics_keep(running.app);
+        assert.strictEqual(kept['1h'], hour);
+        remote.state.metrics_keeping = false;
+
+        // An agent from before the ten minutes: its hour alone
+        remote.state.resources.can = remote.state.resources.can.filter(v => v !== 'metrics_live');
+        delete kept['10m'];
+        await remotes_metrics_keep(running.app);
+        assert.deepStrictEqual([kept['10m'], kept['1h'] === hour], [undefined, false]);
+        remote.state.resources.can.push('metrics_live');
+        await remotes_metrics_keep(running.app);
+
+        agent.kill('SIGKILL');
+        await wait_until(() => remote.state.phase === 'offline');
+        for (const range of ['10m', '1h']) {
+            const away = await machine_read(running, 'ui1', `metrics?range=${range}`);
+            assert.deepStrictEqual([away.status, away.body.away, (away.body.points.length > 0)], [200, true, true], range);
+        }
+        const days = await machine_read(running, 'ui1', 'uptime?days=30');
+        assert.deepStrictEqual([days.status, days.body.away, days.body.days.length], [200, true, 30]);
     }
     finally {
         agent.kill('SIGKILL');
