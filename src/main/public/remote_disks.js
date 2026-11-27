@@ -10,7 +10,7 @@ const remote_disks = {
 </article>
 <article v-else-if="(able === false)" id="detail" class="list">
     <p class="muted">The agent on this machine is from before the disk list, so its disks cannot be read yet.</p>
-    <p class="muted">It updates itself within a minute or two of being connected; the Overview says when it refuses, and why.</p>
+    <p class="muted">It updates itself within a minute or two of being connected; its Configure tab says when it refuses, and why.</p>
 </article>
 <disks v-else id="detail" class="list" :base="base" :offline="(view.phase !== 'online')" :connected_at="view.connected_at"/>
 `,

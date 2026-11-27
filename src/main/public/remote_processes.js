@@ -10,7 +10,7 @@ const remote_processes = {
 </article>
 <article v-else-if="(able === false)" id="detail" class="procs-pane">
     <p class="muted">The agent on this machine is from before the process list, so what it is running cannot be read yet.</p>
-    <p class="muted">It updates itself within a minute or two of being connected; the Overview says when it refuses, and why.</p>
+    <p class="muted">It updates itself within a minute or two of being connected; its Configure tab says when it refuses, and why.</p>
 </article>
 <processes v-else id="detail" :base="base" :offline="(view.phase !== 'online')" :connected_at="view.connected_at" :cores="cores"/>
 `,

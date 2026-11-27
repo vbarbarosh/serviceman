@@ -65,6 +65,33 @@ test('a service\'s page has its tabs in its head\'s card, Settings among them', 
     assert.deepStrictEqual(keys, ['overview', 'logs', 'settings', 'files', 'shell']);
 });
 
+// A machine's Overview shows what no other tab of its page shows: its services are its Services
+// tab, the table there and Service here in its head; its agent and its updates are Configure's
+// cards, Test the link with them; its logs are its Logs tab
+test('a machine\'s Overview has no table of its services, nor a card one of its tabs has', async function () {
+    const overview = (await import(path.join(PUBLIC, 'remote_overview.js'))).default;
+    assert.doesNotMatch(overview.template, /<services-pane|<data-table/, 'no table of its services');
+    assert.strictEqual(overview.components['services-pane'], undefined);
+    for (const title of ['Agent', 'Updates', 'Logs']) {
+        assert.doesNotMatch(overview.template, new RegExp(`<overview-card [^>]*title="${title}"`), `no ${title} card: a tab has it`);
+    }
+    assert.match(overview.template, /<overview-card icon="monitor" title="Machine">/, 'the machine\'s own card stays');
+    const card = (await import(path.join(PUBLIC, 'overview_card.js'))).default;
+    assert.deepStrictEqual(card.props, ['icon', 'title'], 'a card leads to no tab: the tab is the place');
+    const text = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
+    const page = template_of(text, 'remote_page');
+    assert.match(page, /<article v-else-if="\(tab_now === 'services'\)" id="detail" class="list"><services-pane /, 'the Services tab keeps the table');
+    assert.match(page, /\$emit\('create', view\.name\)[^\n]*Service here/, 'Service here stays in the head');
+    const configure = template_of(text, 'remote_configure');
+    assert.match(configure, /<button type="button" class="link" @click="link_test_open = true">Test the link<\/button>/, 'Test the link is on Configure\'s Agent card');
+    assert.match(configure, /<link-test-panel v-if=/, 'and its test opens there');
+    for (const fact of ['Node', 'Runs as', 'Root half']) {
+        assert.match(configure, new RegExp(`<dt>${fact}</dt>`), `${fact} moved to Configure's Agent card`);
+    }
+    assert.match(configure, /<p v-else-if="\(updates\.pending === null\)" class="muted">How many updates wait is not known/, 'Configure says a count apt did not give');
+    assert.match(configure, /\{\{ held_said \}\}/, 'and what Ubuntu holds back');
+});
+
 // A component's data, computed and methods on one object, as the page reads them
 function vm_of(component, fields)
 {

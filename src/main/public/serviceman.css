@@ -6977,7 +6977,8 @@ article.ov-pane {
     margin-left: .25rem;
 }
 
-.ov .alert {
+.ov .alert,
+.ov > .muted {
     margin: 0;
 }
 
@@ -7065,7 +7066,8 @@ article.ov-pane {
     font-size: .85rem;
 }
 
-/* A machine's link test, under its tiles: a chart per way and the numbers beside it */
+/* A machine's link test, under the Agent card of its Configure tab: a chart per way and the
+   numbers beside it */
 .lt {
     display: flex;
     flex-direction: column;
@@ -7684,14 +7686,6 @@ article.ov-pane {
     }
 }
 
-.ov-note {
-    margin: .6rem 0 0;
-}
-
-.ov-card dl:empty {
-    display: none;
-}
-
 /* A remote's Configure tab: one card per thing it looks after, each saying where it stands
    beside its title, with the one button that changes it */
 article.cfg {
@@ -7754,6 +7748,13 @@ article.cfg > .alert {
 .cfg-card dl {
     grid-template-columns: 9rem minmax(0, 1fr);
     margin: 0;
+}
+
+/* What the machine says is quoted whole, a path in a refusal among it: a long one breaks inside
+   the card rather than run out of it on a phone */
+.cfg-card dd,
+.cfg-card .alert {
+    overflow-wrap: anywhere;
 }
 
 .cfg-card pre.tail {

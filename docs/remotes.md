@@ -377,10 +377,12 @@ instead (amber from 80%, red from 92%). While it is away, the head says how long
 its state (`offline · 3h 11m`) and the last numbers it said, dimmed; the range before it went is
 charted in grey only when serviceman read it then, in the minutes before it went, since
 serviceman keeps only the last answer it read for each range. Its **Overview** tab
-shows the services on it, as the Services page's table; its uptime in one row, its history, then
-cards for the machine (its temperature and battery among them), its agent (its link, and **Test
-the link**), its updates and its logs, each with a link to the tab that does more with it, and
-its raw state folded away at the end.
+shows what no other tab of its page shows: its uptime in one row, its history, a card for the
+machine (its temperature and battery among them), and its raw state folded away at the end; a
+machine that has not dialled in yet has a line saying so there, and its raw state. What has a tab
+of its own is not said there again: the services on it are its **Services** tab, its agent (its
+version, its link and **Test the link**, its node, the user it runs as, its root half) and its
+updates are its **Configure** tab, its logs its **Logs** tab.
 It is `src/main/public/remote_overview.js`.
 
 **History** is the machine's charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk in its head is the one `/` is on), disk I/O, network, open tcp
@@ -473,7 +475,7 @@ program still holds them open take on that disk, found through the programs' ope
 named by program: every program as root, only the agent's user's own without. **In no folder
 counted** is the rest, and says only what is known of it: the folders that could not be read,
 and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Above the tree, for
-`/`, what docker and the system journal say they keep. A machine's Overview leads there from its Disk card.
+`/`, what docker and the system journal say they keep.
 
 **Packages** is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package's need, and — from
@@ -518,9 +520,9 @@ itself once they are older than 6 hours (looking every ten minutes; after a fetc
 an hour later), and marks a fetch that went well as apt marks its daily one, in
 `/var/lib/apt/periodic/update-success-stamp`. A machine with no root half, or whose fetch
 fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
-Security page, its Overview, its Configure tab and the rows of **Updates** no
-longer say **up to date** there but **lists 9 days old**, and why. Its Overview says when the
-lists were fetched (**Lists**), and its Configure tab offers **Fetch the lists and install**:
+Security page, its Configure tab and the rows of **Updates** no
+longer say **up to date** there but **lists 9 days old**, and why. Its Configure tab says when
+the lists were fetched, and offers **Fetch the lists and install**:
 Install fetches them first in any case.
 
 **Updates**, at the top of **Remotes**, opens a page of its own, `/remotes/updates`: a row per
@@ -829,7 +831,7 @@ that has gone becomes stopped, and a service with `"start": "always"` is started
 
 ## Testing its link
 
-**Test the link**, on the Agent card of a machine's Overview, measures the link the way a file
+**Test the link**, on the Agent card of a machine's Configure tab, measures the link the way a file
 uses it, in about twenty seconds: zeros sent to the machine as fast as it takes them for eight
 seconds, then from it for eight, a quick call asked every quarter second all the while, and the
 counters of both ends' networks read before and after.

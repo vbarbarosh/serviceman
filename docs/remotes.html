@@ -1041,10 +1041,12 @@ instead (amber from 80%, red from 92%). While it is away, the head says how long
 its state (<code>offline · 3h 11m</code>) and the last numbers it said, dimmed; the range before it went is
 charted in grey only when serviceman read it then, in the minutes before it went, since
 serviceman keeps only the last answer it read for each range. Its <strong>Overview</strong> tab
-shows the services on it, as the Services page&#39;s table; its uptime in one row, its history, then
-cards for the machine (its temperature and battery among them), its agent (its link, and <strong>Test
-the link</strong>), its updates and its logs, each with a link to the tab that does more with it, and
-its raw state folded away at the end.
+shows what no other tab of its page shows: its uptime in one row, its history, a card for the
+machine (its temperature and battery among them), and its raw state folded away at the end; a
+machine that has not dialled in yet has a line saying so there, and its raw state. What has a tab
+of its own is not said there again: the services on it are its <strong>Services</strong> tab, its agent (its
+version, its link and <strong>Test the link</strong>, its node, the user it runs as, its root half) and its
+updates are its <strong>Configure</strong> tab, its logs its <strong>Logs</strong> tab.
 It is <code>src/main/public/remote_overview.js</code>.</p>
 <p><strong>History</strong> is the machine&#39;s charts: CPU, memory, the space on all its disks together (as the remotes list counts it; the Disk in its head is the one <code>/</code> is on), disk I/O, network, open tcp
 connections and ping, over the range picked at the head, said beside its title: the last ten minutes, hour, day, week or month. The agent keeps the numbers on
@@ -1131,7 +1133,7 @@ program still holds them open take on that disk, found through the programs&#39;
 named by program: every program as root, only the agent&#39;s user&#39;s own without. <strong>In no folder
 counted</strong> is the rest, and says only what is known of it: the folders that could not be read,
 and on btrfs that subvolumes mounted nowhere (snapshots) are not gone into. Above the tree, for
-<code>/</code>, what docker and the system journal say they keep. A machine&#39;s Overview leads there from its Disk card.</p>
+<code>/</code>, what docker and the system journal say they keep.</p>
 <p><strong>Packages</strong> is every package dpkg has installed there, read the same way: its version, its
 size, whether it was installed by hand or came along as another package&#39;s need, and — from
 <code>apt-get -s full-upgrade</code>, a dry run that needs no root — the version an upgrade would bring, marked
@@ -1169,9 +1171,9 @@ itself once they are older than 6 hours (looking every ten minutes; after a fetc
 an hour later), and marks a fetch that went well as apt marks its daily one, in
 <code>/var/lib/apt/periodic/update-success-stamp</code>. A machine with no root half, or whose fetch
 fails, keeps lists as old as the last fetch: once they are older than 2 days, Health, the
-Security page, its Overview, its Configure tab and the rows of <strong>Updates</strong> no
-longer say <strong>up to date</strong> there but <strong>lists 9 days old</strong>, and why. Its Overview says when the
-lists were fetched (<strong>Lists</strong>), and its Configure tab offers <strong>Fetch the lists and install</strong>:
+Security page, its Configure tab and the rows of <strong>Updates</strong> no
+longer say <strong>up to date</strong> there but <strong>lists 9 days old</strong>, and why. Its Configure tab says when
+the lists were fetched, and offers <strong>Fetch the lists and install</strong>:
 Install fetches them first in any case.</p>
 <p><strong>Updates</strong>, at the top of <strong>Remotes</strong>, opens a page of its own, <code>/remotes/updates</code>: a row per
 machine with what apt has waiting there (<code>12 to install · 3 security</code>, <code>up to date</code>, <code>wants a restart</code>, <code>lists 9 days old</code>, <code>offline</code>), its system, how many packages are held back and how
@@ -1578,7 +1580,7 @@ says why.</p>
 comes back, a container still running over there is adopted, not started twice, a container
 that has gone becomes stopped, and a service with <code>&quot;start&quot;: &quot;always&quot;</code> is started then.</p>
 <h2 id="testing-its-link"><a class="anchor" href="#testing-its-link" aria-hidden="true" tabindex="-1">#</a>Testing its link</h2>
-<p><strong>Test the link</strong>, on the Agent card of a machine&#39;s Overview, measures the link the way a file
+<p><strong>Test the link</strong>, on the Agent card of a machine&#39;s Configure tab, measures the link the way a file
 uses it, in about twenty seconds: zeros sent to the machine as fast as it takes them for eight
 seconds, then from it for eight, a quick call asked every quarter second all the while, and the
 counters of both ends&#39; networks read before and after.</p>

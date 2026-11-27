@@ -12,7 +12,7 @@ const ABOUT_S = 20;
 // The top of the calls' scale at least: on a quick link a call of 80 ms is no peak
 const WAIT_TOP_LEAST_MS = 1000;
 
-// A machine's link tested from its Overview: bytes both ways for a few seconds each, a quick
+// A machine's link tested from its Configure tab: bytes both ways for a few seconds each, a quick
 // call timed every quarter second all the while, and what both ends' networks dropped and sent
 // again (POST …/link-test). Each way is a chart: its speed over time, red where its bytes stood,
 // and in amber how long a call waited at that moment.

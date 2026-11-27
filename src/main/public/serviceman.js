@@ -31,6 +31,7 @@ import databases_pane from './databases_pane.js';
 import file_manager from 'file_manager/file_manager.js';
 import find_palette from './find_palette.js';
 import fold_table from './fold_table.js';
+import format_bps from './format_bps.js';
 import format_bytes from './format_bytes.js';
 import format_ms from './format_ms.js';
 import forwards_section from './forwards_section.js';
@@ -39,6 +40,7 @@ import item_facts from './item_facts.js';
 import item_slim from './item_slim.js';
 import join_form from './join_form.js';
 import line_row from './line_row.js';
+import link_test_panel from './link_test_panel.js';
 import load_tests_pane from './load_tests_pane.js';
 import logline_link from './logline_link.js';
 import logline_pane from './logline_pane.js';
@@ -797,11 +799,31 @@ const remote_configure = {
             <dd>serviceman-agent {{ view.agent_version || '—' }} <span class="muted">· {{ (view.agent_built === null ? 'from before builds were dated' : 'built ' + view.agent_built) }}</span></dd>
             <dt>This host serves</dt>
             <dd>{{ (served === null ? '—' : 'built ' + served) }}</dd>
+            <template v-if="known">
+                <template v-if="(offline === false)">
+                    <dt>Link</dt>
+                    <dd>{{ (view.latency_ms === null) ? '—' : format_ms(view.latency_ms) }}<span class="muted"> · {{ (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps) }}</span> <button type="button" class="link" @click="link_test_open = true">Test the link</button></dd>
+                </template>
+                <dt>Node</dt>
+                <dd>{{ view.machine.node }}</dd>
+                <template v-if="(view.machine.user !== null)">
+                    <dt>Runs as</dt>
+                    <dd>{{ view.machine.user }}</dd>
+                </template>
+                <template v-if="(view.machine.can !== null)">
+                    <dt>Root half</dt>
+                    <dd>
+                        <span v-if="view.machine.can.includes('root')">answers on this machine</span>
+                        <span v-else class="muted">none — it does what its own user may do</span>
+                    </dd>
+                </template>
+            </template>
         </dl>
         <p v-if="behind" class="muted">The two halves of a machine run from the same file: updating replaces it, the session agent starts again at once, and a root half — where there is one — steps aside for it within the half minute.</p>
         <p v-if="(view.update_refused !== null && view.update_refused !== undefined)" class="alert">Last asked, it answered: {{ view.update_refused }}</p>
         <p v-if="(agent_note !== '')" :class="(agent_bad ? 'bad' : 'muted')">{{ agent_note }}</p>
     </section>
+    <link-test-panel v-if="(known && link_test_open)" :view="view" @close="link_test_open = false"/>
     <section class="card cfg-card">
         <div class="cfg-head">
             <span class="cfg-icon" v-html="icon('download')"></span>
@@ -816,8 +838,9 @@ const remote_configure = {
         <p v-else-if="(apt_able === false)" class="muted">The agent on this machine is from before installing updates.</p>
         <template v-else>
             <p v-if="(updates === null)" class="muted">This machine says nothing about updates — it is not an ubuntu with update-notifier on it.</p>
-            <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
-            <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>. <code>apt-get update</code>, <code>apt-get full-upgrade</code>, then <code>snap refresh</code> where the machine has snap, answering apt's questions as a person would and keeping every config file you changed.</p>
+            <p v-else-if="(updates.pending === null)" class="muted">How many updates wait is not known: apt on this machine did not say.<template v-if="(lists !== null)"> It fetched its package lists {{ lists.ago }}.</template></p>
+            <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed{{ held_said }}.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
+            <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>{{ held_said }}. <code>apt-get update</code>, <code>apt-get full-upgrade</code>, then <code>snap refresh</code> where the machine has snap, answering apt's questions as a person would and keeping every config file you changed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted yet</template>.</template></p>
             <p v-if="((updates !== null) && updates.reboot && ((restart_line() === null) || (restart_line().underway === false)))" class="muted">An installed update wants the machine restarted. <button type="button" class="cfg-act" :disabled="offline" @click="restart_open = true">Restart {{ view.name }}…</button></p>
             <p v-if="(restart_line() !== null)" :class="((restart_line().tone === '') ? 'muted' : restart_line().tone)"><span v-if="restart_line().underway" class="spin"/>{{ restart_line().text }}</p>
             <restart-window v-if="restart_open" :remote="view.name" :title="view.name" why="an installed update wants the machine restarted" :now="Date.now()" @close="restart_open = false"/>
@@ -868,7 +891,7 @@ const remote_configure = {
     </section>
 </article>
 `,
-    components: {'restart-window': restart_window, snip: snippet},
+    components: {'link-test-panel': link_test_panel, 'restart-window': restart_window, snip: snippet},
     props: ['view', 'served', 'answering'],
     data: function () {
         return {
@@ -888,6 +911,8 @@ const remote_configure = {
             updating: false,
             agent_note: '',
             agent_bad: false,
+            // Whether its link's test is open under the Agent card
+            link_test_open: false,
         };
     },
     computed: {
@@ -949,6 +974,11 @@ const remote_configure = {
         lists_old: function () {
             return (this.lists !== null) && this.lists.old;
         },
+        // What apt keeps back, phased updates above all, as a clause after the count: they come
+        // when Ubuntu hands them out
+        held_said: function () {
+            return ((this.updates !== null) && (this.updates.held > 0)) ? `; ${this.updates.held} held back by Ubuntu` : '';
+        },
         // The word beside each card's title: where the agent stands against the one served
         agent_pill: function () {
             if (this.served === null) {
@@ -969,6 +999,10 @@ const remote_configure = {
             if (this.updates === null) {
                 return {tone: '', text: 'not known'};
             }
+            // No count: apt did not say one, and a restart wanted is all there is to say
+            if (this.updates.pending === null) {
+                return this.updates.reboot ? {tone: 'starting', text: 'wants a restart'} : {tone: '', text: 'not known'};
+            }
             if ((this.updates.pending === 0) && this.lists_old) {
                 return {tone: '', text: `lists ${this.lists.days} days old`};
             }
@@ -986,6 +1020,8 @@ const remote_configure = {
         restart_line: function () {
             return restart_said((this.view.restart === undefined) ? null : this.view.restart, Date.now());
         },
+        format_bps,
+        format_ms,
         plural,
         icon: icon_html,
         // The agent fetches the file the host serves and starts again with it, so the link
@@ -1210,7 +1246,7 @@ const remote_files = {
 </article>
 <article v-else-if="(fs_able === false)" id="detail" class="list fm">
     <p class="muted">The agent on this machine is from before the file manager, so its folders cannot be read yet.</p>
-    <p class="muted">It updates itself within a minute or two of being connected; the Overview says when it refuses, and why.</p>
+    <p class="muted">It updates itself within a minute or two of being connected; its Configure tab says when it refuses, and why.</p>
 </article>
 <file-manager v-else id="detail" class="list" :base="base" :theme="theme" :offline="offline" :open_base="open_base" :title="(view.title || view.name)" :user="agent_user" home_title="The home folder of the agent's user" :start="start" transfers="/api/v1/transfers" :disk="view.name" :targets="targets" :acts="acts" @path="$emit('path', $event)" @act="act_take"/>
 `,
@@ -1655,7 +1691,7 @@ const remote_page = {
          a form half filled, a shell mid-session. Another machine is another page, so its
          panes start fresh. -->
     <keep-alive :max="10">
-    <remote-overview v-if="(tab_now === 'overview')" :view="view" :state="state" :served="served" :logline="logline" :charts="charts_shown" @create="$emit('create', view.name)" @select_named="$emit('select_named', $event)" @tab="$emit('tab', $event)"/>
+    <remote-overview v-if="(tab_now === 'overview')" :view="view" :charts="charts_shown" @tab="$emit('tab', $event)"/>
     <article v-else-if="(tab_now === 'services')" id="detail" class="list"><services-pane :state="state" :remote="view.name" embedded @create="$emit('create', view.name)" @select="$emit('select_named', $event)"/></article>
     <remote-databases v-else-if="(tab_now === 'databases')" :key="('databases-' + view.name)" :view="view" @databases="$emit('databases', $event)" @select="$emit('select', $event)"/>
     <remote-configure v-else-if="(tab_now === 'configure')" :key="('configure-' + view.name)" :view="view" :served="served" :answering="answering"/>
