@@ -15,20 +15,19 @@ const logline_pane = {
             <p>Where every line of every remote flows. Each remote sends its own lines straight to Logline and keeps them while it cannot; serviceman only says where Logline is and hands each remote its token.</p>
         </template>
     </page-head>
-    <div class="card svc-status">
-        <div class="row-of svc-state">
-            <span class="pill" :class="head.pill">{{ head.text }}</span>
-            <span class="muted">{{ head.detail }}</span>
-        </div>
-        <div class="actions">
-            <button v-if="(logline !== null)" type="button" class="primary" @click="viewer_open">Open Logline ↗</button>
+    <!-- How it stands, in one band: its pill, what that means, and the ways to it at the right end -->
+    <div class="card ll-state">
+        <span class="pill" :class="head.pill">{{ head.text }}</span>
+        <span class="muted">{{ head.detail }}</span>
+        <span v-if="((logline !== null) || (service !== null))" class="ll-state-acts">
             <button v-if="(service !== null)" type="button" @click="$emit('select', service.name)">Its service page</button>
-        </div>
+            <button v-if="(logline !== null)" type="button" class="primary" @click="viewer_open">Open Logline ↗</button>
+        </span>
     </div>
     <!-- Logline on its machine, kept the same as the one serviceman carries: no terminal needed -->
     <div class="card logline-place">
-        <div class="row-of">
-            <b>On its machine</b>
+        <div class="card-head">
+            <h2>On its machine</h2>
             <span v-if="(place === null)" class="muted"><span class="spin"/>looking…</span>
             <span v-else-if="(place.error !== undefined)" class="bad">{{ place.error }}</span>
             <span v-else-if="(place.differs === 0)" class="muted">{{ place.dir }} on {{ place.remote }}: the same as here</span>
@@ -46,60 +45,66 @@ const logline_pane = {
         <p v-if="((run !== null) && (updating === false))" :class="((run.phase === 'done') ? 'muted' : 'bad')">{{ run.said }}</p>
     </div>
     <logline-days v-if="(logline !== null)"/>
-    <h2>Remotes</h2>
-    <data-table :columns="columns" :rows="rows" row_key="name" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs — add a remote first.">
-        <template #cell="{row, column}">
-            <button v-if="(column.key === 'name')" type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button>
-            <span v-else-if="(column.key === 'stage')" class="pill" :class="row.stage.pill" :title="row.stage.detail">{{ row.stage.text }}</span>
-            <template v-else-if="(column.key === 'sent')">{{ row.sent }}</template>
-            <span v-else-if="(column.key === 'waiting')" :class="{busy: row.behind}">{{ row.waiting }}</span>
-            <span v-else-if="(column.key === 'last')" :class="{bad: row.held}">{{ row.last }}</span>
-        </template>
-        <template #actions="{row}">
-            <button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button>
-        </template>
-    </data-table>
-    <p :class="(bad ? 'bad' : 'muted')">{{ note || 'A remote is switched off on its own Logs tab, where it is asked twice: what is written while it is off is never sent.' }}</p>
-    <h2>Where Logline is</h2>
-    <div class="card svc-status">
-        <template v-if="(editing === false && logline !== null)">
-            <dl>
-                <dt>Endpoint</dt>
-                <dd><code>{{ logline.endpoint }}</code></dd>
-                <dt>Admin token</dt>
-                <dd>
-                    <span v-if="logline.admin_kept">kept in the Secrets library as <code>{{ logline.admin }}</code></span>
-                    <span v-else class="bad">not kept — remotes cannot be given tokens until it is</span>
-                </dd>
-                <dt>Viewer</dt>
-                <dd><code v-if="(logline.ui !== null)">{{ logline.ui }}</code><span v-else class="muted">serviceman's own, at <code>{{ logline.viewer }}</code> of this page</span></dd>
-            </dl>
-            <div class="actions">
-                <button type="button" @click="edit_begin">Change</button>
-            </div>
-        </template>
-        <div v-else class="form">
-            <div class="grid">
-                <label>Endpoint</label>
-                <div>
-                    <input v-model.trim="form.endpoint" placeholder="http://logline:3000/lines" spellcheck="false">
-                    <p class="muted">Where the remotes POST their lines. Empty takes Logline away: no remote sends anything, and once it is back each starts again from that moment.</p>
+    <!-- Each remote, how its sending stands, in a card: its title, the table, and what a remote's
+         own Logs tab does at its foot -->
+    <div class="card list-card">
+        <div class="card-head"><h2>Remotes <span class="muted">{{ rows.length }}</span></h2></div>
+        <data-table class="dt-banded" :columns="columns" :rows="rows" row_key="name" actions_label="Change" empty="No remotes yet. Logs come from remotes, where an agent runs: add a remote first.">
+            <template #cell="{row, column}">
+                <button v-if="(column.key === 'name')" type="button" class="link" :title="('The Logs tab of ' + row.title)" @click="$emit('remote', row.name)">{{ row.title }}</button>
+                <span v-else-if="(column.key === 'stage')" class="pill" :class="row.stage.pill" :title="row.stage.detail">{{ row.stage.text }}</span>
+                <template v-else-if="(column.key === 'sent')">{{ row.sent }}</template>
+                <span v-else-if="(column.key === 'waiting')" :class="{busy: row.behind}">{{ row.waiting }}</span>
+                <span v-else-if="(column.key === 'last')" :class="{bad: row.held}">{{ row.last }}</span>
+            </template>
+            <template #actions="{row}">
+                <button v-if="row.off" type="button" :disabled="busy" @click="send(row.name)">Send its logs</button>
+            </template>
+        </data-table>
+        <div class="dt-foot list-foot"><span :class="{bad}">{{ note || 'A remote is switched off on its own Logs tab, where it is asked twice: what is written while it is off is never sent.' }}</span></div>
+    </div>
+    <div class="card">
+        <div class="card-head">
+            <h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/></svg>Where Logline is</h2>
+            <button v-if="(editing === false && logline !== null)" type="button" @click="edit_begin">Change</button>
+        </div>
+        <div class="card-body ll-where">
+            <template v-if="(editing === false && logline !== null)">
+                <dl>
+                    <dt>Endpoint</dt>
+                    <dd><code>{{ logline.endpoint }}</code></dd>
+                    <dt>Admin token</dt>
+                    <dd>
+                        <span v-if="logline.admin_kept">kept in the Secrets library as <code>{{ logline.admin }}</code></span>
+                        <span v-else class="bad">not kept — remotes cannot be given tokens until it is</span>
+                    </dd>
+                    <dt>Viewer</dt>
+                    <dd><code v-if="(logline.ui !== null)">{{ logline.ui }}</code><span v-else class="muted">serviceman's own, at <code>{{ logline.viewer }}</code> of this page</span></dd>
+                </dl>
+            </template>
+            <div v-else class="form">
+                <div class="grid">
+                    <label>Endpoint</label>
+                    <div>
+                        <input v-model.trim="form.endpoint" placeholder="http://logline:3000/lines" spellcheck="false">
+                        <p class="muted">Where the remotes POST their lines. Empty takes Logline away: no remote sends anything, and once it is back each starts again from that moment.</p>
+                    </div>
+                    <label>Admin token</label>
+                    <div>
+                        <input v-model.trim="form.admin_token" type="password" autocomplete="off" :placeholder="((logline !== null && logline.admin_kept) ? 'kept — type a new one to replace it' : 'ADMIN_TOKEN from logline/.env')" spellcheck="false">
+                        <p class="muted">serviceman asks Logline for each remote's token with it. It goes into the Secrets library, never into serviceman.json, and is never shown again.</p>
+                    </div>
+                    <label>Viewer</label>
+                    <div>
+                        <input v-model.trim="form.ui" placeholder="empty: serviceman's own" spellcheck="false">
+                        <p class="muted">Where Logline's log viewer is: Open Logline above goes there. Empty, it opens the viewer serviceman serves on this page, behind its sign-in, which reads Logline through its machine's agent.</p>
+                    </div>
                 </div>
-                <label>Admin token</label>
-                <div>
-                    <input v-model.trim="form.admin_token" type="password" autocomplete="off" :placeholder="((logline !== null && logline.admin_kept) ? 'kept — type a new one to replace it' : 'ADMIN_TOKEN from logline/.env')" spellcheck="false">
-                    <p class="muted">serviceman asks Logline for each remote's token with it. It goes into the Secrets library, never into serviceman.json, and is never shown again.</p>
+                <div class="actions">
+                    <button type="button" :disabled="saving" @click="logline_save">Save</button>
+                    <button v-if="(logline !== null)" type="button" @click="editing = false">Cancel</button>
+                    <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
                 </div>
-                <label>Viewer</label>
-                <div>
-                    <input v-model.trim="form.ui" placeholder="empty: serviceman's own" spellcheck="false">
-                    <p class="muted">Where Logline's log viewer is: Open Logline above goes there. Empty, it opens the viewer serviceman serves on this page, behind its sign-in, which reads Logline through its machine's agent.</p>
-                </div>
-            </div>
-            <div class="actions">
-                <button type="button" :disabled="saving" @click="logline_save">Save</button>
-                <button v-if="(logline !== null)" type="button" @click="editing = false">Cancel</button>
-                <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
             </div>
         </div>
     </div>

@@ -12,8 +12,10 @@ import module_kind from './module_kind.js';
 // gives the columns and how each is shown (as), the field that names an item (key), what it is
 // searched by (search), how it stands as a tree (tree) or in groups (group), and the order it
 // starts in (sort; a tree's is the order of its List). The page draws every module's lists the
-// same way: a filter, Refresh, the commands to copy, a header that sorts, a tree that folds,
-// the rest asked for past a screenful.
+// same way, as the kit's table card every other page has: a filter, the chips, Refresh and the
+// commands to copy in its top, a band of headers that sort, a tree that folds, the rest asked
+// for past a screenful, a footer of counts. Its actions stay in their own column, where a
+// module's rows are changed one click at a time, not behind a ⋯.
 //
 // Props
 //     base           the module's GET for the items
@@ -34,7 +36,9 @@ import module_kind from './module_kind.js';
 //     row_class      (item) => classes of its row, such as dim
 //     more           (item, key) => whether that cell has more to say in the row's bar
 //     reading        what is said while the list is read, when it takes a while
-//     empty          what is said when there is no item at all
+//     empty          what is said when there is no item at all; with empty_title, the card
+//                    says it as the kit's empty state: empty_icon (the inside of a 24x24 svg),
+//                    empty_title and it, with slot empty_act
 //     empty_busy     true while that is work going on (the module still asking its machines):
 //                    a ring turns in front of it
 //     none_shown     what is said when the module's filter leaves none
@@ -43,16 +47,22 @@ import module_kind from './module_kind.js';
 //     pick           (item) => the page shows the item whole, its own way: a click on its row
 //                    picks it, and opens or closes the branch it heads; no mark down the left
 //                    edge, no details under a row. picked is the key of the one picked
+//     title          the card's own title, in a band over its tools, with its count
 //     group_cells    the last columns a group's own row keeps as cells of its own, in line with
 //                    its items' ('actions' among them for its actions), drawn by the slots
 //                    group-<key> and group_actions: a project's total under its containers'
 //                    sizes; its head takes the columns before them
 //
 // Slots
-//     tools          {items}: the module's own buttons, after the filter
-//     summary        {items, matches, answer}: a line of totals under the tools; matches is
-//                    how many the filter typed lets through, null with none typed
+//     tools          {items}: the module's own buttons, after the filter; chips that pick one
+//                    of several go in a span.dt-chips, joined as the kit's
+//     summary        {items, matches, answer}: what the whole list comes to, under the tools
+//                    (a bar of what a disk holds); matches is how many the filter typed lets
+//                    through, null with none typed
+//     foot           {items, matches, answer}: the card's footer, its counts in a line
 //     cell-<key>     {item, row, more}: a cell the module draws itself, in place of its `as`
+//     head_acts      what the band of the card's title holds at its end: New volume
+//     empty_act      the primary action of the card's empty state
 //     group_head     {group}: a group's own row, across the table, its items under it
 //     group-<key>    {group}: a cell of a group's own row, for a column of group_cells
 //     group_actions  {group, ask}: a group's actions, where group_cells names them
@@ -67,9 +77,10 @@ const AT_ONCE = 300;
 
 const items_view = {
     template: `
-<div class="items-view">
+<div class="items-view card list-card">
+    <div v-if="(title !== '')" class="card-head"><h2>{{ title }} <span class="muted">{{ all.length }}</span></h2><slot name="head_acts"/></div>
     <div v-if="tools_shown" class="list-tools">
-        <input v-if="searched" v-model.trim="query" type="search" :placeholder="search_said" spellcheck="false" :aria-label="search_said">
+        <input v-if="searched" v-model.trim="query" type="search" class="find-box" :placeholder="search_said" spellcheck="false" :aria-label="search_said">
         <slot name="tools" :items="all"/>
         <span class="list-right">
             <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
@@ -79,14 +90,20 @@ const items_view = {
             </span>
             <button v-if="fold_shown" type="button" @click="fold_all">{{ (folded ? 'Unfold all' : 'Fold all') }}</button>
             <template v-if="(items === null)">
-                <button type="button" :disabled="(busy || offline || (kind_now === null))" @click="read">Refresh</button>
+                <button type="button" class="icon-button" title="Refresh" aria-label="Refresh" :disabled="(busy || offline || (kind_now === null))" @click="read"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg></button>
                 <command-copy :commands="commands"/>
             </template>
         </span>
     </div>
-    <slot name="summary" :items="all" :matches="matches" :answer="answer"/>
-    <p v-if="((kind_now !== null) && read_once && (all.length === 0) && (bad === false))" class="muted"><span v-if="empty_busy" class="spin"/>{{ empty }}</p>
-    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => ((v.group === null) || group_cells.includes('actions'))" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
+    <div class="list-band"><slot name="summary" :items="all" :matches="matches" :answer="answer"/></div>
+    <div v-if="(none_at_all && (empty_busy === false) && (empty_title !== ''))" class="dt-empty-big">
+        <span class="dt-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="empty_icon"/></span>
+        <h3>{{ empty_title }}</h3>
+        <p>{{ empty }}</p>
+        <slot name="empty_act"/>
+    </div>
+    <p v-else-if="none_at_all" class="muted list-empty"><span v-if="empty_busy" class="spin"/>{{ empty }}</p>
+    <data-table v-if="((kind_now !== null) && (all.length > 0))" :key="list_key" class="dt-banded" :columns="table_columns" :rows="rows" :row_key="v => v.key" :more="cell_more" :row_class="row_classes" :depth="(is_tree ? (v => v.depth) : null)" :branch="(is_tree ? branch_of : null)" :acts="v => ((v.group === null) || group_cells.includes('actions'))" :limit="AT_ONCE" :sort="sort" :head="head" :actions_label="actions_label" :empty="matches_none" :on_row="((pick === null) ? null : row_pick)" :marks="(pick === null)" :chosen="((pick === null) ? null : (v => ((picked !== null) && (String(v.key) === String(picked)))))" @sort="sort_by" @branch="branch_toggle">
         <template #cell="{row, column, more}">
             <template v-if="(row.group !== null)">
                 <div v-if="(column === table_columns[0])" class="iv-group-head"><slot name="group_head" :group="row.group">{{ row.group }}</slot></div>
@@ -119,6 +136,7 @@ const items_view = {
         <template v-if="($slots.details !== undefined)" #details="{row}"><slot v-if="(row.group === null)" name="details" :item="row.item"/></template>
         <template v-if="($slots.below !== undefined)" #below="{row}"><slot v-if="(row.group === null)" name="below" :item="row.item"/></template>
     </data-table>
+    <div class="dt-foot list-foot"><slot name="foot" :items="all" :matches="matches" :answer="answer"/></div>
 </div>
 `,
     components: {'command-copy': command_copy, 'data-table': data_table},
@@ -144,6 +162,9 @@ const items_view = {
         pick: {type: Function, default: null},
         picked: {default: null},
         group_cells: {type: Array, default: () => []},
+        title: {type: String, default: ''},
+        empty_icon: {type: String, default: ''},
+        empty_title: {type: String, default: ''},
     },
     emits: ['answer'],
     data: function () {
@@ -154,6 +175,10 @@ const items_view = {
     computed: {
         all: function () {
             return (this.items === null) ? this.read_items : this.items;
+        },
+        // Read, and nothing at all there, not nothing that matches
+        none_at_all: function () {
+            return (this.kind_now !== null) && this.read_once && (this.all.length === 0) && (this.bad === false);
         },
         // The tools of a list it reads, or of one given that has something to offer: a filter,
         // the module's own buttons, the tree's

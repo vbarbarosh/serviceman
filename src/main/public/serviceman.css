@@ -1154,6 +1154,8 @@ a.dt-address:hover {
     background: none;
     color: inherit;
     font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
     transition: color .12s ease;
 }
 
@@ -6737,6 +6739,56 @@ button.chip {
     margin-left: auto;
 }
 
+/* A terminal as a card, as the design draws it: the line saying what it is above it; its tabs,
+   or its name, the card's head band; the terminal; how it stands, the card's foot; what the
+   page adds (a container's instances) under the card */
+.terminal.term-card {
+    grid-template-rows: auto 1fr auto auto;
+}
+
+.terminal.term-card > .term {
+    order: 1;
+    margin: 0;
+    border-top: 0;
+    border-bottom: 0;
+    border-radius: 0;
+}
+
+.term-card > p {
+    order: 2;
+    margin: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 0 0 6px 6px;
+    background: var(--panel-2);
+}
+
+.term-card > :not(:first-child, .term, p) {
+    order: 3;
+    margin-top: 12px;
+}
+
+.term-lead {
+    margin: 0 0 12px;
+}
+
+.term-card .term-tabs,
+.term-card .term-band {
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px 6px 0 0;
+    background: var(--panel-2);
+}
+
+.term-card .term-band {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 14px;
+}
+
 button.chip.on {
     border-color: var(--accent);
     background: var(--sel);
@@ -7072,7 +7124,9 @@ a.button:hover {
     background: var(--bad);
 }
 
-/* A machine's Logs tab: where its lines go, and a row of the numbers its sending moves */
+/* A machine's Logs tab: how its sending stands as a card's head, Off or All containers at its
+   right end, where its lines go under it; the numbers its sending moves; then the folders read
+   and where Logline is, side by side */
 article.logline {
     display: flex;
     flex-direction: column;
@@ -7083,9 +7137,29 @@ article.logline > p {
     margin: 0;
 }
 
+.ll-head {
+    flex-wrap: wrap;
+}
+
+.ll-head > .seg {
+    margin-left: auto;
+}
+
+.ll-body {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+
+.ll-body > *,
+article.logline p.card-body,
+article.logline .card-body > p {
+    margin: 0;
+}
+
 .logline-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: .75rem;
 }
 
@@ -7119,13 +7193,39 @@ article.logline > p {
     -webkit-line-clamp: 3;
 }
 
-/* The folders read, a line each: the path breaks anywhere rather than a column of it */
-.logline-place {
-    padding: .75rem 1rem;
+/* Logline's page: how it stands in one band, the ways to it at its right end */
+.ll-state {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    align-items: center;
+    padding: 12px 14px;
 }
 
-.logline-place .row-of {
+.ll-state-acts {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Logline on its machine: the card's head says how it stands beside its title, its files and
+   Update under it */
+.logline-place {
+    padding: 0 0 14px;
+}
+
+.logline-place > .card-head {
     flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.logline-place > .card-head > h2 + * {
+    margin-left: 0;
+}
+
+.logline-place > :not(.card-head) {
+    margin-right: 18px;
+    margin-left: 18px;
 }
 
 .logline-files {
@@ -7207,6 +7307,7 @@ article.logline > p {
     align-items: center;
 }
 
+/* The folders read, a line each: the path breaks anywhere rather than a column of it */
 .logline-dirs {
     display: flex;
     flex-direction: column;
@@ -8005,8 +8106,9 @@ article.ov-pane {
     }
 }
 
-/* A remote's Configure tab: one card per thing it looks after, each saying where it stands
-   beside its title, with the one button that changes it */
+/* A remote's Configure tab: one card per thing it looks after, its head the kit's band saying
+   where it stands beside its title, with the one button that changes it at its right end; the
+   agent and the updates side by side while there is room */
 article.cfg {
     display: flex;
     flex-direction: column;
@@ -8022,19 +8124,27 @@ article.ov-pane > *,
     flex: none;
 }
 
-article.cfg h1 + p {
+article.cfg > p {
     margin: 0;
 }
 
-article.cfg > .alert {
-    margin: 0;
+.cfg-pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
+    gap: 1rem;
+    align-items: start;
 }
 
 .cfg-card {
     display: flex;
     flex-direction: column;
     gap: .6rem;
-    padding: .55rem 1rem 1rem;
+    padding: 0 0 16px;
+}
+
+.cfg-card > :not(.cfg-head) {
+    margin-right: 18px;
+    margin-left: 18px;
 }
 
 .cfg-card p,
@@ -8043,21 +8153,19 @@ article.cfg > .alert {
     margin: 0;
 }
 
-/* The button is taller than the title: the room above the header equals the room under it,
-   so the button sits in the middle of the strip, not against its line */
 .cfg-head {
-    display: flex;
     flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-    min-height: 2.8rem;
-    padding-bottom: .55rem;
-    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+}
+
+/* Where it stands, beside its title; the button alone goes to the right end */
+.cfg-head > h2 + .pill {
+    margin-left: 0;
 }
 
 .cfg-icon {
     display: inline-flex;
-    color: var(--muted);
+    color: var(--link);
 }
 
 .cfg-act {
@@ -8123,14 +8231,148 @@ textarea.secret-hidden {
     margin: 0;
 }
 
-/* A group's own row in a tree of groups (items_view): across the table, its mark first, its items
-   under it */
+/* A list in a card, as the kit's table card every page has: the filter, the chips and the
+   buttons in its top (list-tools), a band under them of what the whole comes to (list-band), a
+   band of headers, rows with a line between, a footer of counts (list-foot). Every module's
+   list (items_view) is one, and a module's table of its own. Its actions keep their own column,
+   a click each, not behind a ⋯ as a framed table's. */
+.list-card {
+    /* Cut to its round corners, while a sticky bar in it still sticks to what scrolls the page */
+    overflow: clip;
+}
+
+/* Its title band lets the buttons at its end take a line of their own where the title and they
+   do not fit side by side, on a phone */
+.list-card > .card-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.list-card > .list-tools {
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+/* The kit's find box, a magnifier in it: a list card's, Files' */
+input.find-box {
+    width: 300px;
+    max-width: 100%;
+    height: 36px;
+    padding: 0 12px 0 34px;
+    background: var(--code) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8c80' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E") 11px 50% / 15px no-repeat;
+}
+
+/* On a phone it takes its line, as the framed table's does */
+@media (max-width: 600px) {
+    input.find-box {
+        width: 100%;
+    }
+}
+
+.list-card > .list-tools button,
+.list-card > .list-tools > .list-right > .seg > button {
+    height: 36px;
+}
+
+.list-card > .list-tools > .list-right > .seg > button {
+    padding: 0 13px;
+    font-size: 14px;
+}
+
+/* A button of one icon, its word in its title: Refresh */
+button.icon-button {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--muted);
+}
+
+button.icon-button:hover {
+    color: var(--fg);
+}
+
+/* What the whole list comes to, a band under the tools; nothing to say, no band */
+.list-card > .list-band {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.list-card > .list-band:empty,
+.list-card > .list-foot:empty {
+    display: none;
+}
+
+.list-card > .list-band > p {
+    margin: 0;
+}
+
+.list-card > .list-empty {
+    margin: 0;
+    padding: 18px 14px;
+}
+
+.list-card > .data-table-room {
+    margin: 0;
+}
+
+/* A list's table with the kit's band of headers and lines between its rows, in a list card or
+   another card of its own (Files) */
+.dt-banded {
+    --dt-first: 14px;
+}
+
+.dt-banded > .fold-room > table.data-table > thead > tr > th {
+    height: 40px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.dt-banded > .fold-room > table.data-table > tbody > tr > td {
+    height: 44px;
+    padding: 6px 14px;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+}
+
+.dt-banded > .fold-room > table.data-table > tbody > tr:first-child > td {
+    border-top: 0;
+}
+
+.dt-banded > .fold-room > table.data-table > tbody > tr.foldable:hover {
+    background: var(--hover);
+}
+
+/* A group's own row in a tree of groups (items_view): across the table, a band its name in the
+   text's colour, its mark first, its items under it */
 .fold-room > table.data-table > tbody > tr.iv-group > td {
     padding-top: .9rem;
     color: var(--muted);
     font-size: .8rem;
     font-weight: 600;
     white-space: normal;
+}
+
+.dt-banded > .fold-room > table.data-table > tbody > tr.iv-group > td {
+    padding-top: 6px;
+    background: var(--panel-2);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.dt-banded > .fold-room > table.data-table > tbody > tr.iv-group b {
+    color: var(--fg);
 }
 
 /* Its mark and its head on one line: a spread cell's children each take the whole cell
@@ -8982,6 +9224,25 @@ button.st-pill.problem-where {
 .shared-folders .sf-card p,
 .shared-folders .sf-card dl {
     margin: 0;
+}
+
+/* No home yet: a band of the waiting colour over the empty list, its title with a house */
+.shared-folders .sf-home-first {
+    padding: 16px 18px;
+    border-color: color-mix(in srgb, var(--busy) 45%, var(--line));
+    background: var(--busy-soft);
+}
+
+.shared-folders .sf-home-first h3 {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    font-size: 15px;
+}
+
+.shared-folders .sf-home-first h3 svg {
+    color: var(--busy-text);
 }
 
 .shared-folders .sf-delete {

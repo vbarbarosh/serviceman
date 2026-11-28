@@ -14,13 +14,15 @@ const packages = {
 <article class="packages">
     <items-view :base="base" module="packages" :offline="offline" :connected_at="connected_at" :filter="shown" :filter_name="show" reading="reading… dpkg, then a dry-run upgrade, which takes a second or two" empty="dpkg lists no package on this machine." @answer="answer_read">
         <template #tools="{items}">
-            <button v-for="chip of chips_of(items)" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" :title="chip.title" @click="show = chip.value">
-                {{ chip.label }}
-                <span class="muted">{{ chip.count }}</span>
-            </button>
+            <span class="dt-chips">
+                <button v-for="chip of chips_of(items)" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" :title="chip.title" @click="show = chip.value">
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
         </template>
-        <template #summary="{items}">
-            <p v-if="(items.length > 0)" class="muted">{{ summary_of(items) }}</p>
+        <template #foot="{items}">
+            <span v-if="(items.length > 0)">{{ summary_of(items) }}</span>
         </template>
         <template #cell-name="{item}">
             <code>{{ item.name }}</code><span v-if="((item.arch !== native) && (item.arch !== 'all'))" class="muted">:{{ item.arch }}</span>

@@ -1,6 +1,6 @@
 /* The Docker module's own rules. The host page gives the colours (--panel, --line, --muted)
-   and the classes the module shares with it: card, list-head, list-acts, list-table, dot,
-   muted, bad, primary, danger. */
+   and the classes the module shares with it: card, list-head, list-acts, list-table, dt-chips,
+   icon-button, st-pill, dot, muted, bad, primary, danger. */
 
 /* The parts one under another, each keeping its own height */
 .dk {
@@ -211,13 +211,29 @@
     height: 34rem;
 }
 
-/* On a phone the tabs take two lines rather than going off the screen */
+/* The card over the table: the four lists joined as one switch, what goes on, Prune and
+   Refresh at its right end; on a phone it takes two lines rather than going off the screen */
 .dk-tabs {
+    display: flex;
     flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
 }
 
 .dk-tabs .chip .muted {
     margin-left: .25rem;
+}
+
+.dk-tabs > .list-acts {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.dk-tabs button {
+    height: 36px;
 }
 
 /* How far a long action is: the bar, and the numbers beside it */
@@ -304,7 +320,8 @@
 }
 
 .dk-bar-wide {
-    width: 14rem;
+    width: 100%;
+    height: .6rem;
 }
 
 .dk-image {
@@ -337,14 +354,22 @@
     background: color-mix(in srgb, var(--idle) 40%, var(--panel));
 }
 
-/* The machine's line over the tree: the total, its bar, each part with its colour */
+/* What docker holds on the machine's disk, in the card over the table: the total and the images
+   no container uses, a bar across the card of its parts, each part's colour and figure */
 .dk-disk-sum {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 14px 14px;
+    font-size: .875rem;
+}
+
+.dk-disk-line,
+.dk-disk-keys {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: .35rem 1rem;
-    margin: .7rem 0 .5rem;
-    font-size: .875rem;
 }
 
 .dk-disk-head {
@@ -438,12 +463,15 @@
         display: none;
     }
 
-    .dk-size b {
-        min-width: 0;
+    /* The four lists are what the tab shows: past the screen's edge they scroll into view under
+       the kit's fade, never cut off as a filter's chips may be */
+    .dk-tabs .dt-chips {
+        overflow-x: auto;
+        scrollbar-width: none;
     }
 
-    .dk-bar-wide {
-        width: 100%;
+    .dk-size b {
+        min-width: 0;
     }
 }
 

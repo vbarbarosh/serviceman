@@ -162,7 +162,7 @@ const file_manager = {
                 <span class="list-right"><button type="button" @click="chosen = {}">Clear</button></span>
             </template>
             <template v-else>
-                <input v-model.trim="filter" type="search" placeholder="filter this folder" spellcheck="false">
+                <input v-model.trim="filter" type="search" class="find-box" placeholder="filter this folder" spellcheck="false">
                 <button type="button" class="chip" :class="{on: show_dot_files}" :aria-pressed="(show_dot_files ? 'true' : 'false')" :title="(show_dot_files ? 'Hide the names that start with a dot' : 'Show the names that start with a dot')" @click="show_dot_files = !show_dot_files"><span class="chip-check" aria-hidden="true"></span>dot files <span class="muted">{{ dot_count }}</span></button>
                 <span class="list-right">
                     <button type="button" class="add" :disabled="(offline || path === null)" @click="mode_open('folder')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New folder</button>
@@ -225,7 +225,7 @@ const file_manager = {
         </div>
     </copy-progress>
     <!-- The whole row is the control: a folder opens, a file takes the tick -->
-    <data-table v-if="(path !== null)" class="fm-table" :columns="columns" :rows="items_shown" row_key="name" :empty="empty_text" :sort="{key: sort, down: sort_desc}" :selected="chosen_names" :chosen="row_chosen" :on_row="row_click" @sort="sort_by" @selected="chosen_set">
+    <data-table v-if="(path !== null)" class="fm-table dt-banded" :columns="columns" :rows="items_shown" row_key="name" :empty="empty_text" :sort="{key: sort, down: sort_desc}" :selected="chosen_names" :chosen="row_chosen" :on_row="row_click" @sort="sort_by" @selected="chosen_set">
         <template #cell="{row, column}">
             <template v-if="(column.key === 'name')">
                 <svg v-if="(row.kind === 'dir')" class="dt-icon fm-dir" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>

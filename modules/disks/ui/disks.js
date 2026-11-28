@@ -14,9 +14,9 @@ const disks = {
 <article class="disks">
     <items-view :base="base" module="disks" :offline="offline" :connected_at="connected_at" :filter="(show_all ? null : (v => v.disk))" :filter_name="(show_all ? 'all' : 'disks')" :row_class="v => ((v.disk === false) ? 'dim' : [])" :more="(v, key) => ((key === 'mounts') && (v.mounts.length > 4))" empty="Nothing is mounted on this machine." none_shown="No disks of its own — everything mounted here is tmpfs, overlay or a loop image. The chip above shows them.">
         <template #tools="{items}">
-            <span>{{ summary_of(items) }}</span>
+            <b>{{ summary_of(items) }}</b>
+            <span class="dt-chips"><button type="button" class="chip" :class="{on: show_all}" :aria-pressed="(show_all ? 'true' : 'false')" :title="(show_all ? 'Show the disks alone' : 'Show tmpfs, overlay and loop mounts too')" @click="show_all = (show_all === false)"><span class="chip-check" aria-hidden="true"></span>everything mounted <span class="muted">{{ items.length }}</span></button></span>
             <button v-if="(usage_disk === null && items.some(v => v.disk))" type="button" title="Count what the folders of the main disk hold, biggest first" @click="usage_disk = main_disk(items)">What takes the space</button>
-            <button type="button" class="chip" :class="{on: show_all}" :aria-pressed="(show_all ? 'true' : 'false')" :title="(show_all ? 'Show the disks alone' : 'Show tmpfs, overlay and loop mounts too')" @click="show_all = (show_all === false)"><span class="chip-check" aria-hidden="true"></span>everything mounted <span class="muted">{{ items.length }}</span></button>
         </template>
         <template #cell-mounts="{item, more}">
             <code>{{ item.mounts[0] }}</code>

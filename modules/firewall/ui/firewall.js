@@ -6,7 +6,7 @@ import items_view from '../../items_view.js';
 // how far its address reaches and what the firewall does to it, Allow or Close from its row;
 // then the rules as ufw keeps them, a row to add one and × to delete one, with Undo. A change
 // shows at once, marked while the machine makes it. The host page gives the API, the colours
-// and its usual classes: card, list-head, list-acts, dot, pill, muted, bad, primary, link; its
+// and its usual classes: card, list-card, list-acts, st-pill, pill, muted, bad, primary, link; its
 // rules are the page's items-view, drawn as the manifest's columns say, and its ports the page's
 // data-table, both imported from the page beside it.
 
@@ -55,14 +55,15 @@ const firewall = {
         <div><button type="button" :disabled="offline" @click="read">Refresh</button></div>
     </div>
     <template v-else>
-        <div class="list-head">
-            <span class="dot" :class="{running: state.active}"/>
-            <b>{{ (state.active ? 'On' : 'Off') }}</b>
-            <span class="muted fw-cut" :title="defaults_text">{{ defaults_text }}</span>
+        <!-- How it stands, in one band: on or off, its defaults, what goes on; Turn off and
+             Refresh at its right end -->
+        <div class="card fw-state">
+            <span class="st-pill" :class="(state.active ? 'run' : 'idle')"><i aria-hidden="true"/>{{ (state.active ? 'on' : 'off') }}</span>
+            <span class="fw-cut" :title="defaults_text">{{ defaults_text }}</span>
             <span v-if="(note !== '')" class="fw-cut" :class="(bad ? 'bad' : 'muted')" :title="note"><span v-if="busy" class="spin"/>{{ note }}</span>
             <div class="list-acts">
                 <button type="button" :class="{primary: (state.active === false)}" :disabled="(busy || offline)" @click="switch_to(state.active ? 'disable' : 'enable')">{{ (state.active ? 'Turn off' : 'Turn on') }}</button>
-                <button type="button" :disabled="(busy || offline)" @click="read">Refresh</button>
+                <button type="button" class="icon-button" title="Refresh" aria-label="Refresh" :disabled="(busy || offline)" @click="read"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg></button>
             </div>
         </div>
         <!-- Turning it on with nothing to let ssh in closes ssh; the host says what still reaches it -->
@@ -75,7 +76,8 @@ const firewall = {
             <button type="button" :disabled="(busy || offline)" @click="undo_run">Undo</button>
             <button type="button" class="link" aria-label="Close" @click="undo = null">×</button>
         </div>
-        <h3 class="fw-title">Listening ports <span :class="(ports_bad ? 'bad' : 'muted')"><span v-if="ports_reading" class="spin"/>{{ ports_note }}</span></h3>
+        <!-- How many ports reach how far, then each port in a card: a filter, the chips, the
+             table, and where the machine is at its foot -->
         <template v-if="(ports !== null)">
             <div class="fw-tiles">
                 <div class="card fw-tile" :class="{hot: (counts.open > 0)}">
@@ -99,33 +101,39 @@ const firewall = {
                     <small class="muted">loopback: nothing outside can knock</small>
                 </div>
             </div>
-            <p v-if="(addresses !== null && addresses.length > 0)" class="muted fw-at">This machine is at <code v-for="address of addresses" :key="address">{{ address }}</code></p>
-            <div class="fw-filter">
-                <input v-model="query" type="search" placeholder="Filter by port or program" spellcheck="false" aria-label="Filter ports">
-                <button v-for="option of SHOWS" :key="option.value" type="button" class="chip" :class="{on: (show === option.value)}" @click="show = option.value">{{ option.label }}</button>
-            </div>
-            <data-table class="fw-ports" :columns="PORT_COLUMNS" :rows="shown" row_key="key" :row_class="port_class" :empty="(port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.')" actions_label="Change">
-                <template #cell="{row, column}">
-                    <template v-if="(column.key === 'port')"><span class="fw-port">{{ (row.port === 0 ? '*' : row.port) }}</span><span class="muted">/{{ row.proto }}</span></template>
-                    <template v-else-if="(column.key === 'reach')"><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></template>
-                    <span v-else-if="(column.key === 'firewall')" :class="verdict_class(row)" :title="(row.verdict.rule === null ? '' : ('ufw ' + row.verdict.rule.command))">{{ row.verdict.text }}</span>
-                    <span v-else class="muted">{{ row.held }}</span>
-                </template>
-                <template #actions="{row}">
-                    <span v-if="(pending[row.key] !== undefined)" class="muted"><span class="spin"/>{{ pending[row.key] }}</span>
-                    <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
-                    <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
-                    <span v-else-if="row.verdict.docker" class="muted" title="Docker publishes it on this address, and its rules come before ufw's: publish it on 127.0.0.1 or the tailnet address instead, in its docker run or compose file">published by Docker</span>
-                    <span v-else-if="(row.verdict.kind === 'open')" class="muted" title="Let in by the default policy or by a wider rule: change the rules below">by a rule below</span>
-                </template>
-            </data-table>
-            <details v-if="(ports.commands !== undefined && ports.commands.length > 0)" class="fw-how">
-                <summary class="muted">How the ports were read</summary>
-                <code v-for="command of ports.commands" :key="command">{{ command }}</code>
-            </details>
         </template>
-        <h3 class="fw-title">Rules <span class="muted">{{ rules.length }}</span></h3>
-        <items-view class="fw-rules" :items="rules" module="firewall" kind="rules" :row_class="rule_class" :empty="('No rules. ' + (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.'))" actions_label="Change">
+        <div class="card list-card fw-ports-card">
+            <div class="card-head"><h2>Listening ports <span :class="(ports_bad ? 'bad' : 'muted')"><span v-if="ports_reading" class="spin"/>{{ ports_note }}</span></h2></div>
+            <template v-if="(ports !== null)">
+                <div class="list-tools">
+                    <input v-model="query" type="search" class="find-box" placeholder="Filter by port or program" spellcheck="false" aria-label="Filter ports">
+                    <span class="dt-chips">
+                        <button v-for="option of SHOWS" :key="option.value" type="button" class="chip" :class="{on: (show === option.value)}" @click="show = option.value">{{ option.label }} <span class="muted">{{ show_count(option.value) }}</span></button>
+                    </span>
+                </div>
+                <data-table class="fw-ports dt-banded" :columns="PORT_COLUMNS" :rows="shown" row_key="key" :row_class="port_class" :empty="(port_rows.length === 0 ? 'This machine listens on no port.' : 'No port matches.')" actions_label="Change">
+                    <template #cell="{row, column}">
+                        <template v-if="(column.key === 'port')"><span class="fw-port">{{ (row.port === 0 ? '*' : row.port) }}</span><span class="muted">/{{ row.proto }}</span></template>
+                        <template v-else-if="(column.key === 'reach')"><span class="pill" :class="row.reach.tone">{{ row.reach.text }}</span> <code class="muted">{{ row.addresses.join(' ') }}</code></template>
+                        <span v-else-if="(column.key === 'firewall')" :class="verdict_class(row)" :title="(row.verdict.rule === null ? '' : ('ufw ' + row.verdict.rule.command))">{{ row.verdict.text }}</span>
+                        <span v-else class="muted">{{ row.held }}</span>
+                    </template>
+                    <template #actions="{row}">
+                        <span v-if="(pending[row.key] !== undefined)" class="muted"><span class="spin"/>{{ pending[row.key] }}</span>
+                        <button v-else-if="(row.verdict.kind === 'closed')" type="button" :disabled="(busy || offline)" :title="('ufw allow ' + row.port + '/' + row.proto)" @click="port_allow(row)">Allow</button>
+                        <button v-else-if="(row.verdict.kind === 'open' && closable(row))" type="button" :disabled="(busy || offline)" :title="('Delete ufw ' + row.verdict.rule.command)" @click="port_close(row)">Close</button>
+                        <span v-else-if="row.verdict.docker" class="muted" title="Docker publishes it on this address, and its rules come before ufw's: publish it on 127.0.0.1 or the tailnet address instead, in its docker run or compose file">published by Docker</span>
+                        <span v-else-if="(row.verdict.kind === 'open')" class="muted" title="Let in by the default policy or by a wider rule: change the rules below">by a rule below</span>
+                    </template>
+                </data-table>
+                <div v-if="(addresses !== null && addresses.length > 0)" class="dt-foot list-foot fw-at">This machine is at <code v-for="address of addresses" :key="address">{{ address }}</code></div>
+            </template>
+        </div>
+        <details v-if="((ports !== null) && (ports.commands !== undefined) && (ports.commands.length > 0))" class="fw-how">
+            <summary class="muted">How the ports were read</summary>
+            <code v-for="command of ports.commands" :key="command">{{ command }}</code>
+        </details>
+        <items-view class="fw-rules" title="Rules" :items="rules" module="firewall" kind="rules" :row_class="rule_class" :empty="('No rules. ' + (state.active ? 'Only what the defaults allow gets through.' : 'Add one below, then turn the firewall on.'))" actions_label="Change">
             <template #cell-action="{item}"><span class="fw-action" :class="('fw-' + item.action)" :title="('ufw ' + item.command)">{{ item.action }}</span> <span v-if="(item.direction === 'out')" class="muted">out</span></template>
             <template #cell-port="{item}">{{ port_text(item) }}</template>
             <template #cell-from="{item}">{{ from_text(item) }}</template>
@@ -207,13 +215,7 @@ const firewall = {
         shown: function () {
             const query = this.query.trim().toLowerCase();
             return this.port_rows.filter(function (row) {
-                if ((this.show === 'beyond') && (row.reach.exposure === 'local')) {
-                    return false;
-                }
-                if ((this.show === 'local') && (row.reach.exposure !== 'local')) {
-                    return false;
-                }
-                return (query === '') || (String(row.port) === query) || row.held.toLowerCase().includes(query);
+                return this.show_has(this.show, row) && ((query === '') || (String(row.port) === query) || row.held.toLowerCase().includes(query));
             }, this);
         },
         rules: function () {
@@ -236,6 +238,19 @@ const firewall = {
         },
     },
     methods: {
+        // Whether a port is among those a chip shows: all, reachable from outside, this machine
+        show_has: function (show, row) {
+            if (show === 'beyond') {
+                return (row.reach.exposure !== 'local');
+            }
+            if (show === 'local') {
+                return (row.reach.exposure === 'local');
+            }
+            return true;
+        },
+        show_count: function (show) {
+            return this.port_rows.filter(v => this.show_has(show, v)).length;
+        },
         read: async function () {
             await Promise.all([this.ask('GET', '', null, ''), this.ports_read()]);
         },

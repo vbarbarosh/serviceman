@@ -20,8 +20,8 @@ const processes = {
     template: `
 <article class="procs-pane">
     <items-view :base="base" module="processes" :offline="offline" :connected_at="connected_at" :pick="v => picked = v.pid" :picked="picked" @answer="answer_read">
-        <template #summary="{items, matches}">
-            <div v-if="(items.length > 0)" class="procs-summary muted">
+        <template #foot="{items, matches}">
+            <div v-if="(items.length > 0)" class="procs-summary">
                 <span>{{ items.length }} {{ plural(items.length, 'process', 'processes') }}</span>
                 <span>{{ users_of(items) }} {{ plural(users_of(items), 'user', 'users') }}</span>
                 <span :title="cpu_title">CPU {{ cpu_share(items) }}% of {{ cores }} {{ plural(cores, 'core', 'cores') }}<template v-if="(window_ms === null)"> · lifetime averages</template></span>

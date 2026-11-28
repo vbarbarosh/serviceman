@@ -3,8 +3,8 @@ import terminal from 'terminal/terminal.js';
 // A shell inside one container: the pane speaks to docker through serviceman, nothing else
 const service_shell = {
     template: `
-<terminal id="detail" :url="url" :theme="theme">
-    <template #head><h1>{{ view.title || view.name }}<span v-if="(view.instances.length > 1)"> #{{ slot }}</span></h1></template>
+<terminal id="detail" class="term-card" :url="url" :theme="theme">
+    <template #head><div class="term-band"><b>{{ view.title || view.name }}<span v-if="(view.instances.length > 1)"> #{{ slot }}</span></b> <span class="muted">a shell in its container</span></div></template>
     <div v-if="(running.length > 0)" class="actions">
         <button v-for="item of running" :key="item.slot" type="button" :disabled="(item.slot === slot)" @click="slot = item.slot">
             Instance #{{ item.slot }}

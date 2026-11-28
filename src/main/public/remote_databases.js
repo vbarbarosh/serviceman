@@ -1,3 +1,4 @@
+import CATEGORIES from './categories.js';
 import data_table from './data_table.js';
 import database_cell from './database_cell.js';
 import database_rows from './database_rows.js';
@@ -7,16 +8,13 @@ import database_rows from './database_rows.js';
 const remote_databases = {
     template: `
 <article id="detail" class="list">
-    <div class="list-head">
-        <h2>Databases on {{ view.title || view.name }}</h2>
-        <span class="muted">{{ count }}</span>
-        <div class="list-acts">
-            <button type="button" class="primary add" :disabled="(view.phase !== 'online')" :title="((view.phase === 'online') ? 'A database whose data stays on this machine' : 'Once it is online')" @click="$emit('databases', {page: 'new', remote: view.name})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database here</button>
-        </div>
-    </div>
     <p v-if="(error !== '')" class="bad">{{ error }}</p>
-    <data-table :columns="columns" :rows="rows" row_key="key" :on_row="(row => $emit('databases', {page: 'database', server: row.server, database: row.database}))" :marks="false" :empty="empty">
+    <!-- The kit's table card, as Services on a machine: its title and count, New database here
+         at its right end; with none yet, what would be here and how to bring the first up -->
+    <data-table :columns="columns" :rows="rows" row_key="key" :row_class="(row => (row.bad ? 'dt-bad' : []))" :on_row="(row => $emit('databases', {page: 'database', server: row.server, database: row.database}))" :marks="false" framed :title="('Databases on ' + (view.title || view.name))" :total="((answer === null) ? null : rows.length)" :empty_icon="DATABASES_ICON" :empty_title="((answer === null) ? '' : 'No database here yet')" :empty="((answer === null) ? 'reading…' : 'New database here brings up a database server on this machine, empty or with a sample, given to your apps by its URL.')">
+        <template #head_acts><button type="button" class="link dt-head-act" :disabled="(view.phase !== 'online')" :title="((view.phase === 'online') ? 'A database whose data stays on this machine' : 'Once it is online')" @click="$emit('databases', {page: 'new', remote: view.name})"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database here</button></template>
         <template #cell="{row, column}"><database-cell :row="row" :column="column" @select="$emit('select', $event)"/></template>
+        <template #empty_act><button type="button" class="primary" :disabled="(view.phase !== 'online')" @click="$emit('databases', {page: 'new', remote: view.name})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New database here</button></template>
     </data-table>
 </article>
 `,
@@ -24,7 +22,7 @@ const remote_databases = {
     props: ['view'],
     emits: ['databases', 'select'],
     data: function () {
-        return {answer: null, error: ''};
+        return {DATABASES_ICON: CATEGORIES.find(v => v.key === 'databases').icon, answer: null, error: ''};
     },
     computed: {
         columns: function () {
@@ -42,12 +40,6 @@ const remote_databases = {
                 return [];
             }
             return database_rows(this.answer.servers.filter(v => v.remote === this.view.name), this.answer.engines);
-        },
-        count: function () {
-            return (this.answer === null) ? '' : String(this.rows.filter(v => v.database !== '').length);
-        },
-        empty: function () {
-            return (this.answer === null) ? 'reading…' : 'No database on this machine yet: + New database here brings one up.';
         },
     },
     methods: {

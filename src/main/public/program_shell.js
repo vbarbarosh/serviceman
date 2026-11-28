@@ -10,22 +10,19 @@ const RECONNECT_MS = 1000;
 // page or a restart of the agent leaves it running; one running already keeps its own folder.
 const program_shell = {
     template: `
-<terminal v-if="(url !== null)" id="detail" :key="url" :url="url" :theme="theme" :restart="false" @ended="closed">
+<terminal v-if="(url !== null)" id="detail" :key="url" class="term-card" :url="url" :theme="theme" :restart="false" @ended="closed">
     <template #head>
         <div>
-            <h1>{{ view.title || view.name }}</h1>
-            <p class="muted">Opened in <code>{{ place.folder }}</code></p>
+            <p class="muted term-lead">Opened in <code>{{ place.folder }}</code> on {{ place.remote.name }}. It keeps running when this page closes; the machine's Shell lists it too.</p>
+            <div class="term-band"><b>{{ view.title || view.name }}</b> <span class="muted">kept on {{ place.remote.name }}</span></div>
         </div>
     </template>
 </terminal>
-<article v-else id="detail" class="terminal">
-    <h1>{{ view.title || view.name }}</h1>
+<article v-else id="detail" class="terminal term-card">
+    <div class="term-band"><b>{{ view.title || view.name }}</b></div>
     <p v-if="(place.remote === null)" class="muted">{{ place.why }}</p>
     <p v-else-if="(place.remote.phase !== 'online')" class="muted">{{ place.remote.name }} is not connected: its shell opens here when it is back.</p>
-    <template v-else-if="ended">
-        <p class="muted">The shell ended.</p>
-        <p><button type="button" @click="open">Open again</button></p>
-    </template>
+    <p v-else-if="ended" class="muted">The shell ended. <button type="button" class="link" @click="open">Open again</button></p>
     <p v-else-if="(error !== null)" class="bad">{{ error }} <button type="button" class="link" @click="open">Try again</button></p>
     <p v-else class="muted"><span class="spin"/>opening…</p>
 </article>

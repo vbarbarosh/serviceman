@@ -44,17 +44,19 @@ const term_tabs = {
 // gone at once.
 const remote_shell = {
     template: `
-<terminal v-if="(url !== null)" id="detail" :key="url" :url="url" :theme="theme" :restart="false" @ended="closed">
+<terminal v-if="(url !== null)" id="detail" :key="url" class="term-card" :url="url" :theme="theme" :restart="false" @ended="closed">
     <template #head>
         <div>
-            <h1>{{ view.title || view.name }}</h1>
+            <p class="muted term-lead">Terminals kept running on {{ view.name }}: + opens one, × ends one.</p>
             <term-tabs :items="shown" :pick="pick" :machine="view.name" :error="error" :commands="picked_commands" @pick="pick = $event" @end="end" @create="create"/>
         </div>
     </template>
 </terminal>
-<article v-else id="detail" class="terminal">
-    <h1>{{ view.title || view.name }}</h1>
-    <term-tabs :items="shown" :pick="pick" :machine="view.name" :error="error" :commands="picked_commands" @pick="pick = $event" @end="end" @create="create"/>
+<article v-else id="detail" class="terminal term-card">
+    <div>
+        <p class="muted term-lead">Terminals kept running on {{ view.name }}: + opens one, × ends one.</p>
+        <term-tabs :items="shown" :pick="pick" :machine="view.name" :error="error" :commands="picked_commands" @pick="pick = $event" @end="end" @create="create"/>
+    </div>
     <p class="muted"><span v-if="(loaded === false)" class="spin"/>{{ (loaded ? ('No terminals on ' + view.name + ': + opens one, and it keeps running when the page closes.') : 'opening…') }}</p>
 </article>
 `,

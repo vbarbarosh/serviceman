@@ -87,12 +87,17 @@ const shared_folders_pane = {
             <p>A folder that is the same on every machine that mounts it, each at a path of its own, read-write or read-only. The files are encrypted on each machine before they leave it; their names stay in Redis on the home.</p>
         </template>
     </page-head>
-    <div class="card sf-card sf-home">
+    <!-- With no home yet, a band of its own over the empty list: what a home is, and the pick
+         that sets one up -->
+    <div class="card sf-card sf-home" :class="{'sf-home-first': ((view !== null) && (home === null))}">
         <template v-if="(view === null)">
             <p class="muted"><span v-if="(load_error === '')" class="spin"/>{{ (load_error === '') ? 'reading…' : load_error }}</p>
         </template>
         <template v-else-if="((home === null) || (home.phase === 'failed'))">
-            <p v-if="(home === null)">Shared folders need a home: one of your VPSes, where Redis keeps the names and Garage keeps the bytes, both in docker, reached over the tailnet.</p>
+            <template v-if="(home === null)">
+                <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>Shared folders need a home first</h3>
+                <p>One of your VPSes: Redis keeps the names there and Garage keeps the bytes, both in docker, reached over the tailnet.</p>
+            </template>
             <p v-else class="bad">Setting up the home on {{ home.title }} failed: {{ home.error }}</p>
             <div class="row-of sf-pick">
                 <select v-model="home_pick" aria-label="The machine to be the home">
@@ -147,8 +152,8 @@ const shared_folders_pane = {
             <p class="muted">A path that holds files is refused: the folder mounted there would hide them.</p>
         </div>
     </template>
-    <data-table v-if="home_ready" :columns="folder_columns" :rows="folders" row_key="name" :row_class="folder_class" framed :foot="folder_foot" :empty_icon="SHARED_ICON" empty_title="No shared folders yet" empty="A shared folder is the same on every machine that mounts it, each at a path of its own.">
-        <template #empty_act><button type="button" class="primary" :disabled="(folder_form !== null)" @click="folder_form_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New shared folder</button></template>
+    <data-table v-if="(home_ready || ((view !== null) && (home === null)))" :columns="folder_columns" :rows="folders" row_key="name" :row_class="folder_class" framed :foot="folder_foot" :empty_icon="SHARED_ICON" empty_title="No shared folders yet" :empty="(home_ready ? 'A shared folder is the same on every machine that mounts it, each at a path of its own.' : 'Once the home is set up, a shared folder is the same on every machine that mounts it, each at a path of its own.')">
+        <template v-if="home_ready" #empty_act><button type="button" class="primary" :disabled="(folder_form !== null)" @click="folder_form_begin"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New shared folder</button></template>
         <template #cell="{row, column}">
             <name-cell v-if="(column.key === 'name')" :icon="SHARED_ICON" :name="row.name" :line="folder_line(row)" :tone="folder_tone(row)"/>
             <span v-else-if="(column.key === 'mounts')" class="sf-mounted"><template v-for="(mount, index) of row.mounts" :key="mount.remote"><template v-if="(index > 0)"> · </template><b>{{ mount.title }}</b> <span class="muted">{{ (mount.mode === 'rw') ? 'rw' : 'ro' }}</span></template><span v-if="(row.mounts.length === 0)" class="muted">on no machine</span></span>

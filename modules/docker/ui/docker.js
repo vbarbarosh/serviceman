@@ -30,43 +30,51 @@ const docker = {
         </terminal>
     </template>
     <template v-else>
-        <!-- Containers, images, volumes and networks, one at a time, each with its count -->
-        <div class="list-head dk-tabs">
-            <button v-for="item of TABS" :key="item.value" type="button" class="chip" :class="{on: (tab === item.value)}" @click="tab_open(item.value)">{{ item.label }} <span class="muted">{{ count_of(item.value) }}</span></button>
-            <button v-if="((run !== null) && (window_open === false))" type="button" class="chip dk-run-chip" :class="{bad: (run.phase === 'failed')}" title="Show its window again" @click="window_show"><span v-if="(run.phase === 'running')" class="spin"/>{{ run.title }}: {{ (run.phase === 'running' ? 'running' : run.phase) }}</button>
-            <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="(bad === false)" class="spin"/>{{ note }}</span>
-            <span v-else-if="(tab === 'containers' && containers !== null)" class="muted">{{ summary }}</span>
-            <div class="list-acts">
-                <template v-if="(pruning !== '')">
-                    <span class="bad">{{ PRUNE_ASKS[pruning] }}</span>
-                    <button type="button" class="danger" @click="prune(pruning)">Remove</button>
-                    <button type="button" @click="pruning = ''">Cancel</button>
-                </template>
-                <template v-else>
-                    <button v-if="(tab === 'images')" type="button" :disabled="(busy || running_now || offline)" title="Images with no name left, which a newer pull replaced" @click="pruning = 'images'">Prune dangling…</button>
-                    <button v-if="(tab === 'images')" type="button" :disabled="(busy || running_now || offline)" title="Every image no container was made from" @click="pruning = 'images-all'">Prune unused…</button>
-                    <button v-if="(tab === 'volumes')" type="button" :disabled="(busy || running_now || offline)" title="Every volume no container mounts, and what is in it" @click="pruning = 'volumes'">Prune unused…</button>
-                    <button v-if="(tab === 'networks')" type="button" :disabled="(busy || running_now || offline)" title="Every network no container is on" @click="pruning = 'networks'">Prune unused…</button>
-                    <button type="button" :disabled="(busy || running_now || offline)" @click="tab_read">Refresh</button>
-                </template>
+        <!-- Containers, images, volumes and networks, one at a time, each with its count, joined
+             as one switch; what is going on or how many run; Prune and Refresh at the right end.
+             Under them on Containers, what docker holds on the disk in all, its parts in the
+             colours of every bar in the table -->
+        <div class="card dk-top">
+            <div class="dk-tabs">
+                <span class="dt-chips">
+                    <button v-for="item of TABS" :key="item.value" type="button" class="chip" :class="{on: (tab === item.value)}" @click="tab_open(item.value)">{{ item.label }} <span class="muted">{{ count_of(item.value) }}</span></button>
+                </span>
+                <button v-if="((run !== null) && (window_open === false))" type="button" class="chip dk-run-chip" :class="{bad: (run.phase === 'failed')}" title="Show its window again" @click="window_show"><span v-if="(run.phase === 'running')" class="spin"/>{{ run.title }}: {{ (run.phase === 'running' ? 'running' : run.phase) }}</button>
+                <span v-if="(note !== '')" :class="(bad ? 'bad' : 'muted')"><span v-if="(bad === false)" class="spin"/>{{ note }}</span>
+                <span v-else-if="(tab === 'containers' && containers !== null)" class="muted">{{ summary }}</span>
+                <div class="list-acts">
+                    <template v-if="(pruning !== '')">
+                        <span class="bad">{{ PRUNE_ASKS[pruning] }}</span>
+                        <button type="button" class="danger" @click="prune(pruning)">Remove</button>
+                        <button type="button" @click="pruning = ''">Cancel</button>
+                    </template>
+                    <template v-else>
+                        <button v-if="(tab === 'images')" type="button" :disabled="(busy || running_now || offline)" title="Images with no name left, which a newer pull replaced" @click="pruning = 'images'">Prune dangling…</button>
+                        <button v-if="(tab === 'images')" type="button" :disabled="(busy || running_now || offline)" title="Every image no container was made from" @click="pruning = 'images-all'">Prune unused…</button>
+                        <button v-if="(tab === 'volumes')" type="button" :disabled="(busy || running_now || offline)" title="Every volume no container mounts, and what is in it" @click="pruning = 'volumes'">Prune unused…</button>
+                        <button v-if="(tab === 'networks')" type="button" :disabled="(busy || running_now || offline)" title="Every network no container is on" @click="pruning = 'networks'">Prune unused…</button>
+                        <button type="button" class="icon-button" title="Refresh" aria-label="Refresh" :disabled="(busy || running_now || offline)" @click="tab_read"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg></button>
+                    </template>
+                </div>
+            </div>
+            <div v-if="((tab === 'containers') && (containers !== null) && ((disk !== null) || disk_reading || (disk_error !== '')))" class="dk-disk-sum">
+                <div class="dk-disk-line">
+                    <span class="dk-disk-head"><span v-if="disk_reading" class="spin"/>{{ disk_head }}</span>
+                    <button v-if="((disk !== null) && (disk.totals.images_unused > 0))" type="button" class="link" title="The Images tab, where Prune unused takes them away; a project's own old images go with its Free space" @click="tab_open('images')">{{ format_bytes(disk.totals.images_unused) }} of images no container uses</button>
+                    <span v-if="(disk_missing !== '')" class="muted">{{ disk_missing }}</span>
+                    <span v-if="(disk_error !== '')" class="bad">the disk was not counted: {{ disk_error }}</span>
+                </div>
+                <span v-if="(disk !== null)" class="dk-bar dk-bar-wide" aria-hidden="true"><i v-for="part of disk_segments(disk_totals, disk_all)" :key="part.key" :class="('dk-' + part.key)" :style="{width: (part.share + '%')}"/></span>
+                <div v-if="(disk !== null)" class="dk-disk-keys">
+                    <span v-for="part of disk_totals" :key="part.key" class="dk-key"><i :class="('dk-' + part.key)"/>{{ part.label }} <b>{{ format_bytes(part.size) }}</b></span>
+                </div>
             </div>
         </div>
         <!-- Containers as a tree: each compose project a branch that folds, its row its name, the
              disk it takes (a click says of what) and Update or Down and up for the whole
              project; a container of none a root. A row's buttons show where the pointer or the
-             focus is, and always on a touch screen. Over the tree, what docker holds on the
-             disk in all, its parts in the colours of every bar under it -->
-        <items-view v-if="((tab === 'containers') && (containers !== null))" class="dk-table dk-quiet" :items="container_rows" module="docker" kind="containers" :head="false" :columns_added="DISK_COLUMNS" :group_cells="['disk', 'actions']" actions_label="Change" empty="No containers on this machine, running or not.">
-            <template #summary>
-                <div v-if="((disk !== null) || disk_reading || (disk_error !== ''))" class="dk-disk-sum">
-                    <span class="dk-disk-head"><span v-if="disk_reading" class="spin"/>{{ disk_head }}</span>
-                    <span v-if="(disk !== null)" class="dk-bar dk-bar-wide" aria-hidden="true"><i v-for="part of disk_segments(disk_totals, disk_all)" :key="part.key" :class="('dk-' + part.key)" :style="{width: (part.share + '%')}"/></span>
-                    <span v-for="part of disk_totals" :key="part.key" class="dk-key"><i :class="('dk-' + part.key)"/>{{ part.label }} <b>{{ format_bytes(part.size) }}</b></span>
-                    <span v-if="((disk !== null) && (disk.totals.images_unused > 0))" class="dk-key"><i class="dk-old"/><button type="button" class="link" title="The Images tab, where Prune unused takes them away; a project's own old images go with its Free space" @click="tab_open('images')">{{ format_bytes(disk.totals.images_unused) }} of images no container uses</button></span>
-                    <span v-if="(disk_missing !== '')" class="muted">{{ disk_missing }}</span>
-                    <span v-if="(disk_error !== '')" class="bad">the disk was not counted: {{ disk_error }}</span>
-                </div>
-            </template>
+             focus is, and always on a touch screen. A status is the kit's pill -->
+        <items-view v-if="((tab === 'containers') && (containers !== null))" class="dk-table dk-quiet" :items="container_rows" module="docker" kind="containers" :columns_added="DISK_COLUMNS" :group_cells="['disk', 'actions']" actions_label="Change" empty="No containers on this machine, running or not.">
             <template #group_head="{group}">
                 <div class="dk-group-head">
                     <b :title="(group_of(group).dir || '')">{{ group_of(group).title }}</b>
@@ -101,7 +109,7 @@ const docker = {
             </template>
             <template #cell-image="{item, more}"><span class="muted" :class="{'dk-cut': (more === false)}" :title="item.image">{{ (more ? item.image : image_short(item.image)) }}</span></template>
             <template #cell-ports="{item}"><span class="muted">{{ item.ports.join(', ') }}</span></template>
-            <template #cell-status="{item}"><span :class="((dot_of(item) === 'failed') ? 'bad' : 'muted')">{{ item.status }}</span></template>
+            <template #cell-status="{item}"><span class="st-pill" :class="tone_of(item)"><i aria-hidden="true"/>{{ item.status }}</span></template>
             <template #cell-disk="{item}">
                 <span v-if="(item.disk.size !== null)" class="muted" :title="item.disk.said">{{ format_bytes(item.disk.size) }}</span>
                 <span v-else-if="disk_reading" class="spin" aria-label="counting"/>
@@ -922,6 +930,10 @@ const docker = {
         // A group of the containers by its compose project, null for those of none
         group_of: function (project) {
             return this.groups.find(v => (v.project === project));
+        },
+        // Its status as the kit's pill: running green, restarting orange, failed red, else grey
+        tone_of: function (item) {
+            return {running: 'run', starting: 'busy', failed: 'bad'}[this.dot_of(item)] || 'idle';
         },
         dot_of: function (item) {
             if (item.state === 'running') {

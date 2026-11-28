@@ -1,6 +1,6 @@
 /* The UFW module's own rules. The host page gives the colours (--panel, --line, --muted, --fg,
-   --accent) and the classes the module shares with it: card, list-head, list-acts, dot, muted,
-   bad, primary, link; its tables are the page's data-table. */
+   --accent) and the classes the module shares with it: card, list-card, list-tools, list-acts,
+   st-pill, muted, bad, primary, link; its tables are the page's data-table. */
 
 /* The parts one under another, each keeping its own height */
 .fw {
@@ -52,8 +52,34 @@
     white-space: nowrap;
 }
 
-.list-head .fw-cut {
+/* How it stands, in one band of a card: its pill, its defaults, what goes on, and its two
+   buttons at the right end */
+.fw-state {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    align-items: center;
+    padding: 12px 14px;
+}
+
+.fw-state .fw-cut {
     flex: 0 1 auto;
+}
+
+.fw-state > .list-acts {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.fw-state button {
+    height: 36px;
+}
+
+/* A section's title is its card's head: the ports' note beside it, in the line's own size */
+.fw-ports-card .card-head h2 > span {
+    font-size: 14px;
+    font-weight: 400;
 }
 
 .fw-warn,
@@ -136,24 +162,10 @@
     min-width: 10rem;
 }
 
-/* A section of the tab: the ports, then the rules */
-.fw-title {
-    display: flex;
-    gap: .6rem;
-    align-items: baseline;
-    margin: .4rem 0 0;
-    font-size: 1rem;
-}
-
-.fw-title span {
-    font-size: .85rem;
-    font-weight: normal;
-}
-
-/* How many ports reach how far, the firewall counted in */
+/* How many ports reach how far, the firewall counted in: the four across the page */
 .fw-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: .75rem;
 }
 
@@ -187,28 +199,6 @@
     color: var(--busy-text, var(--busy));
 }
 
-.fw-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: center;
-}
-
-.fw-filter input {
-    width: 16rem;
-    padding: .35rem .55rem;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--panel);
-    color: var(--fg);
-    font: inherit;
-}
-
-.fw-filter input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
 /* A port others can reach stands out: its number is bold, its pill says how far it reaches;
    one the firewall keeps out does not */
 .fw-ports .fw-port {
@@ -235,10 +225,6 @@
 
 .fw-ports tr.fw-local td {
     color: var(--muted);
-}
-
-.fw-at {
-    margin: 0;
 }
 
 .fw-at code {

@@ -6,12 +6,14 @@ import items_view from '../../items_view.js';
 // with a passphrase a person types, kept nowhere. Visual Agents makes and opens its own with keys
 // it holds. A change shows at once, marked while the machine makes it. The
 // host page gives the API of each machine, the colours and its usual classes: card, form, grid,
-// list-head, list-acts, dot, muted, bad, alert, primary, link; its list is the page's
+// icon-button, dt-head-act, dot, muted, bad, alert, primary, link; its list is the page's
 // items-view, drawn as the manifest's columns say, imported from the page beside it.
 const PASSPHRASE_MIN = 16;
 const UNDO_SECONDS = 10;
 // The machine each volume is on, beside the manifest's columns: the list is of several machines
 const MACHINE_COLUMN = [{at: 1, key: 'machine_title', label: 'On', fold: 2}];
+// A lock, the empty card's picture: the inside of a 24x24 svg
+const LOCK_ICON = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>';
 const STATES = {
     open: {text: 'Open', note: ''},
     closed: {text: 'Closed', note: 'waits for its key'},
@@ -22,15 +24,6 @@ const STATES = {
 const volumes = {
     template: `
 <section class="vol">
-    <div class="list-head">
-        <h2>Encrypted volumes</h2>
-        <span class="muted">{{ items.length }}</span>
-        <div class="list-acts">
-            <button type="button" :disabled="reading" @click="read">Refresh</button>
-            <button type="button" class="primary" :disabled="(new_model !== null)" @click="new_show">New volume…</button>
-        </div>
-    </div>
-    <p class="muted">LUKS in a file on one machine's disk, opened at a folder of that machine. A stolen disk shows one file of random bytes. Visual Agents makes and opens its own with keys it holds; one made here opens with the passphrase you give it.</p>
     <form v-if="(new_model !== null)" class="form card vol-new" @submit.prevent="new_make">
         <div class="grid">
             <label for="vol-new-machine">Remote</label>
@@ -78,7 +71,16 @@ const volumes = {
         <button v-if="(entry.phase === 'waiting')" type="button" @click="delete_undo(entry)">Undo</button>
         <button v-if="(entry.phase === 'note')" type="button" class="link" aria-label="Close" @click="delete_forget(entry)">×</button>
     </div>
-    <items-view class="vol-table" :items="items" module="volumes" item_key="key" :columns_added="MACHINE_COLUMN" :empty_busy="reading" :empty="(reading ? 'Asking the machines…' : 'No encrypted volumes yet. Visual Agents makes one on a machine the first time it needs it there.')" actions_label="Change">
+    <!-- The kit's table card: its title and count, Refresh and New volume at its right end; with
+         none yet, what one is and how to make the first -->
+    <items-view class="vol-table" title="Encrypted volumes" :items="items" module="volumes" item_key="key" :columns_added="MACHINE_COLUMN" :empty_busy="reading" :empty_icon="LOCK_ICON" empty_title="No encrypted volumes yet" :empty="(reading ? 'Asking the machines…' : 'LUKS in a file on one machine\\'s disk, opened at a folder of that machine: a stolen disk shows one file of random bytes. Visual Agents makes one on a machine the first time it needs it there; one made here opens with the passphrase you give it.')" actions_label="Change">
+        <template #head_acts>
+            <span class="vol-acts">
+                <button type="button" class="icon-button" title="Refresh" aria-label="Refresh" :disabled="reading" @click="read"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 2.5v4.2h-4.2"/></svg></button>
+                <button type="button" class="link dt-head-act" :disabled="(new_model !== null)" @click="new_show"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New volume</button>
+            </span>
+        </template>
+        <template #empty_act><button type="button" class="primary" :disabled="(new_model !== null)" @click="new_show"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New volume</button></template>
         <template #cell-state="{item}">
             <span class="vol-state">
                 <span class="dot" :class="{running: (item.state === 'open'), failed: (item.state === 'missing')}"/>
@@ -150,6 +152,7 @@ const volumes = {
     data: function () {
         return {
             MACHINE_COLUMN,
+            LOCK_ICON,
             items: [],
             notes: [],
             reading: false,

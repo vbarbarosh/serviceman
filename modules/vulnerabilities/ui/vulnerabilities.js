@@ -14,13 +14,15 @@ const vulnerabilities = {
 <article class="vulnerabilities">
     <items-view :base="base" module="vulnerabilities" :offline="offline" :connected_at="connected_at" :filter="shown" :filter_name="show" :more="more" reading="reading… the machine's last Security look" :empty="empty" @answer="answer_read">
         <template #tools="{items}">
-            <button v-for="chip of chips_of(items)" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" :title="chip.title" @click="show = chip.value">
-                {{ chip.label }}
-                <span class="muted">{{ chip.count }}</span>
-            </button>
+            <span class="dt-chips">
+                <button v-for="chip of chips_of(items)" :key="chip.value" type="button" class="chip" :class="{on: (chip.value === show)}" :title="chip.title" @click="show = chip.value">
+                    {{ chip.label }}
+                    <span class="muted">{{ chip.count }}</span>
+                </button>
+            </span>
         </template>
-        <template #summary="{items}">
-            <p v-if="((reason === null) && (list_line !== ''))" class="muted">{{ summary_of(items) }} {{ list_line }}</p>
+        <template #foot="{items}">
+            <span v-if="((reason === null) && (list_line !== ''))">{{ summary_of(items) }} {{ list_line }}</span>
         </template>
         <template #cell-id="{item}">
             <a :href="item.url" target="_blank" rel="noopener" :title="('Ubuntu\\'s page of ' + item.id)"><code>{{ item.id }}</code></a>

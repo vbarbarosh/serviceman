@@ -301,8 +301,10 @@ const data_table = {
             }
             return (index === 0) || (this.group(this.rows_shown[index - 1]) !== this.group(this.rows_shown[index]));
         },
+        // A tree's first cell indented by its depth, from the room a first cell has here: a
+        // card's (--dt-first) or the page's
         indent_of: function (row) {
-            return (this.depth === null) ? null : {paddingLeft: `calc(${this.depth(row)*1.1}rem + .6rem)`};
+            return (this.depth === null) ? null : {paddingLeft: `calc(${this.depth(row)*1.1}rem + var(--dt-first, .6rem))`};
         },
         // Whether the page has rows of its own under this one: its slot renders something
         below_of: function (row) {

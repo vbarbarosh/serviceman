@@ -622,89 +622,86 @@ const config_editor = {
 const remote_configure = {
     template: `
 <article id="detail" class="cfg">
-    <div>
-        <h1>Configure</h1>
-        <p class="muted">The agent, the updates and the screen of this machine. Nothing runs by itself — every change is a button on this page.</p>
-    </div>
+    <p class="muted">The agent, the updates and the screen of {{ view.name }}. Nothing runs by itself: every change is a button here.</p>
     <p v-if="offline" class="alert">This machine is not connected. What is below is what it last said; nothing can be asked of it until its agent dials in again.</p>
-    <section class="card cfg-card">
-        <div class="cfg-head">
-            <span class="cfg-icon" v-html="icon('robot')"></span>
-            <b>Agent</b>
-            <span v-if="(agent_pill !== null)" class="pill" :class="agent_pill.tone">{{ agent_pill.text }}</span>
-            <button type="button" class="cfg-act" :class="{primary: behind}" :disabled="(offline || updating)" @click="agent_update"><span v-if="updating" class="spin"/>{{ (updating ? 'asking…' : (behind ? 'Update the agent' : 'Fetch it again anyway')) }}</button>
-        </div>
-        <dl>
-            <dt>Running</dt>
-            <dd>serviceman-agent {{ view.agent_version || '—' }} <span class="muted">· {{ (view.agent_built === null ? 'from before builds were dated' : 'built ' + view.agent_built) }}</span></dd>
-            <dt>This host serves</dt>
-            <dd>{{ (served === null ? '—' : 'built ' + served) }}</dd>
-            <template v-if="known">
-                <template v-if="(offline === false)">
-                    <dt>Link</dt>
-                    <dd>{{ (view.latency_ms === null) ? '—' : format_ms(view.latency_ms) }}<span class="muted"> · {{ (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps) }}</span> <button type="button" class="link" @click="link_test_open = true">Test the link</button></dd>
+    <!-- The agent and the updates side by side while there is room, the screen under them -->
+    <div class="cfg-pair">
+        <section class="card cfg-card">
+            <div class="card-head cfg-head">
+                <h2><span class="cfg-icon" v-html="icon('robot')"></span>The agent</h2>
+                <span v-if="(agent_pill !== null)" class="pill" :class="agent_pill.tone">{{ agent_pill.text }}</span>
+                <button type="button" class="cfg-act" :class="{primary: behind}" :disabled="(offline || updating)" @click="agent_update"><span v-if="updating" class="spin"/>{{ (updating ? 'asking…' : (behind ? 'Update the agent' : 'Fetch it again anyway')) }}</button>
+            </div>
+            <dl>
+                <dt>Running</dt>
+                <dd>serviceman-agent {{ view.agent_version || '—' }} <span class="muted">· {{ (view.agent_built === null ? 'from before builds were dated' : 'built ' + view.agent_built) }}</span></dd>
+                <dt>This host serves</dt>
+                <dd>{{ (served === null ? '—' : 'built ' + served) }}</dd>
+                <template v-if="known">
+                    <template v-if="(offline === false)">
+                        <dt>Link</dt>
+                        <dd>{{ (view.latency_ms === null) ? '—' : format_ms(view.latency_ms) }}<span class="muted"> · {{ (view.throughput_bps === null) ? 'not measured yet' : format_bps(view.throughput_bps) }}</span> <button type="button" class="link" @click="link_test_open = true">Test the link</button></dd>
+                    </template>
+                    <dt>Node</dt>
+                    <dd>{{ view.machine.node }}</dd>
+                    <template v-if="(view.machine.user !== null)">
+                        <dt>Runs as</dt>
+                        <dd>{{ view.machine.user }}</dd>
+                    </template>
+                    <template v-if="(view.machine.can !== null)">
+                        <dt>Root half</dt>
+                        <dd>
+                            <span v-if="view.machine.can.includes('root')">answers on this machine</span>
+                            <span v-else class="muted">none — it does what its own user may do</span>
+                        </dd>
+                    </template>
                 </template>
-                <dt>Node</dt>
-                <dd>{{ view.machine.node }}</dd>
-                <template v-if="(view.machine.user !== null)">
-                    <dt>Runs as</dt>
-                    <dd>{{ view.machine.user }}</dd>
+            </dl>
+            <p v-if="behind" class="muted">The two halves of a machine run from the same file: updating replaces it, the session agent starts again at once, and a root half — where there is one — steps aside for it within the half minute.</p>
+            <p v-if="(view.update_refused !== null && view.update_refused !== undefined)" class="alert">Last asked, it answered: {{ view.update_refused }}</p>
+            <p v-if="(agent_note !== '')" :class="(agent_bad ? 'bad' : 'muted')">{{ agent_note }}</p>
+        </section>
+        <section class="card cfg-card">
+            <div class="card-head cfg-head">
+                <h2><span class="cfg-icon" v-html="icon('download')"></span>Updates</h2>
+                <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
+                <template v-if="(known && apt_able)">
+                    <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || answering === false || apt.phase === 'looking' || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
+                    <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop"><span v-if="cancelling" class="spin"/>{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
                 </template>
-                <template v-if="(view.machine.can !== null)">
-                    <dt>Root half</dt>
-                    <dd>
-                        <span v-if="view.machine.can.includes('root')">answers on this machine</span>
-                        <span v-else class="muted">none — it does what its own user may do</span>
-                    </dd>
+            </div>
+            <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
+            <p v-else-if="(apt_able === false)" class="muted">The agent on this machine is from before installing updates.</p>
+            <template v-else>
+                <p v-if="(updates === null)" class="muted">This machine says nothing about updates — it is not an ubuntu with update-notifier on it.</p>
+                <p v-else-if="(updates.pending === null)" class="muted">How many updates wait is not known: apt on this machine did not say.<template v-if="(lists !== null)"> It fetched its package lists {{ lists.ago }}.</template></p>
+                <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed{{ held_said }}.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
+                <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>{{ held_said }}. <code>apt-get update</code>, <code>apt-get full-upgrade</code>, then <code>snap refresh</code> where the machine has snap, answering apt's questions as a person would and keeping every config file you changed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted yet</template>.</template></p>
+                <p v-if="((updates !== null) && updates.reboot && ((restart_line() === null) || (restart_line().underway === false)))" class="muted">An installed update wants the machine restarted. <button type="button" class="cfg-act" :disabled="offline" @click="restart_open = true">Restart {{ view.name }}…</button></p>
+                <p v-if="(restart_line() !== null)" :class="((restart_line().tone === '') ? 'muted' : restart_line().tone)"><span v-if="restart_line().underway" class="spin"/>{{ restart_line().text }}</p>
+                <restart-window v-if="restart_open" :remote="view.name" :title="view.name" why="an installed update wants the machine restarted" :now="Date.now()" @close="restart_open = false"/>
+                <p v-if="(apt.phase === 'looking')" class="muted"><span class="spin"/>No answer from serviceman: looking whether the install began…</p>
+                <p v-else-if="(answering === false && apt.phase !== 'running')" class="muted">serviceman is not answering: Install them waits until it is back.</p>
+                <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
+                <p v-if="(apt.phase === 'running')" class="muted"><span class="spin"/>installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
+                <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
+                <p v-if="(apt.phase === 'cancelled')" class="muted">Stopped where it stood. A run stopped in the middle of installing may leave a package half-set-up: <code>sudo dpkg --configure -a</code> on that machine finishes what was interrupted, and the Shell tab is one click away.</p>
+                <p v-if="(apt.phase === 'error')" class="bad">{{ apt.error }}</p>
+                <p v-if="(apt.containers && apt.containers.down.length > 0)" class="alert">{{ apt.containers.down.length }} {{ plural(apt.containers.down.length, 'container', 'containers') }} ran before the upgrade and cannot start now: {{ apt.containers.down.map(v => v.name).join(', ') }}. The lines below say why, and so does the Problems page.</p>
+                <p v-if="(apt.containers && apt.containers.started.length > 0)" class="muted">Started again after the upgrade: {{ apt.containers.started.join(', ') }}.</p>
+                <template v-if="sudo_wanted">
+                    <p class="muted">apt-get has to be root, and sudo on that machine asked for a password — there is nobody here to type one. Give {{ view.name }} a root agent and the question goes away for good: it is the same file, kept up by the system's systemd, dialling nowhere and answering one socket that only {{ agent_user }} may open.</p>
+                    <snip :text="root_install_text"/>
+                    <p class="muted">Say it plainly: a machine with a root agent is a machine this page can be root on. The grant is made there, with sudo, by you — and a machine without it simply cannot be updated from here.</p>
                 </template>
+                <pre v-if="(apt.lines.length > 0)" class="tail" ref="apt_tail">{{ apt.lines.join('\\n') }}</pre>
             </template>
-        </dl>
-        <p v-if="behind" class="muted">The two halves of a machine run from the same file: updating replaces it, the session agent starts again at once, and a root half — where there is one — steps aside for it within the half minute.</p>
-        <p v-if="(view.update_refused !== null && view.update_refused !== undefined)" class="alert">Last asked, it answered: {{ view.update_refused }}</p>
-        <p v-if="(agent_note !== '')" :class="(agent_bad ? 'bad' : 'muted')">{{ agent_note }}</p>
-    </section>
+        </section>
+    </div>
     <link-test-panel v-if="(known && link_test_open)" :view="view" @close="link_test_open = false"/>
     <section class="card cfg-card">
-        <div class="cfg-head">
-            <span class="cfg-icon" v-html="icon('download')"></span>
-            <b>Updates</b>
-            <span v-if="(updates_pill !== null)" class="pill" :class="updates_pill.tone">{{ updates_pill.text }}</span>
-            <template v-if="(known && apt_able)">
-                <button v-if="(apt.phase !== 'running')" type="button" class="cfg-act" :class="{primary: (updates !== null && updates.pending > 0)}" :disabled="(offline || answering === false || apt.phase === 'looking' || updates === null || (updates.pending === 0 && lists_old === false))" @click="apt_start">{{ ((apt.phase === 'waiting') ? 'Install them now' : ((updates !== null && updates.pending === 0 && lists_old) ? 'Fetch the lists and install' : 'Install them')) }}</button>
-                <button v-if="(apt.phase === 'running' || apt.phase === 'waiting')" type="button" class="cfg-act" :disabled="cancelling" @click="apt_stop"><span v-if="cancelling" class="spin"/>{{ (cancelling ? 'stopping…' : 'Cancel') }}</button>
-            </template>
-        </div>
-        <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
-        <p v-else-if="(apt_able === false)" class="muted">The agent on this machine is from before installing updates.</p>
-        <template v-else>
-            <p v-if="(updates === null)" class="muted">This machine says nothing about updates — it is not an ubuntu with update-notifier on it.</p>
-            <p v-else-if="(updates.pending === null)" class="muted">How many updates wait is not known: apt on this machine did not say.<template v-if="(lists !== null)"> It fetched its package lists {{ lists.ago }}.</template></p>
-            <p v-else-if="(updates.pending === 0)" class="muted">Everything apt knows of is installed{{ held_said }}.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted: Fetch the lists and install fetches them first</template>.</template></p>
-            <p v-else class="muted">{{ updates.pending }} to install<span v-if="(updates.security > 0)">, {{ updates.security }} of them security</span>{{ held_said }}. <code>apt-get update</code>, <code>apt-get full-upgrade</code>, then <code>snap refresh</code> where the machine has snap, answering apt's questions as a person would and keeping every config file you changed.<template v-if="(lists !== null)"> apt fetched its package lists {{ lists.ago }}<template v-if="lists.old">, so an update published since is not counted yet</template>.</template></p>
-            <p v-if="((updates !== null) && updates.reboot && ((restart_line() === null) || (restart_line().underway === false)))" class="muted">An installed update wants the machine restarted. <button type="button" class="cfg-act" :disabled="offline" @click="restart_open = true">Restart {{ view.name }}…</button></p>
-            <p v-if="(restart_line() !== null)" :class="((restart_line().tone === '') ? 'muted' : restart_line().tone)"><span v-if="restart_line().underway" class="spin"/>{{ restart_line().text }}</p>
-            <restart-window v-if="restart_open" :remote="view.name" :title="view.name" why="an installed update wants the machine restarted" :now="Date.now()" @close="restart_open = false"/>
-            <p v-if="(apt.phase === 'looking')" class="muted"><span class="spin"/>No answer from serviceman: looking whether the install began…</p>
-            <p v-else-if="(answering === false && apt.phase !== 'running')" class="muted">serviceman is not answering: Install them waits until it is back.</p>
-            <p v-if="(apt.phase === 'waiting')" class="muted">Waiting for its turn: the other machines asked from Remotes go first, for serviceman runs on this one and an upgrade of Docker restarts it.</p>
-            <p v-if="(apt.phase === 'running')" class="muted"><span class="spin"/>installing… {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }} so far</p>
-            <p v-if="(apt.phase === 'ok')" class="muted">done · {{ apt.lines.length }} {{ plural(apt.lines.length, 'line', 'lines') }}</p>
-            <p v-if="(apt.phase === 'cancelled')" class="muted">Stopped where it stood. A run stopped in the middle of installing may leave a package half-set-up: <code>sudo dpkg --configure -a</code> on that machine finishes what was interrupted, and the Shell tab is one click away.</p>
-            <p v-if="(apt.phase === 'error')" class="bad">{{ apt.error }}</p>
-            <p v-if="(apt.containers && apt.containers.down.length > 0)" class="alert">{{ apt.containers.down.length }} {{ plural(apt.containers.down.length, 'container', 'containers') }} ran before the upgrade and cannot start now: {{ apt.containers.down.map(v => v.name).join(', ') }}. The lines below say why, and so does the Problems page.</p>
-            <p v-if="(apt.containers && apt.containers.started.length > 0)" class="muted">Started again after the upgrade: {{ apt.containers.started.join(', ') }}.</p>
-            <template v-if="sudo_wanted">
-                <p class="muted">apt-get has to be root, and sudo on that machine asked for a password — there is nobody here to type one. Give {{ view.name }} a root agent and the question goes away for good: it is the same file, kept up by the system's systemd, dialling nowhere and answering one socket that only {{ agent_user }} may open.</p>
-                <snip :text="root_install_text"/>
-                <p class="muted">Say it plainly: a machine with a root agent is a machine this page can be root on. The grant is made there, with sudo, by you — and a machine without it simply cannot be updated from here.</p>
-            </template>
-            <pre v-if="(apt.lines.length > 0)" class="tail" ref="apt_tail">{{ apt.lines.join('\\n') }}</pre>
-        </template>
-    </section>
-    <section class="card cfg-card">
-        <div class="cfg-head">
-            <span class="cfg-icon" v-html="icon('monitor')"></span>
-            <b>Screen</b>
+        <div class="card-head cfg-head">
+            <h2><span class="cfg-icon" v-html="icon('monitor')"></span>Its screen</h2>
             <button v-if="(known && shot_able)" type="button" class="cfg-act" :disabled="(shooting || offline)" @click="shoot"><span v-if="shooting" class="spin"/>{{ (shooting ? 'asking…' : 'Take a picture') }}</button>
         </div>
         <p v-if="(known === false)" class="muted">Nothing is known about this machine yet.</p>
@@ -1164,86 +1161,48 @@ const remote_files = {
 const remote_logline = {
     template: `
 <article id="detail" class="logline">
-    <h1>Logs</h1>
     <p class="muted">Every container's output on this machine, the files of the folders below, and its agent's own log, sent to <button type="button" class="link" :title="(view.logline.viewer === null ? 'Where Logline is is not set: the Logline page has the form for it' : 'Its lines in Logline’s viewer')" @click="logline_open">Logline</button> from the moment it is switched on. Nothing from before that moment is sent.</p>
-    <div class="card svc-status">
-        <div class="row-of svc-state">
+    <!-- How it stands, as the card's head: its pill, what that means, and Off or All containers
+         at the right end; what it sends and since when under it -->
+    <div class="card">
+        <div class="card-head ll-head">
             <span class="pill" :class="stage.pill">{{ stage.text }}</span>
             <span class="muted">{{ stage.detail }}</span>
-        </div>
-        <p v-if="(view.logline.error !== null)" class="bad">last told, it failed: {{ view.logline.error }}</p>
-        <div class="actions">
             <span class="seg">
                 <button type="button" :class="{on: (view.logline.logs === 'off')}" :disabled="busy" @click="pick('off')">Off</button>
                 <button type="button" :class="{on: (view.logline.logs === 'all')}" :disabled="busy" @click="pick('all')">All containers</button>
             </span>
-            <template v-if="asking_off">
-                <span>Lines written while it is off are never sent, not even after it is on again.</span>
-                <button type="button" class="danger" :disabled="busy" @click="save('off')">Turn it off</button>
-                <button type="button" @click="asking_off = false">Keep sending</button>
-            </template>
-            <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
         </div>
-        <dl v-if="(view.logline.logs === 'all')">
-            <dt>Sends to</dt>
-            <dd><code v-if="(view.logline.endpoint !== null)">{{ view.logline.endpoint }}</code><span v-else class="bad">nowhere — Logline's address is not set</span></dd>
-            <dt>Since</dt>
-            <dd>
-                <template v-if="(view.logline.floor !== null)">{{ time_text(view.logline.floor) }} <span class="muted">· {{ ago(view.logline.floor) }} ago</span></template>
-                <span v-else class="muted">the moment the machine is told</span>
-            </dd>
-            <dt>Token</dt>
-            <dd>
-                <template v-if="(view.logline.ips !== null)">works from {{ view.logline.ips.join(', ') }}<span v-if="(view.logline.issued_at !== null)" class="muted"> · issued {{ time_text(view.logline.issued_at) }}</span></template>
-                <span v-else class="muted">not issued yet</span>
-            </dd>
-            <dt>Containers</dt>
-            <dd>{{ (status === null || status.collecting === false ? '—' : status.containers + ' followed') }}</dd>
-            <template v-if="(view.logline.dirs.length > 0)">
-                <dt>Files</dt>
-                <dd>{{ (status === null || status.collecting === false || status.files === undefined ? '—' : status.files + ' read, in ' + plural(view.logline.dirs.length, 'a folder', view.logline.dirs.length + ' folders')) }}</dd>
-            </template>
-        </dl>
-    </div>
-    <div v-if="(view.logline.logs === 'all')" class="card svc-status">
-        <div class="row-of svc-state">
-            <b>Folders</b>
-            <span class="muted">files read besides the containers' output</span>
-        </div>
-        <template v-if="(dirs_editing === false)">
-            <p v-if="(view.logline.dirs.length === 0)" class="muted">None. A folder here has every file in it read a line at a time, from the moment it is added — a folder, <code>/var/log/nginx</code>, or a folder and a pattern, <code>~/app/logs/*.log</code>.</p>
-            <div v-else class="logline-dirs">
-                <div v-for="dir of view.logline.dirs" :key="dir.path">
-                    <code>{{ dir.path }}</code>
-                    <span class="muted"> · service </span><code>{{ dir.service || dir_default(dir.path) }}</code>
-                    <span v-if="dir_error(dir.path) !== null" class="bad"> · cannot be read: {{ dir_error(dir.path) }}</span>
-                </div>
-            </div>
-            <div class="actions">
-                <button type="button" @click="dirs_edit">{{ (view.logline.dirs.length === 0 ? 'Add a folder' : 'Change') }}</button>
-            </div>
-        </template>
-        <div v-else class="form">
-            <div class="grid">
-                <template v-for="(row, i) of dirs_form" :key="row.key">
-                    <label>{{ i === 0 ? 'Folders' : '' }}</label>
-                    <div class="line">
-                        <input v-model.trim="row.path" placeholder="/var/log/nginx/*.log" spellcheck="false">
-                        <input v-model.trim="row.service" :placeholder="('service: ' + (dir_default(row.path) || 'the folder’s name'))" class="dir-service" spellcheck="false">
-                        <button type="button" title="Stop reading this folder" aria-label="Stop reading this folder" @click="dirs_form.splice(i, 1)">×</button>
-                    </div>
+        <div v-if="((view.logline.error !== null) || asking_off || (note !== '') || (view.logline.logs === 'all'))" class="card-body ll-body">
+            <p v-if="(view.logline.error !== null)" class="bad">last told, it failed: {{ view.logline.error }}</p>
+            <div v-if="(asking_off || (note !== ''))" class="actions">
+                <template v-if="asking_off">
+                    <span>Lines written while it is off are never sent, not even after it is on again.</span>
+                    <button type="button" class="danger" :disabled="busy" @click="save('off')">Turn it off</button>
+                    <button type="button" @click="asking_off = false">Keep sending</button>
                 </template>
-                <label>{{ dirs_form.length === 0 ? 'Folders' : '' }}</label>
-                <div>
-                    <button type="button" class="add" @click="dirs_form.push({key: Math.random(), path: '', service: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>folder</button>
-                    <p class="muted">A path from <code>/</code> or <code>~/</code> on this machine. Files already there are read from where they end now; new ones from their start. Compressed and hidden files are left alone.</p>
-                </div>
+                <span :class="(bad ? 'bad' : 'muted')"><span v-if="busy" class="spin"/>{{ note }}</span>
             </div>
-            <div class="actions">
-                <button type="button" :disabled="saving" @click="dirs_save">Save</button>
-                <button type="button" @click="dirs_editing = false">Cancel</button>
-                <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
-            </div>
+            <dl v-if="(view.logline.logs === 'all')">
+                <dt>Sends to</dt>
+                <dd><code v-if="(view.logline.endpoint !== null)">{{ view.logline.endpoint }}</code><span v-else class="bad">nowhere — Logline's address is not set</span></dd>
+                <dt>Since</dt>
+                <dd>
+                    <template v-if="(view.logline.floor !== null)">{{ time_text(view.logline.floor) }} <span class="muted">· {{ ago(view.logline.floor) }} ago</span></template>
+                    <span v-else class="muted">the moment the machine is told</span>
+                </dd>
+                <dt>Token</dt>
+                <dd>
+                    <template v-if="(view.logline.ips !== null)">works from {{ view.logline.ips.join(', ') }}<span v-if="(view.logline.issued_at !== null)" class="muted"> · issued {{ time_text(view.logline.issued_at) }}</span></template>
+                    <span v-else class="muted">not issued yet</span>
+                </dd>
+                <dt>Containers</dt>
+                <dd>{{ (status === null || status.collecting === false ? '—' : status.containers + ' followed') }}</dd>
+                <template v-if="(view.logline.dirs.length > 0)">
+                    <dt>Files</dt>
+                    <dd>{{ (status === null || status.collecting === false || status.files === undefined ? '—' : status.files + ' read, in ' + plural(view.logline.dirs.length, 'a folder', view.logline.dirs.length + ' folders')) }}</dd>
+                </template>
+            </dl>
         </div>
     </div>
     <div v-if="(view.logline.logs === 'all')" class="logline-tiles">
@@ -1253,10 +1212,53 @@ const remote_logline = {
             <span class="muted logline-note" :title="tile.note">{{ tile.note }}</span>
         </div>
     </div>
-    <div class="card svc-status">
-        <div class="row-of svc-state">
-            <b>Where Logline is</b>
-            <span class="muted">the same for every remote, set on the <button type="button" class="link" @click="$emit('logline')">Logline page</button></span>
+    <!-- The folders read besides the containers, and where Logline is, side by side -->
+    <div class="cfg-pair">
+        <div v-if="(view.logline.logs === 'all')" class="card">
+            <div class="card-head">
+                <h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>Folders</h2>
+                <button v-if="(dirs_editing === false)" type="button" @click="dirs_edit">{{ (view.logline.dirs.length === 0 ? 'Add a folder' : 'Change') }}</button>
+            </div>
+            <div class="card-body">
+                <template v-if="(dirs_editing === false)">
+                    <p v-if="(view.logline.dirs.length === 0)" class="muted">None. A folder here has every file in it read a line at a time, from the moment it is added — a folder, <code>/var/log/nginx</code>, or a folder and a pattern, <code>~/app/logs/*.log</code>.</p>
+                    <div v-else class="logline-dirs">
+                        <div v-for="dir of view.logline.dirs" :key="dir.path">
+                            <code>{{ dir.path }}</code>
+                            <span class="muted"> · service </span><code>{{ dir.service || dir_default(dir.path) }}</code>
+                            <span v-if="dir_error(dir.path) !== null" class="bad"> · cannot be read: {{ dir_error(dir.path) }}</span>
+                        </div>
+                    </div>
+                </template>
+                <div v-else class="form">
+                    <div class="grid">
+                        <template v-for="(row, i) of dirs_form" :key="row.key">
+                            <label>{{ i === 0 ? 'Folders' : '' }}</label>
+                            <div class="line">
+                                <input v-model.trim="row.path" placeholder="/var/log/nginx/*.log" spellcheck="false">
+                                <input v-model.trim="row.service" :placeholder="('service: ' + (dir_default(row.path) || 'the folder’s name'))" class="dir-service" spellcheck="false">
+                                <button type="button" title="Stop reading this folder" aria-label="Stop reading this folder" @click="dirs_form.splice(i, 1)">×</button>
+                            </div>
+                        </template>
+                        <label>{{ dirs_form.length === 0 ? 'Folders' : '' }}</label>
+                        <div>
+                            <button type="button" class="add" @click="dirs_form.push({key: Math.random(), path: '', service: ''})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>folder</button>
+                            <p class="muted">A path from <code>/</code> or <code>~/</code> on this machine. Files already there are read from where they end now; new ones from their start. Compressed and hidden files are left alone.</p>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" :disabled="saving" @click="dirs_save">Save</button>
+                        <button type="button" @click="dirs_editing = false">Cancel</button>
+                        <span :class="(form_bad ? 'bad' : 'muted')"><span v-if="saving" class="spin"/>{{ form_note }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-head">
+                <h2><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/></svg>Where Logline is</h2>
+            </div>
+            <p class="card-body muted">The same for every remote, set on the <button type="button" class="link" @click="$emit('logline')">Logline page</button>.</p>
         </div>
     </div>
 </article>

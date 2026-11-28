@@ -1,29 +1,26 @@
 /* The Volumes module's own rules. The host page gives the colours (--panel, --line, --muted,
-   --fg, --accent) and the classes the module shares with it: card, list-head, list-acts,
+   --fg, --accent) and the classes the module shares with it: card, icon-button, dt-head-act,
    list-table, fold-table, dot, muted, bad, primary, link. */
 
 .vol {
     display: flex;
     flex-direction: column;
     gap: .6rem;
-    margin-top: 1.5rem;
 }
 
 .vol > p {
     margin: 0;
 }
 
-.vol h2 {
-    margin: 0;
-    font-size: 1.1rem;
+/* Refresh and New volume at the right end of the card's title band */
+.vol-acts {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
 }
 
-/* The head wraps before its buttons break in two, on a phone */
-.vol .list-head {
-    flex-wrap: wrap;
-}
-
-.vol .list-acts button {
+.vol-acts button {
     white-space: nowrap;
 }
 

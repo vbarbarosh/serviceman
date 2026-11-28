@@ -46,6 +46,43 @@ test('every category\'s table is the kit\'s table card', async function () {
     }
 });
 
+// A machine's tabs and every module's list are drawn as the other pages are: each list a table
+// card with a band of headers (items_view, or a module's own table marked dt-banded), a
+// machine's Databases the kit's framed card, a terminal a card with its tabs as its head; a tab
+// that drew a bare list would fall out of the kit, as Docker's did
+test('every module\'s list and a machine\'s tabs are the kit\'s cards', function () {
+    const MODULES = path.join(__dirname, '..', 'modules');
+    const items_view = fs.readFileSync(path.join(PUBLIC, 'items_view.js'), 'utf8');
+    assert.match(items_view, /<div class="items-view card list-card">/, 'a module\'s list is a card');
+    assert.match(items_view, /<data-table [^\n]*class="dt-banded"/, 'its table has the band of headers');
+    const tables = [];
+    for (const name of fs.readdirSync(MODULES)) {
+        const ui = path.join(MODULES, name, 'ui');
+        if (fs.existsSync(ui) === false) {
+            continue;
+        }
+        for (const file of fs.readdirSync(ui).filter(v => v.endsWith('.js'))) {
+            const lines = fs.readFileSync(path.join(ui, file), 'utf8').split('\n').filter(v => v.trim().startsWith('<data-table '));
+            tables.push(...lines.map(v => ({file: `${name}/${file}`, line: v})));
+        }
+    }
+    for (const item of tables) {
+        assert.match(item.line, /class="[^"]*\bdt-banded\b/, `${item.file} draws its table with the band of headers`);
+    }
+    const databases = fs.readFileSync(path.join(PUBLIC, 'remote_databases.js'), 'utf8').split('\n').filter(v => v.trim().startsWith('<data-table '));
+    assert.strictEqual(databases.length, 1);
+    assert.match(databases[0], / framed /, 'a machine\'s Databases is the kit\'s card');
+    assert.match(databases[0], /:empty_title="/, 'it says what would be here');
+    for (const name of ['remote_shell', 'program_shell', 'service_shell']) {
+        const text = fs.readFileSync(path.join(PUBLIC, `${name}.js`), 'utf8');
+        const panes = text.split('\n').filter(v => /^<(terminal|article) /.test(v));
+        assert.ok(panes.length > 0, `${name} draws a pane`);
+        for (const line of panes) {
+            assert.match(line, /class="[^"]*\bterm-card\b/, `${name}: a terminal is a card`);
+        }
+    }
+});
+
 // A machine's page shows six tabs in its head's foot, as drawn; the rest are under More ▾
 test('a machine\'s page shows six tabs, the rest under More', function () {
     const text = fs.readFileSync(path.join(PUBLIC, 'serviceman.js'), 'utf8');
